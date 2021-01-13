@@ -1,0 +1,34 @@
+[dependencies]
+futures = '0.1.29'
+hyper = '~0.12.35'
+log = '0.4.8'
+
+[dependencies.jsonrpc-core-client]
+default-features = false
+features = ['http']
+version = '15.1.0'
+
+[dependencies.node-primitives]
+path = '../primitives'
+version = '2.0.0'
+
+[dependencies.sc-rpc]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sp-tracing]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[package]
+authors = ['Parity Technologies <admin@parity.io>']
+edition = '2018'
+homepage = 'https://substrate.dev'
+license = 'Apache-2.0'
+name = 'node-rpc-client'
+repository = 'https://github.com/paritytech/substrate/'
+version = '2.0.0'
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']

@@ -1,0 +1,50 @@
+[dependencies]
+derive_more = '0.99'
+log = '0.4.8'
+structopt = '0.3.8'
+
+[dependencies.codec]
+package = 'parity-scale-codec'
+version = '1.3.6'
+
+[dependencies.sc-cli]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '0.8.0'
+
+[dependencies.sc-client-api]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sc-service]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '0.8.0'
+
+[dependencies.sp-blockchain]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sp-core]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sp-runtime]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[package]
+authors = ['Parity Technologies <admin@parity.io>']
+edition = '2018'
+homepage = 'https://substrate.dev'
+license = 'GPL-3.0-or-later WITH Classpath-exception-2.0'
+name = 'node-inspect'
+repository = 'https://github.com/paritytech/substrate/'
+version = '0.8.0'
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']

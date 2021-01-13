@@ -1,0 +1,35 @@
+[dependencies]
+futures = '0.3.9'
+futures-timer = '3.0.2'
+jsonrpc-core = '15.0.0'
+serde = '1.0.106'
+serde_json = '1.0.48'
+wasm-bindgen-futures = '0.4.18'
+wasm-bindgen-test = '0.3.18'
+
+[dependencies.libp2p]
+default-features = false
+version = '0.33.0'
+
+[dependencies.node-cli]
+default-features = false
+features = ['browser']
+path = '../cli'
+version = '2.0.0'
+
+[dependencies.sc-rpc-api]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '0.8.0'
+
+[dependencies.wasm-bindgen]
+features = ['serde-serialize']
+version = '=0.2.69'
+
+[package]
+authors = ['Parity Technologies <admin@parity.io>']
+description = 'Tests for the in-browser light client.'
+edition = '2018'
+license = 'Apache-2.0'
+name = 'node-browser-testing'
+version = '2.0.0'
