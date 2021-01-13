@@ -312,28 +312,28 @@ version = '0.2.57'
 [dependencies.wasm-bindgen-futures]
 optional = true
 version = '0.4.18'
-[target."cfg(target_arch=\"x86_64\")".dependencies.node-executor]
-features = ['wasmtime']
-path = '../executor'
-version = '2.0.0'
+# [target."cfg(target_arch=\"x86_64\")".dependencies.node-executor]
+# features = ['wasmtime']
+# path = '../executor'
+# version = '2.0.0'
 
-[target."cfg(target_arch=\"x86_64\")".dependencies.sc-cli]
-features = ['wasmtime']
-optional = true
-path = '../../../client/cli'
-version = '0.8.0'
+# [target."cfg(target_arch=\"x86_64\")".dependencies.sc-cli]
+# features = ['wasmtime']
+# optional = true
+# path = '../../../client/cli'
+# version = '0.8.0'
 
-[target."cfg(target_arch=\"x86_64\")".dependencies.sc-service]
-default-features = false
-features = ['wasmtime']
-path = '../../../client/service'
-version = '0.8.0'
+# [target."cfg(target_arch=\"x86_64\")".dependencies.sc-service]
+# default-features = false
+# features = ['wasmtime']
+# path = '../../../client/service'
+# version = '0.8.0'
 
-[target."cfg(target_arch=\"x86_64\")".dependencies.sp-trie]
-default-features = false
-features = ['memory-tracker']
-path = '../../../primitives/trie'
-version = '2.0.0'
+# [target."cfg(target_arch=\"x86_64\")".dependencies.sp-trie]
+# default-features = false
+# features = ['memory-tracker']
+# path = '../../../primitives/trie'
+# version = '2.0.0'
 
 [package]
 authors = ['Parity Technologies <admin@parity.io>']
