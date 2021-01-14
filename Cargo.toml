@@ -13,4 +13,5 @@ members = [
     'rpc-client',
     'runtime',
     'testing',
+    'pallets/dbc-staking',
 ]

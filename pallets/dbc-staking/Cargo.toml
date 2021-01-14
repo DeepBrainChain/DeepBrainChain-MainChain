@@ -1,0 +1,146 @@
+[package]
+name = "dbc-staking"
+version = "0.1.0"
+edition = "2018"
+description = "FRAME pallet staking"
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+static_assertions = "1.1.0"
+serde = { version = "1.0.101", optional = true }
+codec = { package = "parity-scale-codec", version = "1.3.6", default-features = false, features = ["derive"] }
+rand_chacha = { version = "0.2", default-features = false, optional = true }
+
+[dependencies.sp-std]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sp-npos-elections]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sp-io]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sp-runtime]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.frame-support]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.frame-system]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sp-staking]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.pallet-session]
+default-features = false
+features = ['historical']
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.pallet-authorship]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sp-application-crypto]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.frame-benchmarking]
+default-features = false
+optional = true
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dev-dependencies.sp-core]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dev-dependencies.sp-storage]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dev-dependencies.sp-tracing]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dev-dependencies.pallet-balances]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dev-dependencies.pallet-timestamp]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dev-dependencies.pallet-staking-reward-curve]
+path = '../dbc-staking/reward-curve'
+version = '2.0.0'
+
+[dev-dependencies.substrate-test-utils]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dev-dependencies.frame-benchmarking]
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dev-dependencies]
+rand_chacha = { version = "0.2" }
+parking_lot = "0.11.1"
+hex = "0.4"
+
+[features]
+default = ["std"]
+std = [
+	"serde",
+	"codec/std",
+	"sp-std/std",
+	"sp-npos-elections/std",
+	"sp-io/std",
+	"frame-support/std",
+	"sp-runtime/std",
+	"sp-staking/std",
+	"pallet-session/std",
+	"frame-system/std",
+	"pallet-authorship/std",
+	"sp-application-crypto/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"rand_chacha",
+]

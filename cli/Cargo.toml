@@ -143,9 +143,8 @@ rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
 version = '2.0.0'
 
 [dependencies.pallet-staking]
-git = 'https://github.com/paritytech/substrate.git'
-rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
-version = '2.0.0'
+path = '../pallets/dbc-staking'
+package = 'dbc-staking'
 
 [dependencies.pallet-timestamp]
 default-features = false
