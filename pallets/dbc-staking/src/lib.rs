@@ -152,7 +152,7 @@
 //! ```
 //! use frame_support::{decl_module, dispatch};
 //! use frame_system::ensure_signed;
-//! use pallet_staking::{self as staking};
+//! use dbc_staking::{self as staking};
 //!
 //! pub trait Config: staking::Config {}
 //!
