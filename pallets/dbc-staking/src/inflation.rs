@@ -49,6 +49,47 @@ where
     (payout, maximum)
 }
 
+pub fn compute_total_payout2<N>(
+    _yearly_inflation: &PiecewiseLinear<'static>,
+    _npos_token_staked: N,
+    _total_tokens: N,
+
+    era_duration: u64,
+    current_height: u64,
+    millseds_per_block: u64,
+) -> (u64, u64)
+where
+    N: AtLeast32BitUnsigned + Clone,
+{
+    // Milliseconds per year for the Julian year (365.25 days).
+    const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
+    let one_hundred_million: u64 = 100_000_000 ; // dispatch 1*10**9 token every year
+    let fifty_million: u64 = 50_000_000 ; // dispatch 1*10**9/2 token every year
+    let twentyfive_million: u64 = 25_000_000; // How to calc dispatch amount after 8 years
+
+    let block_per_year: u64 = MILLISECONDS_PER_YEAR / millseds_per_block;
+
+    let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
+
+    // TODO: 计算应该返回多少比例
+    let yearly_inflation = if current_height < 3 * block_per_year {
+        one_hundred_million
+    } else if current_height < 8 * block_per_year {
+        fifty_million
+    } else {
+        twentyfive_million
+    };
+
+    let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
+    let payout = portion * yearly_inflation;
+
+    // (payout, maximum);
+    // 每年通胀的量，全部发放给节点，因此max=inflation_payout
+    // TODO: convert payout to N
+    (payout, payout)
+}
+
 #[cfg(test)]
 mod test {
     use sp_runtime::curve::PiecewiseLinear;
@@ -65,81 +106,34 @@ mod test {
     }
 
     #[test]
+    #[rustfmt::skip]
     fn npos_curve_is_sensible() {
         const YEAR: u64 = 365 * 24 * 60 * 60 * 1000;
 
         // check maximum inflation.
         // not 10_000 due to rounding error.
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 0, 100_000u64, YEAR).1,
-            9_993
-        );
+        assert_eq!(super::compute_total_payout(&I_NPOS, 0, 1_000_000_000u64, YEAR).1, 99_931_554); // 最大值为 total_token * 10%, 这个10% 由I_NPOS 中的max_inflation所定义
 
         //super::I_NPOS.calculate_for_fraction_times_denominator(25, 100)
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 0, 100_000u64, YEAR).0,
-            2_498
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 5_000, 100_000u64, YEAR).0,
-            3_248
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, YEAR).0,
-            6_246
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 40_000, 100_000u64, YEAR).0,
-            8_494
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, YEAR).0,
-            9_993
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 60_000, 100_000u64, YEAR).0,
-            4_379
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, YEAR).0,
-            2_733
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 95_000, 100_000u64, YEAR).0,
-            2_513
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 100_000, 100_000u64, YEAR).0,
-            2_505
-        );
+        assert_eq!(super::compute_total_payout(&I_NPOS, 0, 100_000u64, YEAR).0, 2_498); // 这个由函数算出来。 当为0时，inflation为 2.5%
+        assert_eq!(super::compute_total_payout(&I_NPOS, 5_000, 100_000u64, YEAR).0, 3_248);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, YEAR).0, 6_246);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 40_000, 100_000u64, YEAR).0, 8_494);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, YEAR).0, 9_993); // 当为50%时，inflation为 9.993%
+        assert_eq!(super::compute_total_payout(&I_NPOS, 60_000, 100_000u64, YEAR).0, 4_379);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, YEAR).0, 2_733);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 95_000, 100_000u64, YEAR).0, 2_513);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 100_000, 100_000u64, YEAR).0, 2_505);
 
         const DAY: u64 = 24 * 60 * 60 * 1000;
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, DAY).0,
-            17
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, DAY).0,
-            27
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, DAY).0,
-            7
-        );
+        assert_eq!(super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, DAY).0, 17);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, DAY).0, 27);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, DAY).0, 7);
 
         const SIX_HOURS: u64 = 6 * 60 * 60 * 1000;
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, SIX_HOURS).0,
-            4
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, SIX_HOURS).0,
-            7
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, SIX_HOURS).0,
-            2
-        );
+        assert_eq!(super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, SIX_HOURS).0, 4);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, SIX_HOURS).0, 7);
+        assert_eq!(super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, SIX_HOURS).0, 2);
 
         const HOUR: u64 = 60 * 60 * 1000;
         assert_eq!(

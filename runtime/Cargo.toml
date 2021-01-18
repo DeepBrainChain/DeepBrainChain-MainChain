@@ -114,6 +114,7 @@ std = [
     'pallet-society/std',
     'pallet-recovery/std',
     'pallet-vesting/std',
+    'dbc-testing/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -354,6 +355,11 @@ version = '2.0.0'
 default-features = false
 path = '../pallets/dbc-staking'
 package = 'dbc-staking'
+
+[dependencies.dbc-testing]
+default-features = false
+path = '../pallets/dbc-testing'
+package = 'dbc-testing'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

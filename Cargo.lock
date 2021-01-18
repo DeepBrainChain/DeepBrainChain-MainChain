@@ -1185,6 +1185,7 @@ dependencies = [
  "frame-system",
  "hex",
  "pallet-authorship",
+ "pallet-babe",
  "pallet-balances",
  "pallet-session",
  "pallet-staking-reward-curve 2.0.1",
@@ -1204,6 +1205,17 @@ dependencies = [
  "sp-tracing",
  "static_assertions",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "dbc-testing"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-babe",
+ "pallet-timestamp",
+ "parity-scale-codec",
 ]
 
 [[package]]
@@ -3876,6 +3888,7 @@ name = "node-runtime"
 version = "2.0.1"
 dependencies = [
  "dbc-staking",
+ "dbc-testing",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",

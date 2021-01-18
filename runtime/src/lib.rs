@@ -1008,6 +1008,8 @@ impl pallet_assets::Config for Runtime {
     type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
+impl dbc_testing::Config for Runtime {}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1050,6 +1052,7 @@ construct_runtime!(
         Assets: pallet_assets::{Module, Call, Storage, Event<T>},
         Mmr: pallet_mmr::{Module, Storage},
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
+        DBCTesting: dbc_testing::{Module, Call},
     }
 );
 

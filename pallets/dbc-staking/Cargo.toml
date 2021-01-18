@@ -67,6 +67,13 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
 version = '2.0.0'
 
+[dependencies.babe]
+default-features = false
+package = 'pallet-babe'
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
 [dependencies.sp-application-crypto]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -76,6 +83,13 @@ version = '2.0.0'
 [dependencies.frame-benchmarking]
 default-features = false
 optional = true
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.pallet-timestamp]
+default-features = false
+package = 'pallet-timestamp'
 git = 'https://github.com/paritytech/substrate.git'
 rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
 version = '2.0.0'
@@ -139,6 +153,8 @@ std = [
 	"frame-system/std",
 	"pallet-authorship/std",
 	"sp-application-crypto/std",
+	"pallet-timestamp/std",
+	"babe/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
