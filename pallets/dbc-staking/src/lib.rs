@@ -2505,34 +2505,6 @@ impl<T: Config> Module<T> {
         Self::apply_unapplied_slashes(active_era);
     }
 
-    // /// Compute payout for era.
-    // fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
-    //     // Note: active_era_start can be None if end era is called during genesis config.
-    //     if let Some(active_era_start) = active_era.start {
-    //         let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-
-    //         let era_duration = now_as_millis_u64 - active_era_start;
-    //         let (validator_payout, max_payout) = inflation::compute_total_payout(
-    //             &T::RewardCurve::get(),
-    //             Self::eras_total_stake(&active_era.index),
-    //             T::Currency::total_issuance(),
-    //             // Duration of era; more than u64::MAX is rewarded as u64::MAX.
-    //             era_duration.saturated_into::<u64>(),
-    //         );
-    //         let rest = max_payout.saturating_sub(validator_payout);
-
-    //         Self::deposit_event(RawEvent::EraPayout(
-    //             active_era.index,
-    //             validator_payout,
-    //             rest,
-    //         ));
-
-    //         // Set ending era reward.
-    //         <ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
-    //         T::RewardRemainder::on_unbalanced(T::Currency::issue(rest));
-    //     }
-    // }
-
     /// Compute payout for era.
     fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
         // Note: active_era_start can be None if end era is called during genesis config.
@@ -2558,7 +2530,7 @@ impl<T: Config> Module<T> {
                 <Phase2RewardPerYear<T>>::get()
             };
 
-            let (validator_payout, max_payout) = inflation::dbc_compute_total_payout(
+            let (validator_payout, max_payout) = inflation::compute_total_payout(
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
                 milliseconds_per_year,
                 yearly_inflation_amount,

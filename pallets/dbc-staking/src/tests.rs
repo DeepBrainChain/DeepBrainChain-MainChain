@@ -206,6 +206,7 @@ fn change_controller_works() {
     })
 }
 
+// FIXME: Fix Test
 #[test]
 fn rewards_should_work() {
     ExtBuilder::default()
@@ -234,6 +235,8 @@ fn rewards_should_work() {
             let maximum_payout = maximum_payout_for_duration(reward_time_per_era());
 
             start_session(1);
+
+            assert_eq!(reward_time_per_era(), 14_000);
 
             assert_eq!(Balances::total_balance(&10), init_balance_10);
             assert_eq!(Balances::total_balance(&11), init_balance_11);
@@ -264,7 +267,7 @@ fn rewards_should_work() {
             );
             assert_eq!(
                 *mock::staking_events().last().unwrap(),
-                RawEvent::EraPayout(0, total_payout_0, maximum_payout - total_payout_0)
+                RawEvent::EraPayout(0, total_payout_0, maximum_payout - total_payout_0) // FIXME: left: 0,0,0 right: 0, 1000000011734, 0
             );
             mock::make_all_reward_payment(0);
 
@@ -473,6 +476,7 @@ fn no_candidate_emergency_condition() {
         });
 }
 
+// FIXME: Fix test
 #[test]
 fn nominating_and_rewards_should_work() {
     ExtBuilder::default()
@@ -960,6 +964,7 @@ fn cannot_reserve_staked_balance() {
     });
 }
 
+// FIXME: fix test
 #[test]
 fn reward_destination_works() {
     // Rewards go to the correct destination as determined in Payee
@@ -1069,6 +1074,7 @@ fn reward_destination_works() {
     });
 }
 
+// FIXME: fix test
 #[test]
 fn validator_payment_prefs_work() {
     // Test that validator preferences are correctly honored
@@ -1645,6 +1651,7 @@ fn rebond_is_fifo() {
         })
 }
 
+// FIXME: fix test
 #[test]
 fn reward_to_stake_works() {
     ExtBuilder::default()
@@ -2012,6 +2019,7 @@ fn bond_with_no_staked_value() {
         });
 }
 
+// FIXME: Fix this
 #[test]
 fn bond_with_little_staked_value_bounded() {
     ExtBuilder::default()
@@ -4579,6 +4587,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
     });
 }
 
+// FIXME: fix test
 #[test]
 fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
     // should check that:
@@ -4769,6 +4778,7 @@ fn six_session_delay() {
         });
 }
 
+// FIXME: fix test
 #[test]
 fn test_max_nominator_rewarded_per_validator_and_cant_steal_someone_else_reward() {
     ExtBuilder::default().build_and_execute(|| {
@@ -4826,6 +4836,7 @@ fn set_history_depth_works() {
     });
 }
 
+// FIXME: fix test
 #[test]
 fn test_payout_stakers() {
     // Here we will test validator can set `max_nominators_payout` and it works.
@@ -5122,6 +5133,7 @@ fn on_initialize_weight_is_correct() {
         });
 }
 
+// FIXME: fix test
 #[test]
 fn payout_creates_controller() {
     ExtBuilder::default()
@@ -5150,6 +5162,7 @@ fn payout_creates_controller() {
         })
 }
 
+// FIXME: fix test
 #[test]
 fn payout_to_any_account_works() {
     ExtBuilder::default()
