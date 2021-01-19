@@ -15,4 +15,5 @@ members = [
     'testing',
     'pallets/dbc-staking',
     'pallets/dbc-testing',
+    'traits/phase-reward'
 ]

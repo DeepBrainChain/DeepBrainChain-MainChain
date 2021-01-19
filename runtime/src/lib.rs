@@ -1008,7 +1008,25 @@ impl pallet_assets::Config for Runtime {
     type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
-impl dbc_testing::Config for Runtime {}
+use phase_reward::PhaseReward;
+pub struct PhaseRewardConfig;
+impl PhaseReward for PhaseRewardConfig {
+    fn set_phase0_reward(balance: Balance) -> u64 {
+        // TODO: use pallet_staking func to store new balance
+        // let _a = pallet_staking::Phase0RewardPerYear::get();
+        111
+    }
+    fn set_phase1_reward(balance: Balance) -> u64 {
+        222
+    }
+    fn set_phase2_reward(balance: Balance) -> u64 {
+        333
+    }
+}
+
+impl dbc_testing::Config for Runtime {
+    type PhaseReward = PhaseRewardConfig;
+}
 
 construct_runtime!(
     pub enum Runtime where

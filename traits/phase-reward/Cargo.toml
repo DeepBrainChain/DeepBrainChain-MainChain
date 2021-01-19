@@ -1,0 +1,23 @@
+[package]
+name = "phase-reward"
+version = "0.1.0"
+authors = ["bobo <dongkaige@gmail.com>"]
+edition = "2018"
+
+[dependencies.sp-std]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.node-primitives]
+default-features = false
+path = '../../primitives'
+version = '2.0.0'
+
+[features]
+default = ['std']
+std = [
+    'sp-std/std',  
+    'node-primitives/std',
+]
