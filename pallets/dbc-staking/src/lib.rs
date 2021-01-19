@@ -510,9 +510,7 @@ where
 }
 
 pub trait Config:
-    // frame_system::Config + pallet_timestamp::Config + SendTransactionTypes<Call<Self>>
-frame_system::Config + pallet_timestamp::Config + SendTransactionTypes<Call<Self>>
-    // frame_system::Config + SendTransactionTypes<Call<Self>>
+    frame_system::Config + pallet_timestamp::Config + SendTransactionTypes<Call<Self>>
 {
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
@@ -830,11 +828,10 @@ decl_storage! {
         pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
 
         // pub DBCDecimal get(fn dbc_decimal): u8 = 15;
-
         pub Phase0RewardPerYear get(fn phase_0_reward_per_year): BalanceOf<T>;
         pub Phase1RewardPerYear get(fn phase_1_reward_per_year): BalanceOf<T>;
         pub Phase2RewardPerYear get(fn phase_2_reward_per_year): BalanceOf<T>;
-        
+
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
@@ -1923,15 +1920,15 @@ decl_module! {
         }
 
         #[weight = 0]
-        pub fn set_phase0_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{     
+        pub fn set_phase0_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{
             ensure_root(origin)?; // TODO: 修改以可以让其他模块进行修改这个值
-            <Phase0RewardPerYear<T>>::put(reward_per_year); 
+            <Phase0RewardPerYear<T>>::put(reward_per_year);
              Self::deposit_event(RawEvent::Phase0RewardPerYear(reward_per_year));
             Ok(())
         }
 
         #[weight = 0]
-        pub fn set_phase1_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{     
+        pub fn set_phase1_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{
             ensure_root(origin)?;
             <Phase1RewardPerYear<T>>::put(reward_per_year);
              Self::deposit_event(RawEvent::Phase1RewardPerYear(reward_per_year));
@@ -1939,12 +1936,12 @@ decl_module! {
         }
 
         #[weight = 0]
-        pub fn set_phase2_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{     
+        pub fn set_phase2_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{
             ensure_root(origin)?;
             <Phase2RewardPerYear<T>>::put(reward_per_year);
              Self::deposit_event(RawEvent::Phase2RewardPerYear(reward_per_year));
             Ok(())
-        } 
+        }
     }
 }
 
@@ -2508,57 +2505,67 @@ impl<T: Config> Module<T> {
         Self::apply_unapplied_slashes(active_era);
     }
 
+    // /// Compute payout for era.
+    // fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
+    //     // Note: active_era_start can be None if end era is called during genesis config.
+    //     if let Some(active_era_start) = active_era.start {
+    //         let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
+
+    //         let era_duration = now_as_millis_u64 - active_era_start;
+    //         let (validator_payout, max_payout) = inflation::compute_total_payout(
+    //             &T::RewardCurve::get(),
+    //             Self::eras_total_stake(&active_era.index),
+    //             T::Currency::total_issuance(),
+    //             // Duration of era; more than u64::MAX is rewarded as u64::MAX.
+    //             era_duration.saturated_into::<u64>(),
+    //         );
+    //         let rest = max_payout.saturating_sub(validator_payout);
+
+    //         Self::deposit_event(RawEvent::EraPayout(
+    //             active_era.index,
+    //             validator_payout,
+    //             rest,
+    //         ));
+
+    //         // Set ending era reward.
+    //         <ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
+    //         T::RewardRemainder::on_unbalanced(T::Currency::issue(rest));
+    //     }
+    // }
+
     /// Compute payout for era.
     fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
         // Note: active_era_start can be None if end era is called during genesis config.
         if let Some(active_era_start) = active_era.start {
             let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-
             let era_duration = now_as_millis_u64 - active_era_start;
-            let (validator_payout, max_payout) = inflation::compute_total_payout(
-                &T::RewardCurve::get(),
-                Self::eras_total_stake(&active_era.index),
-                T::Currency::total_issuance(),
-                // Duration of era; more than u64::MAX is rewarded as u64::MAX.
-                era_duration.saturated_into::<u64>(),
-            );
-            let rest = max_payout.saturating_sub(validator_payout);
 
-            Self::deposit_event(RawEvent::EraPayout(
-                active_era.index,
-                validator_payout,
-                rest,
-            ));
-
-            // Set ending era reward.
-            <ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
-            T::RewardRemainder::on_unbalanced(T::Currency::issue(rest));
-        }
-    }
-
-    /// Compute payout for era.
-    fn end_era2(active_era: ActiveEraInfo, _session_index: SessionIndex) {
-        // Note: active_era_start can be None if end era is called during genesis config.
-        if let Some(active_era_start) = active_era.start {
-            let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
             let current_block_height = <frame_system::Module<T>>::block_number();
-            // let dbc_token_decimal:u8 = <DBCDecimal>::get();
-            // let secs_per_block = pallet_babe::Module::slot_duration();
-            let sec_per_block = <T as pallet_timestamp::Config>::MinimumPeriod::get().saturating_mul(2u32.into());
+            let current_block_height = current_block_height.saturated_into::<u64>();
 
-            let era_duration = now_as_millis_u64 - active_era_start;
-            let (validator_payout, max_payout) = inflation::compute_total_payout2(
-                &T::RewardCurve::get(),
-                Self::eras_total_stake(&active_era.index),
-                T::Currency::total_issuance(),
+            // Milliseconds per year for the Julian year (365.25 days).
+            let milliseconds_per_year: u64 = 1000 * 3600 * 24 * 36525 / 100;
+            let milliseconds_per_block =
+                <T as pallet_timestamp::Config>::MinimumPeriod::get().saturating_mul(2u32.into());
+            let block_per_year: u64 =
+                milliseconds_per_year / milliseconds_per_block.saturated_into::<u64>();
+
+            let yearly_inflation_amount = if current_block_height < 3u64 * block_per_year {
+                <Phase0RewardPerYear<T>>::get()
+            } else if current_block_height < 8u64 * block_per_year {
+                <Phase1RewardPerYear<T>>::get()
+            } else {
+                <Phase2RewardPerYear<T>>::get()
+            };
+
+            let (validator_payout, max_payout) = inflation::dbc_compute_total_payout(
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
-                era_duration.saturated_into::<u64>(),
-                current_block_height.saturated_into::<u64>(),
-                sec_per_block.saturated_into::<u64>(),
+                milliseconds_per_year,
+                yearly_inflation_amount,
+                era_duration,
             );
 
-            let rest: BalanceOf<T> = (max_payout as u32 -validator_payout as u32).into();
-            let validator_payout: BalanceOf<T> = (validator_payout as u32).into();
+            let rest: BalanceOf<T> = (max_payout - validator_payout).into();
 
             Self::deposit_event(RawEvent::EraPayout(
                 active_era.index,

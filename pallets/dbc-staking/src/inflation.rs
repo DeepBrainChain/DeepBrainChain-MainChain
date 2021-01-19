@@ -49,45 +49,20 @@ where
     (payout, maximum)
 }
 
-pub fn compute_total_payout2<N>(
-    _yearly_inflation: &PiecewiseLinear<'static>,
-    _npos_token_staked: N,
-    _total_tokens: N,
-
+pub fn dbc_compute_total_payout<N>(
+    milliseconds_per_year: u64,
+    yearly_inflation_amount: N,
     era_duration: u64,
-    current_height: u64,
-    millseds_per_block: u64,
-) -> (u64, u64)
+) -> (N, N)
 where
     N: AtLeast32BitUnsigned + Clone,
 {
-    // Milliseconds per year for the Julian year (365.25 days).
-    const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+    let portion = Perbill::from_rational_approximation(era_duration as u64, milliseconds_per_year);
 
-    let one_hundred_million: u64 = 100_000_000 ; // dispatch 1*10**9 token every year
-    let fifty_million: u64 = 50_000_000 ; // dispatch 1*10**9/2 token every year
-    let twentyfive_million: u64 = 25_000_000; // How to calc dispatch amount after 8 years
+    let payout = portion * yearly_inflation_amount;
 
-    let block_per_year: u64 = MILLISECONDS_PER_YEAR / millseds_per_block;
-
-    let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
-
-    // TODO: 计算应该返回多少比例
-    let yearly_inflation = if current_height < 3 * block_per_year {
-        one_hundred_million
-    } else if current_height < 8 * block_per_year {
-        fifty_million
-    } else {
-        twentyfive_million
-    };
-
-    let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
-    let payout = portion * yearly_inflation;
-
-    // (payout, maximum);
     // 每年通胀的量，全部发放给节点，因此max=inflation_payout
-    // TODO: convert payout to N
-    (payout, payout)
+    (payout.clone(), payout)
 }
 
 #[cfg(test)]
