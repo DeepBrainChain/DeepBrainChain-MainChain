@@ -68,6 +68,8 @@ use sp_std::{
 };
 pub use weights::WeightInfo;
 
+use phase_reward::PhaseReward;
+
 const STAKING_ID: LockIdentifier = *b"staking ";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 pub const MAX_NOMINATIONS: usize = <CompactAssignments as VotingLimit>::LIMIT;
@@ -1946,24 +1948,6 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    // fn set_phase0_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{
-    //     <Phase0RewardPerYear<T>>::put(reward_per_year);
-    //      Self::deposit_event(RawEvent::Phase0RewardPerYear(reward_per_year));
-    //     Ok(())
-    // }
-
-    // fn set_phase1_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{
-    //     <Phase1RewardPerYear<T>>::put(reward_per_year);
-    //      Self::deposit_event(RawEvent::Phase1RewardPerYear(reward_per_year));
-    //     Ok(())
-    // }
-
-    // fn set_phase2_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{
-    //     <Phase2RewardPerYear<T>>::put(reward_per_year);
-    //      Self::deposit_event(RawEvent::Phase2RewardPerYear(reward_per_year));
-    //     Ok(())
-    // }
-
     /// The total balance that can be slashed from a stash account as of right now.
     pub fn slashable_balance_of(stash: &T::AccountId) -> BalanceOf<T> {
         // Weight note: consider making the stake accessible through stash.
@@ -2947,6 +2931,22 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     pub fn set_slash_reward_fraction(fraction: Perbill) {
         SlashRewardFraction::put(fraction);
+    }
+}
+
+impl<T: Config> PhaseReward for Module<T> {
+    type Balance = BalanceOf<T>;
+
+    fn set_phase0_reward(balance: Self::Balance) {
+        <Phase0RewardPerYear<T>>::put(balance);
+    }
+
+    fn set_phase1_reward(balance: Self::Balance) {
+        <Phase1RewardPerYear<T>>::put(balance);
+    }
+
+    fn set_phase2_reward(balance: Self::Balance) {
+        <Phase2RewardPerYear<T>>::put(balance);
     }
 }
 

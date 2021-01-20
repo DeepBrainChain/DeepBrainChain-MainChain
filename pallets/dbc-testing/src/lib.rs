@@ -11,11 +11,16 @@ use frame_system::{
     self as system, ensure_none, ensure_root, ensure_signed, offchain::SendTransactionTypes,
 };
 
+use frame_support::traits::Currency;
 use phase_reward::PhaseReward;
+
+type BalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
 // pub trait Config: frame_system::Config + timestamp::Config {}
 pub trait Config: frame_system::Config + babe::Config {
-    type PhaseReward: PhaseReward;
+    type Currency: Currency<Self::AccountId>;
+    type PhaseReward: PhaseReward<Balance = BalanceOf<Self>>;
 }
 
 decl_storage! {
@@ -42,11 +47,25 @@ decl_module! {
             Ok(())
         }
 
-        // #[weight = 0]
-        // pub fn set_phase0_reward() -> DispatchResult {
-        //     let out = T::PhaseReward::set_phase0_reward();
-        //     <Things1>::put(out);
-        //     Ok(())
-        // }
+        #[weight = 0]
+        pub fn set_phase0_reward(origin, reward_balance: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            T::PhaseReward::set_phase0_reward(reward_balance);
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_phase1_reward(origin, reward_balance :BalanceOf<T>) -> DispatchResult{
+            ensure_root(origin)?;
+            T::PhaseReward::set_phase1_reward(reward_balance);
+            Ok(())
+        }
+
+        #[weight = 0]
+         pub fn set_phase2_reward(origin,reward_balance:BalanceOf<T>) -> DispatchResult{
+            ensure_root(origin)?;
+            T::PhaseReward::set_phase2_reward(reward_balance);
+            Ok(())
+        }
     }
 }
