@@ -59,7 +59,11 @@ cd DeepBrainChain-MainChain/ && ./target/release/substrate --dev
 
 + 出块时间：6 seconds
 + epoch duration： 1 hours
-+ era duartion: 6 hours (一个选举周期)
++ era duartion: 6 hours (一个选举周期，也是奖励计算周期)
+  + 每个区块生成后，记录区块生产者的`ErasRewardPoints`，`Reward Points`增加规则
+    + 主链区块生产者增加20点reward
+    + 叔区块生产者增加2点reward
+    + 引用叔区块的生产者增加1点reward
 + 奖励保留时间：**84 era (21天)**
 
 
@@ -67,10 +71,11 @@ cd DeepBrainChain-MainChain/ && ./target/release/substrate --dev
 + 验证者（即出块节点）奖励 = 总奖励 * 自定义比例的分佣 + 生于部分的奖励 * 验证者stake占节点的比例
 
 + 能获得奖励的提名者数量：128名 （按stake数量排名），奖励 = （总奖励 - 验证者自定义比例分佣 ）* stake占节点总stake比例
++ 验证人在相同的工作中获得相同数量的奖励
 
 ### 节点设置
 
-+ 设置phase0, phase1, phase2每年奖励数目：
++ **设置phase0, phase1, phase2每年奖励数目：**
 
   `Developer`=>`Sudo access` =>( `staking/setPhase0Reward`, `staking/setPhase1Reward`, `staking/setPhase2Reward`)
 
