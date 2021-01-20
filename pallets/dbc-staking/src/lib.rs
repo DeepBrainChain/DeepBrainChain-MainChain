@@ -833,6 +833,7 @@ decl_storage! {
         pub Phase0RewardPerYear get(fn phase_0_reward_per_year): BalanceOf<T>;
         pub Phase1RewardPerYear get(fn phase_1_reward_per_year): BalanceOf<T>;
         pub Phase2RewardPerYear get(fn phase_2_reward_per_year): BalanceOf<T>;
+        pub RewardStartHeight get(fn reward_start_height): T::BlockNumber;
 
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
@@ -1921,16 +1922,24 @@ decl_module! {
             Ok(adjustments)
         }
 
+
         #[weight = 0]
-        pub fn set_phase0_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{
-            ensure_root(origin)?; // TODO: 修改以可以让其他模块进行修改这个值
+        pub fn set_reward_start_height(origin, reward_start_height: T::BlockNumber) -> DispatchResult {
+            ensure_root(origin)?;
+            RewardStartHeight::<T>::put(reward_start_height);
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_phase0_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
             <Phase0RewardPerYear<T>>::put(reward_per_year);
              Self::deposit_event(RawEvent::Phase0RewardPerYear(reward_per_year));
             Ok(())
         }
 
         #[weight = 0]
-        pub fn set_phase1_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{
+        pub fn set_phase1_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult {
             ensure_root(origin)?;
             <Phase1RewardPerYear<T>>::put(reward_per_year);
              Self::deposit_event(RawEvent::Phase1RewardPerYear(reward_per_year));
@@ -1938,7 +1947,7 @@ decl_module! {
         }
 
         #[weight = 0]
-        pub fn set_phase2_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult{
+        pub fn set_phase2_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult {
             ensure_root(origin)?;
             <Phase2RewardPerYear<T>>::put(reward_per_year);
              Self::deposit_event(RawEvent::Phase2RewardPerYear(reward_per_year));
@@ -2514,6 +2523,8 @@ impl<T: Config> Module<T> {
             let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
             let era_duration = now_as_millis_u64 - active_era_start;
 
+            let reward_start_height = RewardStartHeight::<T>::get().saturated_into::<u64>();
+
             let current_block_height = <frame_system::Module<T>>::block_number();
             let current_block_height = current_block_height.saturated_into::<u64>();
 
@@ -2525,9 +2536,11 @@ impl<T: Config> Module<T> {
             let block_per_year: u64 =
                 milliseconds_per_year / milliseconds_per_block.saturated_into::<u64>();
 
-            let yearly_inflation_amount = if current_block_height < 3u64 * block_per_year {
+            let yearly_inflation_amount = if current_block_height < reward_start_height {
+                0u32.into()
+            } else if current_block_height < 3u64 * block_per_year + reward_start_height {
                 <Phase0RewardPerYear<T>>::get()
-            } else if current_block_height < 8u64 * block_per_year {
+            } else if current_block_height < 8u64 * block_per_year + reward_start_height {
                 <Phase1RewardPerYear<T>>::get()
             } else {
                 <Phase2RewardPerYear<T>>::get()
