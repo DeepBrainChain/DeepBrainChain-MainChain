@@ -27,7 +27,8 @@ pub mod currency {
     pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000_000
 
     pub const fn deposit(items: u32, bytes: u32) -> Balance {
-        items as Balance * 15 * CENTS + (bytes as Balance) * 6 * CENTS
+        // use the same way to calc DepositBase & DepositFactor as polkadot
+        items as Balance * 20 * DOLLARS + (bytes as Balance) * 100 * MILLICENTS
     }
 }
 
