@@ -83,6 +83,10 @@ cd DeepBrainChain-MainChain/ && ./target/release/substrate --dev
 
 + 增加验证人数量 （root）: `staking/in`
 
-
-
 + 领取配置: `Network` => `Staking` => `Payouts`
+
+
+
+## 如何成为验证人节点
+
+[如何加入dbc验证节点](docs/join_dbc_testnet.md)
