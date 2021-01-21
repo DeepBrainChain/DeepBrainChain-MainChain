@@ -61,6 +61,7 @@
    	--port 30337 \
    	--ws-port 9948 \
    	--rpc-port 9937 \
+   	--rpc-cors=all \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG
    ```
 
@@ -79,14 +80,17 @@
    	--port 30337 \
    	--ws-port 9948 \
    	--rpc-port 9937 \
+   	--rpc-cors=all \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG
    ```
    
 5. 将 https://polkadot.js.org/apps 切换到你本地的区块
 
-   说明：**TODO**
+   点击左上角图表，在弹出的下面输入自定义终端`ws://127.0.0.1:9948`，然后点击上面的转换按钮
 
-6. 登陆你的stash账户（通过`polkadot`浏览器插件），你将能看到你的余额：
+   ![image-20210121234245879](join_dbc_testnet.assets/image-20210121234245879.png)
+
+6. 登陆你的`stash账户`（通过`polkadot`浏览器插件），你将能看到你的余额：
 
    ![image-20210121194808850](join_dbc_testnet.assets/image-20210121194808850.png)
 
@@ -121,6 +125,8 @@
 
    现在，你可以到 `Telemetry` 看到你的节点了！
 
+   ![image-20210121234945030](join_dbc_testnet.assets/image-20210121234945030.png)
+
 9. 设置`Validate`
 
    完成了第6步之后，你应该能在Polkadot UI上看到`Validate` 按钮，点击它。这里，你将会需要设置 `Payment Preferences`
@@ -131,4 +137,19 @@
 
 9. 设置参加验证人选举
 
-   点击`Validate` 按钮，这时导航到`Stake`，你将能看到 `Wait`栏目中，已经有你的节点名字了。在下一个`Era`中，你的节点将会参加验证人选举。
+   完成了上述步骤后，你将能看到`Validate`的按钮。点击`Validate` 按钮，
+   
+   ![image-20210121235144583](join_dbc_testnet.assets/image-20210121235144583.png)
+   
+   这时你将需要设置验证人偏好。
+   
+   ![image-20210121235217665](join_dbc_testnet.assets/image-20210121235217665.png)
+   
+   在 `reward commission percentage`栏目中，你将需要输入你作为验证人的收益偏好。然后点击右下角`Validate`，并发送交易。
+   
+   这时，在`Waiting`界面，你将能看到你的账户正在等待下个`Era`，来参加选举成为验证人节点。
+   
+   ![image-20210121235451552](join_dbc_testnet.assets/image-20210121235451552.png)
+   
+   
+
