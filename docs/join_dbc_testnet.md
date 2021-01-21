@@ -25,7 +25,6 @@
      Account ID:       0x22150e8093537cee480256fcaa2e9a2883bfea41226ecbfd168c980f42f69135
      SS58 Address:     5CqPjts5GYvR1XhwFLnFZAph4k76m3qatSAXCt1AwkFUiM6B
    
-   
    # 生成session账户
    # 生成Babe账户 （用于出块）
    subkey generate --scheme sr25519
@@ -50,6 +49,8 @@
    **请记下生成的内容，请勿使用上面的账户。**
 
    ***TODO：获取一定量的`DBC` token ，以保证你的`stash账户`有一定量的DBC***
+
+   ***TODO: 生成controller账户，并与stash账户进行绑定***
 
 3. 运行同步节点
 
