@@ -1,0 +1,50 @@
+[package]
+name = "dbc-testing"
+version = "0.1.0"
+authors = ["bobo <dongkaige@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.6", default-features = false, features = ["derive"] }
+phase-reward = { path = "../../traits/phase-reward", default-features = false }
+serde = { version = "1.0.101", optional = true }
+
+[dependencies.frame-support]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.frame-system]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.timestamp]
+default-features = false
+package = 'pallet-timestamp'
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.babe]
+default-features = false
+package = 'pallet-babe'
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "timestamp/std",
+    "babe/std",
+    "phase-reward/std",
+    "serde",
+]

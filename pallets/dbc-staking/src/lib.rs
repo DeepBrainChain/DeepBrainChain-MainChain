@@ -1,269 +1,3 @@
-// This file is part of Substrate.
-
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-//! # Staking Module
-//!
-//! The Staking module is used to manage funds at stake by network maintainers.
-//!
-//! - [`staking::Config`](./trait.Config.html)
-//! - [`Call`](./enum.Call.html)
-//! - [`Module`](./struct.Module.html)
-//!
-//! ## Overview
-//!
-//! The Staking module is the means by which a set of network maintainers (known as _authorities_ in
-//! some contexts and _validators_ in others) are chosen based upon those who voluntarily place
-//! funds under deposit. Under deposit, those funds are rewarded under normal operation but are held
-//! at pain of _slash_ (expropriation) should the staked maintainer be found not to be discharging
-//! its duties properly.
-//!
-//! ### Terminology
-//! <!-- Original author of paragraph: @gavofyork -->
-//!
-//! - Staking: The process of locking up funds for some time, placing them at risk of slashing
-//!   (loss) in order to become a rewarded maintainer of the network.
-//! - Validating: The process of running a node to actively maintain the network, either by
-//!   producing blocks or guaranteeing finality of the chain.
-//! - Nominating: The process of placing staked funds behind one or more validators in order to
-//!   share in any reward, and punishment, they take.
-//! - Stash account: The account holding an owner's funds used for staking.
-//! - Controller account: The account that controls an owner's funds for staking.
-//! - Era: A (whole) number of sessions, which is the period that the validator set (and each
-//!   validator's active nominator set) is recalculated and where rewards are paid out.
-//! - Slash: The punishment of a staker by reducing its funds.
-//!
-//! ### Goals
-//! <!-- Original author of paragraph: @gavofyork -->
-//!
-//! The staking system in Substrate NPoS is designed to make the following possible:
-//!
-//! - Stake funds that are controlled by a cold wallet.
-//! - Withdraw some, or deposit more, funds without interrupting the role of an entity.
-//! - Switch between roles (nominator, validator, idle) with minimal overhead.
-//!
-//! ### Scenarios
-//!
-//! #### Staking
-//!
-//! Almost any interaction with the Staking module requires a process of _**bonding**_ (also known
-//! as being a _staker_). To become *bonded*, a fund-holding account known as the _stash account_,
-//! which holds some or all of the funds that become frozen in place as part of the staking process,
-//! is paired with an active **controller** account, which issues instructions on how they shall be
-//! used.
-//!
-//! An account pair can become bonded using the [`bond`](./enum.Call.html#variant.bond) call.
-//!
-//! Stash accounts can change their associated controller using the
-//! [`set_controller`](./enum.Call.html#variant.set_controller) call.
-//!
-//! There are three possible roles that any staked account pair can be in: `Validator`, `Nominator`
-//! and `Idle` (defined in [`StakerStatus`](./enum.StakerStatus.html)). There are three
-//! corresponding instructions to change between roles, namely:
-//! [`validate`](./enum.Call.html#variant.validate),
-//! [`nominate`](./enum.Call.html#variant.nominate), and [`chill`](./enum.Call.html#variant.chill).
-//!
-//! #### Validating
-//!
-//! A **validator** takes the role of either validating blocks or ensuring their finality,
-//! maintaining the veracity of the network. A validator should avoid both any sort of malicious
-//! misbehavior and going offline. Bonded accounts that state interest in being a validator do NOT
-//! get immediately chosen as a validator. Instead, they are declared as a _candidate_ and they
-//! _might_ get elected at the _next era_ as a validator. The result of the election is determined
-//! by nominators and their votes.
-//!
-//! An account can become a validator candidate via the
-//! [`validate`](./enum.Call.html#variant.validate) call.
-//!
-//! #### Nomination
-//!
-//! A **nominator** does not take any _direct_ role in maintaining the network, instead, it votes on
-//! a set of validators  to be elected. Once interest in nomination is stated by an account, it
-//! takes effect at the next election round. The funds in the nominator's stash account indicate the
-//! _weight_ of its vote. Both the rewards and any punishment that a validator earns are shared
-//! between the validator and its nominators. This rule incentivizes the nominators to NOT vote for
-//! the misbehaving/offline validators as much as possible, simply because the nominators will also
-//! lose funds if they vote poorly.
-//!
-//! An account can become a nominator via the [`nominate`](enum.Call.html#variant.nominate) call.
-//!
-//! #### Rewards and Slash
-//!
-//! The **reward and slashing** procedure is the core of the Staking module, attempting to _embrace
-//! valid behavior_ while _punishing any misbehavior or lack of availability_.
-//!
-//! Rewards must be claimed for each era before it gets too old by `$HISTORY_DEPTH` using the
-//! `payout_stakers` call. Any account can call `payout_stakers`, which pays the reward to the
-//! validator as well as its nominators. Only the [`Config::MaxNominatorRewardedPerValidator`]
-//! biggest stakers can claim their reward. This is to limit the i/o cost to mutate storage for each
-//! nominator's account.
-//!
-//! Slashing can occur at any point in time, once misbehavior is reported. Once slashing is
-//! determined, a value is deducted from the balance of the validator and all the nominators who
-//! voted for this validator (values are deducted from the _stash_ account of the slashed entity).
-//!
-//! Slashing logic is further described in the documentation of the `slashing` module.
-//!
-//! Similar to slashing, rewards are also shared among a validator and its associated nominators.
-//! Yet, the reward funds are not always transferred to the stash account and can be configured. See
-//! [Reward Calculation](#reward-calculation) for more details.
-//!
-//! #### Chilling
-//!
-//! Finally, any of the roles above can choose to step back temporarily and just chill for a while.
-//! This means that if they are a nominator, they will not be considered as voters anymore and if
-//! they are validators, they will no longer be a candidate for the next election.
-//!
-//! An account can step back via the [`chill`](enum.Call.html#variant.chill) call.
-//!
-//! ### Session managing
-//!
-//! The module implement the trait `SessionManager`. Which is the only API to query new validator
-//! set and allowing these validator set to be rewarded once their era is ended.
-//!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! The dispatchable functions of the Staking module enable the steps needed for entities to accept
-//! and change their role, alongside some helper functions to get/set the metadata of the module.
-//!
-//! ### Public Functions
-//!
-//! The Staking module contains many public storage items and (im)mutable functions.
-//!
-//! ## Usage
-//!
-//! ### Example: Rewarding a validator by id.
-//!
-//! ```
-//! use frame_support::{decl_module, dispatch};
-//! use frame_system::ensure_signed;
-//! use dbc_staking::{self as staking};
-//!
-//! pub trait Config: staking::Config {}
-//!
-//! decl_module! {
-//!     pub struct Module<T: Config> for enum Call where origin: T::Origin {
-//!         /// Reward a validator.
-//!         #[weight = 0]
-//!         pub fn reward_myself(origin) -> dispatch::DispatchResult {
-//!             let reported = ensure_signed(origin)?;
-//!             <staking::Module<T>>::reward_by_ids(vec![(reported, 10)]);
-//!             Ok(())
-//!         }
-//!     }
-//! }
-//! # fn main() { }
-//! ```
-//!
-//! ## Implementation Details
-//!
-//! ### Era payout
-//!
-//! The era payout is computed using yearly inflation curve defined at
-//! [`T::RewardCurve`](./trait.Config.html#associatedtype.RewardCurve) as such:
-//!
-//! ```nocompile
-//! staker_payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year
-//! ```
-//! This payout is used to reward stakers as defined in next section
-//!
-//! ```nocompile
-//! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
-//! ```
-//! The remaining reward is send to the configurable end-point
-//! [`T::RewardRemainder`](./trait.Config.html#associatedtype.RewardRemainder).
-//!
-//! ### Reward Calculation
-//!
-//! Validators and nominators are rewarded at the end of each era. The total reward of an era is
-//! calculated using the era duration and the staking rate (the total amount of tokens staked by
-//! nominators and validators, divided by the total token supply). It aims to incentivize toward a
-//! defined staking rate. The full specification can be found
-//! [here](https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model).
-//!
-//! Total reward is split among validators and their nominators depending on the number of points
-//! they received during the era. Points are added to a validator using
-//! [`reward_by_ids`](./enum.Call.html#variant.reward_by_ids) or
-//! [`reward_by_indices`](./enum.Call.html#variant.reward_by_indices).
-//!
-//! [`Module`](./struct.Module.html) implements
-//! [`pallet_authorship::EventHandler`](../pallet_authorship/trait.EventHandler.html) to add reward
-//! points to block producer and block producer of referenced uncles.
-//!
-//! The validator and its nominator split their reward as following:
-//!
-//! The validator can declare an amount, named
-//! [`commission`](./struct.ValidatorPrefs.html#structfield.commission), that does not get shared
-//! with the nominators at each reward payout through its
-//! [`ValidatorPrefs`](./struct.ValidatorPrefs.html). This value gets deducted from the total reward
-//! that is paid to the validator and its nominators. The remaining portion is split among the
-//! validator and all of the nominators that nominated the validator, proportional to the value
-//! staked behind this validator (_i.e._ dividing the
-//! [`own`](./struct.Exposure.html#structfield.own) or
-//! [`others`](./struct.Exposure.html#structfield.others) by
-//! [`total`](./struct.Exposure.html#structfield.total) in [`Exposure`](./struct.Exposure.html)).
-//!
-//! All entities who receive a reward have the option to choose their reward destination through the
-//! [`Payee`](./struct.Payee.html) storage item (see
-//! [`set_payee`](enum.Call.html#variant.set_payee)), to be one of the following:
-//!
-//! - Controller account, (obviously) not increasing the staked value.
-//! - Stash account, not increasing the staked value.
-//! - Stash account, also increasing the staked value.
-//!
-//! ### Additional Fund Management Operations
-//!
-//! Any funds already placed into stash can be the target of the following operations:
-//!
-//! The controller account can free a portion (or all) of the funds using the
-//! [`unbond`](enum.Call.html#variant.unbond) call. Note that the funds are not immediately
-//! accessible. Instead, a duration denoted by [`BondingDuration`](./trait.Config.html#associatedtype.BondingDuration)
-//! (in number of eras) must pass until the funds can actually be removed. Once the
-//! `BondingDuration` is over, the [`withdraw_unbonded`](./enum.Call.html#variant.withdraw_unbonded)
-//! call can be used to actually withdraw the funds.
-//!
-//! Note that there is a limitation to the number of fund-chunks that can be scheduled to be
-//! unlocked in the future via [`unbond`](enum.Call.html#variant.unbond). In case this maximum
-//! (`MAX_UNLOCKING_CHUNKS`) is reached, the bonded account _must_ first wait until a successful
-//! call to `withdraw_unbonded` to remove some of the chunks.
-//!
-//! ### Election Algorithm
-//!
-//! The current election algorithm is implemented based on Phragmén. The reference implementation
-//! can be found [here](https://github.com/w3f/consensus/tree/master/NPoS).
-//!
-//! The election algorithm, aside from electing the validators with the most stake value and votes,
-//! tries to divide the nominator votes among candidates in an equal manner. To further assure this,
-//! an optional post-processing can be applied that iteratively normalizes the nominator staked
-//! values until the total difference among votes of a particular nominator are less than a
-//! threshold.
-//!
-//! ## GenesisConfig
-//!
-//! The Staking module depends on the [`GenesisConfig`](./struct.GenesisConfig.html). The
-//! `GenesisConfig` is optional and allow to set some initial stakers.
-//!
-//! ## Related Modules
-//!
-//! - [Balances](../pallet_balances/index.html): Used to manage values at stake.
-//! - [Session](../pallet_session/index.html): Used to manage sessions. Also, a list of new
-//!   validators is stored in the Session module's `Validators` at the end of each era.
-
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -333,6 +67,8 @@ use sp_std::{
     result,
 };
 pub use weights::WeightInfo;
+
+use phase_reward::PhaseReward;
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
@@ -775,7 +511,9 @@ where
     }
 }
 
-pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
+pub trait Config:
+    frame_system::Config + pallet_timestamp::Config + SendTransactionTypes<Call<Self>>
+{
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 
@@ -870,6 +608,7 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
     type OffchainSolutionWeightLimit: Get<Weight>;
 
     /// Weight information for extrinsics in this pallet.
+    // TODO: 指定来自frame_system或者pallet_timestamp
     type WeightInfo: WeightInfo;
 }
 
@@ -1090,6 +829,12 @@ decl_storage! {
         /// forcing into account.
         pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
 
+        // pub DBCDecimal get(fn dbc_decimal): u8 = 15;
+        pub Phase0RewardPerYear get(fn phase_0_reward_per_year): BalanceOf<T>;
+        pub Phase1RewardPerYear get(fn phase_1_reward_per_year): BalanceOf<T>;
+        pub Phase2RewardPerYear get(fn phase_2_reward_per_year): BalanceOf<T>;
+        pub RewardStartHeight get(fn reward_start_height): T::BlockNumber;
+
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
@@ -1158,6 +903,11 @@ decl_event!(
         /// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
         /// from the unlocking queue. \[stash, amount\]
         Withdrawn(AccountId, Balance),
+
+        // NewDBCDecimal(u8),
+        Phase0RewardPerYear(Balance),
+        Phase1RewardPerYear(Balance),
+        Phase2RewardPerYear(Balance),
     }
 );
 
@@ -1407,7 +1157,7 @@ decl_module! {
         /// - Read: Bonded, Ledger, [Origin Account], Current Era, History Depth, Locks
         /// - Write: Bonded, Payee, [Origin Account], Locks, Ledger
         /// # </weight>
-        #[weight = T::WeightInfo::bond()]
+        #[weight = <T as Config>::WeightInfo::bond()]
         pub fn bond(origin,
             controller: <T::Lookup as StaticLookup>::Source,
             #[compact] value: BalanceOf<T>,
@@ -1475,7 +1225,7 @@ decl_module! {
         /// - Read: Era Election Status, Bonded, Ledger, [Origin Account], Locks
         /// - Write: [Origin Account], Locks, Ledger
         /// # </weight>
-        #[weight = T::WeightInfo::bond_extra()]
+        #[weight = <T as Config>::WeightInfo::bond_extra()]
         fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let stash = ensure_signed(origin)?;
@@ -1528,7 +1278,7 @@ decl_module! {
         /// - Read: EraElectionStatus, Ledger, CurrentEra, Locks, BalanceOf Stash,
         /// - Write: Locks, Ledger, BalanceOf Stash,
         /// </weight>
-        #[weight = T::WeightInfo::unbond()]
+        #[weight = <T as Config>::WeightInfo::unbond()]
         fn unbond(origin, #[compact] value: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1588,7 +1338,7 @@ decl_module! {
         /// - Writes Each: SpanSlash * S
         /// NOTE: Weight annotation is the kill scenario, we refund otherwise.
         /// # </weight>
-        #[weight = T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)]
+        #[weight = <T as Config>::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)]
         fn withdraw_unbonded(origin, num_slashing_spans: u32) -> DispatchResultWithPostInfo {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1612,7 +1362,7 @@ decl_module! {
                 Self::update_ledger(&controller, &ledger);
 
                 // This is only an update, so we use less overall weight.
-                Some(T::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
+                Some(<T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
             };
 
             // `old_total` should never be less than the new total because
@@ -1643,7 +1393,7 @@ decl_module! {
         /// - Read: Era Election Status, Ledger
         /// - Write: Nominators, Validators
         /// # </weight>
-        #[weight = T::WeightInfo::validate()]
+        #[weight = <T as Config>::WeightInfo::validate()]
         pub fn validate(origin, prefs: ValidatorPrefs) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1672,7 +1422,7 @@ decl_module! {
         /// - Reads: Era Election Status, Ledger, Current Era
         /// - Writes: Validators, Nominators
         /// # </weight>
-        #[weight = T::WeightInfo::nominate(targets.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::nominate(targets.len() as u32)]
         pub fn nominate(origin, targets: Vec<<T::Lookup as StaticLookup>::Source>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1712,7 +1462,7 @@ decl_module! {
         /// - Read: EraElectionStatus, Ledger
         /// - Write: Validators, Nominators
         /// # </weight>
-        #[weight = T::WeightInfo::chill()]
+        #[weight = <T as Config>::WeightInfo::chill()]
         fn chill(origin) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1736,7 +1486,7 @@ decl_module! {
         ///     - Read: Ledger
         ///     - Write: Payee
         /// # </weight>
-        #[weight = T::WeightInfo::set_payee()]
+        #[weight = <T as Config>::WeightInfo::set_payee()]
         fn set_payee(origin, payee: RewardDestination<T::AccountId>) {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1760,7 +1510,7 @@ decl_module! {
         /// - Read: Bonded, Ledger New Controller, Ledger Old Controller
         /// - Write: Bonded, Ledger New Controller, Ledger Old Controller
         /// # </weight>
-        #[weight = T::WeightInfo::set_controller()]
+        #[weight = <T as Config>::WeightInfo::set_controller()]
         fn set_controller(origin, controller: <T::Lookup as StaticLookup>::Source) {
             let stash = ensure_signed(origin)?;
             let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
@@ -1784,7 +1534,7 @@ decl_module! {
         /// Weight: O(1)
         /// Write: Validator Count
         /// # </weight>
-        #[weight = T::WeightInfo::set_validator_count()]
+        #[weight = <T as Config>::WeightInfo::set_validator_count()]
         fn set_validator_count(origin, #[compact] new: u32) {
             ensure_root(origin)?;
             ValidatorCount::put(new);
@@ -1797,7 +1547,7 @@ decl_module! {
         /// # <weight>
         /// Same as [`set_validator_count`].
         /// # </weight>
-        #[weight = T::WeightInfo::set_validator_count()]
+        #[weight = <T as Config>::WeightInfo::set_validator_count()]
         fn increase_validator_count(origin, #[compact] additional: u32) {
             ensure_root(origin)?;
             ValidatorCount::mutate(|n| *n += additional);
@@ -1810,7 +1560,7 @@ decl_module! {
         /// # <weight>
         /// Same as [`set_validator_count`].
         /// # </weight>
-        #[weight = T::WeightInfo::set_validator_count()]
+        #[weight = <T as Config>::WeightInfo::set_validator_count()]
         fn scale_validator_count(origin, factor: Percent) {
             ensure_root(origin)?;
             ValidatorCount::mutate(|n| *n += factor * *n);
@@ -1825,7 +1575,7 @@ decl_module! {
         /// - Weight: O(1)
         /// - Write: ForceEra
         /// # </weight>
-        #[weight = T::WeightInfo::force_no_eras()]
+        #[weight = <T as Config>::WeightInfo::force_no_eras()]
         fn force_no_eras(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceNone);
@@ -1841,7 +1591,7 @@ decl_module! {
         /// - Weight: O(1)
         /// - Write ForceEra
         /// # </weight>
-        #[weight = T::WeightInfo::force_new_era()]
+        #[weight = <T as Config>::WeightInfo::force_new_era()]
         fn force_new_era(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceNew);
@@ -1855,7 +1605,7 @@ decl_module! {
         /// - O(V)
         /// - Write: Invulnerables
         /// # </weight>
-        #[weight = T::WeightInfo::set_invulnerables(invulnerables.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::set_invulnerables(invulnerables.len() as u32)]
         fn set_invulnerables(origin, invulnerables: Vec<T::AccountId>) {
             ensure_root(origin)?;
             <Invulnerables<T>>::put(invulnerables);
@@ -1871,7 +1621,7 @@ decl_module! {
         /// Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Account, Locks
         /// Writes Each: SpanSlash * S
         /// # </weight>
-        #[weight = T::WeightInfo::force_unstake(*num_slashing_spans)]
+        #[weight = <T as Config>::WeightInfo::force_unstake(*num_slashing_spans)]
         fn force_unstake(origin, stash: T::AccountId, num_slashing_spans: u32) {
             ensure_root(origin)?;
 
@@ -1890,7 +1640,7 @@ decl_module! {
         /// - Weight: O(1)
         /// - Write: ForceEra
         /// # </weight>
-        #[weight = T::WeightInfo::force_new_era_always()]
+        #[weight = <T as Config>::WeightInfo::force_new_era_always()]
         fn force_new_era_always(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceAlways);
@@ -1909,7 +1659,7 @@ decl_module! {
         /// - Read: Unapplied Slashes
         /// - Write: Unapplied Slashes
         /// # </weight>
-        #[weight = T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32)]
         fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
             T::SlashCancelOrigin::ensure_origin(origin)?;
 
@@ -1956,7 +1706,7 @@ decl_module! {
         ///   NOTE: weights are assuming that payouts are made to alive stash account (Staked).
         ///   Paying even a dead controller is cheaper weight-wise. We don't do any refunds here.
         /// # </weight>
-        #[weight = T::WeightInfo::payout_stakers_alive_staked(T::MaxNominatorRewardedPerValidator::get())]
+        #[weight = <T as Config>::WeightInfo::payout_stakers_alive_staked(T::MaxNominatorRewardedPerValidator::get())]
         fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             ensure_signed(origin)?;
@@ -1977,7 +1727,7 @@ decl_module! {
         ///     - Reads: EraElectionStatus, Ledger, Locks, [Origin Account]
         ///     - Writes: [Origin Account], Locks, Ledger
         /// # </weight>
-        #[weight = T::WeightInfo::rebond(MAX_UNLOCKING_CHUNKS as u32)]
+        #[weight = <T as Config>::WeightInfo::rebond(MAX_UNLOCKING_CHUNKS as u32)]
         fn rebond(origin, #[compact] value: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -2017,7 +1767,7 @@ decl_module! {
         ///     - Clear Prefix Each: Era Stakers, EraStakersClipped, ErasValidatorPrefs
         ///     - Writes Each: ErasValidatorReward, ErasRewardPoints, ErasTotalStake, ErasStartSessionIndex
         /// # </weight>
-        #[weight = T::WeightInfo::set_history_depth(*_era_items_deleted)]
+        #[weight = <T as Config>::WeightInfo::set_history_depth(*_era_items_deleted)]
         fn set_history_depth(origin,
             #[compact] new_history_depth: EraIndex,
             #[compact] _era_items_deleted: u32,
@@ -2050,7 +1800,7 @@ decl_module! {
         /// - Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Stash Account, Locks
         /// - Writes Each: SpanSlash * S
         /// # </weight>
-        #[weight = T::WeightInfo::reap_stash(*num_slashing_spans)]
+        #[weight = <T as Config>::WeightInfo::reap_stash(*num_slashing_spans)]
         fn reap_stash(_origin, stash: T::AccountId, num_slashing_spans: u32) {
             ensure!(T::Currency::total_balance(&stash).is_zero(), Error::<T>::FundedTarget);
             Self::kill_stash(&stash, num_slashing_spans)?;
@@ -2106,7 +1856,7 @@ decl_module! {
         ///   - Initial solution is almost the same.
         ///   - Worse solution is retraced in pre-dispatch-checks which sets its own weight.
         /// # </weight>
-        #[weight = T::WeightInfo::submit_solution_better(
+        #[weight = <T as Config>::WeightInfo::submit_solution_better(
             size.validators.into(),
             size.nominators.into(),
             compact.len() as u32,
@@ -2140,7 +1890,7 @@ decl_module! {
         /// # <weight>
         /// See [`submit_election_solution`].
         /// # </weight>
-        #[weight = T::WeightInfo::submit_solution_better(
+        #[weight = <T as Config>::WeightInfo::submit_solution_better(
             size.validators.into(),
             size.nominators.into(),
             compact.len() as u32,
@@ -2170,6 +1920,38 @@ decl_module! {
             );
 
             Ok(adjustments)
+        }
+
+
+        #[weight = 0]
+        pub fn set_reward_start_height(origin, reward_start_height: T::BlockNumber) -> DispatchResult {
+            ensure_root(origin)?;
+            RewardStartHeight::<T>::put(reward_start_height);
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_phase0_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            <Phase0RewardPerYear<T>>::put(reward_per_year);
+             Self::deposit_event(RawEvent::Phase0RewardPerYear(reward_per_year));
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_phase1_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            <Phase1RewardPerYear<T>>::put(reward_per_year);
+             Self::deposit_event(RawEvent::Phase1RewardPerYear(reward_per_year));
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_phase2_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            <Phase2RewardPerYear<T>>::put(reward_per_year);
+             Self::deposit_event(RawEvent::Phase2RewardPerYear(reward_per_year));
+            Ok(())
         }
     }
 }
@@ -2739,16 +2521,39 @@ impl<T: Config> Module<T> {
         // Note: active_era_start can be None if end era is called during genesis config.
         if let Some(active_era_start) = active_era.start {
             let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-
             let era_duration = now_as_millis_u64 - active_era_start;
+
+            let reward_start_height = RewardStartHeight::<T>::get().saturated_into::<u64>();
+
+            let current_block_height = <frame_system::Module<T>>::block_number();
+            let current_block_height = current_block_height.saturated_into::<u64>();
+
+            // Milliseconds per year for the Julian year (365.25 days).
+            // let milliseconds_per_year: u64 = 1000 * 3600 * 24 * 36525 / 100;
+            let milliseconds_per_year: u64 = 3_600_000;
+            let milliseconds_per_block =
+                <T as pallet_timestamp::Config>::MinimumPeriod::get().saturating_mul(2u32.into());
+            let block_per_year: u64 =
+                milliseconds_per_year / milliseconds_per_block.saturated_into::<u64>();
+
+            let yearly_inflation_amount = if current_block_height < reward_start_height {
+                0u32.into()
+            } else if current_block_height < 3u64 * block_per_year + reward_start_height {
+                <Phase0RewardPerYear<T>>::get()
+            } else if current_block_height < 8u64 * block_per_year + reward_start_height {
+                <Phase1RewardPerYear<T>>::get()
+            } else {
+                <Phase2RewardPerYear<T>>::get()
+            };
+
             let (validator_payout, max_payout) = inflation::compute_total_payout(
-                &T::RewardCurve::get(),
-                Self::eras_total_stake(&active_era.index),
-                T::Currency::total_issuance(),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
-                era_duration.saturated_into::<u64>(),
+                milliseconds_per_year,
+                yearly_inflation_amount,
+                era_duration,
             );
-            let rest = max_payout.saturating_sub(validator_payout);
+
+            let rest: BalanceOf<T> = (max_payout - validator_payout).into();
 
             Self::deposit_event(RawEvent::EraPayout(
                 active_era.index,
@@ -3139,6 +2944,22 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     pub fn set_slash_reward_fraction(fraction: Perbill) {
         SlashRewardFraction::put(fraction);
+    }
+}
+
+impl<T: Config> PhaseReward for Module<T> {
+    type Balance = BalanceOf<T>;
+
+    fn set_phase0_reward(balance: Self::Balance) {
+        <Phase0RewardPerYear<T>>::put(balance);
+    }
+
+    fn set_phase1_reward(balance: Self::Balance) {
+        <Phase1RewardPerYear<T>>::put(balance);
+    }
+
+    fn set_phase2_reward(balance: Self::Balance) {
+        <Phase2RewardPerYear<T>>::put(balance);
     }
 }
 

@@ -702,9 +702,10 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 }
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
+    let milliseconds_per_year: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
     let reward = inflation::compute_total_payout(
-        <Test as Config>::RewardCurve::get(),
-        Staking::eras_total_stake(active_era()),
+        milliseconds_per_year,
         Balances::total_issuance(),
         duration,
     )
@@ -714,13 +715,9 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 }
 
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
-    inflation::compute_total_payout(
-        <Test as Config>::RewardCurve::get(),
-        0,
-        Balances::total_issuance(),
-        duration,
-    )
-    .1
+    let milliseconds_per_year: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
+    inflation::compute_total_payout(milliseconds_per_year, Balances::total_issuance(), duration).1
 }
 
 /// Time it takes to finish a session.
