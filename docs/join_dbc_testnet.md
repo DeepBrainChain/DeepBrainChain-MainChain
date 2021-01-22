@@ -25,7 +25,6 @@
      Account ID:       0x22150e8093537cee480256fcaa2e9a2883bfea41226ecbfd168c980f42f69135
      SS58 Address:     5CqPjts5GYvR1XhwFLnFZAph4k76m3qatSAXCt1AwkFUiM6B
    
-   
    # 生成session账户
    # 生成Babe账户 （用于出块）
    subkey generate --scheme sr25519
@@ -50,6 +49,8 @@
    **请记下生成的内容，请勿使用上面的账户。**
 
    ***TODO：获取一定量的`DBC` token ，以保证你的`stash账户`有一定量的DBC***
+
+   ***TODO: 生成controller账户，并与stash账户进行绑定***
 
 3. 运行同步节点
 
@@ -88,7 +89,7 @@
 
    点击左上角图表，在弹出的下面输入自定义终端`ws://127.0.0.1:9948`，然后点击上面的转换按钮
 
-   ![image-20210121234245879](join_dbc_testnet.assets/image-20210121234245879.png)
+   ![image-20210121235916809](join_dbc_testnet.assets/image-20210121235916809.png)
 
 6. 登陆你的`stash账户`（通过`polkadot`浏览器插件），你将能看到你的余额：
 
