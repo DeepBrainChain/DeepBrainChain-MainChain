@@ -154,3 +154,15 @@
    
    
 
+## 如何领取节点奖励？
+
+在浏览器插件polkadot中登陆你的stash账户，在 `Staking > Payouts` 中，你将能看到待领取的奖励：
+
+![image-20210122091057746](join_dbc_testnet.assets/image-20210122091057746.png)
+
+点击右下角的Payout，发送交易即可。
+
+
+
+
+
