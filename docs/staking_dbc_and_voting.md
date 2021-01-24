@@ -27,6 +27,7 @@
       subkey generate --scheme sr25519
       ```
 
+      **请保存输出的信息。**
 
 3. 登陆您的账户到`polkadot{.js}`插件
 

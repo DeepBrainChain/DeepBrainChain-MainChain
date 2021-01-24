@@ -52,6 +52,8 @@
 
    ***TODO: 生成controller账户，并与stash账户进行绑定***
 
+   为了账户的安全，您也可以生成一个账户(`Controller账户`)用于控制资金账户(`Stash账户`)。如果您想要这么做，再生成一个sr25519的账户作为Controller账户，并在bond 操作的时候，将controller账户设置为您的controller账户。
+
 3. 运行同步节点
 
    ```bash
@@ -59,18 +61,34 @@
    	--base-path ./account5 \
    	--chain ./dbcSpecRaw.json \
    	--pruning=archive \
-   	--port 30337 \
-   	--ws-port 9948 \
-   	--rpc-port 9937 \
+   	--port 30333 \
+   	--ws-port 9944 \
+   	--rpc-port 9933 \
    	--rpc-cors=all \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG
    ```
 
    查看同步状态：你可以通过：https://telemetry.polkadot.io/#list/DBC%20Testnet 查看当前区块块高，通过与已同步的块高比较，判断同步是否完成。
 
-   参数说明：**TODO**
+   **参数说明：**
 
-6. 在同步节点数据完成之后，关闭程序。然后以验证人的方式运行节点：
+   `--base-path`：指定该区块链存储数据的目录。如果不指定，将使用默认路径。如果目录不存在，将会为你自动创建。如果该目录已经有了区块链数据，将会报错，这时应该选择不同的目录或清除该目录内容
+
+   `--chain ./dbcSpecRaw.json`：指定以该配置文件启动区块链。
+
+   `--pruning=archive`：以归档的方式启动区块链
+
+   `--port`：指定你的p2p监听端口。`30333` 是默认端口，如果你想使用默认端口可以省略该参数。
+
+   `--ws-port`：指定WebSocket监听的端口。默认值是`9944`.
+
+   `--rpc-port`：指定节点监听RPC通信的端口。`9933`是默认值，这个参数可以省略。
+
+   `--rpc-cores`：指定哪些请求来源的地址能够访问该节点。值可以是逗号分割的地址(protocol://domain 或一个`null`值)，all表示禁用请求来源检查。
+
+   `--bootnodes`：指定引导节点地址
+
+1. 在同步节点数据完成之后，关闭程序。然后以验证人的方式运行节点：
 
    ```bash
    ./target/release/substrate \
@@ -78,20 +96,20 @@
    	--chain ./dbcSpecRaw.json \
    	--validator \
    	--name MyNode5 \
-   	--port 30337 \
-   	--ws-port 9948 \
-   	--rpc-port 9937 \
+   	--port 30333 \
+   	--ws-port 9944 \
+   	--rpc-port 9933 \
    	--rpc-cors=all \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG
    ```
-   
-5. 将 https://polkadot.js.org/apps 切换到你本地的区块
+
+2. 将 https://polkadot.js.org/apps 切换到你本地的区块
 
    点击左上角图表，在弹出的下面输入自定义终端`ws://127.0.0.1:9948`，然后点击上面的转换按钮
 
    ![image-20210121235916809](join_dbc_testnet.assets/image-20210121235916809.png)
 
-6. 登陆你的`stash账户`（通过`polkadot`浏览器插件），你将能看到你的余额：
+3. 登陆你的`stash账户`（通过`polkadot`浏览器插件），你将能看到你的余额：
 
    ![image-20210121194808850](join_dbc_testnet.assets/image-20210121194808850.png)
 
@@ -128,13 +146,15 @@
 
    ![image-20210121234945030](join_dbc_testnet.assets/image-20210121234945030.png)
 
-9. 设置`Validate`
+8. 设置`Validate`
 
    完成了第6步之后，你应该能在Polkadot UI上看到`Validate` 按钮，点击它。这里，你将会需要设置 `Payment Preferences`
 
    ![polkadot-dashboard-validate-modal](join_dbc_testnet.assets/polkadot-dashboard-validate-modal.jpeg)
 
-   Payment preferences: 这个参数是你设置的，付给你的奖励的比例。剩下的奖励，将会按照stake的数量，按比例分给质押dbc的人。
+   `payment preferences`: 这个参数是你设置的，付给你的奖励的比例。剩下的奖励，将会按照stake的数量，按比例分给质押dbc的人。
+
+   `automatic unstake threshold`- 设置被发现多少次离线后，取消验证人资格。
 
 9. 设置参加验证人选举
 
