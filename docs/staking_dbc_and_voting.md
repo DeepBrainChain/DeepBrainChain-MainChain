@@ -66,3 +66,17 @@
    导航到`Network > Staking > Account actions`，您可以看到bond的DBC数目，与提名的候选人。
 
    ![image-20210122211537605](staking_dbc_and_voting.assets/image-20210122211537605.png)
+
+8. 第二次提名
+
+   `步骤6`的提名实际上包含了两个步骤：`stash账户`设置`controller`账户 和 提名验证人。
+
+   我们想要再次提名，只需要点击下方的`Nominate`进行提名这一个步骤即可：
+
+   导航到`Staking > Account actions > stashes > Nominate`
+
+   ![image-20210125181918506](/home/bobo/.config/Typora/typora-user-images/image-20210125181918506.png)
+
+在弹出的选项中，选择你要提名的验证人：
+
+![image-20210125182105575](/home/bobo/.config/Typora/typora-user-images/image-20210125182105575.png)
