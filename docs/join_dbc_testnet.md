@@ -9,7 +9,7 @@
    
    # 编译dbc-chain
    git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git
-   cd DeepBrainChain-MainChain && git checkout dbc-dev2
+   cd DeepBrainChain-MainChain && git checkout dbc-dev
    cargo build --release
    ```
 
@@ -105,7 +105,7 @@
 
 2. 打开 [https://test.dbcwallet.io/](https://test.dbcwallet.io/) 切换到你本地的区块
 
-   点击左上角图表，在弹出的下面输入自定义终端`ws://127.0.0.1:9944`  (端口与上面`--ws-port`相同)，然后点击上面的转换按钮
+   点击左上角图表，在弹出的下面输入自定义终端`ws://127.0.0.1:9944`  (如果节点部署在服务器上，则此处地址应该改为服务器地址，端口与上面`--ws-port`相同)，然后点击上面的转换按钮
 
    ![image-20210121235916809](join_dbc_testnet.assets/image-20210121235916809.png)
 
