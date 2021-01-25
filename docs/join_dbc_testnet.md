@@ -4,8 +4,9 @@
 
    ```bash
    # 安装依赖，rust，subkey
-   curl https://getsubstrate.io -sSf | bash
+   curl https://getsubstrate.io -sSf | bash -s -- --fast
    source ~/.cargo/env
+   cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0
    
    # 编译dbc-chain
    git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git
