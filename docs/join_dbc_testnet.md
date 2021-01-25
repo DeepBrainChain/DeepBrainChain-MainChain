@@ -1,6 +1,6 @@
 # 如何加入DBC验证节点？
 
-1. 编译
+1. 编译DBC chain
 
    ```bash
    # 安装依赖，rust，subkey
@@ -13,7 +13,7 @@
    cargo build --release
    ```
 
-2. 生成Session Key
+2. 生成Session Key (用于共识出块) 和资金账户
 
    ```bash
    # 生成stash账户 (用于存储现金)
@@ -103,9 +103,9 @@
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG
    ```
 
-2. 将 https://polkadot.js.org/apps 切换到你本地的区块
+2. 打开 [https://test.dbcwallet.io/](https://test.dbcwallet.io/) 切换到你本地的区块
 
-   点击左上角图表，在弹出的下面输入自定义终端`ws://127.0.0.1:9944`，然后点击上面的转换按钮
+   点击左上角图表，在弹出的下面输入自定义终端`ws://127.0.0.1:9944`  (端口与上面`--ws-port`相同)，然后点击上面的转换按钮
 
    ![image-20210121235916809](join_dbc_testnet.assets/image-20210121235916809.png)
 
@@ -124,7 +124,7 @@
 
 7. 生成`rotateKey`: 
 
-   在`Polkadot UI` 中导航到`Toolbox > RPC Calls`，然后选择`author > rotateKeys()` 选项，点击`Submit RPC call`，这样会生成`rotatekeys`， 记录生成的值。
+   在`Polkadot UI` 中导航到`Developer > RPC Calls`，然后选择`author > rotateKeys()` 选项，点击`Submit RPC call`，这样会生成`rotatekeys`， 记录生成的值。
 
    ![image-20210121194158808](join_dbc_testnet.assets/image-20210121194158808.png)
 

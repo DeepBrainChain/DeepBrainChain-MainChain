@@ -13,7 +13,7 @@
 
    2. 通过网页生成
 
-      打开[https://polkadot.js.org/apps/?rpc=wss://infotest.dbcwallet.io#/explorer](https://polkadot.js.org/apps/?rpc=wss://infotest.dbcwallet.io#/explorer)
+      打开[https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer](https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer)
 
       导航到`Accounts`，点击击`Add account`
 
@@ -39,7 +39,7 @@
 
 4. 获取一定量的DBC
 
-5. 打开[https://polkadot.js.org/apps/?rpc=wss://infotest.dbcwallet.io#/explorer](https://polkadot.js.org/apps/?rpc=wss://infotest.dbcwallet.io#/explorer) 导航到`Accounts > My accounts`您将能看到您的账户与余额
+5. 打开[https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer](https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer) 导航到`Accounts > My accounts`您将能看到您的账户与余额
 
    ![image-20210122210826588](staking_dbc_and_voting.assets/image-20210122210826588.png)
 
