@@ -70,11 +70,9 @@
 
    `--bootnodes`：指定引导节点地址
 
+   ***Tips: 判断同步是否完成: 通过比较target（目标块高）和best（当前已同步）来判断同步进度***
 
-
-   ***Tips: 判断同步是否完成:***
-
-   ![image-20210125185757268](/home/bobo/.config/Typora/typora-user-images/image-20210125185757268.png)
+![image-20210126021938613](join_dbc_testnet.assets/image-20210126021938613.png)
 
 4. 在同步节点数据完成之后，关闭程序。然后以验证人的方式运行节点：
 
@@ -93,11 +91,13 @@
 
    注意：这里 `--name` 是设置你节点的名称，你可以为你的节点起一个独一无二的名称。
 
-5. 打开 [https://test.dbcwallet.io/](https://test.dbcwallet.io/) 切换到你本地的区块
+5. 生成`rotateKey`
 
-   点击左上角图表，在弹出的下面输入自定义终端`ws://127.0.0.1:9944`  (**如果节点部署在服务器上，则此处地址应该改为服务器地址**，端口与上面`--ws-port`相同)，然后点击上面的转换按钮
+   在运行验证人节点命令的机器上运行下面命令
 
-   ![image-20210121235916809](join_dbc_testnet.assets/image-20210121235916809.png)
+   ```bash
+   curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}' http://localhost:9933
+   ```
 
 6. 登陆你的`stash账户`（通过`polkadot{.js}`浏览器插件），你将能看到你的余额：
 
@@ -124,23 +124,13 @@
    + `payment destination`：验证人获得的奖励将会被发给这个账户。这个账户可以设置成任何账户。
 
 
-7. 生成`rotateKey`: 
+7. 设置`rotateKey`:
 
-   在`Polkadot UI` 中导航到`Developer > RPC Calls`，然后选择`author > rotateKeys()` 选项，点击`Submit RPC call`，这样会生成`rotatekeys`， 记录生成的值。
-
-   ![image-20210121194158808](join_dbc_testnet.assets/image-20210121194158808.png)
-
-   另外，可以使用CLI生成该值：
-
-   ```bash
-   curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}' http://localhost:9933
-   ```
-
-   设置`rotateKey`： 在执行了bond之后，您将能够在Polkadot上看到`Session Key`的按钮
+   在执行了bond之后，您将能够在Polkadot上看到`Session Key`的按钮：
 
    ![image-20210121195307711](join_dbc_testnet.assets/image-20210121195307711.png)
 
-   点击它，并将`rotateKeys`填入。
+   点击它，并将步骤5生成的`rotateKeys`填入。
 
    ![image-20210121200709277](join_dbc_testnet.assets/image-20210121200709277.png)
 
