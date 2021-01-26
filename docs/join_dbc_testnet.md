@@ -99,7 +99,7 @@
    curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}' http://localhost:9933
    ```
 
-6. 登陆你的`stash账户`（通过`polkadot{.js}`浏览器插件），打开[https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer ](https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer)  导航到`Accounts`你将能看到你的余额：
+6. 登陆你的`资金账户`（通过`polkadot{.js}`浏览器插件, 导入第二步的`Secret phrase`），打开[https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer ](https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer)  导航到`Accounts`你将能看到你的余额：
 
    (安装`polkadot{.js}`插件：Chrome [Chrome web store](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd), Firefox：[Firefox add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/))
 
@@ -137,16 +137,6 @@
    现在，你可以到 `Telemetry` 看到你的节点了！
 
    ![image-20210121234945030](join_dbc_testnet.assets/image-20210121234945030.png)
-
-8. 设置`Validate`
-
-   完成了第6步之后，你应该能在Polkadot UI上看到`Validate` 按钮，点击它。这里，你将会需要设置 `Payment Preferences`
-
-   ![polkadot-dashboard-validate-modal](join_dbc_testnet.assets/polkadot-dashboard-validate-modal.jpeg)
-
-   + `payment preferences`: 这个参数是你设置的，付给你的奖励的比例。剩下的奖励，将会按照stake的数量，按比例分给质押dbc的人。
-
-   + `automatic unstake threshold`- 设置被发现多少次离线后，取消验证人资格。
 
 9. 设置参加验证人选举
 
