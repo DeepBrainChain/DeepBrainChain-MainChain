@@ -99,7 +99,7 @@
    curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}' http://localhost:9933
    ```
 
-6. 登陆你的`stash账户`（通过`polkadot{.js}`浏览器插件），你将能看到你的余额：
+6. 登陆你的`stash账户`（通过`polkadot{.js}`浏览器插件），打开[https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer ](https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer)  导航到`Accounts`你将能看到你的余额：
 
    (安装`polkadot{.js}`插件：Chrome [Chrome web store](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd), Firefox：[Firefox add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/))
 
