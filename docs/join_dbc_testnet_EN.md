@@ -1,4 +1,4 @@
-# How to be a DBC validator?
+# How to run a DBC validator?
 
 1. Compile DBC chain
 

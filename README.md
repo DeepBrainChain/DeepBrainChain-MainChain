@@ -1,3 +1,5 @@
+If you want to read the English version, click [here](README_EN.md)
+
 # 如何参与DBC深脑链
 
 如果你有一些DBC，并想获取更多，你可以选择**成为一个`验证人`**，这需要7*24小时运行一个节点。如果你不想运行节点，但仍想获取收益，你可以通过 **提名`验证人`** 来获取收益。

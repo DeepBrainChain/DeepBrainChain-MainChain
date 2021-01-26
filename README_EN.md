@@ -35,11 +35,11 @@ If you have some DBC and want to get more, you can choose to **become a `validat
 
 #### How to be a `norminator`
 
-[质押DBC成为提名人](docs/staking_dbc_and_voting.md) -- 质押DBC，成为提名人获取收益
+[How to nominate on DBC](docs/staking_dbc_and_voting.md) -- stake DBC，be a Nominator to get rewards
 
 
 #### 如何成为`验证人`
 
-[如何成为DBC验证人](docs/join_dbc_testnet.md) -- 运行验证节点，成为验证人获取收益
+[How to be a DBC validator](docs/join_dbc_testnet_EN.md) -- run a full node，be a Validator to get rewards
 
 
