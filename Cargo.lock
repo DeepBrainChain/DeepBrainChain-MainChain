@@ -1197,6 +1197,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "993a608597367c6377b258c25d7120740f00ed23a2252b729b1932dd7866f908"
 
 [[package]]
+name = "dbc-price"
+version = "0.1.0"
+
+[[package]]
 name = "dbc-staking"
 version = "0.1.0"
 dependencies = [
