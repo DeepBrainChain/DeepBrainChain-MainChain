@@ -78,20 +78,16 @@ decl_module! {
             Ok(())
         }
 
-
         fn offchain_worker(block_number: T::BlockNumber) {
             debug::native::info!("Hello world from offchain worker!");
 
             let average: Option<u32> = Self::average_price();
             debug::debug!("Current price: {:?}", average);
 
-            // let should_send=Self::choose_transaction_type(block_number);
-            // let res = match should_send{
-
-            // };
-            // if let Err(e) = res{
-            //     debug::error("Error: {}", e);
-            // }
+            let result = Self::fetch_price_and_send_signed();
+            if let Err(e) = result {
+                debug::error!("offchain_worker error: {:?}", e);
+            }
         }
     }
 }
