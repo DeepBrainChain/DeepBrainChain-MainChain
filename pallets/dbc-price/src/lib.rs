@@ -1,17 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{debug, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
-
 use frame_system::{
     ensure_signed,
-    offchain::{AppCrypto, CreateSignedTransaction, Signer},
+    offchain::{AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer},
 };
-
-use sp_core::crypto::KeyTypeId;
-
-use sp_runtime::offchain::{http, Duration};
-
 use lite_json::json::JsonValue;
+use sp_core::crypto::KeyTypeId;
+use sp_runtime::offchain::{http, Duration};
+use sp_std::str;
+use sp_std::vec::Vec;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"dbc!");
 
@@ -21,10 +19,20 @@ pub mod crypto {
     use sp_runtime::{
         app_crypto::{app_crypto, sr25519},
         traits::Verify,
+        MultiSignature, MultiSigner,
     };
     app_crypto!(sr25519, KEY_TYPE);
 
     pub struct TestAuthId;
+
+    // implemented for dbc-price
+    impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
+        type RuntimeAppPublic = Public;
+        type GenericSignature = sp_core::sr25519::Signature;
+        type GenericPublic = sp_core::sr25519::Public;
+    }
+
+    // implemented for mock runtime in test
     impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>
         for TestAuthId
     {
@@ -36,7 +44,6 @@ pub mod crypto {
 
 pub trait Config: CreateSignedTransaction<Call<Self>> {
     type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 }
 
@@ -55,7 +62,6 @@ decl_event!(
 decl_storage! {
     trait Store for Module<T: Config> as ExampleOffchainWorker {
         Prices get(fn prices): Vec<u32>;
-        // PriceURL get(fn price_url) config(): Vec<u8> = "https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".split("").collect();
         PriceURL get(fn price_url) config(): Vec<u8> = "https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".as_bytes().to_vec();
         NextUnsignedAt get(fn next_unsigned_at): T::BlockNumber;
     }
@@ -116,18 +122,12 @@ impl<T: Config> Module<T> {
     fn fetch_price() -> Result<u32, http::Error> {
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
 
-        // let request1 = http::Request::get(PriceURL::into());
-        let price_url = match String::from_utf8(PriceURL::get()) {
-            Ok(v) => v,
-            Err(e) => {
-                debug::warn!("Unable convert PriceURL to str: {:#?}", e);
-                return Err(http::Error::Unknown);
-            }
-        };
-
-        let request = http::Request::get(&price_url);
+        let price_url = PriceURL::get();
+        let price_url = str::from_utf8(&price_url).unwrap();
 
         // let request =http::Request::get("https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD");
+        let request = http::Request::get(price_url);
+
         let pending = request
             .deadline(deadline)
             .send()

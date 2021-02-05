@@ -776,6 +776,14 @@ impl pallet_sudo::Config for Runtime {
     type Call = Call;
 }
 
+// pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
+
+impl dbc_price::Config for Runtime {
+    type AuthorityId = dbc_price::crypto::TestAuthId;
+    // type Call = Call;
+    type Event = Event;
+}
+
 parameter_types! {
     pub const SessionDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS as _;
     pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
@@ -1066,6 +1074,7 @@ construct_runtime!(
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Call},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
+        DBCPrice: dbc_price::{Module, Call, Storage, Event<T>},
     }
 );
 

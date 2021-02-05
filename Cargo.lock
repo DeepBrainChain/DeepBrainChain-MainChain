@@ -3943,6 +3943,7 @@ dependencies = [
 name = "node-runtime"
 version = "2.0.1"
 dependencies = [
+ "dbc-price",
  "dbc-staking",
  "dbc-testing",
  "frame-benchmarking",
