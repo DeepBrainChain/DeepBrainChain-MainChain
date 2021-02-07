@@ -2,7 +2,7 @@
 
 use frame_support::{debug, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::{
-    ensure_signed,
+    ensure_root, ensure_signed,
     offchain::{AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer},
 };
 use lite_json::json::JsonValue;
@@ -11,6 +11,7 @@ use sp_runtime::offchain::{http, Duration};
 use sp_std::str;
 use sp_std::vec::Vec;
 
+type URL = Vec<u8>;
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"dbc!");
 
 pub mod crypto {
@@ -55,14 +56,14 @@ decl_event!(
     {
         /// Event generated when new price is accepted to contribute to the average.
         /// \[price, who\]
-        NewPrice(u32, AccountId),
+        NewPrice(u64, AccountId),
     }
 );
 
 decl_storage! {
     trait Store for Module<T: Config> as ExampleOffchainWorker {
-        Prices get(fn prices): Vec<u32>;
-        PriceURL get(fn price_url) config(): Vec<u8> = "https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".as_bytes().to_vec();
+        Prices get(fn prices): Vec<u64>;
+        PriceURL get(fn price_url) config(): URL = "https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".as_bytes().to_vec();
         NextUnsignedAt get(fn next_unsigned_at): T::BlockNumber;
     }
 }
@@ -72,16 +73,23 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = 0]
-        pub fn submit_price(origin, price:u32) -> DispatchResult{
+        pub fn submit_price(origin, price:u64) -> DispatchResult{
             let who = ensure_signed(origin)?;
             Self::add_price(who, price);
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_price_url(origin, new_url: URL) -> DispatchResult {
+            ensure_root(origin)?;
+            PriceURL::put(new_url);
             Ok(())
         }
 
         fn offchain_worker(block_number: T::BlockNumber) {
             debug::native::info!("Hello world from offchain worker!");
 
-            let average: Option<u32> = Self::average_price();
+            let average: Option<u64> = Self::average_price();
             debug::debug!("Current price: {:?}", average);
 
             let result = Self::fetch_price_and_send_signed();
@@ -115,13 +123,12 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn fetch_price() -> Result<u32, http::Error> {
-        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
+    fn fetch_price() -> Result<u64, http::Error> {
+        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
 
         let price_url = PriceURL::get();
         let price_url = str::from_utf8(&price_url).unwrap();
 
-        // let request =http::Request::get("https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD");
         let request = http::Request::get(price_url);
 
         let pending = request
@@ -158,7 +165,7 @@ impl<T: Config> Module<T> {
         Ok(price)
     }
 
-    fn parse_price(price_str: &str) -> Option<u32> {
+    fn parse_price(price_str: &str) -> Option<u64> {
         let val = lite_json::parse_json(price_str);
         let price = val.ok().and_then(|v| match v {
             JsonValue::Object(obj) => {
@@ -173,11 +180,12 @@ impl<T: Config> Module<T> {
             _ => None,
         })?;
 
-        let exp = price.fraction_length.checked_sub(2).unwrap_or(0);
-        Some(price.integer as u32 * 100 + (price.fraction / 10_u64.pow(exp)) as u32)
+        // out = price.integer * 10**6 + price.fraction / 10**fraction_length * 10**6
+        let fraction = price.fraction * 10_u64.pow(6) / 10_u64.pow(price.fraction_length);
+        Some(price.integer as u64 * 1000_000 + fraction)
     }
 
-    fn add_price(who: T::AccountId, price: u32) {
+    fn add_price(who: T::AccountId, price: u64) {
         debug::info!("Adding to the average: {}", price);
         Prices::mutate(|prices| {
             const MAX_LEN: usize = 64;
@@ -196,12 +204,12 @@ impl<T: Config> Module<T> {
         Self::deposit_event(RawEvent::NewPrice(price, who));
     }
 
-    fn average_price() -> Option<u32> {
+    fn average_price() -> Option<u64> {
         let prices = Prices::get();
         if prices.is_empty() {
             None
         } else {
-            Some(prices.iter().fold(0_u32, |a, b| a.saturating_add(*b)) / prices.len() as u32)
+            Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
         }
     }
 }
