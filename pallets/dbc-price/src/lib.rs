@@ -1,13 +1,22 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{debug, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
+use codec::{Decode, Encode};
+use frame_support::{
+    debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
+};
 use frame_system::{
-    ensure_root, ensure_signed,
-    offchain::{AppCrypto, CreateSignedTransaction, SendSignedTransaction, Signer},
+    ensure_none, ensure_root, ensure_signed,
+    offchain::{
+        AppCrypto, CreateSignedTransaction, SendSignedTransaction, SendUnsignedTransaction,
+        SignedPayload, Signer, SigningTypes,
+    },
 };
 use lite_json::json::JsonValue;
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::offchain::{http, Duration};
+use sp_runtime::{
+    offchain::{http, Duration},
+    RuntimeDebug,
+};
 use sp_std::str;
 use sp_std::vec::Vec;
 
@@ -43,6 +52,18 @@ pub mod crypto {
     }
 }
 
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+pub struct Payload<Public> {
+    price: u64,
+    public: Public,
+}
+
+impl<T: SigningTypes> SignedPayload<T> for Payload<T::Public> {
+    fn public(&self) -> T::Public {
+        self.public.clone()
+    }
+}
+
 pub trait Config: CreateSignedTransaction<Call<Self>> {
     type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -56,9 +77,17 @@ decl_event!(
     {
         /// Event generated when new price is accepted to contribute to the average.
         /// \[price, who\]
-        NewPrice(u64, AccountId),
+        NewPrice(u64, Option<AccountId>),
     }
 );
+
+decl_error! {
+    pub enum Error for Module<T: Config> {
+        NoLocalAcctForSigning,
+        FetchPriceFailed,
+        OffchainUnsignedTxSignedPayloadError,
+    }
+}
 
 decl_storage! {
     trait Store for Module<T: Config> as ExampleOffchainWorker {
@@ -73,9 +102,29 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = 0]
-        pub fn submit_price(origin, price:u64) -> DispatchResult{
+        pub fn submit_price_signed(origin, price: u64) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            Self::add_price(who, price);
+            Self::add_price(Some(who), price);
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn submit_price_unsigned(origin, price: u64) -> DispatchResult {
+            let _ = ensure_none(origin)?;
+            Self::add_price(None, price);
+
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn submit_price_unsigned_with_signed_payload(origin, payload: Payload<T::Public>,
+            _signature: T::Signature) -> DispatchResult
+        {
+            let _ = ensure_none(origin)?;
+            let Payload {price, public} = payload;
+            debug::info!("submit price unsigned with signed payload: ({}, {:?})", price, public);
+
+            Self::add_price(None, price);
             Ok(())
         }
 
@@ -92,7 +141,9 @@ decl_module! {
             let average: Option<u64> = Self::average_price();
             debug::debug!("Current price: {:?}", average);
 
-            let result = Self::fetch_price_and_send_signed();
+            // let result = Self::fetch_price_and_send_signed();
+            let result = Self::fetch_price_and_send_unsigned_tx_with_signed_payload();
+
             if let Err(e) = result {
                 debug::error!("offchain_worker error: {:?}", e);
             }
@@ -111,7 +162,7 @@ impl<T: Config> Module<T> {
 
         let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
 
-        let results = signer.send_signed_transaction(|_account| Call::submit_price(price));
+        let results = signer.send_signed_transaction(|_account| Call::submit_price_signed(price));
 
         for (acc, res) in &results {
             match res {
@@ -123,11 +174,37 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    fn fetch_price_and_send_unsigned_tx_with_signed_payload() -> Result<(), Error<T>> {
+        let signer = Signer::<T, T::AuthorityId>::any_account();
+        if !signer.can_sign() {
+            return Err(<Error<T>>::NoLocalAcctForSigning);
+        }
+
+        let price = Self::fetch_price().map_err(|_| <Error<T>>::FetchPriceFailed)?;
+
+        if let Some((_, res)) = signer.send_unsigned_transaction(
+            |acct| Payload {
+                price,
+                public: acct.public.clone(),
+            },
+            Call::submit_price_unsigned_with_signed_payload,
+        ) {
+            return res.map_err(|_| {
+                debug::error!("Failed in offchain_unsigned_tx_signed_payload");
+                <Error<T>>::OffchainUnsignedTxSignedPayloadError
+            });
+        }
+
+        // The case of `None`: no account is available for sending
+        debug::error!("No local account available");
+        Err(<Error<T>>::NoLocalAcctForSigning)
+    }
+
     fn fetch_price() -> Result<u64, http::Error> {
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
 
         let price_url = PriceURL::get();
-        let price_url = str::from_utf8(&price_url).unwrap();
+        let price_url = str::from_utf8(&price_url).map_err(|_| http::Error::Unknown)?;
 
         let request = http::Request::get(price_url);
 
@@ -185,7 +262,7 @@ impl<T: Config> Module<T> {
         Some(price.integer as u64 * 1000_000 + fraction)
     }
 
-    fn add_price(who: T::AccountId, price: u64) {
+    fn add_price(who: Option<T::AccountId>, price: u64) {
         debug::info!("Adding to the average: {}", price);
         Prices::mutate(|prices| {
             const MAX_LEN: usize = 64;
