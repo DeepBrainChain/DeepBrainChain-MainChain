@@ -11,8 +11,8 @@ If you want to read the English version, click [here](README_EN.md)
 
 #### 区块时间
   + 出块时间：6 seconds
-  + Epoch duration：1 hour
-  + Era duration：6 hours (一个选举周期，也是奖励计算周期)
+  + Epoch duration：4 hour
+  + Era duration：24 hours (一个选举周期，也是奖励计算周期)
 + 第n-1个Era选举（选举间隔1个Era）会产生新的一组Validator，负责n+1个Era出块。
 
 #### 总奖励数量：
@@ -30,7 +30,7 @@ If you want to read the English version, click [here](README_EN.md)
 
 + 验证人在相同的工作中获得相同数量的奖励
 
-+ **奖励保留时间**：**84 era (21天)**，超过保留时间的奖励将不会被记录。 任何人都可以去发Payout的交易来领取奖励 (即使没有参与质押)，所有人都能获得奖励。
++ **奖励保留时间**：**84 era (84天)**，超过保留时间的奖励将不会被记录。 任何人都可以去发Payout的交易来领取奖励 (即使没有参与质押)，所有人都能获得奖励。
 
 + **验证人奖励** = 总奖励 * 自定义比例的分佣 + 生于部分的奖励 * 验证人stake占节点的比例
 

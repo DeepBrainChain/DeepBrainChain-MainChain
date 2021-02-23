@@ -10,8 +10,8 @@ If you have some DBC and want to get more, you can choose to **become a `validat
 #### Periods of common actions and attributes in DBC network
 
   + Slot：6 seconds **(generally one block per slot)**
-  + Epoch duration：1 hour
-  + Era duration：6 hours (6 sessions per Era, one Era is an election peroid, and is also a reward calculation peroid)
+  + Epoch duration：4 hour
+  + Era duration：24 hours (6 sessions per Era, one Era is an election peroid, and is also a reward calculation peroid)
   + The `n-1` Era election period (the election period interval is 1 Era) will generate a new set of Validators, responsible for `n+1` Era block generation 
 
 #### Total reward amount：
@@ -28,7 +28,7 @@ If you have some DBC and want to get more, you can choose to **become a `validat
   + 2 points for uncle block producers
   + 1 point for producers who quoted uncle blocks
 + The validators get same amount of rewards for the same job 
-+ **Reward retention time**: **84 era (21 days)**, rewards exceeding the retention time will not be recorded. Anyone can send `Payout` transactions to get rewards (even if they do not participate in the stake), and everyone who staked in the validator node can get rewards by a single call.
++ **Reward retention time**: **84 era (84 days)**, rewards exceeding the retention time will not be recorded. Anyone can send `Payout` transactions to get rewards (even if they do not participate in the stake), and everyone who staked in the validator node can get rewards by a single call.
 + **Validator Reward** = Total Reward * Customized Commissions + Remaining Part of Reward * Percentage of validator staked
 + **Nominator Award**: **Only the top 128 of stakes can be rewarded ( according to the stake amount). **`Number of rewards = (total rewards of nodes - custom commissions of validators) * Percentage of nominator's stake` 
 
