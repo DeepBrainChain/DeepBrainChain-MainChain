@@ -6,7 +6,7 @@
    # install rust，subkey
    curl https://getsubstrate.io -sSf | bash -s -- --fast
    source ~/.cargo/env
-   cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0
+   cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0 --locked
    
    # compile dbc-chain
    git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git

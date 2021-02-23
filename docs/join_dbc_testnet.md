@@ -6,7 +6,7 @@
    # 安装依赖，rust，subkey
    curl https://getsubstrate.io -sSf | bash -s -- --fast
    source ~/.cargo/env
-   cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0
+   cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0 --locked
    
    # 编译dbc-chain
    git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git
@@ -40,8 +40,7 @@
 
    ```bash
    ./target/release/substrate \
-   	--base-path ./account5 \
-   	--chain ./dbcSpecRaw.json \
+   	--base-path ./db_data \
    	--pruning=archive \
    	--port 30333 \
    	--ws-port 9944 \
@@ -49,28 +48,27 @@
    	--rpc-cors=all \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG
    ```
+   
 
-   查看同步状态：你可以根据`target`与`best`的比较来判断是否同步已经完成, 也可以通过：https://telemetry.polkadot.io/#list/DBC%20Testnet 查看当前区块块高，通过与已同步的块高比较，判断同步是否完成。
+查看同步状态：你可以根据`target`与`best`的比较来判断是否同步已经完成, 也可以通过：https://telemetry.polkadot.io/#list/DBC%20Testnet 查看当前区块块高，通过与已同步的块高比较，判断同步是否完成。
 
-   **参数说明：**
+**参数说明：**
 
-   `--base-path`：指定该区块链存储数据的目录。如果不指定，将使用默认路径。如果目录不存在，将会为你自动创建。如果该目录已经有了区块链数据，将会报错，这时应该选择不同的目录或清除该目录内容
+`--base-path`：指定该区块链存储数据的目录。如果不指定，将使用默认路径。如果目录不存在，将会为你自动创建。如果该目录已经有了区块链数据，将会报错，这时应该选择不同的目录或清除该目录内容
 
-   `--chain ./dbcSpecRaw.json`：指定以该配置文件启动区块链。
+`--pruning=archive`：以归档的方式启动区块链
 
-   `--pruning=archive`：以归档的方式启动区块链
+`--port`：指定你的p2p监听端口。`30333` 是默认端口，如果你想使用默认端口可以省略该参数。
 
-   `--port`：指定你的p2p监听端口。`30333` 是默认端口，如果你想使用默认端口可以省略该参数。
+`--ws-port`：指定WebSocket监听的端口。默认值是`9944`.
 
-   `--ws-port`：指定WebSocket监听的端口。默认值是`9944`.
+`--rpc-port`：指定节点监听RPC通信的端口。`9933`是默认值，这个参数可以省略。
 
-   `--rpc-port`：指定节点监听RPC通信的端口。`9933`是默认值，这个参数可以省略。
+`--rpc-cores`：指定哪些请求来源的地址能够访问该节点。值可以是逗号分割的地址(protocol://domain 或一个`null`值)，all表示禁用请求来源检查。
 
-   `--rpc-cores`：指定哪些请求来源的地址能够访问该节点。值可以是逗号分割的地址(protocol://domain 或一个`null`值)，all表示禁用请求来源检查。
+`--bootnodes`：指定引导节点地址
 
-   `--bootnodes`：指定引导节点地址
-
-   ***Tips: 判断同步是否完成: 通过比较target（目标块高）和best（当前已同步）来判断同步进度***
+***Tips: 判断同步是否完成: 通过比较 target（目标块高）和 best（当前已同步）来判断同步进度***
 
 ![image-20210126021938613](join_dbc_testnet.assets/image-20210126021938613.png)
 
@@ -78,18 +76,18 @@
 
    ```bash
    ./target/release/substrate \
-   	--base-path ./account5 \
-   	--chain ./dbcSpecRaw.json \
+   	--base-path ./db_data \
    	--validator \
-   	--name MyNode5 \
+   	--name YourNodeName \
    	--port 30333 \
    	--ws-port 9944 \
    	--rpc-port 9933 \
    	--rpc-cors=all \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG
    ```
+   
 
-   注意：这里 `--name` 是设置你节点的名称，你可以为你的节点起一个独一无二的名称。
+注意：这里 `--name` 是设置你节点的名称，你可以为你的节点起一个独一无二的名称。
 
 5. 生成`rotateKey`
 
@@ -99,9 +97,7 @@
    curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}' http://localhost:9933
    ```
 
-6. 登陆你的`资金账户`（通过`polkadot{.js}`浏览器插件, 导入第二步的`Secret phrase`），打开[https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer ](https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer)  导航到`Accounts`你将能看到你的余额：
-
-   (安装`polkadot{.js}`插件：Chrome [Chrome web store](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd), Firefox：[Firefox add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/))
+6. 登陆你的`资金账户`（通过`polkadot{.js}`浏览器插件, 导入第二步的`Secret phrase`），打开[https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer ](https://test.dbcwallet.io/?rpc=wss://infotest.dbcwallet.io#/explorer)  导航到`Accounts`你将能看到你的余额：(安装`polkadot{.js}`插件：Chrome [Chrome web store](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd),  Firefox：[Firefox add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/))
 
    ![image-20210121194808850](join_dbc_testnet.assets/image-20210121194808850.png)
 

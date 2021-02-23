@@ -76,7 +76,7 @@
    导航到`Staking > Account actions > stashes > Nominate`
 
    ![image-20210125181918506](/home/bobo/.config/Typora/typora-user-images/image-20210125181918506.png)
-
-在弹出的选项中，选择你要提名的验证人：
-
-![image-20210125182105575](/home/bobo/.config/Typora/typora-user-images/image-20210125182105575.png)
+   
+   在弹出的选项中，选择你要提名的验证人：
+   
+   ![image-20210125182105575](/home/bobo/.config/Typora/typora-user-images/image-20210125182105575.png)
