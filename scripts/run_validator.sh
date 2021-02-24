@@ -1,35 +1,37 @@
 #!/bin/bash
 
-# # Assume run in docker
-# docker pull ubuntu:18.04
-# docker run -it --name ubuntu-test ubuntu:18.04
-# apt update && apt upgrade -y && apt install curl git -y
+# Assume run in docker
+docker pull ubuntu:18.04
+docker run -it --name ubuntu-test ubuntu:18.04
+apt update && apt upgrade -y && apt install curl git -y
 
-# red='\e[91m'
-# green='\e[92m'
-# yellow='\e[93m'
-# magenta='\e[95m'
-# cyan='\e[96m'
-# none='\e[0m'
+red='\e[91m'
+green='\e[92m'
+yellow='\e[93m'
+magenta='\e[95m'
+cyan='\e[96m'
+none='\e[0m'
 
-# # install subkey
-# curl https://getsubstrate.io -sSf | bash -s -- --fast
-# source ~/.cargo/env
+# install subkey
+curl https://getsubstrate.io -sSf | bash -s -- --fast
+source ~/.cargo/env
 
-# # China mirror of rust crates
-# echo "[source.crates-io]
-# registry = \"https://github.com/rust-lang/crates.io-index\"
-# replace-with = 'rustcc'
-# [source.rustcc]
-# registry=\"git://crates.rustcc.com/crates.io-index\"" >> ~/.cargo/config
+# China mirror of rust crates
+mkdir ~/.cargo
 
-# # install subkey to generate new accounts
-# cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0 --locked
+echo "[source.crates-io]
+registry = \"https://github.com/rust-lang/crates.io-index\"
+replace-with = 'rustcc'
+[source.rustcc]
+registry=\"git://crates.rustcc.com/crates.io-index\"" >> ~/.cargo/config
 
-# # compile dbc-chain
-# git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git
-# cd DeepBrainChain-MainChain && git checkout dbc-dev
-# cargo build --release
+# install subkey to generate new accounts
+cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0 --locked
+
+# compile dbc-chain
+git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git
+cd DeepBrainChain-MainChain && git checkout dbc-dev
+cargo build --release
 
 # Generate stash account
 echo "Please record the following output..."
