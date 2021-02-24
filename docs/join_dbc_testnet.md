@@ -15,6 +15,7 @@
    ```
 
 2. 生成资金账户
+   可选步骤：当您想使用别的资金账户时，可以略过这一步。
 
    ```bash
    # 生成stash账户 (用于存储现金)
@@ -41,6 +42,7 @@
    ```bash
    ./target/release/substrate \
    	--base-path ./db_data \
+   	--chain ./dbcSpecRaw.json \
    	--pruning=archive \
    	--port 30333 \
    	--ws-port 9944 \
@@ -51,6 +53,10 @@
    
 
 查看同步状态：你可以根据`target`与`best`的比较来判断是否同步已经完成, 也可以通过：https://telemetry.polkadot.io/#list/DBC%20Testnet 查看当前区块块高，通过与已同步的块高比较，判断同步是否完成。
+
+***Tips: 判断同步是否完成: 通过比较 target（目标块高）和 best（当前已同步）来判断同步进度，当target与best相差不大（如100以内）时，可以认为已经完成同步。***
+
+![image-20210126021938613](join_dbc_testnet.assets/image-20210126021938613.png)
 
 **参数说明：**
 
@@ -66,28 +72,25 @@
 
 `--rpc-cores`：指定哪些请求来源的地址能够访问该节点。值可以是逗号分割的地址(protocol://domain 或一个`null`值)，all表示禁用请求来源检查。
 
-`--bootnodes`：指定引导节点地址
+`--bootnodes`：指定引导节点地址。
 
-***Tips: 判断同步是否完成: 通过比较 target（目标块高）和 best（当前已同步）来判断同步进度***
-
-![image-20210126021938613](join_dbc_testnet.assets/image-20210126021938613.png)
-
-4. 在同步节点数据完成之后，关闭程序。然后以验证人的方式运行节点：
+4. 在第3步同步节点数据完成之后，关闭同步命令。然后以验证人的方式运行节点：
 
    ```bash
-   ./target/release/substrate \
+   nohup ./target/release/substrate \
    	--base-path ./db_data \
+   	--chain ./dbcSpecRaw.json \
    	--validator \
    	--name YourNodeName \
    	--port 30333 \
    	--ws-port 9944 \
    	--rpc-port 9933 \
    	--rpc-cors=all \
-   	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG
+   	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG 1>dbc_node.log 2>&1 &
    ```
    
 
-注意：这里 `--name` 是设置你节点的名称，你可以为你的节点起一个独一无二的名称。
+注意：这里 `--name` 是设置你节点的名称，你可以为你的节点起一个独一无二容易辨认的名称，别人将能在网络上看到它。
 
 5. 生成`rotateKey`
 
