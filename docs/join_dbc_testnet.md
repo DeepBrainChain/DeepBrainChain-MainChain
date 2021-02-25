@@ -40,7 +40,7 @@
 3. 运行同步节点
 
    ```bash
-   ./target/release/substrate \
+   ./target/release/dbc-chain \
    	--base-path ./db_data \
    	--chain ./dbcSpecRaw.json \
    	--pruning=archive \
@@ -77,7 +77,7 @@
 4. 在第3步同步节点数据完成之后，关闭同步命令。然后以验证人的方式运行节点：
 
    ```bash
-   nohup ./target/release/substrate \
+   nohup ./target/release/dbc-chain \
    	--base-path ./db_data \
    	--chain ./dbcSpecRaw.json \
    	--validator \

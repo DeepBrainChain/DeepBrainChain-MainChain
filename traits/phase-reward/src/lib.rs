@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-// TODO: how to get balance type???
 pub trait PhaseReward {
     type Balance;
 

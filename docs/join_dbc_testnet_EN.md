@@ -38,7 +38,7 @@
 3. Synchronize Chain Data
 
    ```bash
-   ./target/release/substrate \
+   ./target/release/dbc-chain \
    	--base-path ./account5 \
    	--chain ./dbcSpecRaw.json \
    	--pruning=archive \
@@ -76,7 +76,7 @@
 4. After synchronizing the node data finished, kill the program. Then run the node as a validator: 
 
    ```bash
-   ./target/release/substrate \
+   ./target/release/dbc-chain \
    	--base-path ./account5 \
    	--chain ./dbcSpecRaw.json \
    	--validator \
