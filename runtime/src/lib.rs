@@ -468,8 +468,8 @@ parameter_types! {
     pub const SlashDeferDuration: pallet_staking::EraIndex = 27;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 128;
-    // last 15 minutes of the last session will be for election.
-    pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 16;
+    // last 30 minutes of the last session will be for election.
+    pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 8;
     pub const MaxIterations: u32 = 10;
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);

@@ -2,6 +2,8 @@
 
 1. 编译DBC chain
 
+   方式1：从源码进行编译
+
    ```bash
    # 安装依赖，rust，subkey
    curl https://getsubstrate.io -sSf | bash -s -- --fast
@@ -14,13 +16,19 @@
    cargo build --release
    ```
 
+   方式2：使用预编译版本。如果您是使用 DBC vm 运行超级节点，登录您的服务器，切换到编译好的目录即可。
+
+   ```shell
+   cd /root/dbc_chain
+   ```
+
 2. 生成资金账户
    可选步骤：当您想使用别的资金账户时，可以略过这一步。
 
    ```bash
    # 生成stash账户 (用于存储现金)
    subkey generate --scheme sr25519
-
+   
    # 以下为生成的内容：
    Secret phrase `success extra health pupil cactus find better cat layer boss renew room` is account:
      Secret seed:      0x91c96acae5f3b79682ea1db1b94f81fa1915bd2981b345b9a90f8b64786d8ffe
@@ -50,7 +58,7 @@
    	--rpc-cors=all \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNJRVErXu6PvFcfCCQZFBAp6oU7BPEz5vWQZrLoift6TG
    ```
-   
+
 
 查看同步状态：你可以根据`target`与`best`的比较来判断是否同步已经完成, 也可以通过：https://telemetry.polkadot.io/#list/DBC%20Testnet 查看当前区块块高，通过与已同步的块高比较，判断同步是否完成。
 
