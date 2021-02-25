@@ -1,6 +1,12 @@
 如何使用DBC vm，简单的运行验证人节点？
 
-1. 进入容器，切换到`~/dbc_chain`文件夹
+1. 生成一个账户：
+
+   ```
+   subkey generate --scheme sr25519
+   ```
+
+   
 
    ```shell
    cd ~/dbc_chain
