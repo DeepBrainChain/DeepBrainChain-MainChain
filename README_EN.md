@@ -9,7 +9,7 @@ If you have some DBC and want to get more, you can choose to **become a `validat
 
 #### Periods of common actions and attributes in DBC network
 
-  + Slot：6 seconds **(generally one block per slot)**
+  + Slot：30 seconds **(generally one block per slot)**
   + Epoch duration：4 hour
   + Era duration：24 hours (6 sessions per Era, one Era is an election peroid, and is also a reward calculation peroid)
   + The `n-1` Era election period (the election period interval is 1 Era) will generate a new set of Validators, responsible for `n+1` Era block generation 

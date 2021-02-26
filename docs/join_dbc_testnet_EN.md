@@ -2,7 +2,13 @@
 
 1. Compile DBC chain
 
-   + Option 1: compile from source
+   + Option 1: use pre-build version. If you are running DBC vm to run an validator, login your server,  change dir to `/root/dbc_chain`  you will find pre-build binary.
+
+     ```bash
+     cd /root/dbc_chain
+     ```
+
+   + Option 2: compile from source
 
      ```bash
      # install rust，subkey
@@ -14,12 +20,6 @@
      git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git
      cd DeepBrainChain-MainChain && git checkout dbc-dev
      cargo build --release
-     ```
-
-   + Option 2: use pre-build version. If you are running DBC vm to run an validator, login your server,  change dir to `/root/dbc_chain`  you will find pre-build binary.
-
-     ```
-     cd /root/dbc_chain
      ```
 
 2. Generate stash account
@@ -48,12 +48,14 @@
 3. Synchronize Chain Data
 
    ```bash
-   ./target/release/dbc-chain \
+   ./dbc-chain \
    	--base-path ./db_data \
    	--chain ./dbcSpecRaw.json \
    	--pruning=archive \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWBJ3bTGwaM81X3yRT6ubUoeoSHWTyuKq5dGu5FXkFCWfK
    ```
+
+   + If you compile from source, the binary path is `./target/release/dbc-chain`
 
    After finished synchronize, type `Control + C` to close the above command. You can compare `target` and `best` to infer if sync is finished. When `target` is closed (100 blocks, for example) to `best` , it can be regard sync is finished.
 
@@ -72,16 +74,18 @@
 4. After synchronizing block data finished, stop the synchronizing command. Then run the node as a validator: 
 
    ```bash
-   nohup ./target/release/dbc-chain \
+   nohup ./dbc-chain \
    	--base-path ./db_data \
    	--chain ./dbcSpecRaw.json \
    	--validator \
    	--name YourNodeName \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWBJ3bTGwaM81X3yRT6ubUoeoSHWTyuKq5dGu5FXkFCWfK 1>dbc_node.log 2>&1 &
    ```
-   
+
+   + If you compile from source, the binary path is `./target/release/dbc-chain`
+
    You can give your validator any name that you like, but note that others will be able to see it, and it will be included in the list of all servers using the same telemetry server. Since numerous people are using telemetry, it is recommended that you choose something likely to be unique.
-   
+
    You may want to run this command backend, just add `nohup` before this command and `&` after this command.
 
 5. generate`rotateKey`
@@ -97,24 +101,22 @@
    + Install `polkadot{.js}` adds-on
 
      + Chrome, install via [Chrome web store](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd)
-  + Firefox, install via [Firefox add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/)
+     + Firefox, install via [Firefox add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/)
+   + login by`polkadot{.js}` browser adds-on by import `Secret phrase` generated in step 2.
+   + open [https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts) you will see your balance:
    
-+ login by`polkadot{.js}` browser adds-on by import `Secret phrase` generated in step 2.
-   
-+ open [https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts) you will see your balance:
-   
-  ![image-20210121194808850](join_dbc_testnet.assets/image-20210121194808850.png)
-   
+   ![image-20210121194808850](join_dbc_testnet.assets/image-20210121194808850.png)
 
-   
-​	navigate to`Staking > Account actions`，click `stash`![image-20210121194953014](join_dbc_testnet.assets/image-20210121194953014.png)
-   
-   You should set bond balance（Make sure not to bond all your DBC balance since you will be unable to pay transaction fees from your bonded balance.）：
-   
-   ![image-20210121195033167](join_dbc_testnet.assets/image-20210121195033167.png)
-   
+
+
+​	navigate to`Staking > Account actions`，click `stash`
+
+![image-20210121194953014](join_dbc_testnet.assets/image-20210121194953014.png)
+
+ You should set bond balance（Make sure not to bond all your DBC balance since you will be unable to pay transaction fees from your bonded balance.）：![image-20210121195033167](join_dbc_testnet.assets/image-20210121195033167.png)
+
    **Description：**
-   
+
    + `Stash account`：Select your Stash account. In this example, we will bond 45 DBC - make sure that your Stash account contains *at least* this much. You can, of course, stake more than this.
    + `controller account`：Select the Controller account created earlier. This account will also need a small amount of DBC in order to start and stop validating.
    + `value bonded`：How much DBC from the Stash account you want to bond/stake. Note that you do not need to bond all of the DBC in that account. Also note that you can always bond *more* DBC later.

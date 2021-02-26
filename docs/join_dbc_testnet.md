@@ -2,7 +2,13 @@
 
 1. 编译DBC chain
 
-   + **方式1**：从源码进行编译
+   + **方式1**：使用预编译版本。如果您是使用 DBC vm 运行超级节点，登录您的服务器，切换到编译好的目录即可。
+
+     ```bash
+     cd /root/dbc_chain
+     ```
+
+   + **方式2**：从源码进行编译
 
      ```bash
      # 安装依赖，rust，subkey
@@ -14,12 +20,6 @@
      git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git
      cd DeepBrainChain-MainChain && git checkout dbc-dev
      cargo build --release
-     ```
-
-   + **方式2**：使用预编译版本。如果您是使用 DBC vm 运行超级节点，登录您的服务器，切换到编译好的目录即可。
-
-     ```
-     cd /root/dbc_chain
      ```
 
 2. 生成资金账户
@@ -49,13 +49,14 @@
 3. 运行同步节点
 
    ```bash
-   ./target/release/dbc-chain \
+   ./dbc-chain \
    	--base-path ./db_data \
    	--chain ./dbcSpecRaw.json \
    	--pruning archive \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWBJ3bTGwaM81X3yRT6ubUoeoSHWTyuKq5dGu5FXkFCWfK
    ```
    
+   + 如果你是从源码进行编译，可执行文件路径为：`./target/release/dbc-chain`
    
    同步完成后，`Control + C`关掉程序。你可以根据`target`与`best`的比较来判断是否同步已经完成。当target与best相差不大（如100以内）时，可以认为已经完成同步。
    
@@ -72,17 +73,18 @@
 4. 在第3步同步节点数据完成之后，关闭同步命令。然后以验证人的方式运行节点：
 
    ```bash
-   nohup ./target/release/dbc-chain \
+   nohup ./dbc-chain \
    	--base-path ./db_data \
    	--chain ./dbcSpecRaw.json \
    	--validator \
    	--name YourNodeName \
    	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWBJ3bTGwaM81X3yRT6ubUoeoSHWTyuKq5dGu5FXkFCWfK 1>dbc_node.log 2>&1 &
    ```
-
-
-注意：这里 **`--name` 是设置你节点的名称**，你可以为你的节点起一个独一无二容易辨认的名称，别人将能在网络上看到它。
-
+   
+   + 如果你是从源码进行编译，可执行文件路径为：`./target/release/dbc-chain`
+   
+   注意：这里 **`--name` 是设置你节点的名称**，你可以为你的节点起一个独一无二容易辨认的名称，别人将能在网络上看到它。
+   
 5. 生成`rotateKey`
 
    在运行验证人节点命令的机器上运行下面命令
