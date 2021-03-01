@@ -2529,8 +2529,8 @@ impl<T: Config> Module<T> {
             let current_block_height = current_block_height.saturated_into::<u64>();
 
             // Milliseconds per year for the Julian year (365.25 days).
-            // let milliseconds_per_year: u64 = 1000 * 3600 * 24 * 36525 / 100;
-            let milliseconds_per_year: u64 = 3_600_000;
+            let milliseconds_per_year: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
             let milliseconds_per_block =
                 <T as pallet_timestamp::Config>::MinimumPeriod::get().saturating_mul(2u32.into());
             let block_per_year: u64 =
