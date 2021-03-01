@@ -2,17 +2,15 @@
 
 ### Create your account in dbchain
 
-open `dbchain` website：[https://www.dbchain.ai/mywallet/myWallet](https://www.dbchain.ai/mywallet/myWallet)，and click `Create wallet account`：
+open `dbchain` website：[https://www.dbchain.ai/mywallet/myWallet](https://www.dbchain.ai/mywallet/myWallet)，and click `Create wallet account`:
 
 ![image-20210226184044351](prepare_vm_EN.assets/image-20210226184044351.png)
 
-input your passwd and click "Create"：
+input your passwd and click "Create":
 
 ![image-20210226184135325](prepare_vm_EN.assets/image-20210226184135325.png)
 
 Then, click "Key DOWNLOAD ENCRYPTED KEY" to **save your private key**， and click Continue, save your private key and finish.
-
-随后，点击“下载加密后的私钥”，**保存您的私钥文件**。然后点击“继续”，保存私钥并点击完成。
 
 ![image-20210226184316361](prepare_vm_EN.assets/image-20210226184316361.png)
 

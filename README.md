@@ -32,8 +32,6 @@ If you want to read the English version, click [here](README_EN.md)
 + **验证人奖励** = 总奖励 * 自定义比例的分佣 + 生于部分的奖励 * 验证人stake占节点的比例
 + **提名人奖励**：**按stake数量排名前128名才能获得奖励。**`奖励数量 =（节点总奖励 - 验证人自定义比例分佣 ）* 占节点总stake比例`
 
-[TODO：修改提名人的两个图]
-
 
 #### 如何成为`提名人`
 

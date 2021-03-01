@@ -45,7 +45,7 @@
 
 6. Nominator
 
-   Navigate to `Network > Staking > Account actions`，click `Nominator`
+   Navigate to `Network > Staking > Account actions`, click `Nominator`
 
    ![image-20210122210945889](staking_dbc_and_voting.assets/image-20210122210945889.png)
 
@@ -55,30 +55,23 @@
 
    
 
-   then, you should select the validator. （**You can nominate more than one validator**）。
+   then, you should select the validator. (**You can nominate more than one validator**).
 
    ![image-20210122211203371](staking_dbc_and_voting.assets/image-20210122211203371.png)
 
-   Finally click`Bond & Nominate to send the transaction and finished the nominate。
+   Finally click`Bond & Nominate to send the transaction and finished the nominate.
 
 7. Check your nominate result
 
-   Navigate to`Network > Staking > Account actions`，you can see the balance of bonded DBC and the validator you nominated。
+   Navigate to`Network > Staking > Account actions`, you can see the balance of bonded DBC and the validator you nominated.
 
    ![image-20210122211537605](staking_dbc_and_voting.assets/image-20210122211537605.png)
 
 8. Nominate the second time
 
-   Nominate in `step 6` include two step：set `stash account` bond `controller` account and nominate a validator.
+   Nominate in `step 6` include two step: set `stash account` bond `controller` account and nominate a validator.
 
-   If we want to nominate the second time，only need to click `Nominate` button：
+   If we want to nominate the second time, only need to click `Nominate` button：
 
-   Navigate to `Staking > Account actions > stashes > Nominate`
+   Navigate to `Staking > Account actions > stashes > Nominate`, select the validator you want to nominate. It's done!
 
-   ![image-20210125181918506](/home/bobo/.config/Typora/typora-user-images/image-20210125181918506.png)
-
-select the validator you want to nominate：
-
-![image-20210125182105575](/home/bobo/.config/Typora/typora-user-images/image-20210125182105575.png)
-
-It's done!在弹出的选项中，选择你要提名的验证人：

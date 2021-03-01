@@ -73,10 +73,4 @@
 
    我们想要再次提名，只需要点击下方的`Nominate`进行提名这一个步骤即可：
 
-   导航到`Staking > Account actions > stashes > Nominate`
-
-   ![image-20210125181918506](/home/bobo/.config/Typora/typora-user-images/image-20210125181918506.png)
-   
-   在弹出的选项中，选择你要提名的验证人：
-   
-   ![image-20210125182105575](/home/bobo/.config/Typora/typora-user-images/image-20210125182105575.png)
+   导航到`Staking > Account actions > stashes > Nominate`，在列表的右边点击`Nominate`按钮，在弹出的选项中，选择你要提名的验证人。
