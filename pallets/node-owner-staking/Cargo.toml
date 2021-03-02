@@ -1,13 +1,15 @@
 [package]
-name = "dbc-testing"
+name = "node-owner-staking"
 version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.3.6", default-features = false, features = ["derive"] }
-phase-reward = { path = "../../traits/phase-reward", default-features = false }
 serde = { version = "1.0.101", optional = true }
+alt_serde = { version = "1", default-features = false, features = ["derive"] }
+# serde_json = { version = "1", default-features = false, git = "https://github.com/Xanewok/json", branch = "no-std", features = ["alloc"] }
+serde_json = { version = "1", default-features = false, git = "https://github.com/kaigedong/json", branch = "no-std", features = ["alloc"] }
 
 [dependencies.frame-support]
 default-features = false
@@ -21,16 +23,27 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
 version = '2.0.0'
 
-[dependencies.timestamp]
+[dependencies.sp-std]
 default-features = false
-package = 'pallet-timestamp'
 git = 'https://github.com/paritytech/substrate.git'
 rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
 version = '2.0.0'
 
-[dependencies.babe]
+[dependencies.sp-runtime]
 default-features = false
-package = 'pallet-babe'
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.sp-io]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
+version = '2.0.0'
+
+[dependencies.timestamp]
+default-features = false
+package = 'pallet-timestamp'
 git = 'https://github.com/paritytech/substrate.git'
 rev = 'b2a50198d3fa71959c77d22edb5fdb8c1e74006c'
 version = '2.0.0'
@@ -42,7 +55,8 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "timestamp/std",
-    "babe/std",
-    "phase-reward/std",
+    "sp-std/std",
+    "sp-runtime/std",
+    "sp-io/std",
     "serde",
 ]

@@ -1016,6 +1016,11 @@ impl dbc_testing::Config for Runtime {
     type PhaseReward = Staking;
 }
 
+impl node_owner_staking::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1059,6 +1064,7 @@ construct_runtime!(
         Mmr: pallet_mmr::{Module, Storage},
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Call},
+        NodeOwnerStaking: node_owner_staking::{Module, Call, Event<T>},
     }
 );
 

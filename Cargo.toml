@@ -15,5 +15,6 @@ members = [
     'testing',
     'pallets/dbc-staking',
     'pallets/dbc-testing',
-    'traits/phase-reward'
+    'traits/phase-reward',
+    'pallets/node-owner-staking'
 ]
