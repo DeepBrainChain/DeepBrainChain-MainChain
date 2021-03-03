@@ -1,8 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::Currency;
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
+    debug, decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+    traits::{Currency, ExistenceRequirement::AllowDeath},
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::{
@@ -11,14 +13,20 @@ use sp_runtime::{
         storage::StorageValueRef,
         storage_lock::{BlockAndTime, StorageLock},
     },
+    traits::AccountIdConversion,
+    ModuleId,
 };
-use sp_std::{prelude::*, str};
+use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
 
 mod machine_info;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
+// PALLET_ID must be exactly eight characters long.
+const PALLET_ID: ModuleId = ModuleId(*b"MCStake!");
+
+pub const NUM_VEC_LEN: usize = 10;
 pub const HTTP_REMOTE_REQUEST: &str =
     "http://116.85.24.172:41107/api/v1/mining_nodes/2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3";
 pub const HTTP_HEADER_USER_AGENT: &str = "jimmychu0807"; // TODO: remove this
@@ -36,8 +44,11 @@ decl_event! {
     pub enum Event<T>
     where
         AccountId = <T as system::Config>::AccountId,
+        Balance = BalanceOf<T>,
     {
         BondMachine(AccountId, u32),
+        AddBondReceive(AccountId, Balance, AccountId),
+        ReduceBonded(AccountId, Balance, AccountId),
     }
 }
 
@@ -45,14 +56,26 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         MachineIDNotBond,
         HttpFetchingError,
+        BalanceNotEnough,
     }
 }
 
 decl_storage! {
     trait Store for Module<T: Config> as NodeOwnerStaking {
+        BindingQueue get(fn binding_queue): VecDeque<u64>;
+
         pub Members get(fn members): map hasher(blake2_128_concat) T::AccountId => ();
         pub UserCurrProfile get(fn user_curr_profile): map hasher(blake2_128_concat) T::AccountId => u128;
         pub UserFutureProfile get(fn user_future_profile): map hasher(blake2_128_concat) T::AccountId => Vec<u64>;
+    }
+    add_extra_genesis {
+        build(|_config| {
+            // Create the charity's pot of funds, and ensure it has the minimum required deposit
+            let _ = T::Currency::make_free_balance_be(
+                &<Module<T>>::account_id(),
+                T::Currency::minimum_balance(),
+            );
+        });
     }
 }
 
@@ -63,21 +86,41 @@ decl_module! {
         #[weight = 20_000]
         pub fn bond_machine(origin, machine_id: u64) -> DispatchResult{
             let _user = ensure_signed(origin)?;
-            // TODO: call off-chain worker to bind machine
-            //
-            // http://116.85.24.172:41107/api/v1/mining_nodes/2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3
+            Self::append_or_relpace_binding_machine(machine_id);
             Ok(())
         }
 
         #[weight = 10_000]
         pub fn add_bonded_token(origin, machine_id: u64, bond_amount: BalanceOf<T>) -> DispatchResult{
-            let _user = ensure_signed(origin)?;
+            let user = ensure_signed(origin)?;
+
+            // TODO: 1. check balance of user
+            ensure!(T::Currency::free_balance(&user) > bond_amount,Error::<T>::BalanceNotEnough );
+
+            let _ = T::Currency::transfer(&user, &Self::account_id(), bond_amount, AllowDeath);
+
+            Self::deposit_event(RawEvent::AddBondReceive(user, bond_amount, Self::account_id()));
+
+            // TODO: 3. record user's stake history to calc block info
+
             Ok(())
         }
 
         #[weight = 10_000]
-        pub fn reduce_bonded_token(origin, machine_id: u64, reduce_amount: BalanceOf<T>) -> DispatchResult{
-            let _user = ensure_signed(origin)?;
+        fn reduce_bonded_token(origin, machine_id: u64, amount: BalanceOf<T>) -> DispatchResult {
+            let user = ensure_signed(origin)?;
+            // TODO: check if machine belong to this user.
+            // TODO: check bond amount bigger than user's
+
+            // TODO: cannot transfer to user directly, but lock some time instead
+
+            // Make the transfer requested
+            T::Currency::transfer(&Self::account_id(), &user, amount, AllowDeath)
+                .map_err(|_| DispatchError::Other("Can't make allocation"))?;
+
+            // TODO what about errors here??
+
+            Self::deposit_event(RawEvent::ReduceBonded(user, amount, Self::account_id()));
             Ok(())
         }
 
@@ -92,15 +135,50 @@ decl_module! {
             let _user = ensure_signed(origin)?;
             Ok(())
         }
+
+        fn offchain_worker(block_number: T::BlockNumber) {
+            debug::info!("Entering off-chain worker");
+
+            // TODO: run multiple query
+            BindingQueue::mutate(|binding_queue| {
+                if binding_queue.len() == 0 {
+                    return
+                }
+                let a_machine_info = binding_queue.pop_front().unwrap();
+
+                Self::fetch_machine_info(a_machine_info);
+            })
+        }
+
+
     }
 }
 
 impl<T: Config> Module<T> {
-    fn fetch_machine_info() -> Result<(), Error<T>> {
-        let s_info = StorageValueRef::persistent(b"offchain-worker::?");
+    fn append_or_relpace_binding_machine(machine_id: u64) {
+        BindingQueue::mutate(|binding_queue| {
+            if binding_queue.len() == NUM_VEC_LEN {
+                let _ = binding_queue.pop_front();
+            }
+            binding_queue.push_back(machine_id);
+            debug::info!("Machine info: {:?}", binding_queue);
+        })
+    }
 
-        if let Some(Some(gh_info)) = s_info.get::<machine_info::MachineInfo>() {
-            debug::info!("cached gh-info: {:?}", gh_info);
+    pub fn account_id() -> T::AccountId {
+        PALLET_ID.into_account()
+    }
+
+    fn pot() -> BalanceOf<T> {
+        T::Currency::free_balance(&Self::account_id())
+    }
+
+    // TODO: fetch machine info and compare with user's addr, if it's same, store it else return
+    fn fetch_machine_info(machine_id: u64) -> Result<(), Error<T>> {
+        let s_info = StorageValueRef::persistent(b"offchain-worker::mc-info");
+
+        if let Some(Some(mc_info)) = s_info.get::<machine_info::MachineInfo>() {
+            debug::info!("cached gh-info: {:?}", mc_info);
             return Ok(());
         }
 
@@ -112,8 +190,8 @@ impl<T: Config> Module<T> {
 
         if let Ok(_gurad) = lock.try_lock() {
             match Self::fetch_n_parse() {
-                Ok(gh_info) => {
-                    s_info.set(&gh_info);
+                Ok(mc_info) => {
+                    s_info.set(&mc_info);
                 }
                 Err(err) => {
                     return Err(err);
