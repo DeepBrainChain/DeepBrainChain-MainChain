@@ -108,19 +108,19 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = 20_000]
-        pub fn bond_machine(origin, machine_id: MachineId) -> DispatchResult{
+        pub fn bond_machine(origin, machine_id: MachineId) -> DispatchResult {
             let user = ensure_signed(origin)?;
 
             Self::append_or_relpace_binding_machine(
                 BindingPair{
-                    account_id: user.clone(),
-                    machine_id: machine_id.clone(),
+                    account_id: user,
+                    machine_id: machine_id,
                 });
             Ok(())
         }
 
         #[weight = 10_000]
-        pub fn add_bonded_token(origin, machine_id: MachineId, bond_amount: BalanceOf<T>) -> DispatchResult{
+        pub fn add_bonded_token(origin, machine_id: MachineId, bond_amount: BalanceOf<T>) -> DispatchResult {
             let user = ensure_signed(origin)?;
 
             // TODO: 1. check balance of user
@@ -154,13 +154,13 @@ decl_module! {
         }
 
         #[weight = 10_000]
-        pub fn reduce_all_bonded_token(origin) -> DispatchResult{
+        pub fn reduce_all_bonded_token(origin) -> DispatchResult {
             let _user = ensure_signed(origin)?;
             Ok(())
         }
 
         #[weight = 10_000]
-        pub fn rm_bonded_machine(origin, machine_id: MachineId) -> DispatchResult{
+        pub fn rm_bonded_machine(origin, machine_id: MachineId) -> DispatchResult {
             let _user = ensure_signed(origin)?;
             Ok(())
         }
@@ -170,12 +170,11 @@ decl_module! {
 
             // TODO: run multiple query
             BindingQueue::<T>::mutate(|binding_queue| {
-                if binding_queue.len() == 0 {
-                    return
-                }
-                let a_machine_info = binding_queue.pop_front().unwrap();
 
-                Self::fetch_machine_info(a_machine_info.machine_id);
+                while binding_queue.len() > 0 {
+                    let a_machine_info = binding_queue.pop_front().unwrap();
+                    Self::fetch_machine_info(&a_machine_info.machine_id);
+                }
             })
         }
     }
@@ -221,7 +220,7 @@ impl<T: Config> Module<T> {
     fn rm_machine(machine_id: MachineId) {}
 
     // TODO: fetch machine info and compare with user's addr, if it's same, store it else return
-    fn fetch_machine_info(machine_id: MachineId) -> Result<(), Error<T>> {
+    fn fetch_machine_info(machine_id: &MachineId) -> Result<(), Error<T>> {
         let s_info = StorageValueRef::persistent(b"offchain-worker::mc-info");
 
         if let Some(Some(mc_info)) = s_info.get::<machine_info::MachineInfo>() {
