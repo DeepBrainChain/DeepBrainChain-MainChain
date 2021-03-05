@@ -16,5 +16,5 @@ members = [
     'pallets/dbc-staking',
     'pallets/dbc-testing',
     'traits/phase-reward',
-    'pallets/node-owner-staking'
+    'pallets/online-profile'
 ]

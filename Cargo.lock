@@ -3850,22 +3850,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "node-owner-staking"
-version = "0.1.0"
-dependencies = [
- "alt_serde",
- "frame-support",
- "frame-system",
- "pallet-timestamp",
- "parity-scale-codec",
- "serde",
- "serde_json 1.0.44",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "node-primitives"
 version = "2.0.0"
 dependencies = [
@@ -3935,8 +3919,8 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "hex-literal",
- "node-owner-staking",
  "node-primitives",
+ "online-profile",
  "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -4156,6 +4140,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13bd41f508810a131401606d54ac32a467c97172d74ba7662562ebba5ad07fa0"
 dependencies = [
  "parking_lot 0.11.1",
+]
+
+[[package]]
+name = "online-profile"
+version = "0.1.0"
+dependencies = [
+ "alt_serde",
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "serde",
+ "serde_json 1.0.44",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
