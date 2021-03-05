@@ -15,10 +15,15 @@ use sp_runtime::{
         storage::StorageValueRef,
         storage_lock::{BlockAndTime, StorageLock},
     },
-    traits::AccountIdConversion,
+    traits::{AccountIdConversion, Saturating},
     ModuleId,
 };
-use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
+use sp_std::{
+    collections::vec_deque::VecDeque,
+    convert::{TryFrom, TryInto},
+    prelude::*,
+    str,
+};
 
 mod machine_info;
 
@@ -51,13 +56,15 @@ decl_event! {
     {
         BondMachine(AccountId, MachineId),
         AddBondReceive(AccountId, Balance, AccountId),
-        ReduceBonded(AccountId, Balance, AccountId),
+        RemoveBonded(AccountId, MachineId, Balance),
     }
 }
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        MachineIDNotBond,
+        MachineIDNotBonded,
+        TokenNotBonded,
+        BondedNotEnough,
         HttpFetchingError,
         BalanceNotEnough,
         NotMachineOwner,
@@ -67,7 +74,7 @@ decl_error! {
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-pub struct BindingPair<AccountId> {
+pub struct BondingPair<AccountId> {
     account_id: AccountId,
     machine_id: MachineId,
 }
@@ -81,13 +88,16 @@ decl_storage! {
         pub UserPendingProfile get(fn user_pending_profile): map hasher(blake2_128_concat) T::AccountId => BalanceOf<T>;
 
         // store user's machine
-        pub UserBindedMachine get(fn user_binded_machine): map hasher(blake2_128_concat) T::AccountId => Vec<MachineId>;
+        pub UserBondedMachine get(fn user_bonded_machine): map hasher(blake2_128_concat) T::AccountId => Vec<MachineId>;
+
+        // store how much user has bonded
+        pub UserBondedMoney get(fn user_bonded_token): double_map hasher(blake2_128_concat) T::AccountId, hasher(blake2_128_concat) MachineId => BalanceOf<T>;
 
         // used for OCW to store pending binding pair
-        pub BindingQueue get(fn binding_queue): VecDeque<BindingPair<T::AccountId>>;
+        pub BondingQueue get(fn bonding_queue): VecDeque<BondingPair<T::AccountId>>;
 
         // Machine, has been bonded
-        pub BindedMachine get(fn binded_machine): map hasher(blake2_128_concat) MachineId => ();
+        pub BondedMachine get(fn bonded_machine): map hasher(blake2_128_concat) MachineId => ();
 
         // MachineInfo
         pub MachineInfo get(fn machine_info): map hasher(blake2_128_concat) MachineId => ();
@@ -107,30 +117,61 @@ decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
+        /// Bonding machine only remember caller-machine_id pair.
+        /// OCW will check it and record machine info.
         #[weight = 20_000]
-        pub fn bond_machine(origin, machine_id: MachineId) -> DispatchResult {
-            let user = ensure_signed(origin)?;
+        pub fn bonding_machine(origin, machine_id: MachineId) -> DispatchResult {
+            let caller = ensure_signed(origin)?;
 
             Self::append_or_relpace_binding_machine(
-                BindingPair{
-                    account_id: user,
-                    machine_id: machine_id,
+                BondingPair{
+                    account_id: caller,
+                    machine_id: machine_id.clone(),
                 });
+
+            BondedMachine::insert(&machine_id, ());
+
             Ok(())
         }
+
+        #[weight = 10_000]
+        pub fn rm_bonded_machine(origin, machine_id: MachineId) -> DispatchResult {
+            let user = ensure_signed(origin)?;
+            let mut user_bonded_machine = UserBondedMachine::<T>::get(&user);
+
+            // TODO: query how much has bonded
+
+            match user_bonded_machine.binary_search(&machine_id) {
+                Ok(index) => {
+                    user_bonded_machine.remove(index);
+                    UserBondedMachine::<T>::insert(user, user_bonded_machine);
+                    // TODO: add event
+                    // Self::deposit_event(RawEvent::RemoveBonded(user, machine_id,T::BalanceOf::from(0)));
+                    BondedMachine::remove(&machine_id);
+                    return Ok(())
+                },
+                Err(_) => return Err(Error::<T>::MachineIDNotBonded.into()),
+            }
+        }
+
 
         #[weight = 10_000]
         pub fn add_bonded_token(origin, machine_id: MachineId, bond_amount: BalanceOf<T>) -> DispatchResult {
             let user = ensure_signed(origin)?;
 
-            // TODO: 1. check balance of user
+            // Check free balance of user
             ensure!(T::Currency::free_balance(&user) > bond_amount, Error::<T>::BalanceNotEnough);
 
             let _ = T::Currency::transfer(&user, &Self::account_id(), bond_amount, AllowDeath);
 
-            Self::deposit_event(RawEvent::AddBondReceive(user, bond_amount, Self::account_id()));
+            if <UserBondedMoney<T>>::contains_key(&user, &machine_id) {
+                let user_bonded_money = <UserBondedMoney<T>>::get(&user, &machine_id);
+                <UserBondedMoney<T>>::insert(&user, &machine_id, user_bonded_money.saturating_add(bond_amount));
+            } else {
+                <UserBondedMoney<T>>::insert(&user, &machine_id, bond_amount);
+            }
 
-            // TODO: 3. record user's stake history to calc block info
+            Self::deposit_event(RawEvent::AddBondReceive(user, bond_amount, Self::account_id()));
 
             Ok(())
         }
@@ -138,18 +179,23 @@ decl_module! {
         #[weight = 10_000]
         fn reduce_bonded_token(origin, machine_id: MachineId, amount: BalanceOf<T>) -> DispatchResult {
             let user = ensure_signed(origin)?;
-            // TODO: check if machine belong to this user.
-            // TODO: check bond amount bigger than user's
+            ensure!(<UserBondedMachine<T>>::contains_key(&user),Error::<T>::MachineIDNotBonded);
+            ensure!(<UserBondedMoney<T>>::contains_key(&user, &machine_id), Error::<T>::TokenNotBonded);
 
-            // TODO: cannot transfer to user directly, but lock some time instead
+            let bonded_money_left = <UserBondedMoney<T>>::get(&user, &machine_id);
+
+            ensure!(bonded_money_left >= amount, Error::<T>::BondedNotEnough);
+
+            // TODO: Lock some time instead of transfer to user directly,
 
             // Make the transfer requested
             T::Currency::transfer(&Self::account_id(), &user, amount, AllowDeath)
                 .map_err(|_| DispatchError::Other("Can't make allocation"))?;
-
             // TODO what about errors here??
 
-            Self::deposit_event(RawEvent::ReduceBonded(user, amount, Self::account_id()));
+            <UserBondedMoney<T>>::insert(&user, &machine_id, bonded_money_left.saturating_sub(amount));
+
+            Self::deposit_event(RawEvent::RemoveBonded(user, machine_id, amount));
             Ok(())
         }
 
@@ -159,30 +205,25 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = 10_000]
-        pub fn rm_bonded_machine(origin, machine_id: MachineId) -> DispatchResult {
-            let _user = ensure_signed(origin)?;
-            Ok(())
-        }
-
         fn offchain_worker(block_number: T::BlockNumber) {
             debug::info!("Entering off-chain worker");
 
             // TODO: run multiple query
-            BindingQueue::<T>::mutate(|binding_queue| {
-
+            BondingQueue::<T>::mutate(|binding_queue| {
                 while binding_queue.len() > 0 {
                     let a_machine_info = binding_queue.pop_front().unwrap();
                     Self::fetch_machine_info(&a_machine_info.machine_id);
                 }
-            })
+            });
+
+            // TODO: if check is succeed, insert machine_id to `UserBondedMachine`
         }
     }
 }
 
 impl<T: Config> Module<T> {
-    fn append_or_relpace_binding_machine(machine_pair: BindingPair<T::AccountId>) {
-        BindingQueue::<T>::mutate(|binding_queue| {
+    fn append_or_relpace_binding_machine(machine_pair: BondingPair<T::AccountId>) {
+        BondingQueue::<T>::mutate(|binding_queue| {
             if binding_queue.len() == NUM_VEC_LEN {
                 let _ = binding_queue.pop_front();
             }
@@ -205,13 +246,13 @@ impl<T: Config> Module<T> {
         //     Error::<T>::NotMachineOwner
         // );
 
-        let mut user_machine = UserBindedMachine::<T>::get(&user);
+        let mut user_machine = UserBondedMachine::<T>::get(&user);
 
         match user_machine.binary_search(&machine_id) {
             Ok(_) => Err(Error::<T>::AlreadyAddedMachine.into()),
             Err(index) => {
                 user_machine.insert(index, machine_id.clone());
-                UserBindedMachine::<T>::insert(&user, user_machine);
+                UserBondedMachine::<T>::insert(&user, user_machine);
                 Ok(())
             }
         }
