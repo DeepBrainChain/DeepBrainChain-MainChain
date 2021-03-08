@@ -12,8 +12,10 @@ use frame_system::{self as system, ensure_signed};
 use sp_runtime::{
     offchain,
     offchain::{
+        http,
         storage::StorageValueRef,
         storage_lock::{BlockAndTime, StorageLock},
+        Duration,
     },
     traits::{AccountIdConversion, Saturating},
     ModuleId,
@@ -39,8 +41,8 @@ pub const HTTP_REMOTE_REQUEST: &str =
     "http://116.85.24.172:41107/api/v1/mining_nodes/2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3";
 pub const HTTP_HEADER_USER_AGENT: &str = "jimmychu0807"; // TODO: remove this
 
-pub const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milli-seconds
-pub const LOCK_TIMEOUT_EXPIRATION: u64 = FETCH_TIMEOUT_PERIOD + 1000; // in milli-seconds
+pub const FETCH_TIMEOUT_PERIOD: u64 = 3_000; // in milli-seconds
+pub const LOCK_TIMEOUT_EXPIRATION: u64 = FETCH_TIMEOUT_PERIOD + 1_000; // in milli-seconds
 pub const LOCK_BLOCK_EXPIRATION: u32 = 3; // in block number
 
 pub trait Config: system::Config {
@@ -68,6 +70,7 @@ decl_error! {
         TokenNotBonded,
         BondedNotEnough,
         HttpFetchingError,
+        HttpDecodeError,
         BalanceNotEnough,
         NotMachineOwner,
         AlreadyAddedMachine,
@@ -223,13 +226,16 @@ decl_module! {
         fn offchain_worker(block_number: T::BlockNumber) {
             debug::info!("Entering off-chain worker");
 
-            // TODO: run multiple query
-            BondingQueue::<T>::mutate(|binding_queue| {
-                while binding_queue.len() > 0 {
-                    let a_machine_info = binding_queue.pop_front().unwrap();
-                    Self::fetch_machine_info(&a_machine_info.machine_id);
-                }
-            });
+            Self::fetch_machine_info();
+
+            // // TODO: run multiple query
+            // BondingQueue::<T>::mutate(|bonding_queue| {
+            //     while bonding_queue.len() > 0 {
+            //         let a_machine_info = bonding_queue.pop_front().unwrap();
+            //         // Self::fetch_machine_info(&a_machine_info.machine_id);
+            //         Self::fetch_machine_info();
+            //     }
+            // });
 
             // TODO: if check is succeed, insert machine_id to `UserBondedMachine`
         }
@@ -275,50 +281,21 @@ impl<T: Config> Module<T> {
 
     fn rm_machine(machine_id: MachineId) {}
 
-    // TODO: fetch machine info and compare with user's addr, if it's same, store it else return
-    fn fetch_machine_info(machine_id: &MachineId) -> Result<(), Error<T>> {
-        let s_info = StorageValueRef::persistent(b"offchain-worker::mc-info");
+    // fn fetch_n_parse() -> Result<machine_info::MachineInfo, Error<T>> {
+    //     let resp_bytes = Self::fetch_from_remote().map_err(|e| {
+    //         debug::error!("fetch_from_remote error: {:?}", e);
+    //         <Error<T>>::HttpFetchingError
+    //     })?;
 
-        if let Some(Some(mc_info)) = s_info.get::<machine_info::MachineInfo>() {
-            debug::info!("cached gh-info: {:?}", mc_info);
-            return Ok(());
-        }
+    //     let resp_str = str::from_utf8(&resp_bytes).map_err(|_| <Error<T>>::HttpFetchingError)?;
+    //     debug::info!("{}", resp_str);
 
-        let mut lock = StorageLock::<BlockAndTime<Self>>::with_block_and_time_deadline(
-            b"offchain-demo::lock",
-            LOCK_BLOCK_EXPIRATION,
-            offchain::Duration::from_millis(LOCK_TIMEOUT_EXPIRATION),
-        );
+    //     let gh_info: machine_info::MachineInfo =
+    //         serde_json::from_str(&resp_str).map_err(|_| <Error<T>>::HttpFetchingError)?;
+    //     Ok(gh_info)
+    // }
 
-        if let Ok(_gurad) = lock.try_lock() {
-            match Self::fetch_n_parse() {
-                Ok(mc_info) => {
-                    s_info.set(&mc_info);
-                }
-                Err(err) => {
-                    return Err(err);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn fetch_n_parse() -> Result<machine_info::MachineInfo, Error<T>> {
-        let resp_bytes = Self::fetch_from_remote().map_err(|e| {
-            debug::error!("fetch_from_remote error: {:?}", e);
-            <Error<T>>::HttpFetchingError
-        })?;
-
-        let resp_str = str::from_utf8(&resp_bytes).map_err(|_| <Error<T>>::HttpFetchingError)?;
-        debug::info!("{}", resp_str);
-
-        let gh_info: machine_info::MachineInfo =
-            serde_json::from_str(&resp_str).map_err(|_| <Error<T>>::HttpFetchingError)?;
-        Ok(gh_info)
-    }
-
-    fn fetch_from_remote() -> Result<Vec<u8>, Error<T>> {
+    fn fetch_machine_info() -> Result<Vec<u8>, Error<T>> {
         debug::info!("sending request to: {}", HTTP_REMOTE_REQUEST);
 
         let request = offchain::http::Request::get(HTTP_REMOTE_REQUEST);
@@ -341,6 +318,20 @@ impl<T: Config> Module<T> {
             debug::error!("Unexpected http request status code: {}", response.code);
             return Err(<Error<T>>::HttpFetchingError);
         }
+
+        let body = response.body().collect::<Vec<u8>>();
+        let body_str = sp_std::str::from_utf8(&body)
+            .map_err(|_| {
+                debug::warn!("No UTF8 body");
+                http::Error::Unknown
+            })
+            .unwrap(); // TODO: handle error here
+
+        debug::info!("#### MachineInfo str: {}", &body_str);
+
+        let machine_info: machine_info::MachineInfo = serde_json::from_str(&body_str).unwrap(); // TODO: handler error here
+
+        debug::info!("############ Machine_info is: {:#?}", machine_info);
 
         Ok(response.body().collect::<Vec<u8>>())
     }

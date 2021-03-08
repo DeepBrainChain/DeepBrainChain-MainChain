@@ -1064,7 +1064,7 @@ construct_runtime!(
         Mmr: pallet_mmr::{Module, Storage},
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Call},
-        OnlineProfile: online_profile::{Module, Call, Event<T>},
+        OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
     }
 );
 

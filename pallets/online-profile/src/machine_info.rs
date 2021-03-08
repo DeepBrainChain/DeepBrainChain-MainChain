@@ -10,6 +10,44 @@ where
     Ok(s.as_bytes().to_vec())
 }
 
+// // TODO: custom wallet deserializer
+// pub fn de_vecstring_to_bytes<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
+// where
+//     D: Deserializer<'de>,
+// {
+//     struct VecString(PhantomData<Vec<Vec<u8>>>);
+
+//     impl<'de> alt_serde::de::Visitor<'de> for VecString {
+//         type Value = Vec<Vec<u8>>;
+
+//         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+//             formatter.write_str("string or list of strings")
+//         }
+
+//         fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+//         where
+//             E: Error,
+//         {
+//             // let s: &str = Deserialize::deserialize(value)?;
+//             Ok(vec![value.as_bytes().to_vec()])
+//         }
+
+//         fn visit_seq<S>(self, mut visitor: S) -> Result<Self::Value, S::Error>
+//         where
+//             S: alt_serde::de::SeqAccess<'de>,
+//         {
+//             let mut wallets = Vec::new();
+//             while let Some(value) = visitor.next_element::<&str>()? {
+//                 wallets.push(value.as_bytes().to_vec())
+//             }
+//             Ok(wallets.into())
+//             // de::Deserialize::deserialize(de::value::SeqAccessDeserializer::new(visitor))
+//         }
+//     }
+
+//     deserializer.deserialize_any(VecString(PhantomData))
+// }
+
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
 pub struct MachineInfo {
@@ -26,7 +64,7 @@ struct MachineData {
     cpu_usage: Vec<u8>,
 
     disk: Disk,
-    gpu: u64,
+    gpu: GPU,
     gpu_state: GPUStatus,
     gpu_usage: Vec<GPUUsage>,
 
@@ -54,16 +92,19 @@ struct MachineData {
     #[serde(deserialize_with = "de_string_to_bytes")]
     version: Vec<u8>,
 
-    #[serde(deserialize_with = "de_string_to_bytes")]
-    wallet: Vec<u8>,
+    // #[serde(deserialize_with = "de_string_to_bytes")]
+    // #[serde(borrow)]
+    wallet: Vec<Vec<u8>>, // FIXME: fix it
 }
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
 struct CPU {
-    num: u32,
     #[serde(deserialize_with = "de_string_to_bytes")]
-    _type: Vec<u8>, // TODO: how to handle this
+    num: Vec<u8>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    #[serde(rename = "type")]
+    _type: Vec<u8>,
 }
 
 #[serde(crate = "alt_serde")]
@@ -74,6 +115,7 @@ struct Disk {
     #[serde(deserialize_with = "de_string_to_bytes")]
     free: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
+    #[serde(rename = "type")]
     _type: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
     speed: Vec<u8>,
@@ -99,19 +141,41 @@ struct GPUDetail {
     #[serde(deserialize_with = "de_string_to_bytes")]
     id: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
+    #[serde(rename = "type")]
     _type: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
     mem: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
-    price_bandwitdh: Vec<u8>,
+    pcie_bandwidth: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
     mem_bandwidth: Vec<u8>,
 }
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct GPUStatus {}
+struct GPUStatus {
+    gpus: Vec<OneGPUStatus>,
+}
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct GPUUsage {}
+struct OneGPUStatus {
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    id: Vec<u8>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    state: Vec<u8>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    #[serde(rename = "type")]
+    _type: Vec<u8>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    uuid: Vec<u8>,
+}
+
+#[serde(crate = "alt_serde")]
+#[derive(Deserialize, Encode, Decode, Default, Debug)]
+struct GPUUsage {
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    gpu: Vec<u8>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    mem: Vec<u8>,
+}
