@@ -48,15 +48,11 @@
 3. Synchronize Chain Data
 
    ```bash
-   ./dbc-chain \
-   	--base-path ./db_data \
-   	--chain ./dbcSpecRaw.json \
-   	--pruning=archive \
-   	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWBJ3bTGwaM81X3yRT6ubUoeoSHWTyuKq5dGu5FXkFCWfK
+   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning=archive --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWHmLCYvJDS8g4MpqNXs3nTvCyhKefvxfm1qjheY89hRq8
    ```
-
+   
    + If you compile from source, the binary path is `./target/release/dbc-chain`
-
+   
    After finished synchronize, type `Control + C` to close the above command. You can compare `target` and `best` to infer if sync is finished. When `target` is closed (100 blocks, for example) to `best` , it can be regard sync is finished.
 
    ![image-20210126021938613](join_dbc_testnet_EN.assets/image-20210126021938613.png)
@@ -74,20 +70,15 @@
 4. After synchronizing block data finished, stop the synchronizing command. Then run the node as a validator: 
 
    ```bash
-   nohup ./dbc-chain \
-   	--base-path ./db_data \
-   	--chain ./dbcSpecRaw.json \
-   	--validator \
-   	--name YourNodeName \
-   	--bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWBJ3bTGwaM81X3yRT6ubUoeoSHWTyuKq5dGu5FXkFCWfK 1>dbc_node.log 2>&1 &
+   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWHmLCYvJDS8g4MpqNXs3nTvCyhKefvxfm1qjheY89hRq8 1>dbc_node.log 2>&1 &
    ```
-
+   
    + If you compile from source, the binary path is `./target/release/dbc-chain`
-
+   
    You can give your validator any name that you like, but note that others will be able to see it, and it will be included in the list of all servers using the same telemetry server. Since numerous people are using telemetry, it is recommended that you choose something likely to be unique.
-
-   You may want to run this command backend, just add `nohup` before this command and `&` after this command.
-
+   
+You may want to run this command backend, just add `nohup` before this command and `&` after this command.
+   
 5. generate`rotateKey`
 
    Run the following command in the terminal, and record the result.

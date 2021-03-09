@@ -22,7 +22,7 @@
 
    Click "Rent GPU" -> "High performance parallelism calculation area", select "All machines" in "Machine Usage Status" and then click "Rent GPU container".
 
-   ![image-20210303001251471](How_to_rent_supernode.assets/image-20210303001251471.png)
+   ![image-20210309165725303](How_to_rent_supernode.assets/image-20210309165725303.png)
 
    You can choose "Pledging method" to pay it ("Pledging method" only need to stake your DBC, and will not actually consume it).
 
@@ -42,9 +42,7 @@
 
     
 
-   
-
-   ![image-20210226185319545](How_to_rent_supernode.assets/image-20210226185319545.png)
+   ![image-20210309170302116](How_to_rent_supernode.assets/image-20210309170302116.png)
 
    
 
