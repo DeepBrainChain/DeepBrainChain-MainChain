@@ -1,31 +1,22 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use alt_serde::{Deserialize, Deserializer};
+use alt_serde::Deserialize;
 use codec::{Decode, Encode};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{Currency, ExistenceRequirement::AllowDeath},
+    traits::{Currency, ExistenceRequirement::AllowDeath, Randomness},
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed};
+use sp_core::H256;
 use sp_runtime::{
     offchain,
-    offchain::{
-        http,
-        storage::StorageValueRef,
-        storage_lock::{BlockAndTime, StorageLock},
-        Duration,
-    },
+    offchain::http,
     traits::{AccountIdConversion, Saturating},
     ModuleId,
 };
-use sp_std::{
-    collections::vec_deque::VecDeque,
-    convert::{TryFrom, TryInto},
-    prelude::*,
-    str,
-};
+use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
 
 mod machine_info;
 
@@ -37,8 +28,7 @@ type MachineId = Vec<u8>;
 const PALLET_ID: ModuleId = ModuleId(*b"MCStake!");
 
 pub const NUM_VEC_LEN: usize = 10;
-pub const HTTP_REMOTE_REQUEST: &str =
-    "http://116.85.24.172:41107/api/v1/mining_nodes/2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3";
+pub const HTTP_REMOTE_REQUEST: &str = "http://116.85.24.172:41107/api/v1/mining_nodes/";
 pub const HTTP_HEADER_USER_AGENT: &str = "jimmychu0807"; // TODO: remove this
 
 pub const FETCH_TIMEOUT_PERIOD: u64 = 3_000; // in milli-seconds
@@ -48,6 +38,7 @@ pub const LOCK_BLOCK_EXPIRATION: u32 = 3; // in block number
 pub trait Config: system::Config {
     type Currency: Currency<Self::AccountId>;
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
+    type RandomnessSource: Randomness<H256>;
 }
 
 decl_event! {
@@ -59,6 +50,12 @@ decl_event! {
         BondMachine(AccountId, MachineId),
         AddBondReceive(AccountId, Balance, AccountId),
         RemoveBonded(AccountId, MachineId, Balance),
+
+        CommitteeAdded(AccountId),
+        CommitteeRemoved(AccountId),
+
+        AlternateCommitteeAdded(AccountId),
+        AlternateCommitteeRemoved(AccountId),
     }
 }
 
@@ -74,6 +71,14 @@ decl_error! {
         BalanceNotEnough,
         NotMachineOwner,
         AlreadyAddedMachine,
+
+        AlternateCommitteeLimitReached,
+        AlreadyAlternateCommittee,
+        NotAlternateCommittee,
+
+        CommitteeLimitReached,
+        AlreadyCommittee,
+        NotCommittee,
     }
 }
 
@@ -101,14 +106,29 @@ decl_storage! {
         /// used for OCW to store pending binding pair
         pub BondingQueue get(fn bonding_queue): VecDeque<BondingPair<T::AccountId>>;
 
+        /// BondingQueue machine for quick search if machine_id is pending
+        pub BondingQueueMachine get(fn bonding_queue_machine): map hasher(blake2_128_concat) MachineId => ();
+
         /// Machine has been bonded
         pub BondedMachine get(fn bonded_machine): map hasher(blake2_128_concat) MachineId => ();
 
-        /// BondingQueue machine
-        pub BondingQueueMachine get(fn bonding_queue_machine): map hasher(blake2_128_concat) MachineId => ();
-
         /// MachineInfo
         pub MachineInfo get(fn machine_info): map hasher(blake2_128_concat) MachineId => ();
+
+        /// Alternate Committee
+        pub AlternateCommittee get(fn alternate_committee): Vec<T::AccountId>;
+
+        /// ALternate Committee Num
+        pub AlternateCommitteeNum get(fn alternate_committee_num): u32 = 10;
+
+        /// committee
+        pub Committee get(fn committee): Vec<T::AccountId>;
+
+        /// max committee num
+        pub CommitteeNum get(fn max_committee_num): u32 = 3;
+
+        /// nonce to generate random number for selecting committee
+        Nonce get(fn nonce): u32;
     }
     add_extra_genesis {
         build(|_config| {
@@ -128,8 +148,10 @@ decl_module! {
         /// Bonding machine only remember caller-machine_id pair.
         /// OCW will check it and record machine info.
         #[weight = 20_000]
-        pub fn bonding_machine(origin, machine_id: MachineId) -> DispatchResult {
+        pub fn bond_machine(origin, machine_id: MachineId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
+
+            debug::info!("############ Callse is: {:#?}", caller);
 
             // machine must not be bonded yet
             ensure!(!<BondedMachine>::contains_key(&machine_id), Error::<T>::MachineHasBonded);
@@ -143,7 +165,6 @@ decl_module! {
                 });
 
             BondingQueueMachine::insert(&machine_id, ());
-            BondedMachine::insert(&machine_id, ());
 
             Ok(())
         }
@@ -223,21 +244,111 @@ decl_module! {
             Ok(())
         }
 
+        #[weight = 0]
+        pub fn add_alternate_committee(origin, new_member: T::AccountId) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let mut members = AlternateCommittee::<T>::get();
+            ensure!(members.len() < AlternateCommitteeNum::get() as usize, Error::<T>::AlternateCommitteeLimitReached);
+
+            match members.binary_search(&new_member) {
+                Ok(_) => Err(Error::<T>::AlreadyAlternateCommittee.into()),
+                Err(index) => {
+                    members.insert(index, new_member.clone());
+                    Committee::<T>::put(members);
+                    Self::deposit_event(RawEvent::AlternateCommitteeAdded(new_member));
+                    Ok(())
+                }
+            }
+        }
+
+        #[weight = 0]
+        pub fn remove_alternate_committee(origin, old_member: T::AccountId) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let mut members = AlternateCommittee::<T>::get();
+
+            match members.binary_search(&old_member) {
+                Ok(index) => {
+                    members.remove(index);
+                    AlternateCommittee::<T>::put(members);
+                    Self::deposit_event(RawEvent::AlternateCommitteeRemoved(old_member));
+                    Ok(())
+                },
+                Err(_) => Err(Error::<T>::NotAlternateCommittee.into()),
+            }
+        }
+
+        #[weight = 0]
+        pub fn add_committee(origin, new_member: T::AccountId) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let mut members = Committee::<T>::get();
+            ensure!(members.len() < CommitteeNum::get() as usize, Error::<T>::CommitteeLimitReached);
+
+            match members.binary_search(&new_member) {
+                Ok(_) => Err(Error::<T>::AlreadyCommittee.into()),
+                Err(index) => {
+                    members.insert(index, new_member.clone());
+                    Committee::<T>::put(members);
+                    Self::deposit_event(RawEvent::CommitteeAdded(new_member));
+                    Ok(())
+                }
+            }
+        }
+
+        /// adf
+        #[weight = 0]
+        pub fn remove_committee(origin, old_member: T::AccountId) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let mut members = Committee::<T>::get();
+
+            match members.binary_search(&old_member) {
+                Ok(index) => {
+                    members.remove(index);
+                    Committee::<T>::put(members);
+                    Self::deposit_event(RawEvent::CommitteeRemoved(old_member));
+                    Ok(())
+                },
+                Err(_) => Err(Error::<T>::NotCommittee.into()),
+            }
+        }
+
+        #[weight = 0]
+        pub fn manual_select_committee(origin) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::select_committee();
+            Ok(())
+        }
+
         fn offchain_worker(block_number: T::BlockNumber) {
             debug::info!("Entering off-chain worker");
 
-            Self::fetch_machine_info();
+            BondingQueue::<T>::mutate(|bonding_queue| {
+                while bonding_queue.len() > 0 {
 
-            // // TODO: run multiple query
-            // BondingQueue::<T>::mutate(|bonding_queue| {
-            //     while bonding_queue.len() > 0 {
-            //         let a_machine_info = bonding_queue.pop_front().unwrap();
-            //         // Self::fetch_machine_info(&a_machine_info.machine_id);
-            //         Self::fetch_machine_info();
-            //     }
-            // });
+                    let bond_pair = bonding_queue.pop_front().unwrap();
+                    let machine_id =  str::from_utf8(&bond_pair.machine_id).map_err(|_| http::Error::Unknown).unwrap();
 
-            // TODO: if check is succeed, insert machine_id to `UserBondedMachine`
+                    // let user_addr = str::from_utf8(&bond_pair.account_id).map_err(|_| http::Error::Unknown).unwrap();
+                    // let user_addr = sp_core::crypto::Ss58Codec::from_string(&user_addr);
+
+                    // TODO: after pop_front, should mut BondingQueue
+
+                    let machine_info = Self::fetch_machine_info(&machine_id);
+                    if let Err(e) = machine_info {
+                        debug::error!("Offchain worker error: {:?}", e);
+                        return
+                    }
+
+                    // if user_addr == machine_info.data.wallet[1] {
+                    //     // TODO: if check is succeed, insert machine_id to `UserBondedMachine`
+                    // }
+
+                }
+            });
         }
     }
 }
@@ -256,49 +367,32 @@ impl<T: Config> Module<T> {
         PALLET_ID.into_account()
     }
 
-    fn pot() -> BalanceOf<T> {
+    fn select_committee() {
+        // H256
+        let subject = Self::encode_and_update_nonce();
+        let _random_seed = T::RandomnessSource::random(&subject);
+    }
+
+    fn encode_and_update_nonce() -> Vec<u8> {
+        let nonce = Nonce::get();
+        Nonce::put(nonce.wrapping_add(1));
+        nonce.encode()
+    }
+
+    fn _pot() -> BalanceOf<T> {
         T::Currency::free_balance(&Self::account_id())
     }
 
-    fn add_machine(user: T::AccountId, machine_id: MachineId) -> DispatchResult {
-        // check be call this func
-        // ensure!(
-        //     UserMachine::<T>::contains_key(&user),
-        //     Error::<T>::NotMachineOwner
-        // );
+    fn fetch_machine_info(machine_id: &str) -> Result<machine_info::MachineInfo, Error<T>> {
+        let mut url = HTTP_REMOTE_REQUEST.as_bytes().to_vec();
+        url.extend(&machine_id.as_bytes().to_vec());
 
-        let mut user_machine = UserBondedMachine::<T>::get(&user);
+        let url = str::from_utf8(&url)
+            .map_err(|_| http::Error::Unknown)
+            .unwrap();
+        debug::info!("sending request to: {}", &url);
 
-        match user_machine.binary_search(&machine_id) {
-            Ok(_) => Err(Error::<T>::AlreadyAddedMachine.into()),
-            Err(index) => {
-                user_machine.insert(index, machine_id.clone());
-                UserBondedMachine::<T>::insert(&user, user_machine);
-                Ok(())
-            }
-        }
-    }
-
-    fn rm_machine(machine_id: MachineId) {}
-
-    // fn fetch_n_parse() -> Result<machine_info::MachineInfo, Error<T>> {
-    //     let resp_bytes = Self::fetch_from_remote().map_err(|e| {
-    //         debug::error!("fetch_from_remote error: {:?}", e);
-    //         <Error<T>>::HttpFetchingError
-    //     })?;
-
-    //     let resp_str = str::from_utf8(&resp_bytes).map_err(|_| <Error<T>>::HttpFetchingError)?;
-    //     debug::info!("{}", resp_str);
-
-    //     let gh_info: machine_info::MachineInfo =
-    //         serde_json::from_str(&resp_str).map_err(|_| <Error<T>>::HttpFetchingError)?;
-    //     Ok(gh_info)
-    // }
-
-    fn fetch_machine_info() -> Result<Vec<u8>, Error<T>> {
-        debug::info!("sending request to: {}", HTTP_REMOTE_REQUEST);
-
-        let request = offchain::http::Request::get(HTTP_REMOTE_REQUEST);
+        let request = offchain::http::Request::get(&url);
 
         let timeout =
             sp_io::offchain::timestamp().add(offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
@@ -327,13 +421,12 @@ impl<T: Config> Module<T> {
             })
             .unwrap(); // TODO: handle error here
 
-        debug::info!("#### MachineInfo str: {}", &body_str);
-
         let machine_info: machine_info::MachineInfo = serde_json::from_str(&body_str).unwrap(); // TODO: handler error here
 
-        debug::info!("############ Machine_info is: {:#?}", machine_info);
+        debug::info!("#### MachineInfo str: {}", &body_str);
+        debug::info!("############ Machine_info is: {:?}", machine_info);
 
-        Ok(response.body().collect::<Vec<u8>>())
+        Ok(machine_info)
     }
 }
 
@@ -343,22 +436,3 @@ impl<T: Config> offchain::storage_lock::BlockNumberProvider for Module<T> {
         <frame_system::Module<T>>::block_number()
     }
 }
-
-// impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
-//     type Call = Call<T>;
-
-//     fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-//         let valid_tx = |provid| {
-//             ValidTransaction::with_tag_prefix("node-owner-staking")
-//                 .priority(T::UnsignedPriority::get())
-//                 .and_provides([&provide])
-//                 .longevity(3)
-//                 .propagate(true)
-//                 .build()
-//         };
-//         match all {
-//             Call::submit_bond_machine_unsigned() => valid_tx(b"adf".to_vec()),
-//             _ => InvalidTransaction::Call.into(),
-//         }
-//     }
-// }

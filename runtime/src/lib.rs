@@ -1019,6 +1019,7 @@ impl dbc_testing::Config for Runtime {
 impl online_profile::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
 }
 
 construct_runtime!(
