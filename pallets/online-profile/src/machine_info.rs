@@ -13,13 +13,13 @@ where
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
 pub struct MachineInfo {
-    error_code: u32,
-    data: MachineData,
+    pub error_code: u32,
+    pub data: MachineData,
 }
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct MachineData {
+pub struct MachineData {
     cpu: CPU,
 
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -54,16 +54,16 @@ struct MachineData {
     #[serde(deserialize_with = "de_string_to_bytes")]
     version: Vec<u8>,
 
-    wallet: Vec<OneWallet>,
+    pub wallet: Vec<OneWallet>,
 }
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct OneWallet(#[serde(deserialize_with = "de_string_to_bytes")] Vec<u8>);
+pub struct OneWallet(#[serde(deserialize_with = "de_string_to_bytes")] pub Vec<u8>);
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct CPU {
+pub struct CPU {
     #[serde(deserialize_with = "de_string_to_bytes")]
     num: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -73,7 +73,7 @@ struct CPU {
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct Disk {
+pub struct Disk {
     #[serde(deserialize_with = "de_string_to_bytes")]
     size: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -87,7 +87,7 @@ struct Disk {
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct GPU {
+pub struct GPU {
     #[serde(deserialize_with = "de_string_to_bytes")]
     num: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -101,7 +101,7 @@ struct GPU {
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct GPUDetail {
+pub struct GPUDetail {
     #[serde(deserialize_with = "de_string_to_bytes")]
     id: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -117,13 +117,13 @@ struct GPUDetail {
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct GPUStatus {
+pub struct GPUStatus {
     gpus: Vec<OneGPUStatus>,
 }
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct OneGPUStatus {
+pub struct OneGPUStatus {
     #[serde(deserialize_with = "de_string_to_bytes")]
     id: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -137,7 +137,7 @@ struct OneGPUStatus {
 
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
-struct GPUUsage {
+pub struct GPUUsage {
     #[serde(deserialize_with = "de_string_to_bytes")]
     gpu: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]

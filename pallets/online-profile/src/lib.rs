@@ -56,6 +56,9 @@ decl_event! {
 
         AlternateCommitteeAdded(AccountId),
         AlternateCommitteeRemoved(AccountId),
+
+        DonationReceived(AccountId, Balance, Balance),
+        FundsAllocated(AccountId, Balance, Balance),
     }
 }
 
@@ -119,16 +122,19 @@ decl_storage! {
         pub AlternateCommittee get(fn alternate_committee): Vec<T::AccountId>;
 
         /// ALternate Committee Num
-        pub AlternateCommitteeNum get(fn alternate_committee_num): u32 = 10;
+        pub AlternateCommitteeNum get(fn alternate_committee_num) config(): u32 = 10;
 
         /// committee
         pub Committee get(fn committee): Vec<T::AccountId>;
 
         /// max committee num
-        pub CommitteeNum get(fn max_committee_num): u32 = 3;
+        pub CommitteeNum get(fn max_committee_num) config(): u32 = 3;
 
         /// nonce to generate random number for selecting committee
-        Nonce get(fn nonce): u32;
+        Nonce get(fn nonce) config(): u32;
+
+        /// machine info url
+        pub MachineInfoUrl get(fn machine_info_url) config(): MachineId = "http://116.85.24.172:41107/api/v1/mining_nodes/".as_bytes().to_vec();
     }
     add_extra_genesis {
         build(|_config| {
@@ -153,12 +159,13 @@ decl_module! {
 
             debug::info!("############ Callse is: {:#?}", caller);
 
+            // BondingQueue not have this machine_id
+            ensure!(!<BondingQueueMachine>::contains_key(&machine_id), Error::<T>::MachineInBondingQueue);
             // machine must not be bonded yet
             ensure!(!<BondedMachine>::contains_key(&machine_id), Error::<T>::MachineHasBonded);
-            // BondingQueue not have it also
-            ensure!(!<BondingQueueMachine>::contains_key(&machine_id), Error::<T>::MachineInBondingQueue);
 
-            Self::append_or_relpace_binding_machine(
+            // append it to BondingQueue
+            Self::append_or_relpace_bonding_machine(
                 BondingPair{
                     account_id: caller,
                     machine_id: machine_id.clone(),
@@ -179,10 +186,14 @@ decl_module! {
                     user_bonded_machine.remove(index);
                     UserBondedMachine::<T>::insert(user.clone(), user_bonded_machine);
                     let user_bonded_money = <UserBondedMoney<T>>::get(&user, &machine_id);
-                    // TODO: transfer or lock user balanced money
+
+                    // TODO: Lock user balanced money
+                    T::Currency::transfer(&Self::account_id(), &user, user_bonded_money,AllowDeath)
+                        .map_err(|_| DispatchError::Other("Can't make allocation"))?;
+
+                    BondedMachine::remove(&machine_id);
 
                     Self::deposit_event(RawEvent::RemoveBonded(user, machine_id.clone(), user_bonded_money));
-                    BondedMachine::remove(&machine_id);
                     return Ok(())
                 },
                 Err(_) => return Err(Error::<T>::MachineIDNotBonded.into()),
@@ -239,8 +250,21 @@ decl_module! {
         }
 
         #[weight = 10_000]
-        pub fn reduce_all_bonded_token(origin) -> DispatchResult {
-            let _user = ensure_signed(origin)?;
+        pub fn reduce_all_bonded_token(origin, machine_id: MachineId) -> DispatchResult {
+            let user = ensure_signed(origin)?;
+
+            ensure!(<UserBondedMachine<T>>::contains_key(&user), Error::<T>::MachineIDNotBonded);
+            ensure!(<UserBondedMoney<T>>::contains_key(&user, &machine_id), Error::<T>::TokenNotBonded);
+
+            let bonded_money_left = <UserBondedMoney<T>>::get(&user, &machine_id);
+            ensure!(bonded_money_left > 0.into(), Error::<T>::BondedNotEnough);
+
+            T::Currency::transfer(&Self::account_id(), &user, bonded_money_left, AllowDeath)
+                .map_err(|_| DispatchError::Other("Can't make allocation"))?;
+            // TODO what about errors here??
+
+            <UserBondedMoney<T>>::insert(&user, &machine_id, bonded_money_left.saturating_sub(bonded_money_left));
+            Self::deposit_event(RawEvent::RemoveBonded(user, machine_id, bonded_money_left));
             Ok(())
         }
 
@@ -323,19 +347,34 @@ decl_module! {
             Ok(())
         }
 
+        #[weight = 0]
+        pub fn donate_money(origin, amount: BalanceOf<T>) -> DispatchResult {
+            let donor = ensure_signed(origin)?;
+
+            T::Currency::transfer(&donor, &Self::account_id(), amount, AllowDeath)
+                .map_err(|_| DispatchError::Other("Can't make donation"))?;
+            Self::deposit_event(RawEvent::DonationReceived(donor, amount, Self::pot()));
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn allocate(origin, dest: T::AccountId, amount: BalanceOf<T>,) -> DispatchResult {
+            ensure_root(origin)?;
+
+            T::Currency::transfer(&Self::account_id(), &dest, amount, AllowDeath,)
+                .map_err(|_| DispatchError::Other("Can't make allocation"))?;
+
+            Self::deposit_event(RawEvent::FundsAllocated(dest, amount, Self::pot()));
+            Ok(())
+        }
+
         fn offchain_worker(block_number: T::BlockNumber) {
             debug::info!("Entering off-chain worker");
 
             BondingQueue::<T>::mutate(|bonding_queue| {
                 while bonding_queue.len() > 0 {
-
                     let bond_pair = bonding_queue.pop_front().unwrap();
                     let machine_id =  str::from_utf8(&bond_pair.machine_id).map_err(|_| http::Error::Unknown).unwrap();
-
-                    // let user_addr = str::from_utf8(&bond_pair.account_id).map_err(|_| http::Error::Unknown).unwrap();
-                    // let user_addr = sp_core::crypto::Ss58Codec::from_string(&user_addr);
-
-                    // TODO: after pop_front, should mut BondingQueue
 
                     let machine_info = Self::fetch_machine_info(&machine_id);
                     if let Err(e) = machine_info {
@@ -343,23 +382,25 @@ decl_module! {
                         return
                     }
 
-                    // if user_addr == machine_info.data.wallet[1] {
-                    //     // TODO: if check is succeed, insert machine_id to `UserBondedMachine`
+                    // if bond_pair.account_id == machine_info.unwrap().data.wallet[1].0 {
+                        let user_bonded_machine = UserBondedMachine::<T>::get(bond_pair.account_id.clone());
+                        UserBondedMachine::<T>::insert(bond_pair.account_id, user_bonded_machine);
+                        BondedMachine::insert(bond_pair.machine_id, ());
                     // }
-
                 }
             });
+
         }
     }
 }
 
 impl<T: Config> Module<T> {
-    fn append_or_relpace_binding_machine(machine_pair: BondingPair<T::AccountId>) {
-        BondingQueue::<T>::mutate(|binding_queue| {
-            if binding_queue.len() == NUM_VEC_LEN {
-                let _ = binding_queue.pop_front();
+    fn append_or_relpace_bonding_machine(machine_pair: BondingPair<T::AccountId>) {
+        BondingQueue::<T>::mutate(|bonding_queue| {
+            if bonding_queue.len() == NUM_VEC_LEN {
+                let _ = bonding_queue.pop_front();
             }
-            binding_queue.push_back(machine_pair);
+            bonding_queue.push_back(machine_pair);
         })
     }
 
@@ -379,7 +420,7 @@ impl<T: Config> Module<T> {
         nonce.encode()
     }
 
-    fn _pot() -> BalanceOf<T> {
+    fn pot() -> BalanceOf<T> {
         T::Currency::free_balance(&Self::account_id())
     }
 
