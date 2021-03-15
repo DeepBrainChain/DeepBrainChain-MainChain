@@ -1,0 +1,7 @@
+**/target/
+.vscode
+.DS_Store
+.idea/
+nohup.out
+.local
+.cargo/
