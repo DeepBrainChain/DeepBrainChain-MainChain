@@ -1,0 +1,84 @@
+[package]
+name = "pallet-staking-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+license = "Apache-2.0"
+homepage = "https://substrate.dev"
+repository = "https://github.com/paritytech/substrate/"
+description = "FRAME pallet staking fuzzing"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+honggfuzz = "0.5"
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+dbc-staking = { version = "3.0.0", path = "..", features = ["runtime-benchmarks"] }
+pallet-staking-reward-curve = { version = "3.0.0",  path = "../reward-curve" }
+serde = "1.0.101"
+
+[dependencies.pallet-session]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.pallet-indices]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.pallet-balances]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.pallet-timestamp]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.frame-system]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.frame-support]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.sp-std]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.sp-io]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.sp-core]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.sp-npos-elections]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.sp-runtime]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[features]
+# Note feature std is required so that impl_opaque_keys derive serde.
+default = ["std"]
+std = []
+
+[[bin]]
+name = "submit_solution"
+path = "src/submit_solution.rs"
