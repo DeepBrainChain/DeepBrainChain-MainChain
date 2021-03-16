@@ -4,7 +4,7 @@
 
    + **方式1**: 使用预编译版本：
 
-     ```
+     ```bash
      wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v0.1/dbc_chain_ubuntu16.04.tar.gz
      tar xf dbc_chain_ubuntu16.04.tar.gz
      cd dbc_chain
@@ -17,7 +17,7 @@
    + **方式2**：从源码进行编译
 
      ```bash
-  # 安装依赖，rust，subkey
+     # 安装依赖，rust，subkey
      curl https://getsubstrate.io -sSf | bash -s -- --fast
      source ~/.cargo/env
      cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0 --locked
