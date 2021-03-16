@@ -2,10 +2,12 @@
 
 1. Compile DBC chain
 
-   + Option 1: use pre-build version. If you are running DBC vm to run an validator, login your server,  change dir to `/root/dbc_chain`  you will find pre-build binary.
+   + Option 1: use pre-build version.
 
-     ```bash
-     cd /root/dbc_chain
+     ```
+     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v0.1/dbc_chain_ubuntu16.04.tar.gz
+     tar xf dbc_chain_ubuntu16.04.tar.gz
+     cd dbc_chain
      ```
 
    + Option 2: compile from source
@@ -48,7 +50,7 @@
 3. Synchronize Chain Data
 
    ```bash
-   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning=archive --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWFUZWYUvY9VRJLMQGUf8YRX9VLgTXV7Gcr3fCC8n2UHnN
+   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning=archive --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWPz25eMDbYgxzWqExmipKCngMdgijy6rw4jdDGke6BShY
    ```
    
    + If you compile from source, the binary path is `./target/release/dbc-chain`
@@ -70,7 +72,7 @@
 4. After synchronizing block data finished, stop the synchronizing command. Then run the node as a validator: 
 
    ```bash
-   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWFUZWYUvY9VRJLMQGUf8YRX9VLgTXV7Gcr3fCC8n2UHnN 1>dbc_node.log 2>&1 &
+   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWPz25eMDbYgxzWqExmipKCngMdgijy6rw4jdDGke6BShY 1>dbc_node.log 2>&1 &
    ```
    
    + If you compile from source, the binary path is `./target/release/dbc-chain`

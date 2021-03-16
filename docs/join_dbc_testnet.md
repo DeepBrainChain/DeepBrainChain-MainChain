@@ -2,16 +2,22 @@
 
 1. 编译DBC chain
 
-   + **方式1**：使用预编译版本。如果您是使用 DBC vm 运行超级节点，登录您的服务器，切换到编译好的目录即可。
+   + **方式1**: 使用预编译版本：
 
-     ```bash
-     cd /root/dbc_chain
      ```
+     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v0.1/dbc_chain_ubuntu16.04.tar.gz
+     tar xf dbc_chain_ubuntu16.04.tar.gz
+     cd dbc_chain
+     ```
+
+   + ~~**方式1**：使用预编译版本。如果您是使用 DBC vm 运行超级节点，登录您的服务器，切换到编译好的目录即可。~~
+
+     ~~cd /root/dbc_chain~~
 
    + **方式2**：从源码进行编译
 
      ```bash
-     # 安装依赖，rust，subkey
+  # 安装依赖，rust，subkey
      curl https://getsubstrate.io -sSf | bash -s -- --fast
      source ~/.cargo/env
      cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0 --locked
@@ -21,7 +27,7 @@
      cd DeepBrainChain-MainChain
      cargo build --release
      ```
-
+   
 2. 生成资金账户
 
    + **[可选步骤]：当您已有资金账户时，可以略过这一步**
@@ -49,33 +55,33 @@
 3. 运行同步节点
 
    ```bash
-   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning archive --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWFUZWYUvY9VRJLMQGUf8YRX9VLgTXV7Gcr3fCC8n2UHnN
+   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning archive --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWPz25eMDbYgxzWqExmipKCngMdgijy6rw4jdDGke6BShY
    ```
-   
+
    + 如果你是从源码进行编译，可执行文件路径为：`./target/release/dbc-chain`
-   
+
    同步完成后，`Control + C`关掉程序。你可以根据`target`与`best`的比较来判断是否同步已经完成。当target与best相差不大（如100以内）时，可以认为已经完成同步。
-   
+
    ![image-20210126021938613](join_dbc_testnet.assets/image-20210126021938613.png)
-   
+
    **参数说明：**
-   
+
    `--base-path`：指定该区块链存储数据的目录。如果不指定，将使用默认路径。如果目录不存在，将会为你自动创建。如果该目录已经有了区块链数据，将会报错，这时应该选择不同的目录或清除该目录内容
-   
+
    `--pruning=archive`：以归档的方式启动区块链
-   
+
    `--bootnodes`：指定引导节点地址。
-   
+
 4. 在第3步同步节点数据完成之后，关闭同步命令。然后以验证人的方式运行节点：
 
    ```bash
-   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWFUZWYUvY9VRJLMQGUf8YRX9VLgTXV7Gcr3fCC8n2UHnN 1>dbc_node.log 2>&1 &
+   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWPz25eMDbYgxzWqExmipKCngMdgijy6rw4jdDGke6BShY 1>dbc_node.log 2>&1 &
    ```
-   
+
    + 如果你是从源码进行编译，可执行文件路径为：`./target/release/dbc-chain`
-   
+
    注意：这里 **`--name` 是设置你节点的名称**，你可以为你的节点起一个独一无二容易辨认的名称，别人将能在网络上看到它。
-   
+
 5. 生成`rotateKey`
 
    在运行验证人节点命令的机器上运行下面命令
