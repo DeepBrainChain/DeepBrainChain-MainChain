@@ -18,7 +18,7 @@
      
      # compile dbc-chain
      git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git
-     cd DeepBrainChain-MainChain && git checkout dbc-dev
+     cd DeepBrainChain-MainChain
      cargo build --release
      ```
 
@@ -77,8 +77,9 @@
    
    You can give your validator any name that you like, but note that others will be able to see it, and it will be included in the list of all servers using the same telemetry server. Since numerous people are using telemetry, it is recommended that you choose something likely to be unique.
    
+
 You may want to run this command backend, just add `nohup` before this command and `&` after this command.
-   
+
 5. generate`rotateKey`
 
    Run the following command in the terminal, and record the result.

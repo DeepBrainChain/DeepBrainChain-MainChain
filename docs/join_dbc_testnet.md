@@ -18,7 +18,7 @@
      
      # 编译dbc-chain
      git clone https://github.com/DeepBrainChain/DeepBrainChain-MainChain.git
-     cd DeepBrainChain-MainChain && git checkout dbc-dev
+     cd DeepBrainChain-MainChain
      cargo build --release
      ```
 
