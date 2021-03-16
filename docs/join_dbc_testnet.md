@@ -55,7 +55,7 @@
 3. 运行同步节点
 
    ```bash
-   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning archive --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWAaZF1dNUvBjxVJuYPYMBx8qWq6w5MnTrasbgSrhn3Cp4
+   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning archive --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNa5XXT8PXgS9aT6uKJanjbEHtP2z8vTMdKA8e1TqgRYv
    ```
 
    + 如果你是从源码进行编译，可执行文件路径为：`./target/release/dbc-chain`
@@ -75,7 +75,7 @@
 4. 在第3步同步节点数据完成之后，关闭同步命令。然后以验证人的方式运行节点：
 
    ```bash
-   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWAaZF1dNUvBjxVJuYPYMBx8qWq6w5MnTrasbgSrhn3Cp4 1>dbc_node.log 2>&1 &
+   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNa5XXT8PXgS9aT6uKJanjbEHtP2z8vTMdKA8e1TqgRYv 1>dbc_node.log 2>&1 &
    ```
 
    + 如果你是从源码进行编译，可执行文件路径为：`./target/release/dbc-chain`
