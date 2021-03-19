@@ -781,7 +781,9 @@ where
     }
 }
 
-pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
+pub trait Config:
+    frame_system::Config + pallet_timestamp::Config + SendTransactionTypes<Call<Self>>
+{
     /// The staking balance.
     type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
 
@@ -1097,6 +1099,12 @@ decl_storage! {
         /// forcing into account.
         pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
 
+        // pub DBCDecimal get(fn dbc_decimal): u8 = 15;
+        pub Phase0RewardPerYear get(fn phase_0_reward_per_year): BalanceOf<T>;
+        pub Phase1RewardPerYear get(fn phase_1_reward_per_year): BalanceOf<T>;
+        pub Phase2RewardPerYear get(fn phase_2_reward_per_year): BalanceOf<T>;
+        pub RewardStartHeight get(fn reward_start_height): T::BlockNumber;
+
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
@@ -1190,6 +1198,11 @@ decl_event!(
         Withdrawn(AccountId, Balance),
         /// A nominator has been kicked from a validator. \[nominator, stash\]
         Kicked(AccountId, AccountId),
+
+        // NewDBCDecimal(u8),
+        Phase0RewardPerYear(Balance),
+        Phase1RewardPerYear(Balance),
+        Phase2RewardPerYear(Balance),
     }
 );
 
@@ -1454,7 +1467,7 @@ decl_module! {
         /// - Read: Bonded, Ledger, [Origin Account], Current Era, History Depth, Locks
         /// - Write: Bonded, Payee, [Origin Account], Locks, Ledger
         /// # </weight>
-        #[weight = T::WeightInfo::bond()]
+        #[weight = <T as Config>::WeightInfo::bond()]
         pub fn bond(origin,
             controller: <T::Lookup as StaticLookup>::Source,
             #[compact] value: BalanceOf<T>,
@@ -1522,7 +1535,7 @@ decl_module! {
         /// - Read: Era Election Status, Bonded, Ledger, [Origin Account], Locks
         /// - Write: [Origin Account], Locks, Ledger
         /// # </weight>
-        #[weight = T::WeightInfo::bond_extra()]
+        #[weight = <T as Config>::WeightInfo::bond_extra()]
         fn bond_extra(origin, #[compact] max_additional: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let stash = ensure_signed(origin)?;
@@ -1575,7 +1588,7 @@ decl_module! {
         /// - Read: EraElectionStatus, Ledger, CurrentEra, Locks, BalanceOf Stash,
         /// - Write: Locks, Ledger, BalanceOf Stash,
         /// </weight>
-        #[weight = T::WeightInfo::unbond()]
+        #[weight = <T as Config>::WeightInfo::unbond()]
         fn unbond(origin, #[compact] value: BalanceOf<T>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1635,7 +1648,7 @@ decl_module! {
         /// - Writes Each: SpanSlash * S
         /// NOTE: Weight annotation is the kill scenario, we refund otherwise.
         /// # </weight>
-        #[weight = T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)]
+        #[weight = <T as Config>::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)]
         fn withdraw_unbonded(origin, num_slashing_spans: u32) -> DispatchResultWithPostInfo {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1659,7 +1672,7 @@ decl_module! {
                 Self::update_ledger(&controller, &ledger);
 
                 // This is only an update, so we use less overall weight.
-                Some(T::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
+                Some(<T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
             };
 
             // `old_total` should never be less than the new total because
@@ -1690,7 +1703,7 @@ decl_module! {
         /// - Read: Era Election Status, Ledger
         /// - Write: Nominators, Validators
         /// # </weight>
-        #[weight = T::WeightInfo::validate()]
+        #[weight = <T as Config>::WeightInfo::validate()]
         pub fn validate(origin, prefs: ValidatorPrefs) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1719,7 +1732,7 @@ decl_module! {
         /// - Reads: Era Election Status, Ledger, Current Era
         /// - Writes: Validators, Nominators
         /// # </weight>
-        #[weight = T::WeightInfo::nominate(targets.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::nominate(targets.len() as u32)]
         pub fn nominate(origin, targets: Vec<<T::Lookup as StaticLookup>::Source>) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1767,7 +1780,7 @@ decl_module! {
         /// - Read: EraElectionStatus, Ledger
         /// - Write: Validators, Nominators
         /// # </weight>
-        #[weight = T::WeightInfo::chill()]
+        #[weight = <T as Config>::WeightInfo::chill()]
         fn chill(origin) {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -1791,7 +1804,7 @@ decl_module! {
         ///     - Read: Ledger
         ///     - Write: Payee
         /// # </weight>
-        #[weight = T::WeightInfo::set_payee()]
+        #[weight = <T as Config>::WeightInfo::set_payee()]
         fn set_payee(origin, payee: RewardDestination<T::AccountId>) {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1815,7 +1828,7 @@ decl_module! {
         /// - Read: Bonded, Ledger New Controller, Ledger Old Controller
         /// - Write: Bonded, Ledger New Controller, Ledger Old Controller
         /// # </weight>
-        #[weight = T::WeightInfo::set_controller()]
+        #[weight = <T as Config>::WeightInfo::set_controller()]
         fn set_controller(origin, controller: <T::Lookup as StaticLookup>::Source) {
             let stash = ensure_signed(origin)?;
             let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
@@ -1839,7 +1852,7 @@ decl_module! {
         /// Weight: O(1)
         /// Write: Validator Count
         /// # </weight>
-        #[weight = T::WeightInfo::set_validator_count()]
+        #[weight = <T as Config>::WeightInfo::set_validator_count()]
         fn set_validator_count(origin, #[compact] new: u32) {
             ensure_root(origin)?;
             ValidatorCount::put(new);
@@ -1852,7 +1865,7 @@ decl_module! {
         /// # <weight>
         /// Same as [`set_validator_count`].
         /// # </weight>
-        #[weight = T::WeightInfo::set_validator_count()]
+        #[weight = <T as Config>::WeightInfo::set_validator_count()]
         fn increase_validator_count(origin, #[compact] additional: u32) {
             ensure_root(origin)?;
             ValidatorCount::mutate(|n| *n += additional);
@@ -1865,7 +1878,7 @@ decl_module! {
         /// # <weight>
         /// Same as [`set_validator_count`].
         /// # </weight>
-        #[weight = T::WeightInfo::set_validator_count()]
+        #[weight = <T as Config>::WeightInfo::set_validator_count()]
         fn scale_validator_count(origin, factor: Percent) {
             ensure_root(origin)?;
             ValidatorCount::mutate(|n| *n += factor * *n);
@@ -1880,7 +1893,7 @@ decl_module! {
         /// - Weight: O(1)
         /// - Write: ForceEra
         /// # </weight>
-        #[weight = T::WeightInfo::force_no_eras()]
+        #[weight = <T as Config>::WeightInfo::force_no_eras()]
         fn force_no_eras(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceNone);
@@ -1896,7 +1909,7 @@ decl_module! {
         /// - Weight: O(1)
         /// - Write ForceEra
         /// # </weight>
-        #[weight = T::WeightInfo::force_new_era()]
+        #[weight = <T as Config>::WeightInfo::force_new_era()]
         fn force_new_era(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceNew);
@@ -1910,7 +1923,7 @@ decl_module! {
         /// - O(V)
         /// - Write: Invulnerables
         /// # </weight>
-        #[weight = T::WeightInfo::set_invulnerables(invulnerables.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::set_invulnerables(invulnerables.len() as u32)]
         fn set_invulnerables(origin, invulnerables: Vec<T::AccountId>) {
             ensure_root(origin)?;
             <Invulnerables<T>>::put(invulnerables);
@@ -1926,7 +1939,7 @@ decl_module! {
         /// Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Account, Locks
         /// Writes Each: SpanSlash * S
         /// # </weight>
-        #[weight = T::WeightInfo::force_unstake(*num_slashing_spans)]
+        #[weight = <T as Config>::WeightInfo::force_unstake(*num_slashing_spans)]
         fn force_unstake(origin, stash: T::AccountId, num_slashing_spans: u32) {
             ensure_root(origin)?;
 
@@ -1945,7 +1958,7 @@ decl_module! {
         /// - Weight: O(1)
         /// - Write: ForceEra
         /// # </weight>
-        #[weight = T::WeightInfo::force_new_era_always()]
+        #[weight = <T as Config>::WeightInfo::force_new_era_always()]
         fn force_new_era_always(origin) {
             ensure_root(origin)?;
             ForceEra::put(Forcing::ForceAlways);
@@ -1964,7 +1977,7 @@ decl_module! {
         /// - Read: Unapplied Slashes
         /// - Write: Unapplied Slashes
         /// # </weight>
-        #[weight = T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32)]
         fn cancel_deferred_slash(origin, era: EraIndex, slash_indices: Vec<u32>) {
             T::SlashCancelOrigin::ensure_origin(origin)?;
 
@@ -2011,7 +2024,7 @@ decl_module! {
         ///   NOTE: weights are assuming that payouts are made to alive stash account (Staked).
         ///   Paying even a dead controller is cheaper weight-wise. We don't do any refunds here.
         /// # </weight>
-        #[weight = T::WeightInfo::payout_stakers_alive_staked(T::MaxNominatorRewardedPerValidator::get())]
+        #[weight = <T as Config>::WeightInfo::payout_stakers_alive_staked(T::MaxNominatorRewardedPerValidator::get())]
         fn payout_stakers(origin, validator_stash: T::AccountId, era: EraIndex) -> DispatchResult {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             ensure_signed(origin)?;
@@ -2032,7 +2045,7 @@ decl_module! {
         ///     - Reads: EraElectionStatus, Ledger, Locks, [Origin Account]
         ///     - Writes: [Origin Account], Locks, Ledger
         /// # </weight>
-        #[weight = T::WeightInfo::rebond(MAX_UNLOCKING_CHUNKS as u32)]
+        #[weight = <T as Config>::WeightInfo::rebond(MAX_UNLOCKING_CHUNKS as u32)]
         fn rebond(origin, #[compact] value: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
@@ -2072,7 +2085,7 @@ decl_module! {
         ///     - Clear Prefix Each: Era Stakers, EraStakersClipped, ErasValidatorPrefs
         ///     - Writes Each: ErasValidatorReward, ErasRewardPoints, ErasTotalStake, ErasStartSessionIndex
         /// # </weight>
-        #[weight = T::WeightInfo::set_history_depth(*_era_items_deleted)]
+        #[weight = <T as Config>::WeightInfo::set_history_depth(*_era_items_deleted)]
         fn set_history_depth(origin,
             #[compact] new_history_depth: EraIndex,
             #[compact] _era_items_deleted: u32,
@@ -2105,7 +2118,7 @@ decl_module! {
         /// - Writes: Bonded, Slashing Spans (if S > 0), Ledger, Payee, Validators, Nominators, Stash Account, Locks
         /// - Writes Each: SpanSlash * S
         /// # </weight>
-        #[weight = T::WeightInfo::reap_stash(*num_slashing_spans)]
+        #[weight = <T as Config>::WeightInfo::reap_stash(*num_slashing_spans)]
         fn reap_stash(_origin, stash: T::AccountId, num_slashing_spans: u32) {
             let at_minimum = T::Currency::total_balance(&stash) == T::Currency::minimum_balance();
             ensure!(at_minimum, Error::<T>::FundedTarget);
@@ -2162,7 +2175,7 @@ decl_module! {
         ///   - Initial solution is almost the same.
         ///   - Worse solution is retraced in pre-dispatch-checks which sets its own weight.
         /// # </weight>
-        #[weight = T::WeightInfo::submit_solution_better(
+        #[weight = <T as Config>::WeightInfo::submit_solution_better(
             size.validators.into(),
             size.nominators.into(),
             compact.voter_count() as u32,
@@ -2196,7 +2209,7 @@ decl_module! {
         /// # <weight>
         /// See [`submit_election_solution`].
         /// # </weight>
-        #[weight = T::WeightInfo::submit_solution_better(
+        #[weight = <T as Config>::WeightInfo::submit_solution_better(
             size.validators.into(),
             size.nominators.into(),
             compact.voter_count() as u32,
@@ -2241,7 +2254,7 @@ decl_module! {
         ///
         /// Note: Making this call only makes sense if you first set the validator preferences to
         /// block any further nominations.
-        #[weight = T::WeightInfo::kick(who.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::kick(who.len() as u32)]
         pub fn kick(origin, who: Vec<<T::Lookup as StaticLookup>::Source>) -> DispatchResult {
             let controller = ensure_signed(origin)?;
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
@@ -2261,6 +2274,37 @@ decl_module! {
                 });
             }
 
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_reward_start_height(origin, reward_start_height: T::BlockNumber) -> DispatchResult {
+            ensure_root(origin)?;
+            RewardStartHeight::<T>::put(reward_start_height);
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_phase0_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            <Phase0RewardPerYear<T>>::put(reward_per_year);
+            Self::deposit_event(RawEvent::Phase0RewardPerYear(reward_per_year));
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_phase1_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            <Phase1RewardPerYear<T>>::put(reward_per_year);
+            Self::deposit_event(RawEvent::Phase1RewardPerYear(reward_per_year));
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_phase2_reward(origin, reward_per_year: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            <Phase2RewardPerYear<T>>::put(reward_per_year);
+            Self::deposit_event(RawEvent::Phase2RewardPerYear(reward_per_year));
             Ok(())
         }
     }
@@ -2831,16 +2875,39 @@ impl<T: Config> Module<T> {
         // Note: active_era_start can be None if end era is called during genesis config.
         if let Some(active_era_start) = active_era.start {
             let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
-
             let era_duration = now_as_millis_u64 - active_era_start;
+
+            let reward_start_height = RewardStartHeight::<T>::get().saturated_into::<u64>();
+
+            let current_block_height = <frame_system::Module<T>>::block_number();
+            let current_block_height = current_block_height.saturated_into::<u64>();
+
+            // Milliseconds per year for the Julian year (365.25 days).
+            let milliseconds_per_year: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
+            let milliseconds_per_block =
+                <T as pallet_timestamp::Config>::MinimumPeriod::get().saturating_mul(2u32.into());
+            let block_per_year: u64 =
+                milliseconds_per_year / milliseconds_per_block.saturated_into::<u64>();
+
+            let yearly_inflation_amount = if current_block_height < reward_start_height {
+                0u32.into()
+            } else if current_block_height < 3u64 * block_per_year + reward_start_height {
+                <Phase0RewardPerYear<T>>::get()
+            } else if current_block_height < 8u64 * block_per_year + reward_start_height {
+                <Phase1RewardPerYear<T>>::get()
+            } else {
+                <Phase2RewardPerYear<T>>::get()
+            };
+
             let (validator_payout, max_payout) = inflation::compute_total_payout(
-                &T::RewardCurve::get(),
-                Self::eras_total_stake(&active_era.index),
-                T::Currency::total_issuance(),
                 // Duration of era; more than u64::MAX is rewarded as u64::MAX.
-                era_duration.saturated_into::<u64>(),
+                milliseconds_per_year,
+                yearly_inflation_amount,
+                era_duration,
             );
-            let rest = max_payout.saturating_sub(validator_payout);
+
+            let rest: BalanceOf<T> = (max_payout - validator_payout).into();
 
             Self::deposit_event(RawEvent::EraPayout(
                 active_era.index,

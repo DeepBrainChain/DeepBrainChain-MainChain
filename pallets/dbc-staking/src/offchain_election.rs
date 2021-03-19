@@ -390,12 +390,15 @@ pub fn prepare_submission<T: Config>(
     .map_err(|e| OffchainElectionError::from(e))?;
 
     // potentially reduce the size of the compact to fit weight.
-    let maximum_allowed_voters =
-        maximum_compact_len::<T::WeightInfo>(winners.len() as u32, size, maximum_weight);
+    let maximum_allowed_voters = maximum_compact_len::<<T as Config>::WeightInfo>(
+        winners.len() as u32,
+        size,
+        maximum_weight,
+    );
 
     crate::log!(debug, "💸 Maximum weight = {:?} // current weight = {:?} // maximum voters = {:?} // current votes = {:?}",
 		maximum_weight,
-		T::WeightInfo::submit_solution_better(
+		<T as Config>::WeightInfo::submit_solution_better(
 				size.validators.into(),
 				size.nominators.into(),
 				compact.voter_count() as u32,

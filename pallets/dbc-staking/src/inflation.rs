@@ -20,7 +20,7 @@
 //! The staking rate in NPoS is the total amount of tokens staked by nominators and validators,
 //! divided by the total token supply.
 
-use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill};
+use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 
 /// The total payout to all validators (and their nominators) per era and maximum payout.
 ///
@@ -30,23 +30,18 @@ use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill};
 ///
 /// `era_duration` is expressed in millisecond.
 pub fn compute_total_payout<N>(
-    yearly_inflation: &PiecewiseLinear<'static>,
-    npos_token_staked: N,
-    total_tokens: N,
+    milliseconds_per_year: u64,
+    yearly_inflation_amount: N,
     era_duration: u64,
 ) -> (N, N)
 where
     N: AtLeast32BitUnsigned + Clone,
 {
-    // Milliseconds per year for the Julian year (365.25 days).
-    const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+    let portion = Perbill::from_rational_approximation(era_duration as u64, milliseconds_per_year);
+    let payout = portion * yearly_inflation_amount;
 
-    let portion = Perbill::from_rational_approximation(era_duration as u64, MILLISECONDS_PER_YEAR);
-    let payout = portion
-        * yearly_inflation
-            .calculate_for_fraction_times_denominator(npos_token_staked, total_tokens.clone());
-    let maximum = portion * (yearly_inflation.maximum * total_tokens);
-    (payout, maximum)
+    // 每年通胀的量，全部发放给节点，因此max=inflation_payout
+    (payout.clone(), payout)
 }
 
 #[cfg(test)]
@@ -65,92 +60,39 @@ mod test {
     }
 
     #[test]
+    #[rustfmt::skip]
     fn npos_curve_is_sensible() {
-        const YEAR: u64 = 365 * 24 * 60 * 60 * 1000;
+        const YEAR: u64 = 36525 * 24 * 60 * 60 * 1000 / 100;
+        let era_duration: u64 = 365 * 24 * 60 * 60 * 1000;
 
         // check maximum inflation.
         // not 10_000 due to rounding error.
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 0, 100_000u64, YEAR).1,
-            9_993
-        );
+        assert_eq!(super::compute_total_payout(YEAR, 1_000_000_000u64, era_duration).1, 999_315_537); // 最大值为 total_token * 10%, 这个10% 由I_NPOS 中的max_inflation所定义
 
         //super::I_NPOS.calculate_for_fraction_times_denominator(25, 100)
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 0, 100_000u64, YEAR).0,
-            2_498
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 5_000, 100_000u64, YEAR).0,
-            3_248
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, YEAR).0,
-            6_246
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 40_000, 100_000u64, YEAR).0,
-            8_494
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, YEAR).0,
-            9_993
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 60_000, 100_000u64, YEAR).0,
-            4_379
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, YEAR).0,
-            2_733
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 95_000, 100_000u64, YEAR).0,
-            2_513
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 100_000, 100_000u64, YEAR).0,
-            2_505
-        );
+        assert_eq!(super::compute_total_payout(YEAR, 0u64, era_duration).0, 0);
+        assert_eq!(super::compute_total_payout(YEAR, 5_000u64, era_duration).0, 4_997);
+        assert_eq!(super::compute_total_payout(YEAR, 25_000u64, era_duration).0, 24_983);
+        assert_eq!(super::compute_total_payout(YEAR, 40_000u64, era_duration).0, 39_973);
+        assert_eq!(super::compute_total_payout(YEAR, 50_000u64, era_duration).0, 49_966);
+        assert_eq!(super::compute_total_payout(YEAR, 60_000u64, era_duration ).0, 59_959);
+        assert_eq!(super::compute_total_payout(YEAR, 75_000u64, era_duration).0, 74_949);
+        assert_eq!(super::compute_total_payout(YEAR, 95_000u64, era_duration).0, 94_935);
+        assert_eq!(super::compute_total_payout(YEAR, 100_000u64, era_duration).0, 99_932);
 
         const DAY: u64 = 24 * 60 * 60 * 1000;
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, DAY).0,
-            17
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, DAY).0,
-            27
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, DAY).0,
-            7
-        );
+        assert_eq!(super::compute_total_payout(YEAR, 25_000u64, DAY).0, 68);
+        assert_eq!(super::compute_total_payout(YEAR, 50_000u64, DAY).0, 137);
+        assert_eq!(super::compute_total_payout(YEAR, 75_000u64, DAY).0, 205);
 
         const SIX_HOURS: u64 = 6 * 60 * 60 * 1000;
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 25_000, 100_000u64, SIX_HOURS).0,
-            4
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 50_000, 100_000u64, SIX_HOURS).0,
-            7
-        );
-        assert_eq!(
-            super::compute_total_payout(&I_NPOS, 75_000, 100_000u64, SIX_HOURS).0,
-            2
-        );
+        assert_eq!(super::compute_total_payout(DAY, 25_000u64, SIX_HOURS).0, 6_250);
+        assert_eq!(super::compute_total_payout(DAY, 50_000u64, SIX_HOURS).0, 12_500);
+        assert_eq!(super::compute_total_payout(DAY, 75_000u64, SIX_HOURS).0, 18_750);
 
         const HOUR: u64 = 60 * 60 * 1000;
-        assert_eq!(
-            super::compute_total_payout(
-                &I_NPOS,
-                2_500_000_000_000_000_000_000_000_000u128,
-                5_000_000_000_000_000_000_000_000_000u128,
-                HOUR
-            )
-            .0,
-            57_038_500_000_000_000_000_000
+        assert_eq!(super::compute_total_payout(SIX_HOURS, 2_500_000_000_000u64, HOUR).0,
+                   416_666_665_000
         );
     }
 }
