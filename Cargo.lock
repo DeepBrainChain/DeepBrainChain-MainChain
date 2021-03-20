@@ -1272,6 +1272,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "parking_lot 0.11.1",
+ "phase-reward",
  "rand_chacha 0.2.2",
  "serde",
  "sp-application-crypto",
@@ -1285,6 +1286,19 @@ dependencies = [
  "sp-tracing",
  "static_assertions",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "dbc-testing"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-babe",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "phase-reward",
+ "serde",
 ]
 
 [[package]]
@@ -3971,6 +3985,7 @@ name = "node-runtime"
 version = "2.0.1"
 dependencies = [
  "dbc-staking",
+ "dbc-testing",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -4018,6 +4033,7 @@ dependencies = [
  "pallet-utility",
  "pallet-vesting",
  "parity-scale-codec",
+ "phase-reward",
  "serde",
  "sp-api",
  "sp-authority-discovery",
@@ -5276,6 +5292,14 @@ checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
 dependencies = [
  "fixedbitset",
  "indexmap",
+]
+
+[[package]]
+name = "phase-reward"
+version = "0.1.0"
+dependencies = [
+ "node-primitives",
+ "sp-std",
 ]
 
 [[package]]

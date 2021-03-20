@@ -17,6 +17,7 @@ static_assertions = "1.1.0"
 serde = { version = "1.0.101", optional = true }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 rand_chacha = { version = "0.2", default-features = false, optional = true }
+phase-reward = { path = "../../traits/phase-reward", default-features = false }
 
 [dependencies.sp-std]
 default-features = false
@@ -153,6 +154,7 @@ std = [
 	"frame-system/std",
 	"pallet-authorship/std",
 	"sp-application-crypto/std",
+	"phase-reward/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

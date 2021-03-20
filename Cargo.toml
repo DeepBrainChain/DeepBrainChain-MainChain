@@ -11,6 +11,8 @@ members = [
     'runtime',
     'testing',
     'pallets/dbc-staking',
+    'pallets/dbc-testing',
+    'traits/phase-reward',
 ]
 [profile.release]
 panic = 'unwind'

@@ -335,6 +335,8 @@ use sp_std::{
 };
 pub use weights::WeightInfo;
 
+use phase_reward::PhaseReward;
+
 const STAKING_ID: LockIdentifier = *b"staking ";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 pub const MAX_NOMINATIONS: usize = <CompactAssignments as CompactSolution>::LIMIT;
@@ -3295,6 +3297,22 @@ impl<T: Config> Module<T> {
     #[cfg(feature = "runtime-benchmarks")]
     pub fn set_slash_reward_fraction(fraction: Perbill) {
         SlashRewardFraction::put(fraction);
+    }
+}
+
+impl<T: Config> PhaseReward for Module<T> {
+    type Balance = BalanceOf<T>;
+
+    fn set_phase0_reward(balance: Self::Balance) {
+        <Phase0RewardPerYear<T>>::put(balance);
+    }
+
+    fn set_phase1_reward(balance: Self::Balance) {
+        <Phase1RewardPerYear<T>>::put(balance);
+    }
+
+    fn set_phase2_reward(balance: Self::Balance) {
+        <Phase2RewardPerYear<T>>::put(balance);
     }
 }
 
