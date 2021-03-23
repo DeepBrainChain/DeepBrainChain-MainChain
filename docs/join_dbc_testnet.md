@@ -9,7 +9,7 @@
 
      安装完成后，通过浏览器插件生成即可
 
-   + 方式2：通过网页钱包 https://test.dbcwallet.io/#/accounts，点击`账户`--`添加账户`进行生成。
+   + 方式2：通过网页钱包[https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts) ，点击`账户`--`添加账户`进行生成。
 
    + 方式3：通过命令行方式生成
 
