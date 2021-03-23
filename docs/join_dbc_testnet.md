@@ -14,7 +14,7 @@
    + 方式3：通过命令行方式生成
 
      ```bash
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
      cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0 --locked
      ```
    
@@ -74,17 +74,19 @@
 6. 设置绑定（bond）金额
 
    + 打开[https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts)  你将能看到你的余额：![image-20210121194808850](join_dbc_testnet.assets/image-20210121194808850.png)
-+ 导航到`网络` >`质押` > `账户操作` > `存储账户`，![image-20210323095232363](join_dbc_testnet.assets/image-20210323095232363.png)
+
+   + 导航到`网络` >`质押` > `账户操作` > `存储账户`，![image-20210323095232363](join_dbc_testnet.assets/image-20210323095232363.png)
+
    + 设置bond的金额（确保除了bond的数额，您的账户中还有余额以用来发送交易）： ![image-20210121195033167](join_dbc_testnet.assets/image-20210121195033167.png)
 
    **说明：**
 
    + `Stash account`：你的资金账户，这里我们bond 45 DBC，确保账户中余额至少有这么多
-+ `controller account`：这个账户也应该有少量的DBC来发送开始和停止验证人的交易
+   + `controller account`：这个账户也应该有少量的DBC来发送开始和停止验证人的交易
    + `value bonded`：你想要bond/stake多少DBC, 请注意，你不需要bond账户中所有的余额，另外你随后可以增加bond的数额。
    + `payment destination`：验证人获得的奖励将会被发给这个账户。这个账户可以设置成任何账户。其中，
-     + `Stash account(increase the amount at stake)`: 收益发放到stash账户，并质押
-     + `Stash account(do not increase the amount at stake)`：收益发放到stash账户，不进行质押
+   + `Stash account(increase the amount at stake)`: 收益发放到stash账户，并质押
+   + `Stash account(do not increase the amount at stake)`：收益发放到stash账户，不进行质押
 
 
 7. 设置`rotateKey`:
@@ -102,7 +104,6 @@
    + 这时你将需要设置验证人偏好：![image-20210121235217665](join_dbc_testnet.assets/image-20210121235217665.png)
    
    + 在 `reward commission percentage`栏目中，你将需要输入你作为验证人的收益偏好。然后点击右下角`Validate`，并发送交易。在`Waiting`界面，你将能看到你的账户正在等待下个`Era`，来参加选举成为验证人节点。![image-20210121235451552](join_dbc_testnet.assets/image-20210121235451552.png)
-   
    
 
 ## 如何领取节点奖励？
