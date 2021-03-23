@@ -48,15 +48,12 @@
    ```
 
    + If you compile from source, the binary path is `./target/release/dbc-chain`
-
-   + After finished synchronize, type `Control + C` to close the above command. You can compare `target` and `best` to infer if sync is finished. When `target` is closed (100 blocks, for example) to `best` , it can be regard sync is finished.![image-20210126021938613](join_dbc_testnet_EN.assets/image-20210126021938613.png)
-
++ After finished synchronize, type `Control + C` to close the above command. You can compare `target` and `best` to infer if sync is finished. When `target` is closed (100 blocks, for example) to `best` , it can be regard sync is finished.![image-20210126021938613](join_dbc_testnet_EN.assets/image-20210126021938613.png)
    + **Flags in detail：**
   + `--base-path`：Specifies a directory where Substrate should store all the data  related to this chain. If this value is not specified, a default path  will be used. If the directory does not exist it will be created for  you. If other blockchain data already exists there you will get an  error. Either clear the directory or choose a different one.
      + `--chain ./dbcSpecRaw.json`：Specifies which chain specification to use. 
-  + `--pruning=archive`：synchronize chain data
+     + `--pruning=archive`：synchronize chain data
      + `--bootnodes`：specified a single boot node.
-
 5. After synchronizing block data finished, stop the synchronizing command. Then run the node as a validator: 
 
    ```bash
@@ -64,9 +61,7 @@
    ```
 
    + If you compile from source, the binary path is `./target/release/dbc-chain`
-+ You can give your validator any name that you like, but note that others will be able to see it, and it will be included in the list of all servers using the same telemetry server. Since numerous people are using telemetry, it is recommended that you choose something likely to be unique.
-  
-
+   + You can give your validator any name that you like, but note that others will be able to see it, and it will be included in the list of all servers using the same telemetry server. Since numerous people are using telemetry, it is recommended that you choose something likely to be unique.
 5. generate`rotateKey`
 
    Run the following command in the terminal, and record the result.
