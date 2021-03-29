@@ -106,8 +106,10 @@
 
 ## How to get your rewards payout？
 
-Login in your `polkadot{.js}` account，navigate to `Staking > Payouts` ，you may see the rewards to be payout：
+Navigate to `Staking > Payouts > Max, 84 eras` ，you may see all the rewards to be payout：
 
-![image-20210122091057746](join_dbc_testnet.assets/image-20210122091057746.png)
+![image-20210329095933403](join_dbc_testnet_EN.assets/image-20210329095933403.png)
 
-chick `Payout` button to send a transaction.
+
+
+chick `Payout all` button to send a transaction.
