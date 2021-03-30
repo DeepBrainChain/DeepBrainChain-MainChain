@@ -17,7 +17,7 @@ pub mod pallet {
 
     /// The type to sign and send transactions.
     pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
-
+    pub const MAX_LEN: usize = 64;
     type URL = Vec<u8>;
 
     #[pallet::config]
@@ -33,26 +33,23 @@ pub mod pallet {
     #[pallet::getter(fn prices)]
     pub type Prices<T> = StorageValue<_, Vec<u64>>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn next_unsigned_at)]
-    pub type NextUnsignedAt<T> = StorageValue<_, u64>; // TODO: use T::BlockNumber
-                                                       // pub type NextUnsignedAt<T> = StorageValue<_, T::BlockNumber>;
+    // #[pallet::storage]
+    // #[pallet::getter(fn next_unsigned_at)]
+    // pub type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber>;
+
     #[pallet::type_value]
-    fn MyPriceURL() -> URL {
+    pub fn MyPriceURL() -> URL {
         "https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".into()
     }
 
     #[pallet::storage]
     pub(super) type PriceURL<T> = StorageValue<_, URL, ValueQuery, MyPriceURL>;
 
-    // pub type Something<T> = StorageValue<_, u32>;
-
     #[pallet::event]
     #[pallet::metadata(T::AccountId = "AccountId")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         NewPrice(u64, Option<T::AccountId>),
-        // SomethingStored(u32, T::AccountId),
     }
 
     #[pallet::error]
@@ -65,26 +62,39 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn offchain_worker(block_number: T::BlockNumber) {
+            debug::native::info!(
+                "Hello world from offchain worker at height: {:#?}!",
+                block_number
+            );
+
+            let average: Option<u64> = Self::average_price();
+            debug::debug!("Current price: {:?}", average);
+
+            let result = Self::fetch_price_and_send_unsigned_tx();
+            if let Err(e) = result {
+                debug::error!("offchain_worker error: {:?}", e);
+            }
+        }
+    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(10000)]
-        pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            Ok(().into())
-        }
-
         #[pallet::weight(10000)]
         pub fn submit_price_unsigned(
             origin: OriginFor<T>,
             price: u64,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
+            Self::add_price(None, price);
+            Ok(().into())
+        }
 
-            // Self::add_price(None, price);
-
+        #[pallet::weight(10000)]
+        pub fn set_price_url(origin: OriginFor<T>, new_url: URL) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            PriceURL::<T>::put(new_url);
             Ok(().into())
         }
     }
@@ -186,34 +196,33 @@ impl<T: Config> Module<T> {
 
     fn add_price(who: Option<T::AccountId>, price: u64) {
         debug::info!("Adding to the average: {}", price);
-        let prices = Prices::<T>::get();
-        // match prices {}
+        match Prices::<T>::get() {
+            None => return,
+            Some(mut prices) => {
+                if prices.len() < MAX_LEN {
+                    prices.push(price);
+                } else {
+                    prices[price as usize % MAX_LEN] = price;
+                }
 
-        // Prices::<T>::mutate(|prices| {
-        //     const MAX_LEN: usize = 64;
-        //     if prices.len() < MAX_LEN {
-        //         prices.push(price);
-        //     } else {
-        //         prices[price as usize % MAX_LEN] = price;
-        //     }
-        // });
+                Prices::<T>::put(prices);
+            }
+        }
 
         let average = Self::average_price()
             .expect("The average is not empty, because it was just mutated; qed");
 
         debug::info!("Current average price is: {}", average);
 
-        // Self::deposit_event(Event::SomethingStored(something, who));
-
         Self::deposit_event(Event::NewPrice(price, who));
     }
 
     fn average_price() -> Option<u64> {
-        let prices = Prices::<T>::get();
-        if prices.is_empty() {
-            None
-        } else {
-            Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
+        match Prices::<T>::get() {
+            None => None,
+            Some(prices) => {
+                Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
+            }
         }
     }
 }

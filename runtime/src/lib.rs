@@ -94,7 +94,6 @@ use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
 
 pub use dbc_price;
-/// Import the template pallet.
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
