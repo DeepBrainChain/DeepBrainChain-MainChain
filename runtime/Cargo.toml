@@ -111,6 +111,7 @@ std = [
     'pallet-vesting/std',
     'dbc-testing/std',
     'phase-reward/std',
+    'dbc-price/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -356,6 +357,10 @@ package = 'dbc-staking'
 default-features = false
 path = '../pallets/dbc-testing'
 package = 'dbc-testing'
+
+[dependencies.dbc-price]
+default-features = false
+path = '../pallets/dbc-price'
 
 [dependencies.phase-reward]
 default-features = false

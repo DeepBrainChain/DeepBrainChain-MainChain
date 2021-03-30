@@ -93,6 +93,9 @@ pub mod constants;
 use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
 
+pub use dbc_price;
+/// Import the template pallet.
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -1028,6 +1031,10 @@ impl dbc_testing::Config for Runtime {
     type PhaseReward = Staking;
 }
 
+impl dbc_price::Config for Runtime {
+    type Event = Event;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1070,6 +1077,7 @@ construct_runtime!(
         Assets: pallet_assets::{Module, Call, Storage, Event<T>},
         Mmr: pallet_mmr::{Module, Storage},
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
+        DBCPrice: dbc_price::{Module, Call, Storage, Event<T>},
     }
 );
 

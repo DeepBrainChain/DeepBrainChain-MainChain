@@ -13,6 +13,7 @@ members = [
     'pallets/dbc-staking',
     'pallets/dbc-testing',
     'traits/phase-reward',
+    'pallets/dbc-price',
 ]
 [profile.release]
 panic = 'unwind'
