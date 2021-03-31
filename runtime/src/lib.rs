@@ -1034,6 +1034,10 @@ impl dbc_price::Config for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const BlockPerEra: u32 = 3600 * 24 / 30;
+}
+
 impl online_profile::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
