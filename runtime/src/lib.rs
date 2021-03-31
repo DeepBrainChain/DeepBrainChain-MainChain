@@ -1046,6 +1046,13 @@ impl online_profile::Config for Runtime {
     type BondingDuration = BondingDuration;
 }
 
+impl lease_committee::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type CommitteeMachine = OnlineProfile;
+    type BondingDuration = BondingDuration;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1090,6 +1097,7 @@ construct_runtime!(
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         DBCPrice: dbc_price::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>, ValidateUnsigned},
+        LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
     }
 );
 

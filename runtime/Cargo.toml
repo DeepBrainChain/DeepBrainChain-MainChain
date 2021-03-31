@@ -113,6 +113,7 @@ std = [
     'phase-reward/std',
     'dbc-price/std',
     'online-profile/std',
+    'lease-committee/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -371,6 +372,11 @@ path = '../traits/phase-reward'
 default-features = false
 path = '../pallets/online-profile'
 package = 'online-profile'
+
+[dependencies.lease-committee]
+default-features = false
+path = '../pallets/lease-committee'
+package = 'lease-committee'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

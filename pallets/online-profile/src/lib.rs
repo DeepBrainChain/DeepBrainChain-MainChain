@@ -53,22 +53,13 @@ pub mod pallet {
         type RandomnessSource: Randomness<H256>;
         type BlockPerEra: Get<u32>;
         type BondingDuration: Get<EraIndex>;
-        //   type Balance: Parameter + From<u8>;
     }
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
-    #[pallet::storage]
-    #[pallet::getter(fn something)]
-    // Learn more about declaring storage items:
-    // https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
-    pub type Something<T> = StorageValue<_, u32>;
-
-    // // 存储用户机器在线收益
-    // HistoryDepth get(fn history_depth) config(): u32 = 150;
-
+    // 存储用户机器在线收益
     #[pallet::type_value]
     pub fn HistoryDepthDefault<T: Config>() -> u32 {
         150
@@ -287,13 +278,6 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(10000)]
-        pub fn do_something(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            Ok(().into())
-        }
-
         // root用户添加机器信息API
         /// Add URL for OCW query machine info
         #[pallet::weight(0)]

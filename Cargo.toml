@@ -10,11 +10,8 @@ members = [
     'rpc-client',
     'runtime',
     'testing',
-    'pallets/dbc-staking',
-    'pallets/dbc-testing',
-    'traits/phase-reward',
-    'pallets/dbc-price',
-    'pallets/online-profile',
+    'pallets/*', 
+    'traits/*', 
 ]
 [profile.release]
 panic = 'unwind'

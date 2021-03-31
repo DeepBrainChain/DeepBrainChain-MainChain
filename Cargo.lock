@@ -2901,6 +2901,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
+name = "lease-committee"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "online-profile",
+ "online-profile-machine",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "leb128"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4047,6 +4061,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "hex-literal",
+ "lease-committee",
  "node-primitives",
  "online-profile",
  "pallet-assets",
@@ -4280,6 +4295,14 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "online-profile-machine"
+version = "0.1.0"
+dependencies = [
+ "node-primitives",
  "sp-std",
 ]
 
@@ -4865,22 +4888,22 @@ dependencies = [
 [[package]]
 name = "pallet-staking-reward-curve"
 version = "3.0.0"
-source = "git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
+ "sp-runtime",
  "syn",
 ]
 
 [[package]]
 name = "pallet-staking-reward-curve"
 version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "sp-runtime",
  "syn",
 ]
 
