@@ -112,6 +112,7 @@ std = [
     'dbc-testing/std',
     'phase-reward/std',
     'dbc-price/std',
+    'online-profile/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -365,6 +366,11 @@ path = '../pallets/dbc-price'
 [dependencies.phase-reward]
 default-features = false
 path = '../traits/phase-reward'
+
+[dependencies.online-profile]
+default-features = false
+path = '../pallets/online-profile'
+package = 'online-profile'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

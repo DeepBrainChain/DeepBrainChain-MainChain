@@ -14,6 +14,7 @@ members = [
     'pallets/dbc-testing',
     'traits/phase-reward',
     'pallets/dbc-price',
+    'pallets/online-profile',
 ]
 [profile.release]
 panic = 'unwind'
