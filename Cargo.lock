@@ -1335,6 +1335,7 @@ dependencies = [
  "parity-scale-codec",
  "phase-reward",
  "serde",
+ "sp-std",
 ]
 
 [[package]]
