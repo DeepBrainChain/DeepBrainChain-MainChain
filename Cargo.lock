@@ -4285,6 +4285,7 @@ dependencies = [
  "alt_serde",
  "frame-support",
  "frame-system",
+ "online-profile-machine",
  "pallet-babe",
  "pallet-balances",
  "pallet-randomness-collective-flip",

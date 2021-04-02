@@ -53,6 +53,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
+    #[pallet::getter(fn history_depth)]
     pub(super) type HistoryDepth<T: Config> =
         StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
 
@@ -67,6 +68,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
+    #[pallet::getter(fn alternate_committee_limit)]
     pub(super) type AlternateCommitteeLimit<T: Config> =
         StorageValue<_, u32, ValueQuery, AlternateCommitteeLimitDefault<T>>;
 
@@ -131,14 +133,14 @@ pub mod pallet {
             num: u32,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            AlternateCommitteeLimit::put(num);
+            AlternateCommitteeLimit::<T>::put(num);
             Ok(().into())
         }
 
         #[pallet::weight(0)]
         pub fn set_committee_limit(origin: OriginFor<T>, num: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            CommitteeLimit::put(num);
+            CommitteeLimit::<T>::put(num);
             Ok(().into())
         }
 
@@ -152,7 +154,7 @@ pub mod pallet {
 
             // 质押数量应该不小于最小质押要求
             ensure!(
-                value >= Self::committee_min_stake(),
+                value >= Self::committee_min_stake().unwrap(),
                 Error::<T>::StakeNotEnough
             );
             // 检查余额
@@ -162,7 +164,7 @@ pub mod pallet {
             );
 
             // 不是候选委员会
-            let alternate_committee = Self::alternate_committee();
+            let alternate_committee = Self::alternate_committee().unwrap();
             ensure!(
                 !alternate_committee.contains(&who),
                 Error::<T>::AlreadyAlternateCommittee
@@ -174,7 +176,7 @@ pub mod pallet {
             );
 
             // 不是委员会成员
-            let committee = Self::committee();
+            let committee = Self::committee().unwrap();
             ensure!(!committee.contains(&who), Error::<T>::AlreadyCommittee);
 
             let current_era = online_profile::Module::<T>::current_era();
@@ -202,9 +204,9 @@ pub mod pallet {
         pub fn chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            let mut chill_list = Self::chill_list();
-            let committee = Self::committee();
-            let alternate_committee = Self::alternate_committee();
+            let mut chill_list = Self::chill_list().unwrap();
+            let committee = Self::committee().unwrap();
+            let alternate_committee = Self::alternate_committee().unwrap();
 
             // 确保调用该方法的用户已经在候选委员会列表
             ensure!(
@@ -225,8 +227,9 @@ pub mod pallet {
             // 否则将用户从alternate_committee中移除
             Self::rm_from_alternate_committee(&who)?;
 
-            let mut ledger =
-                Self::committee_ledger(&who).ok_or(Error::<T>::NotAlternateCommittee)?;
+            let mut ledger = Self::committee_ledger(&who)
+                .unwrap()
+                .ok_or(Error::<T>::NotAlternateCommittee)?;
             let era =
                 online_profile::Module::<T>::current_era() + <T as Config>::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk {
@@ -242,8 +245,9 @@ pub mod pallet {
         #[pallet::weight(10000)]
         fn withdraw_unbonded(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            let mut ledger =
-                Self::committee_ledger(&who).ok_or(Error::<T>::NotAlternateCommittee)?;
+            let mut ledger = Self::committee_ledger(&who)
+                .unwrap()
+                .ok_or(Error::<T>::NotAlternateCommittee)?;
             let old_total = ledger.total;
             let current_era = online_profile::Module::<T>::current_era();
 
@@ -272,7 +276,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn booking(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            let committee = Self::committee();
+            let committee = Self::committee().unwrap();
 
             if !committee.contains(&who) {
                 return Err(Error::<T>::NotCommittee.into());
@@ -291,11 +295,14 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            ensure!(Self::committee().contains(&who), Error::<T>::NotCommittee);
+            ensure!(
+                Self::committee().unwrap().contains(&who),
+                Error::<T>::NotCommittee
+            );
             if !online_profile::MachineDetail::<T>::contains_key(&machine_id) {
                 return Err(Error::<T>::MachineGradePriceNotSet.into());
             };
-            let mut machine_meta = online_profile::MachineDetail::<T>::get(&machine_id);
+            let mut machine_meta = online_profile::MachineDetail::<T>::get(&machine_id).unwrap();
             for a_machine_info in &machine_meta.committee_confirm {
                 if a_machine_info.committee == who {
                     return Err(Error::<T>::CommitteeConfirmedYet.into());
@@ -322,9 +329,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
-            let mut members = AlternateCommittee::<T>::get();
+            let mut members = AlternateCommittee::<T>::get().unwrap();
             ensure!(
-                members.len() < AlternateCommitteeLimit::get() as usize,
+                members.len() < AlternateCommitteeLimit::<T>::get() as usize,
                 Error::<T>::AlternateCommitteeLimitReached
             );
 
@@ -346,7 +353,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
-            let mut members = AlternateCommittee::<T>::get();
+            let mut members = AlternateCommittee::<T>::get().unwrap();
 
             match members.binary_search(&old_member) {
                 Ok(index) => {
@@ -366,9 +373,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_root(origin)?;
 
-            let mut members = Committee::<T>::get();
+            let mut members = Committee::<T>::get().unwrap();
             ensure!(
-                members.len() < CommitteeLimit::get() as usize,
+                members.len() < CommitteeLimit::<T>::get() as usize,
                 Error::<T>::CommitteeLimitReached
             );
 
@@ -390,7 +397,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_root(origin)?;
 
-            let mut members = Committee::<T>::get();
+            let mut members = Committee::<T>::get().unwrap();
 
             match members.binary_search(&old_member) {
                 Ok(index) => {
@@ -431,7 +438,7 @@ pub mod pallet {
                 return Ok(().into());
             }
 
-            let mut machine_detail = online_profile::MachineDetail::<T>::get(&machine_id);
+            let mut machine_detail = online_profile::MachineDetail::<T>::get(&machine_id).unwrap();
             machine_detail.machine_grade = grade;
             online_profile::MachineDetail::<T>::insert(&machine_id, machine_detail);
 
@@ -470,7 +477,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     fn add_to_alternate_committee(who: &T::AccountId) -> DispatchResult {
-        let mut alternate_committee = Self::alternate_committee();
+        let mut alternate_committee = Self::alternate_committee().unwrap();
 
         match alternate_committee.binary_search(who) {
             Err(i) => {
@@ -483,7 +490,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn rm_from_alternate_committee(who: &T::AccountId) -> DispatchResult {
-        let mut alternate_committee = Self::alternate_committee();
+        let mut alternate_committee = Self::alternate_committee().unwrap();
 
         match alternate_committee.binary_search(who) {
             Ok(index) => {
@@ -500,8 +507,8 @@ impl<T: Config> Pallet<T> {
 
     // 产生一组随机的审核委员会，并更新
     fn update_committee() {
-        let mut alternate_committee = AlternateCommittee::<T>::get();
-        let committee_num = CommitteeLimit::get();
+        let mut alternate_committee = AlternateCommittee::<T>::get().unwrap();
+        let committee_num = CommitteeLimit::<T>::get();
         let mut next_group = Vec::new();
 
         if alternate_committee.len() == 0 {
@@ -532,6 +539,6 @@ impl<T: Config> Pallet<T> {
             ledger.total,
             WithdrawReasons::all(),
         );
-        <CommitteeLedger<T>>::insert(controller, ledger);
+        <CommitteeLedger<T>>::insert(controller, Some(ledger));
     }
 }

@@ -15,6 +15,7 @@ use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
     pallet_prelude::*,
 };
+use online_profile_machine::CommitteeMachine;
 use sp_core::H256;
 use sp_runtime::{
     offchain,
@@ -28,7 +29,6 @@ pub mod machine_info;
 pub mod types;
 use machine_info::*;
 use types::*;
-// use online_profile_machine::CommitteeMachine;
 
 pub use pallet::*;
 
@@ -907,4 +907,8 @@ impl<T: Config> Pallet<T> {
         UserReleasedReward::<T>::insert(&user, user_released_reward);
         UserDailyReward::<T>::insert(&user, user_daily_reward);
     }
+}
+
+impl<T: Config> CommitteeMachine for Pallet<T> {
+    fn committee_machine_grade() {}
 }
