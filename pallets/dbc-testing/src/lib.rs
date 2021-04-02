@@ -35,6 +35,11 @@ decl_module! {
             // let secs_per_block = <T as timestamp::Config>::MinimumPeriod::get();
             let caller = ensure_signed(origin)?;
 
+            let mut output: [u8; 64] = [0; 64];
+            let decoded = bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
+            debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
+
+            // TODO: convert to str
             debug::info!("######### Request sent by: {:?}, {:?}, {:?} #########", caller, secs_per_block, secs_per_block2);
             Ok(())
         }
@@ -54,7 +59,7 @@ decl_module! {
         }
 
         #[weight = 0]
-         pub fn set_phase2_reward(origin,reward_balance:BalanceOf<T>) -> DispatchResult{
+        pub fn set_phase2_reward(origin,reward_balance:BalanceOf<T>) -> DispatchResult{
             ensure_root(origin)?;
             T::PhaseReward::set_phase2_reward(reward_balance);
             Ok(())

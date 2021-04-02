@@ -1098,6 +1098,7 @@ construct_runtime!(
         DBCPrice: dbc_price::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
+        DBCTesting: dbc_testing::{Module, Call},
     }
 );
 

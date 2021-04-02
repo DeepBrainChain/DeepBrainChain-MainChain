@@ -150,7 +150,7 @@ pub mod pallet {
     /// MachineDetail
     #[pallet::storage]
     #[pallet::getter(fn machine_detail)]
-    pub(super) type MachineDetail<T> = StorageMap<
+    pub type MachineDetail<T> = StorageMap<
         _,
         Blake2_128Concat,
         MachineId,
@@ -256,24 +256,24 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn offchain_worker(block_number: T::BlockNumber) {
-            debug::info!("Entering off-chain worker, at height: {:?}", block_number);
+        // fn offchain_worker(block_number: T::BlockNumber) {
+        //     debug::info!("Entering off-chain worker, at height: {:?}", block_number);
 
-            let result = Self::call_ocw_machine_info();
-            if let Err(e) = result {
-                debug::error!("offchain_worker error: {:?}", e);
-            }
-        }
+        //     let result = Self::call_ocw_machine_info();
+        //     if let Err(e) = result {
+        //         debug::error!("offchain_worker error: {:?}", e);
+        //     }
+        // }
 
-        fn on_finalize(block_number: T::BlockNumber) {
-            if block_number.saturated_into::<u64>() / 10 == 0 {
-                Self::update_machine_info_url()
-            }
+        // fn on_finalize(block_number: T::BlockNumber) {
+        //     if block_number.saturated_into::<u64>() / 10 == 0 {
+        //         Self::update_machine_info_url()
+        //     }
 
-            if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
-                Self::end_era()
-            }
-        }
+        //     if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
+        //         Self::end_era()
+        //     }
+        // }
     }
 
     #[pallet::call]

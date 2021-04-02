@@ -8,6 +8,7 @@ edition = "2018"
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 phase-reward = { path = "../../traits/phase-reward", default-features = false }
 serde = { version = "1.0.101", optional = true }
+bs58 = { package = "bs58", version="0.4.0", default-features = false }
 
 [dependencies.frame-support]
 default-features = false
@@ -38,6 +39,7 @@ version = '3.0.0'
 [features]
 default = ["std"]
 std = [
+    "bs58/std",
     "codec/std",
     "frame-support/std",
     "frame-system/std",

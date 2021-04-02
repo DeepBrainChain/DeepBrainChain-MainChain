@@ -2,7 +2,6 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
