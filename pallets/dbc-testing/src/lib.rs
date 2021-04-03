@@ -10,65 +10,98 @@ use sp_std::{convert::TryInto, str};
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
-// pub trait Config: frame_system::Config + timestamp::Config {}
-pub trait Config: frame_system::Config + babe::Config {
-    type Currency: Currency<Self::AccountId>;
-    type PhaseReward: PhaseReward<Balance = BalanceOf<Self>>;
-}
+pub use pallet::*;
 
-decl_storage! {
-    trait Store for Module<T: Config> as DBCTesting {
-        pub Thing1 get(fn thing1): u64;
-        pub Thing2 get(fn thing2): u64;
-        pub Thing3 get(fn thing3): u64;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + babe::Config {
+        type Currency: Currency<Self::AccountId>;
+        type PhaseReward: PhaseReward<Balance = BalanceOf<Self>>;
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
 
-        #[weight = 0]
-        pub fn say_hello(origin) -> DispatchResult{
+    #[pallet::storage]
+    #[pallet::getter(fn things1)]
+    pub(super) type Things1<T: Config> = StorageValue<_, u64>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn things2)]
+    pub(super) type Things2<T: Config> = StorageValue<_, u64>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn things3)]
+    pub(super) type Things3<T: Config> = StorageValue<_, u64>;
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::weight(0)]
+        pub fn say_hello(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let secs_per_block = babe::Module::<T>::slot_duration();
-            let secs_per_block2 = <babe::Module::<T>>::slot_duration();
+            let secs_per_block2 = <babe::Module<T>>::slot_duration();
 
             // let secs_per_block =<T as babe::Config>::slot_duration();
             // let secs_per_block = <T as timestamp::Config>::MinimumPeriod::get();
             let caller = ensure_signed(origin)?;
 
             let mut output: [u8; 64] = [0; 64];
-            let decoded = bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
+            let decoded =
+                bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
             debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
 
             // TODO: convert to str
-            debug::info!("######### Request sent by: {:?}, {:?}, {:?} #########", caller, secs_per_block, secs_per_block2);
-            Ok(())
+            debug::info!(
+                "######### Request sent by: {:?}, {:?}, {:?} #########",
+                caller,
+                secs_per_block,
+                secs_per_block2
+            );
+            Ok(().into())
         }
 
-        #[weight = 0]
-        pub fn set_phase0_reward(origin, reward_balance: BalanceOf<T>) -> DispatchResult {
+        #[pallet::weight(0)]
+        pub fn set_phase0_reward(
+            origin: OriginFor<T>,
+            reward_balance: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             T::PhaseReward::set_phase0_reward(reward_balance);
-            Ok(())
+            Ok(().into())
         }
 
-        #[weight = 0]
-        pub fn set_phase1_reward(origin, reward_balance :BalanceOf<T>) -> DispatchResult{
+        #[pallet::weight(0)]
+        pub fn set_phase1_reward(
+            origin: OriginFor<T>,
+            reward_balance: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             T::PhaseReward::set_phase1_reward(reward_balance);
-            Ok(())
+            Ok(().into())
         }
 
-        #[weight = 0]
-        pub fn set_phase2_reward(origin,reward_balance:BalanceOf<T>) -> DispatchResult{
+        #[pallet::weight(0)]
+        pub fn set_phase2_reward(
+            origin: OriginFor<T>,
+            reward_balance: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             T::PhaseReward::set_phase2_reward(reward_balance);
-            Ok(())
+            Ok(().into())
         }
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     pub fn ss58_decode(s: &str) -> Option<[u8; 32]> {
         const CHECKSUM_LEN: usize = 2;
         let mut data: [u8; 36] = [0; 36];
