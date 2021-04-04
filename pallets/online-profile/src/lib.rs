@@ -75,7 +75,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn bonding_queue)]
     pub(super) type BondingQueue<T> =
-        StorageValue<_, VecDeque<BondingPair<<T as frame_system::Config>::AccountId>>>;
+        StorageValue<_, VecDeque<BondingPair<<T as frame_system::Config>::AccountId>>, ValueQuery>;
 
     /// BondingQueue machine for quick search if machine_id is pending
     // pub BondingQueueMachineId get(fn bonding_queue_machine_id): map hasher(blake2_128_concat) MachineId => ();
@@ -87,7 +87,7 @@ pub mod pallet {
     // eg: pub MachineInfoUrl get(fn machine_info_url) config(): MachineId = "http://116.85.24.172:41107/api/v1/mining_nodes/".as_bytes().to_vec();
     #[pallet::storage]
     #[pallet::getter(fn machine_info_url)]
-    pub(super) type MachineInfoURL<T> = StorageValue<_, Vec<MachineId>>;
+    pub(super) type MachineInfoURL<T> = StorageValue<_, Vec<MachineId>, ValueQuery>;
 
     // /// OCW query from _ nodes
     // pub MachineInfoRandURLNum get(fn machine_info_rand_url_num) config(): u32 = 3;
@@ -104,24 +104,26 @@ pub mod pallet {
     /// random url for machine info
     #[pallet::storage]
     #[pallet::getter(fn machine_info_rand_url)]
-    pub(super) type MachineInfoRandURL<T> = StorageValue<_, Vec<MachineId>>;
+    pub(super) type MachineInfoRandURL<T> = StorageValue<_, Vec<MachineId>, ValueQuery>;
 
     // ocw查询, 并确认绑定结果
     /// store user's machine
     #[pallet::storage]
     #[pallet::getter(fn user_bonded_machine)]
-    pub(super) type UserBondedMachine<T> =
-        StorageMap<_, Blake2_128Concat, <T as frame_system::Config>::AccountId, Vec<MachineId>>;
+    pub(super) type UserBondedMachine<T> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        Vec<MachineId>,
+        ValueQuery,
+    >;
 
     /// Machine has been bonded
     #[pallet::storage]
     #[pallet::getter(fn bonded_machine_id)]
     pub(super) type BondedMachineId<T> = StorageMap<_, Blake2_128Concat, MachineId, ()>;
 
-    // /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
-    // pub Ledger get(fn ledger):
-    //     double_map hasher(blake2_128_concat) T::AccountId, hasher(blake2_128_concat) MachineId
-    //     => Option<StakingLedger<T::AccountId, BalanceOf<T>>>;
+    /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
     #[pallet::getter(fn ledger)]
     pub(super) type Ledger<T> = StorageDoubleMap<
@@ -131,6 +133,7 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         Option<StakingLedger<<T as frame_system::Config>::AccountId, BalanceOf<T>>>,
+        ValueQuery,
     >;
 
     /// 机器等待奖励加入到能获取奖励的队列
@@ -155,6 +158,7 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         MachineMeta<<T as frame_system::Config>::AccountId>,
+        ValueQuery,
     >;
 
     // pub RandNonce get(fn rand_nonce) config(): u64 = 0;
@@ -286,15 +290,10 @@ pub mod pallet {
             new_url: MachineId,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            let machine_info_url = MachineInfoURL::<T>::get();
+            let mut machine_info_url = MachineInfoURL::<T>::get();
 
-            match machine_info_url {
-                None => return Ok(().into()),
-                Some(mut machine_info_url) => {
-                    machine_info_url.push(new_url.clone());
-                    MachineInfoURL::<T>::put(machine_info_url);
-                }
-            }
+            machine_info_url.push(new_url.clone());
+            MachineInfoURL::<T>::put(machine_info_url);
 
             Ok(().into())
         }
@@ -304,20 +303,16 @@ pub mod pallet {
         #[pallet::weight(0)]
         fn rm_url_by_index(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            let machine_info_url = MachineInfoURL::<T>::get();
+            let mut machine_info_url = MachineInfoURL::<T>::get();
 
-            match machine_info_url {
-                Some(mut machine_info_url) => {
-                    if index >= machine_info_url.len() as u32 {
-                        return Err(Error::<T>::IndexOutOfRange.into());
-                    } else {
-                        machine_info_url.remove(index as usize);
-                        MachineInfoURL::<T>::put(machine_info_url);
-                        return Ok(().into());
-                    }
-                }
-                None => return Ok(().into()),
-            }
+            ensure!(
+                index > machine_info_url.len() as u32,
+                Error::<T>::IndexOutOfRange
+            );
+            machine_info_url.remove(index as usize);
+            MachineInfoURL::<T>::put(machine_info_url);
+
+            Ok(().into())
         }
 
         // root用户设置随机选择多少API进行验证机器信息
@@ -375,19 +370,14 @@ pub mod pallet {
         #[pallet::weight(0)]
         fn ocw_submit_machine_info(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-            let bonding_queue = BondingQueue::<T>::get().unwrap(); // TODO: handle when is None
+            let bonding_queue = BondingQueue::<T>::get();
             let machine_info_url = MachineInfoRandURL::<T>::get();
 
-            match &machine_info_url {
-                None => return Err(Error::<T>::MachineURLEmpty.into()),
-                Some(machine_info_url) => {
-                    if machine_info_url.len() == 0 {
-                        return Err(Error::<T>::MachineURLEmpty.into());
-                    };
-                }
-            }
+            ensure!(machine_info_url.len() != 0, Error::<T>::MachineURLEmpty);
 
-            let machine_info_url = machine_info_url.unwrap();
+            // if machine_info_url.len() == 0 {
+            //     return Err(Error::<T>::MachineURLEmpty.into());
+            // }
 
             for bonding_pair in bonding_queue.iter() {
                 let mut wallet: Vec<u8> = Vec::new();
@@ -413,8 +403,7 @@ pub mod pallet {
 
                 // TODO: 为ocw添加修改内存逻辑
                 // 可以将该逻辑整合进一个函数，这样只需要写一个函数即可完成这部分逻辑
-                let user_bonded_machine =
-                    UserBondedMachine::<T>::get(&bonding_pair.account_id).unwrap();
+                let user_bonded_machine = UserBondedMachine::<T>::get(&bonding_pair.account_id);
                 UserBondedMachine::<T>::insert(
                     bonding_pair.account_id.clone(),
                     user_bonded_machine,
@@ -446,7 +435,7 @@ pub mod pallet {
             );
 
             // 检查用户已绑定了该机器
-            let user_bonded_machine = UserBondedMachine::<T>::get(&who).unwrap();
+            let user_bonded_machine = UserBondedMachine::<T>::get(&who);
             if let Err(_) = user_bonded_machine.binary_search(&machine_id) {
                 return Err(Error::<T>::MachineIdNotBonded.into());
             };
@@ -485,9 +474,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            let mut ledger = Self::ledger(&who, &machine_id)
-                .unwrap()
-                .ok_or(Error::<T>::LedgerNotFound)?;
+            let mut ledger = Self::ledger(&who, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
             let user_balance = T::Currency::free_balance(&who);
             if let Some(extra) = user_balance.checked_sub(&ledger.total) {
                 let extra = extra.min(max_additional);
@@ -514,9 +501,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            let mut ledger = Self::ledger(&who, &machine_id)
-                .unwrap()
-                .ok_or(Error::<T>::LedgerNotFound)?;
+            let mut ledger = Self::ledger(&who, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
 
             ensure!(
                 ledger.unlocking.len() < crate::MAX_UNLOCKING_CHUNKS,
@@ -547,9 +532,7 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            let mut ledger = Self::ledger(&who, &machine_id)
-                .unwrap()
-                .ok_or(Error::<T>::LedgerNotFound)?;
+            let mut ledger = Self::ledger(&who, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
 
             let old_total = ledger.total;
             let current_era = Self::current_era();
@@ -612,7 +595,7 @@ pub mod pallet {
                 return Ok(().into());
             }
 
-            let mut machine_detail = MachineDetail::<T>::get(&machine_id).unwrap();
+            let mut machine_detail = MachineDetail::<T>::get(&machine_id);
             machine_detail.machine_price = machine_price;
 
             MachineDetail::<T>::insert(&machine_id, machine_detail);
@@ -741,7 +724,7 @@ impl<T: Config> Pallet<T> {
 
     // 产生一组随机的机器信息URL，并更新到存储
     fn update_machine_info_url() {
-        let mut machine_info_url = MachineInfoURL::<T>::get().unwrap();
+        let mut machine_info_url = MachineInfoURL::<T>::get();
         let machine_info_rand_url_num = MachineInfoRandURLNum::<T>::get();
         let mut next_group: Vec<MachineId> = Vec::new();
 
@@ -780,14 +763,13 @@ impl<T: Config> Pallet<T> {
 
     // 不超过最大待绑定的机器数量在OCW待绑定队列。如果等待队列满了，则从头开始替换未绑定的机器
     fn append_or_replace_bonding_machine(machine_pair: BondingPair<T::AccountId>) {
-        let bonding_queue = BondingQueue::<T>::get();
+        let mut bonding_queue = BondingQueue::<T>::get();
 
-        if let Some(mut bonding_queue) = bonding_queue {
-            if bonding_queue.len() == MAX_PENDING_BONDING {
-                let _ = bonding_queue.pop_front();
-            }
-            bonding_queue.push_back(machine_pair);
+        if bonding_queue.len() == MAX_PENDING_BONDING {
+            let _ = bonding_queue.pop_front();
         }
+        bonding_queue.push_back(machine_pair);
+        BondingQueue::<T>::put(bonding_queue);
     }
 
     // 当前pallet的accountID
@@ -867,9 +849,7 @@ impl<T: Config> Pallet<T> {
             if current_era == a_machine.bond_era {
                 continue;
             }
-            let machine_grade = MachineDetail::<T>::get(&a_machine.machine_id)
-                .unwrap()
-                .machine_grade;
+            let machine_grade = MachineDetail::<T>::get(&a_machine.machine_id).machine_grade;
             user_grades += machine_grade;
         }
         return user_grades;

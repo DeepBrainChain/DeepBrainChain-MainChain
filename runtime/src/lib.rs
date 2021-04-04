@@ -1032,6 +1032,7 @@ impl dbc_testing::Config for Runtime {
 
 impl dbc_price::Config for Runtime {
     type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
 }
 
 parameter_types! {

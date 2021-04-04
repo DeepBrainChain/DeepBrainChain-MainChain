@@ -1,8 +1,8 @@
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::debug;
 use frame_support::traits::Currency;
-use frame_support::{debug, decl_module, decl_storage, dispatch::DispatchResult};
 use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
 use sp_std::{convert::TryInto, str};

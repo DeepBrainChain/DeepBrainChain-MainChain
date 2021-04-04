@@ -1,9 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::debug;
+use codec::Encode;
+use frame_support::{debug, traits::Randomness};
 use frame_system::offchain::SubmitTransaction;
 use lite_json::json::JsonValue;
-use sp_runtime::offchain::{http, Duration};
+use sp_core::H256;
+use sp_runtime::{
+    offchain::{http, Duration},
+    traits::{BlakeTwo256, SaturatedConversion},
+    RandomNumberGenerator,
+};
 use sp_std::str;
 use sp_std::vec::Vec;
 
@@ -11,6 +17,7 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use super::*;
     use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
     use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
     use sp_std::vec::Vec;
@@ -23,6 +30,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RandomnessSource: Randomness<H256>;
     }
 
     #[pallet::pallet]
@@ -31,19 +39,30 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn prices)]
-    pub type Prices<T> = StorageValue<_, Vec<u64>>;
+    pub type Prices<T> = StorageValue<_, Vec<u64>, ValueQuery>;
 
     // #[pallet::storage]
     // #[pallet::getter(fn next_unsigned_at)]
     // pub type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber>;
 
     #[pallet::type_value]
-    pub fn MyPriceURL() -> URL {
-        "https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".into()
+    pub fn MyPriceURL() -> Vec<URL> {
+        let mut init_url: Vec<URL> = Vec::new();
+        init_url.push("https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".into());
+        // vec!["https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".into()]
+        init_url
     }
 
     #[pallet::storage]
-    pub(super) type PriceURL<T> = StorageValue<_, URL, ValueQuery, MyPriceURL>;
+    pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>, ValueQuery, MyPriceURL>;
+
+    #[pallet::type_value]
+    pub(super) fn RandNonceDefault<T: Config>() -> u64 {
+        0
+    }
+
+    #[pallet::storage]
+    pub(super) type RandNonce<T: Config> = StorageValue<_, u64, ValueQuery, RandNonceDefault<T>>;
 
     #[pallet::event]
     #[pallet::metadata(T::AccountId = "AccountId")]
@@ -59,6 +78,7 @@ pub mod pallet {
         OffchainUnsignedTxSignedPayloadError,
         OffchainUnsignedTxError,
         NoneValue,
+        IndexOutOfRange,
     }
 
     #[pallet::hooks]
@@ -81,7 +101,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(10000)]
+        #[pallet::weight(0)]
         pub fn submit_price_unsigned(
             origin: OriginFor<T>,
             price: u64,
@@ -91,10 +111,31 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(10000)]
-        pub fn set_price_url(origin: OriginFor<T>, new_url: URL) -> DispatchResultWithPostInfo {
+        // TODO: 改变成add price url 和 rm price url
+        #[pallet::weight(0)]
+        pub fn add_price_url(origin: OriginFor<T>, new_url: URL) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            PriceURL::<T>::put(new_url);
+
+            let mut price_url = PriceURL::<T>::get();
+            price_url.push(new_url);
+            PriceURL::<T>::put(price_url);
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn rm_price_url_by_index(
+            origin: OriginFor<T>,
+            index: u32,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let mut price_url = PriceURL::<T>::get();
+            ensure!(index > price_url.len() as u32, Error::<T>::IndexOutOfRange);
+
+            price_url.remove(index as usize);
+            PriceURL::<T>::put(price_url);
+
             Ok(().into())
         }
     }
@@ -122,6 +163,33 @@ pub mod pallet {
 }
 
 impl<T: Config> Module<T> {
+    // TODO: 重构该函数与online-profile同名的函数
+    // 增加随机性
+    fn update_nonce() -> Vec<u8> {
+        let nonce = RandNonce::<T>::get();
+        let nonce: u64 = if nonce == u64::MAX {
+            0
+        } else {
+            RandNonce::<T>::get() + 1
+        };
+        RandNonce::<T>::put(nonce);
+
+        nonce.encode()
+    }
+
+    // 生成一个随机的u32
+    fn random_num(max: u32) -> u32 {
+        let subject = Self::update_nonce();
+        let random_seed = T::RandomnessSource::random(&subject);
+        let mut rng = <RandomNumberGenerator<BlakeTwo256>>::new(random_seed);
+        rng.pick_u32(max)
+    }
+
+    fn gen_rand_url() -> u32 {
+        let price_url = PriceURL::<T>::get();
+        Self::random_num((price_url.len() - 1) as u32)
+    }
+
     fn fetch_price_and_send_unsigned_tx() -> Result<(), Error<T>> {
         let price = Self::fetch_price().map_err(|_| <Error<T>>::FetchPriceFailed)?;
 
@@ -136,7 +204,9 @@ impl<T: Config> Module<T> {
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
 
         let price_url = PriceURL::<T>::get();
-        let price_url = str::from_utf8(&price_url).map_err(|_| http::Error::Unknown)?;
+        let rand_price_url_index = Self::gen_rand_url();
+        let price_url = str::from_utf8(&price_url[rand_price_url_index as usize])
+            .map_err(|_| http::Error::Unknown)?;
 
         let request = http::Request::get(price_url);
 
@@ -196,18 +266,14 @@ impl<T: Config> Module<T> {
 
     fn add_price(who: Option<T::AccountId>, price: u64) {
         debug::info!("Adding to the average: {}", price);
-        match Prices::<T>::get() {
-            None => return,
-            Some(mut prices) => {
-                if prices.len() < MAX_LEN {
-                    prices.push(price);
-                } else {
-                    prices[price as usize % MAX_LEN] = price;
-                }
-
-                Prices::<T>::put(prices);
-            }
+        let mut prices = Prices::<T>::get();
+        if prices.len() < MAX_LEN {
+            prices.push(price);
+        } else {
+            prices[price as usize % MAX_LEN] = price;
         }
+
+        Prices::<T>::put(prices);
 
         let average = Self::average_price()
             .expect("The average is not empty, because it was just mutated; qed");
@@ -218,11 +284,7 @@ impl<T: Config> Module<T> {
     }
 
     fn average_price() -> Option<u64> {
-        match Prices::<T>::get() {
-            None => None,
-            Some(prices) => {
-                Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
-            }
-        }
+        let prices = Prices::<T>::get();
+        Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
     }
 }
