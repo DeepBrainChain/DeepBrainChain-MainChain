@@ -1047,11 +1047,15 @@ impl online_profile::Config for Runtime {
     type BondingDuration = BondingDuration;
 }
 
+parameter_types! {
+    pub const CommitteeDuration: pallet_staking::EraIndex = 7;
+}
+
 impl lease_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type CommitteeMachine = OnlineProfile;
-    type BondingDuration = BondingDuration;
+    type CommitteeDuration = CommitteeDuration;
 }
 
 construct_runtime!(

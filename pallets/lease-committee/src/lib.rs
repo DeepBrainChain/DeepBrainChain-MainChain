@@ -9,7 +9,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed};
 use online_profile::types::*;
 use online_profile_machine::CommitteeMachine;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
 use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
 
 type BalanceOf<T> =
@@ -36,7 +36,9 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type CommitteeMachine: CommitteeMachine;
-        type BondingDuration: Get<EraIndex>;
+
+        #[pallet::constant]
+        type CommitteeDuration: Get<EraIndex>;
     }
 
     #[pallet::pallet]
@@ -44,7 +46,24 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_finalize(block_number: T::BlockNumber) {
+            if AlternateCommittee::<T>::get().len() > 0 && Committee::<T>::get().len() == 0 {
+                Self::update_committee();
+                return;
+            }
+
+            // let current_era = online_profile::Module::<T>::current_era();
+            let committee_duration = T::CommitteeDuration::get();
+            let block_per_era = online_profile::Module::<T>::block_per_era();
+
+            if block_number.saturated_into::<u64>() / (block_per_era * committee_duration) as u64
+                == 0
+            {
+                Self::update_committee()
+            }
+        }
+    }
 
     #[pallet::type_value]
     pub fn HistoryDepthDefault<T: Config>() -> u32 {
@@ -73,7 +92,7 @@ pub mod pallet {
 
     #[pallet::type_value]
     pub fn CommitteeLimitDefault<T: Config>() -> u32 {
-        3
+        6
     }
 
     #[pallet::storage]
@@ -94,7 +113,15 @@ pub mod pallet {
     #[pallet::getter(fn chill_list)]
     pub(super) type ChillList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
-    // /// epnding verify machine
+    #[pallet::storage]
+    #[pallet::getter(fn black_list)]
+    pub(super) type BlackList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn white_list)]
+    pub(super) type WhiteList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+
+    /// epnding verify machine
     #[pallet::storage]
     #[pallet::getter(fn pending_verify_machine)]
     pub(super) type PendingVerifyMachine<T: Config> =
@@ -229,8 +256,7 @@ pub mod pallet {
 
             let mut ledger =
                 Self::committee_ledger(&who).ok_or(Error::<T>::NotAlternateCommittee)?;
-            let era =
-                online_profile::Module::<T>::current_era() + <T as Config>::BondingDuration::get();
+            let era = online_profile::Module::<T>::current_era() + T::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk {
                 value: ledger.active,
                 era,
@@ -318,93 +344,87 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn add_alternate_committee(
+        pub fn add_white_list(
             origin: OriginFor<T>,
-            new_member: T::AccountId,
+            member: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
+            let mut members = WhiteList::<T>::get();
+            // 该用户不在黑名单中
+            let black_list = BlackList::<T>::get();
+            if let Ok(_) = black_list.binary_search(&member) {
+                return Err(Error::<T>::UserInBlackList.into());
+            }
 
-            let mut members = AlternateCommittee::<T>::get();
-            ensure!(
-                members.len() < AlternateCommitteeLimit::<T>::get() as usize,
-                Error::<T>::AlternateCommitteeLimitReached
-            );
-
-            match members.binary_search(&new_member) {
-                Ok(_) => Err(Error::<T>::AlreadyAlternateCommittee.into()),
+            match members.binary_search(&member) {
+                Ok(_) => Err(Error::<T>::AlreadyInWhiteList.into()),
                 Err(index) => {
-                    members.insert(index, new_member.clone());
-                    Committee::<T>::put(members);
-                    Self::deposit_event(Event::AlternateCommitteeAdded(new_member));
+                    members.insert(index, member.clone());
+                    WhiteList::<T>::put(members);
+                    Self::deposit_event(Event::AddToWhiteList(member));
                     Ok(().into())
                 }
             }
         }
 
         #[pallet::weight(0)]
-        pub fn remove_alternate_committee(
+        pub fn rm_white_list(
             origin: OriginFor<T>,
-            old_member: T::AccountId,
+            member: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-
-            let mut members = AlternateCommittee::<T>::get();
-
-            match members.binary_search(&old_member) {
+            let mut members = WhiteList::<T>::get();
+            match members.binary_search(&member) {
                 Ok(index) => {
                     members.remove(index);
-                    AlternateCommittee::<T>::put(members);
-                    Self::deposit_event(Event::AlternateCommitteeRemoved(old_member));
+                    WhiteList::<T>::put(members);
                     Ok(().into())
                 }
-                Err(_) => Err(Error::<T>::NotAlternateCommittee.into()),
+                Err(_) => Err(Error::<T>::NotInWhiteList.into()),
             }
         }
 
         #[pallet::weight(0)]
-        pub fn add_committee(
+        pub fn add_black_list(
             origin: OriginFor<T>,
-            new_member: T::AccountId,
+            member: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            let _ = ensure_root(origin)?;
+            ensure_root(origin)?;
+            let mut members = BlackList::<T>::get();
+            let white_list = WhiteList::<T>::get();
+            if let Ok(_) = white_list.binary_search(&member) {
+                return Err(Error::<T>::UserInWhiteList.into());
+            }
 
-            let mut members = Committee::<T>::get();
-            ensure!(
-                members.len() < CommitteeLimit::<T>::get() as usize,
-                Error::<T>::CommitteeLimitReached
-            );
-
-            match members.binary_search(&new_member) {
-                Ok(_) => Err(Error::<T>::AlreadyCommittee.into()),
+            match members.binary_search(&member) {
+                Ok(_) => Err(Error::<T>::AlreadyInBlackList.into()),
                 Err(index) => {
-                    members.insert(index, new_member.clone());
-                    Committee::<T>::put(members);
-                    Self::deposit_event(Event::CommitteeAdded(new_member));
+                    members.insert(index, member.clone());
+                    BlackList::<T>::put(members);
+                    Self::deposit_event(Event::AddToBlackList(member));
                     Ok(().into())
                 }
             }
         }
 
         #[pallet::weight(0)]
-        pub fn remove_committee(
+        pub fn rm_black_list(
             origin: OriginFor<T>,
-            old_member: T::AccountId,
+            member: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            let _ = ensure_root(origin)?;
-
-            let mut members = Committee::<T>::get();
-
-            match members.binary_search(&old_member) {
+            ensure_root(origin)?;
+            let mut members = BlackList::<T>::get();
+            match members.binary_search(&member) {
                 Ok(index) => {
                     members.remove(index);
-                    Committee::<T>::put(members);
-                    Self::deposit_event(Event::CommitteeRemoved(old_member));
+                    BlackList::<T>::put(members);
                     Ok(().into())
                 }
-                Err(_) => Err(Error::<T>::NotCommittee.into()),
+                Err(_) => Err(Error::<T>::NotInBlackList.into()),
             }
         }
 
+        // 重新选择一组委员会
         #[pallet::weight(0)]
         pub fn reelection_committee(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -452,6 +472,8 @@ pub mod pallet {
         AlternateCommitteeRemoved(T::AccountId),
         Chill(T::AccountId),
         Withdrawn(T::AccountId, BalanceOf<T>),
+        AddToWhiteList(T::AccountId),
+        AddToBlackList(T::AccountId),
     }
 
     #[pallet::error]
@@ -467,6 +489,12 @@ pub mod pallet {
         StakeNotEnough,
         FreeBalanceNotEnough,
         AlreadyInChillList,
+        UserInBlackList,
+        AlreadyInWhiteList,
+        NotInWhiteList,
+        UserInWhiteList,
+        AlreadyInBlackList,
+        NotInBlackList,
     }
 }
 
@@ -501,6 +529,7 @@ impl<T: Config> Pallet<T> {
     fn _alternate_committee_stake(_who: T::AccountId, _balance: BalanceOf<T>) {}
 
     // 产生一组随机的审核委员会，并更新
+    // TODO: 排除黑名单用户，增加白名单用户
     fn update_committee() {
         let mut alternate_committee = AlternateCommittee::<T>::get();
         let committee_num = CommitteeLimit::<T>::get();

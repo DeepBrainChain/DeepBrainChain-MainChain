@@ -89,13 +89,14 @@ pub mod pallet {
                 block_number
             );
 
-            let average: Option<u64> = Self::average_price();
-            debug::debug!("Current price: {:?}", average);
-
             let result = Self::fetch_price_and_send_unsigned_tx();
             if let Err(e) = result {
                 debug::error!("offchain_worker error: {:?}", e);
+                return;
             }
+
+            let average: Option<u64> = Self::average_price();
+            debug::info!("Current average price: {:?}", average);
         }
     }
 
@@ -285,6 +286,9 @@ impl<T: Config> Module<T> {
 
     fn average_price() -> Option<u64> {
         let prices = Prices::<T>::get();
+        if prices.len() == 0 {
+            return None;
+        }
         Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
     }
 }

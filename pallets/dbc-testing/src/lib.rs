@@ -54,12 +54,19 @@ pub mod pallet {
             // let secs_per_block = <T as timestamp::Config>::MinimumPeriod::get();
             let caller = ensure_signed(origin)?;
 
-            let mut output: [u8; 64] = [0; 64];
+            let mut output: [u8; 35] = [0; 35];
             let decoded =
                 bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
+
+            let account_id_32: [u8; 32] = output[1..33].try_into().unwrap();
             debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
 
-            // TODO: convert to str
+            let b = T::AccountId::decode(&mut &account_id_32[..]).unwrap_or_default();
+
+            if caller == b {
+                debug::info!("########## true");
+            }
+
             debug::info!(
                 "######### Request sent by: {:?}, {:?}, {:?} #########",
                 caller,
@@ -102,28 +109,15 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn ss58_decode(s: &str) -> Option<[u8; 32]> {
-        const CHECKSUM_LEN: usize = 2;
-        let mut data: [u8; 36] = [0; 36];
-        let decoded = bs58::decode(s).into(&mut data);
-        debug::info!("####### decoded2: {:?}, {:?}", decoded, data);
+    // TODO: why cannot run here?
+    // fn test() {
+    //     let mut output: [u8; 35] = [0; 35];
+    //     let decoded =
+    //         bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
 
-        let (prefix_len, ident) = match data[0] {
-            0..=63 => (1, data[0] as u16),
-            64..=127 => {
-                // let lower = (data[0] << 2) | (data[1] >> 6);
-                // let upper = data[1] & 0b00111111;
-                // (2, (lower as u16) | ((upper as u16) << 8))
+    //     let account_id_32: [u8; 32] = output[1..33].try_into().unwrap();
+    //     debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
 
-                // TODO: should support in the future
-                (1, 1)
-            }
-            _ => (1, 1), // TODO: return error here
-        };
-
-        return Some(data[1..35].try_into().unwrap());
-
-        // return Some(data[1..34].try_into());
-        // let public_key = data[1..34].clone();
-    }
+    //     let b = T::AccountId::decode(&mut &account_id_32[..]).unwrap_or_default();
+    // }
 }

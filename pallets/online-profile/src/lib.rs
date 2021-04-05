@@ -23,7 +23,7 @@ use sp_runtime::{
     traits::{AccountIdConversion, BlakeTwo256, CheckedSub, SaturatedConversion, Zero},
     ModuleId, RandomNumberGenerator,
 };
-use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
+use sp_std::{collections::vec_deque::VecDeque, convert::TryInto, prelude::*, str};
 
 pub mod machine_info;
 pub mod types;
@@ -260,30 +260,29 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        // fn offchain_worker(block_number: T::BlockNumber) {
-        //     debug::info!("Entering off-chain worker, at height: {:?}", block_number);
+        fn offchain_worker(block_number: T::BlockNumber) {
+            debug::info!("Entering off-chain worker, at height: {:?}", block_number);
 
-        //     let result = Self::call_ocw_machine_info();
-        //     if let Err(e) = result {
-        //         debug::error!("offchain_worker error: {:?}", e);
-        //     }
-        // }
+            let result = Self::call_ocw_machine_info();
+            if let Err(e) = result {
+                debug::error!("offchain_worker error: {:?}", e);
+            }
+        }
 
-        // fn on_finalize(block_number: T::BlockNumber) {
-        //     if block_number.saturated_into::<u64>() / 10 == 0 {
-        //         Self::update_machine_info_url()
-        //     }
+        fn on_finalize(block_number: T::BlockNumber) {
+            if block_number.saturated_into::<u64>() / 10 == 0 {
+                Self::update_machine_info_url()
+            }
 
-        //     if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
-        //         Self::end_era()
-        //     }
-        // }
+            if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
+                Self::end_era()
+            }
+        }
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // root用户添加机器信息API
-        /// Add URL for OCW query machine info
         #[pallet::weight(0)]
         fn add_machine_info_url(
             origin: OriginFor<T>,
@@ -393,12 +392,25 @@ pub mod pallet {
 
                     if wallet.len() == 0 {
                         wallet = machine_wallet.to_vec();
-                        continue;
+                        // continue;
                     }
-                    // TODO: 将钱包地址转为public key
-                    if wallet != machine_wallet.to_vec() {
-                        continue;
+
+                    let mut wallet: [u8; 35] = [0; 35];
+                    let decoded = bs58::decode(machine_wallet).into(&mut wallet);
+                    match decoded {
+                        Ok(length) => {
+                            if length != 35 {
+                                return Ok(().into());
+                            }
+                        }
+                        Err(_) => return Ok(().into()),
                     }
+
+                    let account_id32: [u8; 32] = wallet[1..33].try_into().unwrap();
+                    // let wallet = T::AccountId::decode(&mut account_id32[..]).unwrap_or_default();
+                    // if bonding_pair.account_id == wallet {
+                    //     // TODO: 增加逻辑
+                    // }
                 }
 
                 // TODO: 为ocw添加修改内存逻辑
@@ -699,6 +711,43 @@ impl<T: Config> Pallet<T> {
     //     Ok(())
     // }
 
+    // TODO: 将ss58address转为public key
+    // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
+    // from_ss58check_with_version
+    pub fn wallet_match_account(who: T::AccountId, s: &str) -> bool {
+        // const CHECKSUM_LEN: usize = 2;
+        let mut data: [u8; 35] = [0; 35];
+        let decoded = bs58::decode(s).into(&mut data);
+
+        match decoded {
+            Ok(length) => {
+                if length != 35 {
+                    return false;
+                }
+            }
+            Err(_) => return false,
+        }
+
+        let (prefix_len, ident) = match data[0] {
+            0..=63 => (1, data[0] as u16),
+            64..=127 => {
+                // let lower = (data[0] << 2) | (data[1] >> 6);
+                // let upper = data[1] & 0b00111111;
+                // (2, (lower as u16) | ((upper as u16) << 8))
+                return false;
+            }
+            _ => return false,
+        };
+
+        let account_id32: [u8; 32] = data[1..33].try_into().unwrap();
+        // let wallet = T::AccountId::decode(&mut account_id32[..]).unwrap_or_default();
+
+        // if who == wallet {
+        //     return true;
+        // }
+        return false;
+    }
+
     fn end_era() {}
 
     // 增加随机性
@@ -837,6 +886,10 @@ impl<T: Config> Pallet<T> {
         let current_block_height =
             <frame_system::Module<T>>::block_number().saturated_into::<u32>();
         return current_block_height / T::BlockPerEra::get();
+    }
+
+    pub fn block_per_era() -> u32 {
+        T::BlockPerEra::get()
     }
 
     // TODO: 计算每个era中的用户总分数
