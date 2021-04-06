@@ -302,6 +302,8 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             let committee = Self::committee();
 
+            let booking_list = T::CommitteeMachine::booking_queue_id();
+
             if !committee.contains(&who) {
                 return Err(Error::<T>::NotCommittee.into());
             }
@@ -310,7 +312,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// committee confirm machine grade
+        /// TODO: committee confirm machine grade
         #[pallet::weight(0)]
         pub fn confirm_machine(
             origin: OriginFor<T>,

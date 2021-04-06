@@ -1,6 +1,7 @@
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::Decode;
 use frame_support::debug;
 use frame_support::traits::Currency;
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -11,6 +12,9 @@ type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
 pub use pallet::*;
+
+#[cfg(test)]
+mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -110,14 +114,14 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     // TODO: why cannot run here?
-    // fn test() {
-    //     let mut output: [u8; 35] = [0; 35];
-    //     let decoded =
-    //         bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
+    fn test() {
+        let mut output: [u8; 35] = [0; 35];
+        let decoded =
+            bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
 
-    //     let account_id_32: [u8; 32] = output[1..33].try_into().unwrap();
-    //     debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
+        let account_id_32: [u8; 32] = output[1..33].try_into().unwrap();
+        debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
 
-    //     let b = T::AccountId::decode(&mut &account_id_32[..]).unwrap_or_default();
-    // }
+        let b = T::AccountId::decode(&mut &account_id_32[..]).unwrap_or_default();
+    }
 }

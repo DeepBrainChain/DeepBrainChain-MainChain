@@ -1,7 +1,7 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
     debug,
     dispatch::DispatchResultWithPostInfo,
@@ -10,6 +10,7 @@ use frame_support::{
         Currency, ExistenceRequirement::AllowDeath, Get, LockIdentifier, LockableCurrency,
         Randomness, WithdrawReasons,
     },
+    IterableStorageMap,
 };
 use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
@@ -23,6 +24,7 @@ use sp_runtime::{
     traits::{AccountIdConversion, BlakeTwo256, CheckedSub, SaturatedConversion, Zero},
     ModuleId, RandomNumberGenerator,
 };
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::{collections::vec_deque::VecDeque, convert::TryInto, prelude::*, str};
 
 pub mod machine_info;
@@ -70,18 +72,54 @@ pub mod pallet {
     pub(super) type HistoryDepth<T: Config> =
         StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
 
+    #[pallet::type_value]
+    pub fn RequestLimitDefault<T: Config>() -> u64 {
+        3
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn request_limit)]
+    pub(super) type RequestLimit<T> = StorageValue<_, u64, ValueQuery, RequestLimitDefault<T>>;
+
     // 用户提交绑定请求
-    /// used for OCW to store pending binding pair
+    // 委员会可以查询可以抢单的机器
     #[pallet::storage]
     #[pallet::getter(fn bonding_queue)]
-    pub(super) type BondingQueue<T> =
-        StorageValue<_, VecDeque<BondingPair<<T as frame_system::Config>::AccountId>>, ValueQuery>;
+    pub type BondingQueue<T> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        BondingPair<<T as frame_system::Config>::AccountId>,
+        ValueQuery,
+    >;
 
-    /// BondingQueue machine for quick search if machine_id is pending
-    // pub BondingQueueMachineId get(fn bonding_queue_machine_id): map hasher(blake2_128_concat) MachineId => ();
     #[pallet::storage]
-    #[pallet::getter(fn bonding_queue_machine_id)]
-    pub(super) type BondingQueueMachineId<T> = StorageMap<_, Blake2_128Concat, MachineId, ()>;
+    #[pallet::getter(fn booking_queue)]
+    pub type BookingQueue<T> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        BondingPair<<T as frame_system::Config>::AccountId>, // TODO: 修改类型
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn booked_queue)]
+    pub type BookedQueue<T> = StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>; //TODO: 修改类型，保存已经被委员会预订的机器
+
+    /// Machine has been bonded
+    #[pallet::storage]
+    #[pallet::getter(fn bonded_machine)]
+    pub type BondedMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, (), ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn machine_grade)]
+    pub type MachineGrade<T> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        MachineGradeInfo<<T as frame_system::Config>::AccountId>,
+        ValueQuery,
+    >;
 
     // 添加 machineInfoURL, 并进行随机选择一些节点
     // eg: pub MachineInfoUrl get(fn machine_info_url) config(): MachineId = "http://116.85.24.172:41107/api/v1/mining_nodes/".as_bytes().to_vec();
@@ -117,11 +155,6 @@ pub mod pallet {
         Vec<MachineId>,
         ValueQuery,
     >;
-
-    /// Machine has been bonded
-    #[pallet::storage]
-    #[pallet::getter(fn bonded_machine_id)]
-    pub(super) type BondedMachineId<T> = StorageMap<_, Blake2_128Concat, MachineId, ()>;
 
     /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
@@ -325,14 +358,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 随机选择URL
-        #[pallet::weight(0)]
-        fn test_update_url(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            Self::update_machine_info_url();
-            Ok(().into())
-        }
-
         // 将machine_id添加到绑定队列
         /// Bonding machine only remember caller-machine_id pair.
         /// OCW will check it and record machine info.
@@ -340,24 +365,36 @@ pub mod pallet {
         fn bond_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let caller = ensure_signed(origin)?;
 
-            // BondingQueue not have this machine_id
+            // 确保 BondingQueue 不包含该 machine_id
             ensure!(
-                !BondingQueueMachineId::<T>::contains_key(&machine_id),
+                !BondingQueue::<T>::contains_key(&machine_id),
                 Error::<T>::MachineInBondingQueue
             );
-            // machine must not be bonded yet
+
             ensure!(
-                !BondedMachineId::<T>::contains_key(&machine_id),
+                !BookingQueue::<T>::contains_key(&machine_id),
+                Error::<T>::MachineInBookingQueue
+            );
+
+            ensure!(
+                !BookedQueue::<T>::contains_key(&machine_id),
+                Error::<T>::MachineInBookedQueue
+            );
+
+            // 该machine_id还未被绑定
+            ensure!(
+                !BondedMachine::<T>::contains_key(&machine_id),
                 Error::<T>::MachineHasBonded
             );
 
-            // append it to BondingQueue
-            Self::append_or_replace_bonding_machine(BondingPair {
-                account_id: caller,
-                machine_id: machine_id.clone(),
-            });
-
-            BondingQueueMachineId::<T>::insert(&machine_id, ());
+            BondingQueue::<T>::insert(
+                machine_id.clone(),
+                BondingPair {
+                    account_id: caller,
+                    machine_id: machine_id,
+                    request_count: 0,
+                },
+            );
 
             Ok(().into())
         }
@@ -369,20 +406,29 @@ pub mod pallet {
         #[pallet::weight(0)]
         fn ocw_submit_machine_info(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-            let bonding_queue = BondingQueue::<T>::get();
-            let machine_info_url = MachineInfoRandURL::<T>::get();
 
+            let bonding_queue_id = Self::bonding_queue_id();
+            let booking_queue_id = Self::booking_queue_id();
+
+            let request_limit = RequestLimit::<T>::get();
+
+            let machine_info_url = MachineInfoRandURL::<T>::get();
             ensure!(machine_info_url.len() != 0, Error::<T>::MachineURLEmpty);
 
-            // if machine_info_url.len() == 0 {
-            //     return Err(Error::<T>::MachineURLEmpty.into());
-            // }
+            for machine_id in bonding_queue_id.iter() {
+                let bonding_pair = BondingQueue::<T>::get(&machine_id);
+                let mut request_count = bonding_pair.request_count;
 
-            for bonding_pair in bonding_queue.iter() {
-                let mut wallet: Vec<u8> = Vec::new();
                 for url in machine_info_url.iter() {
                     let machine_info = Self::fetch_machine_info(&url, &bonding_pair.machine_id);
                     if let Err(e) = machine_info {
+                        // TODO: handle 404的情况(machine_id not found)
+                        request_count += 1; // 可以将该逻辑改到Err(e)为404时触发
+                        if request_count >= request_limit {
+                            // TODO: 增加log提示
+                            BondingQueue::<T>::remove(machine_id);
+                            break;
+                        }
                         debug::error!("Offchain worker error: {:?}", e);
                         continue;
                     }
@@ -390,38 +436,20 @@ pub mod pallet {
 
                     debug::info!("machine info is: {:?}", &machine_wallet);
 
-                    if wallet.len() == 0 {
-                        wallet = machine_wallet.to_vec();
-                        // continue;
+                    // 如果不一致，则直接进行下一个machine_id的查询
+                    if !Self::wallet_match_account(bonding_pair.account_id.clone(), machine_wallet)
+                    {
+                        // TODO: 增加log提示
+                        BondingQueue::<T>::remove(machine_id);
+                        break;
                     }
-
-                    let mut wallet: [u8; 35] = [0; 35];
-                    let decoded = bs58::decode(machine_wallet).into(&mut wallet);
-                    match decoded {
-                        Ok(length) => {
-                            if length != 35 {
-                                return Ok(().into());
-                            }
-                        }
-                        Err(_) => return Ok(().into()),
-                    }
-
-                    let account_id32: [u8; 32] = wallet[1..33].try_into().unwrap();
-                    // let wallet = T::AccountId::decode(&mut account_id32[..]).unwrap_or_default();
-                    // if bonding_pair.account_id == wallet {
-                    //     // TODO: 增加逻辑
-                    // }
                 }
+                // TODO: 添加机器打分信息，并保存
+                // let machine_info = MachineGradeInfo {};
 
-                // TODO: 为ocw添加修改内存逻辑
-                // 可以将该逻辑整合进一个函数，这样只需要写一个函数即可完成这部分逻辑
-                let user_bonded_machine = UserBondedMachine::<T>::get(&bonding_pair.account_id);
-                UserBondedMachine::<T>::insert(
-                    bonding_pair.account_id.clone(),
-                    user_bonded_machine,
-                );
-                BondedMachineId::<T>::insert(&bonding_pair.machine_id, ());
-                BondingQueueMachineId::<T>::remove(&bonding_pair.machine_id);
+                // TODO: 增加log提示
+                BondingQueue::<T>::remove(machine_id);
+                BookingQueue::<T>::insert(machine_id, bonding_pair);
             }
 
             Ok(().into())
@@ -670,6 +698,8 @@ pub mod pallet {
         MachineIdNotBonded,
         MachineHasBonded,
         MachineInBondingQueue,
+        MachineInBookingQueue,
+        MachineInBookedQueue,
         TokenNotBonded,
         BondedNotEnough,
         HttpFetchingError,
@@ -684,6 +714,7 @@ pub mod pallet {
         MachineURLEmpty,
         OffchainUnsignedTxError,
         InvalidEraToReward,
+        AccountNotSame,
     }
 }
 
@@ -714,7 +745,7 @@ impl<T: Config> Pallet<T> {
     // TODO: 将ss58address转为public key
     // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
     // from_ss58check_with_version
-    pub fn wallet_match_account(who: T::AccountId, s: &str) -> bool {
+    pub fn wallet_match_account(who: T::AccountId, s: &Vec<u8>) -> bool {
         // const CHECKSUM_LEN: usize = 2;
         let mut data: [u8; 35] = [0; 35];
         let decoded = bs58::decode(s).into(&mut data);
@@ -740,11 +771,11 @@ impl<T: Config> Pallet<T> {
         };
 
         let account_id32: [u8; 32] = data[1..33].try_into().unwrap();
-        // let wallet = T::AccountId::decode(&mut account_id32[..]).unwrap_or_default();
+        let wallet = T::AccountId::decode(&mut &account_id32[..]).unwrap_or_default();
 
-        // if who == wallet {
-        //     return true;
-        // }
+        if who == wallet {
+            return true;
+        }
         return false;
     }
 
@@ -808,17 +839,6 @@ impl<T: Config> Pallet<T> {
             WithdrawReasons::all(),
         );
         Ledger::<T>::insert(controller, machine_id, Some(ledger));
-    }
-
-    // 不超过最大待绑定的机器数量在OCW待绑定队列。如果等待队列满了，则从头开始替换未绑定的机器
-    fn append_or_replace_bonding_machine(machine_pair: BondingPair<T::AccountId>) {
-        let mut bonding_queue = BondingQueue::<T>::get();
-
-        if bonding_queue.len() == MAX_PENDING_BONDING {
-            let _ = bonding_queue.pop_front();
-        }
-        bonding_queue.push_back(machine_pair);
-        BondingQueue::<T>::put(bonding_queue);
     }
 
     // 当前pallet的accountID
@@ -943,5 +963,44 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> CommitteeMachine for Pallet<T> {
-    fn committee_machine_grade() {}
+    type MachineId = MachineId;
+    type AccountId = T::AccountId;
+
+    fn bonding_queue_id() -> BTreeSet<Self::MachineId> {
+        <BondingQueue<T> as IterableStorageMap<MachineId, BondingPair<T::AccountId>>>::iter()
+            .map(|(machine_id, _)| machine_id)
+            .collect::<BTreeSet<_>>()
+    }
+
+    fn booking_queue_id() -> BTreeSet<Self::MachineId> {
+        <BookingQueue<T> as IterableStorageMap<MachineId, BondingPair<T::AccountId>>>::iter()
+            .map(|(machine_id, _)| machine_id)
+            .collect::<BTreeSet<_>>()
+    }
+
+    fn booked_queue_id() -> BTreeSet<Self::MachineId> {
+        <BookedQueue<T> as IterableStorageMap<MachineId, u64>>::iter()
+            .map(|(machine_id, _)| machine_id)
+            .collect::<BTreeSet<_>>()
+    }
+
+    fn bonded_machine_id() -> BTreeSet<Self::MachineId> {
+        <BondedMachine<T> as IterableStorageMap<MachineId, ()>>::iter()
+            .map(|(machine_id, _)| machine_id)
+            .collect::<BTreeSet<_>>()
+    }
+
+    fn rm_booking_id(id: MachineId) {
+        BookingQueue::<T>::remove(id);
+    }
+
+    fn add_booked_id(id: MachineId) {
+        BookedQueue::<T>::insert(id, 0); // TODO: add this
+    }
+
+    fn confirm_machine_grade(who: T::AccountId, id: MachineId, confirm: bool) {
+        let machine_grade = MachineGrade::<T>::get(&id);
+        // TODO: query if exist
+        // MachineGrade::<T>::insert(id, MachineGrade {})
+    }
 }

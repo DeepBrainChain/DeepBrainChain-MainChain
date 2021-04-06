@@ -19,9 +19,21 @@ pub const LOCK_TIMEOUT_EXPIRATION: u64 = FETCH_TIMEOUT_PERIOD + 1_000; // in mil
 pub const LOCK_BLOCK_EXPIRATION: u32 = 3; // in block number
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct MachineGradeInfo<AccountId> {
+    confirmed_machine_grade: Vec<ConfirmedMachineGrade<AccountId>>,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct ConfirmedMachineGrade<AccountId> {
+    confirmed: bool,
+    confirmed_by: AccountId,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct BondingPair<AccountId> {
     pub account_id: AccountId,
     pub machine_id: MachineId,
+    pub request_count: u64,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
