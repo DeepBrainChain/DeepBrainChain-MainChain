@@ -298,7 +298,7 @@ pub mod pallet {
 
         // 提前预订订单
         #[pallet::weight(10000)]
-        pub fn booking(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn book_one(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             let committee = Self::committee();
 
@@ -309,6 +309,12 @@ pub mod pallet {
             }
 
             // 抢了单可以放到双端队列中, 先进先出，用户只要点击预订下一个就行了
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        pub fn book_all(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
             Ok(().into())
         }
 
@@ -497,10 +503,23 @@ pub mod pallet {
         UserInWhiteList,
         AlreadyInBlackList,
         NotInBlackList,
+        NotInBookingList,
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn book_one_item(who: &T::AccountId, machine_id: MachineId) -> DispatchResult {
+        let booking_queue_id = T::CommitteeMachine::booking_queue_id();
+
+        // TODO: not work here
+        // ensure!(
+        //     booking_queue_id.contains_key(&machine_id),
+        //     Error::<T>::NotInBookingList
+        // );
+
+        Ok(())
+    }
+
     fn add_to_alternate_committee(who: &T::AccountId) -> DispatchResult {
         let mut alternate_committee = Self::alternate_committee();
 

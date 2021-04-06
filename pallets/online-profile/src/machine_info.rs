@@ -20,6 +20,11 @@ pub struct MachineInfo {
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
 #[serde(crate = "alt_serde")]
 pub struct MachineData {
+    pub grades: Grades,
+
+    // 估价，单位：美元*10**6
+    pub appraisal_price: u64,
+
     cpu: CPU,
 
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -60,6 +65,16 @@ pub struct MachineData {
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
 #[serde(crate = "alt_serde")]
 pub struct OneWallet(#[serde(deserialize_with = "de_string_to_bytes")] pub Vec<u8>);
+
+#[derive(Deserialize, Encode, Decode, Default, Debug, Clone, PartialEq, Copy)]
+#[serde(crate = "alt_serde")]
+pub struct Grades {
+    pub cpu: u64,
+    pub disk: u64,
+    pub gpu: u64,
+    pub mem: u64,
+    pub net: u64,
+}
 
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
 #[serde(crate = "alt_serde")]

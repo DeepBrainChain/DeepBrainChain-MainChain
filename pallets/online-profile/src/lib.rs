@@ -111,6 +111,17 @@ pub mod pallet {
     #[pallet::getter(fn bonded_machine)]
     pub type BondedMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, (), ValueQuery>;
 
+    // 存储ocw获取的机器打分信息
+    #[pallet::storage]
+    #[pallet::getter(fn ocw_machine_grades)]
+    pub type OCWMachineGrades<T> = StorageMap<_, Blake2_128Concat, MachineId, Grades, ValueQuery>;
+
+    // 存储ocw获取的机器估价信息
+    #[pallet::storage]
+    #[pallet::getter(fn ocw_machine_price)]
+    pub type OCWMachinePrice<T> = StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>;
+
+    // 存储委员会确认的信息
     #[pallet::storage]
     #[pallet::getter(fn machine_grade)]
     pub type MachineGrade<T> = StorageMap<
@@ -419,6 +430,9 @@ pub mod pallet {
                 let bonding_pair = BondingQueue::<T>::get(&machine_id);
                 let mut request_count = bonding_pair.request_count;
 
+                let mut machine_grade: Vec<Grades> = vec![];
+                let mut appraisal_price: Vec<u64> = vec![];
+
                 for url in machine_info_url.iter() {
                     let machine_info = Self::fetch_machine_info(&url, &bonding_pair.machine_id);
                     if let Err(e) = machine_info {
@@ -432,7 +446,9 @@ pub mod pallet {
                         debug::error!("Offchain worker error: {:?}", e);
                         continue;
                     }
-                    let machine_wallet = &machine_info.unwrap().data.wallet[1].0;
+                    let machine_info = machine_info.unwrap();
+
+                    let machine_wallet = &machine_info.data.wallet[1].0;
 
                     debug::info!("machine info is: {:?}", &machine_wallet);
 
@@ -443,9 +459,27 @@ pub mod pallet {
                         BondingQueue::<T>::remove(machine_id);
                         break;
                     }
+
+                    let grades = &machine_info.data.grades;
+
+                    machine_grade.push(Grades {
+                        cpu: grades.cpu,
+                        disk: grades.cpu,
+                        gpu: grades.gpu,
+                        mem: grades.mem,
+                        net: grades.net,
+                    });
+
+                    appraisal_price.push(machine_info.data.appraisal_price);
                 }
-                // TODO: 添加机器打分信息，并保存
-                // let machine_info = MachineGradeInfo {};
+
+                if Self::vec_all_same(&machine_grade) {
+                    OCWMachineGrades::<T>::insert(machine_id, machine_grade[0])
+                }
+
+                if Self::vec_all_same(&appraisal_price) {
+                    OCWMachinePrice::<T>::insert(machine_id, appraisal_price[0])
+                }
 
                 // TODO: 增加log提示
                 BondingQueue::<T>::remove(machine_id);
@@ -727,6 +761,14 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    fn vec_all_same<C: PartialEq + Copy>(arr: &[C]) -> bool {
+        if arr.is_empty() {
+            return true;
+        }
+        let first = arr[0];
+        arr.iter().all(|&item| item == first)
+    }
+
     // fn do_payout_stakers(who: T::AccountId, era: EraIndex) -> DispatchResult {
     //     let current_era = Self::current_era();
     //     ensure!(era <= current_era, Error::<T>::InvalidEraToReward);
@@ -977,6 +1019,12 @@ impl<T: Config> CommitteeMachine for Pallet<T> {
             .map(|(machine_id, _)| machine_id)
             .collect::<BTreeSet<_>>()
     }
+
+    // fn booking_one(who: AccountId, machine: MachineId) -> bool {
+    //     if !BookingQueue::<T>::contains_key(key) {
+    //         false
+    //     }
+    // }
 
     fn booked_queue_id() -> BTreeSet<Self::MachineId> {
         <BookedQueue<T> as IterableStorageMap<MachineId, u64>>::iter()

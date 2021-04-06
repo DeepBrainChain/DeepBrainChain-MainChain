@@ -1,6 +1,14 @@
 {
     "error_code": 0,
     "data": {
+        "grades": {
+            "cpu": 100,
+            "disk": 50,
+            "gpu": 200,
+            "mem": 50,
+            "net": 20
+        },
+        "appraisal_price": 4000210000,
         "cpu": {
             "num": "32",
             "type": "Intel(R) Xeon(R) Silver 4110 CPU"
