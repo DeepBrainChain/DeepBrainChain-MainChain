@@ -4,7 +4,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
     debug,
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     pallet_prelude::*,
     traits::{
         Currency, ExistenceRequirement::AllowDeath, Get, LockIdentifier, LockableCurrency,
@@ -99,7 +99,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         MachineId,
-        BondingPair<<T as frame_system::Config>::AccountId>, // TODO: 修改类型
+        BookingItem<<T as frame_system::Config>::BlockNumber>, // TODO: 修改类型 需要有height, who, machineid
     >;
 
     #[pallet::storage]
@@ -114,7 +114,13 @@ pub mod pallet {
     // 存储ocw获取的机器打分信息
     #[pallet::storage]
     #[pallet::getter(fn ocw_machine_grades)]
-    pub type OCWMachineGrades<T> = StorageMap<_, Blake2_128Concat, MachineId, Grades, ValueQuery>;
+    pub type OCWMachineGrades<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        ConfirmedMachine<T::AccountId, T::BlockNumber>,
+        ValueQuery,
+    >;
 
     // 存储ocw获取的机器估价信息
     #[pallet::storage]
@@ -474,7 +480,20 @@ pub mod pallet {
                 }
 
                 if Self::vec_all_same(&machine_grade) {
-                    OCWMachineGrades::<T>::insert(machine_id, machine_grade[0])
+                    // OCWMachineGrades::<T>::insert(machine_id, machine_grade[0])
+                    OCWMachineGrades::<T>::insert(
+                        machine_id,
+                        ConfirmedMachine {
+                            machine_grade: MachineGradeDetail {
+                                cpu: machine_grade[0].cpu,
+                                disk: machine_grade[0].disk,
+                                gpu: machine_grade[0].gpu,
+                                mem: machine_grade[0].mem,
+                                net: machine_grade[0].net,
+                            },
+                            committee_info: vec![],
+                        },
+                    );
                 }
 
                 if Self::vec_all_same(&appraisal_price) {
@@ -483,7 +502,13 @@ pub mod pallet {
 
                 // TODO: 增加log提示
                 BondingQueue::<T>::remove(machine_id);
-                BookingQueue::<T>::insert(machine_id, bonding_pair);
+                BookingQueue::<T>::insert(
+                    machine_id,
+                    BookingItem {
+                        machine_id: machine_id.to_vec(),
+                        book_time: <frame_system::Module<T>>::block_number(),
+                    },
+                );
             }
 
             Ok(().into())
@@ -749,6 +774,7 @@ pub mod pallet {
         OffchainUnsignedTxError,
         InvalidEraToReward,
         AccountNotSame,
+        NotInBookingList,
     }
 }
 
@@ -1007,6 +1033,7 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> CommitteeMachine for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
+    type BlockNumber = T::BlockNumber;
 
     fn bonding_queue_id() -> BTreeSet<Self::MachineId> {
         <BondingQueue<T> as IterableStorageMap<MachineId, BondingPair<T::AccountId>>>::iter()
@@ -1015,16 +1042,26 @@ impl<T: Config> CommitteeMachine for Pallet<T> {
     }
 
     fn booking_queue_id() -> BTreeSet<Self::MachineId> {
-        <BookingQueue<T> as IterableStorageMap<MachineId, BondingPair<T::AccountId>>>::iter()
+        <BookingQueue<T> as IterableStorageMap<MachineId, BookingItem<T::BlockNumber>>>::iter()
             .map(|(machine_id, _)| machine_id)
             .collect::<BTreeSet<_>>()
     }
 
-    // fn booking_one(who: AccountId, machine: MachineId) -> bool {
-    //     if !BookingQueue::<T>::contains_key(key) {
-    //         false
-    //     }
-    // }
+    fn book_one_machine(who: &T::AccountId, machine_id: MachineId) -> bool {
+        let bonding_queue_id = Self::bonding_queue_id();
+        if !bonding_queue_id.contains(&machine_id) {
+            return false;
+        }
+
+        let booking_item = BookingItem {
+            machine_id: machine_id.to_vec(),
+            book_time: <frame_system::Module<T>>::block_number(),
+        };
+
+        BookingQueue::<T>::insert(&machine_id, booking_item.clone());
+        BondingQueue::<T>::remove(&machine_id);
+        true
+    }
 
     fn booked_queue_id() -> BTreeSet<Self::MachineId> {
         <BookedQueue<T> as IterableStorageMap<MachineId, u64>>::iter()
@@ -1046,9 +1083,15 @@ impl<T: Config> CommitteeMachine for Pallet<T> {
         BookedQueue::<T>::insert(id, 0); // TODO: add this
     }
 
-    fn confirm_machine_grade(who: T::AccountId, id: MachineId, confirm: bool) {
-        let machine_grade = MachineGrade::<T>::get(&id);
-        // TODO: query if exist
-        // MachineGrade::<T>::insert(id, MachineGrade {})
+    fn confirm_machine_grade(who: T::AccountId, machine_id: MachineId, confirm: bool) {
+        let mut machine_grade = OCWMachineGrades::<T>::get(&machine_id);
+
+        machine_grade.committee_info.push(CommitteeInfo {
+            account_id: who,
+            block_height: <frame_system::Module<T>>::block_number(),
+            confirm,
+        });
+
+        OCWMachineGrades::<T>::insert(&machine_id, machine_grade);
     }
 }

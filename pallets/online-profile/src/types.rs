@@ -37,6 +37,34 @@ pub struct BondingPair<AccountId> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct BookingItem<BlockNumber> {
+    pub machine_id: MachineId,
+    pub book_time: BlockNumber,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct ConfirmedMachine<AccountId, BlockNumber> {
+    pub machine_grade: MachineGradeDetail,
+    pub committee_info: Vec<CommitteeInfo<AccountId, BlockNumber>>,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct MachineGradeDetail {
+    pub cpu: u64,
+    pub disk: u64,
+    pub gpu: u64,
+    pub mem: u64,
+    pub net: u64,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct CommitteeInfo<AccountId, BlockNumber> {
+    pub account_id: AccountId,
+    pub block_height: BlockNumber,
+    pub confirm: bool,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineStakeInfo<AccountId, Balance, BlockNumber> {
     pub account_id: AccountId,
     pub machine_id: MachineId,

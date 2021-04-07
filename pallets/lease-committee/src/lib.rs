@@ -35,7 +35,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + online_profile::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type CommitteeMachine: CommitteeMachine;
+        type CommitteeMachine: CommitteeMachine<AccountId = Self::AccountId, MachineId = MachineId>;
 
         #[pallet::constant]
         type CommitteeDuration: Get<EraIndex>;
@@ -108,6 +108,22 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee)]
     pub(super) type Committee<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+
+    // 添加item时使用binray_search
+    #[pallet::storage]
+    #[pallet::getter(fn committee_booking_list)]
+    pub type CommitteeBookList<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn committee_booked_machine)]
+    pub type BookedMachineInfo<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        BookingItem<<T as frame_system::Config>::BlockNumber>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn chill_list)]
@@ -294,60 +310,48 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: 查看需要预订的
-
         // 提前预订订单
         #[pallet::weight(10000)]
-        pub fn book_one(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn book_one(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
+
             let committee = Self::committee();
+            ensure!(committee.contains(&who), Error::<T>::NotCommittee);
 
-            let booking_list = T::CommitteeMachine::booking_queue_id();
+            let book_result = T::CommitteeMachine::book_one_machine(&who, machine_id.clone());
+            ensure!(book_result, Error::<T>::BookFailed);
 
-            if !committee.contains(&who) {
-                return Err(Error::<T>::NotCommittee.into());
-            }
+            Self::add_to_committee_book_list(&who, machine_id.clone());
 
-            // 抢了单可以放到双端队列中, 先进先出，用户只要点击预订下一个就行了
+            let booking_item = BookingItem {
+                machine_id: machine_id.clone(),
+                book_time: <system::Module<T>>::block_number(),
+            };
+            BookedMachineInfo::<T>::insert(machine_id, booking_item);
+
             Ok(().into())
         }
 
         #[pallet::weight(10000)]
         pub fn book_all(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            Ok(().into())
-        }
+            let committee = Self::committee();
+            ensure!(committee.contains(&who), Error::<T>::NotCommittee);
 
-        /// TODO: committee confirm machine grade
-        #[pallet::weight(0)]
-        pub fn confirm_machine(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            confirm: bool,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+            let bonding_queue_id = T::CommitteeMachine::bonding_queue_id();
+            for a_machine_id in bonding_queue_id.iter() {
+                let book_result =
+                    T::CommitteeMachine::book_one_machine(&who, a_machine_id.to_vec());
+                ensure!(book_result, Error::<T>::BookFailed);
 
-            ensure!(Self::committee().contains(&who), Error::<T>::NotCommittee);
-            if !online_profile::MachineDetail::<T>::contains_key(&machine_id) {
-                return Err(Error::<T>::MachineGradePriceNotSet.into());
-            };
-            let mut machine_meta = online_profile::MachineDetail::<T>::get(&machine_id);
-            for a_machine_info in &machine_meta.committee_confirm {
-                if a_machine_info.committee == who {
-                    return Err(Error::<T>::CommitteeConfirmedYet.into());
-                }
+                let booking_item = BookingItem {
+                    machine_id: a_machine_id.to_vec(),
+                    book_time: <system::Module<T>>::block_number(),
+                };
+                BookedMachineInfo::<T>::insert(a_machine_id.to_vec(), booking_item); // TODO: 可以优化一次存入
+                Self::add_to_committee_book_list(&who, a_machine_id.to_vec());
             }
-            let confirm_data = CommitteeConfirm {
-                committee: who.clone(),
-                confirm: confirm,
-            };
 
-            machine_meta.committee_confirm.push(confirm_data);
-
-            // TODO: 增加trait来修改变量！
-
-            // TODO: 使用trait来修改，而不能直接修改
-            online_profile::MachineDetail::<T>::insert(&machine_id, machine_meta);
             Ok(().into())
         }
 
@@ -440,6 +444,37 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// TODO: committee confirm machine grade
+        #[pallet::weight(10000)]
+        pub fn confirm_machine_grades(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            confirm: bool,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            ensure!(Self::committee().contains(&who), Error::<T>::NotCommittee);
+
+            // 需要在自己的booking list中
+            ensure!(
+                Self::exist_in_committee_book_list(&who, machine_id.clone()),
+                Error::<T>::NotInBookList
+            );
+
+            // let machine_grades = online_profile::OCWMachineGrades::<T>::get(machine_id.clone());
+            // TODO: 检查是否已经验证过了
+            // TODO: 检查是否已经过了验证时间
+            // for a_machine_info in &machine_meta.committee_confirm {
+            //     if a_machine_info.committee == who {
+            //         return Err(Error::<T>::CommitteeConfirmedYet.into());
+            //     }
+            // }
+
+            T::CommitteeMachine::confirm_machine_grade(who, machine_id.clone(), confirm);
+
+            Ok(().into())
+        }
+
         #[pallet::weight(0)]
         pub fn set_machine_grade(
             origin: OriginFor<T>,
@@ -467,6 +502,8 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        // TODO: 增加root操作未被委员会最终确认的机器
     }
 
     #[pallet::event]
@@ -503,21 +540,51 @@ pub mod pallet {
         UserInWhiteList,
         AlreadyInBlackList,
         NotInBlackList,
-        NotInBookingList,
+        NotInBookList,
+        BookFailed,
     }
 }
 
 impl<T: Config> Pallet<T> {
-    fn book_one_item(who: &T::AccountId, machine_id: MachineId) -> DispatchResult {
-        let booking_queue_id = T::CommitteeMachine::booking_queue_id();
+    // fn book_one_item(who: &T::AccountId, machine_id: MachineId) -> DispatchResult {
+    //     let booking_queue_id = T::CommitteeMachine::booking_queue_id();
 
-        // TODO: not work here
-        // ensure!(
-        //     booking_queue_id.contains_key(&machine_id),
-        //     Error::<T>::NotInBookingList
-        // );
+    //     // TODO: not work here
+    //     // ensure!(
+    //     //     booking_queue_id.contains_key(&machine_id),
+    //     //     Error::<T>::NotInBookingList
+    //     // );
 
-        Ok(())
+    //     Ok(())
+    // }
+
+    fn add_to_committee_book_list(who: &T::AccountId, machine_id: MachineId) {
+        let mut machine_ids = CommitteeBookList::<T>::get(who);
+
+        match machine_ids.binary_search(&machine_id) {
+            Ok(_) => return,
+            Err(index) => {
+                machine_ids.insert(index, machine_id.clone());
+                CommitteeBookList::<T>::insert(who, machine_ids);
+            }
+        }
+    }
+    fn exist_in_committee_book_list(who: &T::AccountId, machine_id: MachineId) -> bool {
+        let machine_ids = CommitteeBookList::<T>::get(who);
+
+        return match machine_ids.binary_search(&machine_id) {
+            Ok(_) => true,
+            Err(_) => false,
+        };
+    }
+    fn rm_from_committee_book_list(who: &T::AccountId, machine_id: MachineId) {
+        let mut machine_ids = CommitteeBookList::<T>::get(who);
+        match machine_ids.binary_search(&machine_id) {
+            Ok(index) => {
+                machine_ids.remove(index);
+            }
+            Err(_) => return,
+        }
     }
 
     fn add_to_alternate_committee(who: &T::AccountId) -> DispatchResult {
