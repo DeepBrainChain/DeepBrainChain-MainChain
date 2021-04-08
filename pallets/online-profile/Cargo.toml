@@ -77,6 +77,11 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dev-dependencies.pallet-staking]
+default-features = false
+path = '../dbc-staking'
+package = 'dbc-staking'
+
 [features]
 default = ["std"]
 std = [
@@ -93,4 +98,5 @@ std = [
     "sp-core/std",
     "serde",
     "timestamp/std",
+    "pallet-staking/std",
 ]

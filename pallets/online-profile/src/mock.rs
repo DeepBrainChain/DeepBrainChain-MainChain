@@ -1,4 +1,4 @@
-use crate as lease_committee;
+use crate as online_profile;
 use frame_support::parameter_types;
 pub use frame_system::{self as system, RawOrigin};
 use sp_core::{
@@ -44,10 +44,6 @@ impl system::Config for TestRuntime {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
 }
-
-// impl lease_committee::Config for TestRuntime {
-//     type Event = Event;
-// }
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
@@ -97,13 +93,6 @@ where
     type Extrinsic = TestExtrinsic;
 }
 
-impl lease_committee::Config for TestRuntime {
-    type Currency = Balances;
-    type Event = Event;
-    type CommitteeMachine = OnlineProfile;
-    type CommitteeDuration = CommitteeDuration;
-}
-
 parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
@@ -125,7 +114,6 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},

@@ -34,6 +34,12 @@ use types::*;
 
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
 pub const PALLET_ID: ModuleId = ModuleId(*b"MCStake!");
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
