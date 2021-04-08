@@ -29,9 +29,42 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
-[dependencies.babe]
+# [dependencies.babe]
+# default-features = false
+# package = 'pallet-babe'
+# git = 'https://github.com/paritytech/substrate.git'
+# rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+# version = '3.0.0'
+
+[dependencies.pallet-staking]
 default-features = false
-package = 'pallet-babe'
+path = '../dbc-staking'
+package = 'dbc-staking'
+
+[dependencies.sp-consensus-babe]
+default-features = false
+package = 'sp-consensus-babe'
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '0.9.0'
+
+[dependencies.pallet-session]
+default-features = false
+package = 'pallet-session'
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.pallet-staking-reward-curve]
+default-features = false
+package = 'pallet-staking-reward-curve'
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.sp-staking]
+default-features = false
+package = 'sp-staking'
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
@@ -78,9 +111,12 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
-    "pallet-timestamp/std",
-    "babe/std",
+    "pallet-timestamp/std", 
+    "pallet-staking/std",
+    # "babe/std",
     "phase-reward/std",
+    "sp-consensus-babe/std",
+    "sp-staking/std",
     "sp-runtime/std",
     "serde",
     "sp-std/std",

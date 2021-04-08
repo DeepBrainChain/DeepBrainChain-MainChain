@@ -25,6 +25,12 @@ pub const PALLET_LOCK_ID: LockIdentifier = *b"leasecom";
 
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;

@@ -1328,17 +1328,21 @@ name = "dbc-testing"
 version = "0.1.0"
 dependencies = [
  "bs58",
+ "dbc-staking",
  "frame-support",
  "frame-system",
- "pallet-babe",
  "pallet-balances",
+ "pallet-session",
+ "pallet-staking-reward-curve 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
  "pallet-timestamp",
  "parity-scale-codec",
  "phase-reward",
  "serde",
+ "sp-consensus-babe",
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -2910,12 +2914,17 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 name = "lease-committee"
 version = "0.1.0"
 dependencies = [
+ "dbc-staking",
  "frame-support",
  "frame-system",
  "online-profile",
  "online-profile-machine",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "serde",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -4310,7 +4319,6 @@ dependencies = [
 name = "online-profile-machine"
 version = "0.1.0"
 dependencies = [
- "node-primitives",
  "sp-std",
 ]
 
@@ -5403,10 +5411,6 @@ dependencies = [
 [[package]]
 name = "phase-reward"
 version = "0.1.0"
-dependencies = [
- "node-primitives",
- "sp-std",
-]
 
 [[package]]
 name = "pin-project"

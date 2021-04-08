@@ -6,12 +6,16 @@ use frame_support::debug;
 use frame_support::traits::Currency;
 use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
+use sp_runtime::traits::{SaturatedConversion, Saturating};
 use sp_std::{convert::TryInto, str};
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
 pub use pallet::*;
+
+#[cfg(test)]
+mod mock;
 
 #[cfg(test)]
 mod tests;
@@ -23,7 +27,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + babe::Config {
+    pub trait Config: frame_system::Config + pallet_timestamp::Config {
         type Currency: Currency<Self::AccountId>;
         type PhaseReward: PhaseReward<Balance = BalanceOf<Self>>;
     }
@@ -51,8 +55,11 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
         pub fn say_hello(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let secs_per_block = babe::Module::<T>::slot_duration();
-            let secs_per_block2 = <babe::Module<T>>::slot_duration();
+            // let secs_per_block = babe::Module::<T>::slot_duration();
+            // let secs_per_block2 = <babe::Module<T>>::slot_duration();
+
+            let secs_per_block =
+                <T as pallet_timestamp::Config>::MinimumPeriod::get().saturating_mul(2u32.into());
 
             // let secs_per_block =<T as babe::Config>::slot_duration();
             // let secs_per_block = <T as timestamp::Config>::MinimumPeriod::get();
@@ -72,10 +79,10 @@ pub mod pallet {
             }
 
             debug::info!(
-                "######### Request sent by: {:?}, {:?}, {:?} #########",
+                "######### Request sent by: {:?}, {:?} #########",
                 caller,
                 secs_per_block,
-                secs_per_block2
+                // secs_per_block2
             );
             Ok(().into())
         }
