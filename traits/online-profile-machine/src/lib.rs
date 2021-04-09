@@ -17,3 +17,7 @@ pub trait CommitteeMachine {
 
     fn book_one_machine(who: &Self::AccountId, machine_id: Self::MachineId) -> bool;
 }
+
+pub trait OnlineProfileOCW {
+    type MachineId;
+}

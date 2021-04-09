@@ -2925,6 +2925,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]
@@ -4079,6 +4080,7 @@ dependencies = [
  "lease-committee",
  "node-primitives",
  "online-profile",
+ "online-profile-ocw",
  "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -4320,6 +4322,23 @@ dependencies = [
 name = "online-profile-machine"
 version = "0.1.0"
 dependencies = [
+ "sp-std",
+]
+
+[[package]]
+name = "online-profile-ocw"
+version = "0.1.0"
+dependencies = [
+ "alt_serde",
+ "frame-support",
+ "frame-system",
+ "online-profile",
+ "online-profile-machine",
+ "parity-scale-codec",
+ "serde",
+ "serde_json 1.0.44",
+ "sp-io",
+ "sp-runtime",
  "sp-std",
 ]
 

@@ -113,6 +113,7 @@ std = [
     'phase-reward/std',
     'dbc-price/std',
     'online-profile/std',
+    'online-profile-ocw/std',
     'lease-committee/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
@@ -372,6 +373,11 @@ path = '../traits/phase-reward'
 default-features = false
 path = '../pallets/online-profile'
 package = 'online-profile'
+
+[dependencies.online-profile-ocw]
+default-features = false
+path = '../pallets/online-profile-ocw'
+package = 'online-profile-ocw'
 
 [dependencies.lease-committee]
 default-features = false

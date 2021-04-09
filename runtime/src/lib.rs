@@ -1047,6 +1047,10 @@ impl online_profile::Config for Runtime {
     type BondingDuration = BondingDuration;
 }
 
+impl online_profile_ocw::Config for Runtime {
+    type OnlineProfile = OnlineProfile;
+}
+
 parameter_types! {
     pub const CommitteeDuration: pallet_staking::EraIndex = 7;
 }
@@ -1101,7 +1105,8 @@ construct_runtime!(
         Mmr: pallet_mmr::{Module, Storage},
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         DBCPrice: dbc_price::{Module, Call, Storage, Event<T>, ValidateUnsigned},
-        OnlineProfile: online_profile::{Module, Call, Storage, Event<T>, ValidateUnsigned},
+        OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
+        OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Call},
     }

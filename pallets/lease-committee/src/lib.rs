@@ -102,6 +102,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
+    #[pallet::getter(fn committee_limit)]
     pub(super) type CommitteeLimit<T: Config> =
         StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
 
@@ -161,9 +162,6 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // TODO: use in pallet 3.0 type
-        // const BondingDuration: EraIndex = <T as Config>::BondingDuration::get();
-
         // 设置committee的最小质押
         /// set min stake to become alternate committee
         #[pallet::weight(0)]
@@ -183,6 +181,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             AlternateCommitteeLimit::<T>::put(num);
+
             Ok(().into())
         }
 
@@ -575,6 +574,7 @@ impl<T: Config> Pallet<T> {
             }
         }
     }
+
     fn exist_in_committee_book_list(who: &T::AccountId, machine_id: MachineId) -> bool {
         let machine_ids = CommitteeBookList::<T>::get(who);
 
@@ -583,7 +583,8 @@ impl<T: Config> Pallet<T> {
             Err(_) => false,
         };
     }
-    fn rm_from_committee_book_list(who: &T::AccountId, machine_id: MachineId) {
+
+    fn _rm_from_committee_book_list(who: &T::AccountId, machine_id: MachineId) {
         let mut machine_ids = CommitteeBookList::<T>::get(who);
         match machine_ids.binary_search(&machine_id) {
             Ok(index) => {
