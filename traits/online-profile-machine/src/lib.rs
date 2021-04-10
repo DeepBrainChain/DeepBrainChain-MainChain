@@ -18,7 +18,6 @@ pub trait LCOps {
 }
 
 pub trait CommOps {
-    fn vec_all_same<C: PartialEq + Copy>(arr: &[C]) -> bool;
     fn random_num(max: u32) -> u32;
     fn current_era() -> u32;
     fn block_per_era() -> u32;

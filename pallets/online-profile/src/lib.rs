@@ -567,14 +567,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn vec_all_same<C: PartialEq + Copy>(arr: &[C]) -> bool {
-        if arr.is_empty() {
-            return true;
-        }
-        let first = arr[0];
-        arr.iter().all(|&item| item == first)
-    }
-
     // fn do_payout_stakers(who: T::AccountId, era: EraIndex) -> DispatchResult {
     //     let current_era = Self::current_era();
     //     ensure!(era <= current_era, Error::<T>::InvalidEraToReward);
@@ -801,9 +793,6 @@ impl<T: Config> LCOps for Pallet<T> {
 }
 
 impl<T: Config> CommOps for Pallet<T> {
-    fn vec_all_same<C: PartialEq + Copy>(arr: &[C]) -> bool {
-        Self::vec_all_same(arr)
-    }
     fn random_num(max: u32) -> u32 {
         Self::random_num(max)
     }

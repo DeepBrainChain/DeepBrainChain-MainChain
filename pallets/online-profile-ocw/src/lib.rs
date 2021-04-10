@@ -225,7 +225,7 @@ pub mod pallet {
                     appraisal_price.push(machine_info.data.appraisal_price);
                 }
 
-                if T::OnlineProfile::vec_all_same(&machine_grade) {
+                if Self::vec_all_same(&machine_grade) {
                     T::OnlineProfile::add_machine_grades(
                         machine_id.to_vec(),
                         ConfirmedMachine {
@@ -235,7 +235,7 @@ pub mod pallet {
                     );
                 }
 
-                if T::OnlineProfile::vec_all_same(&appraisal_price) {
+                if Self::vec_all_same(&appraisal_price) {
                     T::OnlineProfile::add_machine_price(machine_id.to_vec(), appraisal_price[0]);
                 }
 
@@ -247,38 +247,6 @@ pub mod pallet {
                         book_time: <frame_system::Module<T>>::block_number(),
                     },
                 );
-
-                // if Self::vec_all_same(&machine_grade) {
-                //     // OCWMachineGrades::<T>::insert(machine_id, machine_grade[0])
-                //     // TODO: 通过trait添加
-                //     OCWMachineGrades::<T>::insert(
-                //         machine_id,
-                //         ConfirmedMachine {
-                //             machine_grade: MachineGradeDetail {
-                //                 cpu: machine_grade[0].cpu,
-                //                 disk: machine_grade[0].disk,
-                //                 gpu: machine_grade[0].gpu,
-                //                 mem: machine_grade[0].mem,
-                //                 net: machine_grade[0].net,
-                //             },
-                //             committee_info: vec![],
-                //         },
-                //     );
-                // }
-
-                // if Self::vec_all_same(&appraisal_price) {
-                //     OCWMachinePrice::<T>::insert(machine_id, appraisal_price[0])
-                // }
-
-                // TODO: 增加log提示
-                // BondingQueue::<T>::remove(machine_id);
-                // BookingQueue::<T>::insert(
-                //     machine_id,
-                //     BookingItem {
-                //         machine_id: machine_id.to_vec(),
-                //         book_time: <frame_system::Module<T>>::block_number(),
-                //     },
-                // );
             }
 
             Ok(().into())
@@ -287,31 +255,23 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        MachineIdNotBonded,
-        MachineHasBonded,
-        MachineInBondingQueue,
-        MachineInBookingQueue,
-        MachineInBookedQueue,
-        TokenNotBonded,
-        BondedNotEnough,
         HttpFetchingError,
-        HttpDecodeError,
-        BalanceNotEnough,
-        NotMachineOwner,
-        LedgerNotFound,
-        NoMoreChunks,
-        AlreadyAddedMachine,
-        InsufficientValue,
+        // HttpDecodeError,
         IndexOutOfRange,
         MachineURLEmpty,
         OffchainUnsignedTxError,
-        InvalidEraToReward,
-        AccountNotSame,
-        NotInBookingList,
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn vec_all_same<C: PartialEq + Copy>(arr: &[C]) -> bool {
+        if arr.is_empty() {
+            return true;
+        }
+        let first = arr[0];
+        arr.iter().all(|&item| item == first)
+    }
+
     fn call_ocw_machine_info() -> Result<(), Error<T>> {
         let call = Call::ocw_submit_machine_info();
         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
