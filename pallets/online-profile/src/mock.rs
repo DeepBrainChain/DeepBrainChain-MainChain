@@ -13,8 +13,6 @@ use sp_runtime::{
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
-type TestExtrinsic = TestXt<Call, ()>;
-
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
@@ -60,40 +58,6 @@ impl pallet_balances::Config for TestRuntime {
 }
 
 parameter_types! {
-    pub const CommitteeDuration: pallet_staking::EraIndex = 7;
-}
-
-impl<LocalCall> system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
-where
-    Call: From<LocalCall>,
-{
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: Call,
-        _public: <Signature as Verify>::Signer,
-        _account: <TestRuntime as system::Config>::AccountId,
-        index: <TestRuntime as system::Config>::Index,
-    ) -> Option<(
-        Call,
-        <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-    )> {
-        Some((call, (index, ())))
-    }
-}
-
-impl frame_system::offchain::SigningTypes for TestRuntime {
-    type Public = <Signature as Verify>::Signer;
-    type Signature = Signature;
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
-where
-    Call: From<C>,
-{
-    type OverarchingCall = Call;
-    type Extrinsic = TestExtrinsic;
-}
-
-parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
 }
@@ -114,7 +78,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        OnlineProfile: online_profile::{Module, Call, Storage, Event<T>, ValidateUnsigned},
+        OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
     }
@@ -127,3 +91,35 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .unwrap()
         .into()
 }
+
+// type TestExtrinsic = TestXt<Call, ()>;
+
+// impl<LocalCall> system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
+// where
+//     Call: From<LocalCall>,
+// {
+//     fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+//         call: Call,
+//         _public: <Signature as Verify>::Signer,
+//         _account: <TestRuntime as system::Config>::AccountId,
+//         index: <TestRuntime as system::Config>::Index,
+//     ) -> Option<(
+//         Call,
+//         <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+//     )> {
+//         Some((call, (index, ())))
+//     }
+// }
+
+// impl frame_system::offchain::SigningTypes for TestRuntime {
+//     type Public = <Signature as Verify>::Signer;
+//     type Signature = Signature;
+// }
+
+// impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
+// where
+//     Call: From<C>,
+// {
+//     type OverarchingCall = Call;
+//     type Extrinsic = TestExtrinsic;
+// }
