@@ -1,4 +1,4 @@
-use crate as lease_committee;
+use crate as online_profile_ocw;
 use frame_support::parameter_types;
 pub use frame_system::{self as system, RawOrigin};
 pub use sp_core::{
@@ -9,8 +9,8 @@ pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
 use sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
+    testing::{Header, TestXt},
+    traits::{BlakeTwo256, IdentityLookup, Verify},
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -60,15 +60,8 @@ impl pallet_balances::Config for TestRuntime {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const CommitteeDuration: pallet_staking::EraIndex = 7;
-}
-
-impl lease_committee::Config for TestRuntime {
-    type Currency = Balances;
-    type Event = Event;
-    type CommitteeMachine = OnlineProfile;
-    type CommitteeDuration = CommitteeDuration;
+impl online_profile_ocw::Config for TestRuntime {
+    type OnlineProfile = OnlineProfile;
 }
 
 parameter_types! {
@@ -92,10 +85,10 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
+        OnlineProfileOcw: online_profile_ocw::{Module, Call, ValidateUnsigned},
     }
 );
 
@@ -105,21 +98,52 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage::<TestRuntime>()
         .unwrap();
 
-    #[rustfmt::skip]
-    pallet_balances::GenesisConfig::<TestRuntime> {
-        balances: vec![
-            (sr25519::Public::from(Sr25519Keyring::Alice).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Bob).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Charlie).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Dave).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Eve).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::One).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Two).into(), 1000_000),
-        ],
-    }
-    .assimilate_storage(&mut t)
-    .unwrap();
+    // #[rustfmt::skip]
+    // pallet_balances::GenesisConfig::<TestRuntime> {
+    //     balances: vec![
+    //         (sr25519::Public::from(Sr25519Keyring::Alice).into(), 1000_000),
+    //         (sr25519::Public::from(Sr25519Keyring::Bob).into(), 1000_000),
+    //         (sr25519::Public::from(Sr25519Keyring::Charlie).into(), 1000_000),
+    //         (sr25519::Public::from(Sr25519Keyring::Dave).into(), 1000_000),
+    //         (sr25519::Public::from(Sr25519Keyring::Eve).into(), 1000_000),
+    //         (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), 1000_000),
+    //         (sr25519::Public::from(Sr25519Keyring::One).into(), 1000_000),
+    //         (sr25519::Public::from(Sr25519Keyring::Two).into(), 1000_000),
+    //     ],
+    // }
+    // .assimilate_storage(&mut t)
+    // .unwrap();
 
     t.into()
+}
+
+type TestExtrinsic = TestXt<Call, ()>;
+impl<LocalCall> system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
+where
+    Call: From<LocalCall>,
+{
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: Call,
+        _public: <Signature as Verify>::Signer,
+        _account: <TestRuntime as system::Config>::AccountId,
+        index: <TestRuntime as system::Config>::Index,
+    ) -> Option<(
+        Call,
+        <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        Some((call, (index, ())))
+    }
+}
+
+impl frame_system::offchain::SigningTypes for TestRuntime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = TestExtrinsic;
 }

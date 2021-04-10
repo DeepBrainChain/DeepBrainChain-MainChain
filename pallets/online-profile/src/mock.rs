@@ -2,12 +2,12 @@ use crate as online_profile;
 use frame_support::parameter_types;
 pub use frame_system::{self as system, RawOrigin};
 use sp_core::{
-    sr25519::{self, Signature},
+    sr25519::{self},
     H256,
 };
 use sp_runtime::{
-    testing::{Header, TestXt},
-    traits::{BlakeTwo256, IdentityLookup, Verify},
+    testing::Header,
+    traits::{BlakeTwo256, IdentityLookup},
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -91,35 +91,3 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .unwrap()
         .into()
 }
-
-// type TestExtrinsic = TestXt<Call, ()>;
-
-// impl<LocalCall> system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
-// where
-//     Call: From<LocalCall>,
-// {
-//     fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-//         call: Call,
-//         _public: <Signature as Verify>::Signer,
-//         _account: <TestRuntime as system::Config>::AccountId,
-//         index: <TestRuntime as system::Config>::Index,
-//     ) -> Option<(
-//         Call,
-//         <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-//     )> {
-//         Some((call, (index, ())))
-//     }
-// }
-
-// impl frame_system::offchain::SigningTypes for TestRuntime {
-//     type Public = <Signature as Verify>::Signer;
-//     type Signature = Signature;
-// }
-
-// impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
-// where
-//     Call: From<C>,
-// {
-//     type OverarchingCall = Call;
-//     type Extrinsic = TestExtrinsic;
-// }

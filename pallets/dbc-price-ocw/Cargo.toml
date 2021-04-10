@@ -1,5 +1,5 @@
 [package]
-name = "dbc-price"
+name = "dbc-price-ocw"
 version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 edition = "2018"

@@ -93,7 +93,7 @@ pub mod constants;
 use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
 
-pub use dbc_price;
+pub use dbc_price_ocw;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -1030,7 +1030,7 @@ impl dbc_testing::Config for Runtime {
     type PhaseReward = Staking;
 }
 
-impl dbc_price::Config for Runtime {
+impl dbc_price_ocw::Config for Runtime {
     type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
 }
@@ -1104,7 +1104,7 @@ construct_runtime!(
         Assets: pallet_assets::{Module, Call, Storage, Event<T>},
         Mmr: pallet_mmr::{Module, Storage},
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
-        DBCPrice: dbc_price::{Module, Call, Storage, Event<T>, ValidateUnsigned},
+        DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},

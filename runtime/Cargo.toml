@@ -111,7 +111,7 @@ std = [
     'pallet-vesting/std',
     'dbc-testing/std',
     'phase-reward/std',
-    'dbc-price/std',
+    'dbc-price-ocw/std',
     'online-profile/std',
     'online-profile-ocw/std',
     'lease-committee/std',
@@ -361,9 +361,9 @@ default-features = false
 path = '../pallets/dbc-testing'
 package = 'dbc-testing'
 
-[dependencies.dbc-price]
+[dependencies.dbc-price-ocw]
 default-features = false
-path = '../pallets/dbc-price'
+path = '../pallets/dbc-price-ocw'
 
 [dependencies.phase-reward]
 default-features = false

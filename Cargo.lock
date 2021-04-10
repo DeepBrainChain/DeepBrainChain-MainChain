@@ -1278,7 +1278,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dbc-price"
+name = "dbc-price-ocw"
 version = "0.1.0"
 dependencies = [
  "frame-support",
@@ -2920,7 +2920,6 @@ dependencies = [
  "online-profile",
  "online-profile-machine",
  "pallet-balances",
- "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "serde",
  "sp-core",
@@ -4067,7 +4066,7 @@ dependencies = [
 name = "node-runtime"
 version = "2.0.1"
 dependencies = [
- "dbc-price",
+ "dbc-price-ocw",
  "dbc-staking",
  "dbc-testing",
  "frame-benchmarking",
@@ -4330,14 +4329,19 @@ name = "online-profile-ocw"
 version = "0.1.0"
 dependencies = [
  "alt_serde",
+ "dbc-staking",
  "frame-support",
  "frame-system",
  "online-profile",
  "online-profile-machine",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "serde",
  "serde_json 1.0.44",
+ "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]
@@ -4924,22 +4928,22 @@ dependencies = [
 [[package]]
 name = "pallet-staking-reward-curve"
 version = "3.0.0"
-source = "git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
+ "sp-runtime",
  "syn",
 ]
 
 [[package]]
 name = "pallet-staking-reward-curve"
 version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "sp-runtime",
  "syn",
 ]
 

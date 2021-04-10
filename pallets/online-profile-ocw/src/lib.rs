@@ -15,6 +15,12 @@ pub mod machine_info;
 
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 pub type MachineId = Vec<u8>;
 pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
 

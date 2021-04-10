@@ -48,6 +48,31 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dev-dependencies.sp-core]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.sp-keyring]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.pallet-randomness-collective-flip]
+package = 'pallet-randomness-collective-flip'
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.pallet-staking]
+path = '../dbc-staking'
+package = 'dbc-staking'
+
+[dev-dependencies.pallet-balances]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
 [features]
 default = ["std"]
 std = [
@@ -55,6 +80,7 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "online-profile/std",
+    "serde", # test construct_runtime需要导入
     "sp-io/std",
     "sp-runtime/std",
     "sp-std/std",
