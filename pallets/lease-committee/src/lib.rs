@@ -8,7 +8,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 use online_profile::types::*;
-use online_profile_machine::CommitteeMachine;
+use online_profile_machine::LCOps;
 use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
 use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
 
@@ -41,7 +41,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + online_profile::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type CommitteeMachine: CommitteeMachine<AccountId = Self::AccountId, MachineId = MachineId>;
+        type CommitteeMachine: LCOps<AccountId = Self::AccountId, MachineId = MachineId>;
 
         #[pallet::constant]
         type CommitteeDuration: Get<EraIndex>;
@@ -639,6 +639,7 @@ impl<T: Config> Pallet<T> {
         }
 
         for _ in 0..committee_num {
+            // TODO: 测试是否可以这样调用吗
             let committee_index =
                 online_profile::Module::<T>::random_num(alternate_committee.len() as u32 - 1);
             next_group.push(alternate_committee[committee_index as usize].clone());

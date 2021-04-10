@@ -7,7 +7,7 @@ use lite_json::json::JsonValue;
 use sp_core::H256;
 use sp_runtime::{
     offchain::{http, Duration},
-    traits::{BlakeTwo256, SaturatedConversion},
+    traits::BlakeTwo256,
     RandomNumberGenerator,
 };
 use sp_std::str;

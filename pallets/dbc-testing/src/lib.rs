@@ -6,7 +6,7 @@ use frame_support::debug;
 use frame_support::traits::Currency;
 use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
-use sp_runtime::traits::{SaturatedConversion, Saturating};
+use sp_runtime::traits::Saturating;
 use sp_std::{convert::TryInto, str};
 
 type BalanceOf<T> =
@@ -121,7 +121,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     // TODO: why cannot run here?
-    fn test() {
+    fn _test() {
         let mut output: [u8; 35] = [0; 35];
         let decoded =
             bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
@@ -129,6 +129,6 @@ impl<T: Config> Pallet<T> {
         let account_id_32: [u8; 32] = output[1..33].try_into().unwrap();
         debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
 
-        let b = T::AccountId::decode(&mut &account_id_32[..]).unwrap_or_default();
+        let _b = T::AccountId::decode(&mut &account_id_32[..]).unwrap_or_default();
     }
 }

@@ -1,25 +1,17 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-    debug,
-    dispatch::DispatchResultWithPostInfo,
-    pallet_prelude::*,
-    traits::{
-        Currency, ExistenceRequirement::AllowDeath, Get, LockIdentifier, LockableCurrency,
-        Randomness, WithdrawReasons,
-    },
-    IterableStorageMap,
-};
+use frame_support::{debug, dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
 use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
     pallet_prelude::*,
 };
-use online_profile_machine::CommitteeMachine;
-use sp_runtime::{offchain, offchain::http};
+use online_profile::types::*;
+use online_profile_machine::{CommOps, LCOps, OPOps};
+use sp_runtime::{offchain, offchain::http, traits::SaturatedConversion};
+use sp_std::{prelude::*, str};
 
 pub mod machine_info;
-use machine_info::*;
 
 pub use pallet::*;
 
@@ -35,7 +27,15 @@ pub mod pallet {
         frame_system::Config + CreateSignedTransaction<Call<Self>> + online_profile::Config
     {
         // type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type OnlineProfile: CommitteeMachine<AccountId = Self::AccountId, MachineId = MachineId>;
+        type OnlineProfile: LCOps<MachineId = MachineId>
+            + CommOps
+            + OPOps<
+                AccountId = Self::AccountId,
+                BondingPair = BondingPair<Self::AccountId>,
+                BookingItem = BookingItem<Self::BlockNumber>,
+                MachineId = MachineId,
+                ConfirmedMachine = ConfirmedMachine<Self::AccountId, Self::BlockNumber>,
+            >;
     }
 
     #[pallet::pallet]
@@ -165,7 +165,7 @@ pub mod pallet {
         fn ocw_submit_machine_info(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            let bonding_queue_id = Self::bonding_queue_id();
+            let bonding_queue_id = T::OnlineProfile::bonding_queue_id();
             // let booking_queue_id = Self::booking_queue_id();
 
             let request_limit = RequestLimit::<T>::get();
@@ -174,10 +174,11 @@ pub mod pallet {
             ensure!(machine_info_url.len() != 0, Error::<T>::MachineURLEmpty);
 
             for machine_id in bonding_queue_id.iter() {
-                let bonding_pair = T::BondingQueue::<T>::get(&machine_id);
+                let bonding_pair = T::OnlineProfile::get_bonding_pair(machine_id.to_vec());
+                // let bonding_pair = T::BondingQueue::<T>::get(&machine_id);
                 let mut request_count = bonding_pair.request_count;
 
-                let mut machine_grade: Vec<Grades> = vec![];
+                let mut machine_grade: Vec<MachineGradeDetail> = vec![];
                 let mut appraisal_price: Vec<u64> = vec![];
 
                 for url in machine_info_url.iter() {
@@ -187,7 +188,8 @@ pub mod pallet {
                         request_count += 1; // 可以将该逻辑改到Err(e)为404时触发
                         if request_count >= request_limit {
                             // TODO: 增加log提示
-                            T::BondingQueue::<T>::remove(machine_id);
+                            // T::BondingQueue::<T>::remove(machine_id);
+                            T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
                             break;
                         }
                         debug::error!("Offchain worker error: {:?}", e);
@@ -200,16 +202,19 @@ pub mod pallet {
                     debug::info!("machine info is: {:?}", &machine_wallet);
 
                     // 如果不一致，则直接进行下一个machine_id的查询
-                    if !Self::wallet_match_account(bonding_pair.account_id.clone(), machine_wallet)
-                    {
+                    if !T::OnlineProfile::wallet_match_account(
+                        bonding_pair.account_id.clone(),
+                        machine_wallet,
+                    ) {
                         // TODO: 增加log提示
-                        T::BondingQueue::<T>::remove(machine_id);
+                        // T::BondingQueue::<T>::remove(machine_id);
+                        T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
                         break;
                     }
 
                     let grades = &machine_info.data.grades;
 
-                    machine_grade.push(Grades {
+                    machine_grade.push(MachineGradeDetail {
                         cpu: grades.cpu,
                         disk: grades.cpu,
                         gpu: grades.gpu,
@@ -220,36 +225,60 @@ pub mod pallet {
                     appraisal_price.push(machine_info.data.appraisal_price);
                 }
 
-                if Self::vec_all_same(&machine_grade) {
-                    // OCWMachineGrades::<T>::insert(machine_id, machine_grade[0])
-                    OCWMachineGrades::<T>::insert(
-                        machine_id,
+                if T::OnlineProfile::vec_all_same(&machine_grade) {
+                    T::OnlineProfile::add_machine_grades(
+                        machine_id.to_vec(),
                         ConfirmedMachine {
-                            machine_grade: MachineGradeDetail {
-                                cpu: machine_grade[0].cpu,
-                                disk: machine_grade[0].disk,
-                                gpu: machine_grade[0].gpu,
-                                mem: machine_grade[0].mem,
-                                net: machine_grade[0].net,
-                            },
+                            machine_grade: machine_grade[0],
                             committee_info: vec![],
                         },
                     );
                 }
 
-                if Self::vec_all_same(&appraisal_price) {
-                    OCWMachinePrice::<T>::insert(machine_id, appraisal_price[0])
+                if T::OnlineProfile::vec_all_same(&appraisal_price) {
+                    T::OnlineProfile::add_machine_price(machine_id.to_vec(), appraisal_price[0]);
                 }
 
-                // TODO: 增加log提示
-                BondingQueue::<T>::remove(machine_id);
-                BookingQueue::<T>::insert(
-                    machine_id,
+                T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
+                T::OnlineProfile::add_booking_item(
+                    machine_id.to_vec(),
                     BookingItem {
                         machine_id: machine_id.to_vec(),
                         book_time: <frame_system::Module<T>>::block_number(),
                     },
                 );
+
+                // if Self::vec_all_same(&machine_grade) {
+                //     // OCWMachineGrades::<T>::insert(machine_id, machine_grade[0])
+                //     // TODO: 通过trait添加
+                //     OCWMachineGrades::<T>::insert(
+                //         machine_id,
+                //         ConfirmedMachine {
+                //             machine_grade: MachineGradeDetail {
+                //                 cpu: machine_grade[0].cpu,
+                //                 disk: machine_grade[0].disk,
+                //                 gpu: machine_grade[0].gpu,
+                //                 mem: machine_grade[0].mem,
+                //                 net: machine_grade[0].net,
+                //             },
+                //             committee_info: vec![],
+                //         },
+                //     );
+                // }
+
+                // if Self::vec_all_same(&appraisal_price) {
+                //     OCWMachinePrice::<T>::insert(machine_id, appraisal_price[0])
+                // }
+
+                // TODO: 增加log提示
+                // BondingQueue::<T>::remove(machine_id);
+                // BookingQueue::<T>::insert(
+                //     machine_id,
+                //     BookingItem {
+                //         machine_id: machine_id.to_vec(),
+                //         book_time: <frame_system::Module<T>>::block_number(),
+                //     },
+                // );
             }
 
             Ok(().into())
@@ -307,7 +336,8 @@ impl<T: Config> Pallet<T> {
         }
 
         for _ in 0..machine_info_rand_url_num {
-            let url_index = Self::random_num(machine_info_url.len() as u32 - 1);
+            let url_index = T::OnlineProfile::random_num(machine_info_url.len() as u32 - 1);
+            // let url_index = Self::random_num(machine_info_url.len() as u32 - 1);
             next_group.push(machine_info_url[url_index as usize].to_vec());
             machine_info_url.remove(url_index as usize);
         }

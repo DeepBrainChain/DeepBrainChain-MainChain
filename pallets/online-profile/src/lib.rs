@@ -3,7 +3,6 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    debug,
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
     traits::{
@@ -12,20 +11,14 @@ use frame_support::{
     },
     IterableStorageMap,
 };
-use frame_system::{
-    offchain::{CreateSignedTransaction, SubmitTransaction},
-    pallet_prelude::*,
-};
-use online_profile_machine::CommitteeMachine;
+use frame_system::pallet_prelude::*;
+use online_profile_machine::{CommOps, LCOps, OPOps};
 use sp_core::H256;
 use sp_runtime::{
-    offchain,
-    offchain::http,
     traits::{AccountIdConversion, BlakeTwo256, CheckedSub, SaturatedConversion, Zero},
     ModuleId, RandomNumberGenerator,
 };
-use sp_std::collections::btree_set::BTreeSet;
-use sp_std::{convert::TryInto, prelude::*, str};
+use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, prelude::*, str};
 
 pub mod types;
 use types::*;
@@ -743,7 +736,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> CommitteeMachine for Pallet<T> {
+impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
     type BlockNumber = T::BlockNumber;
@@ -804,5 +797,52 @@ impl<T: Config> CommitteeMachine for Pallet<T> {
         });
 
         OCWMachineGrades::<T>::insert(&machine_id, machine_grade);
+    }
+}
+
+impl<T: Config> CommOps for Pallet<T> {
+    fn vec_all_same<C: PartialEq + Copy>(arr: &[C]) -> bool {
+        Self::vec_all_same(arr)
+    }
+    fn random_num(max: u32) -> u32 {
+        Self::random_num(max)
+    }
+    fn current_era() -> u32 {
+        Self::current_era()
+    }
+    fn block_per_era() -> u32 {
+        Self::block_per_era()
+    }
+}
+
+impl<T: Config> OPOps for Pallet<T> {
+    type AccountId = T::AccountId;
+    type BookingItem = BookingItem<T::BlockNumber>;
+    type BondingPair = BondingPair<T::AccountId>;
+    type ConfirmedMachine = ConfirmedMachine<T::AccountId, T::BlockNumber>;
+    type MachineId = MachineId;
+
+    fn get_bonding_pair(id: Self::MachineId) -> Self::BondingPair {
+        BondingQueue::<T>::get(id)
+    }
+
+    fn add_machine_grades(id: Self::MachineId, machine_grade: Self::ConfirmedMachine) {
+        OCWMachineGrades::<T>::insert(id, machine_grade)
+    }
+
+    fn add_machine_price(id: Self::MachineId, price: u64) {
+        OCWMachinePrice::<T>::insert(id, price)
+    }
+
+    fn rm_bonding_id(id: Self::MachineId) {
+        BondingQueue::<T>::remove(id);
+    }
+
+    fn add_booking_item(id: Self::MachineId, booking_item: Self::BookingItem) {
+        BookingQueue::<T>::insert(id, booking_item);
+    }
+
+    fn wallet_match_account(who: T::AccountId, s: &Vec<u8>) -> bool {
+        Self::wallet_match_account(who, s)
     }
 }

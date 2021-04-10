@@ -48,7 +48,7 @@ pub struct ConfirmedMachine<AccountId, BlockNumber> {
     pub committee_info: Vec<CommitteeInfo<AccountId, BlockNumber>>,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, Copy)]
 pub struct MachineGradeDetail {
     pub cpu: u64,
     pub disk: u64,
@@ -57,7 +57,7 @@ pub struct MachineGradeDetail {
     pub net: u64,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, Copy)]
 pub struct CommitteeInfo<AccountId, BlockNumber> {
     pub account_id: AccountId,
     pub block_height: BlockNumber,
