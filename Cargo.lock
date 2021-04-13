@@ -1338,6 +1338,7 @@ dependencies = [
  "parity-scale-codec",
  "phase-reward",
  "serde",
+ "sp-arithmetic",
  "sp-consensus-babe",
  "sp-core",
  "sp-io",
@@ -2920,6 +2921,7 @@ dependencies = [
  "online-profile",
  "online-profile-machine",
  "pallet-balances",
+ "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "serde",
  "sp-core",
@@ -4299,7 +4301,6 @@ name = "online-profile"
 version = "0.1.0"
 dependencies = [
  "alt_serde",
- "bs58",
  "dbc-staking",
  "frame-support",
  "frame-system",
@@ -4313,6 +4314,7 @@ dependencies = [
  "serde_json 1.0.44",
  "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]
@@ -4329,6 +4331,7 @@ name = "online-profile-ocw"
 version = "0.1.0"
 dependencies = [
  "alt_serde",
+ "bs58",
  "dbc-staking",
  "frame-support",
  "frame-system",

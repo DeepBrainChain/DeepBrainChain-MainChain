@@ -81,6 +81,12 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dependencies.sp-arithmetic]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
 [dev-dependencies.sp-core]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -115,6 +121,7 @@ std = [
     "pallet-staking/std",
     # "babe/std",
     "phase-reward/std",
+    "sp-arithmetic/std",
     "sp-consensus-babe/std",
     "sp-staking/std",
     "sp-runtime/std",

@@ -1108,7 +1108,7 @@ construct_runtime!(
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
-        DBCTesting: dbc_testing::{Module, Call},
+        DBCTesting: dbc_testing::{Module, Storage, Call},
     }
 );
 

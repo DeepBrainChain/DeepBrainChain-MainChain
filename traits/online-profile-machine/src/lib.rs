@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use sp_std::collections::btree_set::BTreeSet;
 
 pub trait LCOps {
     type AccountId;
@@ -18,9 +18,9 @@ pub trait LCOps {
 }
 
 pub trait CommOps {
-    fn random_num(max: u32) -> u32;
-    fn current_era() -> u32;
-    fn block_per_era() -> u32;
+    fn co_random_num(max: u32) -> u32;
+    fn co_current_era() -> u32;
+    fn co_block_per_era() -> u32;
 }
 
 pub trait OPOps {
@@ -35,5 +35,4 @@ pub trait OPOps {
     fn add_machine_price(id: Self::MachineId, price: u64);
     fn rm_bonding_id(id: Self::MachineId);
     fn add_booking_item(id: Self::MachineId, booking_item: Self::BookingItem);
-    fn wallet_match_account(who: Self::AccountId, s: &Vec<u8>) -> bool;
 }

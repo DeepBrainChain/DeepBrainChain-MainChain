@@ -12,6 +12,7 @@ serde = { version = "1.0.101", optional = true }
 serde_json = { version = "1", default-features = false, git = "https://github.com/kaigedong/json", branch = "no-std", features = ["alloc"] }
 alt_serde = { version = "1", default-features = false, features = ["derive"] }
 online-profile-machine = { path = "../../traits/online-profile-machine", default-features = false }
+bs58 = { package = "bs58", version="0.4.0", default-features = false }
 
 [dependencies.frame-support]
 default-features = false
@@ -76,6 +77,7 @@ version = '3.0.0'
 [features]
 default = ["std"]
 std = [
+    "bs58/std",
     "codec/std",
     "frame-support/std",
     "frame-system/std",

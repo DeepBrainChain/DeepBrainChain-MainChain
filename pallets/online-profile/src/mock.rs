@@ -5,6 +5,9 @@ use sp_core::{
     sr25519::{self},
     H256,
 };
+pub use sp_keyring::{
+    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
+};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -86,8 +89,25 @@ frame_support::construct_runtime!(
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
+    let mut t = system::GenesisConfig::default()
         .build_storage::<TestRuntime>()
-        .unwrap()
-        .into()
+        .unwrap();
+
+    #[rustfmt::skip]
+    pallet_balances::GenesisConfig::<TestRuntime> {
+        balances: vec![
+            (sr25519::Public::from(Sr25519Keyring::Alice).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Bob).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Charlie).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Dave).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Eve).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::One).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Two).into(), 1000_000),
+        ],
+    }
+    .assimilate_storage(&mut t)
+    .unwrap();
+
+    t.into()
 }

@@ -9,7 +9,7 @@ use frame_system::{
 use online_profile::types::*;
 use online_profile_machine::{CommOps, LCOps, OPOps};
 use sp_runtime::{offchain, offchain::http, traits::SaturatedConversion};
-use sp_std::{prelude::*, str};
+use sp_std::{convert::TryInto, prelude::*, str};
 
 pub mod machine_info;
 
@@ -208,10 +208,7 @@ pub mod pallet {
                     debug::info!("machine info is: {:?}", &machine_wallet);
 
                     // 如果不一致，则直接进行下一个machine_id的查询
-                    if !T::OnlineProfile::wallet_match_account(
-                        bonding_pair.account_id.clone(),
-                        machine_wallet,
-                    ) {
+                    if Self::wallet_match_account(bonding_pair.account_id.clone(), machine_wallet) {
                         // TODO: 增加log提示
                         // T::BondingQueue::<T>::remove(machine_id);
                         T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
@@ -270,6 +267,43 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // TODO: 将ss58address转为public key
+    // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
+    // from_ss58check_with_version
+    pub fn wallet_match_account(who: T::AccountId, s: &Vec<u8>) -> bool {
+        // const CHECKSUM_LEN: usize = 2;
+        let mut data: [u8; 35] = [0; 35];
+        let decoded = bs58::decode(s).into(&mut data);
+
+        match decoded {
+            Ok(length) => {
+                if length != 35 {
+                    return false;
+                }
+            }
+            Err(_) => return false,
+        }
+
+        let (_prefix_len, _ident) = match data[0] {
+            0..=63 => (1, data[0] as u16),
+            64..=127 => {
+                // let lower = (data[0] << 2) | (data[1] >> 6);
+                // let upper = data[1] & 0b00111111;
+                // (2, (lower as u16) | ((upper as u16) << 8))
+                return false;
+            }
+            _ => return false,
+        };
+
+        let account_id32: [u8; 32] = data[1..33].try_into().unwrap();
+        let wallet = T::AccountId::decode(&mut &account_id32[..]).unwrap_or_default();
+
+        if who == wallet {
+            return true;
+        }
+        return false;
+    }
+
     fn vec_all_same<C: PartialEq + Copy>(arr: &[C]) -> bool {
         if arr.is_empty() {
             return true;
@@ -302,7 +336,7 @@ impl<T: Config> Pallet<T> {
         }
 
         for _ in 0..machine_info_rand_url_num {
-            let url_index = T::OnlineProfile::random_num(machine_info_url.len() as u32 - 1);
+            let url_index = T::OnlineProfile::co_random_num(machine_info_url.len() as u32 - 1);
             // let url_index = Self::random_num(machine_info_url.len() as u32 - 1);
             next_group.push(machine_info_url[url_index as usize].to_vec());
             machine_info_url.remove(url_index as usize);

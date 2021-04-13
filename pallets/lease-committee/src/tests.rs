@@ -4,6 +4,7 @@ use frame_support::assert_ok;
 #[test]
 #[rustfmt::skip]
 fn set_default_value_works() {
+    // 测试初始化设置参数
     new_test_ext().execute_with(|| {
         assert_ok!(LeaseCommittee::set_min_stake(RawOrigin::Root.into(), 500_0000u32.into()));
         assert_eq!(LeaseCommittee::committee_min_stake(), 500_0000);
@@ -18,25 +19,8 @@ fn set_default_value_works() {
 
 #[test]
 #[rustfmt::skip]
-fn white_list_works() {
-    // white_list 总能被选为committee
-    new_test_ext().execute_with(|| {
-        System::set_block_number(1);
-    });
-}
-
-#[test]
-#[rustfmt::skip]
-fn black_list_works() {
-    // black_list 被禁止参加选举
-    new_test_ext().execute_with(|| {
-        System::set_block_number(1);
-    });
-}
-
-#[test]
-#[rustfmt::skip]
 fn select_committee_works() {
+    // 质押--参加选举--当选
     new_test_ext().execute_with(|| {
         System::set_block_number(1);
 
@@ -82,4 +66,22 @@ fn bool_all_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1);
     })
+}
+
+#[test]
+#[rustfmt::skip]
+fn white_list_works() {
+    // white_list 总能被选为committee
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+    });
+}
+
+#[test]
+#[rustfmt::skip]
+fn black_list_works() {
+    // black_list 被禁止参加选举
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+    });
 }

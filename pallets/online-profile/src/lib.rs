@@ -1,25 +1,23 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
-    traits::{
-        Currency, ExistenceRequirement::AllowDeath, Get, LockIdentifier, LockableCurrency,
-        Randomness, WithdrawReasons,
-    },
+    traits::{Currency, Get, LockIdentifier, LockableCurrency, Randomness, WithdrawReasons},
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{CommOps, LCOps, OPOps};
 use sp_core::H256;
 use sp_runtime::{
-    traits::{AccountIdConversion, BlakeTwo256, CheckedSub, SaturatedConversion, Zero},
-    ModuleId, RandomNumberGenerator,
+    traits::{BlakeTwo256, CheckedSub, SaturatedConversion, Zero},
+    RandomNumberGenerator,
 };
-use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, prelude::*, str};
+use sp_std::{collections::btree_set::BTreeSet, collections::vec_deque::VecDeque, prelude::*, str};
 
+pub mod grade_inflation;
 pub mod types;
 use types::*;
 
@@ -32,7 +30,6 @@ mod mock;
 mod tests;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
-pub const PALLET_ID: ModuleId = ModuleId(*b"MCStake!");
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 
 type BalanceOf<T> =
@@ -155,11 +152,12 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn eras_reward_points)]
-    pub(super) type ErasRewardPoints<T> = StorageMap<
+    pub(super) type ErasRewardGrades<T> = StorageMap<
         _,
         Blake2_128Concat,
         EraIndex,
-        EraRewardPoints<<T as frame_system::Config>::AccountId>,
+        EraRewardGrades<<T as frame_system::Config>::AccountId>,
+        ValueQuery,
     >;
 
     /// MachineDetail
@@ -181,19 +179,8 @@ pub mod pallet {
     }
 
     #[pallet::storage]
+    #[pallet::getter(fn rand_nonce)]
     pub(super) type RandNonce<T: Config> = StorageValue<_, u64, ValueQuery, RandNonceDefault<T>>;
-
-    /// user machine total grades
-    #[pallet::storage]
-    #[pallet::getter(fn user_total_machine_grades)]
-    pub(super) type UserTotalMachineGrades<T> =
-        StorageMap<_, Blake2_128Concat, <T as frame_system::Config>::AccountId, u64>;
-
-    // /// sum of user released reward
-    #[pallet::storage]
-    #[pallet::getter(fn user_released_reward)]
-    pub(super) type UserReleasedReward<T> =
-        StorageMap<_, Blake2_128Concat, <T as frame_system::Config>::AccountId, BalanceOf<T>>;
 
     /// user daily reward: record 150days of daily reward
     #[pallet::storage]
@@ -346,6 +333,8 @@ pub mod pallet {
                 active: bond_amount,
                 unlocking: vec![],
                 claimed_rewards: (last_reward_era..current_era).collect(),
+                released_rewards: 0u32.into(),
+                upcoming_rewards: VecDeque::new(),
             };
 
             Self::update_ledger(&who, &machine_id, &item);
@@ -468,7 +457,7 @@ pub mod pallet {
             machine_id: MachineId,
             machine_price: u64,
         ) -> DispatchResultWithPostInfo {
-            let _ = ensure_root(origin);
+            let _ = ensure_root(origin)?;
 
             if !MachineDetail::<T>::contains_key(&machine_id) {
                 MachineDetail::<T>::insert(
@@ -486,44 +475,6 @@ pub mod pallet {
             machine_detail.machine_price = machine_price;
 
             MachineDetail::<T>::insert(&machine_id, machine_detail);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn donate_money(
-            origin: OriginFor<T>,
-            amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let donor = ensure_signed(origin)?;
-
-            <T as Config>::Currency::transfer(
-                &donor,
-                &Self::account_id(),
-                amount,
-                crate::AllowDeath,
-            )
-            .map_err(|_| DispatchError::Other("Can't make donation"))?;
-            Self::deposit_event(Event::DonationReceived(donor, amount, Self::pot()));
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn allocate(
-            origin: OriginFor<T>,
-            dest: T::AccountId,
-            amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let _ = ensure_root(origin)?;
-
-            <T as Config>::Currency::transfer(
-                &Self::account_id(),
-                &dest,
-                amount,
-                crate::AllowDeath,
-            )
-            .map_err(|_| DispatchError::Other("Can't make allocation"))?;
-
-            Self::deposit_event(Event::FundsAllocated(dest, amount, Self::pot()));
             Ok(().into())
         }
     }
@@ -579,41 +530,16 @@ impl<T: Config> Pallet<T> {
     //     Ok(())
     // }
 
-    // TODO: 将ss58address转为public key
-    // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
-    // from_ss58check_with_version
-    pub fn wallet_match_account(who: T::AccountId, s: &Vec<u8>) -> bool {
-        // const CHECKSUM_LEN: usize = 2;
-        let mut data: [u8; 35] = [0; 35];
-        let decoded = bs58::decode(s).into(&mut data);
-
-        match decoded {
-            Ok(length) => {
-                if length != 35 {
-                    return false;
-                }
+    pub fn reward_by_ids(
+        era_index: u32,
+        validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
+    ) {
+        <ErasRewardGrades<T>>::mutate(era_index, |era_rewards| {
+            for (validator, grades) in validators_points.into_iter() {
+                *era_rewards.individual.entry(validator).or_default() += grades;
+                era_rewards.total += grades;
             }
-            Err(_) => return false,
-        }
-
-        let (_prefix_len, _ident) = match data[0] {
-            0..=63 => (1, data[0] as u16),
-            64..=127 => {
-                // let lower = (data[0] << 2) | (data[1] >> 6);
-                // let upper = data[1] & 0b00111111;
-                // (2, (lower as u16) | ((upper as u16) << 8))
-                return false;
-            }
-            _ => return false,
-        };
-
-        let account_id32: [u8; 32] = data[1..33].try_into().unwrap();
-        let wallet = T::AccountId::decode(&mut &account_id32[..]).unwrap_or_default();
-
-        if who == wallet {
-            return true;
-        }
-        return false;
+        });
     }
 
     fn end_era() {}
@@ -654,16 +580,6 @@ impl<T: Config> Pallet<T> {
         Ledger::<T>::insert(controller, machine_id, Some(ledger));
     }
 
-    // 当前pallet的accountID
-    pub fn account_id() -> T::AccountId {
-        PALLET_ID.into_account()
-    }
-
-    // 当前pallet中的代币数量
-    fn pot() -> BalanceOf<T> {
-        <T as pallet::Config>::Currency::free_balance(&Self::account_id())
-    }
-
     // 获取当前era index
     pub fn current_era() -> u32 {
         let current_block_height =
@@ -673,55 +589,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn block_per_era() -> u32 {
         T::BlockPerEra::get()
-    }
-
-    // TODO: 计算每个era中的用户总分数
-    fn _user_machine_total_grades(user: T::AccountId) -> u64 {
-        let user_machines = UserBondRecord::<T>::get(&user).unwrap();
-        let current_era = Self::current_era();
-        let mut user_grades = 0u64;
-        for a_machine in &user_machines {
-            // skip only staked one day's
-            if current_era == a_machine.bond_era {
-                continue;
-            }
-            let machine_grade = MachineDetail::<T>::get(&a_machine.machine_id).machine_grade;
-            user_grades += machine_grade;
-        }
-        return user_grades;
-    }
-
-    // TODO: 计算用户奖励
-    fn _update_user_reward(user: T::AccountId) {
-        let release_daily: BalanceOf<T> = RewardPerYear::<T>::get().unwrap()
-            * 100u64.saturated_into()
-            / 36_525u64.saturated_into();
-        let mut user_released_reward = UserReleasedReward::<T>::get(&user).unwrap();
-
-        let current_era = Self::current_era();
-        let daily_reward_index = current_era as usize / ProfitReleaseDuration::<T>::get() as usize;
-
-        // 用户由于质押获得的奖励
-        let daily_reward = release_daily
-            * UserTotalMachineGrades::<T>::get(&user)
-                .unwrap()
-                .saturated_into()
-            / TotalMachineGrade::<T>::get().unwrap().saturated_into();
-
-        let locked_daily_reward = daily_reward * 75u64.saturated_into()
-            / 100u64.saturated_into()
-            / ProfitReleaseDuration::<T>::get().saturated_into();
-
-        user_released_reward += daily_reward - locked_daily_reward;
-
-        let mut user_daily_reward = UserDailyReward::<T>::get(&user).unwrap();
-
-        user_released_reward += user_daily_reward[daily_reward_index];
-
-        user_daily_reward[daily_reward_index] = daily_reward;
-
-        UserReleasedReward::<T>::insert(&user, user_released_reward);
-        UserDailyReward::<T>::insert(&user, user_daily_reward);
     }
 }
 
@@ -774,7 +641,7 @@ impl<T: Config> LCOps for Pallet<T> {
         BookingQueue::<T>::remove(id);
     }
 
-    fn add_booked_id(id: MachineId) {}
+    fn add_booked_id(_id: MachineId) {}
 
     fn confirm_machine_grade(who: T::AccountId, machine_id: MachineId, confirm: bool) {
         let mut machine_grade = OCWMachineGrades::<T>::get(&machine_id);
@@ -790,13 +657,13 @@ impl<T: Config> LCOps for Pallet<T> {
 }
 
 impl<T: Config> CommOps for Pallet<T> {
-    fn random_num(max: u32) -> u32 {
+    fn co_random_num(max: u32) -> u32 {
         Self::random_num(max)
     }
-    fn current_era() -> u32 {
+    fn co_current_era() -> u32 {
         Self::current_era()
     }
-    fn block_per_era() -> u32 {
+    fn co_block_per_era() -> u32 {
         Self::block_per_era()
     }
 }
@@ -826,9 +693,5 @@ impl<T: Config> OPOps for Pallet<T> {
 
     fn add_booking_item(id: Self::MachineId, booking_item: Self::BookingItem) {
         BookingQueue::<T>::insert(id, booking_item);
-    }
-
-    fn wallet_match_account(who: T::AccountId, s: &Vec<u8>) -> bool {
-        Self::wallet_match_account(who, s)
     }
 }

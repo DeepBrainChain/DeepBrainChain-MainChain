@@ -6,7 +6,7 @@ use frame_support::debug;
 use frame_support::traits::Currency;
 use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
-use sp_runtime::traits::Saturating;
+use sp_arithmetic::{traits::Saturating, Permill};
 use sp_std::{convert::TryInto, str};
 
 type BalanceOf<T> =
@@ -47,6 +47,10 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn things3)]
     pub(super) type Things3<T: Config> = StorageValue<_, u64>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn things4)]
+    pub(super) type Things4<T: Config> = StorageValue<_, Permill>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
@@ -114,6 +118,18 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             T::PhaseReward::set_phase2_reward(reward_balance);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_fix_point(
+            origin: OriginFor<T>,
+            new_factor: Permill,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            Things4::<T>::put(new_factor);
+
             Ok(().into())
         }
     }

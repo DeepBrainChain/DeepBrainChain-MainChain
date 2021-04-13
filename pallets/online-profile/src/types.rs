@@ -3,7 +3,7 @@ use sp_runtime::{
     traits::{AtLeast32BitUnsigned, Saturating, Zero},
     RuntimeDebug,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*, str};
+use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*, str};
 
 pub type RewardPoint = u32;
 
@@ -103,6 +103,9 @@ pub struct StakingLedger<AccountId, Balance: HasCompact> {
 
     pub unlocking: Vec<UnlockChunk<Balance>>,
     pub claimed_rewards: Vec<EraIndex>,
+
+    pub released_rewards: Balance,
+    pub upcoming_rewards: VecDeque<Balance>, // 构建一个150长度的，
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -116,7 +119,7 @@ pub struct UnlockChunk<Balance: HasCompact> {
 
 // TOOD: 这个用来记录每个Era的总分,
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug)]
-pub struct EraRewardPoints<AccountId: Ord> {
+pub struct EraRewardGrades<AccountId: Ord> {
     /// Total number of points. Equals the sum of reward points for each validator.
     pub total: RewardPoint,
     /// The reward points earned by a given validator.
@@ -148,6 +151,8 @@ impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32BitUnsigned>
             active: self.active,
             unlocking,
             claimed_rewards: self.claimed_rewards,
+            released_rewards: self.released_rewards,
+            upcoming_rewards: self.upcoming_rewards,
         }
     }
 }

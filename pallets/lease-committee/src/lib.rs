@@ -4,16 +4,17 @@ use codec::{Decode, Encode};
 use frame_support::{
     dispatch::DispatchResult,
     ensure,
+    pallet_prelude::*,
     traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
-use frame_system::{self as system, ensure_root, ensure_signed};
+use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use online_profile::types::*;
 use online_profile_machine::LCOps;
 use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
 use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
 
 type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct PendingVerify<BlockNumber> {
@@ -34,8 +35,6 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
-    use frame_system::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config: frame_system::Config + online_profile::Config {
@@ -237,6 +236,8 @@ pub mod pallet {
                 active: value,
                 unlocking: vec![],
                 claimed_rewards: (last_reward_era..current_era).collect(),
+                released_rewards: 0u32.into(),
+                upcoming_rewards: VecDeque::new(),
             };
 
             Self::update_ledger(&who, &item);
@@ -330,7 +331,7 @@ pub mod pallet {
 
             let booking_item = BookingItem {
                 machine_id: machine_id.clone(),
-                book_time: <system::Module<T>>::block_number(),
+                book_time: <frame_system::Module<T>>::block_number(),
             };
             BookedMachineInfo::<T>::insert(machine_id, booking_item);
 
@@ -351,7 +352,7 @@ pub mod pallet {
 
                 let booking_item = BookingItem {
                     machine_id: a_machine_id.to_vec(),
-                    book_time: <system::Module<T>>::block_number(),
+                    book_time: <frame_system::Module<T>>::block_number(),
                 };
                 BookedMachineInfo::<T>::insert(a_machine_id.to_vec(), booking_item); // TODO: 可以优化一次存入
                 Self::add_to_committee_book_list(&who, a_machine_id.to_vec());
