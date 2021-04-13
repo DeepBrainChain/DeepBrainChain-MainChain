@@ -53,12 +53,11 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(block_number: T::BlockNumber) {
-            if AlternateCommittee::<T>::get().len() > 0 && Committee::<T>::get().len() == 0 {
+            if Candidacy::<T>::get().len() > 0 && Committee::<T>::get().len() == 0 {
                 Self::update_committee();
                 return;
             }
 
-            // let current_era = online_profile::Module::<T>::current_era();
             let committee_duration = T::CommitteeDuration::get();
             let block_per_era = online_profile::Module::<T>::block_per_era();
 
@@ -80,20 +79,20 @@ pub mod pallet {
     pub(super) type HistoryDepth<T: Config> =
         StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
 
-    // Minmum stake amount to become alternateCommittee
+    /// Minmum stake amount to become candidacy
     #[pallet::storage]
     #[pallet::getter(fn committee_min_stake)]
     pub(super) type CommitteeMinStake<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::type_value]
-    pub fn AlternateCommitteeLimitDefault<T: Config>() -> u32 {
+    pub fn CandidacyLimitDefault<T: Config>() -> u32 {
         20
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn alternate_committee_limit)]
-    pub(super) type AlternateCommitteeLimit<T: Config> =
-        StorageValue<_, u32, ValueQuery, AlternateCommitteeLimitDefault<T>>;
+    #[pallet::getter(fn candidacy_limit)]
+    pub(super) type CandidacyLimit<T: Config> =
+        StorageValue<_, u32, ValueQuery, CandidacyLimitDefault<T>>;
 
     #[pallet::type_value]
     pub fn CommitteeLimitDefault<T: Config>() -> u32 {
@@ -105,10 +104,10 @@ pub mod pallet {
     pub(super) type CommitteeLimit<T: Config> =
         StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
 
-    // Alternate Committee, 一定的周期后，从中选出committee来进行机器的认证。
+    // candidacy, 一定的周期后，从中选出committee来进行机器的认证。
     #[pallet::storage]
-    #[pallet::getter(fn alternate_committee)]
-    pub(super) type AlternateCommittee<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+    #[pallet::getter(fn candidacy)]
+    pub(super) type Candidacy<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
     // committee, 进行机器的认证
     #[pallet::storage]
@@ -143,12 +142,6 @@ pub mod pallet {
     #[pallet::getter(fn white_list)]
     pub(super) type WhiteList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
-    /// epnding verify machine
-    #[pallet::storage]
-    #[pallet::getter(fn pending_verify_machine)]
-    pub(super) type PendingVerifyMachine<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, VecDeque<PendingVerify<T::BlockNumber>>>;
-
     #[pallet::storage]
     #[pallet::getter(fn committee_ledger)]
     pub(super) type CommitteeLedger<T: Config> = StorageMap<
@@ -162,7 +155,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置committee的最小质押
-        /// set min stake to become alternate committee
+        /// set min stake to become candidacy
         #[pallet::weight(0)]
         pub fn set_min_stake(
             origin: OriginFor<T>,
@@ -174,12 +167,9 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_alternate_committee_limit(
-            origin: OriginFor<T>,
-            num: u32,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_candidacy_limit(origin: OriginFor<T>, num: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            AlternateCommitteeLimit::<T>::put(num);
+            CandidacyLimit::<T>::put(num);
 
             Ok(().into())
         }
@@ -191,9 +181,9 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// user can be alternate_committee by staking
+        /// user can be candidacy by staking
         #[pallet::weight(10000)]
-        pub fn stake_for_alternate_committee(
+        pub fn stake_for_candidacy(
             origin: OriginFor<T>,
             value: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
@@ -211,15 +201,12 @@ pub mod pallet {
             );
 
             // 不是候选委员会
-            let alternate_committee = Self::alternate_committee();
-            ensure!(
-                !alternate_committee.contains(&who),
-                Error::<T>::AlreadyAlternateCommittee
-            );
+            let candidacy = Self::candidacy();
+            ensure!(!candidacy.contains(&who), Error::<T>::AlreadyCandidacy);
             // 确保候选委员会还未满额
             ensure!(
-                alternate_committee.len() < Self::alternate_committee_limit() as usize,
-                Error::<T>::AlternateCommitteeLimitReached
+                candidacy.len() < Self::candidacy_limit() as usize,
+                Error::<T>::CandidacyLimitReached
             );
 
             // 不是委员会成员
@@ -242,9 +229,9 @@ pub mod pallet {
 
             Self::update_ledger(&who, &item);
             // 添加到到候选委员会列表，在下次选举时生效
-            Self::add_to_alternate_committee(&who)?;
+            Self::add_to_candidacy(&who)?;
 
-            Self::deposit_event(Event::StakeToBeAlternateCommittee(who, value));
+            Self::deposit_event(Event::StakeToBeCandidacy(who, value));
             Ok(().into())
         }
 
@@ -255,13 +242,10 @@ pub mod pallet {
 
             let mut chill_list = Self::chill_list();
             let committee = Self::committee();
-            let alternate_committee = Self::alternate_committee();
+            let candidacy = Self::candidacy();
 
             // 确保调用该方法的用户已经在候选委员会列表
-            ensure!(
-                alternate_committee.contains(&who),
-                Error::<T>::NotAlternateCommittee
-            );
+            ensure!(candidacy.contains(&who), Error::<T>::NotCandidacy);
 
             // 如果当前候选人已经在committee列表，则先加入到chill_list中，等到下一次选举时，可以退出
             if committee.contains(&who) {
@@ -273,11 +257,10 @@ pub mod pallet {
                 return Ok(().into());
             }
 
-            // 否则将用户从alternate_committee中移除
-            Self::rm_from_alternate_committee(&who)?;
+            // 否则将用户从candidacy中移除
+            Self::rm_from_candidacy(&who)?;
 
-            let mut ledger =
-                Self::committee_ledger(&who).ok_or(Error::<T>::NotAlternateCommittee)?;
+            let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
             let era = online_profile::Module::<T>::current_era() + T::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk {
                 value: ledger.active,
@@ -292,8 +275,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         fn withdraw_unbonded(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            let mut ledger =
-                Self::committee_ledger(&who).ok_or(Error::<T>::NotAlternateCommittee)?;
+            let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
             let old_total = ledger.total;
             let current_era = online_profile::Module::<T>::current_era();
 
@@ -516,11 +498,11 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        StakeToBeAlternateCommittee(T::AccountId, BalanceOf<T>),
+        StakeToBeCandidacy(T::AccountId, BalanceOf<T>),
         CommitteeAdded(T::AccountId),
         CommitteeRemoved(T::AccountId),
-        AlternateCommitteeAdded(T::AccountId),
-        AlternateCommitteeRemoved(T::AccountId),
+        CandidacyAdded(T::AccountId),
+        CandidacyRemoved(T::AccountId),
         Chill(T::AccountId),
         Withdrawn(T::AccountId, BalanceOf<T>),
         AddToWhiteList(T::AccountId),
@@ -529,9 +511,9 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        AlternateCommitteeLimitReached,
-        AlreadyAlternateCommittee,
-        NotAlternateCommittee,
+        CandidacyLimitReached,
+        AlreadyCandidacy,
+        NotCandidacy,
         CommitteeLimitReached,
         AlreadyCommittee,
         NotCommittee,
@@ -595,56 +577,53 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn add_to_alternate_committee(who: &T::AccountId) -> DispatchResult {
-        let mut alternate_committee = Self::alternate_committee();
+    fn add_to_candidacy(who: &T::AccountId) -> DispatchResult {
+        let mut candidacy = Self::candidacy();
 
-        match alternate_committee.binary_search(who) {
+        match candidacy.binary_search(who) {
             Err(i) => {
-                alternate_committee.insert(i, who.clone());
-                AlternateCommittee::<T>::put(alternate_committee);
+                candidacy.insert(i, who.clone());
+                Candidacy::<T>::put(candidacy);
                 Ok(())
             }
             Ok(_) => Ok(()),
         }
     }
 
-    fn rm_from_alternate_committee(who: &T::AccountId) -> DispatchResult {
-        let mut alternate_committee = Self::alternate_committee();
+    fn rm_from_candidacy(who: &T::AccountId) -> DispatchResult {
+        let mut candidacy = Self::candidacy();
 
-        match alternate_committee.binary_search(who) {
+        match candidacy.binary_search(who) {
             Ok(index) => {
-                alternate_committee.remove(index);
-                AlternateCommittee::<T>::put(alternate_committee);
+                candidacy.remove(index);
+                Candidacy::<T>::put(candidacy);
                 Ok(())
             }
-            Err(_) => Err(Error::<T>::NotAlternateCommittee.into()),
+            Err(_) => Err(Error::<T>::NotCandidacy.into()),
         }
     }
-
-    // 质押一定数量的DBC才能成为候选人
-    fn _alternate_committee_stake(_who: T::AccountId, _balance: BalanceOf<T>) {}
 
     // 产生一组随机的审核委员会，并更新
     // TODO: 排除黑名单用户，增加白名单用户
     fn update_committee() {
-        let mut alternate_committee = AlternateCommittee::<T>::get();
+        let mut candidacy = Candidacy::<T>::get();
         let committee_num = CommitteeLimit::<T>::get();
         let mut next_group = Vec::new();
 
-        if alternate_committee.len() == 0 {
+        if candidacy.len() == 0 {
             return;
         }
-        if alternate_committee.len() as u32 <= committee_num {
-            Committee::<T>::put(alternate_committee);
+        if candidacy.len() as u32 <= committee_num {
+            Committee::<T>::put(candidacy);
             return;
         }
 
         for _ in 0..committee_num {
             // TODO: 测试是否可以这样调用吗
             let committee_index =
-                online_profile::Module::<T>::random_num(alternate_committee.len() as u32 - 1);
-            next_group.push(alternate_committee[committee_index as usize].clone());
-            alternate_committee.remove(committee_index as usize);
+                online_profile::Module::<T>::random_num(candidacy.len() as u32 - 1);
+            next_group.push(candidacy[committee_index as usize].clone());
+            candidacy.remove(committee_index as usize);
         }
 
         Committee::<T>::put(next_group);
