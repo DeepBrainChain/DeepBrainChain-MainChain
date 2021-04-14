@@ -8,7 +8,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{LCOps, OPOps};
+use online_profile_machine::{LCOps, OLProof, OPOps};
 use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::{collections::btree_set::BTreeSet, collections::vec_deque::VecDeque, prelude::*, str};
 
@@ -86,6 +86,28 @@ pub mod pallet {
     #[pallet::getter(fn bonded_machine)]
     pub type BondedMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, (), ValueQuery>;
 
+    // ocw查询, 并确认绑定结果
+    /// store user's machine
+    #[pallet::storage]
+    #[pallet::getter(fn user_bonded_machine)]
+    pub(super) type UserBondedMachine<T> = StorageMap<
+        _,
+        Blake2_128Concat,
+        <T as frame_system::Config>::AccountId,
+        Vec<MachineId>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn staking_machine)]
+    pub(super) type StakingMachine<T> =
+        StorageMap<_, Blake2_128Concat, MachineId, Vec<bool>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn online_info)]
+    pub(super) type OnlineInfo<T> =
+        StorageMap<_, Blake2_128Concat, MachineId, Vec<bool>, ValueQuery>;
+
     // 存储ocw获取的机器打分信息
     #[pallet::storage]
     #[pallet::getter(fn ocw_machine_grades)]
@@ -110,18 +132,6 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         MachineGradeInfo<<T as frame_system::Config>::AccountId>,
-        ValueQuery,
-    >;
-
-    // ocw查询, 并确认绑定结果
-    /// store user's machine
-    #[pallet::storage]
-    #[pallet::getter(fn user_bonded_machine)]
-    pub(super) type UserBondedMachine<T> = StorageMap<
-        _,
-        Blake2_128Concat,
-        <T as frame_system::Config>::AccountId,
-        Vec<MachineId>,
         ValueQuery,
     >;
 
@@ -632,4 +642,17 @@ impl<T: Config> OPOps for Pallet<T> {
     fn add_booking_item(id: Self::MachineId, booking_item: Self::BookingItem) {
         BookingQueue::<T>::insert(id, booking_item);
     }
+}
+
+impl<T: Config> OLProof for Pallet<T> {
+    type MachineId = MachineId;
+
+    fn staking_machine() -> BTreeSet<Self::MachineId> {
+        // StakingMachine
+        <StakingMachine<T> as IterableStorageMap<MachineId, Vec<bool>>>::iter()
+            .map(|(machine_id, _)| machine_id)
+            .collect::<BTreeSet<_>>()
+    }
+
+    fn add_verify_result(id: Self::MachineId, is_online: bool) {}
 }

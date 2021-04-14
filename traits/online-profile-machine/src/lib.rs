@@ -30,3 +30,10 @@ pub trait OPOps {
     fn rm_bonding_id(id: Self::MachineId);
     fn add_booking_item(id: Self::MachineId, booking_item: Self::BookingItem);
 }
+
+pub trait OLProof {
+    type MachineId;
+
+    fn staking_machine() -> BTreeSet<Self::MachineId>;
+    fn add_verify_result(id: Self::MachineId, is_online: bool);
+}
