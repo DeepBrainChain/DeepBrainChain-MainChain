@@ -31,6 +31,11 @@ default-features = false
 path = '../online-profile'
 package = 'online-profile'
 
+[dependencies.random-num]
+default-features = false
+path = '../random-num'
+package = 'random-num'
+
 [dependencies.sp-io]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -81,6 +86,7 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
+    "random-num/std",
     "online-profile/std",
     "serde", # test construct_runtime需要导入
     "sp-io/std",

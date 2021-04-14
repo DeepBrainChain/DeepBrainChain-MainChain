@@ -1,20 +1,15 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
-    traits::{Currency, Get, LockIdentifier, LockableCurrency, Randomness, WithdrawReasons},
+    traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{CommOps, LCOps, OPOps};
-use sp_core::H256;
-use sp_runtime::{
-    traits::{BlakeTwo256, CheckedSub, SaturatedConversion, Zero},
-    RandomNumberGenerator,
-};
+use online_profile_machine::{LCOps, OPOps};
+use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::{collections::btree_set::BTreeSet, collections::vec_deque::VecDeque, prelude::*, str};
 
 pub mod grade_inflation;
@@ -40,11 +35,9 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + random_num::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type RandomnessSource: Randomness<H256>;
-        type BlockPerEra: Get<u32>;
         type BondingDuration: Get<EraIndex>;
     }
 
@@ -171,17 +164,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    // pub RandNonce get(fn rand_nonce) config(): u64 = 0;
-    // nonce to generate random number for selecting committee
-    #[pallet::type_value]
-    pub(super) fn RandNonceDefault<T: Config>() -> u64 {
-        0
-    }
-
-    #[pallet::storage]
-    #[pallet::getter(fn rand_nonce)]
-    pub(super) type RandNonce<T: Config> = StorageValue<_, u64, ValueQuery, RandNonceDefault<T>>;
-
     /// user daily reward: record 150days of daily reward
     #[pallet::storage]
     #[pallet::getter(fn user_daily_reward)]
@@ -239,10 +221,10 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_finalize(block_number: T::BlockNumber) {
-            if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
-                Self::end_era()
-            }
+        fn on_finalize(_block_number: T::BlockNumber) {
+            // if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
+            //     Self::end_era()
+            // }
         }
     }
 
@@ -314,7 +296,7 @@ pub mod pallet {
                 return Err(Error::<T>::MachineIdNotBonded.into());
             };
 
-            let current_era = Self::current_era();
+            let current_era = <random_num::Module<T>>::current_era();
             let history_depth = Self::history_depth(); // TODO: add this
             let last_reward_era = current_era.saturating_sub(history_depth);
 
@@ -393,7 +375,7 @@ pub mod pallet {
                     ledger.active = Zero::zero();
                 }
 
-                let era = Self::current_era() + T::BondingDuration::get();
+                let era = <random_num::Module<T>>::current_era() + T::BondingDuration::get();
                 ledger.unlocking.push(UnlockChunk { value, era });
                 Self::update_ledger(&who, &machine_id, &ledger);
                 Self::deposit_event(Event::RemoveBonded(who, machine_id, value));
@@ -411,7 +393,7 @@ pub mod pallet {
             let mut ledger = Self::ledger(&who, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
 
             let old_total = ledger.total;
-            let current_era = Self::current_era();
+            let current_era = <random_num::Module<T>>::current_era();
             ledger = ledger.consolidate_unlock(current_era);
             if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
                 // TODO: 清除ledger相关存储
@@ -544,27 +526,6 @@ impl<T: Config> Pallet<T> {
 
     fn end_era() {}
 
-    // 增加随机性
-    fn update_nonce() -> Vec<u8> {
-        let nonce = RandNonce::<T>::get();
-        let nonce: u64 = if nonce == u64::MAX {
-            0
-        } else {
-            RandNonce::<T>::get() + 1
-        };
-        RandNonce::<T>::put(nonce);
-
-        nonce.encode()
-    }
-
-    // 生成一个随机的u32
-    pub fn random_num(max: u32) -> u32 {
-        let subject = Self::update_nonce();
-        let random_seed = T::RandomnessSource::random(&subject);
-        let mut rng = <RandomNumberGenerator<BlakeTwo256>>::new(random_seed);
-        rng.pick_u32(max)
-    }
-
     // 更新用户的质押的ledger
     fn update_ledger(
         controller: &T::AccountId,
@@ -578,17 +539,6 @@ impl<T: Config> Pallet<T> {
             WithdrawReasons::all(),
         );
         Ledger::<T>::insert(controller, machine_id, Some(ledger));
-    }
-
-    // 获取当前era index
-    pub fn current_era() -> u32 {
-        let current_block_height =
-            <frame_system::Module<T>>::block_number().saturated_into::<u32>();
-        return current_block_height / T::BlockPerEra::get();
-    }
-
-    pub fn block_per_era() -> u32 {
-        T::BlockPerEra::get()
     }
 }
 
@@ -653,18 +603,6 @@ impl<T: Config> LCOps for Pallet<T> {
         });
 
         OCWMachineGrades::<T>::insert(&machine_id, machine_grade);
-    }
-}
-
-impl<T: Config> CommOps for Pallet<T> {
-    fn co_random_num(max: u32) -> u32 {
-        Self::random_num(max)
-    }
-    fn co_current_era() -> u32 {
-        Self::current_era()
-    }
-    fn co_block_per_era() -> u32 {
-        Self::block_per_era()
     }
 }
 

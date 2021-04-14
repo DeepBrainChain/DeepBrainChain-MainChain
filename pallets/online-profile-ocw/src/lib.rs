@@ -7,7 +7,7 @@ use frame_system::{
     pallet_prelude::*,
 };
 use online_profile::types::*;
-use online_profile_machine::{CommOps, LCOps, OPOps};
+use online_profile_machine::{LCOps, OPOps};
 use sp_runtime::{offchain, offchain::http, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
 
@@ -30,11 +30,13 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + CreateSignedTransaction<Call<Self>> + online_profile::Config
+        frame_system::Config
+        + CreateSignedTransaction<Call<Self>>
+        + online_profile::Config
+        + random_num::Config
     {
         // type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type OnlineProfile: LCOps<MachineId = MachineId>
-            + CommOps
             + OPOps<
                 AccountId = Self::AccountId,
                 BondingPair = BondingPair<Self::AccountId>,
@@ -336,7 +338,9 @@ impl<T: Config> Pallet<T> {
         }
 
         for _ in 0..machine_info_rand_url_num {
-            let url_index = T::OnlineProfile::co_random_num(machine_info_url.len() as u32 - 1);
+            // let url_index = T::OnlineProfile::co_random_num(machine_info_url.len() as u32 - 1);
+            let url_index = <random_num::Module<T>>::random_u32(machine_info_url.len() as u32 - 1);
+            // let url_index = T::OnlineProfile::co_random_num(machine_info_url.len() as u32 - 1);
             // let url_index = Self::random_num(machine_info_url.len() as u32 - 1);
             next_group.push(machine_info_url[url_index as usize].to_vec());
             machine_info_url.remove(url_index as usize);

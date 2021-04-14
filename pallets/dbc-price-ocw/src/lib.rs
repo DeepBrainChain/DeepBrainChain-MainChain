@@ -1,15 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
 use frame_support::{debug, traits::Randomness};
 use frame_system::offchain::SubmitTransaction;
 use lite_json::json::JsonValue;
 use sp_core::H256;
-use sp_runtime::{
-    offchain::{http, Duration},
-    traits::BlakeTwo256,
-    RandomNumberGenerator,
-};
+use sp_runtime::offchain::{http, Duration};
 use sp_std::str;
 use sp_std::vec::Vec;
 
@@ -28,7 +23,9 @@ pub mod pallet {
     type URL = Vec<u8>;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
+    pub trait Config:
+        frame_system::Config + CreateSignedTransaction<Call<Self>> + random_num::Config
+    {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type RandomnessSource: Randomness<H256>;
     }
@@ -41,10 +38,6 @@ pub mod pallet {
     #[pallet::getter(fn prices)]
     pub type Prices<T> = StorageValue<_, Vec<u64>, ValueQuery>;
 
-    // #[pallet::storage]
-    // #[pallet::getter(fn next_unsigned_at)]
-    // pub type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber>;
-
     #[pallet::type_value]
     pub fn MyPriceURL() -> Vec<URL> {
         let mut init_url: Vec<URL> = Vec::new();
@@ -55,14 +48,6 @@ pub mod pallet {
 
     #[pallet::storage]
     pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>, ValueQuery, MyPriceURL>;
-
-    #[pallet::type_value]
-    pub(super) fn RandNonceDefault<T: Config>() -> u64 {
-        0
-    }
-
-    #[pallet::storage]
-    pub(super) type RandNonce<T: Config> = StorageValue<_, u64, ValueQuery, RandNonceDefault<T>>;
 
     #[pallet::event]
     #[pallet::metadata(T::AccountId = "AccountId")]
@@ -164,31 +149,9 @@ pub mod pallet {
 }
 
 impl<T: Config> Module<T> {
-    // TODO: 重构该函数与online-profile同名的函数
-    // 增加随机性
-    fn update_nonce() -> Vec<u8> {
-        let nonce = RandNonce::<T>::get();
-        let nonce: u64 = if nonce == u64::MAX {
-            0
-        } else {
-            RandNonce::<T>::get() + 1
-        };
-        RandNonce::<T>::put(nonce);
-
-        nonce.encode()
-    }
-
-    // 生成一个随机的u32
-    fn random_num(max: u32) -> u32 {
-        let subject = Self::update_nonce();
-        let random_seed = T::RandomnessSource::random(&subject);
-        let mut rng = <RandomNumberGenerator<BlakeTwo256>>::new(random_seed);
-        rng.pick_u32(max)
-    }
-
     fn gen_rand_url() -> u32 {
         let price_url = PriceURL::<T>::get();
-        Self::random_num((price_url.len() - 1) as u32)
+        <random_num::Module<T>>::random_u32((price_url.len() - 1) as u32)
     }
 
     fn fetch_price_and_send_unsigned_tx() -> Result<(), Error<T>> {

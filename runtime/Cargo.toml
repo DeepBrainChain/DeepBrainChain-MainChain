@@ -109,6 +109,7 @@ std = [
     'pallet-society/std',
     'pallet-recovery/std',
     'pallet-vesting/std',
+    'random-num/std',
     'dbc-testing/std',
     'phase-reward/std',
     'dbc-price-ocw/std',
@@ -355,6 +356,11 @@ version = '3.0.0'
 default-features = false
 path = '../pallets/dbc-staking'
 package = 'dbc-staking'
+
+[dependencies.random-num]
+default-features = false
+path = '../pallets/random-num'
+package = 'random-num'
 
 [dependencies.dbc-testing]
 default-features = false

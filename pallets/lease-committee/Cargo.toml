@@ -26,6 +26,11 @@ default-features = false
 path = '../online-profile'
 package = 'online-profile'
 
+[dependencies.random-num]
+default-features = false
+path = '../random-num'
+package = 'random-num'
+
 [dependencies.sp-std]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -75,6 +80,7 @@ std = [
     "frame-support/std", 
     "frame-system/std", 
     "online-profile/std",
+    "random-num/std",
     "serde", 
     "sp-runtime/std",
     "sp-std/std",

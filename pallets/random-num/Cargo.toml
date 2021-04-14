@@ -1,16 +1,11 @@
 [package]
-name = "online-profile"
+name = "random-num"
 version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.101", optional = true }
-alt_serde = { version = "1", default-features = false, features = ["derive"] }
-# serde_json = { version = "1", default-features = false, git = "https://github.com/Xanewok/json", branch = "no-std", features = ["alloc"] }
-serde_json = { version = "1", default-features = false, git = "https://github.com/kaigedong/json", branch = "no-std", features = ["alloc"] }
-online-profile-machine = { package = "online-profile-machine", path = "../../traits/online-profile-machine", default-features = false }
 
 [dependencies.frame-support]
 default-features = false
@@ -24,7 +19,7 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
-[dependencies.sp-std]
+[dependencies.sp-core]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
@@ -36,22 +31,15 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
-[dependencies.random-num]
+[dependencies.pallet-randomness-collective-flip]
 default-features = false
-path = '../random-num'
-package = 'random-num'
-
-[dev-dependencies.pallet-staking]
-path = '../dbc-staking'
-package = 'dbc-staking'
-
-[dev-dependencies.sp-keyring]
+package = 'pallet-randomness-collective-flip'
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
-[dev-dependencies.pallet-randomness-collective-flip]
-package = 'pallet-randomness-collective-flip'
+[dependencies.sp-std]
+default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
@@ -62,8 +50,8 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
-    "random-num/std",
-    "sp-std/std",
+    "pallet-randomness-collective-flip/std", 
+    "sp-core/std",
     "sp-runtime/std",
-    "serde",
+    "sp-std/std",
 ]

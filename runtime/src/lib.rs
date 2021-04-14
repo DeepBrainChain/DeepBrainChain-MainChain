@@ -1039,11 +1039,14 @@ parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
 }
 
+impl random_num::Config for Runtime {
+    type BlockPerEra = BlockPerEra;
+    type RandomnessSource = RandomnessCollectiveFlip;
+}
+
 impl online_profile::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type RandomnessSource = RandomnessCollectiveFlip;
-    type BlockPerEra = BlockPerEra;
     type BondingDuration = BondingDuration;
 }
 
@@ -1104,6 +1107,7 @@ construct_runtime!(
         Assets: pallet_assets::{Module, Call, Storage, Event<T>},
         Mmr: pallet_mmr::{Module, Storage},
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
+        RandomNum: random_num::{Module, Call, Storage},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},

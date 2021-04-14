@@ -17,12 +17,6 @@ pub trait LCOps {
     fn book_one_machine(who: &Self::AccountId, machine_id: Self::MachineId) -> bool;
 }
 
-pub trait CommOps {
-    fn co_random_num(max: u32) -> u32;
-    fn co_current_era() -> u32;
-    fn co_block_per_era() -> u32;
-}
-
 pub trait OPOps {
     type AccountId;
     type BookingItem;

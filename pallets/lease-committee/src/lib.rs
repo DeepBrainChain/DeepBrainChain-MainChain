@@ -37,7 +37,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + online_profile::Config {
+    pub trait Config: frame_system::Config + online_profile::Config + random_num::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type CommitteeMachine: LCOps<AccountId = Self::AccountId, MachineId = MachineId>;
@@ -59,7 +59,7 @@ pub mod pallet {
             }
 
             let committee_duration = T::CommitteeDuration::get();
-            let block_per_era = online_profile::Module::<T>::block_per_era();
+            let block_per_era = <random_num::Module<T>>::block_per_era();
 
             if block_number.saturated_into::<u64>() / (block_per_era * committee_duration) as u64
                 == 0
@@ -213,7 +213,7 @@ pub mod pallet {
             let committee = Self::committee();
             ensure!(!committee.contains(&who), Error::<T>::AlreadyCommittee);
 
-            let current_era = online_profile::Module::<T>::current_era();
+            let current_era = <random_num::Module<T>>::current_era();
             let history_depth = Self::history_depth();
             let last_reward_era = current_era.saturating_sub(history_depth);
 
@@ -261,7 +261,7 @@ pub mod pallet {
             Self::rm_from_candidacy(&who)?;
 
             let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
-            let era = online_profile::Module::<T>::current_era() + T::BondingDuration::get();
+            let era = <random_num::Module<T>>::current_era() + T::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk {
                 value: ledger.active,
                 era,
@@ -277,7 +277,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
             let old_total = ledger.total;
-            let current_era = online_profile::Module::<T>::current_era();
+            let current_era = <random_num::Module<T>>::current_era();
 
             ledger = ledger.consolidate_unlock(current_era);
 
@@ -620,8 +620,7 @@ impl<T: Config> Pallet<T> {
 
         for _ in 0..committee_num {
             // TODO: 测试是否可以这样调用吗
-            let committee_index =
-                online_profile::Module::<T>::random_num(candidacy.len() as u32 - 1);
+            let committee_index = <random_num::Module<T>>::random_u32(candidacy.len() as u32 - 1);
             next_group.push(candidacy[committee_index as usize].clone());
             candidacy.remove(committee_index as usize);
         }
