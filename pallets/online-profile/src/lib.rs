@@ -30,6 +30,7 @@ pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+#[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -51,13 +52,21 @@ pub mod pallet {
         150
     }
 
+    // 用户线性释放的天数:
+    // 25%收益当天释放；75%在150天线性释放
+    #[pallet::type_value]
+    pub(super) fn ProfitReleaseDurationDefault<T: Config>() -> u64 {
+        150
+    }
+
+    #[pallet::storage]
+    pub(super) type ProfitReleaseDuration<T: Config> = StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
+
     #[pallet::storage]
     #[pallet::getter(fn history_depth)]
-    pub(super) type HistoryDepth<T: Config> =
-        StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
+    pub(super) type HistoryDepth<T: Config> = StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
 
     // 用户提交绑定请求
-    // 委员会可以查询可以抢单的机器
     #[pallet::storage]
     #[pallet::getter(fn bonding_queue)]
     pub type BondingQueue<T> = StorageMap<
@@ -86,8 +95,7 @@ pub mod pallet {
     #[pallet::getter(fn bonded_machine)]
     pub type BondedMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, (), ValueQuery>;
 
-    // ocw查询, 并确认绑定结果
-    /// store user's machine
+    // 记录用户绑定的机器ID列表
     #[pallet::storage]
     #[pallet::getter(fn user_bonded_machine)]
     pub(super) type UserBondedMachine<T> = StorageMap<
@@ -98,17 +106,13 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    // 存储所有绑定的机器，用于OCW轮询验证是否在线
     #[pallet::storage]
     #[pallet::getter(fn staking_machine)]
-    pub(super) type StakingMachine<T> =
-        StorageMap<_, Blake2_128Concat, MachineId, Vec<bool>, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn online_info)]
-    pub(super) type OnlineInfo<T> =
-        StorageMap<_, Blake2_128Concat, MachineId, Vec<bool>, ValueQuery>;
+    pub(super) type StakingMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, Vec<bool>, ValueQuery>;
 
     // 存储ocw获取的机器打分信息
+    // 与委员会的确认信息
     #[pallet::storage]
     #[pallet::getter(fn ocw_machine_grades)]
     pub type OCWMachineGrades<T: Config> = StorageMap<
@@ -124,17 +128,6 @@ pub mod pallet {
     #[pallet::getter(fn ocw_machine_price)]
     pub type OCWMachinePrice<T> = StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>;
 
-    // 存储委员会确认的信息
-    #[pallet::storage]
-    #[pallet::getter(fn machine_grade)]
-    pub type MachineGrade<T> = StorageMap<
-        _,
-        Blake2_128Concat,
-        MachineId,
-        MachineGradeInfo<<T as frame_system::Config>::AccountId>,
-        ValueQuery,
-    >;
-
     /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
     #[pallet::getter(fn ledger)]
@@ -147,11 +140,6 @@ pub mod pallet {
         Option<StakingLedger<<T as frame_system::Config>::AccountId, BalanceOf<T>>>,
         ValueQuery,
     >;
-
-    /// 机器等待奖励加入到能获取奖励的队列
-    #[pallet::storage]
-    #[pallet::getter(fn pending_machine)]
-    pub(super) type PendingMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, ()>;
 
     #[pallet::storage]
     #[pallet::getter(fn eras_reward_points)]
@@ -174,51 +162,8 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// user daily reward: record 150days of daily reward
-    #[pallet::storage]
-    #[pallet::getter(fn user_daily_reward)]
-    pub(super) type UserDailyReward<T> =
-        StorageMap<_, Blake2_128Concat, <T as frame_system::Config>::AccountId, Vec<BalanceOf<T>>>;
-
-    /// total grade of machine
-    #[pallet::storage]
-    #[pallet::getter(fn total_machine_grade)]
-    pub(super) type TotalMachineGrade<T> = StorageValue<_, u64>;
-
-    // /// UserBondRecord
-    #[pallet::storage]
-    #[pallet::getter(fn user_bond_record)]
-    pub(super) type UserBondRecord<T> = StorageMap<
-        _,
-        Blake2_128Concat,
-        <T as frame_system::Config>::AccountId,
-        Vec<
-            MachineStakeInfo<
-                <T as frame_system::Config>::AccountId,
-                BalanceOf<T>,
-                <T as frame_system::Config>::BlockNumber,
-            >,
-        >,
-    >;
-
-    /// User rewards payout time
-    #[pallet::storage]
-    #[pallet::getter(fn user_payout_era_index)]
-    pub(super) type UserPayoutEraIndex<T> =
-        StorageMap<_, Blake2_128Concat, <T as frame_system::Config>::AccountId, u32>;
-
-    // /// release duration: 75% token will release in following 150 days
-    // pub ProfitReleaseDuration get(fn profit_release_duration) config(): u64 = 150;
-    #[pallet::type_value]
-    pub(super) fn ProfitReleaseDurationDefault<T: Config>() -> u64 {
-        150
-    }
-
-    #[pallet::storage]
-    pub(super) type ProfitReleaseDuration<T: Config> =
-        StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
-
-    /// Reward per year
+    // Reward per year
+    // TODO：奖励是按照一定规则发放的。
     #[pallet::storage]
     #[pallet::getter(fn reward_per_year)]
     pub(super) type RewardPerYear<T> = StorageValue<_, BalanceOf<T>>;
@@ -248,26 +193,11 @@ pub mod pallet {
             let caller = ensure_signed(origin)?;
 
             // 确保 BondingQueue 不包含该 machine_id
-            ensure!(
-                !BondingQueue::<T>::contains_key(&machine_id),
-                Error::<T>::MachineInBondingQueue
-            );
-
-            ensure!(
-                !BookingQueue::<T>::contains_key(&machine_id),
-                Error::<T>::MachineInBookingQueue
-            );
-
-            ensure!(
-                !BookedQueue::<T>::contains_key(&machine_id),
-                Error::<T>::MachineInBookedQueue
-            );
-
+            ensure!(!BondingQueue::<T>::contains_key(&machine_id), Error::<T>::MachineInBondingQueue);
+            ensure!(!BookingQueue::<T>::contains_key(&machine_id), Error::<T>::MachineInBookingQueue);
+            ensure!(!BookedQueue::<T>::contains_key(&machine_id), Error::<T>::MachineInBookedQueue);
             // 该machine_id还未被绑定
-            ensure!(
-                !BondedMachine::<T>::contains_key(&machine_id),
-                Error::<T>::MachineHasBonded
-            );
+            ensure!(!BondedMachine::<T>::contains_key(&machine_id), Error::<T>::MachineHasBonded);
 
             BondingQueue::<T>::insert(
                 machine_id.clone(),
@@ -290,15 +220,9 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             // 检查余额
-            ensure!(
-                <T as Config>::Currency::free_balance(&who) > bond_amount,
-                Error::<T>::BalanceNotEnough
-            );
+            ensure!(<T as Config>::Currency::free_balance(&who) > bond_amount, Error::<T>::BalanceNotEnough);
             // 检查超过最小交易金额
-            ensure!(
-                bond_amount >= T::Currency::minimum_balance(),
-                Error::<T>::InsufficientValue
-            );
+            ensure!(bond_amount >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
 
             // 检查用户已绑定了该机器
             let user_bonded_machine = UserBondedMachine::<T>::get(&who);
@@ -349,10 +273,7 @@ pub mod pallet {
                 ledger.total += extra;
                 ledger.active += extra;
 
-                ensure!(
-                    ledger.active >= T::Currency::minimum_balance(),
-                    Error::<T>::InsufficientValue
-                );
+                ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
 
                 Self::deposit_event(Event::AddBonded(who.clone(), machine_id.clone(), extra));
                 Self::update_ledger(&who, &machine_id, &ledger);
@@ -371,10 +292,7 @@ pub mod pallet {
 
             let mut ledger = Self::ledger(&who, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
 
-            ensure!(
-                ledger.unlocking.len() < crate::MAX_UNLOCKING_CHUNKS,
-                Error::<T>::NoMoreChunks
-            );
+            ensure!(ledger.unlocking.len() < crate::MAX_UNLOCKING_CHUNKS, Error::<T>::NoMoreChunks);
             let mut value = amount.min(ledger.active);
 
             if !value.is_zero() {
@@ -654,5 +572,6 @@ impl<T: Config> OLProof for Pallet<T> {
             .collect::<BTreeSet<_>>()
     }
 
+    // TODO: 添加这个函数实现
     fn add_verify_result(id: Self::MachineId, is_online: bool) {}
 }

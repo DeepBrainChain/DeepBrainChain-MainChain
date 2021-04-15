@@ -7,7 +7,7 @@ use frame_system::{
     pallet_prelude::*,
 };
 use online_profile::types::*;
-use online_profile_machine::{LCOps, OPOps};
+use online_profile_machine::{LCOps, OLProof, OPOps};
 use sp_runtime::{offchain, offchain::http, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
 
@@ -37,6 +37,7 @@ pub mod pallet {
     {
         // type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type OnlineProfile: LCOps<MachineId = MachineId>
+            + OLProof<MachineId = MachineId>
             + OPOps<
                 AccountId = Self::AccountId,
                 BondingPair = BondingPair<Self::AccountId>,
@@ -73,6 +74,17 @@ pub mod pallet {
         3
     }
 
+    // 验证次数也跟offchain调用验证函数的频率有关
+    #[pallet::type_value]
+    pub fn VerifyTimesDefault<T: Config>() -> u32 {
+        4
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn verify_times)]
+    pub(super) type VerifyTimes<T: Config> =
+        StorageValue<_, u32, ValueQuery, VerifyTimesDefault<T>>;
+
     #[pallet::storage]
     #[pallet::getter(fn request_limit)]
     pub(super) type RequestLimit<T> = StorageValue<_, u64, ValueQuery, RequestLimitDefault<T>>;
@@ -87,7 +99,7 @@ pub mod pallet {
         type Call = Call<T>;
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             let valid_tx = |provide| {
-                ValidTransaction::with_tag_prefix("online-profile")
+                ValidTransaction::with_tag_prefix("online-profile-ocw")
                     .priority(UNSIGNED_TXS_PRIORITY)
                     .and_provides([&provide])
                     .longevity(3)
@@ -210,7 +222,8 @@ pub mod pallet {
                     debug::info!("machine info is: {:?}", &machine_wallet);
 
                     // 如果不一致，则直接进行下一个machine_id的查询
-                    if Self::wallet_match_account(bonding_pair.account_id.clone(), machine_wallet) {
+                    if Self::verify_bonding_account(bonding_pair.account_id.clone(), machine_wallet)
+                    {
                         // TODO: 增加log提示
                         // T::BondingQueue::<T>::remove(machine_id);
                         T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
@@ -256,6 +269,26 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        // #[pallet::weight(0)]
+        // fn ocw_submit_online_proof(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        //     ensure_none(origin)?;
+
+        //     let verify_time = VerifyTimes::<T>::get();
+
+        //     // 首先获取所有机器ID列表
+        //     let staking_machine = T::OnlineProfile::staking_machine();
+        //     // let mut staking_machine: Vec<_> = staking_machine.collect();
+        //     let a = staking_machine.len();
+        //     // 然后随机挑选机器
+        //     // 验证机器是否在线的信息，并提交
+        //     let machine_info_url = MachineInfoRandURL::<T>::get();
+        //     ensure!(machine_info_url.len() != 0, Error::<T>::MachineURLEmpty);
+        //     // let machine_info = Self::fetch_machine_info(&machine_info_url[0],)
+        //     // T::OnlineProfile::add_verify_result();
+
+        //     Ok(().into())
+        // }
     }
 
     #[pallet::error]
@@ -269,10 +302,9 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // TODO: 将ss58address转为public key
     // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
     // from_ss58check_with_version
-    pub fn wallet_match_account(who: T::AccountId, s: &Vec<u8>) -> bool {
+    pub fn verify_bonding_account(who: T::AccountId, s: &Vec<u8>) -> bool {
         // const CHECKSUM_LEN: usize = 2;
         let mut data: [u8; 35] = [0; 35];
         let decoded = bs58::decode(s).into(&mut data);
@@ -338,10 +370,7 @@ impl<T: Config> Pallet<T> {
         }
 
         for _ in 0..machine_info_rand_url_num {
-            // let url_index = T::OnlineProfile::co_random_num(machine_info_url.len() as u32 - 1);
             let url_index = <random_num::Module<T>>::random_u32(machine_info_url.len() as u32 - 1);
-            // let url_index = T::OnlineProfile::co_random_num(machine_info_url.len() as u32 - 1);
-            // let url_index = Self::random_num(machine_info_url.len() as u32 - 1);
             next_group.push(machine_info_url[url_index as usize].to_vec());
             machine_info_url.remove(url_index as usize);
         }
