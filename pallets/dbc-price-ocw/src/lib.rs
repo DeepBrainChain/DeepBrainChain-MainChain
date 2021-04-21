@@ -39,7 +39,7 @@ pub mod pallet {
     pub type Prices<T> = StorageValue<_, Vec<u64>, ValueQuery>;
 
     #[pallet::type_value]
-    pub fn MyPriceURL() -> Vec<URL> {
+    pub fn PriceURLDefault() -> Vec<URL> {
         let mut init_url: Vec<URL> = Vec::new();
         init_url.push("https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".into());
         // vec!["https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".into()]
@@ -47,13 +47,18 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>, ValueQuery, MyPriceURL>;
+    pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>, ValueQuery, PriceURLDefault>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn avg_price)]
+    pub(super) type AvgPrice<T> = StorageValue<_, u64>;
 
     #[pallet::event]
     #[pallet::metadata(T::AccountId = "AccountId")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        NewPrice(u64, Option<T::AccountId>),
+        AddNewPrice(u64),
+        AddAvgPrice(u64),
     }
 
     #[pallet::error]
@@ -79,9 +84,6 @@ pub mod pallet {
                 debug::error!("offchain_worker error: {:?}", e);
                 return;
             }
-
-            let average: Option<u64> = Self::average_price();
-            debug::info!("Current average price: {:?}", average);
         }
     }
 
@@ -93,11 +95,13 @@ pub mod pallet {
             price: u64,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-            Self::add_price(None, price);
+
+            Self::add_price(price);
+            Self::add_avg_price();
+
             Ok(().into())
         }
 
-        // TODO: 改变成add price url 和 rm price url
         #[pallet::weight(0)]
         pub fn add_price_url(origin: OriginFor<T>, new_url: URL) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -148,7 +152,7 @@ pub mod pallet {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn gen_rand_url() -> u32 {
         let price_url = PriceURL::<T>::get();
         <random_num::Module<T>>::random_u32((price_url.len() - 1) as u32)
@@ -228,7 +232,7 @@ impl<T: Config> Module<T> {
         Some(price.integer as u64 * 1000_000 + fraction)
     }
 
-    fn add_price(who: Option<T::AccountId>, price: u64) {
+    fn add_price(price: u64) {
         debug::info!("Adding to the average: {}", price);
         let mut prices = Prices::<T>::get();
         if prices.len() < MAX_LEN {
@@ -239,19 +243,26 @@ impl<T: Config> Module<T> {
 
         Prices::<T>::put(prices);
 
-        let average = Self::average_price()
-            .expect("The average is not empty, because it was just mutated; qed");
+        let average =
+            Self::avg_price().expect("The average is not empty, because it was just mutated; qed");
 
         debug::info!("Current average price is: {}", average);
 
-        Self::deposit_event(Event::NewPrice(price, who));
+        Self::deposit_event(Event::AddNewPrice(price));
     }
 
-    fn average_price() -> Option<u64> {
+    // TODO: 可以增加去除最低分，最高分
+    fn add_avg_price() {
         let prices = Prices::<T>::get();
-        if prices.len() == 0 {
-            return None;
+        if prices.len() != MAX_LEN {
+            return;
         }
-        Some(prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64)
+        let avg_price =
+            prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64;
+
+        debug::info!("Current average price: {:?}", avg_price);
+
+        AvgPrice::<T>::put(avg_price);
+        Self::deposit_event(Event::AddAvgPrice(avg_price));
     }
 }

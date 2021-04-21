@@ -41,6 +41,11 @@ default-features = false
 path = '../random-num'
 package = 'random-num'
 
+[dependencies.dbc-price-ocw]
+default-features = false
+path = '../dbc-price-ocw'
+package = 'dbc-price-ocw'
+
 [dev-dependencies.pallet-staking]
 path = '../dbc-staking'
 package = 'dbc-staking'

@@ -36,7 +36,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + random_num::Config {
+    pub trait Config: frame_system::Config + random_num::Config + dbc_price_ocw::Config  {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type BondingDuration: Get<EraIndex>;
@@ -52,6 +52,10 @@ pub mod pallet {
         150
     }
 
+    #[pallet::storage]
+    #[pallet::getter(fn history_depth)]
+    pub(super) type HistoryDepth<T: Config> = StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
+
     // 用户线性释放的天数:
     // 25%收益当天释放；75%在150天线性释放
     #[pallet::type_value]
@@ -59,17 +63,33 @@ pub mod pallet {
         150
     }
 
+    // 单位美分
+    #[pallet::storage]
+    #[pallet::getter(fn min_stake_cent)]
+    pub(super) type MinStakeCent<T> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn min_stake_dbc)]
+    pub(super) type MinStakeDBC<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
     #[pallet::storage]
     pub(super) type ProfitReleaseDuration<T: Config> = StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
 
+    /// MachineDetail
     #[pallet::storage]
-    #[pallet::getter(fn history_depth)]
-    pub(super) type HistoryDepth<T: Config> = StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
+    #[pallet::getter(fn machine_detail)]
+    pub type MachineDetail<T> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        MachineMeta<<T as frame_system::Config>::AccountId>,
+        ValueQuery,
+    >;
 
     // 用户提交绑定请求
     #[pallet::storage]
     #[pallet::getter(fn bonding_queue)]
-    pub type BondingQueue<T> = StorageMap<
+    pub type BondingMachine<T> = StorageMap<
         _,
         Blake2_128Concat,
         MachineId,
@@ -79,7 +99,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn booking_queue)]
-    pub type BookingQueue<T> = StorageMap<
+    pub type BookingMachine<T> = StorageMap<
         _,
         Blake2_128Concat,
         MachineId,
@@ -88,7 +108,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn booked_queue)]
-    pub type BookedQueue<T> = StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>; //TODO: 修改类型，保存已经被委员会预订的机器
+    pub type BookedMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>; //TODO: 修改类型，保存已经被委员会预订的机器
 
     /// Machine has been bonded
     #[pallet::storage]
@@ -151,22 +171,11 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// MachineDetail
-    #[pallet::storage]
-    #[pallet::getter(fn machine_detail)]
-    pub type MachineDetail<T> = StorageMap<
-        _,
-        Blake2_128Concat,
-        MachineId,
-        MachineMeta<<T as frame_system::Config>::AccountId>,
-        ValueQuery,
-    >;
-
-    // Reward per year
-    // TODO：奖励是按照一定规则发放的。
-    #[pallet::storage]
-    #[pallet::getter(fn reward_per_year)]
-    pub(super) type RewardPerYear<T> = StorageValue<_, BalanceOf<T>>;
+    // // Reward per year
+    // // TODO：奖励是按照一定规则发放的。
+    // #[pallet::storage]
+    // #[pallet::getter(fn reward_per_year)]
+    // pub(super) type RewardPerYear<T> = StorageValue<_, BalanceOf<T>>;
 
     // 等于RewardPerYear * (era_duration / year_duration)
     #[pallet::storage]
@@ -177,6 +186,11 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
+
+            // 从ocw读取价格
+            Self::update_min_stake_dbc();
+
+
             // if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
             //     Self::end_era()
             // }
@@ -185,21 +199,31 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+
+        #[pallet::weight(0)]
+        fn set_min_stake(origin: OriginFor<T>, new_min_stake: u64) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            MinStakeCent::<T>::put(new_min_stake);
+
+            Ok(().into())
+        }
+
         // 将machine_id添加到绑定队列
         /// Bonding machine only remember caller-machine_id pair.
         /// OCW will check it and record machine info.
         #[pallet::weight(10000)]
-        fn bond_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, bond_amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let caller = ensure_signed(origin)?;
 
-            // 确保 BondingQueue 不包含该 machine_id
-            ensure!(!BondingQueue::<T>::contains_key(&machine_id), Error::<T>::MachineInBondingQueue);
-            ensure!(!BookingQueue::<T>::contains_key(&machine_id), Error::<T>::MachineInBookingQueue);
-            ensure!(!BookedQueue::<T>::contains_key(&machine_id), Error::<T>::MachineInBookedQueue);
+            // 确保 BondingMachine 不包含该 machine_id
+            ensure!(!BondingMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBondingMachine);
+            ensure!(!BookingMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBookingMachine);
+            ensure!(!BookedMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBookedMachine);
             // 该machine_id还未被绑定
             ensure!(!BondedMachine::<T>::contains_key(&machine_id), Error::<T>::MachineHasBonded);
 
-            BondingQueue::<T>::insert(
+            BondingMachine::<T>::insert(
                 machine_id.clone(),
                 BondingPair {
                     account_id: caller,
@@ -361,32 +385,34 @@ pub mod pallet {
         //     Ok(().into())
         // }
 
-        #[pallet::weight(0)]
-        pub fn set_machine_price(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            machine_price: u64,
-        ) -> DispatchResultWithPostInfo {
-            let _ = ensure_root(origin)?;
 
-            if !MachineDetail::<T>::contains_key(&machine_id) {
-                MachineDetail::<T>::insert(
-                    &machine_id,
-                    MachineMeta {
-                        machine_price: machine_price,
-                        machine_grade: 0,
-                        committee_confirm: vec![],
-                    },
-                );
-                return Ok(().into());
-            }
+        // TODO: 委员会通过lease-committee设置机器价格
+        // #[pallet::weight(0)]
+        // pub fn set_machine_price(
+        //     origin: OriginFor<T>,
+        //     machine_id: MachineId,
+        //     machine_price: u64,
+        // ) -> DispatchResultWithPostInfo {
+        //     let _ = ensure_root(origin)?;
 
-            let mut machine_detail = MachineDetail::<T>::get(&machine_id);
-            machine_detail.machine_price = machine_price;
+        //     if !MachineDetail::<T>::contains_key(&machine_id) {
+        //         MachineDetail::<T>::insert(
+        //             &machine_id,
+        //             MachineMeta {
+        //                 machine_price: machine_price,
+        //                 machine_grade: 0,
+        //                 committee_confirm: vec![],
+        //             },
+        //         );
+        //         return Ok(().into());
+        //     }
 
-            MachineDetail::<T>::insert(&machine_id, machine_detail);
-            Ok(().into())
-        }
+        //     let mut machine_detail = MachineDetail::<T>::get(&machine_id);
+        //     machine_detail.machine_price = machine_price;
+
+        //     MachineDetail::<T>::insert(&machine_id, machine_detail);
+        //     Ok(().into())
+        // }
     }
 
     #[pallet::event]
@@ -405,9 +431,9 @@ pub mod pallet {
     pub enum Error<T> {
         MachineIdNotBonded,
         MachineHasBonded,
-        MachineInBondingQueue,
-        MachineInBookingQueue,
-        MachineInBookedQueue,
+        MachineInBondingMachine,
+        MachineInBookingMachine,
+        MachineInBookedMachine,
         TokenNotBonded,
         BondedNotEnough,
         HttpDecodeError,
@@ -439,6 +465,15 @@ impl<T: Config> Pallet<T> {
 
     //     Ok(())
     // }
+
+    // Update min_stake_dbc every block end
+    fn update_min_stake_dbc() {
+        // TODO: 1. 获取DBC价格
+        let dbc_price = dbc_price_ocw::Pallet::<T>::avg_price;
+
+        // TODO: 2. 计算所需DBC
+        // TODO: 3. 更新min_stake_dbc变量
+    }
 
     pub fn reward_by_ids(
         era_index: u32,
@@ -476,13 +511,13 @@ impl<T: Config> LCOps for Pallet<T> {
     type BlockNumber = T::BlockNumber;
 
     fn bonding_queue_id() -> BTreeSet<Self::MachineId> {
-        <BondingQueue<T> as IterableStorageMap<MachineId, BondingPair<T::AccountId>>>::iter()
+        <BondingMachine<T> as IterableStorageMap<MachineId, BondingPair<T::AccountId>>>::iter()
             .map(|(machine_id, _)| machine_id)
             .collect::<BTreeSet<_>>()
     }
 
     fn booking_queue_id() -> BTreeSet<Self::MachineId> {
-        <BookingQueue<T> as IterableStorageMap<MachineId, BookingItem<T::BlockNumber>>>::iter()
+        <BookingMachine<T> as IterableStorageMap<MachineId, BookingItem<T::BlockNumber>>>::iter()
             .map(|(machine_id, _)| machine_id)
             .collect::<BTreeSet<_>>()
     }
@@ -498,13 +533,13 @@ impl<T: Config> LCOps for Pallet<T> {
             book_time: <frame_system::Module<T>>::block_number(),
         };
 
-        BookingQueue::<T>::insert(&machine_id, booking_item.clone());
-        BondingQueue::<T>::remove(&machine_id);
+        BookingMachine::<T>::insert(&machine_id, booking_item.clone());
+        BondingMachine::<T>::remove(&machine_id);
         true
     }
 
     fn booked_queue_id() -> BTreeSet<Self::MachineId> {
-        <BookedQueue<T> as IterableStorageMap<MachineId, u64>>::iter()
+        <BookedMachine<T> as IterableStorageMap<MachineId, u64>>::iter()
             .map(|(machine_id, _)| machine_id)
             .collect::<BTreeSet<_>>()
     }
@@ -516,7 +551,7 @@ impl<T: Config> LCOps for Pallet<T> {
     }
 
     fn rm_booking_id(id: MachineId) {
-        BookingQueue::<T>::remove(id);
+        BookingMachine::<T>::remove(id);
     }
 
     fn add_booked_id(_id: MachineId) {}
@@ -542,7 +577,7 @@ impl<T: Config> OPOps for Pallet<T> {
     type MachineId = MachineId;
 
     fn get_bonding_pair(id: Self::MachineId) -> Self::BondingPair {
-        BondingQueue::<T>::get(id)
+        BondingMachine::<T>::get(id)
     }
 
     fn add_machine_grades(id: Self::MachineId, machine_grade: Self::ConfirmedMachine) {
@@ -554,11 +589,11 @@ impl<T: Config> OPOps for Pallet<T> {
     }
 
     fn rm_bonding_id(id: Self::MachineId) {
-        BondingQueue::<T>::remove(id);
+        BondingMachine::<T>::remove(id);
     }
 
     fn add_booking_item(id: Self::MachineId, booking_item: Self::BookingItem) {
-        BookingQueue::<T>::insert(id, booking_item);
+        BookingMachine::<T>::insert(id, booking_item);
     }
 }
 
