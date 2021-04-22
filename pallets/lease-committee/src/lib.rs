@@ -13,6 +13,8 @@ use online_profile_machine::LCOps;
 use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
 use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
 
+mod committee;
+
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 

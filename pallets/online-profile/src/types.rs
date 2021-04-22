@@ -129,7 +129,7 @@ pub struct EraRewardGrades<AccountId: Ord> {
 impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32BitUnsigned>
     StakingLedger<AccountId, Balance>
 {
-    // 筛选去掉已经过期的unlocking
+    // 筛选去掉已经到期的unlocking
     pub fn consolidate_unlock(self, current_era: EraIndex) -> Self {
         let mut total = self.total;
         let unlocking = self

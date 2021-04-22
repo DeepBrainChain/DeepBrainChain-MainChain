@@ -63,10 +63,9 @@ pub mod pallet {
         150
     }
 
-    // 单位美分
     #[pallet::storage]
     #[pallet::getter(fn min_stake_cent)]
-    pub(super) type MinStakeCent<T> = StorageValue<_, u64, ValueQuery>;
+    pub(super) type MinStake<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn min_stake_dbc)]
@@ -118,11 +117,50 @@ pub mod pallet {
     // 记录用户绑定的机器ID列表
     #[pallet::storage]
     #[pallet::getter(fn user_bonded_machine)]
-    pub(super) type UserBondedMachine<T> = StorageMap<
+    pub(super) type UserBondedMachine<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        <T as frame_system::Config>::AccountId,
+        T::AccountId,
         Vec<MachineId>,
+        ValueQuery,
+    >;
+
+    // 记录用户成功绑定的机器列表，用以查询以及计算奖励膨胀系数
+    #[pallet::storage]
+    #[pallet::getter(fn user_bonded_succeed)]
+    pub(super) type UserBondedSucceed<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Vec<MachineId>,
+        ValueQuery,
+    >;
+
+    // 如果账户绑定机器越多，分数膨胀将会越大
+    // 该数值精度为10000
+    // 该数值应该与机器数量呈正相关，以避免有极值导致用户愿意拆分机器数量到不同账户
+    #[pallet::storage]
+    #[pallet::getter(fn user_bonded_inflation)]
+    pub(super) type UserBondedInflation<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+    >;
+
+    // 当机器已经被成功绑定，则出现需要更新机器的奖励膨胀系数时，改变该变量
+    // 可能的场景有：
+    //  1. 新的一台机器被成功绑定
+    //  2. 一台机器被移除绑定
+    //  3. 一台被成功绑定的机器的质押数量发生变化
+    #[pallet::storage]
+    #[pallet::getter(fn grade_updating)]
+    pub(super) type GradeUpdating<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        VecDeque<MachineId>,
         ValueQuery,
     >;
 
@@ -171,11 +209,11 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    // // Reward per year
-    // // TODO：奖励是按照一定规则发放的。
-    // #[pallet::storage]
-    // #[pallet::getter(fn reward_per_year)]
-    // pub(super) type RewardPerYear<T> = StorageValue<_, BalanceOf<T>>;
+    // 奖励数量：第一个月为1亿，之后每个月为3300万
+    // 2年10个月之后，奖励数量减半，之后再五年，奖励减半
+    #[pallet::storage]
+    #[pallet::getter(fn reward_per_year)]
+    pub(super) type RewardPerYear<T> = StorageValue<_, BalanceOf<T>>;
 
     // 等于RewardPerYear * (era_duration / year_duration)
     #[pallet::storage]
@@ -190,7 +228,6 @@ pub mod pallet {
             // 从ocw读取价格
             Self::update_min_stake_dbc();
 
-
             // if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
             //     Self::end_era()
             // }
@@ -201,74 +238,45 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
 
         #[pallet::weight(0)]
-        fn set_min_stake(origin: OriginFor<T>, new_min_stake: u64) -> DispatchResultWithPostInfo {
+        fn set_min_stake(origin: OriginFor<T>, new_min_stake: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-
-            MinStakeCent::<T>::put(new_min_stake);
-
+            MinStake::<T>::put(new_min_stake);
             Ok(().into())
         }
+
+        // TODO: 如果验证结果发现，绑定者与机器钱包地址不一致，则进行惩罚
+        // TODO: era结束时重新计算得分, 如果有会影响得分的改变，放到列表中，等era结束进行计算
 
         // 将machine_id添加到绑定队列
         /// Bonding machine only remember caller-machine_id pair.
         /// OCW will check it and record machine info.
         #[pallet::weight(10000)]
         fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, bond_amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
-            let caller = ensure_signed(origin)?;
+            let controller = ensure_signed(origin)?;
 
-            // 确保 BondingMachine 不包含该 machine_id
-            ensure!(!BondingMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBondingMachine);
-            ensure!(!BookingMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBookingMachine);
-            ensure!(!BookedMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBookedMachine);
-            // 该machine_id还未被绑定
-            ensure!(!BondedMachine::<T>::contains_key(&machine_id), Error::<T>::MachineHasBonded);
-
-            BondingMachine::<T>::insert(
-                machine_id.clone(),
-                BondingPair {
-                    account_id: caller,
-                    machine_id: machine_id,
-                    request_count: 0,
-                },
-            );
-
-            Ok(().into())
-        }
-
-        #[pallet::weight(10000)]
-        fn add_bonded_token(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            bond_amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            // 检查余额
-            ensure!(<T as Config>::Currency::free_balance(&who) > bond_amount, Error::<T>::BalanceNotEnough);
-            // 检查超过最小交易金额
+            // 资金检查
+            ensure!(bond_amount >= MinStake::<T>::get(), Error::<T>::StakeNotEnough);
+            ensure!(<T as Config>::Currency::free_balance(&controller) > bond_amount, Error::<T>::BalanceNotEnough);
             ensure!(bond_amount >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
 
-            // 检查用户已绑定了该机器
-            let user_bonded_machine = UserBondedMachine::<T>::get(&who);
-            if let Err(_) = user_bonded_machine.binary_search(&machine_id) {
-                return Err(Error::<T>::MachineIdNotBonded.into());
+            // 检查machine_id不在处理队列
+            ensure!(!BondingMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBonding);
+            ensure!(!BookingMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBooking);
+            ensure!(!BookedMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBooked);
+            ensure!(!BondedMachine::<T>::contains_key(&machine_id), Error::<T>::MachineInBonded);
+
+            let mut user_bonded_machine = UserBondedMachine::<T>::get(&controller);
+            if let Err(index) = user_bonded_machine.binary_search(&machine_id) {
+                user_bonded_machine.insert(index, machine_id.clone());
+            } else {
+                return Err(Error::<T>::MachineInUserBonded.into());
             };
 
             let current_era = <random_num::Module<T>>::current_era();
-            let history_depth = Self::history_depth(); // TODO: add this
+            let history_depth = Self::history_depth();
             let last_reward_era = current_era.saturating_sub(history_depth);
-
-            let user_balance = T::Currency::free_balance(&who);
-            let bond_amount = bond_amount.min(user_balance);
-
-            Self::deposit_event(Event::AddBonded(
-                who.clone(),
-                machine_id.clone(),
-                bond_amount,
-            ));
-
             let item = StakingLedger {
-                stash: who.clone(),
+                stash: controller.clone(),
                 total: bond_amount,
                 active: bond_amount,
                 unlocking: vec![],
@@ -277,21 +285,27 @@ pub mod pallet {
                 upcoming_rewards: VecDeque::new(),
             };
 
-            Self::update_ledger(&who, &machine_id, &item);
+            Self::update_ledger(&controller, &machine_id, &item);
+
+            BondingMachine::<T>::insert(machine_id.clone(), BondingPair {
+                    account_id: controller.clone(),
+                    machine_id: machine_id.clone(),
+                    request_count: 0,
+                }
+            );
+
+            Self::deposit_event(Event::BondMachine(controller, machine_id, bond_amount));
 
             Ok(().into())
         }
 
         #[pallet::weight(10000)]
-        fn bond_extra(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            max_additional: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+        fn bond_extra(origin: OriginFor<T>, machine_id: MachineId, max_additional: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
 
-            let mut ledger = Self::ledger(&who, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
-            let user_balance = T::Currency::free_balance(&who);
+            let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
+            let user_balance = T::Currency::free_balance(&controller);
+
             if let Some(extra) = user_balance.checked_sub(&ledger.total) {
                 let extra = extra.min(max_additional);
                 ledger.total += extra;
@@ -299,26 +313,21 @@ pub mod pallet {
 
                 ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
 
-                Self::deposit_event(Event::AddBonded(who.clone(), machine_id.clone(), extra));
-                Self::update_ledger(&who, &machine_id, &ledger);
+                Self::deposit_event(Event::AddBonded(controller.clone(), machine_id.clone(), extra));
+                Self::update_ledger(&controller, &machine_id, &ledger);
             }
 
             Ok(().into())
         }
 
         #[pallet::weight(10000)]
-        fn reduce_bonded_token(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+        fn unbond(origin: OriginFor<T>, machine_id: MachineId, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
 
-            let mut ledger = Self::ledger(&who, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
-
+            let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
             ensure!(ledger.unlocking.len() < crate::MAX_UNLOCKING_CHUNKS, Error::<T>::NoMoreChunks);
-            let mut value = amount.min(ledger.active);
 
+            let mut value = amount.min(ledger.active);
             if !value.is_zero() {
                 ledger.active -= value;
 
@@ -329,34 +338,34 @@ pub mod pallet {
 
                 let era = <random_num::Module<T>>::current_era() + T::BondingDuration::get();
                 ledger.unlocking.push(UnlockChunk { value, era });
-                Self::update_ledger(&who, &machine_id, &ledger);
-                Self::deposit_event(Event::RemoveBonded(who, machine_id, value));
+
+                Self::update_ledger(&controller, &machine_id, &ledger);
+                Self::deposit_event(Event::RemoveBonded(controller, machine_id, value));
             }
 
             Ok(().into())
         }
 
         #[pallet::weight(10000)]
-        fn withdraw_unbonded(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-            let mut ledger = Self::ledger(&who, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
+        fn withdraw_unbonded( origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+
+            let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
 
             let old_total = ledger.total;
             let current_era = <random_num::Module<T>>::current_era();
             ledger = ledger.consolidate_unlock(current_era);
+
             if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
-                // TODO: 清除ledger相关存储
-                T::Currency::remove_lock(crate::PALLET_LOCK_ID, &who);
+                // 清除ledger相关存储
+                T::Currency::remove_lock(crate::PALLET_LOCK_ID, &controller);
             } else {
-                Self::update_ledger(&who, &machine_id, &ledger);
+                Self::update_ledger(&controller, &machine_id, &ledger);
             }
 
             if ledger.total < old_total {
                 let value = old_total - ledger.total;
-                Self::deposit_event(Event::Withdrawn(who, machine_id, value));
+                Self::deposit_event(Event::Withdrawn(controller, machine_id, value));
             }
 
             Ok(().into())
@@ -384,7 +393,6 @@ pub mod pallet {
         //     // <UserPayoutEraIndex<T>>::insert(user, current_era);
         //     Ok(().into())
         // }
-
 
         // TODO: 委员会通过lease-committee设置机器价格
         // #[pallet::weight(0)]
@@ -419,7 +427,7 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        BondMachine(T::AccountId, MachineId),
+        BondMachine(T::AccountId, MachineId, BalanceOf<T>),
         AddBonded(T::AccountId, MachineId, BalanceOf<T>),
         RemoveBonded(T::AccountId, MachineId, BalanceOf<T>),
         DonationReceived(T::AccountId, BalanceOf<T>, BalanceOf<T>),
@@ -430,10 +438,11 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         MachineIdNotBonded,
-        MachineHasBonded,
-        MachineInBondingMachine,
-        MachineInBookingMachine,
-        MachineInBookedMachine,
+        MachineInBonded,
+        MachineInBonding,
+        MachineInBooking,
+        MachineInBooked,
+        MachineInUserBonded,
         TokenNotBonded,
         BondedNotEnough,
         HttpDecodeError,
@@ -447,6 +456,7 @@ pub mod pallet {
         InvalidEraToReward,
         AccountNotSame,
         NotInBookingList,
+        StakeNotEnough,
     }
 }
 
@@ -475,6 +485,7 @@ impl<T: Config> Pallet<T> {
         // TODO: 3. 更新min_stake_dbc变量
     }
 
+    // 为机器增加得分奖励
     pub fn reward_by_ids(
         era_index: u32,
         validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
@@ -487,7 +498,9 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    fn end_era() {}
+    fn end_era() {
+        // grade_inflation::compute_stake_grades(machine_price, staked_in, machine_grade)
+    }
 
     // 更新用户的质押的ledger
     fn update_ledger(
