@@ -29,11 +29,11 @@
      ![image-20210122210945889](staking_dbc_and_voting.assets/image-20210122210945889.png)
 
    + set your stash account，controller account and`value bonded`，then click next![image-20210122211057762](staking_dbc_and_voting.assets/image-20210122211057762.png)
-   
+
    + then, you should select the validator. (**You can nominate more than one validator**).![image-20210122211203371](staking_dbc_and_voting.assets/image-20210122211203371.png)
-   
-   + Finally click`Bond & Nominate to send the transaction and finished the nominate.
-   
+
+   + Finally click `Bond & Nominate` to send the transaction and finished the nominate.
+
 4. Check your nominate result
 
    Navigate to`Network > Staking > Account actions`, you can see the balance of bonded DBC and the validator you nominated.
