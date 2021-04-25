@@ -15,8 +15,8 @@ members = [
     'pallets/dbc-testing',
     'pallets/dbc-price-ocw',
     'pallets/online-profile',
-    #'pallets/online-profile-ocw',
-    # 'pallets/lease-committee',
+    'pallets/online-profile-ocw',
+    'pallets/lease-committee',
     'traits/phase-reward',
     'traits/online-profile-machine',
 ]

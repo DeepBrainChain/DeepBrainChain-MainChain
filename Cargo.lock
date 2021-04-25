@@ -2913,6 +2913,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
+name = "lease-committee"
+version = "0.1.0"
+dependencies = [
+ "dbc-staking",
+ "frame-support",
+ "frame-system",
+ "online-profile",
+ "online-profile-machine",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "parity-scale-codec",
+ "random-num",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "leb128"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4059,8 +4080,10 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "hex-literal",
+ "lease-committee",
  "node-primitives",
  "online-profile",
+ "online-profile-ocw",
  "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -4300,6 +4323,30 @@ dependencies = [
 name = "online-profile-machine"
 version = "0.1.0"
 dependencies = [
+ "sp-std",
+]
+
+[[package]]
+name = "online-profile-ocw"
+version = "0.1.0"
+dependencies = [
+ "alt_serde",
+ "bs58",
+ "dbc-staking",
+ "frame-support",
+ "frame-system",
+ "online-profile",
+ "online-profile-machine",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "parity-scale-codec",
+ "random-num",
+ "serde",
+ "serde_json 1.0.44",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
  "sp-std",
 ]
 

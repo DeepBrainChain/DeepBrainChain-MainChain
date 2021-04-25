@@ -8,7 +8,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{LCOps, OLProof, OPOps};
+use online_profile_machine::{LCOps, OCWOps};
 use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::{
     collections::btree_map::BTreeMap, collections::btree_set::BTreeSet,
@@ -37,9 +37,22 @@ pub const ConfirmGradeLimit: usize = 3;
 pub struct MachineInfo<AccountId: Ord, BlockNumber> {
     pub machine_owner: AccountId,
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
+    pub bonding_requests: u64,       // 记录机器绑定请求次数，避免绑定错误/无效的机器ID
     pub machine_status: MachineStatus,
-    pub ocw_machine_grades: BTreeMap<AccountId, OCWMachineGrade<AccountId, BlockNumber>>,
-    pub machine_grade: u64,
+    pub ocw_machine_grades: BTreeMap<AccountId, OCWMachineGrade<AccountId, BlockNumber>>, //记录委员会提交的机器打分
+    pub ocw_machine_price: u64,           // 记录OCW获取的机器的价格信息
+    pub machine_grade: u64,               // 记录根据规则膨胀之后的得分
+    pub grade_detail: MachineGradeDetail, //记录OCW获取的机器打分信息
+}
+
+// 存储OCW获取到的机器配置各项打分
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, Copy)]
+pub struct MachineGradeDetail {
+    pub cpu: u64,
+    pub disk: u64,
+    pub gpu: u64,
+    pub mem: u64,
+    pub net: u64,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -140,7 +153,7 @@ pub mod pallet {
     // 存储活跃的机器
     #[pallet::storage]
     #[pallet::getter(fn live_machines)]
-    pub(super) type LiveMachines<T: Config> = StorageValue<_, LiveMachine, ValueQuery>;
+    pub type LiveMachines<T: Config> = StorageValue<_, LiveMachine, ValueQuery>;
 
     // // 用户提交绑定请求
     // #[pallet::storage]
@@ -616,7 +629,7 @@ impl<T: Config> Pallet<T> {
 
     // 如果存在于bonding_machine中，则从中删掉
     // 添加到booked_machine中
-    fn add_booked_machine(id: MachineId) {
+    pub fn add_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
         if let Ok(index) = live_machines.bonding_machine.binary_search(&id) {
             live_machines.bonding_machine.remove(index);
@@ -758,51 +771,20 @@ impl<T: Config> Pallet<T> {
     }
 }
 
+impl<T: Config> OCWOps for Pallet<T> {
+    // type AccountId = T::AccountId;
+    // type BlockNumber = T::BlockNumber;
+    type MachineId = MachineId;
+    type MachineInfo = MachineInfo<T::AccountId, T::BlockNumber>;
+
+    fn update_machine_info(id: &MachineId, machine_info: Self::MachineInfo) {
+        MachinesInfo::<T>::insert(id, machine_info);
+    }
+}
+
 impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
-    type BlockNumber = T::BlockNumber;
-
-    // fn bonding_queue_id() -> BTreeSet<Self::MachineId> {
-    //     <BondingMachine<T> as IterableStorageMap<MachineId, BondingPair<T::AccountId>>>::iter()
-    //         .map(|(machine_id, _)| machine_id)
-    //         .collect::<BTreeSet<_>>()
-    // }
-
-    // fn booking_queue_id() -> BTreeSet<Self::MachineId> {
-    //     <BookingMachine<T> as IterableStorageMap<MachineId, BookingItem<T::BlockNumber>>>::iter()
-    //         .map(|(machine_id, _)| machine_id)
-    //         .collect::<BTreeSet<_>>()
-    // }
-
-    // fn book_one_machine(_who: &T::AccountId, machine_id: MachineId) -> bool {
-    //     let bonding_queue_id = Self::bonding_queue_id();
-    //     if !bonding_queue_id.contains(&machine_id) {
-    //         return false;
-    //     }
-
-    //     let booking_item = BookingItem {
-    //         machine_id: machine_id.to_vec(),
-    //         book_time: <frame_system::Module<T>>::block_number(),
-    //     };
-
-    //     Self::add_booked_machine(machine_id);
-    //     true
-    // }
-
-    // fn booked_queue_id() -> BTreeSet<Self::MachineId> {
-    //     <BookedMachine<T> as IterableStorageMap<MachineId, u64>>::iter()
-    //         .map(|(machine_id, _)| machine_id)
-    //         .collect::<BTreeSet<_>>()
-    // }
-
-    // fn bonded_machine_id() -> BTreeSet<Self::MachineId> {
-    //     <BondedMachine<T> as IterableStorageMap<MachineId, ()>>::iter()
-    //         .map(|(machine_id, _)| machine_id)
-    //         .collect::<BTreeSet<_>>()
-    // }
-
-    // fn add_booked_id(_id: MachineId) {}
 
     // TODO: 从OCW获取机器打分可能会失败，改为Option类型
     fn confirm_machine_grade(who: T::AccountId, machine_id: MachineId, is_confirmed: bool) {
@@ -836,46 +818,8 @@ impl<T: Config> LCOps for Pallet<T> {
             Self::add_bonding_machine(machine_id);
         }
     }
+
+    fn lc_add_booked_machine(id: MachineId) {
+        Self::add_booked_machine(id);
+    }
 }
-
-// impl<T: Config> OPOps for Pallet<T> {
-//     type AccountId = T::AccountId;
-//     type BookingItem = BookingItem<T::BlockNumber>;
-//     type BondingPair = BondingPair<T::AccountId>;
-//     type ConfirmedMachine = ConfirmedMachine<T::AccountId, T::BlockNumber>;
-//     type MachineId = MachineId;
-
-//     fn get_bonding_pair(id: Self::MachineId) -> Self::BondingPair {
-//         BondingMachine::<T>::get(id)
-//     }
-
-//     fn add_machine_grades(id: Self::MachineId, machine_grade: Self::ConfirmedMachine) {
-//         OCWMachineGrades::<T>::insert(id, machine_grade)
-//     }
-
-//     fn add_machine_price(id: Self::MachineId, price: u64) {
-//         OCWMachinePrice::<T>::insert(id, price)
-//     }
-
-//     fn rm_bonding_id(id: Self::MachineId) {
-//         BondingMachine::<T>::remove(id);
-//     }
-
-//     fn add_booking_item(id: Self::MachineId, booking_item: Self::BookingItem) {
-//         BookingMachine::<T>::insert(id, booking_item);
-//     }
-// }
-
-// impl<T: Config> OLProof for Pallet<T> {
-//     type MachineId = MachineId;
-
-//     fn staking_machine() -> BTreeSet<Self::MachineId> {
-//         // StakingMachine
-//         <StakingMachine<T> as IterableStorageMap<MachineId, Vec<bool>>>::iter()
-//             .map(|(machine_id, _)| machine_id)
-//             .collect::<BTreeSet<_>>()
-//     }
-
-//     // TODO: 添加这个函数实现
-//     fn add_verify_result(id: Self::MachineId, is_online: bool) {}
-// }

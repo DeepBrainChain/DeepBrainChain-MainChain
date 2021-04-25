@@ -114,8 +114,8 @@ std = [
     'phase-reward/std',
     'dbc-price-ocw/std',
     'online-profile/std',
-    # 'online-profile-ocw/std',
-    # 'lease-committee/std',
+    'online-profile-ocw/std',
+    'lease-committee/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -380,15 +380,15 @@ default-features = false
 path = '../pallets/online-profile'
 package = 'online-profile'
 
-# [dependencies.online-profile-ocw]
-# default-features = false
-# path = '../pallets/online-profile-ocw'
-# package = 'online-profile-ocw'
+[dependencies.online-profile-ocw]
+default-features = false
+path = '../pallets/online-profile-ocw'
+package = 'online-profile-ocw'
 
-# [dependencies.lease-committee]
-# default-features = false
-# path = '../pallets/lease-committee'
-# package = 'lease-committee'
+[dependencies.lease-committee]
+default-features = false
+path = '../pallets/lease-committee'
+package = 'lease-committee'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

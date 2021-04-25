@@ -1050,20 +1050,21 @@ impl online_profile::Config for Runtime {
     type BondingDuration = BondingDuration;
 }
 
-// impl online_profile_ocw::Config for Runtime {
-//     type OnlineProfile = OnlineProfile;
-// }
+impl online_profile_ocw::Config for Runtime {
+    type OnlineProfile = OnlineProfile;
+}
 
 // parameter_types! {
 //     pub const CommitteeDuration: pallet_staking::EraIndex = 7;
 // }
 
-// impl lease_committee::Config for Runtime {
-//     type Currency = Balances;
-//     type Event = Event;
-//     type CommitteeMachine = OnlineProfile;
-//     type CommitteeDuration = CommitteeDuration;
-// }
+impl lease_committee::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type CommitteeMachine = OnlineProfile;
+    // type CommitteeDuration = CommitteeDuration;
+    type OnlineProfile = OnlineProfile;
+}
 
 construct_runtime!(
     pub enum Runtime where
@@ -1110,8 +1111,8 @@ construct_runtime!(
         RandomNum: random_num::{Module, Call, Storage},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
-        // OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
-        // LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
+        OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
+        LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Storage, Call},
     }
 );

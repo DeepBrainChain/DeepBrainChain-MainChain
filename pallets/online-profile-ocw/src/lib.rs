@@ -7,7 +7,7 @@ use frame_system::{
     pallet_prelude::*,
 };
 use online_profile::types::*;
-use online_profile_machine::{LCOps, OLProof, OPOps};
+use online_profile_machine::{LCOps, OCWOps};
 use sp_runtime::{offchain, offchain::http, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
 
@@ -37,13 +37,9 @@ pub mod pallet {
     {
         // type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type OnlineProfile: LCOps<MachineId = MachineId>
-            + OLProof<MachineId = MachineId>
-            + OPOps<
-                AccountId = Self::AccountId,
-                BondingPair = BondingPair<Self::AccountId>,
-                BookingItem = BookingItem<Self::BlockNumber>,
+            + OCWOps<
                 MachineId = MachineId,
-                ConfirmedMachine = ConfirmedMachine<Self::AccountId, Self::BlockNumber>,
+                MachineInfo = online_profile::MachineInfo<Self::AccountId, Self::BlockNumber>,
             >;
     }
 
@@ -185,53 +181,56 @@ pub mod pallet {
         fn ocw_submit_machine_info(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            let bonding_queue_id = T::OnlineProfile::bonding_queue_id();
-            // let booking_queue_id = Self::booking_queue_id();
-
+            let live_machines = <online_profile::Pallet<T>>::live_machines();
+            let bonding_queue_id = live_machines.bonding_machine;
             let request_limit = RequestLimit::<T>::get();
-
             let machine_info_url = MachineInfoRandURL::<T>::get();
+
             ensure!(machine_info_url.len() != 0, Error::<T>::MachineURLEmpty);
 
             for machine_id in bonding_queue_id.iter() {
-                let bonding_pair = T::OnlineProfile::get_bonding_pair(machine_id.to_vec());
-                // let bonding_pair = T::BondingQueue::<T>::get(&machine_id);
-                let mut request_count = bonding_pair.request_count;
+                let mut machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
 
-                let mut machine_grade: Vec<MachineGradeDetail> = vec![];
+                let mut machine_grade = Vec::new();
                 let mut appraisal_price: Vec<u64> = vec![];
 
+                // 该machine_id请求次数已经超过了限制
+                if machine_info.bonding_requests > request_limit {
+                    debug::info!("machine_id: {:?} has reached request limit", &machine_id);
+                    continue;
+                }
+
                 for url in machine_info_url.iter() {
-                    let machine_info = Self::fetch_machine_info(&url, &bonding_pair.machine_id);
-                    if let Err(e) = machine_info {
+                    let ocw_machine_info = Self::fetch_machine_info(&url, &machine_id);
+                    if let Err(e) = ocw_machine_info {
                         // TODO: handle 404的情况(machine_id not found)
-                        request_count += 1; // 可以将该逻辑改到Err(e)为404时触发
-                        if request_count >= request_limit {
-                            // TODO: 增加log提示
-                            // T::BondingQueue::<T>::remove(machine_id);
-                            T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
-                            break;
-                        }
                         debug::error!("Offchain worker error: {:?}", e);
                         continue;
                     }
-                    let machine_info = machine_info.unwrap();
 
-                    let machine_wallet = &machine_info.data.wallet[1].0;
+                    let ocw_machine_info = ocw_machine_info.unwrap();
+                    let machine_wallet = &ocw_machine_info.data.wallet[1].0;
 
-                    debug::info!("machine info is: {:?}", &machine_wallet);
+                    debug::info!("machine wallet is: {:?}", &machine_wallet);
 
-                    // 如果不一致，则直接进行下一个machine_id的查询
-                    if Self::verify_bonding_account(bonding_pair.account_id.clone(), machine_wallet)
-                    {
+                    // 如果钱包不一致，则直接进行下一个machine_id的查询
+                    if !Self::verify_bonding_account(
+                        machine_info.machine_owner.clone(),
+                        machine_wallet,
+                    ) {
                         // TODO: 增加log提示
                         // T::BondingQueue::<T>::remove(machine_id);
-                        T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
+                        debug::error!(
+                            "OCW bonding: user account {:?} not match machine wallet {:?}, will remove",
+                            &machine_info.machine_owner,
+                            &machine_wallet
+                        );
+                        // 当达到request limit时，删除掉
+                        // T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
                         break;
                     }
 
-                    let grades = &machine_info.data.grades;
-
+                    let grades = &ocw_machine_info.data.grades;
                     machine_grade.push(MachineGradeDetail {
                         cpu: grades.cpu,
                         disk: grades.cpu,
@@ -240,31 +239,32 @@ pub mod pallet {
                         net: grades.net,
                     });
 
-                    appraisal_price.push(machine_info.data.appraisal_price);
+                    appraisal_price.push(ocw_machine_info.data.appraisal_price);
                 }
 
-                if Self::vec_all_same(&machine_grade) {
-                    T::OnlineProfile::add_machine_grades(
-                        machine_id.to_vec(),
-                        ConfirmedMachine {
-                            machine_grade: machine_grade[0],
-                            committee_info: vec![],
-                        },
+                // 机器ID完成了一次OCW请求之后，应该+1
+                machine_info.bonding_requests += 1;
+
+                // 检查OCW信息是否一致
+                if !Self::vec_all_same(&machine_grade) || !Self::vec_all_same(&appraisal_price) {
+                    debug::info!(
+                        "ocw_machine_grade: {:?} or ocw_machine_price: {:?} inconsistent:",
+                        &machine_grade,
+                        &appraisal_price
                     );
+                    break;
+                } else {
+                    machine_info.grade_detail = online_profile::MachineGradeDetail {
+                        cpu: machine_grade[0].cpu,
+                        disk: machine_grade[0].disk,
+                        gpu: machine_grade[0].gpu,
+                        mem: machine_grade[0].mem,
+                        net: machine_grade[0].net,
+                    };
+                    machine_info.ocw_machine_price = appraisal_price[0];
                 }
 
-                if Self::vec_all_same(&appraisal_price) {
-                    T::OnlineProfile::add_machine_price(machine_id.to_vec(), appraisal_price[0]);
-                }
-
-                T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
-                T::OnlineProfile::add_booking_item(
-                    machine_id.to_vec(),
-                    BookingItem {
-                        machine_id: machine_id.to_vec(),
-                        book_time: <frame_system::Module<T>>::block_number(),
-                    },
-                );
+                T::OnlineProfile::update_machine_info(&machine_id, machine_info);
             }
 
             Ok(().into())
@@ -298,6 +298,7 @@ pub mod pallet {
         IndexOutOfRange,
         MachineURLEmpty,
         OffchainUnsignedTxError,
+        // OffchainGradeOrPriceInconsistent,
     }
 }
 

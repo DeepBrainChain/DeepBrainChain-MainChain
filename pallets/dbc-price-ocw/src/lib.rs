@@ -243,11 +243,6 @@ impl<T: Config> Pallet<T> {
 
         Prices::<T>::put(prices);
 
-        let average =
-            Self::avg_price().expect("The average is not empty, because it was just mutated; qed");
-
-        debug::info!("Current average price is: {}", average);
-
         Self::deposit_event(Event::AddNewPrice(price));
     }
 

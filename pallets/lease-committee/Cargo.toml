@@ -43,6 +43,18 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dependencies.sp-io]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+# [dependencies.sp-core]
+# default-features = false
+# git = 'https://github.com/paritytech/substrate.git'
+# rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+# version = '3.0.0'
+
 [dev-dependencies.sp-core]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
@@ -77,11 +89,13 @@ version = '3.0.0'
 default = ["std"]
 std = [
     "codec/std",
-    "frame-support/std", 
-    "frame-system/std", 
+    "frame-support/std",
+    "frame-system/std",
     "online-profile/std",
     "random-num/std",
-    "serde", 
+    "serde",
+    #"sp-core/std",
+    "sp-io/std",
     "sp-runtime/std",
     "sp-std/std",
 ]

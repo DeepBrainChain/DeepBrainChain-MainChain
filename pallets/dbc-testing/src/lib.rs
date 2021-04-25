@@ -7,6 +7,7 @@ use frame_support::traits::Currency;
 use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
 use sp_arithmetic::{traits::Saturating, Permill};
+use sp_io::hashing::blake2_128;
 use sp_std::{convert::TryInto, str};
 
 type BalanceOf<T> =
@@ -58,7 +59,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
-        pub fn say_hello(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        fn say_hello(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             // let secs_per_block = babe::Module::<T>::slot_duration();
             // let secs_per_block2 = <babe::Module<T>>::slot_duration();
 
@@ -92,7 +93,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_phase0_reward(
+        fn set_phase0_reward(
             origin: OriginFor<T>,
             reward_balance: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
@@ -102,7 +103,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_phase1_reward(
+        fn set_phase1_reward(
             origin: OriginFor<T>,
             reward_balance: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
@@ -112,7 +113,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_phase2_reward(
+        fn set_phase2_reward(
             origin: OriginFor<T>,
             reward_balance: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
@@ -122,14 +123,21 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_fix_point(
-            origin: OriginFor<T>,
-            new_factor: Permill,
-        ) -> DispatchResultWithPostInfo {
+        fn set_fix_point(origin: OriginFor<T>, new_factor: Permill) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             Things4::<T>::put(new_factor);
 
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        fn test_blake2_128(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let encode_data: [u8; 16] = blake2_128(&b"Hello world!"[..]); // .to_vec().encode();
+            debug::info!(
+                "###### blake2_128 Hash of Hello world! is: {:?}",
+                encode_data
+            );
             Ok(().into())
         }
     }
