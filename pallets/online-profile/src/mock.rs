@@ -1,16 +1,16 @@
 use crate as online_profile;
 use frame_support::parameter_types;
 pub use frame_system::{self as system, RawOrigin};
-use sp_core::{
-    sr25519::{self},
+pub use sp_core::{
+    sr25519::{self, Signature},
     H256,
 };
 pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
 use sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
+    testing::{Header, TestXt},
+    traits::{BlakeTwo256, IdentityLookup, Verify},
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -65,11 +65,56 @@ parameter_types! {
     pub const BondingDuration: pallet_staking::EraIndex = 7;
 }
 
+// parameter_types! {
+//     pub const BlockPerEra: u32 = 3600 * 24 / 30;
+// }
+
+impl random_num::Config for TestRuntime {
+    type BlockPerEra = BlockPerEra;
+    type RandomnessSource = RandomnessCollectiveFlip;
+}
+
+impl dbc_price_ocw::Config for TestRuntime {
+    type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
+}
+
+type TestExtrinsic = TestXt<Call, ()>;
+impl<LocalCall> system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
+where
+    Call: From<LocalCall>,
+{
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: Call,
+        _public: <Signature as Verify>::Signer,
+        _account: <TestRuntime as system::Config>::AccountId,
+        index: <TestRuntime as system::Config>::Index,
+    ) -> Option<(
+        Call,
+        <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        Some((call, (index, ())))
+    }
+}
+
+impl frame_system::offchain::SigningTypes for TestRuntime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = TestExtrinsic;
+}
+
 impl online_profile::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
-    type RandomnessSource = RandomnessCollectiveFlip;
-    type BlockPerEra = BlockPerEra;
+    // type RandomnessSource = RandomnessCollectiveFlip;
+    // type BlockPerEra = BlockPerEra;
     type BondingDuration = BondingDuration;
 }
 
@@ -83,7 +128,9 @@ frame_support::construct_runtime!(
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
+        DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
+        RandomNum: random_num::{Module, Call, Storage},
     }
 );
 

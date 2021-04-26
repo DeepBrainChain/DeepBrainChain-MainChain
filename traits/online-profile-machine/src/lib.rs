@@ -1,7 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::collections::btree_set::BTreeSet;
-
 // lease-committee_ops
 pub trait LCOps {
     type AccountId;

@@ -5,7 +5,6 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
     traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
-    IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{LCOps, OCWOps};
@@ -93,7 +92,7 @@ pub struct LiveMachine {
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-// #[rustfmt::skip]
+#[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -151,8 +150,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn user_machines)]
-    pub(super) type UserMachines<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
+    pub(super) type UserMachines<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
 
     // 存储活跃的机器
     #[pallet::storage]
@@ -209,10 +207,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
-        fn set_min_stake(
-            origin: OriginFor<T>,
-            new_min_stake: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_min_stake(origin: OriginFor<T>, new_min_stake: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             MinStake::<T>::put(new_min_stake);
             Ok(().into())
@@ -225,32 +220,16 @@ pub mod pallet {
         /// Bonding machine only remember caller-machine_id pair.
         /// OCW will check it and record machine info.
         #[pallet::weight(10000)]
-        fn bond_machine(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            bond_amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
+        fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, bond_amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
             // 资金检查
-            ensure!(
-                bond_amount >= MinStake::<T>::get(),
-                Error::<T>::StakeNotEnough
-            );
-            ensure!(
-                <T as Config>::Currency::free_balance(&controller) > bond_amount,
-                Error::<T>::BalanceNotEnough
-            );
-            ensure!(
-                bond_amount >= T::Currency::minimum_balance(),
-                Error::<T>::InsufficientValue
-            );
+            ensure!(bond_amount >= MinStake::<T>::get(), Error::<T>::StakeNotEnough);
+            ensure!(<T as Config>::Currency::free_balance(&controller) > bond_amount, Error::<T>::BalanceNotEnough);
+            ensure!(bond_amount >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
 
             // TODO: 更改函数返回类型
-            ensure!(
-                !Self::machine_id_exist(&machine_id),
-                Error::<T>::MachineIdExist
-            );
+            ensure!(!Self::machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
 
             // TODO: 增加修改三个变量的Event
             // 添加到用户的机器列表
@@ -293,53 +272,44 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // #[pallet::weight(10000)]
+        // fn bond_extra(
+        //     origin: OriginFor<T>,
+        //     machine_id: MachineId,
+        //     max_additional: BalanceOf<T>,
+        // ) -> DispatchResultWithPostInfo {
+        //     let controller = ensure_signed(origin)?;
+
+        //     let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
+        //     let user_balance = T::Currency::free_balance(&controller);
+
+        //     if let Some(extra) = user_balance.checked_sub(&ledger.total) {
+        //         let extra = extra.min(max_additional);
+        //         ledger.total += extra;
+        //         ledger.active += extra;
+
+        //         ensure!(
+        //             ledger.active >= T::Currency::minimum_balance(),
+        //             Error::<T>::InsufficientValue
+        //         );
+
+        //         Self::deposit_event(Event::AddBonded(
+        //             controller.clone(),
+        //             machine_id.clone(),
+        //             extra,
+        //         ));
+        //         Self::update_ledger(&controller, &machine_id, &ledger);
+        //     }
+
+        //     Ok(().into())
+        // }
+
         #[pallet::weight(10000)]
-        fn bond_extra(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            max_additional: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
+        fn unbond(origin: OriginFor<T>, machine_id: MachineId, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            let mut ledger =
-                Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
-            let user_balance = T::Currency::free_balance(&controller);
-
-            if let Some(extra) = user_balance.checked_sub(&ledger.total) {
-                let extra = extra.min(max_additional);
-                ledger.total += extra;
-                ledger.active += extra;
-
-                ensure!(
-                    ledger.active >= T::Currency::minimum_balance(),
-                    Error::<T>::InsufficientValue
-                );
-
-                Self::deposit_event(Event::AddBonded(
-                    controller.clone(),
-                    machine_id.clone(),
-                    extra,
-                ));
-                Self::update_ledger(&controller, &machine_id, &ledger);
-            }
-
-            Ok(().into())
-        }
-
-        #[pallet::weight(10000)]
-        fn unbond(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let controller = ensure_signed(origin)?;
-
-            let mut ledger =
-                Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
-            ensure!(
-                ledger.unlocking.len() < crate::MAX_UNLOCKING_CHUNKS,
-                Error::<T>::NoMoreChunks
-            );
+            let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
+            ensure!(ledger.unlocking.len() < crate::MAX_UNLOCKING_CHUNKS, Error::<T>::NoMoreChunks);
 
             let mut value = amount.min(ledger.active);
             if !value.is_zero() {
@@ -361,14 +331,10 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        fn withdraw_unbonded(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-        ) -> DispatchResultWithPostInfo {
+        fn withdraw_unbonded(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            let mut ledger =
-                Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
+            let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
 
             let old_total = ledger.total;
             let current_era = <random_num::Module<T>>::current_era();
