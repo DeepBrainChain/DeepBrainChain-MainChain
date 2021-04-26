@@ -5,8 +5,7 @@ use frame_system::offchain::SubmitTransaction;
 use lite_json::json::JsonValue;
 use sp_core::H256;
 use sp_runtime::offchain::{http, Duration};
-use sp_std::str;
-use sp_std::vec::Vec;
+use sp_std::{str, vec::Vec};
 
 pub use pallet::*;
 

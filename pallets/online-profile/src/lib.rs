@@ -80,10 +80,14 @@ impl Default for MachineStatus {
 // 只保存正常声明周期的Machine,删除掉的/绑定失败的不保存在该变量中
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LiveMachine {
-    pub bonding_machine: Vec<MachineId>,
+    pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
+    pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段
+
+    // 当machine的确认hash未满时, 委员会从cow_confirmed_machine中读取可以审查的机器ID,
+    // 添加确认信息之后，状态变为`ocw_confirmed_machine`，这时可以继续抢单.但已经打分过的委员不能抢该单
     pub booked_machine: Vec<MachineId>,
-    pub waiting_hash: Vec<MachineId>,
-    pub bonded_machine: Vec<MachineId>,
+    pub waiting_hash: Vec<MachineId>, // 当全部委员会添加了全部confirm hash之后，机器添加到waiting_hash，这时，用户可以添加confirm_raw
+    pub bonded_machine: Vec<MachineId>, // 当全部委员会添加了confirm_raw之后，机器被成功绑定，变为bonded_machine状态
 }
 
 type BalanceOf<T> =
@@ -154,122 +158,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn live_machines)]
     pub type LiveMachines<T: Config> = StorageValue<_, LiveMachine, ValueQuery>;
-
-    // // 用户提交绑定请求
-    // #[pallet::storage]
-    // #[pallet::getter(fn bonding_queue)]
-    // pub type BondingMachine<T> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     MachineId,
-    //     BondingPair<<T as frame_system::Config>::AccountId>,
-    //     ValueQuery,
-    // >;
-
-    // #[pallet::storage]
-    // #[pallet::getter(fn booking_queue)]
-    // pub type BookingMachine<T> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     MachineId,
-    //     BookingItem<<T as frame_system::Config>::BlockNumber>, // TODO: 修改类型 需要有height, who, machineid
-    // >;
-
-    // #[pallet::storage]
-    // #[pallet::getter(fn booked_queue)]
-    // pub type BookedMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>; //TODO: 修改类型，保存已经被委员会预订的机器
-
-    // /// Machine has been bonded
-    // /// 记录成功绑定的机器ID
-    // #[pallet::storage]
-    // #[pallet::getter(fn bonded_machine)]
-    // pub type BondedMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, (), ValueQuery>;
-
-    // TODO: 这里遍历用户绑定的所有机器记录即可
-    // // 记录用户绑定的机器ID列表
-    // #[pallet::storage]
-    // #[pallet::getter(fn user_bonded_machine)]
-    // pub(super) type UserBondedMachine<T: Config> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     T::AccountId,
-    //     Vec<MachineId>,
-    //     ValueQuery,
-    // >;
-
-    // // 记录用户成功绑定的机器列表，用以查询以及计算奖励膨胀系数
-    // #[pallet::storage]
-    // #[pallet::getter(fn user_bonded_succeed)]
-    // pub(super) type UserBondedSucceed<T: Config> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     T::AccountId,
-    //     Vec<MachineId>,
-    //     ValueQuery,
-    // >;
-
-    // TODO: 这里存储到机器信息里面
-    // // 存储机器的当前得分，当有影响该机器得分的因素发生是时，改变该变量
-    // // 精度：10000
-    // #[pallet::storage]
-    // #[pallet::getter(fn bonded_machines_grade)]
-    // pub(super) type BondedMachineGrade<T: Config> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     MachineId,
-    //     u64,
-    //     ValueQuery
-    // >;
-
-    // TODO: 这里只要抽象成一个函数即可
-    // // 如果账户绑定机器越多，分数膨胀将会越大
-    // // 该数值精度为10000
-    // // 该数值应该与机器数量呈正相关，以避免有极值导致用户愿意拆分机器数量到不同账户
-    // #[pallet::storage]
-    // #[pallet::getter(fn user_bonded_inflation)]
-    // pub(super) type UserBondedInflation<T: Config> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     T::AccountId,
-    //     u64,
-    //     ValueQuery,
-    // >;
-
-    // TODO: 可以直接更新到machinesInfo因为startEra会创建交易快照
-    // 当机器已经被成功绑定，则出现需要更新机器的奖励膨胀系数时，改变该变量
-    // 可能的场景有：
-    //  1. 新的一台机器被成功绑定
-    //  2. 一台机器被移除绑定
-    //  3. 一台被成功绑定的机器的质押数量发生变化
-    // #[pallet::storage]
-    // #[pallet::getter(fn grade_updating)]
-    // pub(super) type GradeUpdating<T: Config> =
-    //     StorageMap<_, Blake2_128Concat, T::AccountId, VecDeque<MachineId>, ValueQuery>;
-
-    // TODO: 移动到一个变量中即可
-    // // 存储所有绑定的机器，用于OCW轮询验证是否在线
-    // #[pallet::storage]
-    // #[pallet::getter(fn staking_machine)]
-    // pub(super) type StakingMachine<T> = StorageMap<_, Blake2_128Concat, MachineId, Vec<bool>, ValueQuery>;
-
-    // TODO: 存储到机器的所有信息的变量中
-    // // 存储ocw获取的机器打分信息
-    // // 与委员会的确认信息
-    // #[pallet::storage]
-    // #[pallet::getter(fn ocw_machine_grades)]
-    // pub type OCWMachineGrades<T: Config> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     MachineId,
-    //     ConfirmedMachine<T::AccountId, T::BlockNumber>,
-    //     ValueQuery,
-    // >;
-
-    // 存储到机器的所有信息中
-    // // 存储ocw获取的机器估价信息
-    // #[pallet::storage]
-    // #[pallet::getter(fn ocw_machine_price)]
-    // pub type OCWMachinePrice<T> = StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>;
 
     /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
@@ -772,8 +660,6 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> OCWOps for Pallet<T> {
-    // type AccountId = T::AccountId;
-    // type BlockNumber = T::BlockNumber;
     type MachineId = MachineId;
     type MachineInfo = MachineInfo<T::AccountId, T::BlockNumber>;
 

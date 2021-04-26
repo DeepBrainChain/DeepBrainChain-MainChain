@@ -1,3 +1,5 @@
+// 候选委员会不设置个数限制,满足质押，并且通过议案选举即可
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -12,7 +14,7 @@ use online_profile::types::*;
 use online_profile_machine::LCOps;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
-use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
+use sp_std::{collections::vec_deque::VecDeque, prelude::*, str, vec::Vec};
 
 mod committee;
 
@@ -83,9 +85,6 @@ pub mod pallet {
         type CommitteeMachine: LCOps<AccountId = Self::AccountId, MachineId = MachineId>;
 
         type OnlineProfile: LCOps<MachineId = MachineId>;
-
-        // #[pallet::constant]
-        // type CommitteeDuration: Get<EraIndex>;
     }
 
     #[pallet::pallet]
@@ -95,6 +94,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(block_number: T::BlockNumber) {
+            // TODO: 轮训是否已经有委员会的订单到期，如果到期
+            // 则对该成员进行惩罚。并从该委员会的列表中移除该任务
+
             // if Candidacy::<T>::get().len() > 0 && Committee::<T>::get().len() == 0 {
             //     Self::update_committee();
             //     return;
@@ -124,28 +126,18 @@ pub mod pallet {
     /// Minmum stake amount to become candidacy
     #[pallet::storage]
     #[pallet::getter(fn committee_min_stake)]
-    pub(super) type CommitteeMinStake<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+    pub(super) type CommitteeMinStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-    // 候选委员会不设置个数限制,满足质押，并且通过议案选举即可
-    // #[pallet::type_value]
-    // pub fn CandidacyLimitDefault<T: Config>() -> u32 {
-    //     20
-    // }
+    #[pallet::type_value]
+    pub fn ConfirmTimeLimitDefault<T: Config>() -> T::BlockNumber {
+        480u32.into()
+    }
 
-    // #[pallet::storage]
-    // #[pallet::getter(fn candidacy_limit)]
-    // pub(super) type CandidacyLimit<T: Config> =
-    //     StorageValue<_, u32, ValueQuery, CandidacyLimitDefault<T>>;
-
-    // #[pallet::type_value]
-    // pub fn CommitteeLimitDefault<T: Config>() -> u32 {
-    //     3
-    // }
-
-    // // 存储一个机器最多有多少委员会进行抢单验证
-    // #[pallet::storage]
-    // #[pallet::getter(fn committee_limit)] // pub(super) type CommitteeLimit<T: Config> =
-    //     StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
+    // 记录用户需要在book之后，多少个高度内完成确认
+    #[pallet::storage]
+    #[pallet::getter(fn confirm_time_limit)]
+    pub(super) type ConfirmTimeLimit<T: Config> =
+        StorageValue<_, T::BlockNumber, ValueQuery, ConfirmTimeLimitDefault<T>>;
 
     // candidacy, 一定的周期后，从中选出committee来进行机器的认证。
     #[pallet::storage]
@@ -181,30 +173,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    // // 添加item时使用binray_search
-    // #[pallet::storage]
-    // #[pallet::getter(fn committee_booking_list)]
-    // pub type CommitteeBookList<T: Config> =
-    //     StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
-
-    // // 存储第一阶段用户的Hash
-    // #[pallet::storage]
-    // #[pallet::getter(fn committee_hash)]
-    // pub type CommitteeHash<T: Config> =
-    //     StorageMap<_, Blake2_128Concat, MachineId, Vec<MachineId>, ValueQuery>;
-
-    // 存储第二阶段用户的Hash
-
-    // #[pallet::storage]
-    // #[pallet::getter(fn committee_booked_machine)]
-    // pub type BookedMachineInfo<T: Config> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     MachineId,
-    //     BookingItem<<T as frame_system::Config>::BlockNumber>,
-    //     ValueQuery,
-    // >;
-
     #[pallet::storage]
     #[pallet::getter(fn chill_list)]
     pub(super) type ChillList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
@@ -212,10 +180,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn black_list)]
     pub(super) type BlackList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn white_list)]
-    pub(super) type WhiteList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn committee_ledger)]
@@ -240,21 +204,6 @@ pub mod pallet {
             CommitteeMinStake::<T>::put(value);
             Ok(().into())
         }
-
-        // #[pallet::weight(0)]
-        // pub fn set_candidacy_limit(origin: OriginFor<T>, num: u32) -> DispatchResultWithPostInfo {
-        //     ensure_root(origin)?;
-        //     CandidacyLimit::<T>::put(num);
-
-        //     Ok(().into())
-        // }
-
-        // #[pallet::weight(0)]
-        // pub fn set_committee_limit(origin: OriginFor<T>, num: u32) -> DispatchResultWithPostInfo {
-        //     ensure_root(origin)?;
-        //     CommitteeLimit::<T>::put(num);
-        //     Ok(().into())
-        // }
 
         /// user can be candidacy by staking
         #[pallet::weight(10000)]
@@ -365,6 +314,60 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        pub fn add_black_list(
+            origin: OriginFor<T>,
+            member: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let mut members = BlackList::<T>::get();
+
+            match members.binary_search(&member) {
+                Ok(_) => Err(Error::<T>::AlreadyInBlackList.into()),
+                Err(index) => {
+                    members.insert(index, member.clone());
+                    BlackList::<T>::put(members);
+                    Self::deposit_event(Event::AddToBlackList(member));
+                    Ok(().into())
+                }
+            }
+        }
+
+        #[pallet::weight(0)]
+        pub fn rm_black_list(
+            origin: OriginFor<T>,
+            member: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let mut members = BlackList::<T>::get();
+            match members.binary_search(&member) {
+                Ok(index) => {
+                    members.remove(index);
+                    BlackList::<T>::put(members);
+                    Ok(().into())
+                }
+                Err(_) => Err(Error::<T>::NotInBlackList.into()),
+            }
+        }
+
+        // Root权限，将candidacy中的成员，添加到委员会
+        #[pallet::weight(0)]
+        pub fn add_committee(
+            origin: OriginFor<T>,
+            member: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let mut committee = Committee::<T>::get();
+            if let Err(index) = committee.binary_search(&member) {
+                committee.insert(index, member.clone());
+            }
+
+            Committee::<T>::put(committee);
+            Self::deposit_event(Event::CommitteeAdded(member));
+            Ok(().into())
+        }
+
         // 提前预订订单
         #[pallet::weight(10000)]
         pub fn book_one(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
@@ -420,119 +423,12 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
-        pub fn add_white_list(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            let mut members = WhiteList::<T>::get();
-            // 该用户不在黑名单中
-            let black_list = BlackList::<T>::get();
-            if let Ok(_) = black_list.binary_search(&member) {
-                return Err(Error::<T>::UserInBlackList.into());
-            }
-
-            match members.binary_search(&member) {
-                Ok(_) => Err(Error::<T>::AlreadyInWhiteList.into()),
-                Err(index) => {
-                    members.insert(index, member.clone());
-                    WhiteList::<T>::put(members);
-                    Self::deposit_event(Event::AddToWhiteList(member));
-                    Ok(().into())
-                }
-            }
-        }
-
-        #[pallet::weight(0)]
-        pub fn rm_white_list(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            let mut members = WhiteList::<T>::get();
-            match members.binary_search(&member) {
-                Ok(index) => {
-                    members.remove(index);
-                    WhiteList::<T>::put(members);
-                    Ok(().into())
-                }
-                Err(_) => Err(Error::<T>::NotInWhiteList.into()),
-            }
-        }
-
-        #[pallet::weight(0)]
-        pub fn add_black_list(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            let mut members = BlackList::<T>::get();
-            let white_list = WhiteList::<T>::get();
-            if let Ok(_) = white_list.binary_search(&member) {
-                return Err(Error::<T>::UserInWhiteList.into());
-            }
-
-            match members.binary_search(&member) {
-                Ok(_) => Err(Error::<T>::AlreadyInBlackList.into()),
-                Err(index) => {
-                    members.insert(index, member.clone());
-                    BlackList::<T>::put(members);
-                    Self::deposit_event(Event::AddToBlackList(member));
-                    Ok(().into())
-                }
-            }
-        }
-
-        #[pallet::weight(0)]
-        pub fn rm_black_list(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            let mut members = BlackList::<T>::get();
-            match members.binary_search(&member) {
-                Ok(index) => {
-                    members.remove(index);
-                    BlackList::<T>::put(members);
-                    Ok(().into())
-                }
-                Err(_) => Err(Error::<T>::NotInBlackList.into()),
-            }
-        }
-
-        // Root权限，将candidacy中的成员，添加到委员会
-        #[pallet::weight(0)]
-        pub fn add_committee(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            let mut committee = Committee::<T>::get();
-            if let Err(index) = committee.binary_search(&member) {
-                committee.insert(index, member.clone());
-            }
-
-            Committee::<T>::put(committee);
-            Self::deposit_event(Event::CommitteeAdded(member));
-            Ok(().into())
-        }
-
-        // // 重新选择一组委员会
-        // #[pallet::weight(0)]
-        // pub fn reelection_committee(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-        //     ensure_root(origin)?;
-        //     Self::update_committee();
-        //     Ok(().into())
-        // }
-
         // 添加确认hash
         #[pallet::weight(10000)]
         fn add_confirm_hash(
             origin: OriginFor<T>,
             machine_id: MachineId,
-            hash: Vec<u8>,
+            hash: [u8; 16],
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -552,7 +448,9 @@ pub mod pallet {
                 committee_machine.booked_machine.remove(index);
 
                 if let Err(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
-                    committee_machine.hashed_machine.insert(index, hash);
+                    committee_machine
+                        .hashed_machine
+                        .insert(index, machine_id.clone());
                 }
             } else {
                 return Ok(().into());
@@ -575,8 +473,7 @@ pub mod pallet {
 
             committee_ops_detail.machine_status = MachineStatus::Hashed;
             committee_ops_detail.hash_time = <frame_system::Module<T>>::block_number();
-            // TODO: 添加hash [u8; 16];
-            // committee_ops_detail.confirm_hash = "";
+            committee_ops_detail.confirm_hash = hash;
 
             CommitteeMachineOpsDetail::<T>::insert(&who, &machine_id, committee_ops_detail);
 
@@ -584,18 +481,10 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        fn add_confirm_raw(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            Ok(().into())
-        }
-
-        /// TODO: committee confirm machine grade
-        #[pallet::weight(10000)]
-        pub fn confirm_machine_grades(
+        fn submit_confirm_raw(
             origin: OriginFor<T>,
             machine_id: MachineId,
-            confirm: bool,
+            confirm_raw: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -608,50 +497,32 @@ pub mod pallet {
                 Error::<T>::NotInBookList
             );
 
-            // let machine_grades = online_profile::OCWMachineGrades::<T>::get(machine_id.clone());
-            // TODO: 检查是否已经验证过了
-            // TODO: 检查是否已经过了验证时间
-            // TODO: 委员会将提交一串Hash函数，在所有委员会都通过之后，再提交原始信息，证明自己的结果
-            // for a_machine_info in &machine_meta.committee_confirm {
-            //     if a_machine_info.committee == who {
-            //         return Err(Error::<T>::CommitteeConfirmedYet.into());
-            //     }
-            // }
+            // 确保所有的委员会已经提交了hash, 修改委员会参数
+            // 检查，必须在三个确认Hash都完成之后，才能进行
+            let machine_committee = Self::machine_committee(&machine_id);
+            ensure!(
+                machine_committee.hashed_committee.len() == 3,
+                Error::<T>::NotAllHashSubmited
+            );
 
-            T::CommitteeMachine::confirm_machine_grade(who, machine_id.clone(), confirm);
+            // 保存用户的raw confirm
+            let mut committee_ops = Self::committee_machine_ops_detail(&who, &machine_id);
+
+            // TODO: 确保还没有提交过raw
+            // 确保raw的hash与原始hash一致
+            ensure!(
+                Self::hash_is_identical(&confirm_raw, committee_ops.confirm_hash),
+                Error::<T>::HashIsNotIdentical
+            );
+
+            committee_ops.machine_status = MachineStatus::Confirmed;
+            committee_ops.confirm_raw = confirm_raw;
+            committee_ops.confirm_time = <frame_system::Module<T>>::block_number();
+
+            CommitteeMachineOpsDetail::<T>::insert(&who, &machine_id, committee_ops);
 
             Ok(().into())
         }
-
-        // #[pallet::weight(0)]
-        // pub fn set_machine_grade(
-        //     origin: OriginFor<T>,
-        //     machine_id: MachineId,
-        //     grade: u64,
-        // ) -> DispatchResultWithPostInfo {
-        //     let _ = ensure_root(origin);
-
-        //     if !online_profile::MachineDetail::<T>::contains_key(&machine_id) {
-        //         // TODO: 通过trait进行修改
-        //         online_profile::MachineDetail::<T>::insert(
-        //             &machine_id,
-        //             MachineMeta {
-        //                 machine_price: 0,
-        //                 machine_grade: grade,
-        //                 committee_confirm: vec![],
-        //             },
-        //         );
-        //         return Ok(().into());
-        //     }
-
-        //     let mut machine_detail = online_profile::MachineDetail::<T>::get(&machine_id);
-        //     machine_detail.machine_grade = grade;
-        //     online_profile::MachineDetail::<T>::insert(&machine_id, machine_detail);
-
-        //     Ok(().into())
-        // }
-
-        // TODO: 增加root操作未被委员会最终确认的机器
     }
 
     #[pallet::event]
@@ -691,21 +562,68 @@ pub mod pallet {
         NotInBookList,
         BookFailed,
         AlreadySubmitHash,
+        StatusNotAllowedSubmitHash,
+        NotAllHashSubmited,
+        HashIsNotIdentical,
     }
 }
 
 impl<T: Config> Pallet<T> {
-    // fn book_one_item(who: &T::AccountId, machine_id: MachineId) -> DispatchResult {
-    //     let booking_queue_id = T::CommitteeMachine::booking_queue_id();
+    // 根据book_amount决定委员会book的数量
+    fn book_machines(
+        who: &T::AccountId,
+        machine_id: MachineId,
+        book_amount: usize,
+    ) -> DispatchResult {
+        // TODO: 1. 从online-profile中获取需要订阅的列表
+        let live_machines = <online_profile::Pallet<T>>::live_machines();
+        let bonding_machine = live_machines.bonding_machine;
+        if bonding_machine.len() == 0 {
+            return Ok(());
+        }
 
-    //     // TODO: not work here
-    //     // ensure!(
-    //     //     booking_queue_id.contains_key(&machine_id),
-    //     //     Error::<T>::NotInBookingList
-    //     // );
+        let mut booked_machine = Vec::new();
 
-    //     Ok(())
-    // }
+        // TODO: 查询用户是否已经给该机器打过分
+        for a_machine_id in bonding_machine.iter() {
+            let machine_committee = Self::machine_committee(&machine_id);
+
+            if let Ok(_) = machine_committee.booked_committee.binary_search(who) {
+                continue;
+            }
+            if let Ok(_) = machine_committee.hashed_committee.binary_search(who) {
+                continue;
+            }
+
+            if let Err(index) = booked_machine.binary_search(&a_machine_id) {
+                booked_machine.insert(index, a_machine_id);
+            }
+
+            if booked_machine.len() == book_amount {
+                break;
+            }
+        }
+
+        // 遍历，没有找到可以订阅的机器
+        if booked_machine.len() == 0 {
+            return Ok(());
+        }
+
+        // TODO: 依次更改存储
+        // 1. 更改 online-profile中的存储
+
+        // 2. 更改本模块的存储
+
+        // let booking_queue_id = T::CommitteeMachine::booking_queue_id();
+
+        // TODO: not work here
+        // ensure!(
+        //     booking_queue_id.contains_key(&machine_id),
+        //     Error::<T>::NotInBookingList
+        // );
+
+        Ok(())
+    }
 
     fn is_candidacy(who: &T::AccountId) -> bool {
         let candidacy = Self::candidacy();
@@ -723,11 +641,10 @@ impl<T: Config> Pallet<T> {
         return false;
     }
 
-    // TODO: 实现该函数
-    fn hash_is_identical() -> bool {
-        let hash: [u8; 16] = blake2_128(&b"Hello world!"[..]);
-
-        true
+    fn hash_is_identical(raw_input: &Vec<u8>, hash: [u8; 16]) -> bool {
+        // let hash: [u8; 16] = blake2_128(&b"Hello world!"[..]);
+        let raw_hash: [u8; 16] = blake2_128(raw_input);
+        return raw_hash == hash;
     }
 
     fn add_book_list(who: T::AccountId, machine_id: MachineId) {
@@ -777,31 +694,6 @@ impl<T: Config> Pallet<T> {
             Err(_) => Err(Error::<T>::NotCandidacy.into()),
         }
     }
-
-    // // 产生一组随机的审核委员会，并更新
-    // // TODO: 排除黑名单用户，增加白名单用户
-    // fn update_committee() {
-    //     let mut candidacy = Candidacy::<T>::get();
-    //     let committee_num = CommitteeLimit::<T>::get();
-    //     let mut next_group = Vec::new();
-
-    //     if candidacy.len() == 0 {
-    //         return;
-    //     }
-    //     if candidacy.len() as u32 <= committee_num {
-    //         Committee::<T>::put(candidacy);
-    //         return;
-    //     }
-
-    //     for _ in 0..committee_num {
-    //         // TODO: 测试是否可以这样调用吗
-    //         let committee_index = <random_num::Module<T>>::random_u32(candidacy.len() as u32 - 1);
-    //         next_group.push(candidacy[committee_index as usize].clone());
-    //         candidacy.remove(committee_index as usize);
-    //     }
-
-    //     Committee::<T>::put(next_group);
-    // }
 
     fn update_ledger(
         controller: &T::AccountId,

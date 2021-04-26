@@ -182,6 +182,7 @@ pub mod pallet {
             ensure_none(origin)?;
 
             let live_machines = <online_profile::Pallet<T>>::live_machines();
+            // TODO: 当查询成功之后，必须要将bonding_queue_id 从bonding_machine变量中移除
             let bonding_queue_id = live_machines.bonding_machine;
             let request_limit = RequestLimit::<T>::get();
             let machine_info_url = MachineInfoRandURL::<T>::get();
