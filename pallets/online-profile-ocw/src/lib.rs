@@ -182,6 +182,7 @@ pub mod pallet {
             ensure_none(origin)?;
 
             let live_machines = <online_profile::Pallet<T>>::live_machines();
+
             // TODO: 当查询成功之后，必须要将bonding_queue_id 从bonding_machine变量中移除
             let bonding_queue_id = live_machines.bonding_machine;
             let request_limit = RequestLimit::<T>::get();
@@ -192,8 +193,9 @@ pub mod pallet {
             for machine_id in bonding_queue_id.iter() {
                 let mut machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
 
-                let mut machine_grade = Vec::new();
-                let mut appraisal_price: Vec<u64> = vec![];
+                // let mut machine_grade = Vec::new();
+                // let mut appraisal_price: Vec<u64> = vec![];
+                let mut gpu_num = Vec::new();
 
                 // 该machine_id请求次数已经超过了限制
                 if machine_info.bonding_requests > request_limit {
@@ -231,42 +233,42 @@ pub mod pallet {
                         break;
                     }
 
-                    let grades = &ocw_machine_info.data.grades;
-                    machine_grade.push(MachineGradeDetail {
-                        cpu: grades.cpu,
-                        disk: grades.cpu,
-                        gpu: grades.gpu,
-                        mem: grades.mem,
-                        net: grades.net,
-                    });
+                    // TODO: 转为数字
+                    let a_gpu_num = str::from_utf8(&ocw_machine_info.data.gpu.num);
+                    if let Err(e) = a_gpu_num {
+                        debug::error!("Convert u8 to str failed: {:?}", e);
+                        continue;
+                    }
+                    let a_gpu_num = a_gpu_num.unwrap();
+                    let a_gpu_num: u32 = match a_gpu_num.parse() {
+                        Ok(num) => num,
+                        Err(e) => {
+                            debug::error!("Convert str to u32 failed: {:?}", e);
+                            continue;
+                        }
+                    };
 
-                    appraisal_price.push(ocw_machine_info.data.appraisal_price);
+                    gpu_num.push(a_gpu_num);
                 }
 
                 // 机器ID完成了一次OCW请求之后，应该+1
                 machine_info.bonding_requests += 1;
 
-                // 检查OCW信息是否一致
-                if !Self::vec_all_same(&machine_grade) || !Self::vec_all_same(&appraisal_price) {
-                    debug::info!(
-                        "ocw_machine_grade: {:?} or ocw_machine_price: {:?} inconsistent:",
-                        &machine_grade,
-                        &appraisal_price
-                    );
-                    break;
-                } else {
-                    machine_info.grade_detail = online_profile::MachineGradeDetail {
-                        cpu: machine_grade[0].cpu,
-                        disk: machine_grade[0].disk,
-                        gpu: machine_grade[0].gpu,
-                        mem: machine_grade[0].mem,
-                        net: machine_grade[0].net,
-                    };
-                    machine_info.ocw_machine_price = appraisal_price[0];
-                }
-
                 T::OnlineProfile::update_machine_info(&machine_id, machine_info);
             }
+
+            Ok(().into())
+        }
+
+        // 用于提交机器是否在线的交易
+        // TODO: 当接收到机器不在线的交易后，OCW开启工作，进行验证机器在线信息
+        #[pallet::weight(0)]
+        fn submit_machine_online(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            let reposter = ensure_signed(origin)?;
+            let report_time = <frame_system::Module<T>>::block_number();
 
             Ok(().into())
         }

@@ -128,6 +128,7 @@ pub mod pallet {
     #[pallet::getter(fn committee_min_stake)]
     pub(super) type CommitteeMinStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+    // 设定委员会审查所需时间，单位：块高
     #[pallet::type_value]
     pub fn ConfirmTimeLimitDefault<T: Config>() -> T::BlockNumber {
         480u32.into()
@@ -192,14 +193,12 @@ pub mod pallet {
     >;
 
     #[pallet::call]
+    #[rustfmt::skip]
     impl<T: Config> Pallet<T> {
         // 设置committee的最小质押
         /// set min stake to become candidacy
         #[pallet::weight(0)]
-        pub fn set_min_stake(
-            origin: OriginFor<T>,
-            value: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_min_stake(origin: OriginFor<T>, value: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             CommitteeMinStake::<T>::put(value);
             Ok(().into())
@@ -207,22 +206,13 @@ pub mod pallet {
 
         /// user can be candidacy by staking
         #[pallet::weight(10000)]
-        pub fn stake_for_candidacy(
-            origin: OriginFor<T>,
-            value: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn stake_for_candidacy(origin: OriginFor<T>, value: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
             // 质押数量应该不小于最小质押要求
-            ensure!(
-                value >= Self::committee_min_stake(),
-                Error::<T>::StakeNotEnough
-            );
+            ensure!(value >= Self::committee_min_stake(), Error::<T>::StakeNotEnough);
             // 检查用户余额
-            ensure!(
-                value < <T as Config>::Currency::free_balance(&who),
-                Error::<T>::FreeBalanceNotEnough
-            );
+            ensure!(value < <T as Config>::Currency::free_balance(&who), Error::<T>::FreeBalanceNotEnough);
 
             // 该用户不是候选委员会, 且不是委员会成员
             ensure!(!Self::is_candidacy(&who), Error::<T>::AlreadyCandidacy);
@@ -252,6 +242,8 @@ pub mod pallet {
         }
 
         // 取消作为验证人,并执行unbond
+        // 如果用户不在委员会列表，则可以直接退出
+        // 如果在委员会列表，**检查是否有任务**，如果没有则可以退出。
         #[pallet::weight(10000)]
         pub fn chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -259,6 +251,8 @@ pub mod pallet {
             let mut chill_list = Self::chill_list();
             let committee = Self::committee();
             let candidacy = Self::candidacy();
+
+            // TODO: 检查逻辑
 
             // 确保调用该方法的用户已经在候选委员会列表
             ensure!(candidacy.contains(&who), Error::<T>::NotCandidacy);
@@ -315,10 +309,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn add_black_list(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
+        pub fn add_black_list(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut members = BlackList::<T>::get();
 
@@ -334,10 +325,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn rm_black_list(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
+        pub fn rm_black_list(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut members = BlackList::<T>::get();
             match members.binary_search(&member) {
@@ -352,10 +340,7 @@ pub mod pallet {
 
         // Root权限，将candidacy中的成员，添加到委员会
         #[pallet::weight(0)]
-        pub fn add_committee(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
+        pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             let mut committee = Committee::<T>::get();

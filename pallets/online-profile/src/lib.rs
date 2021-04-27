@@ -1,6 +1,7 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::HasCompact;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
@@ -8,7 +9,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{LCOps, OCWOps};
-use sp_runtime::traits::{CheckedSub, Zero};
+use sp_runtime::traits::{CheckedMul, CheckedSub, Zero};
 use sp_std::{
     collections::btree_map::BTreeMap, collections::btree_set::BTreeSet,
     collections::vec_deque::VecDeque, prelude::*, str,
@@ -35,24 +36,26 @@ pub const ConfirmGradeLimit: usize = 3;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber> {
     pub machine_owner: AccountId,
+    pub gpu_num: u64,
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
     pub bonding_requests: u64,       // 记录机器绑定请求次数，避免绑定错误/无效的机器ID
     pub machine_status: MachineStatus,
     pub ocw_machine_grades: BTreeMap<AccountId, OCWMachineGrade<AccountId, BlockNumber>>, //记录委员会提交的机器打分
-    pub ocw_machine_price: u64,           // 记录OCW获取的机器的价格信息
-    pub machine_grade: u64,               // 记录根据规则膨胀之后的得分
-    pub grade_detail: MachineGradeDetail, //记录OCW获取的机器打分信息
+                                                                                          // pub ocw_machine_price: u64, // 记录OCW获取的机器的价格信息
+                                                                                          // pub machine_grade: u64,     // 记录根据规则膨胀之后的得分
+                                                                                          // pub grade_detail: MachineGradeDetail, //记录OCW获取的机器打分信息
 }
 
-// 存储OCW获取到的机器配置各项打分
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, Copy)]
-pub struct MachineGradeDetail {
-    pub cpu: u64,
-    pub disk: u64,
-    pub gpu: u64,
-    pub mem: u64,
-    pub net: u64,
-}
+// // 存储OCW获取到的机器配置各项打分
+// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, Copy)]
+// pub struct MachineGradeDetail {
+//     pub gpu_num: u64, // OCW获取到的机器GPU数量
+//     pub cpu: u64,     // 其余为得分
+//     pub disk: u64,
+//     pub gpu: u64,
+//     pub mem: u64,
+//     pub net: u64,
+// }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineStatus {
@@ -87,6 +90,38 @@ pub struct LiveMachine {
     pub booked_machine: Vec<MachineId>,
     pub waiting_hash: Vec<MachineId>, // 当全部委员会添加了全部confirm hash之后，机器添加到waiting_hash，这时，用户可以添加confirm_raw
     pub bonded_machine: Vec<MachineId>, // 当全部委员会添加了confirm_raw之后，机器被成功绑定，变为bonded_machine状态
+}
+
+impl LiveMachine {
+    // 检查machine_id是否存
+    fn machine_id_exist(&self, machine_id: &MachineId) -> bool {
+        if let Ok(_) = self.bonding_machine.binary_search(machine_id) {
+            return true;
+        }
+        if let Ok(_) = self.ocw_confirmed_machine.binary_search(machine_id) {
+            return true;
+        }
+        if let Ok(_) = self.booked_machine.binary_search(machine_id) {
+            return true;
+        }
+        if let Ok(_) = self.waiting_hash.binary_search(machine_id) {
+            return true;
+        }
+        if let Ok(_) = self.bonded_machine.binary_search(machine_id) {
+            return true;
+        }
+        false
+    }
+    fn add_machine_id(a_field: &mut Vec<MachineId>, machine_id: MachineId) {
+        if let Err(index) = a_field.binary_search(&machine_id) {
+            a_field.insert(index, machine_id);
+        }
+    }
+    fn rm_machine_id(a_field: &mut Vec<MachineId>, machine_id: MachineId) {
+        if let Ok(index) = a_field.binary_search(&machine_id) {
+            a_field.remove(index);
+        }
+    }
 }
 
 type BalanceOf<T> =
@@ -132,8 +167,8 @@ pub mod pallet {
 
     // 存储机器的最小质押量，单位DBC
     #[pallet::storage]
-    #[pallet::getter(fn min_stake)]
-    pub(super) type MinStake<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+    #[pallet::getter(fn stake_per_gpu)]
+    pub(super) type StakePerGPU<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     // 机器的详细信息,只有当所有奖励领取完才能删除该变量?
     /// MachineDetail
@@ -160,13 +195,13 @@ pub mod pallet {
     /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
     #[pallet::getter(fn ledger)]
-    pub(super) type Ledger<T> = StorageDoubleMap<
+    pub(super) type Ledger<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        <T as frame_system::Config>::AccountId,
+        T::AccountId,
         Blake2_128Concat,
         MachineId,
-        Option<StakingLedger<<T as frame_system::Config>::AccountId, BalanceOf<T>>>,
+        Option<StakingLedger<T::AccountId, BalanceOf<T>>>,
         ValueQuery,
     >;
 
@@ -206,44 +241,53 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+
+        // 设置单卡质押数量
         #[pallet::weight(0)]
-        pub fn set_min_stake(origin: OriginFor<T>, new_min_stake: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn set_gpu_stake(origin: OriginFor<T>, stake_per_gpu: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            MinStake::<T>::put(new_min_stake);
+            StakePerGPU::<T>::put(stake_per_gpu);
             Ok(().into())
         }
 
         // TODO: 如果验证结果发现，绑定者与机器钱包地址不一致，则进行惩罚
         // TODO: era结束时重新计算得分, 如果有会影响得分的改变，放到列表中，等era结束进行计算
 
-        // 将machine_id添加到绑定队列
+        // 将machine_id添加到绑定队列,
         /// Bonding machine only remember caller-machine_id pair.
         /// OCW will check it and record machine info.
         #[pallet::weight(10000)]
-        fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, bond_amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, gpu_num: u32) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
+            let bond_amount = Self::stake_per_gpu() * gpu_num.into();
+
+            // let bond_amount = Self::stake_per_gpu().checked_mul(gpu_num.try_into().ok().unwrap()).ok_or_else();
+
+            // let stake_per_gpu = Self::stake_per_gpu();
+
             // 资金检查
-            ensure!(bond_amount >= MinStake::<T>::get(), Error::<T>::StakeNotEnough);
+            // ensure!(bond_amount >= StakePerGPU::<T>::get(), Error::<T>::StakeNotEnough);
             ensure!(<T as Config>::Currency::free_balance(&controller) > bond_amount, Error::<T>::BalanceNotEnough);
             ensure!(bond_amount >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
+            // 确保机器还没有被绑定过
+            let mut live_machines = Self::live_machines();
+            ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
 
-            // TODO: 更改函数返回类型
-            ensure!(!Self::machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
-
-            // TODO: 增加修改三个变量的Event
             // 添加到用户的机器列表
             let mut user_machines = Self::user_machines(&controller);
             if let Err(index) = user_machines.binary_search(&machine_id) {
                 user_machines.insert(index, machine_id.clone());
+                UserMachines::<T>::insert(&controller, user_machines);
             } else {
                 return Err(Error::<T>::MachineInUserBonded.into());
             }
 
-            // 添加到LiveMachine
-            Self::add_bonding_machine(machine_id.clone());
+            // 添加到LiveMachine的bonding_machine字段
+            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
+            LiveMachines::<T>::put(live_machines);
 
-            // 添加到MachinesInfo
+            // 初始化MachineInfo, 并添加到MachinesInfo
             let machine_info = MachineInfo {
                 machine_owner: controller.clone(),
                 bonding_height: <frame_system::Module<T>>::block_number(),
@@ -272,38 +316,36 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // #[pallet::weight(10000)]
-        // fn bond_extra(
-        //     origin: OriginFor<T>,
-        //     machine_id: MachineId,
-        //     max_additional: BalanceOf<T>,
-        // ) -> DispatchResultWithPostInfo {
-        //     let controller = ensure_signed(origin)?;
+        // 当用户被罚款后，需要补充质押金额
+        #[pallet::weight(10000)]
+        fn bond_extra(origin: OriginFor<T>, machine_id: MachineId, max_additional: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
 
-        //     let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
-        //     let user_balance = T::Currency::free_balance(&controller);
+            let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
+            let user_balance = T::Currency::free_balance(&controller);
 
-        //     if let Some(extra) = user_balance.checked_sub(&ledger.total) {
-        //         let extra = extra.min(max_additional);
-        //         ledger.total += extra;
-        //         ledger.active += extra;
+            if let Some(extra) = user_balance.checked_sub(&ledger.total) {
+                let extra = extra.min(max_additional);
+                ledger.total += extra;
+                ledger.active += extra;
 
-        //         ensure!(
-        //             ledger.active >= T::Currency::minimum_balance(),
-        //             Error::<T>::InsufficientValue
-        //         );
+                ensure!(
+                    ledger.active >= T::Currency::minimum_balance(),
+                    Error::<T>::InsufficientValue
+                );
 
-        //         Self::deposit_event(Event::AddBonded(
-        //             controller.clone(),
-        //             machine_id.clone(),
-        //             extra,
-        //         ));
-        //         Self::update_ledger(&controller, &machine_id, &ledger);
-        //     }
+                Self::deposit_event(Event::AddBonded(
+                    controller.clone(),
+                    machine_id.clone(),
+                    extra,
+                ));
+                Self::update_ledger(&controller, &machine_id, &ledger);
+            }
 
-        //     Ok(().into())
-        // }
+            Ok(().into())
+        }
 
+        // 当用户想要机器从中退出时，可以调用unbond，来取出质押的金额
         #[pallet::weight(10000)]
         fn unbond(origin: OriginFor<T>, machine_id: MachineId, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
@@ -330,6 +372,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 当存在unbond金额时，到期后，用户可以取出该金额
         #[pallet::weight(10000)]
         fn withdraw_unbonded(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
@@ -468,78 +511,6 @@ impl<T: Config> Pallet<T> {
 
     // TODO: 在这四个函数中，更新machine的状态
 
-    // 如果在booked_machine中，则从中删除
-    // 添加到bonding_machine中
-    fn add_bonding_machine(id: MachineId) {
-        let mut live_machines = Self::live_machines();
-        if let Ok(index) = live_machines.booked_machine.binary_search(&id) {
-            live_machines.booked_machine.remove(index);
-        }
-        if let Err(index) = live_machines.bonding_machine.binary_search(&id) {
-            live_machines.bonding_machine.insert(index, id)
-        }
-        LiveMachines::<T>::put(live_machines);
-    }
-
-    // 如果存在于bonding_machine中，则从中删掉
-    // 添加到booked_machine中
-    pub fn add_booked_machine(id: MachineId) {
-        let mut live_machines = Self::live_machines();
-        if let Ok(index) = live_machines.bonding_machine.binary_search(&id) {
-            live_machines.bonding_machine.remove(index);
-        }
-        if let Err(index) = live_machines.booked_machine.binary_search(&id) {
-            live_machines.booked_machine.insert(index, id);
-        }
-        LiveMachines::<T>::put(live_machines);
-    }
-
-    // 如果存在于booked_machine中，则从中删除
-    // 添加到waiting_hash中
-    fn add_waiting_hash(id: MachineId) {
-        let mut live_machines = Self::live_machines();
-        if let Ok(index) = live_machines.booked_machine.binary_search(&id) {
-            live_machines.booked_machine.remove(index);
-        }
-        if let Err(index) = live_machines.waiting_hash.binary_search(&id) {
-            live_machines.waiting_hash.insert(index, id);
-        }
-        LiveMachines::<T>::put(live_machines);
-    }
-
-    // 如果存在于waiting_hash中，则从中删除
-    // 添加到bonded_machine中
-    fn add_bonded_machine(id: MachineId) {
-        let mut live_machines = Self::live_machines();
-        if let Ok(index) = live_machines.waiting_hash.binary_search(&id) {
-            live_machines.waiting_hash.remove(index);
-        }
-        if let Err(index) = live_machines.bonded_machine.binary_search(&id) {
-            live_machines.bonded_machine.insert(index, id);
-        }
-        LiveMachines::<T>::put(live_machines);
-    }
-
-    // TODO: 改成返回错误或者Ok
-    // 查询是否存在于活跃的机器列表中
-    fn machine_id_exist(id: &MachineId) -> bool {
-        let live_machines = Self::live_machines();
-
-        if let Ok(_) = live_machines.bonding_machine.binary_search(id) {
-            return true;
-        }
-        if let Ok(_) = live_machines.booked_machine.binary_search(id) {
-            return true;
-        }
-        if let Ok(_) = live_machines.waiting_hash.binary_search(id) {
-            return true;
-        }
-        if let Ok(_) = live_machines.bonded_machine.binary_search(id) {
-            return true;
-        }
-        return false;
-    }
-
     // Update min_stake_dbc every block end
     fn update_min_stake_dbc() {
         // TODO: 1. 获取DBC价格
@@ -609,6 +580,12 @@ impl<T: Config> Pallet<T> {
         // grade_inflation::compute_stake_grades(machine_price, staked_in, machine_grade)
     }
 
+    fn add_daily_reward(controller: T::AccountId, machine_id: MachineId, amount: BalanceOf<T>) {
+        let mut ledger = Self::ledger(&controller, &machine_id);
+        // TODO: 将amount 的25%直接添加到用户的资金
+        // TODO：75%添加到用户的剩下150天的余额中
+    }
+
     // 更新用户的质押的ledger
     fn update_ledger(
         controller: &T::AccountId,
@@ -664,14 +641,14 @@ impl<T: Config> LCOps for Pallet<T> {
             confirmed_committee.push(a_committee);
         }
 
-        if confirmed_committee.len() == ConfirmGradeLimit {
-            Self::add_waiting_hash(machine_id);
-        } else {
-            Self::add_bonding_machine(machine_id);
-        }
+        // if confirmed_committee.len() == ConfirmGradeLimit {
+        //     Self::add_waiting_hash(machine_id);
+        // } else {
+        //     Self::add_bonding_machine(machine_id);
+        // }
     }
 
     fn lc_add_booked_machine(id: MachineId) {
-        Self::add_booked_machine(id);
+        // Self::add_booked_machine(id);
     }
 }

@@ -1,5 +1,41 @@
 {
-  "MachineId": "Text",
   "PriceURL": "Text",
-  "URL": "Text"
+  "URL": "Text",
+  "MachineId": "Text",
+  "LiveMachine": {
+    "bonding_machine": "Vec<MachineId>",
+    "ocw_confirmed_machine": "Vec<MachineId>",
+    "booked_machine": "Vec<MachineId>",
+    "waiting_hash": "Vec<MachineId>",
+    "bonded_machine": "Vec<MachineId>"
+  },
+  "BlockNumber": "u32",
+  "MachineInfo": {
+    "machine_owner": "AccountId",
+    "gpu_num": "u64",
+    "bonding_height": "BlockNumber",
+    "bonding_requests": "u64",
+    "machine_status": "MachineStatus",
+    "ocw_machine_grades": "BTreeMap<AccountId, OCWMachineGrade>",
+    "ocw_machine_price": "u64",
+    "machine_grade": "u64",
+    "grade_detail": "MachineGradeDetail"
+  },
+  "MachineGradeDetail": {
+    "gpu_num": "u64",
+    "cpu": "u64",
+    "disk": "u64",
+    "gpu": "u64",
+    "mem": "u64",
+    "net": "u64"
+  },
+  "MachineStatus": {
+    "_enum": ["Bonding", "Booked", "WaitingHash", "Bonded"]
+  },
+  "OCWMachineGrade": {
+    "committee": "AccountId",
+    "confirm_time": "BlockNumber",
+    "grade": "u64",
+    "is_confirmed": "bool"
+  }
 }
