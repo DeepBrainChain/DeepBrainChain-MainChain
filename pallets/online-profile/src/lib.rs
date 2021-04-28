@@ -16,6 +16,7 @@ use sp_std::{
 };
 
 pub mod grade_inflation;
+pub mod machine_info;
 pub mod types;
 use types::*;
 
@@ -30,32 +31,16 @@ mod tests;
 pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 
-// 需要多少个委员会给机器打分
-pub const ConfirmGradeLimit: usize = 3;
-
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber> {
     pub machine_owner: AccountId,
-    pub gpu_num: u64,
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
     pub bonding_requests: u64,       // 记录机器绑定请求次数，避免绑定错误/无效的机器ID
     pub machine_status: MachineStatus,
-    pub ocw_machine_grades: BTreeMap<AccountId, OCWMachineGrade<AccountId, BlockNumber>>, //记录委员会提交的机器打分
-                                                                                          // pub ocw_machine_price: u64, // 记录OCW获取的机器的价格信息
-                                                                                          // pub machine_grade: u64,     // 记录根据规则膨胀之后的得分
-                                                                                          // pub grade_detail: MachineGradeDetail, //记录OCW获取的机器打分信息
+    pub ocw_machine_info: machine_info::OCWMachineInfo,
+    pub machine_grade: u64,
+    pub committee_confirm: BTreeMap<AccountId, CommitteeConfirmation<AccountId, BlockNumber>>, //记录委员会提交的机器打分
 }
-
-// // 存储OCW获取到的机器配置各项打分
-// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, Copy)]
-// pub struct MachineGradeDetail {
-//     pub gpu_num: u64, // OCW获取到的机器GPU数量
-//     pub cpu: u64,     // 其余为得分
-//     pub disk: u64,
-//     pub gpu: u64,
-//     pub mem: u64,
-//     pub net: u64,
-// }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineStatus {
@@ -66,10 +51,10 @@ pub enum MachineStatus {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub struct OCWMachineGrade<AccountId, BlockNumber> {
+pub struct CommitteeConfirmation<AccountId, BlockNumber> {
     pub committee: AccountId,
     pub confirm_time: BlockNumber,
-    pub grade: u64,
+    // pub grade: u64,
     pub is_confirmed: bool,
 }
 
@@ -161,9 +146,29 @@ pub mod pallet {
         150
     }
 
+
+    // OCW获取机器信息时，超时次数
     #[pallet::storage]
     pub(super) type ProfitReleaseDuration<T: Config> =
         StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
+
+    #[pallet::type_value]
+    pub fn RequestLimitDefault<T: Config>() -> u32 {
+        3
+    }
+
+    // 设置允许有多少个委员会, 提交信息
+    #[pallet::storage]
+    pub type RequestLimit<T: Config> = StorageValue<_, u32, ValueQuery, RequestLimitDefault<T>>;
+
+    #[pallet::type_value]
+    pub fn CommitteeLimitDefault<T: Config>() -> u32 {
+        3
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn committee_limit)]
+    pub type CommitteeLimit<T: Config> = StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
 
     // 存储机器的最小质押量，单位DBC
     #[pallet::storage]
@@ -195,7 +200,7 @@ pub mod pallet {
     /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
     #[pallet::getter(fn ledger)]
-    pub(super) type Ledger<T: Config> = StorageDoubleMap<
+    pub type Ledger<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
@@ -241,6 +246,19 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::weight(0)]
+        pub fn set_request_limit(origin: OriginFor<T>, limit: u32) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            RequestLimit::<T>::put(limit);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_committee_limit(origin: OriginFor<T>, limit: u32) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            CommitteeLimit::<T>::put(limit);
+            Ok(().into())
+        }
 
         // 设置单卡质押数量
         #[pallet::weight(0)]
@@ -257,14 +275,10 @@ pub mod pallet {
         /// Bonding machine only remember caller-machine_id pair.
         /// OCW will check it and record machine info.
         #[pallet::weight(10000)]
-        fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, gpu_num: u32) -> DispatchResultWithPostInfo {
+        pub fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, gpu_num: u32) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            let bond_amount = Self::stake_per_gpu() * gpu_num.into();
-
-            // let bond_amount = Self::stake_per_gpu().checked_mul(gpu_num.try_into().ok().unwrap()).ok_or_else();
-
-            // let stake_per_gpu = Self::stake_per_gpu();
+            let bond_amount = Self::stake_per_gpu() * gpu_num.into(); // TODO: 改为checked_mul
 
             // 资金检查
             // ensure!(bond_amount >= StakePerGPU::<T>::get(), Error::<T>::StakeNotEnough);
@@ -345,6 +359,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // TODO: 确定退出时机
         // 当用户想要机器从中退出时，可以调用unbond，来取出质押的金额
         #[pallet::weight(10000)]
         fn unbond(origin: OriginFor<T>, machine_id: MachineId, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
@@ -418,34 +433,6 @@ pub mod pallet {
         //     // let _ = <T as Config>::Currency::deposit_into_existing(&user, reward_to_payout).ok();
 
         //     // <UserPayoutEraIndex<T>>::insert(user, current_era);
-        //     Ok(().into())
-        // }
-
-        // TODO: 委员会通过lease-committee设置机器价格
-        // #[pallet::weight(0)]
-        // pub fn set_machine_price(
-        //     origin: OriginFor<T>,
-        //     machine_id: MachineId,
-        //     machine_price: u64,
-        // ) -> DispatchResultWithPostInfo {
-        //     let _ = ensure_root(origin)?;
-
-        //     if !MachineDetail::<T>::contains_key(&machine_id) {
-        //         MachineDetail::<T>::insert(
-        //             &machine_id,
-        //             MachineMeta {
-        //                 machine_price: machine_price,
-        //                 machine_grade: 0,
-        //                 committee_confirm: vec![],
-        //             },
-        //         );
-        //         return Ok(().into());
-        //     }
-
-        //     let mut machine_detail = MachineDetail::<T>::get(&machine_id);
-        //     machine_detail.machine_price = machine_price;
-
-        //     MachineDetail::<T>::insert(&machine_id, machine_detail);
         //     Ok(().into())
         // }
     }
@@ -602,6 +589,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
+// online-profile-ocw可以执行的操作
 impl<T: Config> OCWOps for Pallet<T> {
     type MachineId = MachineId;
     type MachineInfo = MachineInfo<T::AccountId, T::BlockNumber>;
@@ -611,34 +599,48 @@ impl<T: Config> OCWOps for Pallet<T> {
     }
 }
 
+// 审查委员会可以执行的操作
 impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
 
+    fn book_machine(id: MachineId) {}
+    // fn submit_confirm_hash(who: T::AccountId, machine_id: MachineId, raw_hash: MachineId) {}
+    // fn submit_raw_confirmation(
+    //     who: T::AccountId,
+    //     machine_id: MachineId,
+    //     raw_confirmation: MachineId,
+    // ) {
+    // }
+
     // TODO: 从OCW获取机器打分可能会失败，改为Option类型
     fn confirm_machine_grade(who: T::AccountId, machine_id: MachineId, is_confirmed: bool) {
         let mut machine_info = Self::machines_info(&machine_id);
-        if machine_info.ocw_machine_grades.contains_key(&who) {
+        if machine_info.committee_confirm.contains_key(&who) {
             // TODO: 可以改为返回错误
             return;
         }
 
-        machine_info.ocw_machine_grades.insert(
+        machine_info.committee_confirm.insert(
             who.clone(),
-            OCWMachineGrade {
-                committee: who,
+            CommitteeConfirmation {
+                committee: who.clone(),
                 confirm_time: <frame_system::Module<T>>::block_number(),
-                grade: 0,
                 is_confirmed: is_confirmed,
             },
         );
 
-        MachinesInfo::<T>::insert(machine_id.clone(), machine_info.clone());
-
         // 被委员会确认之后，如果未满3个，状态将会改变成bonding_machine, 如果已满3个，则改为waiting_hash状态
         let mut confirmed_committee = vec![];
-        for a_committee in machine_info.ocw_machine_grades {
+        for a_committee in &machine_info.committee_confirm {
             confirmed_committee.push(a_committee);
+        }
+
+        if confirmed_committee.len() as u32 == Self::committee_limit() {
+            // 检查是否通过
+
+            // TODO: 检查是否全部同意，并更改机器状态
+            //
         }
 
         // if confirmed_committee.len() == ConfirmGradeLimit {
@@ -646,6 +648,8 @@ impl<T: Config> LCOps for Pallet<T> {
         // } else {
         //     Self::add_bonding_machine(machine_id);
         // }
+
+        MachinesInfo::<T>::insert(machine_id.clone(), machine_info.clone());
     }
 
     fn lc_add_booked_machine(id: MachineId) {

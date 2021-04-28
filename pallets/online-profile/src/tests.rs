@@ -21,23 +21,28 @@ fn bond_machine_works() {
         let dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
         let eve: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        assert_ok!(OnlineProfile::set_min_stake(RawOrigin::Root.into(), 500_0000u32.into()));
-        assert_eq!(OnlineProfile::min_stake(), 500_0000);
+        // 设置单个GPU质押数量
+        assert_ok!(OnlineProfile::set_gpu_stake(RawOrigin::Root.into(), 200_000u32.into()));
+        assert_eq!(OnlineProfile::stake_per_gpu(), 200_000);
 
-        // let a = OnlineProfile::update_nonce();
-        // assert_eq!(a, 1u64.encode());
+        let machine_id = "abcdefg";
+        assert_ok!(OnlineProfile::bond_machine(Origin::signed(dave), machine_id.into(), 3));
 
-        // assert_eq!(OnlineProfile::rand_nonce(), 0);
-        // assert_eq!(OnlineProfile::random_num(12), 0);
-        // assert_eq!(OnlineProfile::rand_nonce(), 1);
+        let user_machines = OnlineProfile::user_machines(dave);
+        assert_eq!(user_machines.len(), 1);
 
-        // System::set_block_number(2);
-        // assert_eq!(OnlineProfile::random_num(12), 0);
+        let live_machines = OnlineProfile::live_machines();
+        assert_eq!(live_machines.bonding_machine.len(), 1);
+        assert_eq!(live_machines.ocw_confirmed_machine.len(), 0);
 
-        // System::set_block_number(3);
-        // assert_eq!(OnlineProfile::random_num(13), 0);
+        let _machine_info = OnlineProfile::machines_info(machine_id.as_bytes());
+        let _ledger = OnlineProfile::ledger(dave, machine_id.as_bytes());
 
-        // assert_eq!(OnlineProfile::random_num(14), 0);
+        // 检查已锁定的金额
+        let locked_balance = Balances::locks(dave);
+        assert_eq!(locked_balance.len(), 1);
+        assert_eq!(locked_balance[0].id, "oprofile".as_bytes());
+        assert_eq!(locked_balance[0].amount, 600_000);
     });
 }
 

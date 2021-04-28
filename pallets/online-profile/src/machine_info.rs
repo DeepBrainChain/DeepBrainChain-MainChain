@@ -1,6 +1,18 @@
 use alt_serde::{Deserialize, Deserializer};
 use codec::{Decode, Encode};
+use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, str};
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default)]
+pub struct OCWMachineInfo {
+    pub cpu: CPU,
+    pub disk: Disk,
+    pub gpu: GPU,
+    pub ip: Vec<u8>,
+    pub mem: Vec<u8>,
+    pub os: Vec<u8>,
+    pub version: Vec<u8>,
+}
 
 pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
 where
@@ -20,21 +32,21 @@ pub struct MachineInfo {
 #[derive(Deserialize, Encode, Decode, Default, Debug)]
 #[serde(crate = "alt_serde")]
 pub struct MachineData {
-    cpu: CPU,
+    pub cpu: CPU,
 
     #[serde(deserialize_with = "de_string_to_bytes")]
     cpu_usage: Vec<u8>,
 
-    disk: Disk,
+    pub disk: Disk,
     pub gpu: GPU,
     gpu_state: GPUStatus,
     gpu_usage: Vec<GPUUsage>,
 
     #[serde(deserialize_with = "de_string_to_bytes")]
-    ip: Vec<u8>,
+    pub ip: Vec<u8>,
 
     #[serde(deserialize_with = "de_string_to_bytes")]
-    mem: Vec<u8>,
+    pub mem: Vec<u8>,
 
     #[serde(deserialize_with = "de_string_to_bytes")]
     mem_usage: Vec<u8>,
@@ -46,13 +58,13 @@ pub struct MachineData {
     network_ul: Vec<u8>,
 
     #[serde(deserialize_with = "de_string_to_bytes")]
-    os: Vec<u8>,
+    pub os: Vec<u8>,
 
     #[serde(deserialize_with = "de_string_to_bytes")]
     state: Vec<u8>,
 
     #[serde(deserialize_with = "de_string_to_bytes")]
-    version: Vec<u8>,
+    pub version: Vec<u8>,
 
     pub wallet: Vec<OneWallet>,
 }
@@ -61,7 +73,7 @@ pub struct MachineData {
 #[serde(crate = "alt_serde")]
 pub struct OneWallet(#[serde(deserialize_with = "de_string_to_bytes")] pub Vec<u8>);
 
-#[derive(Deserialize, Encode, Decode, Default, Debug)]
+#[derive(Deserialize, Encode, Decode, Default, Debug, PartialEq, Eq, Clone)]
 #[serde(crate = "alt_serde")]
 pub struct CPU {
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -71,7 +83,7 @@ pub struct CPU {
     _type: Vec<u8>,
 }
 
-#[derive(Deserialize, Encode, Decode, Default, Debug)]
+#[derive(Deserialize, Encode, Decode, Default, Debug, PartialEq, Eq, Clone)]
 #[serde(crate = "alt_serde")]
 pub struct Disk {
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -85,7 +97,7 @@ pub struct Disk {
     speed: Vec<u8>,
 }
 
-#[derive(Deserialize, Encode, Decode, Default, Debug)]
+#[derive(Deserialize, Encode, Decode, Default, Debug, PartialEq, Eq, Clone)]
 #[serde(crate = "alt_serde")]
 pub struct GPU {
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -99,7 +111,7 @@ pub struct GPU {
     gpus: Vec<GPUDetail>,
 }
 
-#[derive(Deserialize, Encode, Decode, Default, Debug)]
+#[derive(Deserialize, Encode, Decode, Default, Debug, PartialEq, Eq, Clone)]
 #[serde(crate = "alt_serde")]
 pub struct GPUDetail {
     #[serde(deserialize_with = "de_string_to_bytes")]
@@ -113,6 +125,12 @@ pub struct GPUDetail {
     pcie_bandwidth: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
     mem_bandwidth: Vec<u8>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    grade: Vec<u8>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    cuda: Vec<u8>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    mem_standard: Vec<u8>,
 }
 
 #[derive(Deserialize, Encode, Decode, Default, Debug)]

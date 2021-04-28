@@ -1,14 +1,6 @@
 {
     "error_code": 0,
     "data": {
-        "grades": {
-            "cpu": 100,
-            "disk": 50,
-            "gpu": 200,
-            "mem": 50,
-            "net": 20
-        },
-        "appraisal_price": 4000210000,
         "cpu": {
             "num": "32",
             "type": "Intel(R) Xeon(R) Silver 4110 CPU"
@@ -31,28 +23,40 @@
                     "type": "GeForceRTX2080Ti",
                     "mem": "11283456",
                     "pcie_bandwidth": "260000",
-                    "mem_bandwidth": "508136900"
+                    "mem_bandwidth": "508136900",
+                    "grade": "4352",
+                    "cuda": "4352",
+                    "mem_standard": "11283456"
                 },
                 {
                     "id": "1",
                     "type": "GeForceRTX2080Ti",
                     "mem": "11283456",
                     "pcie_bandwidth": "243500",
-                    "mem_bandwidth": "517072500"
+                    "mem_bandwidth": "517072500",
+                    "grade": "4352",
+                    "cuda": "4352",
+                    "mem_standard": "11283456"
                 },
                 {
                     "id": "2",
                     "type": "GeForceRTX2080Ti",
                     "mem": "11283456",
                     "pcie_bandwidth": "253800",
-                    "mem_bandwidth": "512602300"
+                    "mem_bandwidth": "512602300",
+                    "grade": "4352",
+                    "cuda": "4352",
+                    "mem_standard": "11283456"
                 },
                 {
                     "id": "3",
                     "type": "GeForceRTX2080Ti",
                     "mem": "11283456",
                     "pcie_bandwidth": "267900",
-                    "mem_bandwidth": "508337400"
+                    "mem_bandwidth": "508337400",
+                    "grade": "4352",
+                    "cuda": "4352",
+                    "mem_standard": "11283456"
                 }
             ]
         },
@@ -111,7 +115,6 @@
         "state": "busy(4)",
         "version": "0.3.7.3",
         "wallet": [
-            "",
             "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
         ]
     }
