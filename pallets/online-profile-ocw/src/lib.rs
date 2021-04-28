@@ -74,10 +74,18 @@ pub mod pallet {
     pub(super) type MachineInfoRandURLNum<T: Config> =
         StorageValue<_, u32, ValueQuery, MachineInfoRandURLNumDefault<T>>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn request_count)]
+    pub(super) type RequestCount<T: Config> = StorageMap<_, MachineId, u32, ValueQuery>;
+
     #[pallet::type_value]
-    pub fn RequestLimitDefault<T: Config>() -> u64 {
+    pub fn RequestLimitDefault<T: Config>() -> u32 {
         3
     }
+
+    #[pallet::storage]
+    #[pallet::getter(fn request_limit)]
+    pub(super) type RequestLimit<T> = StorageValue<_, u32, ValueQuery, RequestLimitDefault<T>>;
 
     // 验证次数也跟offchain调用验证函数的频率有关
     #[pallet::type_value]
@@ -89,10 +97,6 @@ pub mod pallet {
     #[pallet::getter(fn verify_times)]
     pub(super) type VerifyTimes<T: Config> =
         StorageValue<_, u32, ValueQuery, VerifyTimesDefault<T>>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn request_limit)]
-    pub(super) type RequestLimit<T> = StorageValue<_, u64, ValueQuery, RequestLimitDefault<T>>;
 
     /// random url for machine info
     #[pallet::storage]
@@ -181,84 +185,35 @@ pub mod pallet {
         fn ocw_submit_machine_info(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
+            // 获取待绑定的id
             let live_machines = <online_profile::Pallet<T>>::live_machines();
             let bonding_queue_id = live_machines.bonding_machine;
 
-            // TODO: 当查询成功之后，必须要将bonding_queue_id 从 bonding_machine变量中移除
             let request_limit = RequestLimit::<T>::get();
-            let machine_info_url = MachineInfoRandURL::<T>::get();
 
+            let machine_info_url = MachineInfoRandURL::<T>::get();
             ensure!(machine_info_url.len() != 0, Error::<T>::MachineURLEmpty);
 
             for machine_id in bonding_queue_id.iter() {
                 let mut machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
+                let mut request_count = Self::request_count(&machine_id);
 
-                // 该machine_id请求次数已经超过了限制
-                if machine_info.bonding_requests > request_limit {
-                    debug::info!("machine_id: {:?} has reached request limit", &machine_id);
-                    continue;
-                }
+                if let Some(ocw_machine_info) = Self::machine_info_identical(machine_id) {
+                    machine_info.ocw_machine_info = ocw_machine_info;
+                    if let Some(machine_grade )= Self::total_min_num(ocw_machine_info.gpu.gpus){
+                        machine_info.grade = machine_grade;
+                    };
 
-                if let Some(machine_info) = Self::machine_info_identical(machine_id) {
-                    // TODO： 将ocw获取到的机器信息记录到onlineprofile模块
-                    // T::OnlineProfile::update_machine_info(&machine_id, machine_info);
+                    T::OnlineProfile::update_machine_info(&machine_id, machine_info);
+                    T::OnlineProfile::rm_bonding_id(machine_id);
+                    T::OnlineProfile::add_ocw_confirmed_id(machine_id);
                 } else {
-                    machine_info.bonding_requests += 1;
+                    request_count += 1;
+                    if request_count == request_limit { // 已经超过请求次数，从中删除
+                        T::OnlineProfile::rm_bonding_id(machine_id);
+                    }
+                    RequestCount::<T>::insert(&machine_id, request_count);
                 }
-
-                // 机器ID完成了一次OCW请求之后，应该+1
-                machine_info.bonding_requests += 1;
-
-                T::OnlineProfile::update_machine_info(&machine_id, machine_info);
-
-                // for url in machine_info_url.iter() {
-                //     let ocw_machine_info = Self::fetch_machine_info(&url, &machine_id);
-                //     if let Err(e) = ocw_machine_info {
-                //         // TODO: handle 404的情况(machine_id not found)
-                //         debug::error!("Offchain worker error: {:?}", e);
-                //         continue;
-                //     }
-
-                //     let ocw_machine_info = ocw_machine_info.unwrap();
-                //     let machine_wallet = &ocw_machine_info.data.wallet[1].0;
-
-                //     debug::info!("machine wallet is: {:?}", &machine_wallet);
-
-                //     // 如果钱包不一致，则直接进行下一个machine_id的查询
-                //     if !Self::verify_bonding_account(
-                //         machine_info.machine_owner.clone(),
-                //         machine_wallet,
-                //     ) {
-                //         // TODO: 增加log提示
-                //         // T::BondingQueue::<T>::remove(machine_id);
-                //         debug::error!(
-                //             "OCW bonding: user account {:?} not match machine wallet {:?}, will remove",
-                //             &machine_info.machine_owner,
-                //             &machine_wallet
-                //         );
-                //         // 当达到request limit时，删除掉
-                //         // T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
-                //         break;
-                //     }
-
-                //     // TODO: 转为数字
-                //     let a_gpu_num = str::from_utf8(&ocw_machine_info.data.gpu.num);
-                //     if let Err(e) = a_gpu_num {
-                //         debug::error!("Convert u8 to str failed: {:?}", e);
-                //         continue;
-                //     }
-                //     let a_gpu_num = a_gpu_num.unwrap();
-                //     let a_gpu_num: u32 = match a_gpu_num.parse() {
-                //         Ok(num) => num,
-                //         Err(e) => {
-                //             debug::error!("Convert str to u32 failed: {:?}", e);
-                //             continue;
-                //         }
-                //     };
-
-                //     gpu_num.push(a_gpu_num);
-                // }
-
             }
 
             Ok(().into())
@@ -472,5 +427,28 @@ impl<T: Config> Pallet<T> {
         }
 
         return Some(machine_info[0].clone());
+    }
+
+    fn total_min_num(gpus: Vec<GPUDetail>) -> Option<u64> {
+        let mut grade_out = Vec::new();
+        for a_gpu_detail in gpus.iter() {
+            if let Some(a_grade) = Self::vec_u8_to_u64(a_gpu_detail.grade) {
+                grade_out.push(a_grade);
+            };
+        }
+        return Some(grade_out.min() * grade_out.len());
+    }
+
+    fn vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {
+        let num_str = str::from_utf8(num_str);
+        if let Err(e) = num_str {
+            return None;
+        }
+        let num_out: u64 = match num_str.unwrap().parse() {
+            Ok(num) => num,
+            Err(e) => return None,
+        };
+
+        return Some(num_out);
     }
 }

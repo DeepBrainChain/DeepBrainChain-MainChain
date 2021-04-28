@@ -14,5 +14,7 @@ pub trait OCWOps {
     type MachineInfo;
     type MachineId;
 
+    fn add_booked_id(id: Self::MachineId);
+    fn rm_ocw_confirmed_id(id: Self::MachineId);
     fn update_machine_info(id: &Self::MachineId, machine_info: Self::MachineInfo);
 }

@@ -35,11 +35,19 @@ pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 pub struct MachineInfo<AccountId: Ord, BlockNumber> {
     pub machine_owner: AccountId,
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
-    pub bonding_requests: u64,       // 记录机器绑定请求次数，避免绑定错误/无效的机器ID
     pub machine_status: MachineStatus,
     pub ocw_machine_info: machine_info::OCWMachineInfo,
     pub machine_grade: u64,
     pub committee_confirm: BTreeMap<AccountId, CommitteeConfirmation<AccountId, BlockNumber>>, //记录委员会提交的机器打分
+    pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
+    pub reward_deadline: BlockNumber,     // 列表中委员分得奖励结束时间
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub struct CommitteeConfirmation<AccountId, BlockNumber> {
+    pub committee: AccountId,
+    pub confirm_time: BlockNumber,
+    pub is_confirmed: bool,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -48,14 +56,6 @@ pub enum MachineStatus {
     Booked,
     WaitingHash,
     Bonded,
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub struct CommitteeConfirmation<AccountId, BlockNumber> {
-    pub committee: AccountId,
-    pub confirm_time: BlockNumber,
-    // pub grade: u64,
-    pub is_confirmed: bool,
 }
 
 impl Default for MachineStatus {
@@ -153,15 +153,6 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
 
     #[pallet::type_value]
-    pub fn RequestLimitDefault<T: Config>() -> u32 {
-        3
-    }
-
-    // 设置允许有多少个委员会, 提交信息
-    #[pallet::storage]
-    pub type RequestLimit<T: Config> = StorageValue<_, u32, ValueQuery, RequestLimitDefault<T>>;
-
-    #[pallet::type_value]
     pub fn CommitteeLimitDefault<T: Config>() -> u32 {
         3
     }
@@ -246,13 +237,6 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(0)]
-        pub fn set_request_limit(origin: OriginFor<T>, limit: u32) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            RequestLimit::<T>::put(limit);
-            Ok(().into())
-        }
-
         #[pallet::weight(0)]
         pub fn set_committee_limit(origin: OriginFor<T>, limit: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -594,6 +578,18 @@ impl<T: Config> OCWOps for Pallet<T> {
     type MachineId = MachineId;
     type MachineInfo = MachineInfo<T::AccountId, T::BlockNumber>;
 
+    fn rm_bonding_id(id: MachineId) {
+        let mut live_machines = Self::live_machies();
+        LiveMachine::rm_machine_id(live_machines.bonding_machine, id);
+        LiveMachines::<T>::put(live_machines);
+    }
+
+    fn add_ocw_confirmed_id(id: MachineId) {
+        let mut live_machines = Self::live_machines();
+        LiveMachine::add_machine_id(live_machines.ocw_confirmed_machine, id);
+        LiveMachines::<T>::put(live_machines);
+    }
+
     fn update_machine_info(id: &MachineId, machine_info: Self::MachineInfo) {
         MachinesInfo::<T>::insert(id, machine_info);
     }
@@ -638,16 +634,8 @@ impl<T: Config> LCOps for Pallet<T> {
 
         if confirmed_committee.len() as u32 == Self::committee_limit() {
             // 检查是否通过
-
             // TODO: 检查是否全部同意，并更改机器状态
-            //
         }
-
-        // if confirmed_committee.len() == ConfirmGradeLimit {
-        //     Self::add_waiting_hash(machine_id);
-        // } else {
-        //     Self::add_bonding_machine(machine_id);
-        // }
 
         MachinesInfo::<T>::insert(machine_id.clone(), machine_info.clone());
     }
