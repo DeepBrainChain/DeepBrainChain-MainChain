@@ -68,11 +68,11 @@ impl Default for MachineStatus {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LiveMachine {
     pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
-    pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段
-
     // 当machine的确认hash未满时, 委员会从cow_confirmed_machine中读取可以审查的机器ID,
     // 添加确认信息之后，状态变为`ocw_confirmed_machine`，这时可以继续抢单.但已经打分过的委员不能抢该单
     pub booked_machine: Vec<MachineId>,
+
+    pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段
     pub waiting_hash: Vec<MachineId>, // 当全部委员会添加了全部confirm hash之后，机器添加到waiting_hash，这时，用户可以添加confirm_raw
     pub bonded_machine: Vec<MachineId>, // 当全部委员会添加了confirm_raw之后，机器被成功绑定，变为bonded_machine状态
 }
@@ -167,8 +167,6 @@ pub mod pallet {
     pub(super) type StakePerGPU<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     // 机器的详细信息,只有当所有奖励领取完才能删除该变量?
-    /// MachineDetail
-    /// TODO: MachineDetail变为MachineInfo
     #[pallet::storage]
     #[pallet::getter(fn machines_info)]
     pub type MachinesInfo<T: Config> = StorageMap<
@@ -609,7 +607,7 @@ impl<T: Config> LCOps for Pallet<T> {
     // ) {
     // }
 
-    // TODO: 从OCW获取机器打分可能会失败，改为Option类型
+    // 当多个委员会都对机器进行了确认之后，机器的分数被添加上
     fn confirm_machine_grade(who: T::AccountId, machine_id: MachineId, is_confirmed: bool) {
         let mut machine_info = Self::machines_info(&machine_id);
         if machine_info.committee_confirm.contains_key(&who) {
@@ -640,7 +638,16 @@ impl<T: Config> LCOps for Pallet<T> {
         MachinesInfo::<T>::insert(machine_id.clone(), machine_info.clone());
     }
 
+    // 委员会订阅了一个机器ID
     fn lc_add_booked_machine(id: MachineId) {
-        // Self::add_booked_machine(id);
+        let mut live_machines = Self::live_machines();
+
+        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, id.clone());
+        LiveMachine::add_machine_id(&mut live_machines.booked_machine, id.clone());
+        LiveMachines::<T>::put(live_machines);
+
+        let mut machine_info = Self::machines_info(&id);
+        machine_info.machine_status = MachineStatus::Booked;
+        MachinesInfo::<T>::insert(&id, machine_info);
     }
 }
