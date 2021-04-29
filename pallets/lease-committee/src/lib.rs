@@ -42,6 +42,7 @@ pub struct CommitteeMachineList {
     pub booked_machine: Vec<MachineId>,
     pub hashed_machine: Vec<MachineId>, // 存储已经提交了Hash信息的机器
     pub confirmed_machine: Vec<MachineId>, // 存储已经提交了原始确认数据的机器
+    pub online_machine: Vec<MachineId>, // 存储已经成功上线的机器
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -49,6 +50,7 @@ pub struct MachineCommitteeList<AccountId> {
     pub booked_committee: Vec<AccountId>,
     pub hashed_committee: Vec<AccountId>,
     pub confirmed_committee: Vec<AccountId>,
+    pub onlined_committee: Vec<AccountId>,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -71,6 +73,21 @@ pub enum MachineStatus {
 impl Default for MachineStatus {
     fn default() -> Self {
         MachineStatus::Booked
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum CommitteeStatus<BlockNumber> {
+    NotCommittee,          // 非委员会，默认状态
+    Candidacy,             // 候补委员会
+    Health,                // 正常的委员会状态
+    FillingPledge,         // 需要等待补充押金
+    Chilling(BlockNumber), // 正在退出的状态, 记录Chill时的高度，当达到质押限制时，则可以退出
+}
+
+impl<BlockNumber> Default for CommitteeStatus<BlockNumber> {
+    fn default() -> Self {
+        CommitteeStatus::NotCommittee
     }
 }
 
@@ -139,16 +156,16 @@ pub mod pallet {
     #[pallet::getter(fn confirm_time_limit)]
     pub(super) type ConfirmTimeLimit<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery, ConfirmTimeLimitDefault<T>>;
 
-    // candidacy, 一定的周期后，从中选出committee来进行机器的认证。
+    // candidacy, 候选委员会。通过质押,用户可以成为该角色
     #[pallet::storage]
     #[pallet::getter(fn candidacy)]
-    pub(super) type Candidacy<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+    pub(super) type Candidacy<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
 
     // committee, 进行机器的认证
     // 通过提交议案，通过议案成为委员会
     #[pallet::storage]
     #[pallet::getter(fn committee)]
-    pub(super) type Committee<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+    pub(super) type Committee<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeStatus<T::BlockNumber>, ValueQuery>;
 
     // 存储用户订阅的不同确认阶段的机器
     #[pallet::storage]
@@ -171,9 +188,9 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    #[pallet::storage]
-    #[pallet::getter(fn chill_list)]
-    pub(super) type ChillList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+    // #[pallet::storage]
+    // #[pallet::getter(fn chill_list)]
+    // pub(super) type ChillList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn black_list)]
@@ -212,8 +229,8 @@ pub mod pallet {
             ensure!(value < <T as Config>::Currency::free_balance(&who), Error::<T>::FreeBalanceNotEnough);
 
             // 该用户不是候选委员会, 且不是委员会成员
-            ensure!(!Self::is_candidacy(&who), Error::<T>::AlreadyCandidacy);
-            ensure!(!Self::is_committee(&who), Error::<T>::AlreadyCommittee);
+            ensure!(!Candidacy::<T>::contains_key(&who), Error::<T>::AlreadyCandidacy);
+            ensure!(!Committee::<T>::contains_key(&who), Error::<T>::AlreadyCommittee);
 
             let current_era = <random_num::Module<T>>::current_era();
             let history_depth = Self::history_depth();
@@ -232,7 +249,7 @@ pub mod pallet {
 
             Self::update_ledger(&who, &item);
             // 添加到到候选委员会列表，用户进行提案，通过后可以成为委员会成员
-            Self::add_to_candidacy(&who);
+            Candidacy::<T>::insert(&who, ());
 
             Self::deposit_event(Event::StakeToBeCandidacy(who, value));
             Ok(().into())
@@ -245,27 +262,22 @@ pub mod pallet {
         pub fn chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            let mut chill_list = Self::chill_list();
-            let committee = Self::committee();
-            let candidacy = Self::candidacy();
+            ensure!(Committee::<T>::contains_key(&who) || Candidacy::<T>::contains_key(&who), Error::<T>::NotCandidacy);
 
-            // TODO: 检查逻辑
-
-            // 确保调用该方法的用户已经在候选委员会列表
-            ensure!(candidacy.contains(&who), Error::<T>::NotCandidacy);
-
-            // 如果当前候选人已经在committee列表，则先加入到chill_list中，等到下一次选举时，可以退出
-            if committee.contains(&who) {
-                // 确保用户不在chill_list中
-                ensure!(!chill_list.contains(&who), Error::<T>::AlreadyInChillList);
-                chill_list.push(who.clone());
-                ChillList::<T>::put(chill_list);
-                Self::deposit_event(Event::Chill(who));
-                return Ok(().into());
+            // 检查是否有还未完成的工作
+            if Committee::<T>::contains_key(&who) {
+                let committee_machines = Self::committee_machine(&who);
+                if committee_machines.booked_machine.len() > 0
+                    || committee_machines.hashed_machine.len() > 0
+                    || committee_machines.confirmed_machine.len() > 0 {
+                        return Err(Error::<T>::JobNotDone.into());
+                    }
             }
 
-            // 否则将用户从candidacy中移除
-            Self::rm_from_candidacy(&who)?;
+            Candidacy::<T>::remove(&who);
+
+            let now = <frame_system::Module<T>>::block_number();
+            Committee::<T>::insert(&who, CommitteeStatus::Chilling(now));
 
             let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
             let era = <random_num::Module<T>>::current_era() + T::BondingDuration::get();
@@ -341,12 +353,7 @@ pub mod pallet {
         pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
-            let mut committee = Committee::<T>::get();
-            if let Err(index) = committee.binary_search(&member) {
-                committee.insert(index, member.clone());
-            }
-
-            Committee::<T>::put(committee);
+            Committee::<T>::insert(&member, CommitteeStatus::Health);
             Self::deposit_event(Event::CommitteeAdded(member));
             Ok(().into())
         }
@@ -356,7 +363,8 @@ pub mod pallet {
         pub fn book_one(origin: OriginFor<T>, machine_id: Option<MachineId>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            ensure!(Self::is_committee(&who), Error::<T>::NotCommittee);
+            ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
+            ensure!(Self::committee(&who) == CommitteeStatus::Health, Error::<T>::NotHealthStatus);
 
             let live_machines = <online_profile::Pallet<T>>::live_machines();
             if live_machines.bonding_machine.len() == 0 {
@@ -399,9 +407,7 @@ pub mod pallet {
         fn add_confirm_hash(origin: OriginFor<T>, machine_id: MachineId, hash: [u8; 16]) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            //检查：
-            // 检查：是委员会
-            ensure!(Self::is_committee(&who), Error::<T>::NotCommittee);
+            ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
             // 2. 没有提交过信息
             let mut committee_ops_detail = Self::ops_detail(&who, &machine_id);
             ensure!(
@@ -452,7 +458,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             // 用户为委员会
-            ensure!(Self::is_committee(&who), Error::<T>::NotCommittee);
+            ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
             // 需要在committee的booking list中
             ensure!(
                 Self::ops_detail(&who, &machine_id).machine_status
@@ -530,54 +536,16 @@ pub mod pallet {
         HashIsNotIdentical,
         NoMachineCanBook,
         NoMachineIdFound,
+        JobNotDone,
+        NotHealthStatus,
     }
 }
 
 #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
-    // TODO: 检查用户是否订阅而未提交hash，未提交原始字符串
-
-    fn is_candidacy(who: &T::AccountId) -> bool {
-        let candidacy = Self::candidacy();
-        if let Ok(_) = candidacy.binary_search(who) {
-            return true;
-        }
-        return false;
-    }
-
-    fn is_committee(who: &T::AccountId) -> bool {
-        let committee = Committee::<T>::get();
-        if let Ok(_) = committee.binary_search(who) {
-            return true;
-        }
-        return false;
-    }
-
     fn hash_is_identical(raw_input: &Vec<u8>, hash: [u8; 16]) -> bool {
         let raw_hash: [u8; 16] = blake2_128(raw_input);
         return raw_hash == hash;
-    }
-
-    fn add_to_candidacy(who: &T::AccountId) {
-        let mut candidacy = Self::candidacy();
-
-        if let Err(index) = candidacy.binary_search(who) {
-            candidacy.insert(index, who.clone());
-            Candidacy::<T>::put(candidacy);
-        }
-    }
-
-    fn rm_from_candidacy(who: &T::AccountId) -> DispatchResult {
-        let mut candidacy = Self::candidacy();
-
-        match candidacy.binary_search(who) {
-            Ok(index) => {
-                candidacy.remove(index);
-                Candidacy::<T>::put(candidacy);
-                Ok(())
-            }
-            Err(_) => Err(Error::<T>::NotCandidacy.into()),
-        }
     }
 
     fn update_ledger(
