@@ -579,14 +579,14 @@ impl<T: Config> OCWOps for Pallet<T> {
     type MachineInfo = MachineInfo<T::AccountId, T::BlockNumber>;
 
     fn rm_bonding_id(id: MachineId) {
-        let mut live_machines = Self::live_machies();
-        LiveMachine::rm_machine_id(live_machines.bonding_machine, id);
+        let mut live_machines = Self::live_machines();
+        LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, id);
         LiveMachines::<T>::put(live_machines);
     }
 
     fn add_ocw_confirmed_id(id: MachineId) {
         let mut live_machines = Self::live_machines();
-        LiveMachine::add_machine_id(live_machines.ocw_confirmed_machine, id);
+        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id);
         LiveMachines::<T>::put(live_machines);
     }
 

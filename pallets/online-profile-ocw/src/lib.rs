@@ -76,7 +76,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn request_count)]
-    pub(super) type RequestCount<T: Config> = StorageMap<_, MachineId, u32, ValueQuery>;
+    pub(super) type RequestCount<T: Config> = StorageMap<_,Blake2_128Concat, MachineId, u32, ValueQuery>;
 
     #[pallet::type_value]
     pub fn RequestLimitDefault<T: Config>() -> u32 {
@@ -199,18 +199,18 @@ pub mod pallet {
                 let mut request_count = Self::request_count(&machine_id);
 
                 if let Some(ocw_machine_info) = Self::machine_info_identical(machine_id) {
-                    machine_info.ocw_machine_info = ocw_machine_info;
+                    machine_info.ocw_machine_info = ocw_machine_info.clone();
                     if let Some(machine_grade )= Self::total_min_num(ocw_machine_info.gpu.gpus){
-                        machine_info.grade = machine_grade;
+                        machine_info.machine_grade = machine_grade;
                     };
 
                     T::OnlineProfile::update_machine_info(&machine_id, machine_info);
-                    T::OnlineProfile::rm_bonding_id(machine_id);
-                    T::OnlineProfile::add_ocw_confirmed_id(machine_id);
+                    T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
+                    T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec());
                 } else {
                     request_count += 1;
                     if request_count == request_limit { // 已经超过请求次数，从中删除
-                        T::OnlineProfile::rm_bonding_id(machine_id);
+                        T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
                     }
                     RequestCount::<T>::insert(&machine_id, request_count);
                 }
@@ -432,11 +432,15 @@ impl<T: Config> Pallet<T> {
     fn total_min_num(gpus: Vec<GPUDetail>) -> Option<u64> {
         let mut grade_out = Vec::new();
         for a_gpu_detail in gpus.iter() {
-            if let Some(a_grade) = Self::vec_u8_to_u64(a_gpu_detail.grade) {
+            if let Some(a_grade) = Self::vec_u8_to_u64(&a_gpu_detail.grade) {
                 grade_out.push(a_grade);
             };
         }
-        return Some(grade_out.min() * grade_out.len());
+        if grade_out.len() == 0 {
+            return None;
+        }
+
+        return Some(grade_out.iter().min().unwrap() * grade_out.len() as u64);
     }
 
     fn vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {
