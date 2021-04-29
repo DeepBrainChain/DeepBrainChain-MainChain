@@ -347,6 +347,30 @@ pub mod pallet {
             }
         }
 
+        #[pallet::weight(10000)]
+        pub fn fill_pledge(origin: OriginFor<T>) -> DispatchResultWithPostInfo{
+            let who = ensure_signed(origin)?;
+            ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
+            ensure!(Self::committee(&who) == CommitteeStatus::FillingPledge, Error::<T>::FillNotAllowed);
+
+            // TOOD: 查询还剩余的存款并计算所需添加的存款
+            let ledger = Self::committee_ledger(&who);
+            if let None = ledger {
+                return Err(Error::<T>::NoLedgerFound.into());
+            }
+            let mut ledger = ledger.unwrap();
+
+            // 检查用户余额
+            let needed = Self::committee_min_stake() - ledger.active;
+            ensure!(needed < <T as Config>::Currency::free_balance(&who), Error::<T>::FreeBalanceNotEnough);
+            ledger.active = Self::committee_min_stake();
+            Self::update_ledger(&who, &ledger);
+
+            Committee::<T>::insert(&who, CommitteeStatus::Health);
+
+            Ok(().into())
+        }
+
         // Root权限，将candidacy中的成员，添加到委员会
         // 该操作由社区决定
         #[pallet::weight(0)]
@@ -538,6 +562,8 @@ pub mod pallet {
         NoMachineIdFound,
         JobNotDone,
         NotHealthStatus,
+        FillNotAllowed,
+        NoLedgerFound,
     }
 }
 
