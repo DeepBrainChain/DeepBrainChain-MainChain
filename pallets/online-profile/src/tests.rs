@@ -1,6 +1,6 @@
 use crate::mock::*;
-use codec::Encode;
 use frame_support::assert_ok;
+// use codec::Encode;
 
 #[test]
 fn set_storage_works() {

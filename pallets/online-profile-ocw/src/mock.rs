@@ -64,16 +64,30 @@ impl online_profile_ocw::Config for TestRuntime {
     type OnlineProfile = OnlineProfile;
 }
 
+impl dbc_price_ocw::Config for TestRuntime {
+    type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
+}
+
 parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
+}
+
+impl random_num::Config for TestRuntime {
+    type BlockPerEra = BlockPerEra;
+    type RandomnessSource = RandomnessCollectiveFlip;
+}
+
+parameter_types! {
+//    pub const BlockPerEra: u32 = 3600 * 24 / 30;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
 }
 
 impl online_profile::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
-    type RandomnessSource = RandomnessCollectiveFlip;
-    type BlockPerEra = BlockPerEra;
+    // type RandomnessSource = RandomnessCollectiveFlip;
+    // type BlockPerEra = BlockPerEra;
     type BondingDuration = BondingDuration;
 }
 
@@ -89,6 +103,8 @@ frame_support::construct_runtime!(
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, ValidateUnsigned},
+        DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
+        RandomNum: random_num::{Module, Call, Storage},
     }
 );
 
@@ -98,21 +114,21 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage::<TestRuntime>()
         .unwrap();
 
-    // #[rustfmt::skip]
-    // pallet_balances::GenesisConfig::<TestRuntime> {
-    //     balances: vec![
-    //         (sr25519::Public::from(Sr25519Keyring::Alice).into(), 1000_000),
-    //         (sr25519::Public::from(Sr25519Keyring::Bob).into(), 1000_000),
-    //         (sr25519::Public::from(Sr25519Keyring::Charlie).into(), 1000_000),
-    //         (sr25519::Public::from(Sr25519Keyring::Dave).into(), 1000_000),
-    //         (sr25519::Public::from(Sr25519Keyring::Eve).into(), 1000_000),
-    //         (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), 1000_000),
-    //         (sr25519::Public::from(Sr25519Keyring::One).into(), 1000_000),
-    //         (sr25519::Public::from(Sr25519Keyring::Two).into(), 1000_000),
-    //     ],
-    // }
-    // .assimilate_storage(&mut t)
-    // .unwrap();
+    #[rustfmt::skip]
+    pallet_balances::GenesisConfig::<TestRuntime> {
+        balances: vec![
+            (sr25519::Public::from(Sr25519Keyring::Alice).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Bob).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Charlie).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Dave).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Eve).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::One).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Two).into(), 1000_000),
+        ],
+    }
+    .assimilate_storage(&mut t)
+    .unwrap();
 
     t.into()
 }

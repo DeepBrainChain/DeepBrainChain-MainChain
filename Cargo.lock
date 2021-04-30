@@ -4335,6 +4335,7 @@ version = "0.1.0"
 dependencies = [
  "alt_serde",
  "bs58",
+ "dbc-price-ocw",
  "dbc-staking",
  "frame-support",
  "frame-system",

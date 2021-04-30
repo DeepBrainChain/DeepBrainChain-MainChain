@@ -113,8 +113,6 @@ where
 impl online_profile::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
-    // type RandomnessSource = RandomnessCollectiveFlip;
-    // type BlockPerEra = BlockPerEra;
     type BondingDuration = BondingDuration;
 }
 
@@ -125,12 +123,12 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
-        DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         RandomNum: random_num::{Module, Call, Storage},
+        DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
+        OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
     }
 );
 

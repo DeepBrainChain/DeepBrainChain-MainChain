@@ -1,7 +1,6 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::HasCompact;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
@@ -9,7 +8,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{LCOps, OCWOps};
-use sp_runtime::traits::{CheckedMul, CheckedSub, Zero};
+use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::{
     collections::btree_map::BTreeMap, collections::btree_set::BTreeSet,
     collections::vec_deque::VecDeque, prelude::*, str,

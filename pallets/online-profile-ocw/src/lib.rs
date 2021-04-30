@@ -62,7 +62,16 @@ pub mod pallet {
     #[pallet::getter(fn machine_info_url)]
     pub(super) type MachineInfoURL<T> = StorageValue<_, Vec<MachineId>, ValueQuery>;
 
-    // /// OCW query from _ nodes
+    // 设置最小URL数量。小于该数量，将不开始进行抢单
+    #[pallet::type_value]
+    pub fn URLNumMinDefault<T: Config>() -> u32 {
+        3
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn url_num_min)]
+    pub(super) type URLNumMin<T: Config> = StorageValue<_, u32, ValueQuery, URLNumMinDefault<T>>;
+
     // pub MachineInfoRandURLNum get(fn machine_info_rand_url_num) config(): u32 = 3;
     #[pallet::type_value]
     pub fn MachineInfoRandURLNumDefault<T: Config>() -> u32 {
@@ -128,6 +137,10 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             debug::info!("Entering off-chain worker, at height: {:?}", block_number);
 
+            if Self::url_num_min() < Self::machine_info_url().len() as u32 {
+                return
+            }
+
             let result = Self::call_ocw_machine_info();
             if let Err(e) = result {
                 debug::error!("offchain_worker error: {:?}", e);
@@ -145,7 +158,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // root用户添加机器信息API
         #[pallet::weight(0)]
-        fn add_machine_info_url(origin: OriginFor<T>, new_url: MachineId) -> DispatchResultWithPostInfo {
+        pub fn add_machine_info_url(origin: OriginFor<T>, new_url: MachineId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut machine_info_url = MachineInfoURL::<T>::get();
             machine_info_url.push(new_url.clone());
@@ -261,8 +274,7 @@ pub mod pallet {
     }
 }
 
-// TODO: 是否需要重新定义
-
+#[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
     // from_ss58check_with_version
@@ -330,8 +342,7 @@ impl<T: Config> Pallet<T> {
             MachineInfoRandURL::<T>::put(machine_info_url);
         } else {
             for _ in 0..rand_url_num {
-                let url_index =
-                    <random_num::Module<T>>::random_u32(machine_info_url.len() as u32 - 1);
+                let url_index = <random_num::Module<T>>::random_u32(machine_info_url.len() as u32 - 1);
                 next_group.push(machine_info_url[url_index as usize].to_vec());
                 machine_info_url.remove(url_index as usize);
             }
@@ -340,16 +351,13 @@ impl<T: Config> Pallet<T> {
     }
 
     // 通过http获取机器的信息
-    pub fn fetch_machine_info(
-        url: &Vec<u8>,
-        machine_id: &Vec<u8>,
-    ) -> Result<MachineInfo, Error<T>> {
+    pub fn fetch_machine_info(url: &Vec<u8>, machine_id: &Vec<u8>) -> Result<MachineInfo, Error<T>> {
         let mut url = url.to_vec();
+        url.extend(b"/");
         url.extend(machine_id.iter());
 
-        let url = str::from_utf8(&url)
-            .map_err(|_| http::Error::Unknown)
-            .unwrap();
+        let url = str::from_utf8(&url).map_err(|_| http::Error::Unknown).unwrap();
+
         debug::info!("sending request to: {}", &url);
 
         let request = offchain::http::Request::get(&url);
@@ -403,8 +411,7 @@ impl<T: Config> Pallet<T> {
                 return None;
             }
             let ocw_machine_info = ocw_machine_info.unwrap();
-            let machine_wallets = &ocw_machine_info.data.wallet;
-            if machine_wallets.len() != 1 {
+            if ocw_machine_info.data.wallet.len() != 1 {
                 return None;
             }
 

@@ -74,6 +74,14 @@ version = '3.0.0'
 path = '../dbc-staking'
 package = 'dbc-staking'
 
+[dev-dependencies.dbc-price-ocw]
+path = '../dbc-price-ocw'
+package = 'dbc-price-ocw'
+
+[dev-dependencies.random-num]
+path = '../random-num'
+package = 'random-num'
+
 [dev-dependencies.pallet-balances]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
