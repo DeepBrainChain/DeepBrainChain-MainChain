@@ -42,6 +42,6 @@ For example: if the commission is set to 10%, it means that the block producer f
 
 ### How does the block producer change the commission ratio?
 
-In the [account list (Network > Account actions)](https://test.dbcwallet.io/#/staking/actions), click the three dots on the right, and then click "Change Beneficiary’s preference" is fine.
+In the [account list (Network > Account actions)](https://test.dbcwallet.io/#/staking/actions), click the three dots on the right, and then click `Change validator preferences`.
 
 ![image-20210501000000004](freq_ask_questions.assets/image-20210501000000004.png)

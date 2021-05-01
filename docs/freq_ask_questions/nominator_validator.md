@@ -8,9 +8,9 @@
 
 ![image-20210420142210238](freq_ask_questions.assets/image-20210420142210238.png)
 
-A single GPU computing nodes points is calculated based on two indicators: the number of GPU Cuda Core and video memory size, the number of GPU Cuda Core accounts for 80%, the video memory accounts for 20%.
+一个GPU计算节点点的计算基于两个指标：GPU Cuda Core的数量和视频内存大小，GPU Cuda Core的数量占80％，视频内存占20％。
 
-#### Followup question. How can points help determine what GPU to buy?
+#### 后续问题。点数如何帮助确定要购买的GPU？
 
 Nvidia的2080ti模型图形卡是参考标准，以下是用于计算各种模型图形GPU的计算节点点数的公式。
  
