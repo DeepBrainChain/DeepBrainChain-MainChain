@@ -1,6 +1,6 @@
 # How to join DBC network
 
-If you have some DBC and want to get more, you can choose to **become a `validator`**, which requires 7*24 hours to run a node. If you don't want to run a node, but still want to get profit, you can choose to be a **nominator by nominate `validators`** . 
+If you have some DBC and want to get more, you can choose to **become a `validator`**, which requires 7\*24 hours to run a node. If you don't want to run a node, but still want to get profit, you can choose to be a **nominator by nominate `validators`**.
 
 + `Validator`: A validator needs to maintain a full node, which is mainly responsible for verifying transactions and generating blocks based on consensus. 
 + `Nominator (Nominator)`: A nominator needs to stake `DBC` and nominate the `validator`, by this way it is possible to generate the `validator` in the network and share the rewards with the `validator`. DBC will be slash when the validator is punished.
@@ -30,7 +30,7 @@ If you have some DBC and want to get more, you can choose to **become a `validat
 + The validators get same amount of rewards for the same job 
 + **Reward retention time**: **84 era (84 days)**, rewards exceeding the retention time will not be recorded. Anyone can send `Payout` transactions to get rewards (even if they do not participate in the stake), and everyone who staked in the validator node can get rewards by a single call.
 + **Validator Reward** = Total Reward * Customized Commissions + Remaining Part of Reward * Percentage of validator staked
-+ **Nominator Award**: **Only the top 128 of stakes can be rewarded ( according to the stake amount). **`Number of rewards = (total rewards of nodes - custom commissions of validators) * Percentage of nominator's stake` 
++ **Nominator Award**: **Only the top 128 of stakes can be rewarded ( according to the stake amount).** `Number of rewards = (total rewards of nodes - custom commissions of validators) * Percentage of nominator's stake`
 
 
 #### How to be a `norminator`
@@ -38,7 +38,7 @@ If you have some DBC and want to get more, you can choose to **become a `validat
 [How to nominate on DBC](docs/staking_dbc_and_voting.md) -- stake DBC，be a Nominator to get rewards
 
 
-#### 如何成为`验证人`
+#### How to be a `validator`
 
 [How to be a DBC validator](docs/join_dbc_testnet_EN.md) -- run a full node，be a Validator to get rewards
 
