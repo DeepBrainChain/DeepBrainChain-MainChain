@@ -33,13 +33,13 @@ pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber> {
     pub machine_owner: AccountId,
-    pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
+    pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间, TODO: 改为current_slot
     pub machine_status: MachineStatus,
     pub ocw_machine_info: machine_info::OCWMachineInfo,
     pub machine_grade: u64,
     pub committee_confirm: BTreeMap<AccountId, CommitteeConfirmation<AccountId, BlockNumber>>, //记录委员会提交的机器打分
     pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
-    pub reward_deadline: BlockNumber,     // 列表中委员分得奖励结束时间
+    pub reward_deadline: BlockNumber, // 列表中委员分得奖励结束时间 , TODO: 绑定时间改为current_slot比较好
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -96,11 +96,13 @@ impl LiveMachine {
         }
         false
     }
+
     fn add_machine_id(a_field: &mut Vec<MachineId>, machine_id: MachineId) {
         if let Err(index) = a_field.binary_search(&machine_id) {
             a_field.insert(index, machine_id);
         }
     }
+
     fn rm_machine_id(a_field: &mut Vec<MachineId>, machine_id: MachineId) {
         if let Ok(index) = a_field.binary_search(&machine_id) {
             a_field.remove(index);
@@ -144,7 +146,6 @@ pub mod pallet {
     pub(super) fn ProfitReleaseDurationDefault<T: Config>() -> u64 {
         150
     }
-
 
     // OCW获取机器信息时，超时次数
     #[pallet::storage]
@@ -200,13 +201,17 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn eras_reward_points)]
-    pub(super) type ErasRewardGrades<T> = StorageMap<
+    pub(super) type ErasRewardGrades<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         EraIndex,
-        EraRewardGrades<<T as frame_system::Config>::AccountId>,
+        EraRewardGrades<T::AccountId>,
         ValueQuery,
     >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn reward_start_height)]
+    pub type RewardStartHeight<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
     // 奖励数量：第一个月为1亿，之后每个月为3300万
     // 2年10个月之后，奖励数量减半，之后再五年，奖励减半
@@ -216,8 +221,8 @@ pub mod pallet {
 
     // 等于RewardPerYear * (era_duration / year_duration)
     #[pallet::storage]
-    #[pallet::getter(fn eras_validator_reward)]
-    pub(super) type ErasValidatorReward<T> =
+    #[pallet::getter(fn eras_staker_reward)]
+    pub(super) type ErasStakerReward<T> =
         StorageMap<_, Blake2_128Concat, EraIndex, Option<BalanceOf<T>>>;
 
     #[pallet::hooks]
@@ -234,6 +239,13 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::weight(0)]
+        pub fn set_reward_start_height(origin: OriginFor<T>, reward_start_height: T::BlockNumber) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            RewardStartHeight::<T>::put(reward_start_height);
+            Ok(().into())
+        }
+
         #[pallet::weight(0)]
         pub fn set_committee_limit(origin: OriginFor<T>, limit: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -313,14 +325,17 @@ pub mod pallet {
 
         // 当用户被罚款后，需要补充质押金额
         #[pallet::weight(10000)]
-        fn bond_extra(origin: OriginFor<T>, machine_id: MachineId, max_additional: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        fn fulfill_bond(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
+
+            //  max_additional: BalanceOf<T>
+            let bond_extra: BalanceOf<T> = 0u32.into();
 
             let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
             let user_balance = <T as pallet::Config>::Currency::free_balance(&controller);
 
             if let Some(extra) = user_balance.checked_sub(&ledger.total) {
-                let extra = extra.min(max_additional);
+                let extra = extra.min(bond_extra);
                 ledger.total += extra;
                 ledger.active += extra;
 
@@ -343,8 +358,11 @@ pub mod pallet {
         // TODO: 确定退出时机
         // 当用户想要机器从中退出时，可以调用unbond，来取出质押的金额
         #[pallet::weight(10000)]
-        fn unbond(origin: OriginFor<T>, machine_id: MachineId, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        fn unbond(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
+
+            // TODO: 增加这个功能
+            let amount: BalanceOf<T> = 0u32.into();
 
             let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
             ensure!(ledger.unlocking.len() < crate::MAX_UNLOCKING_CHUNKS, Error::<T>::NoMoreChunks);
@@ -404,18 +422,25 @@ pub mod pallet {
         //     Ok(().into())
         // }
 
-        // #[pallet::weight(10000)]
-        // pub fn payout_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-        //     let who = ensure_signed(origin)?;
-        //     let current_era = Self::current_era();
-        //     // Self::do_payout_stakers(who, era);
+        #[pallet::weight(10000)]
+        pub fn payout_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            // let current_era = Self::current_era();
+            // Self::do_payout_stakers(who, era);
 
-        //     // let reward_to_payout = UserReleasedReward::<T>::get(&user);
-        //     // let _ = <T as Config>::Currency::deposit_into_existing(&user, reward_to_payout).ok();
+            // let reward_to_payout = UserReleasedReward::<T>::get(&user);
+            // let _ = <T as Config>::Currency::deposit_into_existing(&user, reward_to_payout).ok();
 
-        //     // <UserPayoutEraIndex<T>>::insert(user, current_era);
-        //     Ok(().into())
-        // }
+            // <UserPayoutEraIndex<T>>::insert(user, current_era);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn cancle_slash(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -545,6 +570,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn end_era() {
+        // TODO: 参考staking模块的end_era
         // grade_inflation::compute_stake_grades(machine_price, staked_in, machine_grade)
     }
 

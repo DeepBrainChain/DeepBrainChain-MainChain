@@ -87,7 +87,7 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
-    "pallet-staking/std",
+    "pallet-staking/std", 
     # "random-num/std",
     "sp-std/std",
     "sp-runtime/std",
