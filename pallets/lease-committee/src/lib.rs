@@ -97,12 +97,11 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + online_profile::Config + random_num::Config {
+    pub trait Config: frame_system::Config + online_profile::Config + pallet_staking::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type CommitteeMachine: LCOps<AccountId = Self::AccountId, MachineId = MachineId>;
-
-        type OnlineProfile: LCOps<MachineId = MachineId>;
+        type LCOperations: LCOps<AccountId = Self::AccountId, MachineId = MachineId>;
+        type BondingDuration: Get<EraIndex>;
     }
 
     #[pallet::pallet]
@@ -188,10 +187,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    // #[pallet::storage]
-    // #[pallet::getter(fn chill_list)]
-    // pub(super) type ChillList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
-
     #[pallet::storage]
     #[pallet::getter(fn black_list)]
     pub(super) type BlackList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
@@ -232,7 +227,7 @@ pub mod pallet {
             ensure!(!Candidacy::<T>::contains_key(&who), Error::<T>::AlreadyCandidacy);
             ensure!(!Committee::<T>::contains_key(&who), Error::<T>::AlreadyCommittee);
 
-            let current_era = <random_num::Module<T>>::current_era();
+            let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
             let history_depth = Self::history_depth();
             // last_reward_era记录委员会上次领取奖励的时间
             let last_reward_era = current_era.saturating_sub(history_depth);
@@ -280,7 +275,7 @@ pub mod pallet {
             Committee::<T>::insert(&who, CommitteeStatus::Chilling(now));
 
             let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
-            let era = <random_num::Module<T>>::current_era() + T::BondingDuration::get();
+            let era = <pallet_staking::Module<T>>::current_era().unwrap_or(0) + <T as pallet::Config>::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk {
                 value: ledger.active,
                 era,
@@ -296,7 +291,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
             let old_total = ledger.total;
-            let current_era = <random_num::Module<T>>::current_era();
+            let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
 
             ledger = ledger.consolidate_unlock(current_era);
 
@@ -405,7 +400,7 @@ pub mod pallet {
             };
 
             // 将状态设置为已被订阅状态
-            T::OnlineProfile::lc_add_booked_machine(machine_id.clone());
+            T::LCOperations::lc_add_booked_machine(machine_id.clone());
 
             let mut user_machines = Self::committee_machine(&who);
             if let Err(index) = user_machines.booked_machine.binary_search(&machine_id) {

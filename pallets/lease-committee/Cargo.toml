@@ -26,10 +26,10 @@ default-features = false
 path = '../online-profile'
 package = 'online-profile'
 
-[dependencies.random-num]
+[dependencies.pallet-staking]
 default-features = false
-path = '../random-num'
-package = 'random-num'
+path = '../dbc-staking'
+package = 'dbc-staking'
 
 [dependencies.sp-std]
 default-features = false
@@ -92,9 +92,8 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "online-profile/std",
-    "random-num/std",
+    "pallet-staking/std",
     "serde",
-    #"sp-core/std",
     "sp-io/std",
     "sp-runtime/std",
     "sp-std/std",

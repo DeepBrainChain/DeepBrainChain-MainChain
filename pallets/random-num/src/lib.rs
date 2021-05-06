@@ -1,12 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-    pallet_prelude::*,
-    traits::{Get, Randomness},
-};
+use frame_support::{pallet_prelude::*, traits::Randomness};
 use frame_system::pallet_prelude::*;
 use sp_core::H256;
-use sp_runtime::traits::SaturatedConversion;
 use sp_runtime::{traits::BlakeTwo256, RandomNumberGenerator};
 use sp_std::prelude::*;
 
@@ -18,7 +14,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type BlockPerEra: Get<u32>;
+        // type BlockPerEra: Get<u32>;
         type RandomnessSource: Randomness<H256>;
     }
     #[pallet::pallet]
@@ -61,16 +57,5 @@ impl<T: Config> Pallet<T> {
         let random_seed = T::RandomnessSource::random(&subject);
         let mut rng = <RandomNumberGenerator<BlakeTwo256>>::new(random_seed);
         rng.pick_u32(max)
-    }
-
-    // get current era
-    pub fn current_era() -> u32 {
-        let current_block_height =
-            <frame_system::Module<T>>::block_number().saturated_into::<u32>();
-        return current_block_height / T::BlockPerEra::get();
-    }
-
-    pub fn block_per_era() -> u32 {
-        T::BlockPerEra::get()
     }
 }

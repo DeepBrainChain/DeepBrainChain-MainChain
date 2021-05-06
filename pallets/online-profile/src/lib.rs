@@ -117,7 +117,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + random_num::Config + dbc_price_ocw::Config {
+    pub trait Config: frame_system::Config + dbc_price_ocw::Config + pallet_staking::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type BondingDuration: Get<EraIndex>;
@@ -264,7 +264,7 @@ pub mod pallet {
             // 资金检查
             // ensure!(bond_amount >= StakePerGPU::<T>::get(), Error::<T>::StakeNotEnough);
             ensure!(<T as Config>::Currency::free_balance(&controller) > bond_amount, Error::<T>::BalanceNotEnough);
-            ensure!(bond_amount >= T::Currency::minimum_balance(), Error::<T>::InsufficientValue);
+            ensure!(bond_amount >= <T as pallet::Config>::Currency::minimum_balance(), Error::<T>::InsufficientValue);
             // 确保机器还没有被绑定过
             let mut live_machines = Self::live_machines();
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
@@ -291,7 +291,7 @@ pub mod pallet {
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             // 直接初始化Ledger, 如果绑定失败，则调用unbond方法，进行自动解邦.
-            let current_era = <random_num::Module<T>>::current_era();
+            let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
             let history_depth = Self::history_depth();
             let last_reward_era = current_era.saturating_sub(history_depth);
             let item = StakingLedger {
@@ -317,7 +317,7 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
 
             let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
-            let user_balance = T::Currency::free_balance(&controller);
+            let user_balance = <T as pallet::Config>::Currency::free_balance(&controller);
 
             if let Some(extra) = user_balance.checked_sub(&ledger.total) {
                 let extra = extra.min(max_additional);
@@ -325,7 +325,7 @@ pub mod pallet {
                 ledger.active += extra;
 
                 ensure!(
-                    ledger.active >= T::Currency::minimum_balance(),
+                    ledger.active >= <T as pallet::Config>::Currency::minimum_balance(),
                     Error::<T>::InsufficientValue
                 );
 
@@ -358,7 +358,7 @@ pub mod pallet {
                     ledger.active = Zero::zero();
                 }
 
-                let era = <random_num::Module<T>>::current_era() + T::BondingDuration::get();
+                let era = <pallet_staking::Module<T>>::current_era().unwrap_or(0) + <T as pallet::Config>::BondingDuration::get();
                 ledger.unlocking.push(UnlockChunk { value, era });
 
                 Self::update_ledger(&controller, &machine_id, &ledger);
@@ -376,12 +376,12 @@ pub mod pallet {
             let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
 
             let old_total = ledger.total;
-            let current_era = <random_num::Module<T>>::current_era();
+            let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
             ledger = ledger.consolidate_unlock(current_era);
 
-            if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
+            if ledger.unlocking.is_empty() && ledger.active <= <T as pallet::Config>::Currency::minimum_balance() {
                 // 清除ledger相关存储
-                T::Currency::remove_lock(crate::PALLET_LOCK_ID, &controller);
+                <T as pallet::Config>::Currency::remove_lock(crate::PALLET_LOCK_ID, &controller);
             } else {
                 Self::update_ledger(&controller, &machine_id, &ledger);
             }
@@ -529,7 +529,7 @@ impl<T: Config> Pallet<T> {
     fn start_era() {
         // TODO: 在start_era 的时候，更新打分信息,记录质押信息,可以加一个全局锁，将这段函数放在OCW中完成
 
-        let current_era = <random_num::Module<T>>::current_era();
+        let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
         // let bonded_machine_id = Self::bonded_machine_id();
 
         // for a_machine_id in bonded_machine_id.iter() {
@@ -560,7 +560,7 @@ impl<T: Config> Pallet<T> {
         machine_id: &MachineId,
         ledger: &StakingLedger<T::AccountId, BalanceOf<T>>,
     ) {
-        T::Currency::set_lock(
+        <T as pallet::Config>::Currency::set_lock(
             PALLET_LOCK_ID,
             &ledger.stash,
             ledger.total,
