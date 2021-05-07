@@ -2924,6 +2924,7 @@ dependencies = [
  "pallet-balances",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
+ "random-num",
  "serde",
  "sp-core",
  "sp-io",
@@ -4311,6 +4312,7 @@ dependencies = [
  "pallet-balances",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
+ "random-num",
  "serde",
  "serde_json 1.0.44",
  "sp-core",
@@ -5962,6 +5964,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-babe",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "sp-core",

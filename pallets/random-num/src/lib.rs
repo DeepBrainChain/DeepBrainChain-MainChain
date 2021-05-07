@@ -3,7 +3,9 @@
 use frame_support::{pallet_prelude::*, traits::Randomness};
 use frame_system::pallet_prelude::*;
 use sp_core::H256;
+use sp_runtime::traits::SaturatedConversion;
 use sp_runtime::{traits::BlakeTwo256, RandomNumberGenerator};
+use sp_std::convert::TryInto;
 use sp_std::prelude::*;
 
 pub use pallet::*;
@@ -13,8 +15,8 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
-        // type BlockPerEra: Get<u32>;
+    pub trait Config: frame_system::Config + pallet_babe::Config {
+        type BlockPerEra: Get<u32>;
         type RandomnessSource: Randomness<H256>;
     }
     #[pallet::pallet]
@@ -57,5 +59,20 @@ impl<T: Config> Pallet<T> {
         let random_seed = T::RandomnessSource::random(&subject);
         let mut rng = <RandomNumberGenerator<BlakeTwo256>>::new(random_seed);
         rng.pick_u32(max)
+    }
+
+    pub fn current_slot_height() -> T::BlockNumber {
+        let genesis_slot = <pallet_babe::Module<T>>::genesis_slot();
+        let current_slot = <pallet_babe::Module<T>>::current_slot();
+        let current_height: u64 = *current_slot - *genesis_slot + 1;
+        if let Ok(h) = current_height.try_into() {
+            return h;
+        }
+        return 0u32.into();
+    }
+
+    pub fn current_era() -> u32 {
+        let current_slot_height = Self::current_slot_height().saturated_into::<u32>();
+        return current_slot_height / T::BlockPerEra::get();
     }
 }

@@ -36,15 +36,10 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
-# [dependencies.random-num]
-# default-features = false
-# path = '../random-num'
-# package = 'random-num'
-
-[dependencies.pallet-staking]
+[dependencies.random-num]
 default-features = false
-path = '../dbc-staking'
-package = 'dbc-staking'
+path = '../random-num'
+package = 'random-num'
 
 [dependencies.dbc-price-ocw]
 default-features = false
@@ -87,8 +82,7 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
-    "pallet-staking/std", 
-    # "random-num/std",
+    "random-num/std",
     "sp-std/std",
     "sp-runtime/std",
     "serde",

@@ -97,7 +97,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + online_profile::Config + pallet_staking::Config {
+    pub trait Config: frame_system::Config + online_profile::Config + random_num::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type LCOperations: LCOps<AccountId = Self::AccountId, MachineId = MachineId>;
@@ -227,7 +227,7 @@ pub mod pallet {
             ensure!(!Candidacy::<T>::contains_key(&who), Error::<T>::AlreadyCandidacy);
             ensure!(!Committee::<T>::contains_key(&who), Error::<T>::AlreadyCommittee);
 
-            let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
+            let current_era = <random_num::Module<T>>::current_era();
             let history_depth = Self::history_depth();
             // last_reward_era记录委员会上次领取奖励的时间
             let last_reward_era = current_era.saturating_sub(history_depth);
@@ -275,7 +275,7 @@ pub mod pallet {
             Committee::<T>::insert(&who, CommitteeStatus::Chilling(now));
 
             let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
-            let era = <pallet_staking::Module<T>>::current_era().unwrap_or(0) + <T as pallet::Config>::BondingDuration::get();
+            let era = <random_num::Module<T>>::current_era() + <T as pallet::Config>::BondingDuration::get();
             ledger.unlocking.push(UnlockChunk {
                 value: ledger.active,
                 era,
@@ -291,7 +291,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
             let old_total = ledger.total;
-            let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
+            let current_era = <random_num::Module<T>>::current_era();
 
             ledger = ledger.consolidate_unlock(current_era);
 

@@ -1061,9 +1061,8 @@ impl online_profile_ocw::Config for Runtime {
 impl lease_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type CommitteeMachine = OnlineProfile;
-    // type CommitteeDuration = CommitteeDuration;
-    type OnlineProfile = OnlineProfile;
+    type LCOperations = OnlineProfile;
+    type BondingDuration = BondingDuration;
 }
 
 construct_runtime!(

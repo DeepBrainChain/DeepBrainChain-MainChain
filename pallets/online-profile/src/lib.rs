@@ -9,6 +9,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{LCOps, OCWOps};
 use sp_runtime::traits::{CheckedSub, Zero};
+use sp_runtime::SaturatedConversion;
 use sp_std::{
     collections::btree_map::BTreeMap, collections::btree_set::BTreeSet,
     collections::vec_deque::VecDeque, prelude::*, str,
@@ -119,7 +120,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + dbc_price_ocw::Config + pallet_staking::Config {
+    pub trait Config: frame_system::Config + dbc_price_ocw::Config + random_num::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type BondingDuration: Get<EraIndex>;
@@ -303,7 +304,8 @@ pub mod pallet {
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             // 直接初始化Ledger, 如果绑定失败，则调用unbond方法，进行自动解邦.
-            let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
+            // let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
+            let current_era: u32 = <random_num::Module<T>>::current_slot_height().saturated_into::<u32>();
             let history_depth = Self::history_depth();
             let last_reward_era = current_era.saturating_sub(history_depth);
             let item = StakingLedger {
@@ -376,7 +378,8 @@ pub mod pallet {
                     ledger.active = Zero::zero();
                 }
 
-                let era = <pallet_staking::Module<T>>::current_era().unwrap_or(0) + <T as pallet::Config>::BondingDuration::get();
+                // let era = <pallet_staking::Module<T>>::current_era().unwrap_or(0) + <T as pallet::Config>::BondingDuration::get();
+                let era = <random_num::Module<T>>::current_era() + <T as pallet::Config>::BondingDuration::get();
                 ledger.unlocking.push(UnlockChunk { value, era });
 
                 Self::update_ledger(&controller, &machine_id, &ledger);
@@ -394,7 +397,7 @@ pub mod pallet {
             let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
 
             let old_total = ledger.total;
-            let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
+            let current_era = <random_num::Module<T>>::current_era();
             ledger = ledger.consolidate_unlock(current_era);
 
             if ledger.unlocking.is_empty() && ledger.active <= <T as pallet::Config>::Currency::minimum_balance() {
@@ -554,7 +557,7 @@ impl<T: Config> Pallet<T> {
     fn start_era() {
         // TODO: 在start_era 的时候，更新打分信息,记录质押信息,可以加一个全局锁，将这段函数放在OCW中完成
 
-        let current_era = <pallet_staking::Module<T>>::current_era().unwrap_or(0);
+        let current_era = <random_num::Module<T>>::current_era();
         // let bonded_machine_id = Self::bonded_machine_id();
 
         // for a_machine_id in bonded_machine_id.iter() {

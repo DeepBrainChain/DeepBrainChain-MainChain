@@ -26,11 +26,6 @@ default-features = false
 path = '../online-profile'
 package = 'online-profile'
 
-[dependencies.pallet-staking]
-default-features = false
-path = '../dbc-staking'
-package = 'dbc-staking'
-
 [dependencies.sp-std]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -54,6 +49,11 @@ version = '3.0.0'
 # git = 'https://github.com/paritytech/substrate.git'
 # rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 # version = '3.0.0'
+
+[dependencies.random-num]
+default-features = false
+path = '../random-num'
+package = 'random-num'
 
 [dev-dependencies.sp-core]
 git = 'https://github.com/paritytech/substrate.git'
@@ -92,7 +92,7 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "online-profile/std",
-    "pallet-staking/std",
+    "random-num/std",
     "serde",
     "sp-io/std",
     "sp-runtime/std",

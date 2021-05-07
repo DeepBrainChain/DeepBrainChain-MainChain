@@ -38,11 +38,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + CreateSignedTransaction<Call<Self>>
-        + online_profile::Config
-        + random_num::Config
+    pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> + online_profile::Config + random_num::Config
     {
         // type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type OnlineProfile: LCOps<MachineId = MachineId>
