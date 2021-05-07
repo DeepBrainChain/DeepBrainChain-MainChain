@@ -1,4 +1,17 @@
+use crate::types::*;
 use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
+
+// 影响机器得分因素：基础得分(从API获取); 用户总绑定机器个数
+// 暂时未考虑添加: 机器在线时长奖励; 机器质押数量
+pub fn calc_machine_grade(base_grade: u64, bond_num: u64) -> u64 {
+    let inflation = if bond_num <= 1000 {
+        Perbill::from_rational_approximation(bond_num, 10_000) // 线性增加10%
+    } else {
+        Perbill::from_rational_approximation(1000u64, 10_000) // max: 10%
+    };
+
+    return base_grade + inflation * base_grade;
+}
 
 /// grade_percentage = 1 / (1 + 1 / x^4)
 /// x = staked_in / machine_price

@@ -5,7 +5,7 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*, str};
 
-pub type RewardPoint = u32;
+// pub type RewardPoint = u32;
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
@@ -104,8 +104,8 @@ pub struct StakingLedger<AccountId, Balance: HasCompact> {
     pub unlocking: Vec<UnlockChunk<Balance>>,
     pub claimed_rewards: Vec<EraIndex>,
 
-    pub released_rewards: Balance,
-    pub upcoming_rewards: VecDeque<Balance>, // 构建一个150长度的，
+    pub released_rewards: Balance, // 委员会和用户已经释放的奖励
+    pub upcoming_rewards: VecDeque<Balance>, // 用户剩余未释放的奖励
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -119,11 +119,11 @@ pub struct UnlockChunk<Balance: HasCompact> {
 
 // TOOD: 这个用来记录每个Era的总分,
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug)]
-pub struct EraRewardGrades<AccountId: Ord> {
+pub struct EraRewardBalance<AccountId: Ord, Balance> {
     /// Total number of points. Equals the sum of reward points for each validator.
-    pub total: RewardPoint,
+    pub total: Balance,
     /// The reward points earned by a given validator.
-    pub individual: BTreeMap<AccountId, RewardPoint>,
+    pub individual: BTreeMap<AccountId, Balance>,
 }
 
 impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32BitUnsigned>
@@ -163,12 +163,12 @@ where
 {
     pub fn slash(&mut self, mut value: Balance, minimum_balance: Balance) -> Balance {
         let pre_total = self.total;
-        let total = &mut self.total;
+        let total = &mut self.total; // total = active + releasing
         let active = &mut self.active;
 
         let slash_out_of =
             |total_remaining: &mut Balance, target: &mut Balance, value: &mut Balance| {
-                let mut slash_from_target = (*value).min(*target);
+                let mut slash_from_target = (*value).min(*target); // 最小惩罚 = min(avtive, slash)
 
                 if !slash_from_target.is_zero() {
                     *target -= slash_from_target;
@@ -183,20 +183,20 @@ where
                 }
             };
 
-        slash_out_of(total, active, &mut value);
+        slash_out_of(total, active, &mut value); // 扣除处罚的资金
 
         let i = self
             .unlocking
             .iter_mut()
             .map(|chunk| {
-                slash_out_of(total, &mut chunk.value, &mut value);
+                slash_out_of(total, &mut chunk.value, &mut value); // 从正在解压的部分中，扣除剩下的罚款
                 chunk.value
             })
             .take_while(|value| value.is_zero())
             .count();
 
-        let _ = self.unlocking.drain(..i);
+        let _ = self.unlocking.drain(..i); // 删掉为0的chunk
 
-        pre_total.saturating_sub(*total)
+        pre_total.saturating_sub(*total) // 返回一共惩罚成功的资金
     }
 }

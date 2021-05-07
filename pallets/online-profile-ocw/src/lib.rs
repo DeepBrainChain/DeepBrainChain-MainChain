@@ -42,10 +42,7 @@ pub mod pallet {
     {
         // type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type OnlineProfile: LCOps<MachineId = MachineId>
-            + OCWOps<
-                MachineId = MachineId,
-                MachineInfo = online_profile::MachineInfo<Self::AccountId, Self::BlockNumber>,
-            >;
+            + OCWOps<MachineId = MachineId, MachineInfo = online_profile::MachineInfo<Self::AccountId, Self::BlockNumber>>;
     }
 
     #[pallet::pallet]
@@ -100,8 +97,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn verify_times)]
-    pub(super) type VerifyTimes<T: Config> =
-        StorageValue<_, u32, ValueQuery, VerifyTimesDefault<T>>;
+    pub(super) type VerifyTimes<T: Config> = StorageValue<_, u32, ValueQuery, VerifyTimesDefault<T>>;
 
     /// random url for machine info
     #[pallet::storage]
@@ -186,6 +182,13 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        fn set_reporter_stake(origin: OriginFor<T>, num: u32) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            Ok(().into())
+        }
+
         // ocw 实现获取machine info并发送unsigned tx以修改到存储
         // UserBondedMachine增加who-machine_id pair;
         // BondedMachineId 增加 machine_id => ()
@@ -228,13 +231,11 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 用于提交机器是否在线的交易
-        // TODO: 当接收到机器不在线的交易后，OCW开启工作，进行验证机器在线信息
-        #[pallet::weight(0)]
-        fn submit_machine_online(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let reposter = ensure_signed(origin)?;
-            let report_time = <frame_system::Module<T>>::block_number();
 
+        // ocw 轮训被报告掉线的机器，并记录轮训情况
+        #[pallet::weight(0)]
+        fn ocw_polling_check(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            // TODO: 从online_profile中获取被报告的机器列表
             Ok(().into())
         }
 
@@ -258,6 +259,13 @@ pub mod pallet {
         //     Ok(().into())
         // }
     }
+
+    // #[pallet::event]
+    // #[pallet::metadata(T::AccountId = "AccountId")]
+    // #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    // pub enum Event<T: Config> {
+    //     ReportMachineOffline(T::AccountId, MachineId),
+    // }
 
     #[pallet::error]
     pub enum Error<T> {
@@ -395,7 +403,6 @@ impl<T: Config> Pallet<T> {
 
     // 通过多个URL获取机器信息，如果一致，则验证通过
     fn machine_info_identical(id: &MachineId) -> Option<OCWMachineInfo> {
-        // 首先获取到MachineId
         let info_url = Self::machine_info_rand_url();
 
         let mut machine_info = Vec::new();

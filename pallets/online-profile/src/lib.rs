@@ -2,14 +2,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     pallet_prelude::*,
     traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{LCOps, OCWOps};
-use sp_runtime::traits::{CheckedSub, Zero};
 use sp_runtime::SaturatedConversion;
+use sp_runtime::{
+    traits::{CheckedSub, Zero},
+    Perbill,
+};
 use sp_std::{
     collections::btree_map::BTreeMap, collections::btree_set::BTreeSet,
     collections::vec_deque::VecDeque, prelude::*, str,
@@ -29,7 +32,32 @@ mod mock;
 mod tests;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
+pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
+
+// 惩罚发生后，有48小时的时间提交议案取消惩罚
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct MachinesSlash<AccountId, BlockNumber, Balance> {
+    pub reporter: AccountId,
+    pub reporter_time: BlockNumber,
+    pub slash_reason: SlashReason,
+    pub slash_amount: Balance,
+    pub unapplied_slash: u32, // 记录多少个阶段的奖励被扣除
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum SlashReason {
+    MinuteOffline3, // 3min 掉线
+    MinuteOffline7, // 7min 掉线
+    DaysOffline2,   // 2days 掉线
+    DaysOffline5,   // 5days 掉线
+}
+
+impl Default for SlashReason {
+    fn default() -> Self {
+        SlashReason::MinuteOffline3
+    }
+}
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber> {
@@ -56,6 +84,7 @@ pub enum MachineStatus {
     Booked,
     WaitingHash,
     Bonded,
+    WaitingFulfill, // 等待补交罚款
 }
 
 impl Default for MachineStatus {
@@ -150,8 +179,7 @@ pub mod pallet {
 
     // OCW获取机器信息时，超时次数
     #[pallet::storage]
-    pub(super) type ProfitReleaseDuration<T: Config> =
-        StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
+    pub(super) type ProfitReleaseDuration<T: Config> = StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
 
     #[pallet::type_value]
     pub fn CommitteeLimitDefault<T: Config>() -> u32 {
@@ -189,6 +217,7 @@ pub mod pallet {
 
     /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
+
     #[pallet::getter(fn ledger)]
     pub type Ledger<T: Config> = StorageDoubleMap<
         _,
@@ -206,7 +235,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         EraIndex,
-        EraRewardGrades<T::AccountId>,
+        EraRewardBalance<T::AccountId, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -229,9 +258,6 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-            // 从ocw读取价格
-            Self::update_min_stake_dbc();
-
             // if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
             //     Self::end_era()
             // }
@@ -262,6 +288,22 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+
+            let report_time = <random_num::Module<T>>::current_slot_height();
+
+            // TODO: 报告人应该质押两天剩余的奖励
+            let stake_amount = 0u32.into();
+            ensure!(<T as Config>::Currency::free_balance(&reporter) > stake_amount, Error::<T>::BalanceNotEnough);
+
+            // FIXME: 同样的，如果有多次质押，需要用户多次累加其总质押数量
+            Self::deposit_event(Event::ReporterStake(reporter, machine_id, stake_amount));
+
+            Ok(().into())
+        }
+
         // TODO: 如果验证结果发现，绑定者与机器钱包地址不一致，则进行惩罚
         // TODO: era结束时重新计算得分, 如果有会影响得分的改变，放到列表中，等era结束进行计算
 
@@ -277,7 +319,7 @@ pub mod pallet {
             // 资金检查
             // ensure!(bond_amount >= StakePerGPU::<T>::get(), Error::<T>::StakeNotEnough);
             ensure!(<T as Config>::Currency::free_balance(&controller) > bond_amount, Error::<T>::BalanceNotEnough);
-            ensure!(bond_amount >= <T as pallet::Config>::Currency::minimum_balance(), Error::<T>::InsufficientValue);
+            // ensure!(bond_amount >= <T as pallet::Config>::Currency::minimum_balance(), Error::<T>::InsufficientValue);
             // 确保机器还没有被绑定过
             let mut live_machines = Self::live_machines();
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
@@ -318,6 +360,7 @@ pub mod pallet {
                 upcoming_rewards: VecDeque::new(),
             };
 
+            // FIXME: 这里的应该是用户的总质押数量，而非最新一次的质押数量
             Self::update_ledger(&controller, &machine_id, &item);
 
             Self::deposit_event(Event::BondMachine(controller, machine_id, bond_amount));
@@ -425,17 +468,26 @@ pub mod pallet {
         //     Ok(().into())
         // }
 
+        // 允许其他用户给别人的机器领取奖励
         #[pallet::weight(10000)]
-        pub fn payout_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-            // let current_era = Self::current_era();
-            // Self::do_payout_stakers(who, era);
+        pub fn payout_all_rewards(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
+            ensure!(UserMachines::<T>::contains_key(&controller), Error::<T>::NotMachineController);
 
-            // let reward_to_payout = UserReleasedReward::<T>::get(&user);
-            // let _ = <T as Config>::Currency::deposit_into_existing(&user, reward_to_payout).ok();
+            let user_machines = Self::user_machines(&controller);
+            for machine_id in user_machines.iter() {
+                Self::do_payout(controller.clone(), machine_id);
+            }
 
-            // <UserPayoutEraIndex<T>>::insert(user, current_era);
             Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        pub fn payout_rewards(origin: OriginFor<T>, controller: T::AccountId, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
+            ensure!(UserMachines::<T>::contains_key(&controller), Error::<T>::NotMachineController);
+
+            Self::do_payout(controller, &machine_id)
         }
 
         #[pallet::weight(0)]
@@ -456,6 +508,8 @@ pub mod pallet {
         DonationReceived(T::AccountId, BalanceOf<T>, BalanceOf<T>),
         FundsAllocated(T::AccountId, BalanceOf<T>, BalanceOf<T>),
         Withdrawn(T::AccountId, MachineId, BalanceOf<T>),
+        ClaimRewards(T::AccountId, MachineId, BalanceOf<T>),
+        ReporterStake(T::AccountId, MachineId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -467,6 +521,7 @@ pub mod pallet {
         MachineInBooking,
         MachineInBooked,
         MachineInUserBonded,
+        MachineStatusNotNormal,
         TokenNotBonded,
         BondedNotEnough,
         HttpDecodeError,
@@ -481,23 +536,63 @@ pub mod pallet {
         AccountNotSame,
         NotInBookingList,
         StakeNotEnough,
+        NotMachineController,
     }
 }
 
+#[rustfmt::skip]
 impl<T: Config> Pallet<T> {
-    // fn do_payout_stakers(who: T::AccountId, era: EraIndex) -> DispatchResult {
-    //     let current_era = Self::current_era();
-    //     ensure!(era <= current_era, Error::<T>::InvalidEraToReward);
-    //     let history_depth = Self::history_depth();
-    //     ensure!(
-    //         era >= current_era.saturating_sub(history_depth),
-    //         Error::<T>::InvalidEraToReward
-    //     );
+    pub fn do_payout(controller: T::AccountId, machine_id: &MachineId) -> DispatchResultWithPostInfo {
+        // 根据解锁数量打币给用户
+        let mut ledger = Self::ledger(controller.clone(), machine_id).ok_or(Error::<T>::LedgerNotFound)?;
+        let can_claim = ledger.released_rewards;
 
-    //     let era_payout =
-    //         <ErasValidatorReward<T>>::get(&era).ok_or_else(|| Error::<T>::InvalidEraToReward)?;
+        // 检查机器是否处于正常状态
+        let machine_info = Self::machines_info(machine_id.to_vec());
+        if machine_info.machine_status != MachineStatus::Bonded {
+            return Err(Error::<T>::NotMachineController.into());
+        }
 
-    //     Ok(())
+        // 计算给用户的部分和给委员会的部分
+        // 99%奖金给机器控制者，1%奖励给用户
+
+        // 判断委员会是否应该获得奖励
+        let current_slot_height: u64 = <random_num::Module<T>>::current_slot_height().saturated_into::<u64>();
+        if machine_info.reward_deadline.saturated_into::<u64>() >= current_slot_height {
+            // 委员会也分得奖励
+            let to_controller = Perbill::from_rational_approximation(99u64, 100) * can_claim;
+            let to_committees= can_claim - to_controller;
+            let to_one_committee = Perbill::from_rational_approximation(1u64, machine_info.reward_committee.len() as u64) * to_committees;
+
+            for a_committee in machine_info.reward_committee.iter() {
+                <T as Config>::Currency::deposit_into_existing(&a_committee, to_one_committee);
+                Self::deposit_event(Event::ClaimRewards((*a_committee).clone(), machine_id.to_vec(), to_one_committee));
+            }
+
+            <T as Config>::Currency::deposit_into_existing(&controller, to_controller)?;
+            Self::deposit_event(Event::ClaimRewards(controller.clone(), machine_id.to_vec(), to_controller));
+        } else {
+            // 奖励全分给控制者
+            <T as Config>::Currency::deposit_into_existing(&controller, can_claim);
+            Self::deposit_event(Event::ClaimRewards(controller.clone(), machine_id.to_vec(), can_claim));
+        }
+
+
+        // 更新已解压数量
+        ledger.released_rewards = 0u32.into();
+        Self::update_ledger(&controller, machine_id, &ledger);
+
+        Ok(().into())
+    }
+
+    // 获取机器最近n天的奖励
+    pub fn remaining_n_eras_reward(machine_id: MachineId, recent_eras: u32) -> BalanceOf<T> {
+        return 0u32.into();
+    }
+
+    // // 被惩罚了应该是什么状态让用户无法处理其奖金，
+    // pub fn slash_n_eras_reward(machine_id: MachineId, recent_eras: u32) -> BalanceOf<T> {
+    //     return 0u32.into();
     // }
 
     // fn confirmed_committee(id: MachineId) -> BTreeSet<AccountId> {
@@ -507,42 +602,14 @@ impl<T: Config> Pallet<T> {
 
     // TODO: 在这四个函数中，更新machine的状态
 
-    // Update min_stake_dbc every block end
-    fn update_min_stake_dbc() {
-        // TODO: 1. 获取DBC价格
-        let dbc_price = dbc_price_ocw::Pallet::<T>::avg_price;
-
-        // TODO: 2. 计算所需DBC
-
-        // TODO: 3. 更新min_stake_dbc变量
-    }
-
-    // 为机器增加得分奖励
-    pub fn reward_by_ids(
-        era_index: u32,
-        validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
-    ) {
+    // 为机器增加奖励
+    pub fn reward_by_ids(era_index: u32, validators_balance: impl IntoIterator<Item = (T::AccountId, BalanceOf<T>)>) {
         <ErasRewardGrades<T>>::mutate(era_index, |era_rewards| {
-            for (validator, grades) in validators_points.into_iter() {
+            for (validator, grades) in validators_balance.into_iter() {
                 *era_rewards.individual.entry(validator).or_default() += grades;
                 era_rewards.total += grades;
             }
         });
-    }
-
-    // 影响机器得分因素：
-    // 1. 基础得分(从API获取)
-    // 2. 质押数量
-    // 3. 用户总绑定机器个数
-    // 待添加: 4. 机器在线时长奖励
-    fn calc_machine_grade(machine_id: MachineId) -> u64 {
-        // TODO: 如何获得机器基本得分情况？ 应该由OCW写入到本模块变量中
-
-        // 1. 查询机器拥有者
-
-        // 2. 查询机器质押数量
-
-        0
     }
 
     // 更新以下信息:
@@ -554,9 +621,10 @@ impl<T: Config> Pallet<T> {
     // 可能在一个Era中再次更新的信息:
     // [机器打分信息]: 如果有减少，则立即更新，如果有增加，则下一个时间更新
     // [机器总打分信息]: 如果某一个机器打分减少，则总打分信息也会变化
+    // TODO: 在start_era 的时候，更新打分信息,记录质押信息,可以加一个全局锁，将这段函数放在OCW中完成
+    // TODO: 清理未收集的数据
+    // TODO: 触发惩罚
     fn start_era() {
-        // TODO: 在start_era 的时候，更新打分信息,记录质押信息,可以加一个全局锁，将这段函数放在OCW中完成
-
         let current_era = <random_num::Module<T>>::current_era();
         // let bonded_machine_id = Self::bonded_machine_id();
 
@@ -566,10 +634,6 @@ impl<T: Config> Pallet<T> {
         // }
 
         // let a_machine_grade = 1;
-
-        // TODO: 清理未收集的数据
-
-        // TODO: 触发惩罚
     }
 
     fn end_era() {
@@ -577,24 +641,53 @@ impl<T: Config> Pallet<T> {
         // grade_inflation::compute_stake_grades(machine_price, staked_in, machine_grade)
     }
 
+    // 计算每天的奖励，25%添加到用户的余额，75%在150天线性释放，TODO: 一部分释放给委员会
     fn add_daily_reward(controller: T::AccountId, machine_id: MachineId, amount: BalanceOf<T>) {
-        let mut ledger = Self::ledger(&controller, &machine_id);
-        // TODO: 将amount 的25%直接添加到用户的资金
-        // TODO：75%添加到用户的剩下150天的余额中
+        let ledger = Self::ledger(&controller, &machine_id);
+        // ledger 在bond成功会初始化，若不存在，则直接返回
+        if let None = ledger {
+            return
+        }
+        let mut ledger = ledger.unwrap();
+
+        // 将今天的奖励pop出，并增加到released_rewrads
+        if let Some(today_released_reward) = ledger.upcoming_rewards.pop_front() {
+            ledger.released_rewards += today_released_reward;
+        }
+
+        // 将amount 的25%直接添加到用户的资金
+        let released_now = Perbill::from_rational_approximation(25u64, 100) * amount;
+        let released_daily = Perbill::from_rational_approximation(5u64, 1000) * amount; // 接下来150天,每天释放奖励的千分之五
+
+        ledger.released_rewards += released_now;
+
+        // 75%添加到用户的剩下150天的余额中
+        let unreleased_days = ledger.upcoming_rewards.len();
+        if unreleased_days < 150 {
+            let mut future_release = vec![released_daily; 150];
+            for i in 0..unreleased_days {
+                future_release[i] += ledger.upcoming_rewards[i];
+            }
+            ledger.upcoming_rewards = future_release.into_iter().collect();
+        } else {
+            for i in 0..150 {
+                ledger.upcoming_rewards[i] += released_daily;
+            }
+        }
+
+        Self::update_ledger(&controller, &machine_id, &ledger);
     }
 
+    // 扣除n天剩余奖励
+    fn slash_nday_reward(controller: T::AccountId, machine_id: MachineId, amount: BalanceOf<T>) {
+
+    }
+
+    fn validator_slash(){}
+
     // 更新用户的质押的ledger
-    fn update_ledger(
-        controller: &T::AccountId,
-        machine_id: &MachineId,
-        ledger: &StakingLedger<T::AccountId, BalanceOf<T>>,
-    ) {
-        <T as pallet::Config>::Currency::set_lock(
-            PALLET_LOCK_ID,
-            &ledger.stash,
-            ledger.total,
-            WithdrawReasons::all(),
-        );
+    fn update_ledger(controller: &T::AccountId, machine_id: &MachineId, ledger: &StakingLedger<T::AccountId, BalanceOf<T>>) {
+        <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, &ledger.stash, ledger.total, WithdrawReasons::all());
         Ledger::<T>::insert(controller, machine_id, Some(ledger));
     }
 }
