@@ -1,0 +1,8 @@
+{
+  "AccountInfo": {
+    "nonce": "u32",
+    "consumers": "u32",
+    "providers": "u32",
+    "data": "AccountData"
+  }
+}

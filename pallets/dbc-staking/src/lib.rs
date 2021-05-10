@@ -2964,14 +2964,14 @@ impl<T: Config> Module<T> {
     }
 
     fn reward_to_committee_team() {
-        for (dest_account, amount) in Self::committee_team_reward_per_year() {
-            let reward_times = Self::reward_times();
-            if reward_times < 1 {
-                return;
-            }
-            T::Currency::deposit_creating(&dest_account, amount);
-            RewardTimes::put(reward_times - 1);
+        let reward_times = Self::reward_times();
+        if reward_times < 1 {
+            return;
         }
+        for (dest_account, amount) in Self::committee_team_reward_per_year() {
+            T::Currency::deposit_creating(&dest_account, amount);
+        }
+        RewardTimes::put(reward_times - 1);
     }
 
     /// Plan a new era. Return the potential new staking set.
