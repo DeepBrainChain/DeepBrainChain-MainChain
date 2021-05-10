@@ -1107,6 +1107,11 @@ decl_storage! {
         pub Phase2RewardPerYear get(fn phase_2_reward_per_year): BalanceOf<T>;
         pub RewardStartHeight get(fn reward_start_height): T::BlockNumber;
 
+        // unlock every year
+        pub CommitteeTeamRewardPerYear get(fn committee_team_reward_per_year): Vec<(T::AccountId, BalanceOf<T>)>;
+        pub FirstCommitteeTeamReleaseEra get(fn first_committee_team_release_era): EraIndex;
+        pub RewardTimes get(fn reward_times): u32 = 6;
+
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
@@ -2309,6 +2314,31 @@ decl_module! {
             Self::deposit_event(RawEvent::Phase2RewardPerYear(reward_per_year));
             Ok(())
         }
+
+        #[weight = 0]
+        pub fn set_first_committee_team_reward_date(origin, reward_date: EraIndex) -> DispatchResult {
+            ensure_root(origin)?;
+            FirstCommitteeTeamReleaseEra::put(reward_date);
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn add_committee_team_reward_per_year(origin, reward_to: T::AccountId, reward_per_year: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            let mut committee_team_reward_per_year = Self::committee_team_reward_per_year();
+            committee_team_reward_per_year.push((reward_to, reward_per_year));
+            CommitteeTeamRewardPerYear::<T>::put(committee_team_reward_per_year);
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn rm_committee_team_reward_by_index(origin, index: u32) -> DispatchResult {
+            ensure_root(origin)?;
+            let mut committee_team_reward_per_year = Self::committee_team_reward_per_year();
+            committee_team_reward_per_year.remove(index as usize);
+            CommitteeTeamRewardPerYear::<T>::put(committee_team_reward_per_year);
+            Ok(())
+        }
     }
 }
 
@@ -2876,6 +2906,16 @@ impl<T: Config> Module<T> {
     fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
         // Note: active_era_start can be None if end era is called during genesis config.
         if let Some(active_era_start) = active_era.start {
+            // release for committee and team
+            let first_release_date = Self::first_committee_team_release_era();
+            if active_era.index == first_release_date {
+                Self::reward_to_committee_team();
+            } else if active_era.index > first_release_date
+                && (active_era.index - first_release_date) % 365 == 0
+            {
+                Self::reward_to_committee_team();
+            }
+
             let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
             let era_duration = now_as_millis_u64 - active_era_start;
 
@@ -2920,6 +2960,17 @@ impl<T: Config> Module<T> {
             // Set ending era reward.
             <ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
             T::RewardRemainder::on_unbalanced(T::Currency::issue(rest));
+        }
+    }
+
+    fn reward_to_committee_team() {
+        for (dest_account, amount) in Self::committee_team_reward_per_year() {
+            let reward_times = Self::reward_times();
+            if reward_times < 1 {
+                return;
+            }
+            T::Currency::deposit_creating(&dest_account, amount);
+            RewardTimes::put(reward_times - 1);
         }
     }
 
