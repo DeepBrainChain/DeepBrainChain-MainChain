@@ -230,8 +230,8 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    #[pallet::getter(fn eras_reward_points)]
-    pub(super) type ErasRewardGrades<T: Config> = StorageMap<
+    #[pallet::getter(fn eras_reward_balance)]
+    pub(super) type ErasRewardBalance<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         EraIndex,
@@ -604,7 +604,7 @@ impl<T: Config> Pallet<T> {
 
     // 为机器增加奖励
     pub fn reward_by_ids(era_index: u32, validators_balance: impl IntoIterator<Item = (T::AccountId, BalanceOf<T>)>) {
-        <ErasRewardGrades<T>>::mutate(era_index, |era_rewards| {
+        <ErasRewardBalance<T>>::mutate(era_index, |era_rewards| {
             for (validator, grades) in validators_balance.into_iter() {
                 *era_rewards.individual.entry(validator).or_default() += grades;
                 era_rewards.total += grades;

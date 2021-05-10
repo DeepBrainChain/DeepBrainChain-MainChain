@@ -12,30 +12,60 @@
   "BlockNumber": "u32",
   "MachineInfo": {
     "machine_owner": "AccountId",
-    "gpu_num": "u64",
     "bonding_height": "BlockNumber",
-    "bonding_requests": "u64",
     "machine_status": "MachineStatus",
-    "ocw_machine_grades": "BTreeMap<AccountId, OCWMachineGrade>",
-    "ocw_machine_price": "u64",
-    "machine_grade": "u64",
-    "grade_detail": "MachineGradeDetail"
+    "ocw_machine_info": "OCWMachineInfo",
+    "machine_grades": "u64",
+    "committee_confirm": "BTreeMap<AccountId, CommitteeConfirmation",
+    "reward_committee": "Vec<AccountId>",
+    "reward_deadline": "BlockNumber"
   },
-  "MachineGradeDetail": {
-    "gpu_num": "u64",
-    "cpu": "u64",
-    "disk": "u64",
-    "gpu": "u64",
-    "mem": "u64",
-    "net": "u64"
-  },
-  "MachineStatus": {
-    "_enum": ["Bonding", "Booked", "WaitingHash", "Bonded"]
-  },
-  "OCWMachineGrade": {
+  "CommitteeConfirmation": {
     "committee": "AccountId",
     "confirm_time": "BlockNumber",
-    "grade": "u64",
     "is_confirmed": "bool"
+  },
+  "MachineStatus": {
+    "_enum": ["Bonding", "Booked", "WaitingHash", "Bonded", "WaitingFulfill"]
+  },
+  "OCWMachineInfo": {
+    "cpu": "CPU",
+    "disk": "Disk",
+    "gpu": "GPU",
+    "ip": "Vec<u8>",
+    "mem": "Vec<u8>",
+    "os": "Vec<u8>",
+    "version": "Vec<u8>"
+  },
+  "CPU": {
+    "num": "Vec<u8>",
+    "type": "Vec<u8>"
+  },
+  "Disk": {},
+  "GPU": {
+    "num": "Vec<u8>",
+    "gpus": "Vec<GPUDetail>"
+  },
+  "GPUDetail": {
+    "grade": "Vec<u8>"
+  },
+  "AccountInfo": {
+    "nonce": "u32",
+    "consumers": "u32",
+    "providers": "u32",
+    "data": "AccountData"
+  },
+  "StakingLedger": {
+    "stash": "AccountId",
+    "total": "Compact<Balance>",
+    "active": "Compact<Balance>",
+    "unlocking": "Vec<UnlockChunk>",
+    "claimed_rewards": "Vec<EraIndex>",
+    "released_rewards": "Balance",
+    "upcoming_rewards": "Vec<Balance>"
+  },
+  "UnlockChunk": {
+    "value": "Compact<Balance>",
+    "era": "Compact<EraIndex>"
   }
 }
