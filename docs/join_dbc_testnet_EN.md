@@ -1,5 +1,10 @@
 # How to run a DBC validator?
 
+0. Recommended hardware
+   + RAM：8G
+   + CPU：2核
+   + Disk：100G
+
 1. Generate stash account （If you already have stash account, you can skip this）
 
    + Option 1: Install `polkadot{.js}` adds-on
@@ -15,7 +20,7 @@
 
      ```bash
      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-     cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0 --locked
+     cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.1 --locked
      ```
 
 2. Get `dbc-chain` binary
@@ -40,8 +45,8 @@
      cd DeepBrainChain-MainChain
      cargo build --release
      ```
-   
-4. Synchronize Chain Data
+
+3. Synchronize Chain Data
 
    ```bash
    ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning=archive --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNa5XXT8PXgS9aT6uKJanjbEHtP2z8vTMdKA8e1TqgRYv
@@ -54,7 +59,7 @@
      + `--chain ./dbcSpecRaw.json`：Specifies which chain specification to use. 
      + `--pruning=archive`：synchronize chain data
      + `--bootnodes`：specified a single boot node.
-5. After synchronizing block data finished, stop the synchronizing command. Then run the node as a validator: 
+4. After synchronizing block data finished, stop the synchronizing command. Then run the node as a validator: 
 
    ```bash
    nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNa5XXT8PXgS9aT6uKJanjbEHtP2z8vTMdKA8e1TqgRYv 1>dbc_node.log 2>&1 &
@@ -94,7 +99,7 @@
 
    + Now, check in [Telemetry]( https://telemetry.polkadot.io/#list/DBC%20Network) and you can see your node.![image-20210121234945030](join_dbc_testnet.assets/image-20210121234945030.png)
 
-9. Validate
+8. Validate
 
    + After steps above you can see`Validate` button and click it,![image-20210121235144583](join_dbc_testnet.assets/image-20210121235144583.png)
    
