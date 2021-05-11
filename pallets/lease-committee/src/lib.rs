@@ -1,8 +1,17 @@
-// 候选委员会不设置个数限制,满足质押，并且通过议案选举即可
+// 委员会不设置个数限制，满足质押，并且通过议案选举即可。
+// 每次机器加入，系统随机选择9组委员会，对应到0~36h，每个委员会分配4个小时。
+// 当委员会人数n < 9 时，每n个时间段委员会将都被选上。剩余9%n则随机从n中选择。
+// 当委员会n >= 9 时，随机从n中选择9个，且委员会不重复。
+// 下一轮选择，与上一轮委员会是否被选择的状态无关。
+// 委员会确认机器，会提供三个字段组成的 Hash1 = Hash(机器原始信息, 委员会随机字符串, bool(机器正常与否))
+// 最后12个小时，统计委员会结果，多数结果为最终结果。第二次提交信息为： 机器原始信息，委员会随机字符串，bool.
+// 验证：1. Hash(机器原始信息) == OCW获取到的机器Hash
+//      2. Hash(机器原始信息，委员会随机字符串, bool) == Hash1
+// 如果没有人提交信息，则进行新一轮随机派发。
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::DispatchResult,
     ensure,
@@ -10,14 +19,14 @@ use frame_support::{
     traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use online_profile::types::*;
+// use online_profile::types::*;
 use online_profile_machine::LCOps;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
 use sp_std::{collections::vec_deque::VecDeque, prelude::*, str, vec::Vec};
 
-mod committee;
-
+pub type MachineId = Vec<u8>;
+pub type EraIndex = u32;
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -28,6 +37,7 @@ pub struct PendingVerify<BlockNumber> {
 }
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"leasecom";
+pub const Distribution: u32 = 9; // 订单分发9次，在36个小时内
 
 pub use pallet::*;
 
@@ -37,6 +47,61 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+// 记录机器从派单到确认的信息
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct MachineInfo<AccountId, BlockNumber> {
+    pub joined_height: BlockNumber,
+    pub booked_committee: Vec<(AccountId, BlockNumber)>, // 记录订阅的用户及验证开始时间
+}
+
+// 记录处于不同状态的委员会的列表，方便派单
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct StakerList<AccountId: Ord> {
+    pub candidacy: Vec<AccountId>,    // 质押但还未通过社区选举的委员会
+    pub committee: Vec<AccountId>,    // 质押并通过社区选举的委员会
+    pub chill_list: Vec<AccountId>,   // 委员会，但不想被派单
+    pub fulfill_list: Vec<AccountId>, // 委员会, 但需要补交质押
+}
+
+impl<AccountId: Ord> StakerList<AccountId> {
+    fn staker_exist(&self, who: &AccountId) -> bool {
+        if let Ok(_) = self.candidacy.binary_search(who) {
+            return true;
+        }
+        if let Ok(_) = self.committee.binary_search(who) {
+            return true;
+        }
+        if let Ok(_) = self.chill_list.binary_search(who) {
+            return true;
+        }
+        if let Ok(_) = self.fulfill_list.binary_search(who) {
+            return true;
+        }
+        false
+    }
+
+    fn add_staker(a_field: &mut Vec<AccountId>, new_staker: AccountId) {
+        if let Err(index) = a_field.binary_search(&new_staker) {
+            a_field.insert(index, new_staker);
+        }
+    }
+    fn rm_staker(a_field: &mut Vec<AccountId>, drop_staker: &AccountId) {
+        if let Ok(index) = a_field.binary_search(drop_staker) {
+            a_field.remove(index);
+        }
+    }
+}
+
+// 记录用户的质押及罚款
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default)]
+pub struct StakingLedger<Balance: HasCompact> {
+    #[codec(compact)]
+    pub total: Balance,
+    #[codec(compact)]
+    pub active: Balance,
+}
+
+// 从用户地址查询绑定的机器列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct CommitteeMachineList {
     pub booked_machine: Vec<MachineId>,
@@ -45,6 +110,7 @@ pub struct CommitteeMachineList {
     pub online_machine: Vec<MachineId>, // 存储已经成功上线的机器
 }
 
+// 一台机器对应的委员会
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineCommitteeList<AccountId> {
     pub booked_committee: Vec<AccountId>,
@@ -79,7 +145,7 @@ impl Default for MachineStatus {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum CommitteeStatus<BlockNumber> {
     NotCommittee,          // 非委员会，默认状态
-    Candidacy,             // 候补委员会
+    Candidacy,             // 候补委员会，用户质押可以成为该状态。等待社区投票
     Health,                // 正常的委员会状态
     FillingPledge,         // 需要等待补充押金
     Chilling(BlockNumber), // 正在退出的状态, 记录Chill时的高度，当达到质押限制时，则可以退出
@@ -130,15 +196,7 @@ pub mod pallet {
         }
     }
 
-    #[pallet::type_value]
-    pub fn HistoryDepthDefault<T: Config>() -> u32 {
-        150
-    }
-
-    #[pallet::storage]
-    #[pallet::getter(fn history_depth)]
-    pub(super) type HistoryDepth<T: Config> = StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
-
+    // 最小质押默认10wDBC
     /// Minmum stake amount to become candidacy
     #[pallet::storage]
     #[pallet::getter(fn committee_min_stake)]
@@ -155,16 +213,9 @@ pub mod pallet {
     #[pallet::getter(fn confirm_time_limit)]
     pub(super) type ConfirmTimeLimit<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery, ConfirmTimeLimitDefault<T>>;
 
-    // candidacy, 候选委员会。通过质押,用户可以成为该角色
     #[pallet::storage]
-    #[pallet::getter(fn candidacy)]
-    pub(super) type Candidacy<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
-
-    // committee, 进行机器的认证
-    // 通过提交议案，通过议案成为委员会
-    #[pallet::storage]
-    #[pallet::getter(fn committee)]
-    pub(super) type Committee<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeStatus<T::BlockNumber>, ValueQuery>;
+    #[pallet::getter(fn staker)]
+    pub(super) type Staker<T: Config> = StorageValue<_, StakerList<T::AccountId>, ValueQuery>;
 
     // 存储用户订阅的不同确认阶段的机器
     #[pallet::storage]
@@ -197,7 +248,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         T::AccountId,
-        Option<StakingLedger<T::AccountId, BalanceOf<T>>>,
+        Option<StakingLedger<BalanceOf<T>>>,
         ValueQuery,
     >;
 
@@ -223,93 +274,103 @@ pub mod pallet {
             // 检查用户余额
             ensure!(value < <T as Config>::Currency::free_balance(&who), Error::<T>::FreeBalanceNotEnough);
 
-            // 该用户不是候选委员会, 且不是委员会成员
-            ensure!(!Candidacy::<T>::contains_key(&who), Error::<T>::AlreadyCandidacy);
-            ensure!(!Committee::<T>::contains_key(&who), Error::<T>::AlreadyCommittee);
-
-            let current_era = <random_num::Module<T>>::current_era();
-            let history_depth = Self::history_depth();
-            // last_reward_era记录委员会上次领取奖励的时间
-            let last_reward_era = current_era.saturating_sub(history_depth);
+            let mut staker = Self::staker();
+            // 确保用户还未加入到本模块
+            ensure!(!staker.staker_exist(&who), Error::<T>::AccountAlreadyExist);
 
             let item = StakingLedger {
-                stash: who.clone(),
                 total: value,
                 active: value,
-                unlocking: vec![],
-                claimed_rewards: (last_reward_era..current_era).collect(),
-                released_rewards: 0u32.into(),
-                upcoming_rewards: VecDeque::new(),
             };
-
             Self::update_ledger(&who, &item);
-            // 添加到到候选委员会列表，用户进行提案，通过后可以成为委员会成员
-            Candidacy::<T>::insert(&who, ());
+            StakerList::add_staker(&mut staker.candidacy, who.clone());
+            Staker::<T>::put(staker);
 
             Self::deposit_event(Event::StakeToBeCandidacy(who, value));
             Ok(().into())
         }
 
-        // 取消作为验证人,并执行unbond
-        // 如果用户不在委员会列表，则可以直接退出
-        // 如果在委员会列表，**检查是否有任务**，如果没有则可以退出。
+        // 该操作由社区决定
+        // Root权限，将candidacy中的成员，添加到委员会
+        #[pallet::weight(0)]
+        pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            // Committee::<T>::insert(&member, CommitteeStatus::Health);
+            let mut staker = Self::staker();
+            if let Ok(index) = staker.candidacy.binary_search(&member) {
+                staker.candidacy.remove(index);
+            } else {
+                return Err(Error::<T>::NotCandidacy.into());
+            }
+
+            if let Err(index) = staker.committee.binary_search(&member) {
+                staker.committee.insert(index, member.clone());
+            } else {
+                return Err(Error::<T>::AlreadyCommittee.into());
+            }
+
+            Staker::<T>::put(staker);
+            Self::deposit_event(Event::CommitteeAdded(member));
+            Ok(().into())
+        }
+
+        // 用户停止作为委员会，此时，不再进行派单
         #[pallet::weight(10000)]
         pub fn chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            ensure!(Committee::<T>::contains_key(&who) || Candidacy::<T>::contains_key(&who), Error::<T>::NotCandidacy);
+            let mut staker = Self::staker();
+            ensure!(staker.staker_exist(&who), Error::<T>::AccountNotExist);
 
-            // 检查是否有还未完成的工作
-            if Committee::<T>::contains_key(&who) {
-                let committee_machines = Self::committee_machine(&who);
-                if committee_machines.booked_machine.len() > 0
-                    || committee_machines.hashed_machine.len() > 0
-                    || committee_machines.confirmed_machine.len() > 0 {
-                        return Err(Error::<T>::JobNotDone.into());
-                    }
+            // 只有committee状态才允许进行chill
+            if let Ok(index) = staker.committee.binary_search(&who) {
+                staker.committee.remove(index);
+            } else {
+                return Err(Error::<T>::NotCommittee.into());
             }
 
-            Candidacy::<T>::remove(&who);
-
-            let now = <frame_system::Module<T>>::block_number();
-            Committee::<T>::insert(&who, CommitteeStatus::Chilling(now));
-
-            let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
-            let era = <random_num::Module<T>>::current_era() + <T as pallet::Config>::BondingDuration::get();
-            ledger.unlocking.push(UnlockChunk {
-                value: ledger.active,
-                era,
-            });
-            Self::update_ledger(&who, &ledger);
+            if let Err(index) = staker.chill_list.binary_search(&who) {
+                staker.chill_list.insert(index, who.clone());
+            }
+            Staker::<T>::put(staker);
+            Self::deposit_event(Event::Chill(who));
 
             Ok(().into())
         }
 
-        // 用户chill之后，等到一定时间可以进行withdraw
         #[pallet::weight(10000)]
-        fn withdraw_unbonded(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn exit_staker(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            let mut ledger = Self::committee_ledger(&who).ok_or(Error::<T>::NotCandidacy)?;
-            let old_total = ledger.total;
-            let current_era = <random_num::Module<T>>::current_era();
 
-            ledger = ledger.consolidate_unlock(current_era);
+            let mut staker = Self::staker();
+            ensure!(staker.staker_exist(&who), Error::<T>::AccountNotExist);
 
-            if ledger.unlocking.is_empty()
-                && ledger.active <= <T as Config>::Currency::minimum_balance()
-            {
-                // TODO: 清除ledger相关存储
-                <T as Config>::Currency::remove_lock(PALLET_LOCK_ID, &who);
-            } else {
-                Self::update_ledger(&who, &ledger);
-            };
-
-            if ledger.total < old_total {
-                let value = old_total - ledger.total;
-                Self::deposit_event(Event::Withdrawn(who, value));
+            // 如果有未完成的工作，则不允许退出
+            let committee_machines = Self::committee_machine(&who);
+            if committee_machines.booked_machine.len() > 0 ||
+                committee_machines.hashed_machine.len() > 0 ||
+                committee_machines.confirmed_machine.len() > 0 {
+                    return Err(Error::<T>::JobNotDone.into());
             }
 
-            Ok(().into())
+            // 如果是candidacy，则可以直接退出, 从staker中删除
+            // 如果是fulfill_list则可以直接退出(低于5wDBC的将进入fulfill_list，无法抢单,每次惩罚1w)
+            StakerList::rm_staker(&mut staker.candidacy, &who);
+            StakerList::rm_staker(&mut staker.committee, &who);
+            StakerList::rm_staker(&mut staker.fulfill_list, &who);
+            StakerList::rm_staker(&mut staker.chill_list, &who);
+
+            Staker::<T>::put(staker);
+            let mut ledger = Self::committee_ledger(&who);
+            if let Some(mut ledger) = ledger {
+                ledger.total = 0u32.into();
+                Self::update_ledger(&who, &ledger);
+            }
+
+            CommitteeLedger::<T>::remove(&who);
+            Self::deposit_event(Event::ExitFromCandidacy(who));
+
+            return Ok(().into());
         }
 
         #[pallet::weight(0)]
@@ -345,129 +406,131 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn fill_pledge(origin: OriginFor<T>) -> DispatchResultWithPostInfo{
             let who = ensure_signed(origin)?;
-            ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
-            ensure!(Self::committee(&who) == CommitteeStatus::FillingPledge, Error::<T>::FillNotAllowed);
 
-            // TOOD: 查询还剩余的存款并计算所需添加的存款
-            let ledger = Self::committee_ledger(&who);
+            let mut staker = Self::staker();
+            if let Err(_) = staker.fulfill_list.binary_search(&who) {
+                return Err(Error::<T>::NoNeedFulfill.into());
+            }
+
+            let mut ledger = Self::committee_ledger(&who);
+            let committee_stake_need = Self::committee_min_stake();
+
             if let None = ledger {
                 return Err(Error::<T>::NoLedgerFound.into());
             }
+
             let mut ledger = ledger.unwrap();
 
             // 检查用户余额
-            let needed = Self::committee_min_stake() - ledger.active;
+            let needed = committee_stake_need - ledger.total;
             ensure!(needed < <T as Config>::Currency::free_balance(&who), Error::<T>::FreeBalanceNotEnough);
-            ledger.active = Self::committee_min_stake();
+
+            ledger.total = committee_stake_need;
             Self::update_ledger(&who, &ledger);
 
-            Committee::<T>::insert(&who, CommitteeStatus::Health);
+            // 从fulfill 移出来，并放到正常委员会列表
+            if let Ok(index) = staker.fulfill_list.binary_search(&who) {
+                staker.fulfill_list.remove(index);
+            }
+
+            if let Err(index) = staker.committee.binary_search(&who) {
+                staker.committee.insert(index, who.clone());
+            }
 
             Ok(().into())
         }
 
-        // Root权限，将candidacy中的成员，添加到委员会
-        // 该操作由社区决定
-        #[pallet::weight(0)]
-        pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
+        // // 成为委员会之后，将可以预订订单
+        // #[pallet::weight(10000)]
+        // pub fn book_one(origin: OriginFor<T>, machine_id: Option<MachineId>) -> DispatchResultWithPostInfo {
+        //     let who = ensure_signed(origin)?;
 
-            Committee::<T>::insert(&member, CommitteeStatus::Health);
-            Self::deposit_event(Event::CommitteeAdded(member));
-            Ok(().into())
-        }
+        //     ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
+        //     ensure!(Self::committee(&who) == CommitteeStatus::Health, Error::<T>::NotHealthStatus);
 
-        // 成为委员会之后，将可以预订订单
-        #[pallet::weight(10000)]
-        pub fn book_one(origin: OriginFor<T>, machine_id: Option<MachineId>) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+        //     let live_machines = <online_profile::Pallet<T>>::live_machines();
+        //     if live_machines.bonding_machine.len() == 0 {
+        //         return Err(Error::<T>::NoMachineCanBook.into());
+        //     }
 
-            ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
-            ensure!(Self::committee(&who) == CommitteeStatus::Health, Error::<T>::NotHealthStatus);
+        //     let machine_id = if let Some(id) = machine_id {
+        //         if let Err(_) = live_machines.bonding_machine.binary_search(&id){
+        //             return Err(Error::<T>::NoMachineIdFound.into())
+        //         }
+        //         id
+        //     } else {
+        //         live_machines.bonding_machine[0].clone()
+        //     };
 
-            let live_machines = <online_profile::Pallet<T>>::live_machines();
-            if live_machines.bonding_machine.len() == 0 {
-                return Err(Error::<T>::NoMachineCanBook.into());
-            }
+        //     // 将状态设置为已被订阅状态
+        //     T::LCOperations::lc_add_booked_machine(machine_id.clone());
 
-            let machine_id = if let Some(id) = machine_id {
-                if let Err(_) = live_machines.bonding_machine.binary_search(&id){
-                    return Err(Error::<T>::NoMachineIdFound.into())
-                }
-                id
-            } else {
-                live_machines.bonding_machine[0].clone()
-            };
+        //     let mut user_machines = Self::committee_machine(&who);
+        //     if let Err(index) = user_machines.booked_machine.binary_search(&machine_id) {
+        //         user_machines.booked_machine.insert(index, machine_id.clone());
+        //     }
+        //     CommitteeMachine::<T>::insert(&who, user_machines);
 
-            // 将状态设置为已被订阅状态
-            T::LCOperations::lc_add_booked_machine(machine_id.clone());
+        //     let mut machine_users = Self::machine_committee(&machine_id);
+        //     if let Err(index) = machine_users.booked_committee.binary_search(&who) {
+        //         machine_users.booked_committee.insert(index, who.clone());
+        //     }
+        //     MachineCommittee::<T>::insert(&machine_id, machine_users);
 
-            let mut user_machines = Self::committee_machine(&who);
-            if let Err(index) = user_machines.booked_machine.binary_search(&machine_id) {
-                user_machines.booked_machine.insert(index, machine_id.clone());
-            }
-            CommitteeMachine::<T>::insert(&who, user_machines);
+        //     let mut user_ops = Self::ops_detail(&who, &machine_id);
+        //     user_ops.booked_time = <frame_system::Module<T>>::block_number();
+        //     OpsDetail::<T>::insert(&who, &machine_id, user_ops);
 
-            let mut machine_users = Self::machine_committee(&machine_id);
-            if let Err(index) = machine_users.booked_committee.binary_search(&who) {
-                machine_users.booked_committee.insert(index, who.clone());
-            }
-            MachineCommittee::<T>::insert(&machine_id, machine_users);
-
-            let mut user_ops = Self::ops_detail(&who, &machine_id);
-            user_ops.booked_time = <frame_system::Module<T>>::block_number();
-            OpsDetail::<T>::insert(&who, &machine_id, user_ops);
-
-            Ok(().into())
-        }
+        //     Ok(().into())
+        // }
 
         // 添加确认hash
         #[pallet::weight(10000)]
         fn add_confirm_hash(origin: OriginFor<T>, machine_id: MachineId, hash: [u8; 16]) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
-            // 2. 没有提交过信息
-            let mut committee_ops_detail = Self::ops_detail(&who, &machine_id);
-            ensure!(
-                committee_ops_detail.machine_status == MachineStatus::Booked,
-                Error::<T>::AlreadySubmitHash
-            );
+            // ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
+            // // 2. 没有提交过信息
+            // let mut committee_ops_detail = Self::ops_detail(&who, &machine_id);
+            // ensure!(
+            //     committee_ops_detail.machine_status == MachineStatus::Booked,
+            //     Error::<T>::AlreadySubmitHash
+            // );
 
-            // 更改CommitteeMachine, MachineCommittee两个变量
-            let mut committee_machine = Self::committee_machine(&who);
-            if let Ok(index) = committee_machine.booked_machine.binary_search(&machine_id) {
-                committee_machine.booked_machine.remove(index);
+            // // 更改CommitteeMachine, MachineCommittee两个变量
+            // let mut committee_machine = Self::committee_machine(&who);
+            // if let Ok(index) = committee_machine.booked_machine.binary_search(&machine_id) {
+            //     committee_machine.booked_machine.remove(index);
 
-                if let Err(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
-                    committee_machine
-                        .hashed_machine
-                        .insert(index, machine_id.clone());
-                }
-            } else {
-                return Ok(().into());
-            }
-            CommitteeMachine::<T>::insert(&who, committee_machine);
+            //     if let Err(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
+            //         committee_machine
+            //             .hashed_machine
+            //             .insert(index, machine_id.clone());
+            //     }
+            // } else {
+            //     return Ok(().into());
+            // }
+            // CommitteeMachine::<T>::insert(&who, committee_machine);
 
-            let mut machine_committee = Self::machine_committee(&machine_id);
-            if let Ok(index) = machine_committee.booked_committee.binary_search(&who) {
-                machine_committee.booked_committee.remove(index);
+            // let mut machine_committee = Self::machine_committee(&machine_id);
+            // if let Ok(index) = machine_committee.booked_committee.binary_search(&who) {
+            //     machine_committee.booked_committee.remove(index);
 
-                if let Err(index) = machine_committee.hashed_committee.binary_search(&who) {
-                    machine_committee
-                        .hashed_committee
-                        .insert(index, who.clone());
-                }
-            } else {
-                return Ok(().into());
-            }
-            MachineCommittee::<T>::insert(&machine_id, machine_committee);
+            //     if let Err(index) = machine_committee.hashed_committee.binary_search(&who) {
+            //         machine_committee
+            //             .hashed_committee
+            //             .insert(index, who.clone());
+            //     }
+            // } else {
+            //     return Ok(().into());
+            // }
+            // MachineCommittee::<T>::insert(&machine_id, machine_committee);
 
-            committee_ops_detail.machine_status = MachineStatus::Hashed;
-            committee_ops_detail.hash_time = <frame_system::Module<T>>::block_number();
-            committee_ops_detail.confirm_hash = hash;
+            // committee_ops_detail.machine_status = MachineStatus::Hashed;
+            // committee_ops_detail.hash_time = <frame_system::Module<T>>::block_number();
+            // committee_ops_detail.confirm_hash = hash;
 
-            OpsDetail::<T>::insert(&who, &machine_id, committee_ops_detail);
+            // OpsDetail::<T>::insert(&who, &machine_id, committee_ops_detail);
 
             Ok(().into())
         }
@@ -476,38 +539,38 @@ pub mod pallet {
         fn submit_confirm_raw(origin: OriginFor<T>, machine_id: MachineId, confirm_raw: Vec<u8>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            // 用户为委员会
-            ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
-            // 需要在committee的booking list中
-            ensure!(
-                Self::ops_detail(&who, &machine_id).machine_status
-                    == MachineStatus::Hashed,
-                Error::<T>::NotInBookList
-            );
+            // // 用户为委员会
+            // ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
+            // // 需要在committee的booking list中
+            // ensure!(
+            //     Self::ops_detail(&who, &machine_id).machine_status
+            //         == MachineStatus::Hashed,
+            //     Error::<T>::NotInBookList
+            // );
 
-            // 确保所有的委员会已经提交了hash, 修改委员会参数
-            // 检查，必须在三个确认Hash都完成之后，才能进行
-            let machine_committee = Self::machine_committee(&machine_id);
-            ensure!(
-                machine_committee.hashed_committee.len() == 3,
-                Error::<T>::NotAllHashSubmited
-            );
+            // // 确保所有的委员会已经提交了hash, 修改委员会参数
+            // // 检查，必须在三个确认Hash都完成之后，才能进行
+            // let machine_committee = Self::machine_committee(&machine_id);
+            // ensure!(
+            //     machine_committee.hashed_committee.len() == 3,
+            //     Error::<T>::NotAllHashSubmited
+            // );
 
-            // 保存用户的raw confirm
-            let mut committee_ops = Self::ops_detail(&who, &machine_id);
+            // // 保存用户的raw confirm
+            // let mut committee_ops = Self::ops_detail(&who, &machine_id);
 
-            // TODO: 确保还没有提交过raw
-            // 确保raw的hash与原始hash一致
-            ensure!(
-                Self::hash_is_identical(&confirm_raw, committee_ops.confirm_hash),
-                Error::<T>::HashIsNotIdentical
-            );
+            // // TODO: 确保还没有提交过raw
+            // // 确保raw的hash与原始hash一致
+            // ensure!(
+            //     Self::hash_is_identical(&confirm_raw, committee_ops.confirm_hash),
+            //     Error::<T>::HashIsNotIdentical
+            // );
 
-            committee_ops.machine_status = MachineStatus::Confirmed;
-            committee_ops.confirm_raw = confirm_raw;
-            committee_ops.confirm_time = <frame_system::Module<T>>::block_number();
+            // committee_ops.machine_status = MachineStatus::Confirmed;
+            // committee_ops.confirm_raw = confirm_raw;
+            // committee_ops.confirm_time = <frame_system::Module<T>>::block_number();
 
-            OpsDetail::<T>::insert(&who, &machine_id, committee_ops);
+            // OpsDetail::<T>::insert(&who, &machine_id, committee_ops);
 
             Ok(().into())
         }
@@ -526,10 +589,13 @@ pub mod pallet {
         Withdrawn(T::AccountId, BalanceOf<T>),
         AddToWhiteList(T::AccountId),
         AddToBlackList(T::AccountId),
+        ExitFromCandidacy(T::AccountId),
     }
 
     #[pallet::error]
     pub enum Error<T> {
+        AccountAlreadyExist,
+        AccountNotExist,
         CandidacyLimitReached,
         AlreadyCandidacy,
         NotCandidacy,
@@ -557,25 +623,62 @@ pub mod pallet {
         NoMachineIdFound,
         JobNotDone,
         NotHealthStatus,
-        FillNotAllowed,
+        NoNeedFulfill,
         NoLedgerFound,
     }
 }
 
-#[rustfmt::skip]
+// #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     fn hash_is_identical(raw_input: &Vec<u8>, hash: [u8; 16]) -> bool {
         let raw_hash: [u8; 16] = blake2_128(raw_input);
         return raw_hash == hash;
     }
 
-    fn update_ledger(
-        controller: &T::AccountId,
-        ledger: &StakingLedger<T::AccountId, BalanceOf<T>>,
-    ) {
+    // FIXME: 分派一个machineId给随机的委员会
+    fn book_one(machineId: MachineId) {
+        let mut staker = Self::staker();
+        let mut new_committee = Vec::new();
+
+        if staker.committee.len() < 9 {
+            for i in 0..(9 / staker.committee.len()) {
+                let mut committee = staker.committee.clone();
+                for i in 0..committee.len() {
+                    let lucky =
+                        <random_num::Module<T>>::random_u32(staker.committee.len() as u32 - 1u32)
+                            as usize;
+                    new_committee.push(committee[lucky].clone());
+                    committee.remove(lucky);
+                }
+            }
+
+            for i in 0..(9 % staker.committee.len()) {
+                let mut committee = staker.committee.clone();
+                for i in 0..committee.len() {
+                    let lucky =
+                        <random_num::Module<T>>::random_u32(staker.committee.len() as u32 - 1u32)
+                            as usize;
+                    new_committee.push(staker.committee[lucky].clone());
+                    staker.committee.remove(lucky);
+                }
+            }
+
+            return;
+        } else {
+            for i in 0..9 {
+                let lucky_committee =
+                    <random_num::Module<T>>::random_u32(staker.committee.len() as u32 - 1u32)
+                        as usize;
+                new_committee.push(staker.committee[lucky_committee].clone());
+                staker.committee.remove(lucky_committee);
+            }
+        }
+    }
+
+    fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<BalanceOf<T>>) {
         <T as Config>::Currency::set_lock(
             PALLET_LOCK_ID,
-            &ledger.stash,
+            controller,
             ledger.total,
             WithdrawReasons::all(),
         );
