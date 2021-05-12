@@ -361,7 +361,7 @@ pub mod pallet {
             StakerList::rm_staker(&mut staker.chill_list, &who);
 
             Staker::<T>::put(staker);
-            let mut ledger = Self::committee_ledger(&who);
+            let ledger = Self::committee_ledger(&who);
             if let Some(mut ledger) = ledger {
                 ledger.total = 0u32.into();
                 Self::update_ledger(&who, &ledger);
@@ -412,7 +412,7 @@ pub mod pallet {
                 return Err(Error::<T>::NoNeedFulfill.into());
             }
 
-            let mut ledger = Self::committee_ledger(&who);
+            let ledger = Self::committee_ledger(&who);
             let committee_stake_need = Self::committee_min_stake();
 
             if let None = ledger {
@@ -635,44 +635,33 @@ impl<T: Config> Pallet<T> {
         return raw_hash == hash;
     }
 
-    // FIXME: 分派一个machineId给随机的委员会
-    fn book_one(machineId: MachineId) {
-        let mut staker = Self::staker();
+    // 分派一个machineId给随机的委员会
+    // 返回Distribution个随机顺序的账户列表
+    fn book_one(machineId: MachineId) -> Vec<T::AccountId> {
+        let staker = Self::staker();
         let mut new_committee = Vec::new();
 
-        if staker.committee.len() < 9 {
-            for i in 0..(9 / staker.committee.len()) {
-                let mut committee = staker.committee.clone();
-                for i in 0..committee.len() {
-                    let lucky =
-                        <random_num::Module<T>>::random_u32(staker.committee.len() as u32 - 1u32)
-                            as usize;
-                    new_committee.push(committee[lucky].clone());
-                    committee.remove(lucky);
-                }
-            }
+        let repeat_slot = Distribution as usize / staker.committee.len();
+        let extra_slot = Distribution as usize % staker.committee.len();
 
-            for i in 0..(9 % staker.committee.len()) {
-                let mut committee = staker.committee.clone();
-                for i in 0..committee.len() {
-                    let lucky =
-                        <random_num::Module<T>>::random_u32(staker.committee.len() as u32 - 1u32)
-                            as usize;
-                    new_committee.push(staker.committee[lucky].clone());
-                    staker.committee.remove(lucky);
-                }
-            }
-
-            return;
-        } else {
-            for i in 0..9 {
-                let lucky_committee =
-                    <random_num::Module<T>>::random_u32(staker.committee.len() as u32 - 1u32)
-                        as usize;
-                new_committee.push(staker.committee[lucky_committee].clone());
-                staker.committee.remove(lucky_committee);
+        for _ in 0..repeat_slot {
+            let mut committee = staker.committee.clone();
+            for _ in 0..committee.len() {
+                let lucky =
+                    <random_num::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+                new_committee.push(committee[lucky].clone());
+                committee.remove(lucky);
             }
         }
+
+        for _ in 0..extra_slot {
+            let mut committee = staker.committee.clone();
+            let lucky = <random_num::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+            new_committee.push(committee[lucky].clone());
+            committee.remove(lucky);
+        }
+
+        new_committee
     }
 
     fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<BalanceOf<T>>) {
