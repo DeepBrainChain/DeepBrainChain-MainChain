@@ -182,8 +182,9 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // TODO: 增加设置
         #[pallet::weight(0)]
-        fn set_reporter_stake(origin: OriginFor<T>, num: u32) -> DispatchResultWithPostInfo {
+        fn set_reporter_stake(origin: OriginFor<T>, _num: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             Ok(().into())
@@ -235,6 +236,7 @@ pub mod pallet {
         // ocw 轮训被报告掉线的机器，并记录轮训情况
         #[pallet::weight(0)]
         fn ocw_polling_check(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            ensure_none(origin)?;
             // TODO: 从online_profile中获取被报告的机器列表
             Ok(().into())
         }
@@ -455,12 +457,12 @@ impl<T: Config> Pallet<T> {
 
     fn vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {
         let num_str = str::from_utf8(num_str);
-        if let Err(e) = num_str {
+        if let Err(_e) = num_str {
             return None;
         }
         let num_out: u64 = match num_str.unwrap().parse() {
             Ok(num) => num,
-            Err(e) => return None,
+            Err(_e) => return None,
         };
 
         return Some(num_out);

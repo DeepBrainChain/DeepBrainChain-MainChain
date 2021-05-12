@@ -133,6 +133,7 @@ pub mod pallet {
 
         #[pallet::weight(0)]
         fn test_blake2_128(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
             let encode_data: [u8; 16] = blake2_128(&b"Hello world!"[..]); // .to_vec().encode();
             debug::info!(
                 "###### blake2_128 Hash of Hello world! is: {:?}",

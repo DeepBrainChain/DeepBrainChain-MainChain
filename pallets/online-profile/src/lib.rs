@@ -2,7 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
     traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
@@ -13,10 +13,7 @@ use sp_runtime::{
     traits::{CheckedSub, Zero},
     Perbill,
 };
-use sp_std::{
-    collections::btree_map::BTreeMap, collections::btree_set::BTreeSet,
-    collections::vec_deque::VecDeque, prelude::*, str,
-};
+use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*, str};
 
 pub mod grade_inflation;
 pub mod machine_info;
@@ -292,7 +289,7 @@ pub mod pallet {
         pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
-            let report_time = <random_num::Module<T>>::current_slot_height();
+            let _report_time = <random_num::Module<T>>::current_slot_height();
 
             // TODO: 报告人应该质押两天剩余的奖励
             let stake_amount = 0u32.into();
@@ -476,7 +473,7 @@ pub mod pallet {
 
             let user_machines = Self::user_machines(&controller);
             for machine_id in user_machines.iter() {
-                Self::do_payout(controller.clone(), machine_id);
+                return Self::do_payout(controller.clone(), machine_id);
             }
 
             Ok(().into())
@@ -491,7 +488,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn cancle_slash(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn cancle_slash(origin: OriginFor<T>, _machine_id: MachineId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             Ok(().into())
@@ -565,7 +562,7 @@ impl<T: Config> Pallet<T> {
             let to_one_committee = Perbill::from_rational_approximation(1u64, machine_info.reward_committee.len() as u64) * to_committees;
 
             for a_committee in machine_info.reward_committee.iter() {
-                <T as Config>::Currency::deposit_into_existing(&a_committee, to_one_committee);
+                <T as Config>::Currency::deposit_into_existing(&a_committee, to_one_committee)?;
                 Self::deposit_event(Event::ClaimRewards((*a_committee).clone(), machine_id.to_vec(), to_one_committee));
             }
 
@@ -573,7 +570,7 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::ClaimRewards(controller.clone(), machine_id.to_vec(), to_controller));
         } else {
             // 奖励全分给控制者
-            <T as Config>::Currency::deposit_into_existing(&controller, can_claim);
+            <T as Config>::Currency::deposit_into_existing(&controller, can_claim)?;
             Self::deposit_event(Event::ClaimRewards(controller.clone(), machine_id.to_vec(), can_claim));
         }
 
@@ -586,7 +583,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // 获取机器最近n天的奖励
-    pub fn remaining_n_eras_reward(machine_id: MachineId, recent_eras: u32) -> BalanceOf<T> {
+    pub fn remaining_n_eras_reward(_machine_id: MachineId, _recent_eras: u32) -> BalanceOf<T> {
         return 0u32.into();
     }
 
@@ -624,8 +621,8 @@ impl<T: Config> Pallet<T> {
     // TODO: 在start_era 的时候，更新打分信息,记录质押信息,可以加一个全局锁，将这段函数放在OCW中完成
     // TODO: 清理未收集的数据
     // TODO: 触发惩罚
-    fn start_era() {
-        let current_era = <random_num::Module<T>>::current_era();
+    fn _start_era() {
+        let _current_era = <random_num::Module<T>>::current_era();
         // let bonded_machine_id = Self::bonded_machine_id();
 
         // for a_machine_id in bonded_machine_id.iter() {
@@ -636,13 +633,13 @@ impl<T: Config> Pallet<T> {
         // let a_machine_grade = 1;
     }
 
-    fn end_era() {
+    fn _end_era() {
         // TODO: 参考staking模块的end_era
         // grade_inflation::compute_stake_grades(machine_price, staked_in, machine_grade)
     }
 
     // 计算每天的奖励，25%添加到用户的余额，75%在150天线性释放，TODO: 一部分释放给委员会
-    fn add_daily_reward(controller: T::AccountId, machine_id: MachineId, amount: BalanceOf<T>) {
+    fn _add_daily_reward(controller: T::AccountId, machine_id: MachineId, amount: BalanceOf<T>) {
         let ledger = Self::ledger(&controller, &machine_id);
         // ledger 在bond成功会初始化，若不存在，则直接返回
         if let None = ledger {
@@ -679,11 +676,11 @@ impl<T: Config> Pallet<T> {
     }
 
     // 扣除n天剩余奖励
-    fn slash_nday_reward(controller: T::AccountId, machine_id: MachineId, amount: BalanceOf<T>) {
+    fn _slash_nday_reward(_controller: T::AccountId, _machine_id: MachineId, _amount: BalanceOf<T>) {
 
     }
 
-    fn validator_slash(){}
+    fn _validator_slash(){}
 
     // 更新用户的质押的ledger
     fn update_ledger(controller: &T::AccountId, machine_id: &MachineId, ledger: &StakingLedger<T::AccountId, BalanceOf<T>>) {
@@ -719,7 +716,7 @@ impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
 
-    fn book_machine(id: MachineId) {}
+    fn book_machine(_id: MachineId) {}
     // fn submit_confirm_hash(who: T::AccountId, machine_id: MachineId, raw_hash: MachineId) {}
     // fn submit_raw_confirmation(
     //     who: T::AccountId,

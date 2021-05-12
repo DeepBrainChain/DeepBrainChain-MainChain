@@ -9,6 +9,7 @@ use sp_std::{str, vec::Vec};
 
 pub use pallet::*;
 
+#[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -48,6 +49,7 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>, ValueQuery, PriceURLDefault>;
 
+    /// avgPrice = price * 10**6 usd
     #[pallet::storage]
     #[pallet::getter(fn avg_price)]
     pub(super) type AvgPrice<T> = StorageValue<_, u64>;
@@ -89,10 +91,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
-        pub fn submit_price_unsigned(
-            origin: OriginFor<T>,
-            price: u64,
-        ) -> DispatchResultWithPostInfo {
+        pub fn submit_price_unsigned(origin: OriginFor<T>, price: u64) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
             Self::add_price(price);
@@ -113,10 +112,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn rm_price_url_by_index(
-            origin: OriginFor<T>,
-            index: u32,
-        ) -> DispatchResultWithPostInfo {
+        pub fn rm_price_url_by_index(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             let mut price_url = PriceURL::<T>::get();
