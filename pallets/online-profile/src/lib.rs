@@ -62,7 +62,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber> {
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间, TODO: 改为current_slot
     pub machine_status: MachineStatus,
     pub ocw_machine_info: machine_info::OCWMachineInfo,
-    pub machine_grade: u64,
+    pub machine_grade: u64, // TODO: 添加machine_info时，加上machine_grade
+    pub machine_price: u64, // TODO: 设置3080的分数对应的价格为1000元，其他机器的价格根据3080的进行计算
     pub committee_confirm: BTreeMap<AccountId, CommitteeConfirmation<AccountId, BlockNumber>>, //记录委员会提交的机器打分
     pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
     pub reward_deadline: BlockNumber, // 列表中委员分得奖励结束时间 , TODO: 绑定时间改为current_slot比较好
@@ -94,11 +95,13 @@ impl Default for MachineStatus {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LiveMachine {
     pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
+
+    pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段
+
     // 当machine的确认hash未满时, 委员会从cow_confirmed_machine中读取可以审查的机器ID,
     // 添加确认信息之后，状态变为`ocw_confirmed_machine`，这时可以继续抢单.但已经打分过的委员不能抢该单
     pub booked_machine: Vec<MachineId>,
 
-    pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段
     pub waiting_hash: Vec<MachineId>, // 当全部委员会添加了全部confirm hash之后，机器添加到waiting_hash，这时，用户可以添加confirm_raw
     pub bonded_machine: Vec<MachineId>, // 当全部委员会添加了confirm_raw之后，机器被成功绑定，变为bonded_machine状态
 }
@@ -760,12 +763,24 @@ impl<T: Config> LCOps for Pallet<T> {
     fn lc_add_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
-        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, id.clone());
+        LiveMachine::rm_machine_id(&mut live_machines.ocw_confirmed_machine, id.clone());
         LiveMachine::add_machine_id(&mut live_machines.booked_machine, id.clone());
         LiveMachines::<T>::put(live_machines);
 
         let mut machine_info = Self::machines_info(&id);
         machine_info.machine_status = MachineStatus::Booked;
+        MachinesInfo::<T>::insert(&id, machine_info);
+    }
+
+    // 由于委员会没有达成一致，需要重新返回到bonding_machine
+    fn lc_revert_booked_machine(id: MachineId) {
+        let mut live_machines = Self::live_machines();
+
+        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, id.clone());
+        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id.clone());
+
+        let mut machine_info = Self::machines_info(&id);
+        machine_info.machine_status = MachineStatus::Bonding;
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 }

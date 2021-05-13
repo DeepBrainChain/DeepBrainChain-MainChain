@@ -1066,6 +1066,8 @@ impl lease_committee::Config for Runtime {
     type BondingDuration = BondingDuration;
 }
 
+impl maintain_committee::Config for Runtime {}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1114,6 +1116,7 @@ construct_runtime!(
         // OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
+        MaintainCommittee: maintain_committee::{Module, Call, Storage},
         DBCTesting: dbc_testing::{Module, Storage, Call},
     }
 );

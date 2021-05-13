@@ -3498,6 +3498,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "maintain-committee"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-std",
+]
+
+[[package]]
 name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4082,6 +4093,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "hex-literal",
  "lease-committee",
+ "maintain-committee",
  "node-primitives",
  "online-profile",
  "online-profile-ocw",

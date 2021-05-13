@@ -24,9 +24,8 @@
                     "mem": "11283456",
                     "pcie_bandwidth": "260000",
                     "mem_bandwidth": "508136900",
-                    "grade": "4352",
                     "cuda": "4352",
-                    "mem_standard": "11283456"
+                    "mem_amount": "11283456"
                 },
                 {
                     "id": "1",
@@ -34,9 +33,8 @@
                     "mem": "11283456",
                     "pcie_bandwidth": "243500",
                     "mem_bandwidth": "517072500",
-                    "grade": "4352",
                     "cuda": "4352",
-                    "mem_standard": "11283456"
+                    "mem_amount": "11283456"
                 },
                 {
                     "id": "2",
@@ -44,9 +42,8 @@
                     "mem": "11283456",
                     "pcie_bandwidth": "253800",
                     "mem_bandwidth": "512602300",
-                    "grade": "4352",
                     "cuda": "4352",
-                    "mem_standard": "11283456"
+                    "mem_amount": "11283456"
                 },
                 {
                     "id": "3",
@@ -54,9 +51,8 @@
                     "mem": "11283456",
                     "pcie_bandwidth": "267900",
                     "mem_bandwidth": "508337400",
-                    "grade": "4352",
                     "cuda": "4352",
-                    "mem_standard": "11283456"
+                    "mem_amount": "11283456"
                 }
             ]
         },

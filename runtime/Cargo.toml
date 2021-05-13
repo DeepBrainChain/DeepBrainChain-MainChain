@@ -116,6 +116,7 @@ std = [
     'online-profile/std',
     'online-profile-ocw/std',
     'lease-committee/std',
+    'maintain-committee/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -389,6 +390,11 @@ package = 'online-profile-ocw'
 default-features = false
 path = '../pallets/lease-committee'
 package = 'lease-committee'
+
+[dependencies.maintain-committee]
+default-features = false
+path = '../pallets/maintain-committee'
+package = 'maintain-committee'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

@@ -1,9 +1,7 @@
 // 主要功能：
 // 1. 从online-profile中读取bonding_machine(需要查询机器信息的机器)
-// 2. 设置并随机选择一组API，可供查询: 增加URL，删除URL，设置随机URL个数都会更新这组随机URL；同时
-//    每10个块更新一次URL
-// 3. 从一组随机的API中查询机器信息，并对比。通过之后，则存储机器的信息，机器信息写回到online_profile.
-// ~~4. 委员会需要根据信息，填写根据一组简单的公式，填写机器的得分~~
+// 2. 设置并随机选择一组API，可供查询: 增加URL，删除URL，设置随机URL个数都会更新这组随机URL；同时每10个块更新一次URL
+// 3. 从一组随机的API中查询机器信息，并对比。如果一致，则存储机器的信息，机器信息写回到online_profile (机器信息包括机器得分).
 
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -13,13 +11,10 @@ use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
     pallet_prelude::*,
 };
-use online_profile::machine_info::*;
-use online_profile::types::*;
+use online_profile::{machine_info::*, types::*};
 use online_profile_machine::{LCOps, OCWOps};
 use sp_runtime::{offchain, offchain::http, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
-
-// pub mod machine_info;
 
 pub use pallet::*;
 
@@ -181,15 +176,6 @@ pub mod pallet {
             Self::update_rand_url();
             Ok(().into())
         }
-
-        // TODO: 增加设置
-        #[pallet::weight(0)]
-        fn set_reporter_stake(origin: OriginFor<T>, _num: u32) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            Ok(().into())
-        }
-
         // ocw 实现获取machine info并发送unsigned tx以修改到存储
         // UserBondedMachine增加who-machine_id pair;
         // BondedMachineId 增加 machine_id => ()
@@ -229,15 +215,6 @@ pub mod pallet {
                 }
             }
 
-            Ok(().into())
-        }
-
-
-        // ocw 轮训被报告掉线的机器，并记录轮训情况
-        #[pallet::weight(0)]
-        fn ocw_polling_check(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            ensure_none(origin)?;
-            // TODO: 从online_profile中获取被报告的机器列表
             Ok(().into())
         }
 
@@ -442,17 +419,19 @@ impl<T: Config> Pallet<T> {
     }
 
     fn total_min_num(gpus: Vec<GPUDetail>) -> Option<u64> {
-        let mut grade_out = Vec::new();
-        for a_gpu_detail in gpus.iter() {
-            if let Some(a_grade) = Self::vec_u8_to_u64(&a_gpu_detail.grade) {
-                grade_out.push(a_grade);
-            };
-        }
-        if grade_out.len() == 0 {
-            return None;
-        }
+        // FIXME
+        // let mut grade_out = Vec::new();
+        // for a_gpu_detail in gpus.iter() {
+        //     if let Some(a_grade) = Self::vec_u8_to_u64(&a_gpu_detail.grade) {
+        //         grade_out.push(a_grade);
+        //     };
+        // }
+        // if grade_out.len() == 0 {
+        //     return None;
+        // }
 
-        return Some(grade_out.iter().min().unwrap() * grade_out.len() as u64);
+        // return Some(grade_out.iter().min().unwrap() * grade_out.len() as u64);
+        return Some(1);
     }
 
     fn vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {

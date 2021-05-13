@@ -126,11 +126,9 @@ pub struct GPUDetail {
     #[serde(deserialize_with = "de_string_to_bytes")]
     mem_bandwidth: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
-    pub grade: Vec<u8>,
-    #[serde(deserialize_with = "de_string_to_bytes")]
     cuda: Vec<u8>,
     #[serde(deserialize_with = "de_string_to_bytes")]
-    mem_standard: Vec<u8>,
+    mem_amount: Vec<u8>,
 }
 
 #[derive(Deserialize, Encode, Decode, Default, Debug)]

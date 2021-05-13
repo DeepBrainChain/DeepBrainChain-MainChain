@@ -17,6 +17,7 @@ members = [
     'pallets/online-profile',
     'pallets/online-profile-ocw',
     'pallets/lease-committee',
+    'pallets/maintain-committee',
     'traits/phase-reward',
     'traits/online-profile-machine',
 ]
