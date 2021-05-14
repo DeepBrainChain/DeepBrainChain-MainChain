@@ -3501,10 +3501,12 @@ dependencies = [
 name = "maintain-committee"
 version = "0.1.0"
 dependencies = [
+ "dbc-price-ocw",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "serde",
+ "sp-runtime",
  "sp-std",
 ]
 

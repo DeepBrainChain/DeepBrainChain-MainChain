@@ -422,50 +422,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // // 成为委员会之后，将可以预订订单
-        // #[pallet::weight(10000)]
-        // pub fn book_one(origin: OriginFor<T>, machine_id: Option<MachineId>) -> DispatchResultWithPostInfo {
-        //     let who = ensure_signed(origin)?;
-
-        //     ensure!(Committee::<T>::contains_key(&who), Error::<T>::NotCommittee);
-        //     ensure!(Self::committee(&who) == CommitteeStatus::Health, Error::<T>::NotHealthStatus);
-
-        //     let live_machines = <online_profile::Pallet<T>>::live_machines();
-        //     if live_machines.bonding_machine.len() == 0 {
-        //         return Err(Error::<T>::NoMachineCanBook.into());
-        //     }
-
-        //     let machine_id = if let Some(id) = machine_id {
-        //         if let Err(_) = live_machines.bonding_machine.binary_search(&id){
-        //             return Err(Error::<T>::NoMachineIdFound.into())
-        //         }
-        //         id
-        //     } else {
-        //         live_machines.bonding_machine[0].clone()
-        //     };
-
-        //     // 将状态设置为已被订阅状态
-        //     T::LCOperations::lc_add_booked_machine(machine_id.clone());
-
-        //     let mut user_machines = Self::committee_machine(&who);
-        //     if let Err(index) = user_machines.booked_machine.binary_search(&machine_id) {
-        //         user_machines.booked_machine.insert(index, machine_id.clone());
-        //     }
-        //     CommitteeMachine::<T>::insert(&who, user_machines);
-
-        //     let mut machine_users = Self::machine_committee(&machine_id);
-        //     if let Err(index) = machine_users.booked_committee.binary_search(&who) {
-        //         machine_users.booked_committee.insert(index, who.clone());
-        //     }
-        //     MachineCommittee::<T>::insert(&machine_id, machine_users);
-
-        //     let mut user_ops = Self::ops_detail(&who, &machine_id);
-        //     user_ops.booked_time = <frame_system::Module<T>>::block_number();
-        //     OpsDetail::<T>::insert(&who, &machine_id, user_ops);
-
-        //     Ok(().into())
-        // }
-
         // 添加确认hash
         // FIXME: 注意，提交Hash需要检查，不与其他人的/已存在的Hash相同, 否则, 是很严重的作弊行为
         #[pallet::weight(10000)]

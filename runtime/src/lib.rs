@@ -1066,7 +1066,10 @@ impl lease_committee::Config for Runtime {
     type BondingDuration = BondingDuration;
 }
 
-impl maintain_committee::Config for Runtime {}
+impl maintain_committee::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+}
 
 construct_runtime!(
     pub enum Runtime where
@@ -1116,7 +1119,7 @@ construct_runtime!(
         // OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
-        MaintainCommittee: maintain_committee::{Module, Call, Storage},
+        MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Storage, Call},
     }
 );

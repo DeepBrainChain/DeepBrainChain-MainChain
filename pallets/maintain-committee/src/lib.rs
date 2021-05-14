@@ -17,20 +17,30 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, HasCompact};
-use frame_support::pallet_prelude::*;
+use frame_support::{
+    dispatch::DispatchResult,
+    pallet_prelude::*,
+    traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
+};
 use frame_system::pallet_prelude::*;
+use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
 use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;
 
 pub type MachineId = Vec<u8>;
 pub type OrderId = u64; // 提交的单据ID
-                        // 机器故障原因
+type BalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub const PALLET_LOCK_ID: LockIdentifier = *b"mtcommit";
+
+// 机器故障原因
 pub enum ReportReason {}
 
 // 记录该模块中活跃的订单
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct LiveOrder {
+pub struct LiveOrderList {
     pub reported_order: Vec<OrderId>, // 委员会还可以抢单的订单
     pub fully_order: Vec<OrderId>,    // 已经被抢完的机器ID，不能再进行抢单
 }
@@ -95,7 +105,8 @@ pub struct CommitteeMachineList<BlockNumber> {
 // 一台机器对应的委员会
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineCommitteeList<AccountId, BlockNumber> {
-    pub report_time: BlockNumber,                        // 机器被报告时间
+    pub order_id: OrderId,
+    pub report_time: BlockNumber, // 机器被报告时间
     pub booked_committee: Vec<(AccountId, BlockNumber)>, // 记录分配给机器的委员会及验证开始时间
     pub hashed_committee: Vec<AccountId>,
     pub confirm_start: BlockNumber, // 开始提交raw信息的时间
@@ -147,7 +158,10 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {}
+    pub trait Config: frame_system::Config + dbc_price_ocw::Config {
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+    }
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
@@ -165,6 +179,14 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn reporter_min_stake)]
     pub(super) type ReporterMinStake<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn staker)]
+    pub(super) type Staker<T: Config> = StorageValue<_, StakerList<T::AccountId>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn committee_ledger)]
+    pub(super) type CommitteeLedger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Option<StakingLedger<BalanceOf<T>>>, ValueQuery>;
 
     // 通过报告单据ID，查询报告的机器的信息(委员会抢单信息)
     #[pallet::storage]
@@ -184,6 +206,14 @@ pub mod pallet {
     pub(super) type CommitteeOps<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, OrderId, CommitteeMachineOps<T::BlockNumber>, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn live_order)]
+    pub(super) type LiveOrder<T: Config> = StorageValue<_, LiveOrderList, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn next_order_id)]
+    pub(super) type NextOrderId<T: Config> = StorageValue<_, OrderId, ValueQuery>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置委员会的最小质押，单位： usd * 10^6
@@ -202,15 +232,298 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 该操作由社区决定
+        // Root权限，添加到委员会，直接添加到fulfill列表中。当竞选成功后，需要操作以从fulfill_list到committee
+        #[pallet::weight(0)]
+        pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let mut staker = Self::staker();
+
+            // 确保用户还未加入到本模块
+            ensure!(!staker.staker_exist(&member), Error::<T>::AccountAlreadyExist);
+
+            // 将用户添加到fulfill列表中
+            StakerList::add_staker(&mut staker.fulfill_list, member.clone());
+            Self::deposit_event(Event::CommitteeAdded(member));
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        pub fn fill_pledge(origin: OriginFor<T>) -> DispatchResultWithPostInfo{
+            let who = ensure_signed(origin)?;
+
+            // 检查是否在fulfill列表中
+            let mut staker = Self::staker();
+            if let Err(_) = staker.fulfill_list.binary_search(&who) {
+                return Err(Error::<T>::NoNeedFulfill.into());
+            }
+
+            // 获取需要质押的数量
+            let min_stake = Self::get_min_stake_amount();
+            if let None = min_stake {
+                return Err(Error::<T>::MinStakeNotFound.into());
+            }
+            let min_stake = min_stake.unwrap();
+
+            let mut ledger = Self::committee_ledger(&who).unwrap_or(StakingLedger {
+                ..Default::default()
+            });
+
+            // 检查用户余额，更新质押
+            let needed = min_stake - ledger.total;
+            ensure!(needed < <T as Config>::Currency::free_balance(&who), Error::<T>::FreeBalanceNotEnough);
+
+            ledger.active += min_stake - ledger.total;
+            ledger.total = min_stake;
+            Self::update_ledger(&who, &ledger);
+
+            // 从fulfill 移出来，并放到正常委员会列表
+            StakerList::rm_staker(&mut staker.fulfill_list, &who);
+            StakerList::add_staker(&mut staker.committee, who.clone());
+
+            Self::deposit_event(Event::CommitteeFulfill(needed));
+
+            Ok(().into())
+        }
+
+        // 委员会停止接单
+        #[pallet::weight(10000)]
+        pub fn chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            let mut staker = Self::staker();
+            ensure!(staker.staker_exist(&who), Error::<T>::AccountNotExist);
+
+            // 只有committee状态才允许进行chill
+            if let Err(_) = staker.committee.binary_search(&who) {
+                return Err(Error::<T>::NotCommittee.into());
+            }
+
+            StakerList::rm_staker(&mut staker.committee, &who);
+            StakerList::add_staker(&mut staker.chill_list, who.clone());
+
+            Staker::<T>::put(staker);
+            Self::deposit_event(Event::Chill(who));
+
+            Ok(().into())
+        }
+
+        // 委员会可以接单
+        #[pallet::weight(10000)]
+        pub fn undo_chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            let mut staker = Self::staker();
+            if let Err(_) = staker.chill_list.binary_search(&who) {
+                return Err(Error::<T>::NotInChillList.into());
+            }
+
+            StakerList::rm_staker(&mut staker.chill_list, &who);
+            StakerList::add_staker(&mut staker.committee, who.clone());
+            Staker::<T>::put(staker);
+
+            Self::deposit_event(Event::UndoChill(who));
+            Ok(().into())
+        }
+
+        // 委员会可以退出, 从chill_list中退出
+        #[pallet::weight(10000)]
+        pub fn exit_staker(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            let mut staker = Self::staker();
+            ensure!(staker.staker_exist(&who), Error::<T>::AccountNotExist);
+
+            // 如果有未完成的工作，则不允许退出
+            let committee_machines = Self::committee_machines(&who);
+            if committee_machines.booked_order.len() > 0 ||
+                committee_machines.hashed_order.len() > 0 ||
+                committee_machines.confirmed_order.len() > 0 {
+                    return Err(Error::<T>::JobNotDone.into());
+            }
+
+            // 如果是candidacy，则可以直接退出, 从staker中删除
+            // 如果是fulfill_list则可以直接退出(低于5wDBC的将进入fulfill_list，无法抢单,每次惩罚1w)
+            StakerList::rm_staker(&mut staker.committee, &who);
+            StakerList::rm_staker(&mut staker.fulfill_list, &who);
+            StakerList::rm_staker(&mut staker.chill_list, &who);
+
+            Staker::<T>::put(staker);
+            let ledger = Self::committee_ledger(&who);
+            if let Some(mut ledger) = ledger {
+                ledger.total = 0u32.into();
+                Self::update_ledger(&who, &ledger);
+            }
+
+            CommitteeLedger::<T>::remove(&who);
+            Self::deposit_event(Event::ExitFromCandidacy(who));
+
+            return Ok(().into());
+        }
+
+        // FIXME: 必须特定的用户才能进行报告。避免用户报告同一台机器多次
         #[pallet::weight(10000)]
         pub fn report_machine_state(origin: OriginFor<T>, raw_hash: Vec<u8>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            // TODO: 增加确认用户是否有资格报告机器状态
+            let now = <frame_system::Module<T>>::block_number();
+
+            // 被报告的机器存储起来，委员会进行抢单
+            let mut live_order = Self::live_order();
+            let order_id = Self::next_order_id();
+            if let Err(index) = live_order.reported_order.binary_search(&order_id) {
+                live_order.reported_order.insert(index, order_id);
+            }
+            LiveOrder::<T>::put(live_order);
+
+            // let mut machine_committee = Self::machine_committee(&next_order_id);
+
+            ReportedMachines::<T>::insert(&order_id, MachineCommitteeList {
+                order_id: order_id,
+                report_time: now,
+                ..Default::default()
+            });
+
+            // 更新NextOrderId
+            NextOrderId::<T>::put(order_id + 1);
+
+            Ok(().into())
+        }
+
+        // 委员会进行抢单
+        #[pallet::weight(10000)]
+        pub fn book_order(origin: OriginFor<T>, order_id: OrderId) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            // TODO: call book_one_order
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        pub fn book_one(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            // TODO: call book_one_order
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        pub fn add_confirm_hash(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        fn submit_confirm_raw(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
 
             Ok(().into())
         }
     }
+
+
+    #[pallet::event]
+    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        CommitteeAdded(T::AccountId),
+        CommitteeFulfill(BalanceOf<T>),
+        Chill(T::AccountId),
+        ExitFromCandidacy(T::AccountId),
+        UndoChill(T::AccountId),
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        NotCommittee,
+        MaxBookReached,
+        AlreadyBooked,
+        AccountAlreadyExist,
+        NoNeedFulfill,
+        MinStakeNotFound,
+        FreeBalanceNotEnough,
+        AccountNotExist,
+        NotInChillList,
+        JobNotDone,
+    }
 }
 
 // #[rustfmt::skip]
-impl<T: Config> Pallet<T> {}
+impl<T: Config> Pallet<T> {
+    // 根据DBC价格获得最小质押数量
+    fn get_min_stake_amount() -> Option<BalanceOf<T>> {
+        let dbc_price = <dbc_price_ocw::Module<T>>::avg_price();
+        if let None = dbc_price {
+            return None;
+        }
+        let dbc_price = dbc_price.unwrap();
+        let committee_min_stake = Self::committee_min_stake();
+
+        return Some((committee_min_stake / dbc_price).saturated_into());
+    }
+
+    fn book_one_order(who: T::AccountId, order_id: OrderId) -> DispatchResult {
+        // 检查是否是委员会
+        let staker = Self::staker();
+        if let Err(_) = staker.committee.binary_search(&who) {
+            Err(Error::<T>::NotCommittee)?
+        }
+
+        // 检查是否达到了最大预订数量
+        let mut reported_machines = Self::reported_machines(&order_id);
+        if reported_machines.booked_committee.len() >= 3 {
+            Err(Error::<T>::MaxBookReached)?
+        }
+
+        // 检查该委员会是否已经预订过该订单
+        let ordered_committee = reported_machines
+            .booked_committee
+            .iter()
+            .filter(|x| x.0 == who)
+            .collect::<Vec<_>>();
+        if ordered_committee.len() != reported_machines.booked_committee.len() {
+            Err(Error::<T>::AlreadyBooked)?
+        }
+
+        let now = <frame_system::Module<T>>::block_number();
+
+        let mut committee_machines = Self::committee_machines(&who);
+        let mut ops_detail = Self::committee_ops(&who, &order_id);
+
+        reported_machines.booked_committee.push((who.clone(), now));
+        committee_machines.booked_order.push((order_id, now));
+        ops_detail.booked_time = now;
+
+        // 如果预订的委员会达到3位，则将订单id移动到fully_order中
+        if reported_machines.booked_committee.len() >= 3 {
+            let mut live_order = Self::live_order();
+
+            if let Ok(index) = live_order.reported_order.binary_search(&order_id) {
+                live_order.reported_order.remove(index);
+            }
+            if let Err(index) = live_order.fully_order.binary_search(&order_id) {
+                live_order.fully_order.insert(index, order_id);
+            }
+
+            LiveOrder::<T>::put(live_order);
+        }
+
+        CommitteeMachines::<T>::insert(&who, committee_machines);
+        CommitteeOps::<T>::insert(&who, &order_id, ops_detail);
+        ReportedMachines::<T>::insert(&order_id, reported_machines);
+
+        Ok(())
+    }
+
+    fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<BalanceOf<T>>) {
+        <T as Config>::Currency::set_lock(
+            PALLET_LOCK_ID,
+            controller,
+            ledger.total,
+            WithdrawReasons::all(),
+        );
+        <CommitteeLedger<T>>::insert(controller, Some(ledger));
+    }
+}
