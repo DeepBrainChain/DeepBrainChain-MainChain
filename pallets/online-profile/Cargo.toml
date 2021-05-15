@@ -80,6 +80,7 @@ version = '3.0.0'
 default = ["std"]
 std = [
     "codec/std",
+    "dbc-price-ocw/std",
     "frame-support/std",
     "frame-system/std",
     "random-num/std",

@@ -111,7 +111,6 @@ std = [
     'pallet-vesting/std',
     'random-num/std',
     'dbc-testing/std',
-    'phase-reward/std',
     'dbc-price-ocw/std',
     'online-profile/std',
     'online-profile-ocw/std',
@@ -372,10 +371,6 @@ package = 'dbc-testing'
 default-features = false
 path = '../pallets/dbc-price-ocw'
 
-[dependencies.phase-reward]
-default-features = false
-path = '../traits/phase-reward'
-
 [dependencies.online-profile]
 default-features = false
 path = '../pallets/online-profile'
@@ -537,6 +532,7 @@ default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
+
 [dev-dependencies.sp-io]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'

@@ -4138,7 +4138,6 @@ dependencies = [
  "pallet-utility",
  "pallet-vesting",
  "parity-scale-codec",
- "phase-reward",
  "random-num",
  "serde",
  "sp-api",

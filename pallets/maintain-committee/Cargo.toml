@@ -40,6 +40,8 @@ version = '3.0.0'
 [features]
 default = ["std"]
 std = [
+    "codec/std",
+    "serde",
     "dbc-price-ocw/std",
     "frame-support/std",
     "frame-system/std",

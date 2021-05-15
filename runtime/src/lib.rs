@@ -93,8 +93,6 @@ pub mod constants;
 use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
 
-pub use dbc_price_ocw;
-
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -1051,13 +1049,8 @@ impl online_profile::Config for Runtime {
 }
 
 impl online_profile_ocw::Config for Runtime {
-    // type Event = Event;
     type OnlineProfile = OnlineProfile;
 }
-
-// parameter_types! {
-//     pub const CommitteeDuration: pallet_staking::EraIndex = 7;
-// }
 
 impl lease_committee::Config for Runtime {
     type Currency = Balances;
@@ -1116,7 +1109,6 @@ construct_runtime!(
         RandomNum: random_num::{Module, Call, Storage},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
-        // OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
