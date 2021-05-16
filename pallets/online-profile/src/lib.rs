@@ -784,3 +784,9 @@ impl<T: Config> LCOps for Pallet<T> {
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 }
+
+impl<T: Config> Module<T> {
+    pub fn get_sum() -> u32 {
+        64
+    }
+}

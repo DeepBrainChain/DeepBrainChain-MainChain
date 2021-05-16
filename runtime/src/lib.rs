@@ -1166,6 +1166,13 @@ mod mmr {
 }
 
 impl_runtime_apis! {
+    // Here implement custom runtime API.
+    impl online_profile_runtime_api::SumStorageApi<Block> for Runtime {
+        fn get_sum() -> u32 {
+            OnlineProfile::get_sum()
+        }
+    }
+
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
             VERSION

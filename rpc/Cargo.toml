@@ -1,6 +1,9 @@
 [dependencies]
 jsonrpc-core = '15.1.0'
 
+online-profile-rpc = { path = "../pallets/online-profile/rpc" }
+online-profile-runtime-api = { path = "../pallets/online-profile/runtime-api" }
+
 [dependencies.node-primitives]
 path = '../primitives'
 version = '2.0.0'

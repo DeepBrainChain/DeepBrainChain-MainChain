@@ -1,0 +1,16 @@
+[package]
+name = "online-profile-runtime-api"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies.sp-api]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[features]
+default = ["std"]
+std = [
+    "sp-api/std",
+]

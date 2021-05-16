@@ -113,6 +113,7 @@ std = [
     'dbc-testing/std',
     'dbc-price-ocw/std',
     'online-profile/std',
+    'online-profile-runtime-api/std',
     'online-profile-ocw/std',
     'lease-committee/std',
     'maintain-committee/std',
@@ -390,6 +391,11 @@ package = 'lease-committee'
 default-features = false
 path = '../pallets/maintain-committee'
 package = 'maintain-committee'
+
+[dependencies.online-profile-runtime-api]
+default-features = false
+path = '../pallets/online-profile/runtime-api'
+package = 'online-profile-runtime-api'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

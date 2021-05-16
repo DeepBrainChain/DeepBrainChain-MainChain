@@ -4043,6 +4043,8 @@ dependencies = [
  "jsonrpc-core",
  "node-primitives",
  "node-runtime",
+ "online-profile-rpc",
+ "online-profile-runtime-api",
  "pallet-contracts-rpc",
  "pallet-transaction-payment-rpc",
  "sc-chain-spec",
@@ -4099,6 +4101,7 @@ dependencies = [
  "node-primitives",
  "online-profile",
  "online-profile-ocw",
+ "online-profile-runtime-api",
  "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -4366,6 +4369,29 @@ dependencies = [
  "sp-keyring",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "online-profile-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "online-profile-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "online-profile-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "sp-api",
 ]
 
 [[package]]
