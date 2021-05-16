@@ -2,6 +2,7 @@
   "PriceURL": "Text",
   "URL": "Text",
   "MachineId": "Text",
+  "OrderId": "u64",
   "LiveMachine": {
     "bonding_machine": "Vec<MachineId>",
     "ocw_confirmed_machine": "Vec<MachineId>",

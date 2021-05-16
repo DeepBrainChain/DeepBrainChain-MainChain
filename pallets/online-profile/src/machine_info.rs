@@ -3,6 +3,7 @@ use codec::{Decode, Encode};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, str};
 
+// 存储到链上的机器信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default)]
 pub struct OCWMachineInfo {
     pub cpu: CPU,

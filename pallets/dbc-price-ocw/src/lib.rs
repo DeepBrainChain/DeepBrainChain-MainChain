@@ -163,6 +163,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    // 获取并返回当前价格
     fn fetch_price() -> Result<u64, http::Error> {
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
 
@@ -207,6 +208,7 @@ impl<T: Config> Pallet<T> {
         Ok(price)
     }
 
+    // 将str价格转为u64 (*10^6)
     fn parse_price(price_str: &str) -> Option<u64> {
         let val = lite_json::parse_json(price_str);
         let price = val.ok().and_then(|v| match v {
@@ -227,6 +229,7 @@ impl<T: Config> Pallet<T> {
         Some(price.integer as u64 * 1000_000 + fraction)
     }
 
+    // 存储获取到的价格
     fn add_price(price: u64) {
         debug::info!("Adding to the average: {}", price);
         let mut prices = Prices::<T>::get();

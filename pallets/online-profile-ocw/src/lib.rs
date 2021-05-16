@@ -113,7 +113,7 @@ pub mod pallet {
             };
 
             match call {
-                Call::ocw_submit_machine_info() => valid_tx(b"ocw_submit_machine_info".to_vec()),
+                Call::ocw_submit_machine_info(machine_id, ocw_machine_info) => valid_tx(b"ocw_submit_machine_info".to_vec()),
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -124,13 +124,19 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             debug::info!("Entering off-chain worker, at height: {:?}", block_number);
 
+            // 检查有足够的URL
             if Self::url_num_min() < Self::machine_info_url().len() as u32 {
                 return
             }
 
-            let result = Self::call_ocw_machine_info();
-            if let Err(e) = result {
-                debug::error!("offchain_worker error: {:?}", e);
+            // 获取待绑定的id
+            let live_machines = <online_profile::Pallet<T>>::live_machines();
+            for machine_id in live_machines.bonding_machine.iter() {
+                let ocw_machine_info = Self::machine_info_identical(machine_id);
+                let result = Self::call_ocw_machine_info(machine_id.to_vec(), ocw_machine_info);
+                if let Err(e) = result {
+                    debug::error!("offchain_worker error: {:?}", e);
+                }
             }
         }
 
@@ -176,43 +182,35 @@ pub mod pallet {
             Self::update_rand_url();
             Ok(().into())
         }
+
         // ocw 实现获取machine info并发送unsigned tx以修改到存储
         // UserBondedMachine增加who-machine_id pair;
         // BondedMachineId 增加 machine_id => ()
         // BondingQueueMachineId 减少 machine_id
         #[pallet::weight(0)]
-        fn ocw_submit_machine_info(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        fn ocw_submit_machine_info(origin: OriginFor<T>, machine_id: MachineId ,ocw_machine_info: Option<OCWMachineInfo>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            // 获取待绑定的id
-            let live_machines = <online_profile::Pallet<T>>::live_machines();
-            let bonding_queue_id = live_machines.bonding_machine;
+            let request_limit = Self::request_limit();
 
-            let request_limit = RequestLimit::<T>::get();
+            let mut machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
+            let mut request_count = Self::request_count(&machine_id);
 
-            let machine_info_url = MachineInfoRandURL::<T>::get();
-            ensure!(machine_info_url.len() != 0, Error::<T>::MachineURLEmpty);
+            if let Some(ocw_machine_info) = ocw_machine_info {
+                machine_info.ocw_machine_info = ocw_machine_info.clone();
+                if let Some(machine_grade )= Self::total_min_num(ocw_machine_info.gpu.gpus){
+                    machine_info.machine_grade = machine_grade;
+                };
 
-            for machine_id in bonding_queue_id.iter() {
-                let mut machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
-                let mut request_count = Self::request_count(&machine_id);
-
-                if let Some(ocw_machine_info) = Self::machine_info_identical(machine_id) {
-                    machine_info.ocw_machine_info = ocw_machine_info.clone();
-                    if let Some(machine_grade )= Self::total_min_num(ocw_machine_info.gpu.gpus){
-                        machine_info.machine_grade = machine_grade;
-                    };
-
-                    T::OnlineProfile::update_machine_info(&machine_id, machine_info);
+                T::OnlineProfile::update_machine_info(&machine_id, machine_info);
+                T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
+                T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec());
+            } else {
+                request_count += 1;
+                if request_count == request_limit { // 已经超过请求次数，从中删除
                     T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
-                    T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec());
-                } else {
-                    request_count += 1;
-                    if request_count == request_limit { // 已经超过请求次数，从中删除
-                        T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
-                    }
-                    RequestCount::<T>::insert(&machine_id, request_count);
                 }
+                RequestCount::<T>::insert(&machine_id, request_count);
             }
 
             Ok(().into())
@@ -257,8 +255,19 @@ pub mod pallet {
     }
 }
 
-#[rustfmt::skip]
+// #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
+    fn call_ocw_machine_info(
+        machine_id: MachineId,
+        ocw_machine_info: Option<OCWMachineInfo>,
+    ) -> Result<(), Error<T>> {
+        let call = Call::ocw_submit_machine_info(machine_id.to_vec(), ocw_machine_info);
+        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
+            debug::error!("Failed in offchain_unsigned_tx");
+            <Error<T>>::OffchainUnsignedTxError
+        })
+    }
+
     // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
     // from_ss58check_with_version
     pub fn verify_bonding_account(who: T::AccountId, s: &Vec<u8>) -> bool {
@@ -303,14 +312,6 @@ impl<T: Config> Pallet<T> {
         arr.iter().all(|&item| item == first)
     }
 
-    fn call_ocw_machine_info() -> Result<(), Error<T>> {
-        let call = Call::ocw_submit_machine_info();
-        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
-            debug::error!("Failed in offchain_unsigned_tx");
-            <Error<T>>::OffchainUnsignedTxError
-        })
-    }
-
     // 产生一组随机的机器信息URL，并更新到存储
     fn update_rand_url() {
         let mut machine_info_url = MachineInfoURL::<T>::get();
@@ -325,7 +326,8 @@ impl<T: Config> Pallet<T> {
             MachineInfoRandURL::<T>::put(machine_info_url);
         } else {
             for _ in 0..rand_url_num {
-                let url_index = <random_num::Module<T>>::random_u32(machine_info_url.len() as u32 - 1);
+                let url_index =
+                    <random_num::Module<T>>::random_u32(machine_info_url.len() as u32 - 1);
                 next_group.push(machine_info_url[url_index as usize].to_vec());
                 machine_info_url.remove(url_index as usize);
             }
@@ -334,12 +336,17 @@ impl<T: Config> Pallet<T> {
     }
 
     // 通过http获取机器的信息
-    pub fn fetch_machine_info(url: &Vec<u8>, machine_id: &Vec<u8>) -> Result<MachineInfo, Error<T>> {
+    pub fn fetch_machine_info(
+        url: &Vec<u8>,
+        machine_id: &Vec<u8>,
+    ) -> Result<MachineInfo, Error<T>> {
         let mut url = url.to_vec();
         url.extend(b"/");
         url.extend(machine_id.iter());
 
-        let url = str::from_utf8(&url).map_err(|_| http::Error::Unknown).unwrap();
+        let url = str::from_utf8(&url)
+            .map_err(|_| http::Error::Unknown)
+            .unwrap();
 
         debug::info!("sending request to: {}", &url);
 
