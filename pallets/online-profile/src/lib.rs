@@ -146,6 +146,8 @@ type BalanceOf<T> =
 #[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
+    use frame_support::storage::types::StorageValueMetadata;
+
     use super::*;
 
     #[pallet::config]
@@ -194,6 +196,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn stake_per_gpu)]
     pub(super) type StakePerGPU<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    // 当前系统中工作的GPU数量
+    #[pallet::storage]
+    #[pallet::getter(fn gpu_num)]
+    pub(super) type GPUNum<T> = StorageValue<_, u64, ValueQuery>;
 
     // 机器的详细信息,只有当所有奖励领取完才能删除该变量?
     #[pallet::storage]
@@ -314,7 +321,11 @@ pub mod pallet {
         pub fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, gpu_num: u32) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            let bond_amount = Self::stake_per_gpu() * gpu_num.into(); // TODO: 改为checked_mul
+            let bond_amount = Self::calc_stake_amount();
+            if let None = bond_amount {
+                return Err(Error::<T>::DBCPriceUnavailable.into());
+            }
+            let bond_amount = bond_amount.unwrap();
 
             // 资金检查
             // ensure!(bond_amount >= StakePerGPU::<T>::get(), Error::<T>::StakeNotEnough);
@@ -537,11 +548,40 @@ pub mod pallet {
         NotInBookingList,
         StakeNotEnough,
         NotMachineController,
+        DBCPriceUnavailable,
     }
 }
 
 #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
+    // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
+    // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
+    pub fn calc_stake_amount() -> Option<BalanceOf<T>> {
+        let base_stake = Self::stake_per_gpu(); // 100000 DBC
+        let gpu_num = Self::gpu_num();
+
+        // GPU数量小于10000时，直接返回base_stake
+        if gpu_num <= 10_000 {
+            return Some(base_stake);
+        }
+
+        // 100_000 * 10000 / gpu_num
+        let dbc_amount1 = Perbill::from_rational_approximation(10_000u64, gpu_num) * base_stake;
+
+        // 计算5w RMB 等值DBC数量
+        // amount = 10^15 * 50000 * 10^6 / dbc_price
+        let dbc_price = <dbc_price_ocw::Module<T>>::avg_price();
+        if let None = dbc_price {
+            return None;
+        }
+        let dbc_price = dbc_price.unwrap();
+        let dbc_amount2 = base_stake / 100_000u64.saturated_into(); // 10^15
+        let dbc_amount2 = dbc_amount2 * (50_000u64 * 1000_000u64).saturated_into::<BalanceOf<T>>() / dbc_price.saturated_into::<BalanceOf<T>>();
+
+        let dbc_amount = dbc_amount1.min(dbc_amount2);
+        Some(dbc_amount)
+    }
+
     pub fn do_payout(controller: T::AccountId, machine_id: &MachineId) -> DispatchResultWithPostInfo {
         // 根据解锁数量打币给用户
         let mut ledger = Self::ledger(controller.clone(), machine_id).ok_or(Error::<T>::LedgerNotFound)?;
