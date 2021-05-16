@@ -4378,6 +4378,7 @@ dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
+ "online-profile",
  "online-profile-runtime-api",
  "parity-scale-codec",
  "serde",
@@ -4391,7 +4392,10 @@ dependencies = [
 name = "online-profile-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "online-profile",
+ "parity-scale-codec",
  "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]

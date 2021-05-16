@@ -10,6 +10,8 @@ jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
 
+online-profile = { version = "0.1.0", path = "../../online-profile", default-features = false }
+
 # local packages
 
 online-profile-runtime-api = { version = "0.1.0", path = "../runtime-api", default-features = false }
@@ -45,4 +47,5 @@ std = [
     "sp-api/std",
     "sp-runtime/std",
     "online-profile-runtime-api/std",
+    "online-profile/std",
 ]

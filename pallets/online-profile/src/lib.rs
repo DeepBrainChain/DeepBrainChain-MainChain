@@ -1,6 +1,6 @@
-#![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use alt_serde::{Deserialize, Serialize};
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
@@ -31,6 +31,15 @@ mod tests;
 pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
 pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
+
+// 系统统计信息，提供给RPC
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, Serialize, Deserialize)]
+pub struct SysInfo<Balance> {
+    pub total_gpu_num: u64,     // 当前系统中工作的GPU数量
+    pub total_staker: u64,      // 矿工总数
+    pub total_calc_points: u64, // 系统算力点数
+    pub total_stake: Balance,   // 添加机器质押的DBC总数量
+}
 
 // 惩罚发生后，有48小时的时间提交议案取消惩罚
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -197,10 +206,9 @@ pub mod pallet {
     #[pallet::getter(fn stake_per_gpu)]
     pub(super) type StakePerGPU<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-    // 当前系统中工作的GPU数量
     #[pallet::storage]
-    #[pallet::getter(fn gpu_num)]
-    pub(super) type GPUNum<T> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::getter(fn op_info)]
+    pub(super) type OPInfo<T:Config> = StorageValue<_, SysInfo<BalanceOf<T>>, ValueQuery>;
 
     // 机器的详细信息,只有当所有奖励领取完才能删除该变量?
     #[pallet::storage]
@@ -558,15 +566,15 @@ impl<T: Config> Pallet<T> {
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
     pub fn calc_stake_amount() -> Option<BalanceOf<T>> {
         let base_stake = Self::stake_per_gpu(); // 100000 DBC
-        let gpu_num = Self::gpu_num();
+        let op_info = Self::op_info();
 
         // GPU数量小于10000时，直接返回base_stake
-        if gpu_num <= 10_000 {
+        if op_info.total_gpu_num <= 10_000 {
             return Some(base_stake);
         }
 
         // 100_000 * 10000 / gpu_num
-        let dbc_amount1 = Perbill::from_rational_approximation(10_000u64, gpu_num) * base_stake;
+        let dbc_amount1 = Perbill::from_rational_approximation(10_000u64, op_info.total_gpu_num) * base_stake;
 
         // 计算5w RMB 等值DBC数量
         // amount = 10^15 * 50000 * 10^6 / dbc_price
@@ -828,5 +836,9 @@ impl<T: Config> LCOps for Pallet<T> {
 impl<T: Config> Module<T> {
     pub fn get_sum() -> u32 {
         64
+    }
+
+    pub fn get_op_info() -> SysInfo<BalanceOf<T>> {
+        Self::op_info()
     }
 }
