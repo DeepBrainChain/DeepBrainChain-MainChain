@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::EncodeLike;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
@@ -56,6 +57,14 @@ impl Default for SlashReason {
     fn default() -> Self {
         SlashReason::MinuteOffline3
     }
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct CommitteeMachine<Balance> {
+    pub machine_id: Vec<MachineId>,
+    pub total_calc_points: u64,
+    pub total_gpu_num: u64,
+    pub total_reward: Balance,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -199,9 +208,25 @@ pub mod pallet {
     #[pallet::getter(fn stake_per_gpu)]
     pub(super) type StakePerGPU<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+    // 当前系统中工作的GPU数量
     #[pallet::storage]
-    #[pallet::getter(fn op_info)]
-    pub(super) type OPInfo<T:Config> = StorageValue<_, SysInfo<BalanceOf<T>>, ValueQuery>;
+    #[pallet::getter(fn total_gpu_num)]
+    pub(super) type TotalGPUNum<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    // 当前系统中矿工数
+    #[pallet::storage]
+    #[pallet::getter(fn total_staker)]
+    pub(super) type TotalStaker<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    // 当前系统中总算力点数
+    #[pallet::storage]
+    #[pallet::getter(fn total_calc_points)]
+    pub(super) type TotalCalcPoints<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    // 机器质押的DBC总数量
+    #[pallet::storage]
+    #[pallet::getter(fn total_stake)]
+    pub(super) type TotalStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     // 机器的详细信息,只有当所有奖励领取完才能删除该变量?
     #[pallet::storage]
@@ -216,7 +241,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn user_machines)]
-    pub(super) type UserMachines<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
+    pub(super) type UserMachines<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeMachine<BalanceOf<T>>, ValueQuery>;
 
     // 存储活跃的机器
     #[pallet::storage]
@@ -225,7 +250,6 @@ pub mod pallet {
 
     /// Map from all (unlocked) "controller" accounts to the info regarding the staking.
     #[pallet::storage]
-
     #[pallet::getter(fn ledger)]
     pub type Ledger<T: Config> = StorageDoubleMap<
         _,
@@ -338,8 +362,9 @@ pub mod pallet {
 
             // 添加到用户的机器列表
             let mut user_machines = Self::user_machines(&controller);
-            if let Err(index) = user_machines.binary_search(&machine_id) {
-                user_machines.insert(index, machine_id.clone());
+
+            if let Err(index) = user_machines.machine_id.binary_search(&machine_id) {
+                user_machines.machine_id.insert(index, machine_id.clone());
                 UserMachines::<T>::insert(&controller, user_machines);
             } else {
                 return Err(Error::<T>::MachineInUserBonded.into());
@@ -487,7 +512,7 @@ pub mod pallet {
             ensure!(UserMachines::<T>::contains_key(&controller), Error::<T>::NotMachineController);
 
             let user_machines = Self::user_machines(&controller);
-            for machine_id in user_machines.iter() {
+            for machine_id in user_machines.machine_id.iter() {
                 return Self::do_payout(controller.clone(), machine_id);
             }
 
@@ -559,15 +584,16 @@ impl<T: Config> Pallet<T> {
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
     pub fn calc_stake_amount() -> Option<BalanceOf<T>> {
         let base_stake = Self::stake_per_gpu(); // 100000 DBC
-        let op_info = Self::op_info();
+
+        let total_gpu_num = Self::total_gpu_num();
 
         // GPU数量小于10000时，直接返回base_stake
-        if op_info.total_gpu_num <= 10_000 {
+        if total_gpu_num <= 10_000 {
             return Some(base_stake);
         }
 
         // 100_000 * 10000 / gpu_num
-        let dbc_amount1 = Perbill::from_rational_approximation(10_000u64, op_info.total_gpu_num) * base_stake;
+        let dbc_amount1 = Perbill::from_rational_approximation(10_000u64, total_gpu_num) * base_stake;
 
         // 计算5w RMB 等值DBC数量
         // amount = 10^15 * 50000 * 10^6 / dbc_price
@@ -832,6 +858,21 @@ impl<T: Config> Module<T> {
     }
 
     pub fn get_op_info() -> SysInfo<BalanceOf<T>> {
-        Self::op_info()
+        SysInfo {
+            total_gpu_num: Self::total_gpu_num(),
+            total_staker: Self::total_staker(),
+            total_calc_points: Self::total_calc_points(),
+            total_stake: Self::total_stake(),
+        }
+    }
+
+    pub fn get_staker_info(account: impl EncodeLike<T::AccountId>) -> StakerInfo<BalanceOf<T>> {
+        let staker_info = Self::user_machines(account);
+
+        StakerInfo {
+            calc_points: staker_info.total_calc_points,
+            gpu_num: staker_info.total_gpu_num,
+            total_reward: staker_info.total_reward,
+        }
     }
 }
