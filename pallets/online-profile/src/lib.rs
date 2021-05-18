@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use alt_serde::{Deserialize, Serialize};
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
@@ -17,7 +16,10 @@ use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque,
 
 pub mod grade_inflation;
 pub mod machine_info;
+pub mod rpc_types;
 pub mod types;
+
+pub use rpc_types::*;
 use types::*;
 
 pub use pallet::*;
@@ -31,15 +33,6 @@ mod tests;
 pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
 pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
-
-// 系统统计信息，提供给RPC
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, Serialize, Deserialize)]
-pub struct SysInfo<Balance> {
-    pub total_gpu_num: u64,     // 当前系统中工作的GPU数量
-    pub total_staker: u64,      // 矿工总数
-    pub total_calc_points: u64, // 系统算力点数
-    pub total_stake: Balance,   // 添加机器质押的DBC总数量
-}
 
 // 惩罚发生后，有48小时的时间提交议案取消惩罚
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
