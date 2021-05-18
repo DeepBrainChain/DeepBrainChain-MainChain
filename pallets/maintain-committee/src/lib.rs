@@ -45,6 +45,11 @@ pub struct LiveOrderList {
     pub fully_order: Vec<OrderId>,    // 已经被抢完的机器ID，不能再进行抢单
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct ReporterRecord {
+    pub reported_id: Vec<OrderId>,
+}
+
 // 记录处于不同状态的委员会的列表，方便派单
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StakerList<AccountId: Ord> {
@@ -187,6 +192,22 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee_ledger)]
     pub(super) type CommitteeLedger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Option<StakingLedger<BalanceOf<T>>>, ValueQuery>;
+
+    // 默认抢单委员会的个数
+    #[pallet::type_value]
+    pub fn CommitteeLimitDefault<T: Config> () -> u32 {
+        3
+    }
+
+    // 最多多少个委员会能够抢单
+    #[pallet::storage]
+    #[pallet::getter(fn committee_limit)]
+    pub(super) type CommitteeLimit<T: Config> = StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
+
+    // 查询报告人报告的机器
+    #[pallet::storage]
+    #[pallet::getter(fn reporter_order)]
+    pub(super) type ReporterOrder<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, ReporterRecord, ValueQuery>;
 
     // 通过报告单据ID，查询报告的机器的信息(委员会抢单信息)
     #[pallet::storage]
@@ -362,6 +383,7 @@ pub mod pallet {
         }
 
         // FIXME: 必须特定的用户才能进行报告。避免用户报告同一台机器多次
+        // 用户报告机器有问题
         #[pallet::weight(10000)]
         pub fn report_machine_state(origin: OriginFor<T>, raw_hash: Vec<u8>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
@@ -383,6 +405,13 @@ pub mod pallet {
                 ..Default::default()
             });
 
+            // 记录到报告人的存储中
+            let mut reporter_order = Self::reporter_order(&reporter);
+            if let Err(index) = reporter_order.reported_id.binary_search(&order_id) {
+                reporter_order.reported_id.insert(index, order_id);
+            }
+            ReporterOrder::<T>::insert(&reporter, reporter_order);
+
             // 更新NextOrderId
             NextOrderId::<T>::put(order_id + 1);
 
@@ -391,19 +420,46 @@ pub mod pallet {
 
         // 委员会进行抢单
         #[pallet::weight(10000)]
-        pub fn book_order(origin: OriginFor<T>, order_id: OrderId) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            // TODO: call book_one_order
-
-            Ok(().into())
-        }
-
-        #[pallet::weight(10000)]
         pub fn book_one(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
 
-            // TODO: call book_one_order
+            let mut live_order = Self::live_order();
+            ensure!(live_order.reported_order.len() > 0, Error::<T>::NoBookableOrder);
+
+            // 从live_order取出一个
+            let one_order = live_order.reported_order.pop().unwrap();
+
+            // 判断发起请求者是状态正常的委员会
+            let staker = Self::staker();
+            if let Err(_) = staker.committee.binary_search(&who) {
+                return Err(Error::<T>::NotCommittee.into());
+            }
+
+            // 添加到委员会自己的存储中
+            let mut committee_booked = Self::committee_machines(&who);
+            committee_booked.booked_order.push((one_order, now));
+
+            // 判断是否已经有三个委员会抢单，如果满足，则将订单放到fully_order中
+            let mut reported_machines = Self::reported_machines(one_order);
+            reported_machines.booked_committee.push((who.clone(), now));
+
+            // 如果委员会抢单的个数大于等于限制，则停止抢单
+            let committee_limit = Self::committee_limit();
+            if reported_machines.booked_committee.len() >= committee_limit as usize {
+                if let Ok(index) = live_order.reported_order.binary_search(&one_order) {
+                    live_order.reported_order.remove(index);
+                }
+
+                if let Err(index) = live_order.fully_order.binary_search(&one_order) {
+                    live_order.fully_order.insert(index, one_order);
+                }
+            }
+
+            // 修改存储
+            CommitteeMachines::<T>::insert(&who, committee_booked);
+            ReportedMachines::<T>::insert(one_order, reported_machines);
+            LiveOrder::<T>::put(live_order);
 
             Ok(().into())
         }
@@ -447,6 +503,7 @@ pub mod pallet {
         AccountNotExist,
         NotInChillList,
         JobNotDone,
+        NoBookableOrder,
     }
 }
 
