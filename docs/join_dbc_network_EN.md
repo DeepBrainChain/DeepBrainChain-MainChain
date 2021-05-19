@@ -29,7 +29,7 @@
 
      ```
      wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v1/dbc_chain_linux_x64.tar.gz
-     tar xf dbc_chain_ubuntu16.04.tar.gz
+     tar xf dbc_chain_linux_x64.tar.gz
      cd dbc_chain
      ```
 
