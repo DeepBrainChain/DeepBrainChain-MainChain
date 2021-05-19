@@ -25,9 +25,9 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 
 + 返回信息：
 
-  ```json
-  {"jsonrpc":"2.0","result":{"calcPoints":0,"gpuNum":0,"totalReward":"0"},"id":1}
-  ```
+```json
+{"jsonrpc":"2.0","result":{"calcPoints":0,"gpuNum":0,"totalReward":"0"},"id":1}
+```
 
 ### 查询在线奖励系统的信息
 
@@ -42,9 +42,9 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 
 + 返回信息：
 
-  ```json
-  {"jsonrpc":"2.0","result":{"totalCalcPoints":0,"totalGpuNum":0,"totalStake":"0","totalStaker":0},"id":1}
-  ```
+```json
+{"jsonrpc":"2.0","result":{"totalCalcPoints":0,"totalGpuNum":0,"totalStake":"0","totalStaker":0},"id":1}
+```
 
 ### 分页查询矿工账户ID
 ```bash
@@ -54,7 +54,11 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
       "method":"onlineProfile_getStakerList",
       "params": ["0xbd7e44182d643e9da10402ceaa4bcb17c5995550da73bb9187f73081903cb567", 7, 7]
     }'
-{"jsonrpc":"2.0","result":[],"id":1}
+```
+
++ 返回信息：
+```json
+{"jsonrpc":"2.0","result":["5DhR2dxiPZquPhFjfPzFg5jZENdr375hbX643kr9FBXMVa2z", "5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg", "5Ebn8seCXL3cj2PDpsgTpXAnuvH24RbSgpxnCmKGxcwANFQ8"],"id":1}
 ```
 
 ### 查询地址对应的账户名称
@@ -65,6 +69,10 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
       "method":"onlineProfile_getStakerIdentity",
       "params": ["0xbc5d40d87d829a76eb987bb388d05e3d848eec7d91009f3efd30de67a229f116", "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"]
     }'
+```
+
++ 返回信息：
+```json
 {"jsonrpc":"2.0","result":[98,111,98],"id":1}
 ```
 
