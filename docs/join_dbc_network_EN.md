@@ -28,7 +28,7 @@
    + Option 1: use pre-build version (ubuntu 16.04 only).
 
      ```
-     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v0.1/dbc_chain_ubuntu16.04.tar.gz
+     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v1/dbc_chain_ubuntu16.04.tar.gz
      tar xf dbc_chain_ubuntu16.04.tar.gz
      cd dbc_chain
      ```

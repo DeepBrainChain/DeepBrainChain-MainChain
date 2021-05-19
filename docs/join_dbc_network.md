@@ -28,7 +28,7 @@
    + **方式1**: 使用预编译版本（只支持ubuntu16.04）：
 
      ```bash
-     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v0.1/dbc_chain_ubuntu16.04.tar.gz
+     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v1/dbc_chain_ubuntu16.04.tar.gz
      tar xf dbc_chain_ubuntu16.04.tar.gz && cd dbc_chain
      ```
      
