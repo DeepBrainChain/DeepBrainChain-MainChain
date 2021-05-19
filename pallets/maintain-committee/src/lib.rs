@@ -23,7 +23,11 @@ use frame_support::{
     traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
 use frame_system::pallet_prelude::*;
-use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
+use sp_io::hashing::blake2_128;
+use sp_runtime::{
+    traits::{CheckedDiv, CheckedMul, SaturatedConversion},
+    RuntimeDebug,
+};
 use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;
@@ -36,9 +40,6 @@ type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"mtcommit";
-
-// 机器故障原因
-pub enum ReportReason {}
 
 // 记录该模块中活跃的订单
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -132,7 +133,8 @@ pub struct MachineCommitteeList<AccountId, BlockNumber> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct CommitteeMachineOps<BlockNumber> {
     pub booked_time: BlockNumber,
-    pub encrypted_info: Option<Vec<u8>>, // reporter 提交的加密后的信息
+    pub encrypted_err_info: Option<Vec<u8>>, // reporter 提交的加密后的信息
+    pub encrypted_login_info: Option<Vec<u8>>, // 记录机器的登录信息，用委员会公钥加密
     pub encrypted_time: BlockNumber,
     pub confirm_hash: Hash, // TODO:
     pub hash_time: BlockNumber,
@@ -520,7 +522,7 @@ pub mod pallet {
         // FIXME: 完善逻辑
         // 报告人在委员会完成抢单后，24小时内用委员会的公钥，提交加密后的故障信息
         #[pallet::weight(10000)]
-        pub fn reporter_add_error_hash(origin: OriginFor<T>, order_id: OrderId, to_committee: T::AccountId, encrypted_info: Vec<u8>) -> DispatchResultWithPostInfo {
+        pub fn reporter_add_error_hash(origin: OriginFor<T>, order_id: OrderId, to_committee: T::AccountId, encrypted_err_info: Vec<u8>, encrypted_login_info: Vec<u8>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -544,8 +546,9 @@ pub mod pallet {
 
             // 添加到委员会对机器的信息中
             let mut committee_ops = Self::committee_ops(&to_committee, &order_id);
-            if let None = committee_ops.encrypted_info {
-                committee_ops.encrypted_info = Some(encrypted_info);
+            if let None = committee_ops.encrypted_err_info {
+                committee_ops.encrypted_err_info = Some(encrypted_err_info);
+                committee_ops.encrypted_login_info = Some(encrypted_login_info);
                 committee_ops.encrypted_time = now;
                 CommitteeOps::<T>::insert(&to_committee, &order_id, committee_ops);
             } else {
@@ -555,7 +558,7 @@ pub mod pallet {
             // 检查是否为所有委员会提交了信息
             for a_committee in machine_committee.booked_committee.iter() {
                 let committee_ops = Self::committee_ops(&to_committee, &order_id);
-                if let None = committee_ops.encrypted_info {
+                if let None = committee_ops.encrypted_err_info {
                     // 还有未提供加密信息的委员会
                     return Ok(().into())
                 }
@@ -622,13 +625,15 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        fn submit_confirm_raw(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            ensure_signed(origin)?;
+        fn submit_confirm_raw(origin: OriginFor<T>, machine_id: MachineId, reporter_rand_str: Vec<u8>, committee_rand_str: Vec<u8>, err_type: Vec<u8>) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+            // 1. 判断Hash = 报告人提交的原始Hash
+
+            // 2. 根据委员会的统计，判断是否有故障，并更新故障信息到online_profile
 
             Ok(().into())
         }
     }
-
 
     #[pallet::event]
     #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
@@ -666,7 +671,10 @@ pub mod pallet {
 // #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     // 根据DBC价格获得最小质押数量
+    // DBC精度15，Balance为u128, min_stake不超过10^24 usd 不会超出最大值
     fn get_min_stake_amount() -> Option<BalanceOf<T>> {
+        let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
+
         let dbc_price = <dbc_price_ocw::Module<T>>::avg_price();
         if let None = dbc_price {
             return None;
@@ -674,7 +682,17 @@ impl<T: Config> Pallet<T> {
         let dbc_price = dbc_price.unwrap();
         let committee_min_stake = Self::committee_min_stake();
 
-        return Some((committee_min_stake / dbc_price).saturated_into());
+        // dbc_need = one_dbc * committee_min_stake / dbc_price
+        let min_stake = one_dbc.checked_mul(&committee_min_stake.saturated_into::<BalanceOf<T>>());
+        if let Some(_) = min_stake {
+            return None;
+        }
+        let min_stake = min_stake.unwrap();
+        min_stake.checked_div(&dbc_price.saturated_into::<BalanceOf<T>>())
+    }
+
+    fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
+        return blake2_128(raw_str);
     }
 
     fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<BalanceOf<T>>) {
