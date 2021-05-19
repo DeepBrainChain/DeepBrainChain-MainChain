@@ -25,15 +25,15 @@
 
 2. Get `dbc-chain` binary
 
-   + Option 1: use pre-build version (ubuntu 16.04 only).
+   + Option 1: use pre-build version (If any errors, please use Option 2).
 
      ```
-     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v1/dbc_chain_ubuntu16.04.tar.gz
+     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v1/dbc_chain_linux_x64.tar.gz
      tar xf dbc_chain_ubuntu16.04.tar.gz
      cd dbc_chain
      ```
 
-   + Option 2: compile from source
+   + Option 2: compile from source (recommended)
 
      ```bash
      # install rust，subkey
