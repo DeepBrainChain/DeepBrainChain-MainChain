@@ -3,8 +3,9 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use codec::Codec;
+use sp_std::prelude::Vec;
+// use frame_support::pallet_prelude::Vec;
 pub use online_profile::{StakerInfo, SysInfo};
-
 use sp_runtime::traits::MaybeDisplay;
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
@@ -17,5 +18,7 @@ sp_api::decl_runtime_apis! {
         fn get_sum() -> u32;
         fn get_op_info() -> SysInfo<Balance>;
         fn get_staker_info(account: AccountId) -> StakerInfo<Balance>;
+        fn get_staker_list(start: u64, end: u64) -> Vec<AccountId>;
+        fn get_staker_identity(account: AccountId) -> Vec<u8>;
     }
 }

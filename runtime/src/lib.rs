@@ -1179,6 +1179,14 @@ impl_runtime_apis! {
         fn get_staker_info(who: AccountId) -> online_profile::StakerInfo<Balance> {
             OnlineProfile::get_staker_info(who)
         }
+
+        fn get_staker_list(start: u64, end: u64) -> Vec<AccountId> {
+            OnlineProfile::get_staker_list(start, end)
+        }
+
+        fn get_staker_identity(who: AccountId) -> Vec<u8> {
+            OnlineProfile::get_staker_identity(who)
+        }
     }
 
     impl sp_api::Core<Block> for Runtime {

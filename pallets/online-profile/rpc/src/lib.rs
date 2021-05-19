@@ -15,7 +15,15 @@ use sp_runtime::{
 use std::{convert::TryInto, sync::Arc};
 
 #[rpc]
-pub trait SumStorageApi<BlockHash, AccountId, ResponseType1, ResponseType2> {
+pub trait SumStorageApi<
+    BlockHash,
+    AccountId,
+    ResponseType1,
+    ResponseType2,
+    ResponseType3,
+    ResponseType4,
+>
+{
     #[rpc(name = "onlineProfile_getSum")]
     fn get_sum(&self, at: Option<BlockHash>) -> Result<u32>;
 
@@ -24,6 +32,17 @@ pub trait SumStorageApi<BlockHash, AccountId, ResponseType1, ResponseType2> {
 
     #[rpc(name = "onlineProfile_getStakerInfo")]
     fn get_staker_info(&self, at: Option<BlockHash>, account: AccountId) -> Result<ResponseType2>;
+
+    #[rpc(name = "onlineProfile_getStakerList")]
+    fn get_staker_list(&self, at: Option<BlockHash>, start: u64, end: u64)
+        -> Result<ResponseType3>;
+
+    #[rpc(name = "onlineProfile_getStakerIdentity")]
+    fn get_staker_identity(
+        &self,
+        at: Option<BlockHash>,
+        account: AccountId,
+    ) -> Result<ResponseType4>;
 }
 
 pub struct SumStorage<C, M> {
@@ -41,8 +60,14 @@ impl<C, M> SumStorage<C, M> {
 }
 
 impl<C, Block, AccountId, Balance>
-    SumStorageApi<<Block as BlockT>::Hash, AccountId, SysInfo<Balance>, StakerInfo<Balance>>
-    for SumStorage<C, Block>
+    SumStorageApi<
+        <Block as BlockT>::Hash,
+        AccountId,
+        SysInfo<Balance>,
+        StakerInfo<Balance>,
+        Vec<AccountId>,
+        Vec<u8>,
+    > for SumStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec,
@@ -85,6 +110,39 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api.get_staker_info(&at, account);
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_staker_list(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+        start: u64,
+        end: u64,
+    ) -> Result<Vec<AccountId>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_staker_list(&at, start, end);
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_staker_identity(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+        account: AccountId,
+    ) -> Result<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_staker_identity(&at, account);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

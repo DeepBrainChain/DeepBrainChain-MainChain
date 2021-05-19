@@ -8,6 +8,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{LCOps, OCWOps};
+use pallet_identity::Data;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{
     traits::{CheckedSub, Zero},
@@ -157,12 +158,10 @@ type BalanceOf<T> =
 #[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
-    use frame_support::storage::types::StorageValueMetadata;
-
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + dbc_price_ocw::Config + random_num::Config {
+    pub trait Config: frame_system::Config + dbc_price_ocw::Config + random_num::Config + pallet_identity::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type BondingDuration: Get<EraIndex>;
@@ -242,6 +241,10 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn user_machines)]
     pub(super) type UserMachines<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeMachine<BalanceOf<T>>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn temp_account)]
+    pub(super) type TempAccount<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
     // 存储活跃的机器
     #[pallet::storage]
@@ -873,6 +876,36 @@ impl<T: Config> Module<T> {
             calc_points: staker_info.total_calc_points,
             gpu_num: staker_info.total_gpu_num,
             total_reward: staker_info.total_reward,
+        }
+    }
+
+    pub fn get_staker_list(start: u64, end: u64) -> Vec<T::AccountId> {
+        let temp_account = Self::temp_account();
+
+        let start = start as usize;
+        let mut end = end as usize;
+
+        if start > end || start > temp_account.len() - 1 || temp_account.len() == 0 {
+            return Vec::new();
+        }
+
+        if end > temp_account.len() - 1 {
+            end = temp_account.len() - 1;
+        }
+
+        return temp_account[start..end].to_vec();
+    }
+
+    pub fn get_staker_identity(account: impl EncodeLike<T::AccountId>) -> Vec<u8> {
+        let account_info = <pallet_identity::Module<T>>::identity(account);
+        if let None = account_info {
+            return Vec::new();
+        }
+        let account_info = account_info.unwrap();
+
+        match account_info.info.display {
+            Data::Raw(out) => return out,
+            _ => return Vec::new(),
         }
     }
 }

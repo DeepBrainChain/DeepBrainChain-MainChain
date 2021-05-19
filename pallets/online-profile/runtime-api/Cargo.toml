@@ -19,6 +19,12 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dependencies.sp-std]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
 [features]
 default = ["std"]
 std = [
@@ -26,4 +32,5 @@ std = [
     "online-profile/std",
     "sp-api/std",
     "sp-runtime/std",
+    "sp-std/std",
 ]
