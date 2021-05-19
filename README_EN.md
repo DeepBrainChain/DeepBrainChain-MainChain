@@ -40,6 +40,5 @@ If you have some DBC and want to get more, you can choose to **become a `validat
 
 #### How to be a `validator`
 
-[How to be a DBC validator](docs/join_dbc_testnet_EN.md) -- run a full node，be a Validator to get rewards
-
+[How to be a DBC validator](docs/join_dbc_network_EN.md) -- run a full node，be a Validator to get rewards
 
