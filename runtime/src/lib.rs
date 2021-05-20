@@ -1026,6 +1026,8 @@ impl pallet_assets::Config for Runtime {
 impl dbc_testing::Config for Runtime {
     type Currency = Balances;
     type PhaseReward = Staking;
+    type Slash = Treasury;
+    type Reward = ();
 }
 
 impl dbc_price_ocw::Config for Runtime {

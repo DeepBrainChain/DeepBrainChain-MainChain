@@ -3,7 +3,7 @@
 
 use codec::Decode;
 use frame_support::debug;
-use frame_support::traits::Currency;
+use frame_support::traits::{Currency, Imbalance, OnUnbalanced, ReservableCurrency};
 use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
 use sp_arithmetic::{traits::Saturating, Permill};
@@ -12,6 +12,12 @@ use sp_std::{convert::TryInto, str};
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
+type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::PositiveImbalance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 pub use pallet::*;
 
@@ -31,6 +37,8 @@ pub mod pallet {
     pub trait Config: frame_system::Config + pallet_timestamp::Config {
         type Currency: Currency<Self::AccountId>;
         type PhaseReward: PhaseReward<Balance = BalanceOf<Self>>;
+        type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -58,6 +66,40 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Slashes the specified amount of funds from the specified account
+        #[pallet::weight(0)]
+        pub fn slash_funds(
+            origin: OriginFor<T>,
+            to_punish: T::AccountId,
+            collateral: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            let _ = ensure_signed(origin)?;
+
+            T::Slash::on_unbalanced(T::Currency::issue(collateral));
+
+            let now = <frame_system::Module<T>>::block_number();
+            Ok(().into())
+        }
+
+        /// Awards the specified amount of funds to the specified account
+        #[pallet::weight(0)]
+        pub fn reward_funds(
+            origin: OriginFor<T>,
+            to_reward: T::AccountId,
+            reward: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            let _ = ensure_signed(origin)?;
+
+            let mut total_imbalance = <PositiveImbalanceOf<T>>::zero();
+
+            let r = T::Currency::deposit_into_existing(&to_reward, reward).ok();
+            total_imbalance.maybe_subsume(r);
+            T::Reward::on_unbalanced(total_imbalance);
+
+            let now = <frame_system::Module<T>>::block_number();
+            Ok(().into())
+        }
+
         #[pallet::weight(0)]
         fn say_hello(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             // let secs_per_block = babe::Module::<T>::slot_duration();
