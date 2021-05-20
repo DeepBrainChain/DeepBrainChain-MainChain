@@ -91,7 +91,7 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_sum(&at);
+        let runtime_api_result = api.get_total_staker_num(&at);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

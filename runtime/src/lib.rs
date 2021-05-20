@@ -1168,8 +1168,8 @@ mod mmr {
 impl_runtime_apis! {
     // Here implement custom runtime API.
     impl online_profile_runtime_api::SumStorageApi<Block, AccountId, Balance> for Runtime {
-        fn get_sum() -> u64 {
-            OnlineProfile::get_sum()
+        fn get_total_staker_num() -> u64 {
+            OnlineProfile::get_total_staker_num()
         }
 
         fn get_op_info() -> online_profile::SysInfo<Balance> {
