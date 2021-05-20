@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use codec::{Decode, Encode};
+use codec::{Codec, Decode, Encode};
 
 // 系统统计信息，提供给RPC
 #[rustfmt::skip]
@@ -47,3 +47,20 @@ pub struct StakerInfo<Balance> {
     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
     pub total_reward: Balance,
 }
+
+// #[rustfmt::skip]
+// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+// #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+// #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+// #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
+// #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
+// pub struct StakerListInfo<Balance, AccountId: Codec> {
+//     pub staker_name: Vec<u8>,
+//     pub staker_account: AccountId,
+//     pub calc_points: u64,
+//     pub gpu_num: u64,
+//     pub gpu_rent_rate: u64,
+
+//     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
+//     pub total_reward: Balance,
+// }

@@ -324,6 +324,15 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
+        pub fn add_temp_account(origin: OriginFor<T>, new_account: T::AccountId) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let mut accounts = Self::temp_account();
+            accounts.push(new_account);
+            TempAccount::<T>::put(accounts);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
         pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
@@ -908,4 +917,46 @@ impl<T: Config> Module<T> {
             _ => return Vec::new(),
         }
     }
+
+    // // 返回total_page
+    // pub fn get_staker_list_info(
+    //     cur_page: u64,
+    //     per_page: u64,
+    // ) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
+    //     let temp_account = Self::temp_account();
+    //     let mut out = Vec::new();
+
+    //     if temp_account.len() == 0 {
+    //         return out;
+    //     }
+
+    //     let cur_page = cur_page as usize;
+    //     let per_page = per_page as usize;
+    //     let page_start = cur_page * per_page;
+    //     let mut page_end = page_start + per_page;
+
+    //     if page_start >= temp_account.len() {
+    //         return out;
+    //     }
+
+    //     if page_end >= temp_account.len() {
+    //         page_end = temp_account.len() - 1;
+    //     }
+
+    //     for &a_account in temp_account[page_start..page_end].iter() {
+    //         let staker_info = Self::user_machines(a_account.clone());
+    //         let identity = Self::get_staker_identity(a_account.clone());
+
+    //         out.push(StakerListInfo {
+    //             staker_name: identity,
+    //             staker_account: a_account,
+    //             calc_points: staker_info.total_calc_points,
+    //             gpu_num: staker_info.total_gpu_num,
+    //             gpu_rent_rate: 0u64,
+    //             total_reward: staker_info.total_reward,
+    //         })
+    //     }
+
+    //     return out;
+    // }
 }
