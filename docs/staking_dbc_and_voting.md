@@ -9,7 +9,7 @@
 
      安装完成后，通过浏览器插件生成即可
 
-   + 方式2：通过网页钱包[https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts) ，点击`账户`--`添加账户`进行生成。
+   + 方式2：通过网页钱包[https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts](https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts) ，点击`账户`--`添加账户`进行生成。
 
    + 方式3：通过命令行方式生成
 
@@ -18,7 +18,7 @@
      cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.1 --locked
      ```
 
-2. 获取一些的DBC。打开[https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts ), 您将能看到您的账户与余额
+2. 获取一些的DBC。打开[https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts](https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts), 您将能看到您的账户与余额
 
    ![image-20210122210826588](staking_dbc_and_voting.assets/image-20210122210826588.png)
 

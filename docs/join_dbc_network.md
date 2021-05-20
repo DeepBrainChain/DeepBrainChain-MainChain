@@ -14,7 +14,7 @@
 
      安装完成后，通过浏览器插件生成即可
 
-   + 方式2：通过网页钱包[https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts) ，点击`账户`--`添加账户`进行生成。
+   + 方式2：通过网页钱包[https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts](https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts) ，点击`账户`--`添加账户`进行生成。
 
    + 方式3：通过命令行方式生成
 
@@ -29,7 +29,7 @@
 
      ```bash
      wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v1/dbc_chain_linux_x64.tar.gz
-     tar xf dbc_chain_linux_x64.tar.gz && cd dbc_chain
+     tar xf dbc_chain_linux_x64.tar.gz && cd dbc-chain-mainnet
      ```
      
    + **方式2**：从源码进行编译 (推荐)
@@ -78,7 +78,7 @@
 
 6. 设置绑定（bond）金额
 
-   + 打开[https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts)  你将能看到你的余额：![image-20210121194808850](join_dbc_network.assets/image-20210121194808850.png)
+   + 打开[https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts](https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts)  你将能看到你的余额：![image-20210121194808850](join_dbc_network.assets/image-20210121194808850.png)
 
    + 导航到`网络` >`质押` > `账户操作` > `存储账户`，![image-20210323095232363](join_dbc_network.assets/image-20210323095232363.png)
 
@@ -100,7 +100,7 @@
 
    + 点击它，并将步骤5生成的`rotateKeys`填入。 ![image-20210121200709277](join_dbc_network.assets/image-20210121200709277.png)
 
-   + 现在，你可以到 [Telemetry]( https://telemetry.polkadot.io/#list/DBC%20Network)看到你的节点了！![image-20210121234945030](join_dbc_network.assets/image-20210121234945030.png)
+   + 现在，你可以到 [Telemetry](https://telemetry.polkadot.io/#list/DBC%20Mainnet)看到你的节点了！![image-20210121234945030](join_dbc_network.assets/image-20210121234945030.png)
 
 8. 设置参加验证人选举
 

@@ -14,7 +14,7 @@
 
      Then generate by `polkadot{.js}`
 
-   + Option 2: Generate account from [https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts)，click `Account` -- `Add account`
+   + Option 2: Generate account from [https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts](https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts)，click `Account` -- `Add account`
 
    + Option 3: Generate by command line:
 
@@ -29,8 +29,7 @@
 
      ```
      wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v1/dbc_chain_linux_x64.tar.gz
-     tar xf dbc_chain_linux_x64.tar.gz
-     cd dbc_chain
+     tar xf dbc_chain_linux_x64.tar.gz && cd dbc-chain-mainnet
      ```
 
    + Option 2: compile from source (recommended)
@@ -77,7 +76,7 @@
 
 6. Bond stash
 
-   + open [https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts) you will see your balance: ![image-20210121194808850](join_dbc_network.assets/image-20210121194808850.png)
+   + open [https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts](https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts) you will see your balance: ![image-20210121194808850](join_dbc_network.assets/image-20210121194808850.png)
 
    + navigate to`Staking > Account actions`，click `stash`![image-20210121194953014](join_dbc_network.assets/image-20210121194953014.png)
 
@@ -97,7 +96,7 @@
 
    + click it and input the result in step 5`rotateKeys`![image-20210121200709277](join_dbc_network.assets/image-20210121200709277.png)
 
-   + Now, check in [Telemetry]( https://telemetry.polkadot.io/#list/DBC%20Network) and you can see your node.![image-20210121234945030](join_dbc_network.assets/image-20210121234945030.png)
+   + Now, check in [Telemetry](https://telemetry.polkadot.io/#list/DBC%20Mainnet) and you can see your node.![image-20210121234945030](join_dbc_network.assets/image-20210121234945030.png)
 
 8. Validate
 
