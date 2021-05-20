@@ -3,7 +3,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_profile::{StakerInfo, SysInfo};
+use online_profile::{StakerInfo, StakerListInfo, SysInfo};
 use online_profile_runtime_api::SumStorageApi as SumStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -22,10 +22,11 @@ pub trait SumStorageApi<
     ResponseType2,
     ResponseType3,
     ResponseType4,
+    ResponseType5,
 >
 {
-    #[rpc(name = "onlineProfile_getSum")]
-    fn get_sum(&self, at: Option<BlockHash>) -> Result<u32>;
+    #[rpc(name = "onlineProfile_getStakerNum")]
+    fn get_total_staker_num(&self, at: Option<BlockHash>) -> Result<u64>;
 
     #[rpc(name = "onlineProfile_getOpInfo")]
     fn get_op_info(&self, at: Option<BlockHash>) -> Result<ResponseType1>;
@@ -43,6 +44,14 @@ pub trait SumStorageApi<
         at: Option<BlockHash>,
         account: AccountId,
     ) -> Result<ResponseType4>;
+
+    #[rpc(name = "onlineProfile_getStakerListInfo")]
+    fn get_staker_list_info(
+        &self,
+        at: Option<BlockHash>,
+        cur_page: u64,
+        per_page: u64,
+    ) -> Result<ResponseType5>;
 }
 
 pub struct SumStorage<C, M> {
@@ -67,6 +76,7 @@ impl<C, Block, AccountId, Balance>
         StakerInfo<Balance>,
         Vec<AccountId>,
         Vec<u8>,
+        Vec<StakerListInfo<Balance, AccountId>>,
     > for SumStorage<C, Block>
 where
     Block: BlockT,
@@ -77,7 +87,7 @@ where
     C: HeaderBackend<Block>,
     C::Api: SumStorageRuntimeApi<Block, AccountId, Balance>,
 {
-    fn get_sum(&self, at: Option<<Block as BlockT>::Hash>) -> Result<u32> {
+    fn get_total_staker_num(&self, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -143,6 +153,23 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api.get_staker_identity(&at, account);
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_staker_list_info(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+        cur_page: u64,
+        per_page: u64,
+    ) -> Result<Vec<StakerListInfo<Balance, AccountId>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_staker_list_info(&at, cur_page, per_page);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

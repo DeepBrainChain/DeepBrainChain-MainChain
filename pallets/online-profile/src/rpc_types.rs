@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use codec::{Codec, Decode, Encode};
+use sp_std::prelude::Vec;
 
 // 系统统计信息，提供给RPC
 #[rustfmt::skip]
@@ -48,19 +49,35 @@ pub struct StakerInfo<Balance> {
     pub total_reward: Balance,
 }
 
-// #[rustfmt::skip]
-// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
-// #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-// #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-// #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
-// #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
-// pub struct StakerListInfo<Balance, AccountId: Codec> {
-//     pub staker_name: Vec<u8>,
-//     pub staker_account: AccountId,
-//     pub calc_points: u64,
-//     pub gpu_num: u64,
-//     pub gpu_rent_rate: u64,
+#[rustfmt::skip]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display, AccountId: std::fmt::Display")))]
+#[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr, AccountId: std::str::FromStr")))]
+pub struct StakerListInfo<Balance, AccountId> {
+    pub staker_name: Vec<u8>,
+    #[cfg_attr(feature = "std", serde(with = "serde_account"))]
+    pub staker_account: AccountId,
+    pub calc_points: u64,
+    pub gpu_num: u64,
+    pub gpu_rent_rate: u64,
 
-//     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
-//     pub total_reward: Balance,
-// }
+    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
+    pub total_reward: Balance,
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "std")]
+mod serde_account {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer, T: std::fmt::Display>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&t.to_string())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>, T: std::str::FromStr>(deserializer: D) -> Result<T, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
+    }
+}

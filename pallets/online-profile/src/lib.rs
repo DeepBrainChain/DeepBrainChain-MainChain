@@ -865,8 +865,9 @@ impl<T: Config> LCOps for Pallet<T> {
 }
 
 impl<T: Config> Module<T> {
-    pub fn get_sum() -> u32 {
-        64
+    pub fn get_total_staker_num() -> u64 {
+        let temp_account = Self::temp_account();
+        return temp_account.len() as u64;
     }
 
     pub fn get_op_info() -> SysInfo<BalanceOf<T>> {
@@ -918,45 +919,45 @@ impl<T: Config> Module<T> {
         }
     }
 
-    // // 返回total_page
-    // pub fn get_staker_list_info(
-    //     cur_page: u64,
-    //     per_page: u64,
-    // ) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
-    //     let temp_account = Self::temp_account();
-    //     let mut out = Vec::new();
+    // 返回total_page
+    pub fn get_staker_list_info(
+        cur_page: u64,
+        per_page: u64,
+    ) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
+        let temp_account = Self::temp_account();
+        let mut out = Vec::new();
 
-    //     if temp_account.len() == 0 {
-    //         return out;
-    //     }
+        if temp_account.len() == 0 {
+            return out;
+        }
 
-    //     let cur_page = cur_page as usize;
-    //     let per_page = per_page as usize;
-    //     let page_start = cur_page * per_page;
-    //     let mut page_end = page_start + per_page;
+        let cur_page = cur_page as usize;
+        let per_page = per_page as usize;
+        let page_start = cur_page * per_page;
+        let mut page_end = page_start + per_page;
 
-    //     if page_start >= temp_account.len() {
-    //         return out;
-    //     }
+        if page_start >= temp_account.len() {
+            return out;
+        }
 
-    //     if page_end >= temp_account.len() {
-    //         page_end = temp_account.len() - 1;
-    //     }
+        if page_end >= temp_account.len() {
+            page_end = temp_account.len() - 1;
+        }
 
-    //     for &a_account in temp_account[page_start..page_end].iter() {
-    //         let staker_info = Self::user_machines(a_account.clone());
-    //         let identity = Self::get_staker_identity(a_account.clone());
+        for a_account in temp_account[page_start..page_end].into_iter() {
+            let staker_info = Self::user_machines(a_account.clone());
+            let identity = Self::get_staker_identity(a_account.clone());
 
-    //         out.push(StakerListInfo {
-    //             staker_name: identity,
-    //             staker_account: a_account,
-    //             calc_points: staker_info.total_calc_points,
-    //             gpu_num: staker_info.total_gpu_num,
-    //             gpu_rent_rate: 0u64,
-    //             total_reward: staker_info.total_reward,
-    //         })
-    //     }
+            out.push(StakerListInfo {
+                staker_name: identity,
+                staker_account: a_account.clone(),
+                calc_points: staker_info.total_calc_points,
+                gpu_num: staker_info.total_gpu_num,
+                gpu_rent_rate: 0u64,
+                total_reward: staker_info.total_reward,
+            })
+        }
 
-    //     return out;
-    // }
+        return out;
+    }
 }
