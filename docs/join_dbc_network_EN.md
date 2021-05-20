@@ -2,7 +2,7 @@
 
 0. Recommended hardware
    + RAM：8G
-   + CPU：2核
+   + CPU：2 cores
    + Disk：100G
 
 1. Generate stash account （If you already have stash account, you can skip this）
