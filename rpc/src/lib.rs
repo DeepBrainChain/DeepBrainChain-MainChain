@@ -125,6 +125,7 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
+    C::Api: online_profile_runtime_api::SumStorageApi<Block, AccountId, Balance>,
     P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -193,11 +194,15 @@ where
     io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
         sc_sync_state_rpc::SyncStateRpcHandler::new(
             chain_spec,
-            client,
+            client.clone(),
             shared_authority_set,
             shared_epoch_changes,
             deny_unsafe,
         ),
+    ));
+
+    io.extend_with(online_profile_rpc::SumStorageApi::to_delegate(
+        online_profile_rpc::SumStorage::new(client),
     ));
 
     io

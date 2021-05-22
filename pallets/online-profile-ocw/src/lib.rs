@@ -1,9 +1,7 @@
 // 主要功能：
 // 1. 从online-profile中读取bonding_machine(需要查询机器信息的机器)
-// 2. 设置并随机选择一组API，可供查询: 增加URL，删除URL，设置随机URL个数都会更新这组随机URL；同时
-//    每10个块更新一次URL
-// 3. 从一组随机的API中查询机器信息，并对比。通过之后，则存储机器的信息，机器信息写回到online_profile.
-// ~~4. 委员会需要根据信息，填写根据一组简单的公式，填写机器的得分~~
+// 2. 设置并随机选择一组API，可供查询: 增加URL，删除URL，设置随机URL个数都会更新这组随机URL；同时每10个块更新一次URL
+// 3. 从一组随机的API中查询机器信息，并对比。如果一致，则存储机器的信息，机器信息写回到online_profile (机器信息包括机器得分).
 
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -13,13 +11,10 @@ use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
     pallet_prelude::*,
 };
-use online_profile::machine_info::*;
-use online_profile::types::*;
+use online_profile::{machine_info::*, types::*};
 use online_profile_machine::{LCOps, OCWOps};
 use sp_runtime::{offchain, offchain::http, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
-
-// pub mod machine_info;
 
 pub use pallet::*;
 
@@ -118,7 +113,7 @@ pub mod pallet {
             };
 
             match call {
-                Call::ocw_submit_machine_info() => valid_tx(b"ocw_submit_machine_info".to_vec()),
+                Call::ocw_submit_machine_info(machine_id, ocw_machine_info) => valid_tx(b"ocw_submit_machine_info".to_vec()),
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -129,13 +124,19 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             debug::info!("Entering off-chain worker, at height: {:?}", block_number);
 
+            // 检查有足够的URL
             if Self::url_num_min() < Self::machine_info_url().len() as u32 {
                 return
             }
 
-            let result = Self::call_ocw_machine_info();
-            if let Err(e) = result {
-                debug::error!("offchain_worker error: {:?}", e);
+            // 获取待绑定的id
+            let live_machines = <online_profile::Pallet<T>>::live_machines();
+            for machine_id in live_machines.bonding_machine.iter() {
+                let ocw_machine_info = Self::machine_info_identical(machine_id);
+                let result = Self::call_ocw_machine_info(machine_id.to_vec(), ocw_machine_info);
+                if let Err(e) = result {
+                    debug::error!("offchain_worker error: {:?}", e);
+                }
             }
         }
 
@@ -182,60 +183,36 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
-        fn set_reporter_stake(origin: OriginFor<T>, num: u32) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            Ok(().into())
-        }
-
         // ocw 实现获取machine info并发送unsigned tx以修改到存储
         // UserBondedMachine增加who-machine_id pair;
         // BondedMachineId 增加 machine_id => ()
         // BondingQueueMachineId 减少 machine_id
         #[pallet::weight(0)]
-        fn ocw_submit_machine_info(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        fn ocw_submit_machine_info(origin: OriginFor<T>, machine_id: MachineId ,ocw_machine_info: Option<OCWMachineInfo>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            // 获取待绑定的id
-            let live_machines = <online_profile::Pallet<T>>::live_machines();
-            let bonding_queue_id = live_machines.bonding_machine;
+            let request_limit = Self::request_limit();
 
-            let request_limit = RequestLimit::<T>::get();
+            let mut machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
+            let mut request_count = Self::request_count(&machine_id);
 
-            let machine_info_url = MachineInfoRandURL::<T>::get();
-            ensure!(machine_info_url.len() != 0, Error::<T>::MachineURLEmpty);
+            if let Some(ocw_machine_info) = ocw_machine_info {
+                machine_info.ocw_machine_info = ocw_machine_info.clone();
+                if let Some(machine_grade )= Self::total_min_num(ocw_machine_info.gpu.gpus){
+                    machine_info.machine_grade = machine_grade;
+                };
 
-            for machine_id in bonding_queue_id.iter() {
-                let mut machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
-                let mut request_count = Self::request_count(&machine_id);
-
-                if let Some(ocw_machine_info) = Self::machine_info_identical(machine_id) {
-                    machine_info.ocw_machine_info = ocw_machine_info.clone();
-                    if let Some(machine_grade )= Self::total_min_num(ocw_machine_info.gpu.gpus){
-                        machine_info.machine_grade = machine_grade;
-                    };
-
-                    T::OnlineProfile::update_machine_info(&machine_id, machine_info);
+                T::OnlineProfile::update_machine_info(&machine_id, machine_info);
+                T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
+                T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec());
+            } else {
+                request_count += 1;
+                if request_count == request_limit { // 已经超过请求次数，从中删除
                     T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
-                    T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec());
-                } else {
-                    request_count += 1;
-                    if request_count == request_limit { // 已经超过请求次数，从中删除
-                        T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
-                    }
-                    RequestCount::<T>::insert(&machine_id, request_count);
                 }
+                RequestCount::<T>::insert(&machine_id, request_count);
             }
 
-            Ok(().into())
-        }
-
-
-        // ocw 轮训被报告掉线的机器，并记录轮训情况
-        #[pallet::weight(0)]
-        fn ocw_polling_check(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            // TODO: 从online_profile中获取被报告的机器列表
             Ok(().into())
         }
 
@@ -278,8 +255,19 @@ pub mod pallet {
     }
 }
 
-#[rustfmt::skip]
+// #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
+    fn call_ocw_machine_info(
+        machine_id: MachineId,
+        ocw_machine_info: Option<OCWMachineInfo>,
+    ) -> Result<(), Error<T>> {
+        let call = Call::ocw_submit_machine_info(machine_id.to_vec(), ocw_machine_info);
+        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
+            debug::error!("Failed in offchain_unsigned_tx");
+            <Error<T>>::OffchainUnsignedTxError
+        })
+    }
+
     // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
     // from_ss58check_with_version
     pub fn verify_bonding_account(who: T::AccountId, s: &Vec<u8>) -> bool {
@@ -324,14 +312,6 @@ impl<T: Config> Pallet<T> {
         arr.iter().all(|&item| item == first)
     }
 
-    fn call_ocw_machine_info() -> Result<(), Error<T>> {
-        let call = Call::ocw_submit_machine_info();
-        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
-            debug::error!("Failed in offchain_unsigned_tx");
-            <Error<T>>::OffchainUnsignedTxError
-        })
-    }
-
     // 产生一组随机的机器信息URL，并更新到存储
     fn update_rand_url() {
         let mut machine_info_url = MachineInfoURL::<T>::get();
@@ -346,7 +326,8 @@ impl<T: Config> Pallet<T> {
             MachineInfoRandURL::<T>::put(machine_info_url);
         } else {
             for _ in 0..rand_url_num {
-                let url_index = <random_num::Module<T>>::random_u32(machine_info_url.len() as u32 - 1);
+                let url_index =
+                    <random_num::Module<T>>::random_u32(machine_info_url.len() as u32 - 1);
                 next_group.push(machine_info_url[url_index as usize].to_vec());
                 machine_info_url.remove(url_index as usize);
             }
@@ -355,12 +336,17 @@ impl<T: Config> Pallet<T> {
     }
 
     // 通过http获取机器的信息
-    pub fn fetch_machine_info(url: &Vec<u8>, machine_id: &Vec<u8>) -> Result<MachineInfo, Error<T>> {
+    pub fn fetch_machine_info(
+        url: &Vec<u8>,
+        machine_id: &Vec<u8>,
+    ) -> Result<MachineInfo, Error<T>> {
         let mut url = url.to_vec();
         url.extend(b"/");
         url.extend(machine_id.iter());
 
-        let url = str::from_utf8(&url).map_err(|_| http::Error::Unknown).unwrap();
+        let url = str::from_utf8(&url)
+            .map_err(|_| http::Error::Unknown)
+            .unwrap();
 
         debug::info!("sending request to: {}", &url);
 
@@ -440,27 +426,29 @@ impl<T: Config> Pallet<T> {
     }
 
     fn total_min_num(gpus: Vec<GPUDetail>) -> Option<u64> {
-        let mut grade_out = Vec::new();
-        for a_gpu_detail in gpus.iter() {
-            if let Some(a_grade) = Self::vec_u8_to_u64(&a_gpu_detail.grade) {
-                grade_out.push(a_grade);
-            };
-        }
-        if grade_out.len() == 0 {
-            return None;
-        }
+        // FIXME
+        // let mut grade_out = Vec::new();
+        // for a_gpu_detail in gpus.iter() {
+        //     if let Some(a_grade) = Self::vec_u8_to_u64(&a_gpu_detail.grade) {
+        //         grade_out.push(a_grade);
+        //     };
+        // }
+        // if grade_out.len() == 0 {
+        //     return None;
+        // }
 
-        return Some(grade_out.iter().min().unwrap() * grade_out.len() as u64);
+        // return Some(grade_out.iter().min().unwrap() * grade_out.len() as u64);
+        return Some(1);
     }
 
     fn vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {
         let num_str = str::from_utf8(num_str);
-        if let Err(e) = num_str {
+        if let Err(_e) = num_str {
             return None;
         }
         let num_out: u64 = match num_str.unwrap().parse() {
             Ok(num) => num,
-            Err(e) => return None,
+            Err(_e) => return None,
         };
 
         return Some(num_out);

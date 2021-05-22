@@ -55,6 +55,11 @@ default-features = false
 path = '../random-num'
 package = 'random-num'
 
+[dependencies.dbc-price-ocw]
+default-features = false
+path = '../dbc-price-ocw'
+package = 'dbc-price-ocw'
+
 [dev-dependencies.sp-core]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
@@ -89,6 +94,7 @@ version = '3.0.0'
 default = ["std"]
 std = [
     "codec/std",
+    "dbc-price-ocw/std",
     "frame-support/std",
     "frame-system/std",
     "online-profile/std",

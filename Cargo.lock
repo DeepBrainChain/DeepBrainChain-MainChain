@@ -2916,6 +2916,7 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 name = "lease-committee"
 version = "0.1.0"
 dependencies = [
+ "dbc-price-ocw",
  "dbc-staking",
  "frame-support",
  "frame-system",
@@ -3497,6 +3498,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "maintain-committee"
+version = "0.1.0"
+dependencies = [
+ "dbc-price-ocw",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4029,6 +4044,8 @@ dependencies = [
  "jsonrpc-core",
  "node-primitives",
  "node-runtime",
+ "online-profile-rpc",
+ "online-profile-runtime-api",
  "pallet-contracts-rpc",
  "pallet-transaction-payment-rpc",
  "sc-chain-spec",
@@ -4081,9 +4098,11 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "hex-literal",
  "lease-committee",
+ "maintain-committee",
  "node-primitives",
  "online-profile",
  "online-profile-ocw",
+ "online-profile-runtime-api",
  "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -4123,7 +4142,6 @@ dependencies = [
  "pallet-utility",
  "pallet-vesting",
  "parity-scale-codec",
- "phase-reward",
  "random-num",
  "serde",
  "sp-api",
@@ -4310,6 +4328,7 @@ dependencies = [
  "frame-system",
  "online-profile-machine",
  "pallet-balances",
+ "pallet-identity",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "random-num",
@@ -4350,6 +4369,34 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "online-profile-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "online-profile",
+ "online-profile-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "online-profile-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "online-profile",
+ "parity-scale-codec",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]
@@ -4936,22 +4983,22 @@ dependencies = [
 [[package]]
 name = "pallet-staking-reward-curve"
 version = "3.0.0"
-source = "git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
+ "sp-runtime",
  "syn",
 ]
 
 [[package]]
 name = "pallet-staking-reward-curve"
 version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "sp-runtime",
  "syn",
 ]
 

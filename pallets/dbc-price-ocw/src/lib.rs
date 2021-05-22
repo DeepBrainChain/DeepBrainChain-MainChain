@@ -9,6 +9,7 @@ use sp_std::{str, vec::Vec};
 
 pub use pallet::*;
 
+#[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -48,6 +49,7 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>, ValueQuery, PriceURLDefault>;
 
+    /// avgPrice = price * 10**6 usd
     #[pallet::storage]
     #[pallet::getter(fn avg_price)]
     pub(super) type AvgPrice<T> = StorageValue<_, u64>;
@@ -89,10 +91,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
-        pub fn submit_price_unsigned(
-            origin: OriginFor<T>,
-            price: u64,
-        ) -> DispatchResultWithPostInfo {
+        pub fn submit_price_unsigned(origin: OriginFor<T>, price: u64) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
             Self::add_price(price);
@@ -113,10 +112,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn rm_price_url_by_index(
-            origin: OriginFor<T>,
-            index: u32,
-        ) -> DispatchResultWithPostInfo {
+        pub fn rm_price_url_by_index(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             let mut price_url = PriceURL::<T>::get();
@@ -167,6 +163,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    // 获取并返回当前价格
     fn fetch_price() -> Result<u64, http::Error> {
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
 
@@ -211,6 +208,7 @@ impl<T: Config> Pallet<T> {
         Ok(price)
     }
 
+    // 将str价格转为u64 (*10^6)
     fn parse_price(price_str: &str) -> Option<u64> {
         let val = lite_json::parse_json(price_str);
         let price = val.ok().and_then(|v| match v {
@@ -231,6 +229,7 @@ impl<T: Config> Pallet<T> {
         Some(price.integer as u64 * 1000_000 + fraction)
     }
 
+    // 存储获取到的价格
     fn add_price(price: u64) {
         debug::info!("Adding to the average: {}", price);
         let mut prices = Prices::<T>::get();

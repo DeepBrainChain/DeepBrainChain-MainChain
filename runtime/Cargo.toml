@@ -111,11 +111,12 @@ std = [
     'pallet-vesting/std',
     'random-num/std',
     'dbc-testing/std',
-    'phase-reward/std',
     'dbc-price-ocw/std',
     'online-profile/std',
+    'online-profile-runtime-api/std',
     'online-profile-ocw/std',
     'lease-committee/std',
+    'maintain-committee/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -371,10 +372,6 @@ package = 'dbc-testing'
 default-features = false
 path = '../pallets/dbc-price-ocw'
 
-[dependencies.phase-reward]
-default-features = false
-path = '../traits/phase-reward'
-
 [dependencies.online-profile]
 default-features = false
 path = '../pallets/online-profile'
@@ -389,6 +386,16 @@ package = 'online-profile-ocw'
 default-features = false
 path = '../pallets/lease-committee'
 package = 'lease-committee'
+
+[dependencies.maintain-committee]
+default-features = false
+path = '../pallets/maintain-committee'
+package = 'maintain-committee'
+
+[dependencies.online-profile-runtime-api]
+default-features = false
+path = '../pallets/online-profile/runtime-api'
+package = 'online-profile-runtime-api'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
@@ -531,6 +538,7 @@ default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
+
 [dev-dependencies.sp-io]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'

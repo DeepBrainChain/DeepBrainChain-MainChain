@@ -93,8 +93,6 @@ pub mod constants;
 use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
 
-pub use dbc_price_ocw;
-
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -1028,6 +1026,8 @@ impl pallet_assets::Config for Runtime {
 impl dbc_testing::Config for Runtime {
     type Currency = Balances;
     type PhaseReward = Staking;
+    type Slash = Treasury;
+    type Reward = ();
 }
 
 impl dbc_price_ocw::Config for Runtime {
@@ -1051,19 +1051,19 @@ impl online_profile::Config for Runtime {
 }
 
 impl online_profile_ocw::Config for Runtime {
-    // type Event = Event;
     type OnlineProfile = OnlineProfile;
 }
-
-// parameter_types! {
-//     pub const CommitteeDuration: pallet_staking::EraIndex = 7;
-// }
 
 impl lease_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type LCOperations = OnlineProfile;
     type BondingDuration = BondingDuration;
+}
+
+impl maintain_committee::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
 }
 
 construct_runtime!(
@@ -1111,9 +1111,9 @@ construct_runtime!(
         RandomNum: random_num::{Module, Call, Storage},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
-        // OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
+        MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Storage, Call},
     }
 );
@@ -1168,6 +1168,33 @@ mod mmr {
 }
 
 impl_runtime_apis! {
+    // Here implement custom runtime API.
+    impl online_profile_runtime_api::SumStorageApi<Block, AccountId, Balance> for Runtime {
+        fn get_total_staker_num() -> u64 {
+            OnlineProfile::get_total_staker_num()
+        }
+
+        fn get_op_info() -> online_profile::SysInfo<Balance> {
+            OnlineProfile::get_op_info()
+        }
+
+        fn get_staker_info(who: AccountId) -> online_profile::StakerInfo<Balance> {
+            OnlineProfile::get_staker_info(who)
+        }
+
+        fn get_staker_list(start: u64, end: u64) -> Vec<AccountId> {
+            OnlineProfile::get_staker_list(start, end)
+        }
+
+        fn get_staker_identity(who: AccountId) -> Vec<u8> {
+            OnlineProfile::get_staker_identity(who)
+        }
+
+        fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<online_profile::StakerListInfo<Balance, AccountId>> {
+            OnlineProfile::get_staker_list_info(cur_page, per_page)
+        }
+    }
+
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
             VERSION

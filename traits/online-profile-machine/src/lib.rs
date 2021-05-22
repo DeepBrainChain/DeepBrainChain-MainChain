@@ -8,6 +8,7 @@ pub trait LCOps {
     fn book_machine(id: Self::MachineId);
     fn confirm_machine_grade(who: Self::AccountId, id: Self::MachineId, confirm: bool);
     fn lc_add_booked_machine(id: Self::MachineId);
+    fn lc_revert_booked_machine(id: Self::MachineId);
 }
 
 pub trait OCWOps {

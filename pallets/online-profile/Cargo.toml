@@ -6,7 +6,8 @@ edition = "2018"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.101", optional = true }
+serde = { version = "1.0.101", optional = true, features = ["derive"] }
+# serde = { version = "1.0.101", optional = true }
 alt_serde = { version = "1", default-features = false, features = ["derive"] }
 # serde_json = { version = "1", default-features = false, git = "https://github.com/Xanewok/json", branch = "no-std", features = ["alloc"] }
 serde_json = { version = "1", default-features = false, git = "https://github.com/kaigedong/json", branch = "no-std", features = ["alloc"] }
@@ -25,6 +26,12 @@ rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
 [dependencies.sp-std]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.pallet-identity]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
@@ -80,8 +87,10 @@ version = '3.0.0'
 default = ["std"]
 std = [
     "codec/std",
+    "dbc-price-ocw/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-identity/std",
     "random-num/std",
     "sp-std/std",
     "sp-runtime/std",

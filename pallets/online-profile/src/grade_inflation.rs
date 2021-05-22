@@ -1,4 +1,3 @@
-use crate::types::*;
 use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 
 // 影响机器得分因素：基础得分(从API获取); 用户总绑定机器个数
