@@ -96,7 +96,7 @@ pub struct StakingLedger<Balance: HasCompact> {
 
 // 从用户地址查询绑定的机器列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CommitteeMachineList<BlockNumber> {
+pub struct LCCommitteeMachineList<BlockNumber> {
     pub booked_machine: Vec<(MachineId, BlockNumber)>, // 记录分配给用户的机器ID及开始验证时间
     pub hashed_machine: Vec<MachineId>,                // 存储已经提交了Hash信息的机器
     pub confirmed_machine: Vec<MachineId>,             // 存储已经提交了原始确认数据的机器
@@ -105,7 +105,7 @@ pub struct CommitteeMachineList<BlockNumber> {
 
 // 一台机器对应的委员会
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct MachineCommitteeList<AccountId, BlockNumber> {
+pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
     pub book_time: BlockNumber,
     pub booked_committee: Vec<(AccountId, BlockNumber)>, // 记录分配给机器的委员会及验证开始时间
     pub hashed_committee: Vec<AccountId>,
@@ -115,7 +115,7 @@ pub struct MachineCommitteeList<AccountId, BlockNumber> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CommitteeMachineOps<BlockNumber> {
+pub struct LCCommitteeMachineOps<BlockNumber> {
     pub booked_time: BlockNumber,
     pub confirm_hash: [u8; 16],
     pub hash_time: BlockNumber,
@@ -219,11 +219,11 @@ pub mod pallet {
     // 存储用户订阅的不同确认阶段的机器
     #[pallet::storage]
     #[pallet::getter(fn committee_machine)]
-    pub(super) type CommitteeMachine<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeMachineList<T::BlockNumber>, ValueQuery>;
+    pub(super) type CommitteeMachine<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, LCCommitteeMachineList<T::BlockNumber>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn machine_committee)]
-    pub(super) type MachineCommittee<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, MachineCommitteeList<T::AccountId, T::BlockNumber>, ValueQuery>;
+    pub(super) type MachineCommittee<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, LCMachineCommitteeList<T::AccountId, T::BlockNumber>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn ops_detail)]
@@ -233,7 +233,7 @@ pub mod pallet {
         T::AccountId,
         Blake2_128Concat,
         MachineId,
-        CommitteeMachineOps<T::BlockNumber>,
+        LCCommitteeMachineOps<T::BlockNumber>,
         ValueQuery,
     >;
 
