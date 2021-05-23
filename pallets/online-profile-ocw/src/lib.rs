@@ -2,6 +2,7 @@
 // 1. 从online-profile中读取bonding_machine(需要查询机器信息的机器)
 // 2. 设置并随机选择一组API，可供查询: 增加URL，删除URL，设置随机URL个数都会更新这组随机URL；同时每10个块更新一次URL
 // 3. 从一组随机的API中查询机器信息，并对比。如果一致，则存储机器的信息，机器信息写回到online_profile (机器信息包括机器得分).
+// 4. 只需要存储机器ID--钱包地址即可，其他信息由委员会提交
 
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -113,7 +114,7 @@ pub mod pallet {
             };
 
             match call {
-                Call::ocw_submit_machine_info(machine_id, ocw_machine_info) => valid_tx(b"ocw_submit_machine_info".to_vec()),
+                Call::ocw_submit_machine_info(machine_id, machine_bonded_wallet) => valid_tx(b"ocw_submit_machine_info".to_vec()),
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -132,8 +133,10 @@ pub mod pallet {
             // 获取待绑定的id
             let live_machines = <online_profile::Pallet<T>>::live_machines();
             for machine_id in live_machines.bonding_machine.iter() {
-                let ocw_machine_info = Self::machine_info_identical(machine_id);
-                let result = Self::call_ocw_machine_info(machine_id.to_vec(), ocw_machine_info);
+                // let ocw_machine_info = Self::machine_info_identical(machine_id);
+                let machine_bonded_wallet = Self::get_machine_info_identical_wallet(machine_id);
+
+                let result = Self::call_ocw_machine_info(machine_id.to_vec(), machine_bonded_wallet);
                 if let Err(e) = result {
                     debug::error!("offchain_worker error: {:?}", e);
                 }
@@ -188,7 +191,7 @@ pub mod pallet {
         // BondedMachineId 增加 machine_id => ()
         // BondingQueueMachineId 减少 machine_id
         #[pallet::weight(0)]
-        fn ocw_submit_machine_info(origin: OriginFor<T>, machine_id: MachineId ,ocw_machine_info: Option<OCWMachineInfo>) -> DispatchResultWithPostInfo {
+        fn ocw_submit_machine_info(origin: OriginFor<T>, machine_id: MachineId ,machine_bonded_wallet: Option<Vec<u8>>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
             let request_limit = Self::request_limit();
@@ -196,12 +199,8 @@ pub mod pallet {
             let mut machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
             let mut request_count = Self::request_count(&machine_id);
 
-            if let Some(ocw_machine_info) = ocw_machine_info {
-                machine_info.ocw_machine_info = ocw_machine_info.clone();
-                if let Some(machine_grade )= Self::total_min_num(ocw_machine_info.gpu.gpus){
-                    machine_info.machine_grade = machine_grade;
-                };
-
+            if let Some(machine_bonded_wallet) = machine_bonded_wallet {
+                // FIXME
                 T::OnlineProfile::update_machine_info(&machine_id, machine_info);
                 T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
                 T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec());
@@ -215,34 +214,7 @@ pub mod pallet {
 
             Ok(().into())
         }
-
-        // #[pallet::weight(0)]
-        // fn ocw_submit_online_proof(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-        //     ensure_none(origin)?;
-
-        //     let verify_time = VerifyTimes::<T>::get();
-
-        //     // 首先获取所有机器ID列表
-        //     let staking_machine = T::OnlineProfile::staking_machine();
-        //     // let mut staking_machine: Vec<_> = staking_machine.collect();
-        //     let a = staking_machine.len();
-        //     // 然后随机挑选机器
-        //     // 验证机器是否在线的信息，并提交
-        //     let machine_info_url = MachineInfoRandURL::<T>::get();
-        //     ensure!(machine_info_url.len() != 0, Error::<T>::MachineURLEmpty);
-        //     // let machine_info = Self::fetch_machine_info(&machine_info_url[0],)
-        //     // T::OnlineProfile::add_verify_result();
-
-        //     Ok(().into())
-        // }
     }
-
-    // #[pallet::event]
-    // #[pallet::metadata(T::AccountId = "AccountId")]
-    // #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    // pub enum Event<T: Config> {
-    //     ReportMachineOffline(T::AccountId, MachineId),
-    // }
 
     #[pallet::error]
     pub enum Error<T> {
@@ -259,9 +231,9 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn call_ocw_machine_info(
         machine_id: MachineId,
-        ocw_machine_info: Option<OCWMachineInfo>,
+        machine_bonded_wallet: Option<Vec<u8>>,
     ) -> Result<(), Error<T>> {
-        let call = Call::ocw_submit_machine_info(machine_id.to_vec(), ocw_machine_info);
+        let call = Call::ocw_submit_machine_info(machine_id.to_vec(), machine_bonded_wallet);
         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
             debug::error!("Failed in offchain_unsigned_tx");
             <Error<T>>::OffchainUnsignedTxError
@@ -388,7 +360,8 @@ impl<T: Config> Pallet<T> {
     }
 
     // 通过多个URL获取机器信息，如果一致，则验证通过
-    fn machine_info_identical(id: &MachineId) -> Option<OCWMachineInfo> {
+    // 返回验证一致的钱包地址
+    fn get_machine_info_identical_wallet(id: &MachineId) -> Option<Vec<u8>> {
         let info_url = Self::machine_info_rand_url();
 
         let mut machine_info = Vec::new();
@@ -412,6 +385,7 @@ impl<T: Config> Pallet<T> {
                 mem: ocw_machine_info.data.mem,
                 os: ocw_machine_info.data.os,
                 version: ocw_machine_info.data.version,
+                wallet: ocw_machine_info.data.wallet[0],
             };
 
             if machine_info.len() == 0 {
@@ -421,24 +395,8 @@ impl<T: Config> Pallet<T> {
                 return None;
             }
         }
-
-        return Some(machine_info[0].clone());
-    }
-
-    fn total_min_num(gpus: Vec<GPUDetail>) -> Option<u64> {
-        // FIXME
-        // let mut grade_out = Vec::new();
-        // for a_gpu_detail in gpus.iter() {
-        //     if let Some(a_grade) = Self::vec_u8_to_u64(&a_gpu_detail.grade) {
-        //         grade_out.push(a_grade);
-        //     };
-        // }
-        // if grade_out.len() == 0 {
-        //     return None;
-        // }
-
-        // return Some(grade_out.iter().min().unwrap() * grade_out.len() as u64);
-        return Some(1);
+        // return Some(machine_info[0].clone());
+        return Some(machine_info[0].wallet);
     }
 
     fn vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {

@@ -1,3 +1,6 @@
+// 1万卡一下 质押 = min(100000 DBC, 5w RMB 等值DBC)
+// 1万卡以上，质押 = min(100000 * (10000/卡数), 5w RMB 等值DBC)
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::EncodeLike;
@@ -9,7 +12,10 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{LCOps, OCWOps};
 use pallet_identity::Data;
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{
+    traits::{CheckedDiv, CheckedMul},
+    SaturatedConversion,
+};
 use sp_runtime::{
     traits::{CheckedSub, Zero},
     Perbill,
@@ -158,6 +164,8 @@ type BalanceOf<T> =
 #[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
+    use sp_runtime::DispatchResultWithInfo;
+
     use super::*;
 
     #[pallet::config]
@@ -202,10 +210,25 @@ pub mod pallet {
     #[pallet::getter(fn committee_limit)]
     pub type CommitteeLimit<T: Config> = StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
 
-    // 存储机器的最小质押量，单位DBC
+    // 存储机器的最小质押量，单位DBC, 默认为100000DBC
     #[pallet::storage]
     #[pallet::getter(fn stake_per_gpu)]
-    pub(super) type StakePerGPU<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+    pub(super) type StakePerGPU<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    // 存储每个机器质押的等值USD上限, 单位 1x10^6 USD
+    #[pallet::storage]
+    #[pallet::getter(fn stake_usd_limit)]
+    pub(super) type StakeUSDLimit<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    // 存储当前每卡质押数量,
+    #[pallet::storage]
+    #[pallet::getter(fn cur_stake_per_gpu)]
+    pub(super) type CurStakePerGPU<T> = StorageValue<_, BalanceOf<T>>;
+
+    // 用户第一次添加机器需要的质押
+    #[pallet::storage]
+    #[pallet::getter(fn first_bond_stake)]
+    pub(super) type FirstBondStake<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     // 当前系统中工作的GPU数量
     #[pallet::storage]
@@ -293,6 +316,16 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
+            // FIXME
+            // let a = Self::cur_stake_per_gpu();
+            // let cur_stake_per_gpu = Self::calc_stake_amount();
+            // if let Some(amount) = cur_stake_per_gpu {
+            //     CurStakePerGPU::<T>::put(Some(amount));
+            // } else {
+            //     CurStakePerGPU::<T>::put(None);
+            // }
+
+            // CurStakePerGPU::<T>::put(cur_stake_per_gpu);
             // if (block_number.saturated_into::<u64>() + 1) / T::BlockPerEra::get() as u64 == 0 {
             //     Self::end_era()
             // }
@@ -320,6 +353,20 @@ pub mod pallet {
         pub fn set_gpu_stake(origin: OriginFor<T>, stake_per_gpu: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StakePerGPU::<T>::put(stake_per_gpu);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_stake_usd_limit(origin: OriginFor<T>, stake_usd_limit: u64) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            StakeUSDLimit::<T>::put(stake_usd_limit);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_first_bond_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            FirstBondStake::<T>::put(amount);
             Ok(().into())
         }
 
@@ -355,19 +402,15 @@ pub mod pallet {
         /// Bonding machine only remember caller-machine_id pair.
         /// OCW will check it and record machine info.
         #[pallet::weight(10000)]
-        pub fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, gpu_num: u32) -> DispatchResultWithPostInfo {
+        // pub fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, gpu_num: u32) -> DispatchResultWithPostInfo {
+        pub fn bond_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            let bond_amount = Self::calc_stake_amount();
-            if let None = bond_amount {
-                return Err(Error::<T>::DBCPriceUnavailable.into());
-            }
-            let bond_amount = bond_amount.unwrap();
+            // 用户第一次绑定机器需要质押的数量
+            let first_bond_stake = Self::first_bond_stake();
 
             // 资金检查
-            // ensure!(bond_amount >= StakePerGPU::<T>::get(), Error::<T>::StakeNotEnough);
-            ensure!(<T as Config>::Currency::free_balance(&controller) > bond_amount, Error::<T>::BalanceNotEnough);
-            // ensure!(bond_amount >= <T as pallet::Config>::Currency::minimum_balance(), Error::<T>::InsufficientValue);
+            ensure!(<T as Config>::Currency::free_balance(&controller) > first_bond_stake, Error::<T>::BalanceNotEnough);
             // 确保机器还没有被绑定过
             let mut live_machines = Self::live_machines();
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
@@ -401,8 +444,8 @@ pub mod pallet {
             let last_reward_era = current_era.saturating_sub(history_depth);
             let item = StakingLedger {
                 stash: controller.clone(),
-                total: bond_amount,
-                active: bond_amount,
+                total: first_bond_stake,
+                active: first_bond_stake,
                 unlocking: vec![],
                 claimed_rewards: (last_reward_era..current_era).collect(),
                 released_rewards: 0u32.into(),
@@ -412,7 +455,7 @@ pub mod pallet {
             // FIXME: 这里的应该是用户的总质押数量，而非最新一次的质押数量
             Self::update_ledger(&controller, &machine_id, &item);
 
-            Self::deposit_event(Event::BondMachine(controller, machine_id, bond_amount));
+            Self::deposit_event(Event::BondMachine(controller, machine_id, first_bond_stake));
 
             Ok(().into())
         }
@@ -595,30 +638,40 @@ impl<T: Config> Pallet<T> {
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
     pub fn calc_stake_amount() -> Option<BalanceOf<T>> {
-        let base_stake = Self::stake_per_gpu(); // 100000 DBC
-
-        let total_gpu_num = Self::total_gpu_num();
-
-        // GPU数量小于10000时，直接返回base_stake
-        if total_gpu_num <= 10_000 {
-            return Some(base_stake);
-        }
-
-        // 100_000 * 10000 / gpu_num
-        let dbc_amount1 = Perbill::from_rational_approximation(10_000u64, total_gpu_num) * base_stake;
+        let base_stake = Self::stake_per_gpu(); // 10_0000 DBC
+        let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
 
         // 计算5w RMB 等值DBC数量
-        // amount = 10^15 * 50000 * 10^6 / dbc_price
+        // dbc_amount = dbc_stake_usd_limit * 10^15 / dbc_price
         let dbc_price = <dbc_price_ocw::Module<T>>::avg_price();
+        let stake_usd_limit: BalanceOf<T> = Self::stake_usd_limit().saturated_into();
         if let None = dbc_price {
             return None;
         }
-        let dbc_price = dbc_price.unwrap();
-        let dbc_amount2 = base_stake / 100_000u64.saturated_into(); // 10^15
-        let dbc_amount2 = dbc_amount2 * (50_000u64 * 1000_000u64).saturated_into::<BalanceOf<T>>() / dbc_price.saturated_into::<BalanceOf<T>>();
+        let dbc_price: BalanceOf<T>= dbc_price.unwrap().saturated_into();
+        let dbc_amount = one_dbc.checked_mul(&stake_usd_limit);
+        if let None = dbc_amount {
+            return None
+        }
+        let dbc_amount = dbc_amount.unwrap();
+        let dbc_amount = dbc_amount.checked_div(&dbc_price);
+        if let None = dbc_amount {
+            return None
+        }
+        let dbc_amount = dbc_amount.unwrap();
 
-        let dbc_amount = dbc_amount1.min(dbc_amount2);
-        Some(dbc_amount)
+        // 当前成功加入系统的GPU数量
+        let total_gpu_num = Self::total_gpu_num();
+
+        if total_gpu_num <= 10_000 {
+            // GPU数量小于10_000时，直接返回base_saturated_into() satura
+            return Some(base_stake.min(dbc_amount));
+        }
+
+        // 当GPU数量大于10_000时
+        // 100_000 * 10000 / gpu_num
+        let dbc_amount2 = Perbill::from_rational_approximation(10_000u64, total_gpu_num) * base_stake;
+        return Some(dbc_amount2.min(dbc_amount));
     }
 
     pub fn do_payout(controller: T::AccountId, machine_id: &MachineId) -> DispatchResultWithPostInfo {
@@ -655,7 +708,6 @@ impl<T: Config> Pallet<T> {
             <T as Config>::Currency::deposit_into_existing(&controller, can_claim)?;
             Self::deposit_event(Event::ClaimRewards(controller.clone(), machine_id.to_vec(), can_claim));
         }
-
 
         // 更新已解压数量
         ledger.released_rewards = 0u32.into();

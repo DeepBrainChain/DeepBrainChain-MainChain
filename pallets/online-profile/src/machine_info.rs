@@ -13,6 +13,7 @@ pub struct OCWMachineInfo {
     pub mem: Vec<u8>,
     pub os: Vec<u8>,
     pub version: Vec<u8>,
+    pub wallet: Vec<u8>,
 }
 
 pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
@@ -67,12 +68,13 @@ pub struct MachineData {
     #[serde(deserialize_with = "de_string_to_bytes")]
     pub version: Vec<u8>,
 
-    pub wallet: Vec<OneWallet>,
+    #[serde(deserialize_with = "de_string_to_bytes")]
+    pub wallet: Vec<u8>,
 }
 
-#[derive(Deserialize, Encode, Decode, Default, Debug)]
-#[serde(crate = "alt_serde")]
-pub struct OneWallet(#[serde(deserialize_with = "de_string_to_bytes")] pub Vec<u8>);
+// #[derive(Deserialize, Encode, Decode, Default, Debug)]
+// #[serde(crate = "alt_serde")]
+// pub struct OneWallet(#[serde(deserialize_with = "de_string_to_bytes")] pub Vec<u8>);
 
 #[derive(Deserialize, Encode, Decode, Default, Debug, PartialEq, Eq, Clone)]
 #[serde(crate = "alt_serde")]

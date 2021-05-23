@@ -1,0 +1,117 @@
+{
+    "error_code": 0,
+    "data": {
+        "cpu": {
+            "num": "32",
+            "type": "Intel(R) Xeon(R) Silver 4110 CPU"
+        },
+        "cpu_usage": "30%",
+        "disk": {
+            "size": "3905110864",
+            "free": "3411869864",
+            "type": "SSD",
+            "speed": "757000"
+        },
+        "gpu": {
+            "num": "4",
+            "driver": "440.82",
+            "cuda": "10.2",
+            "p2p": "nok",
+            "gpus": [
+                {
+                    "id": "0",
+                    "type": "GeForceRTX2080Ti",
+                    "mem": "11283456",
+                    "pcie_bandwidth": "260000",
+                    "mem_bandwidth": "508136900",
+                    "cuda": "4352",
+                    "mem_amount": "11283456"
+                },
+                {
+                    "id": "1",
+                    "type": "GeForceRTX2080Ti",
+                    "mem": "11283456",
+                    "pcie_bandwidth": "243500",
+                    "mem_bandwidth": "517072500",
+                    "cuda": "4352",
+                    "mem_amount": "11283456"
+                },
+                {
+                    "id": "2",
+                    "type": "GeForceRTX2080Ti",
+                    "mem": "11283456",
+                    "pcie_bandwidth": "253800",
+                    "mem_bandwidth": "512602300",
+                    "cuda": "4352",
+                    "mem_amount": "11283456"
+                },
+                {
+                    "id": "3",
+                    "type": "GeForceRTX2080Ti",
+                    "mem": "11283456",
+                    "pcie_bandwidth": "267900",
+                    "mem_bandwidth": "508337400",
+                    "cuda": "4352",
+                    "mem_amount": "11283456"
+                }
+            ]
+        },
+        "gpu_state": {
+            "gpus": [
+                {
+                    "id": "0",
+                    "state": "busy",
+                    "type": "GeForce RTX 2080 Ti",
+                    "uuid": "GPU-0a848519-0387-d70b-0530-5f338cb7418f"
+                },
+                {
+                    "id": "1",
+                    "state": "busy",
+                    "type": "GeForce RTX 2080 Ti",
+                    "uuid": "GPU-8c3518d5-80ef-afbf-e03a-0b4d7baf6598"
+                },
+                {
+                    "id": "2",
+                    "state": "busy",
+                    "type": "GeForce RTX 2080 Ti",
+                    "uuid": "GPU-3efb4154-489c-6689-4eeb-67b8bf6d6941"
+                },
+                {
+                    "id": "3",
+                    "state": "busy",
+                    "type": "GeForce RTX 2080 Ti",
+                    "uuid": "GPU-8bc249f6-8acb-3db8-b804-0031eee8d9c1"
+                }
+            ]
+        },
+        "gpu_usage": [
+            {
+                "gpu": "98 %",
+                "mem": "76.5859 %"
+            },
+            {
+                "gpu": "64 %",
+                "mem": "95.1901 %"
+            },
+            {
+                "gpu": "97 %",
+                "mem": "41.7733 %"
+            },
+            {
+                "gpu": "0 %",
+                "mem": "0 %"
+            }
+        ],
+        "ip": "111.12.179.162",
+        "mem": "527988672",
+        "mem_usage": "5.18916%",
+        "network_dl": "307954.11",
+        "network_ul": "229485.04",
+        "os": "Ubuntu 18.04.4 LTS 5.3.0-28-generic GNU/Linux",
+        "state": "busy(4)",
+        "version": "0.3.7.3",
+        "wallet": [
+            "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+        ]
+    }
+}
