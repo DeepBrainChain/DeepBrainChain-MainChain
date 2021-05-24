@@ -5,7 +5,9 @@
    + Option 1: Install `polkadot{.js}` adds-on
 
      + Chrome, install via [Chrome web store](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd)
+       + [https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd)
      + Firefox, install via [Firefox add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/)
+       + [https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/)
 
      Then generate by `polkadot{.js}`
 

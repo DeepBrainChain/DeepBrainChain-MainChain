@@ -5,7 +5,9 @@
    + 方式1：`polkadot{.js}`浏览器插件（推荐）：
 
      + Chrome 安装链接：[Chrome web store](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd)
+       + [https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd)
      + Firefox 安装链接：[Firefox add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/)
+       + [https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/)
 
      安装完成后，通过浏览器插件生成即可
 
