@@ -21,7 +21,6 @@ use sp_runtime::{
 use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*, str};
 
 pub mod grade_inflation;
-pub mod machine_info;
 pub mod rpc_types;
 pub mod types;
 
@@ -77,13 +76,17 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber> {
     pub machine_owner: AccountId,
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间, TODO: 改为current_slot
     pub machine_status: MachineStatus,
-    pub ocw_machine_info: machine_info::OCWMachineInfo,
+    pub ocw_machine_info: MachineInfoDetail,
     pub machine_grade: u64, // TODO: 添加machine_info时，加上machine_grade
     pub machine_price: u64, // TODO: 设置3080的分数对应的价格为1000元，其他机器的价格根据3080的进行计算
     pub committee_confirm: BTreeMap<AccountId, CommitteeConfirmation<AccountId, BlockNumber>>, //记录委员会提交的机器打分
     pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
     pub reward_deadline: BlockNumber, // 列表中委员分得奖励结束时间 , TODO: 绑定时间改为current_slot比较好
 }
+
+// 委员会提交的机器配置信息
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct MachineInfoDetail {}
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub struct CommitteeConfirmation<AccountId, BlockNumber> {
@@ -111,13 +114,10 @@ impl Default for MachineStatus {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LiveMachine {
     pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
-
     pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段
-
     // 当machine的确认hash未满时, 委员会从cow_confirmed_machine中读取可以审查的机器ID,
     // 添加确认信息之后，状态变为`ocw_confirmed_machine`，这时可以继续抢单.但已经打分过的委员不能抢该单
     pub booked_machine: Vec<MachineId>,
-
     pub waiting_hash: Vec<MachineId>, // 当全部委员会添加了全部confirm hash之后，机器添加到waiting_hash，这时，用户可以添加confirm_raw
     pub bonded_machine: Vec<MachineId>, // 当全部委员会添加了confirm_raw之后，机器被成功绑定，变为bonded_machine状态
 }
@@ -162,8 +162,6 @@ type BalanceOf<T> =
 #[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
-    use sp_runtime::DispatchResultWithInfo;
-
     use super::*;
 
     #[pallet::config]
@@ -434,9 +432,6 @@ pub mod pallet {
         fn fulfill_bond(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            //  max_additional: BalanceOf<T>
-            let bond_extra: BalanceOf<T> = 0u32.into();
-
             let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
             let user_balance = <T as pallet::Config>::Currency::free_balance(&controller);
 
@@ -644,6 +639,11 @@ impl<T: Config> Pallet<T> {
         return Some(dbc_amount2.min(dbc_amount));
     }
 
+    // TODO: 根据GPU数量修改需要的质押数量
+    fn calc_machine_stake_need(_machine_id: &MachineId) -> BalanceOf<T> {
+        0u32.into()
+    }
+
     pub fn do_payout(controller: T::AccountId, machine_id: &MachineId) -> DispatchResultWithPostInfo {
         // 根据解锁数量打币给用户
         let mut ledger = Self::ledger(controller.clone(), machine_id).ok_or(Error::<T>::LedgerNotFound)?;
@@ -807,7 +807,7 @@ impl<T: Config> Pallet<T> {
         <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
     }
 
-    fn reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
+    fn _reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
         let current_stake = Self::user_total_stake(controller);
         let next_stake = current_stake.checked_sub(&amount);
         if let None = next_stake {
@@ -816,11 +816,6 @@ impl<T: Config> Pallet<T> {
         let next_stake = next_stake.unwrap();
 
         <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
-    }
-
-    // TODO: 根据GPU数量修改需要的质押数量
-    fn calc_machine_stake_need(machine_id: &MachineId) -> BalanceOf<T> {
-        0u32.into()
     }
 }
 

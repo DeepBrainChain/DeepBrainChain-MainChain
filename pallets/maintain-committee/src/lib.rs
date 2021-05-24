@@ -18,7 +18,6 @@
 
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
-    dispatch::DispatchResult,
     pallet_prelude::*,
     traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
@@ -404,7 +403,7 @@ pub mod pallet {
         // FIXME: 必须特定的用户才能进行报告。避免用户报告同一台机器多次
         // 用户报告机器有问题
         #[pallet::weight(10000)]
-        pub fn report_machine_state(origin: OriginFor<T>, raw_hash: Vec<u8>) -> DispatchResultWithPostInfo {
+        pub fn report_machine_state(origin: OriginFor<T>, _raw_hash: Vec<u8>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -523,7 +522,7 @@ pub mod pallet {
         // 报告人在委员会完成抢单后，24小时内用委员会的公钥，提交加密后的故障信息
         #[pallet::weight(10000)]
         pub fn reporter_add_error_hash(origin: OriginFor<T>, order_id: OrderId, to_committee: T::AccountId, encrypted_err_info: Vec<u8>, encrypted_login_info: Vec<u8>) -> DispatchResultWithPostInfo {
-            let reporter = ensure_signed(origin)?;
+            let _reporter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
             // 检查该用户为order_id的reporter
@@ -556,7 +555,7 @@ pub mod pallet {
             }
 
             // 检查是否为所有委员会提交了信息
-            for a_committee in machine_committee.booked_committee.iter() {
+            for _a_committee in machine_committee.booked_committee.iter() {
                 let committee_ops = Self::committee_ops(&to_committee, &order_id);
                 if let None = committee_ops.encrypted_err_info {
                     // 还有未提供加密信息的委员会
@@ -625,8 +624,8 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        fn submit_confirm_raw(origin: OriginFor<T>, machine_id: MachineId, reporter_rand_str: Vec<u8>, committee_rand_str: Vec<u8>, err_type: Vec<u8>) -> DispatchResultWithPostInfo {
-            let committee = ensure_signed(origin)?;
+        fn submit_confirm_raw(origin: OriginFor<T>, _machine_id: MachineId, _reporter_rand_str: Vec<u8>, _committee_rand_str: Vec<u8>, _err_type: Vec<u8>) -> DispatchResultWithPostInfo {
+            let _committee = ensure_signed(origin)?;
             // 1. 判断Hash = 报告人提交的原始Hash
 
             // 2. 根据委员会的统计，判断是否有故障，并更新故障信息到online_profile
@@ -691,7 +690,7 @@ impl<T: Config> Pallet<T> {
         min_stake.checked_div(&dbc_price.saturated_into::<BalanceOf<T>>())
     }
 
-    fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
+    fn _get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
         return blake2_128(raw_str);
     }
 

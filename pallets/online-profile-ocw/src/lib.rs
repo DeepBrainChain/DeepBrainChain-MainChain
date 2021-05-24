@@ -12,11 +12,14 @@ use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
     pallet_prelude::*,
 };
-use online_profile::{machine_info::*, types::*};
+use online_profile::types::*;
 use online_profile_machine::{LCOps, OCWOps};
 use sp_runtime::{offchain, offchain::http, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
 
+mod machine_info;
+
+use machine_info::*;
 pub use pallet::*;
 
 #[cfg(test)]
@@ -114,7 +117,7 @@ pub mod pallet {
             };
 
             match call {
-                Call::ocw_submit_machine_info(machine_id, machine_bonded_wallet) => valid_tx(b"ocw_submit_machine_info".to_vec()),
+                Call::ocw_submit_machine_info(_machine_id, _machine_bonded_wallet) => valid_tx(b"ocw_submit_machine_info".to_vec()),
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -196,10 +199,10 @@ pub mod pallet {
 
             let request_limit = Self::request_limit();
 
-            let mut machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
+            let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
             let mut request_count = Self::request_count(&machine_id);
 
-            if let Some(machine_bonded_wallet) = machine_bonded_wallet {
+            if let Some(_machine_bonded_wallet) = machine_bonded_wallet {
                 // FIXME
                 T::OnlineProfile::update_machine_info(&machine_id, machine_info);
                 T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
@@ -399,7 +402,7 @@ impl<T: Config> Pallet<T> {
         return Some(machine_info[0].wallet.clone());
     }
 
-    fn vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {
+    fn _vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {
         let num_str = str::from_utf8(num_str);
         if let Err(_e) = num_str {
             return None;

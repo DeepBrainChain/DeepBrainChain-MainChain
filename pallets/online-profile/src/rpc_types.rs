@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use codec::{Codec, Decode, Encode};
+use codec::{Decode, Encode};
 use sp_std::prelude::Vec;
 
 // 系统统计信息，提供给RPC

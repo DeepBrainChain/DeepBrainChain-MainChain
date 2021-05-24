@@ -3,7 +3,7 @@
 
 use codec::Decode;
 use frame_support::debug;
-use frame_support::traits::{Currency, Imbalance, OnUnbalanced, ReservableCurrency};
+use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
 use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
 use sp_arithmetic::{traits::Saturating, Permill};
@@ -70,14 +70,14 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn slash_funds(
             origin: OriginFor<T>,
-            to_punish: T::AccountId,
+            _to_punish: T::AccountId,
             collateral: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
             T::Slash::on_unbalanced(T::Currency::issue(collateral));
 
-            let now = <frame_system::Module<T>>::block_number();
+            let _now = <frame_system::Module<T>>::block_number();
             Ok(().into())
         }
 
@@ -96,7 +96,7 @@ pub mod pallet {
             total_imbalance.maybe_subsume(r);
             T::Reward::on_unbalanced(total_imbalance);
 
-            let now = <frame_system::Module<T>>::block_number();
+            let _now = <frame_system::Module<T>>::block_number();
             Ok(().into())
         }
 
