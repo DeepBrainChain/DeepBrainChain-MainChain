@@ -834,8 +834,14 @@ impl<T: Config> OCWOps for Pallet<T> {
     // 将machine_id添加到LiveMachines.ocw_confirmed_machine中
     fn add_ocw_confirmed_id(id: MachineId, wallet: Self::AccountId) {
         let mut live_machines = Self::live_machines();
+
+        // 检查wallet是否与用户一致， 如果wallet地址与用户绑定机器的地址不一致，则直接返回
+        let user_machines = Self::user_machines(&wallet);
+        if let Err(_) = user_machines.machine_id.binary_search(&id) {
+            return;
+        }
+
         LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id);
-        // TODO: 检查wallet是否与用户一致
         LiveMachines::<T>::put(live_machines);
     }
 }
