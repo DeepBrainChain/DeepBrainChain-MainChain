@@ -14,7 +14,7 @@ use frame_system::{
 };
 use online_profile::types::*;
 use online_profile_machine::{LCOps, OCWOps};
-use sp_runtime::{offchain, offchain::http, traits::SaturatedConversion};
+use sp_runtime::{offchain, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
 
 mod machine_info;
@@ -54,26 +54,15 @@ pub mod pallet {
     #[pallet::getter(fn machine_info_url)]
     pub(super) type MachineInfoURL<T> = StorageValue<_, Vec<MachineId>, ValueQuery>;
 
-    // 设置最小URL数量。小于该数量，将不开始进行抢单
+    // 设置最小多少URL进行验证。小于该数量，该模块将不开始进行验证
     #[pallet::type_value]
-    pub fn URLNumMinDefault<T: Config>() -> u32 {
-        3
+    pub fn RandURLNumDefault<T: Config>() -> u32 {
+        1
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn url_num_min)]
-    pub(super) type URLNumMin<T: Config> = StorageValue<_, u32, ValueQuery, URLNumMinDefault<T>>;
-
-    // pub MachineInfoRandURLNum get(fn machine_info_rand_url_num) config(): u32 = 3;
-    #[pallet::type_value]
-    pub fn MachineInfoRandURLNumDefault<T: Config>() -> u32 {
-        3
-    }
-
-    #[pallet::storage]
-    #[pallet::getter(fn machine_info_rand_url_num)]
-    pub(super) type MachineInfoRandURLNum<T: Config> =
-        StorageValue<_, u32, ValueQuery, MachineInfoRandURLNumDefault<T>>;
+    #[pallet::getter(fn rand_url_num)]
+    pub(super) type RandURLNum<T: Config> = StorageValue<_, u32, ValueQuery, RandURLNumDefault<T>>;
 
     #[pallet::storage]
     #[pallet::getter(fn request_count)]
@@ -129,7 +118,7 @@ pub mod pallet {
             debug::info!("Entering off-chain worker, at height: {:?}", block_number);
 
             // 检查有足够的URL
-            if Self::url_num_min() < Self::machine_info_url().len() as u32 {
+            if Self::rand_url_num() < Self::machine_info_url().len() as u32 {
                 return
             }
 
@@ -155,36 +144,34 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // root用户添加机器信息API
+        // 用户添加机器信息API
         #[pallet::weight(0)]
         pub fn add_machine_info_url(origin: OriginFor<T>, new_url: MachineId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            let mut machine_info_url = MachineInfoURL::<T>::get();
-            machine_info_url.push(new_url.clone());
+            let mut machine_info_url = Self::machine_info_url();
+            machine_info_url.push(new_url);
             MachineInfoURL::<T>::put(machine_info_url);
-
             Self::update_rand_url();
             Ok(().into())
         }
 
-        // root用户删除机器信息API
+        // 用户删除机器信息API
         #[pallet::weight(0)]
         fn rm_url_by_index(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            let mut machine_info_url = MachineInfoURL::<T>::get();
-            ensure!(index > machine_info_url.len() as u32, Error::<T>::IndexOutOfRange);
+            let mut machine_info_url = Self::machine_info_url();
+            ensure!(index < machine_info_url.len() as u32, Error::<T>::IndexOutOfRange);
             machine_info_url.remove(index as usize);
             MachineInfoURL::<T>::put(machine_info_url);
-
             Self::update_rand_url();
             Ok(().into())
         }
 
         // root用户设置随机选择多少API进行验证机器信息
         #[pallet::weight(0)]
-        fn set_machineinfo_rand_url_num(origin: OriginFor<T>, num: u32) -> DispatchResultWithPostInfo {
+        fn set_rand_url_num(origin: OriginFor<T>, num: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            MachineInfoRandURLNum::<T>::put(num);
+            RandURLNum::<T>::put(num);
             Self::update_rand_url();
             Ok(().into())
         }
@@ -222,6 +209,9 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         HttpFetchingError,
+        HttpURLParseError,
+        HttpReadBodyError,
+        HttpUnmarshalBodyError,
         // HttpDecodeError,
         IndexOutOfRange,
         MachineURLEmpty,
@@ -230,12 +220,9 @@ pub mod pallet {
     }
 }
 
-// #[rustfmt::skip]
+#[rustfmt::skip]
 impl<T: Config> Pallet<T> {
-    fn call_ocw_machine_info(
-        machine_id: MachineId,
-        machine_bonded_wallet: Option<Vec<u8>>,
-    ) -> Result<(), Error<T>> {
+    fn call_ocw_machine_info(machine_id: MachineId, machine_bonded_wallet: Option<Vec<u8>>) -> Result<(), Error<T>> {
         let call = Call::ocw_submit_machine_info(machine_id.to_vec(), machine_bonded_wallet);
         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
             debug::error!("Failed in offchain_unsigned_tx");
@@ -246,52 +233,40 @@ impl<T: Config> Pallet<T> {
     // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
     // from_ss58check_with_version
     pub fn verify_bonding_account(who: T::AccountId, s: &Vec<u8>) -> bool {
-        // const CHECKSUM_LEN: usize = 2;
         let mut data: [u8; 35] = [0; 35];
-        let decoded = bs58::decode(s).into(&mut data);
 
-        match decoded {
-            Ok(length) => {
-                if length != 35 {
-                    return false;
-                }
+        if let Ok(length) = bs58::decode(s).into(&mut data) {
+            if length != 35 {
+                return false;
             }
-            Err(_) => return false,
+        } else {
+            return false;
         }
 
         let (_prefix_len, _ident) = match data[0] {
             0..=63 => (1, data[0] as u16),
-            64..=127 => {
-                // let lower = (data[0] << 2) | (data[1] >> 6);
-                // let upper = data[1] & 0b00111111;
-                // (2, (lower as u16) | ((upper as u16) << 8))
-                return false;
-            }
             _ => return false,
         };
 
-        let account_id32: [u8; 32] = data[1..33].try_into().unwrap();
+        let account_id32: Result<[u8; 32], _> = data[1..33].try_into();
+        if let Err(_) = account_id32 {
+            return false;
+        }
+
+        let account_id32 = account_id32.unwrap();
         let wallet = T::AccountId::decode(&mut &account_id32[..]).unwrap_or_default();
 
-        if who == wallet {
-            return true;
+        if who != wallet {
+            return false;
         }
-        return false;
-    }
-
-    fn _vec_identical<C: PartialEq + Copy>(arr: &[C]) -> bool {
-        if arr.is_empty() {
-            return true;
-        }
-        let first = arr[0];
-        arr.iter().all(|&item| item == first)
+        return true;
     }
 
     // 产生一组随机的机器信息URL，并更新到存储
     fn update_rand_url() {
         let mut machine_info_url = MachineInfoURL::<T>::get();
         let mut next_group: Vec<MachineId> = Vec::new();
-        let rand_url_num = MachineInfoRandURLNum::<T>::get();
+        let rand_url_num = Self::rand_url_num();
 
         if machine_info_url.len() == 0 {
             return;
@@ -311,17 +286,12 @@ impl<T: Config> Pallet<T> {
     }
 
     // 通过http获取机器的信息
-    pub fn fetch_machine_info(
-        url: &Vec<u8>,
-        machine_id: &Vec<u8>,
-    ) -> Result<MachineInfo, Error<T>> {
+    pub fn fetch_machine_info(url: &Vec<u8>, machine_id: &Vec<u8>) -> Result<MachineInfo, Error<T>> {
         let mut url = url.to_vec();
         url.extend(b"/");
         url.extend(machine_id.iter());
 
-        let url = str::from_utf8(&url)
-            .map_err(|_| http::Error::Unknown)
-            .unwrap();
+        let url = str::from_utf8(&url).map_err(|_| <Error<T>>::HttpURLParseError)?;
 
         debug::info!("sending request to: {}", &url);
 
@@ -347,27 +317,22 @@ impl<T: Config> Pallet<T> {
         }
 
         let body = response.body().collect::<Vec<u8>>();
-        let body_str = sp_std::str::from_utf8(&body)
-            .map_err(|_| {
-                debug::warn!("No UTF8 body");
-                http::Error::Unknown
-            })
-            .unwrap(); // TODO: handle error here
+        let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
+            debug::warn!("No UTF8 body");
+            <Error<T>>::HttpReadBodyError
+        })?;
 
-        let machine_info: MachineInfo = serde_json::from_str(&body_str).unwrap(); // TODO: handler error here
-
-        debug::info!("#### MachineInfo str: {}", &body_str);
-        debug::info!("############ Machine_info is: {:?}", machine_info);
-
-        Ok(machine_info)
+        return serde_json::from_str(&body_str).map_err(|_| {
+            debug::warn!("json unmarshal failed");
+            <Error<T>>::HttpUnmarshalBodyError
+        });
     }
 
     // 通过多个URL获取机器信息，如果一致，则验证通过
     // 返回验证一致的钱包地址
     fn get_machine_info_identical_wallet(id: &MachineId) -> Option<Vec<u8>> {
         let info_url = Self::machine_info_rand_url();
-
-        let mut machine_info = Vec::new();
+        let mut machine_wallet = Vec::new();
 
         for url in info_url.iter() {
             let ocw_machine_info = Self::fetch_machine_info(&url, id);
@@ -380,26 +345,13 @@ impl<T: Config> Pallet<T> {
                 return None;
             }
 
-            let tmp_info = OCWMachineInfo {
-                cpu: ocw_machine_info.data.cpu,
-                disk: ocw_machine_info.data.disk,
-                gpu: ocw_machine_info.data.gpu,
-                ip: ocw_machine_info.data.ip,
-                mem: ocw_machine_info.data.mem,
-                os: ocw_machine_info.data.os,
-                version: ocw_machine_info.data.version,
-                wallet: ocw_machine_info.data.wallet,
-            };
-
-            if machine_info.len() == 0 {
-                machine_info.push(tmp_info);
-            } else if machine_info[0] != tmp_info {
-                debug::error!("Machine info must be identical");
+            if machine_wallet.len() == 0 {
+                machine_wallet.push(ocw_machine_info.data.wallet)
+            } else if machine_wallet[0] != ocw_machine_info.data.wallet {
                 return None;
             }
         }
-        // return Some(machine_info[0].clone());
-        return Some(machine_info[0].wallet.clone());
+        return Some(machine_wallet[0].clone());
     }
 
     fn _vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {
@@ -413,5 +365,13 @@ impl<T: Config> Pallet<T> {
         };
 
         return Some(num_out);
+    }
+
+    fn _vec_identical<C: PartialEq + Copy>(arr: &[C]) -> bool {
+        if arr.is_empty() {
+            return true;
+        }
+        let first = arr[0];
+        arr.iter().all(|&item| item == first)
     }
 }
