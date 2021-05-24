@@ -16,7 +16,7 @@ cargo build --release
 ## 2. 运行同步节点
 
 ```bash
-./target/release/dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning archive --bootnodes /ip4/111.44.254.180/tcp/20333/p2p/12D3KooWDQjfftL9FEJGstec1ukQ6C4EcZoqh2n3QUk1G8v58EVH
+./target/release/dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning archive --bootnodes /ip4/111.44.254.180/tcp/20337/p2p/12D3KooWNtUXjdy8Q9hvdJ35a1jWpPnVBRgpT7nP8LmEgBWGqTpm
 ```
 
 > 端口参数：

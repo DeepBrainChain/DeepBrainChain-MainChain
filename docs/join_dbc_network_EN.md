@@ -48,7 +48,7 @@
 3. Synchronize Chain Data
 
    ```bash
-   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning=archive --bootnodes /ip4/111.44.254.180/tcp/20333/p2p/12D3KooWDQjfftL9FEJGstec1ukQ6C4EcZoqh2n3QUk1G8v58EVH
+   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning=archive --bootnodes /ip4/111.44.254.180/tcp/20337/p2p/12D3KooWNtUXjdy8Q9hvdJ35a1jWpPnVBRgpT7nP8LmEgBWGqTpm
    ```
 
    + If you compile from source, the binary path is `./target/release/dbc-chain`
@@ -61,7 +61,7 @@
 4. After synchronizing block data finished, stop the synchronizing command. Then run the node as a validator: 
 
    ```bash
-   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/20333/p2p/12D3KooWDQjfftL9FEJGstec1ukQ6C4EcZoqh2n3QUk1G8v58EVH 1>dbc_node.log 2>&1 &
+   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/20337/p2p/12D3KooWNtUXjdy8Q9hvdJ35a1jWpPnVBRgpT7nP8LmEgBWGqTpm 1>dbc_node.log 2>&1 &
    ```
 
    + If you compile from source, the binary path is `./target/release/dbc-chain`
