@@ -385,7 +385,7 @@ impl<T: Config> Pallet<T> {
                 mem: ocw_machine_info.data.mem,
                 os: ocw_machine_info.data.os,
                 version: ocw_machine_info.data.version,
-                wallet: ocw_machine_info.data.wallet[0],
+                wallet: ocw_machine_info.data.wallet,
             };
 
             if machine_info.len() == 0 {
@@ -396,7 +396,7 @@ impl<T: Config> Pallet<T> {
             }
         }
         // return Some(machine_info[0].clone());
-        return Some(machine_info[0].wallet);
+        return Some(machine_info[0].wallet.clone());
     }
 
     fn vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {
