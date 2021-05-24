@@ -819,6 +819,8 @@ impl<T: Config> Pallet<T> {
     }
 }
 
+// TODO: 当request超过三次请求失败时，允许用户退回资金。
+// 当地址不一致，则扣除用户资金
 // online-profile-ocw可以执行的操作
 impl<T: Config> OCWOps for Pallet<T> {
     type MachineId = MachineId;
