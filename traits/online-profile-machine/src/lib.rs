@@ -12,10 +12,9 @@ pub trait LCOps {
 }
 
 pub trait OCWOps {
-    type MachineInfo;
+    type AccountId;
     type MachineId;
 
     fn rm_bonding_id(id: Self::MachineId);
-    fn add_ocw_confirmed_id(id: Self::MachineId);
-    fn update_machine_info(id: &Self::MachineId, machine_info: Self::MachineInfo);
+    fn add_ocw_confirmed_id(id: Self::MachineId, wallet: Self::AccountId);
 }

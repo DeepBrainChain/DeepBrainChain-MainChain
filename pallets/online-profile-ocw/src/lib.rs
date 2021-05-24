@@ -13,13 +13,12 @@ use frame_system::{
     pallet_prelude::*,
 };
 use online_profile::types::*;
-use online_profile_machine::{LCOps, OCWOps};
+use online_profile_machine::OCWOps;
 use sp_runtime::{offchain, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
 
 mod machine_info;
 
-use machine_info::*;
 pub use pallet::*;
 
 #[cfg(test)]
@@ -40,8 +39,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> + online_profile::Config + random_num::Config
     {
         // type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type OnlineProfile: LCOps<MachineId = MachineId>
-            + OCWOps<MachineId = MachineId, MachineInfo = online_profile::MachineInfo<Self::AccountId, Self::BlockNumber>>;
+        type OnlineProfile: OCWOps<MachineId = MachineId, AccountId = Self::AccountId>;
     }
 
     #[pallet::pallet]
@@ -185,22 +183,24 @@ pub mod pallet {
             ensure_none(origin)?;
 
             let request_limit = Self::request_limit();
-
-            let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id);
             let mut request_count = Self::request_count(&machine_id);
 
-            if let Some(_machine_bonded_wallet) = machine_bonded_wallet {
-                // FIXME
-                T::OnlineProfile::update_machine_info(&machine_id, machine_info);
-                T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
-                T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec());
+            if let Some(machine_bonded_wallet) = machine_bonded_wallet {
+                if let Some(wallet_addr) = Self::get_account_from_str(&machine_bonded_wallet) {
+                    T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
+                    T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec(), wallet_addr);
+                } else {
+                    request_count += 1;
+                };
             } else {
                 request_count += 1;
-                if request_count == request_limit { // 已经超过请求次数，从中删除
-                    T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
-                }
-                RequestCount::<T>::insert(&machine_id, request_count);
             }
+
+            // 已经超过请求次数，从中删除
+            if request_count == request_limit {
+                T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
+            }
+            RequestCount::<T>::insert(&machine_id, request_count);
 
             Ok(().into())
         }
@@ -232,34 +232,32 @@ impl<T: Config> Pallet<T> {
 
     // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
     // from_ss58check_with_version
-    pub fn verify_bonding_account(who: T::AccountId, s: &Vec<u8>) -> bool {
+    fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
         let mut data: [u8; 35] = [0; 35];
 
-        if let Ok(length) = bs58::decode(s).into(&mut data) {
+        if let Ok(length) = bs58::decode(addr).into(&mut data) {
             if length != 35 {
-                return false;
+                return None;
             }
         } else {
-            return false;
+            return None;
         }
 
         let (_prefix_len, _ident) = match data[0] {
             0..=63 => (1, data[0] as u16),
-            _ => return false,
+            _ => return None,
         };
 
         let account_id32: Result<[u8; 32], _> = data[1..33].try_into();
         if let Err(_) = account_id32 {
-            return false;
+            return None;
         }
 
         let account_id32 = account_id32.unwrap();
-        let wallet = T::AccountId::decode(&mut &account_id32[..]).unwrap_or_default();
-
-        if who != wallet {
-            return false;
-        }
-        return true;
+        if let Ok(wallet)= T::AccountId::decode(&mut &account_id32[..]) {
+            return Some(wallet);
+        };
+        return None;
     }
 
     // 产生一组随机的机器信息URL，并更新到存储
@@ -286,7 +284,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // 通过http获取机器的信息
-    pub fn fetch_machine_info(url: &Vec<u8>, machine_id: &Vec<u8>) -> Result<MachineInfo, Error<T>> {
+    pub fn fetch_machine_info(url: &Vec<u8>, machine_id: &Vec<u8>) -> Result<machine_info::MachineInfo, Error<T>> {
         let mut url = url.to_vec();
         url.extend(b"/");
         url.extend(machine_id.iter());
@@ -296,9 +294,7 @@ impl<T: Config> Pallet<T> {
         debug::info!("sending request to: {}", &url);
 
         let request = offchain::http::Request::get(&url);
-
-        let timeout =
-            sp_io::offchain::timestamp().add(offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
+        let timeout = sp_io::offchain::timestamp().add(offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
 
         let pending = request
             .add_header("User-Agent", HTTP_HEADER_USER_AGENT)

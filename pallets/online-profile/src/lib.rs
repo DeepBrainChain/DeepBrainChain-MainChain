@@ -822,22 +822,21 @@ impl<T: Config> Pallet<T> {
 // online-profile-ocw可以执行的操作
 impl<T: Config> OCWOps for Pallet<T> {
     type MachineId = MachineId;
-    type MachineInfo = MachineInfo<T::AccountId, T::BlockNumber>;
+    type AccountId = T::AccountId;
 
+    // 将machine_id从LiveMachines.bonding_machine中移除
     fn rm_bonding_id(id: MachineId) {
         let mut live_machines = Self::live_machines();
         LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, id);
         LiveMachines::<T>::put(live_machines);
     }
 
-    fn add_ocw_confirmed_id(id: MachineId) {
+    // 将machine_id添加到LiveMachines.ocw_confirmed_machine中
+    fn add_ocw_confirmed_id(id: MachineId, wallet: Self::AccountId) {
         let mut live_machines = Self::live_machines();
         LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id);
+        // TODO: 检查wallet是否与用户一致
         LiveMachines::<T>::put(live_machines);
-    }
-
-    fn update_machine_info(id: &MachineId, machine_info: Self::MachineInfo) {
-        MachinesInfo::<T>::insert(id, machine_info);
     }
 }
 
