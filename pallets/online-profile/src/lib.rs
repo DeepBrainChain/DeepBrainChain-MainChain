@@ -199,15 +199,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type ProfitReleaseDuration<T: Config> = StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
 
-    #[pallet::type_value]
-    pub fn CommitteeLimitDefault<T: Config>() -> u32 {
-        3
-    }
-
-    #[pallet::storage]
-    #[pallet::getter(fn committee_limit)]
-    pub type CommitteeLimit<T: Config> = StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
-
     // 存储机器的最小质押量，单位DBC, 默认为100000DBC
     #[pallet::storage]
     #[pallet::getter(fn stake_per_gpu)]
@@ -342,13 +333,6 @@ pub mod pallet {
         pub fn set_reward_start_height(origin: OriginFor<T>, reward_start_height: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             RewardStartHeight::<T>::put(reward_start_height);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn set_committee_limit(origin: OriginFor<T>, limit: u32) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            CommitteeLimit::<T>::put(limit);
             Ok(().into())
         }
 
@@ -897,11 +881,6 @@ impl<T: Config> LCOps for Pallet<T> {
         let mut confirmed_committee = vec![];
         for a_committee in &machine_info.committee_confirm {
             confirmed_committee.push(a_committee);
-        }
-
-        if confirmed_committee.len() as u32 == Self::committee_limit() {
-            // 检查是否通过
-            // TODO: 检查是否全部同意，并更改机器状态
         }
 
         MachinesInfo::<T>::insert(machine_id.clone(), machine_info.clone());
