@@ -1,5 +1,7 @@
 // 1万卡一下 质押 = min(100000 DBC, 5w RMB 等值DBC)
 // 1万卡以上，质押 = min(100000 * (10000/卡数), 5w RMB 等值DBC)
+// TODO: 如果验证结果发现，绑定者与机器钱包地址不一致，则进行惩罚
+// TODO: era结束时重新计算得分, 如果有会影响得分的改变，放到列表中，等era结束进行计算
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -13,12 +15,8 @@ use frame_system::pallet_prelude::*;
 use online_profile_machine::{LCOps, OCWOps};
 use pallet_identity::Data;
 use sp_runtime::{
-    traits::{CheckedDiv, CheckedMul},
-    SaturatedConversion,
-};
-use sp_runtime::{
-    traits::{CheckedSub, Zero},
-    Perbill,
+    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero},
+    Perbill, SaturatedConversion,
 };
 use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*, str};
 
@@ -68,7 +66,7 @@ impl Default for SlashReason {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct CommitteeMachine<Balance> {
-    pub machine_id: Vec<MachineId>,
+    pub machine_id: Vec<MachineId>, //用户绑定的所有机器，不与机器状态有关
     pub total_calc_points: u64,
     pub total_gpu_num: u64,
     pub total_reward: Balance,
@@ -220,6 +218,11 @@ pub mod pallet {
     #[pallet::getter(fn stake_usd_limit)]
     pub(super) type StakeUSDLimit<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+    // 存储每个用户在该模块中的总质押量
+    #[pallet::storage]
+    #[pallet::getter(fn user_total_stake)]
+    pub(super) type UserTotalStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+
     // 存储当前每卡质押数量,
     #[pallet::storage]
     #[pallet::getter(fn cur_stake_per_gpu)]
@@ -334,6 +337,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        // 实现当达到5000卡时，开启奖励
         #[pallet::weight(0)]
         pub fn set_reward_start_height(origin: OriginFor<T>, reward_start_height: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -356,6 +360,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 设置单GPU质押量换算成USD的上限
         #[pallet::weight(0)]
         pub fn set_stake_usd_limit(origin: OriginFor<T>, stake_usd_limit: u64) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -363,6 +368,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 设置用户第一次质押时，需要质押的数量
         #[pallet::weight(0)]
         pub fn set_first_bond_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -370,6 +376,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // TODO: 删除该方法。该方法用来添加临时接口，以返回所有质押者的rpc接口
         #[pallet::weight(0)]
         pub fn add_temp_account(origin: OriginFor<T>, new_account: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -379,45 +386,22 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
-        pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let reporter = ensure_signed(origin)?;
-
-            let _report_time = <random_num::Module<T>>::current_slot_height();
-
-            // TODO: 报告人应该质押两天剩余的奖励
-            let stake_amount = 0u32.into();
-            ensure!(<T as Config>::Currency::free_balance(&reporter) > stake_amount, Error::<T>::BalanceNotEnough);
-
-            // FIXME: 同样的，如果有多次质押，需要用户多次累加其总质押数量
-            Self::deposit_event(Event::ReporterStake(reporter, machine_id, stake_amount));
-
-            Ok(().into())
-        }
-
-        // TODO: 如果验证结果发现，绑定者与机器钱包地址不一致，则进行惩罚
-        // TODO: era结束时重新计算得分, 如果有会影响得分的改变，放到列表中，等era结束进行计算
-
-        // 将machine_id添加到绑定队列,
-        /// Bonding machine only remember caller-machine_id pair.
-        /// OCW will check it and record machine info.
+        // 将machine_id添加到绑定队列,之后ocw工作，验证机器ID与钱包地址是否一致
+        // 绑定需要质押first_bond_stake数量的DBC
         #[pallet::weight(10000)]
-        // pub fn bond_machine(origin: OriginFor<T>, machine_id: MachineId, gpu_num: u32) -> DispatchResultWithPostInfo {
         pub fn bond_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
             // 用户第一次绑定机器需要质押的数量
             let first_bond_stake = Self::first_bond_stake();
 
-            // 资金检查
+            // 资金检查,确保机器还没有被绑定过
             ensure!(<T as Config>::Currency::free_balance(&controller) > first_bond_stake, Error::<T>::BalanceNotEnough);
-            // 确保机器还没有被绑定过
             let mut live_machines = Self::live_machines();
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
 
             // 添加到用户的机器列表
             let mut user_machines = Self::user_machines(&controller);
-
             if let Err(index) = user_machines.machine_id.binary_search(&machine_id) {
                 user_machines.machine_id.insert(index, machine_id.clone());
                 UserMachines::<T>::insert(&controller, user_machines);
@@ -452,8 +436,9 @@ pub mod pallet {
                 upcoming_rewards: VecDeque::new(),
             };
 
-            // FIXME: 这里的应该是用户的总质押数量，而非最新一次的质押数量
-            Self::update_ledger(&controller, &machine_id, &item);
+            // 更新质押和Ledger
+            Self::add_user_total_stake(&controller, first_bond_stake);
+            Ledger::<T>::insert(controller.clone(), machine_id.clone(), Some(item));
 
             Self::deposit_event(Event::BondMachine(controller, machine_id, first_bond_stake));
 
@@ -471,29 +456,30 @@ pub mod pallet {
             let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
             let user_balance = <T as pallet::Config>::Currency::free_balance(&controller);
 
-            if let Some(extra) = user_balance.checked_sub(&ledger.total) {
-                let extra = extra.min(bond_extra);
-                ledger.total += extra;
-                ledger.active += extra;
+            let machine_stake_need = Self::calc_machine_stake_need(&machine_id);
+            ensure!(machine_stake_need > user_balance, Error::<T>::InsufficientValue);
 
-                ensure!(
-                    ledger.active >= <T as pallet::Config>::Currency::minimum_balance(),
-                    Error::<T>::InsufficientValue
-                );
+            if let Some(extra_stake) = machine_stake_need.checked_sub(&ledger.total) {
+                ledger.total += extra_stake;
+                ledger.active += extra_stake;
 
                 Self::deposit_event(Event::AddBonded(
                     controller.clone(),
                     machine_id.clone(),
-                    extra,
+                    extra_stake,
                 ));
-                Self::update_ledger(&controller, &machine_id, &ledger);
+
+                // 更新质押和Ledger
+                Self::add_user_total_stake(&controller, extra_stake);
+                Ledger::<T>::insert(controller, machine_id, Some(ledger));
             }
 
             Ok(().into())
         }
 
-        // TODO: 确定退出时机
+        // TODO: 确定退出时机: 当前无法确定机器的租用状态
         // 当用户想要机器从中退出时，可以调用unbond，来取出质押的金额
+        // 当在线时长达到365天，并且10天没有人租用时，可以下线
         #[pallet::weight(10000)]
         fn unbond(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
@@ -517,7 +503,7 @@ pub mod pallet {
                 let era = <random_num::Module<T>>::current_era() + <T as pallet::Config>::BondingDuration::get();
                 ledger.unlocking.push(UnlockChunk { value, era });
 
-                Self::update_ledger(&controller, &machine_id, &ledger);
+                // Self::update_ledger(&controller, &machine_id, &ledger);
                 Self::deposit_event(Event::RemoveBonded(controller, machine_id, value));
             }
 
@@ -539,7 +525,7 @@ pub mod pallet {
                 // 清除ledger相关存储
                 <T as pallet::Config>::Currency::remove_lock(crate::PALLET_LOCK_ID, &controller);
             } else {
-                Self::update_ledger(&controller, &machine_id, &ledger);
+                // Self::update_ledger(&controller, &machine_id, &ledger);
             }
 
             if ledger.total < old_total {
@@ -711,7 +697,7 @@ impl<T: Config> Pallet<T> {
 
         // 更新已解压数量
         ledger.released_rewards = 0u32.into();
-        Self::update_ledger(&controller, machine_id, &ledger);
+        Ledger::<T>::insert(controller, machine_id, Some(ledger));
 
         Ok(().into())
     }
@@ -806,7 +792,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::update_ledger(&controller, &machine_id, &ledger);
+
+        Ledger::<T>::insert(controller, machine_id, Some(ledger));
+        // Self::update_ledger(&controller, &machine_id, &ledger);
     }
 
     // 扣除n天剩余奖励
@@ -816,10 +804,39 @@ impl<T: Config> Pallet<T> {
 
     fn _validator_slash(){}
 
-    // 更新用户的质押的ledger
-    fn update_ledger(controller: &T::AccountId, machine_id: &MachineId, ledger: &StakingLedger<T::AccountId, BalanceOf<T>>) {
-        <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, &ledger.stash, ledger.total, WithdrawReasons::all());
-        Ledger::<T>::insert(controller, machine_id, Some(ledger));
+    // TODO: update_ledger 改成add_stake, reduce_stake + update Ledger
+    // // 更新用户的质押的ledger
+    // fn update_ledger(controller: &T::AccountId, machine_id: &MachineId, ledger: &StakingLedger<T::AccountId, BalanceOf<T>>) {
+    //     <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, &ledger.stash, ledger.total, WithdrawReasons::all());
+    //     Ledger::<T>::insert(controller, machine_id, Some(ledger));
+    // }
+
+    fn add_user_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
+        let current_stake = Self::user_total_stake(controller);
+        let next_stake = current_stake.checked_add(&amount);
+
+        if let None = next_stake {
+            return;
+        }
+        let next_stake = next_stake.unwrap();
+
+        <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
+    }
+
+    fn reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
+        let current_stake = Self::user_total_stake(controller);
+        let next_stake = current_stake.checked_sub(&amount);
+        if let None = next_stake {
+            return;
+        }
+        let next_stake = next_stake.unwrap();
+
+        <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
+    }
+
+    // TODO: 根据GPU数量修改需要的质押数量
+    fn calc_machine_stake_need(machine_id: &MachineId) -> BalanceOf<T> {
+        0u32.into()
     }
 }
 
