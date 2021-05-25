@@ -12,12 +12,12 @@ use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
     pallet_prelude::*,
 };
-use online_profile::types::*;
 use online_profile_machine::OCWOps;
 use sp_runtime::{offchain, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
 
 mod machine_info;
+// mod online_profile::op_types;
 
 pub use pallet::*;
 
@@ -29,6 +29,9 @@ mod tests;
 
 pub type MachineId = Vec<u8>;
 pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
+pub const HTTP_HEADER_USER_AGENT: &str = "jimmychu0807";
+pub const FETCH_TIMEOUT_PERIOD: u64 = 3_000; // in milli-seconds
+pub const LOCK_TIMEOUT_EXPIRATION: u64 = FETCH_TIMEOUT_PERIOD + 1_000; // in milli-seconds
 
 #[rustfmt::skip]
 #[frame_support::pallet]
@@ -312,7 +315,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let body = response.body().collect::<Vec<u8>>();
-        let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
+        let body_str = str::from_utf8(&body).map_err(|_| {
             debug::warn!("No UTF8 body");
             <Error<T>>::HttpReadBodyError
         })?;

@@ -1,7 +1,7 @@
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Decode;
+use codec::{Decode, Encode};
 use frame_support::debug;
 use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -26,6 +26,15 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+pub struct TestMachineInfo<AccountId, BlockNumber> {
+    pub machine_owner: AccountId,
+    pub bonding_height: BlockNumber,
+    pub machine_grade: u64,
+    pub machine_price: u64,
+    pub reward_deadline: BlockNumber,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -61,11 +70,28 @@ pub mod pallet {
     #[pallet::getter(fn things4)]
     pub(super) type Things4<T: Config> = StorageValue<_, Permill>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn things5)]
+    pub(super) type Things5<T: Config> =
+        StorageValue<_, TestMachineInfo<T::AccountId, T::BlockNumber>, ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::weight(0)]
+        pub fn set_things5(
+            origin: OriginFor<T>,
+            new_data: TestMachineInfo<T::AccountId, T::BlockNumber>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
+
+            Things5::<T>::put(new_data);
+
+            Ok(().into())
+        }
+
         /// Slashes the specified amount of funds from the specified account
         #[pallet::weight(0)]
         pub fn slash_funds(

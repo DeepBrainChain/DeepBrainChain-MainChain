@@ -3,11 +3,17 @@
 // 每个委员随机分得3个验证区间，进行验证。
 // 下一轮选择，与上一轮委员会是否被选择的状态无关。
 // 委员会确认机器，会提供三个字段组成的 Hash1 = Hash(机器原始信息, 委员会随机字符串, bool(机器正常与否))
+
+// 如下验证结果hash值
+// GPU型号, GPU数量, CUDA core数量, GPU显存, 算力值, 硬盘, 上行带宽, 下行带宽, CPU型号, CPU内核数
+
 // 最后12个小时，统计委员会结果，多数结果为最终结果。第二次提交信息为： 机器原始信息，委员会随机字符串，bool.
 // 验证：1. Hash(机器原始信息) == OCW获取到的机器Hash
 //      2. Hash(机器原始信息，委员会随机字符串, bool) == Hash1
 // 如果没有人提交信息，则进行新一轮随机派发。
 
+// 钱包地址：xxxx
+// 钱包签名信息：xxxx
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, HasCompact};
@@ -18,6 +24,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 // use online_profile::types::*;
+use online_profile::MachineInfoByCommittee;
 use online_profile_machine::LCOps;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
@@ -470,10 +477,17 @@ pub mod pallet {
             Ok(().into())
         }
 
+
+        // fn submit_confirm_raw(origin: OriginFor<T>, machine_id: MachineId, confirm_raw: Vec<u8>) -> DispatchResultWithPostInfo {
+        // 委员会提交的原始信息
         #[pallet::weight(10000)]
-        fn submit_confirm_raw(origin: OriginFor<T>, machine_id: MachineId, confirm_raw: Vec<u8>) -> DispatchResultWithPostInfo {
+        fn submit_confirm_raw(
+            origin: OriginFor<T>, machine_info_detail: MachineInfoByCommittee, rand_str: Vec<u8>, confirm_raw: Vec<u8>) -> DispatchResultWithPostInfo
+        {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
+
+            let machine_id = machine_info_detail.machine_id;
 
             let mut machine_committee = Self::machine_committee(&machine_id);
             let mut committee_machine = Self::committee_machine(&who);
@@ -597,6 +611,12 @@ pub mod pallet {
 
 // #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
+    // TODO: 实现machine_info hash
+    fn get_machine_info_hash(machine_info: MachineInfoByCommittee) -> [u8; 16] {
+        let a: [u8; 16] = [0; 16];
+        return a;
+    }
+
     fn hash_is_identical(raw_input: &Vec<u8>, hash: [u8; 16]) -> bool {
         let raw_hash: [u8; 16] = blake2_128(raw_input);
         return raw_hash == hash;

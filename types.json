@@ -27,13 +27,7 @@
     "is_confirmed": "bool"
   },
   "MachineStatus": {
-    "_enum": [
-      "Bonding",
-      "Booked",
-      "WaitingHash",
-      "Bonded",
-      "WaitingFulfill"
-    ]
+    "_enum": ["Bonding", "Booked", "WaitingHash", "Bonded", "WaitingFulfill"]
   },
   "OCWMachineInfo": {
     "cpu": "CPU",
@@ -104,13 +98,6 @@
     "confirmed_committee": "Vec<AccountId>",
     "onlined_committee": "Vec<AccountId>"
   },
-  "MachineStatus": {
-    "_enum": [
-      "Booked",
-      "Hashed",
-      "Confirmed"
-    ]
-  },
   "CommitteeMachineList": {
     "booked_order": "Vec<OrderId>",
     "hashed_order": "Vec<OrderId>",
@@ -158,6 +145,13 @@
     "pubkey_list": "Vec<AccountId>",
     "fulfill_list": "Vec<AccountId>",
     "chill_list": "Vec<AccountId>",
-    "black_list": "Vec<AccountId>",
+    "black_list": "Vec<AccountId>"
+  },
+  "TestMachineInfo": {
+    "machine_owner": "AccountId",
+    "bonding_height": "BlockNumber",
+    "machine_grade": "u64",
+    "machine_price": "u64",
+    "reward_deadline": "BlockNumber"
   }
 }

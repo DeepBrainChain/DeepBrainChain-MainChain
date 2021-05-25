@@ -21,11 +21,11 @@ use sp_runtime::{
 use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*, str};
 
 pub mod grade_inflation;
+pub mod op_types;
 pub mod rpc_types;
-pub mod types;
 
+pub use op_types::*;
 pub use rpc_types::*;
-use types::*;
 
 pub use pallet::*;
 
