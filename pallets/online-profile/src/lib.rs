@@ -150,8 +150,8 @@ impl LiveMachine {
         }
     }
 
-    fn rm_machine_id(a_field: &mut Vec<MachineId>, machine_id: MachineId) {
-        if let Ok(index) = a_field.binary_search(&machine_id) {
+    fn rm_machine_id(a_field: &mut Vec<MachineId>, machine_id: &MachineId) {
+        if let Ok(index) = a_field.binary_search(machine_id) {
             a_field.remove(index);
         }
     }
@@ -827,10 +827,27 @@ impl<T: Config> OCWOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
 
-    // 将machine_id从LiveMachines.bonding_machine中移除
-    fn rm_bonding_id(id: MachineId) {
+    // ocw启动时，将所有需要验证的机器放到验证区，防止其他worker重复验证
+    fn ocw_booking_machine() -> Vec<MachineId> {
         let mut live_machines = Self::live_machines();
-        LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, id);
+
+        let bonding_item = live_machines.bonding_machine.clone();
+
+        for a_machine in bonding_item.iter() {
+            LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, a_machine);
+            LiveMachine::add_machine_id(
+                &mut live_machines.ocw_confirming_machine,
+                a_machine.to_vec(),
+            );
+        }
+
+        return bonding_item;
+    }
+
+    // 将machine_id从LiveMachines.bonding_machine中移除
+    fn rm_booked_id(id: &MachineId) {
+        let mut live_machines = Self::live_machines();
+        LiveMachine::rm_machine_id(&mut live_machines.ocw_confirming_machine, id);
         LiveMachines::<T>::put(live_machines);
     }
 
@@ -893,7 +910,7 @@ impl<T: Config> LCOps for Pallet<T> {
     fn lc_add_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
-        LiveMachine::rm_machine_id(&mut live_machines.ocw_confirmed_machine, id.clone());
+        LiveMachine::rm_machine_id(&mut live_machines.ocw_confirmed_machine, &id);
         LiveMachine::add_machine_id(&mut live_machines.booked_machine, id.clone());
         LiveMachines::<T>::put(live_machines);
 
@@ -906,7 +923,7 @@ impl<T: Config> LCOps for Pallet<T> {
     fn lc_revert_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
-        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, id.clone());
+        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &id);
         LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id.clone());
 
         let mut machine_info = Self::machines_info(&id);

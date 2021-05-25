@@ -120,9 +120,8 @@ pub mod pallet {
                 return
             }
 
-            // 获取待绑定的id
-            let live_machines = <online_profile::Pallet<T>>::live_machines();
-            for machine_id in live_machines.bonding_machine.iter() {
+            let bookable_machine = <online_profile::Pallet<T>>::ocw_booking_machine();
+            for machine_id in bookable_machine.iter() {
                 // let ocw_machine_info = Self::machine_info_identical(machine_id);
                 let machine_bonded_wallet = Self::get_machine_info_identical_wallet(machine_id);
 
@@ -187,7 +186,7 @@ pub mod pallet {
 
             if let Some(machine_bonded_wallet) = machine_bonded_wallet {
                 if let Some(wallet_addr) = Self::get_account_from_str(&machine_bonded_wallet) {
-                    T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
+                    T::OnlineProfile::rm_booked_id(&machine_id);
                     T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec(), wallet_addr);
                 } else {
                     request_count += 1;
@@ -198,7 +197,7 @@ pub mod pallet {
 
             // 已经超过请求次数，从中删除
             if request_count == request_limit {
-                T::OnlineProfile::rm_bonding_id(machine_id.to_vec());
+                T::OnlineProfile::rm_booked_id(&machine_id);
             }
             RequestCount::<T>::insert(&machine_id, request_count);
 

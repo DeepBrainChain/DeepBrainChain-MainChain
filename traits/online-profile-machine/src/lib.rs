@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_std::vec::Vec;
+
 // lease-committee_ops
 pub trait LCOps {
     type AccountId;
@@ -15,6 +17,7 @@ pub trait OCWOps {
     type AccountId;
     type MachineId;
 
-    fn rm_bonding_id(id: Self::MachineId);
+    fn ocw_booking_machine() -> Vec<Self::MachineId>;
+    fn rm_booked_id(id: &Self::MachineId);
     fn add_ocw_confirmed_id(id: Self::MachineId, wallet: Self::AccountId);
 }
