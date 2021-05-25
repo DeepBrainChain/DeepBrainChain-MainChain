@@ -21,6 +21,7 @@
      ```bash
      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
      cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.1 --locked
+     subkey generate --scheme sr25519
      ```
 
 2. Get `dbc-chain` binary
@@ -35,7 +36,7 @@
    + Option 2: compile from source (recommended)
 
      ```bash
-     # install rust，subkey
+     # install dependency
      curl https://getsubstrate.io -sSf | bash -s -- --fast
      source ~/.cargo/env
      
@@ -58,6 +59,7 @@
      + `--chain ./dbcSpecRaw.json`：Specifies which chain specification to use. 
      + `--pruning=archive`：synchronize chain data
      + `--bootnodes`：specified a single boot node.
+
 4. After synchronizing block data finished, stop the synchronizing command. Then run the node as a validator: 
 
    ```bash
@@ -66,6 +68,7 @@
 
    + If you compile from source, the binary path is `./target/release/dbc-chain`
    + You can give your validator any name that you like, but note that others will be able to see it, and it will be included in the list of all servers using the same telemetry server. Since numerous people are using telemetry, it is recommended that you choose something likely to be unique.
+
 5. generate`rotateKey`
 
    Run the following command in the terminal, and record the result.

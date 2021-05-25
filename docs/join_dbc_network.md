@@ -21,6 +21,7 @@
      ```bash
      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
      cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.1 --locked
+     subkey generate --scheme sr25519
      ```
 
 2. 获取 dbc-chain 二进制
@@ -35,7 +36,7 @@
    + **方式2**：从源码进行编译 (推荐)
 
      ```bash
-     # 安装依赖，rust，subkey
+     # 安装依赖
      curl https://getsubstrate.io -sSf | bash -s -- --fast
      source ~/.cargo/env
      
