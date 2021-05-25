@@ -73,7 +73,7 @@ pub struct CommitteeMachine<Balance> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber> {
-    pub machine_owner: AccountId,
+    pub machine_owner: AccountId, // 允许用户绑定跟自己机器ID不一样的，TODO: 奖励发放给machine_owner
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间, TODO: 改为current_slot
     pub machine_status: MachineStatus,
     pub ocw_machine_info: MachineInfoDetail,
@@ -114,6 +114,7 @@ impl Default for MachineStatus {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LiveMachine {
     pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
+    pub ocw_confirming_machine: Vec<MachineId>, // ocw把bonding_machine移动到这个列表，表示一个ocw正在处理的机器id，避免多个ocw同时处理一个机器Id
     pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段
     // 当machine的确认hash未满时, 委员会从cow_confirmed_machine中读取可以审查的机器ID,
     // 添加确认信息之后，状态变为`ocw_confirmed_machine`，这时可以继续抢单.但已经打分过的委员不能抢该单
@@ -371,7 +372,7 @@ pub mod pallet {
         // 将machine_id添加到绑定队列,之后ocw工作，验证机器ID与钱包地址是否一致
         // 绑定需要质押first_bond_stake数量的DBC
         #[pallet::weight(10000)]
-        pub fn bond_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn bond_machine(origin: OriginFor<T>, machine_owner: T::AccountId, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
             // 用户第一次绑定机器需要质押的数量
@@ -397,7 +398,7 @@ pub mod pallet {
 
             // 初始化MachineInfo, 并添加到MachinesInfo
             let machine_info = MachineInfo {
-                machine_owner: controller.clone(),
+                machine_owner: machine_owner,
                 bonding_height: <frame_system::Module<T>>::block_number(),
                 ..Default::default()
             };
@@ -834,16 +835,16 @@ impl<T: Config> OCWOps for Pallet<T> {
     }
 
     // 将machine_id添加到LiveMachines.ocw_confirmed_machine中
-    fn add_ocw_confirmed_id(id: MachineId, wallet: Self::AccountId) {
+    fn add_ocw_confirmed_id(machine_id: MachineId, wallet: Self::AccountId) {
         let mut live_machines = Self::live_machines();
 
         // 检查wallet是否与用户一致， 如果wallet地址与用户绑定机器的地址不一致，则直接返回
-        let user_machines = Self::user_machines(&wallet);
-        if let Err(_) = user_machines.machine_id.binary_search(&id) {
+        let machine_info = Self::machines_info(&machine_id);
+        if machine_info.machine_owner != wallet {
             return;
         }
 
-        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id);
+        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, machine_id);
         LiveMachines::<T>::put(live_machines);
     }
 }
