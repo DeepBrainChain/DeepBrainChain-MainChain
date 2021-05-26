@@ -1,17 +1,35 @@
                                                                          怎样成为超级节点？
                                                              How do I participate in SuperNode ?
                                                              
+                                                             
+1.成为超级节点有什么奖励？成为超级节点，从2021年5月到2024年5月，每天可以获得大于1.32万dbc的奖励
+
+2.超级节点多长时间选举一次？每24小时选举一次，当选举的时候，节点质押dbc的数量和支持者投票的dbc数量总和排名前21名，就可以成为超级节点
+
+3.投票也可以获得奖励吗？是的，投票的节点成为超级节点后，投票人也可以获得dbc奖励
+
 主网查看节点状态：https://telemetry.polkadot.io/#list/DBC%20Mainnet
 
 主网钱包地址：https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts
 
 部署主网节点：https://github.com/DeepBrainChain/DeepBrainChain-MainChain/blob/master/docs/join_dbc_network.md
 
-                                     
+如何给节点投票：https://github.com/DeepBrainChain/DeepBrainChain-MainChain/blob/master/docs/How%20do%20I%20participate%20in%20SuperNode                                     
 
-    
+
+
+1.What are the rewards for being a super node?   Become a super node and you can earn more than 13,200 DBC per day
+
+2.How often are supernodes elected?     
+       Elections are held every 24 hours. At the time of election, a node with the number of pledged DBC and the number of votes of its supporters ranking 
+  in the top 21 can become a super node
+
+3. Can I also get rewards for voting?   Yes, voters can also receive DBC rewards when the voting node becomes a super node
+
 View the nodes：https://telemetry.polkadot.io/#list/DBC%20Mainnet
 
 MainNet wallet：https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts
 
 Deploy mainNet node：https://github.com/DeepBrainChain/DeepBrainChain-MainChain/blob/master/docs/join_dbc_network_EN.md
+
+How do I vote for nodes：https://github.com/DeepBrainChain/DeepBrainChain-MainChain/blob/master/docs/staking_dbc_and_voting_EN.md
