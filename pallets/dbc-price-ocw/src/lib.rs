@@ -38,16 +38,10 @@ pub mod pallet {
     #[pallet::getter(fn prices)]
     pub type Prices<T> = StorageValue<_, Vec<u64>, ValueQuery>;
 
-    #[pallet::type_value]
-    pub fn PriceURLDefault() -> Vec<URL> {
-        let mut init_url: Vec<URL> = Vec::new();
-        init_url.push("https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".into());
-        // vec!["https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD".into()]
-        init_url
-    }
-
+    // https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD
     #[pallet::storage]
-    pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>, ValueQuery, PriceURLDefault>;
+    #[pallet::getter(fn price_url)]
+    pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>, ValueQuery>;
 
     /// avgPrice = price * 10**6 usd
     #[pallet::storage]
@@ -75,6 +69,10 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
+            if Self::price_url().len() == 0 {
+                return
+            }
+
             debug::native::info!(
                 "Hello world from offchain worker at height: {:#?}!",
                 block_number

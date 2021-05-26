@@ -1,9 +1,10 @@
 use codec::{alloc::string::ToString, Decode, Encode, HasCompact};
+use sp_io::hashing::blake2_128;
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, Saturating, Zero},
     RuntimeDebug,
 };
-use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*, str};
+use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*};
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
@@ -23,6 +24,36 @@ pub struct MachineInfoByCommittee {
     pub download_net: u64,
     pub cpu_type: Vec<u8>,
     pub cpu_core_num: u32,
+}
+
+impl MachineInfoByCommittee {
+    pub fn hash(&self, rand_str: Vec<u8>) -> [u8; 16] {
+        let gpu_num: Vec<u8> = self.gpu_num.to_string().into();
+        let cuda_core: Vec<u8> = self.cuda_core.to_string().into();
+        let gpu_mem: Vec<u8> = self.gpu_mem.to_string().into();
+        let calc_point: Vec<u8> = self.calc_point.to_string().into();
+        let hard_disk: Vec<u8> = self.hard_disk.to_string().into();
+        let upload_net: Vec<u8> = self.upload_net.to_string().into();
+        let download_net: Vec<u8> = self.download_net.to_string().into();
+        let cpu_core_num: Vec<u8> = self.cpu_core_num.to_string().into();
+
+        let mut raw_info = Vec::new();
+        raw_info.extend(self.machine_id.clone());
+        raw_info.extend(self.gpu_type.clone());
+        raw_info.extend(gpu_num);
+        raw_info.extend(cuda_core);
+        raw_info.extend(gpu_mem);
+        raw_info.extend(calc_point);
+        raw_info.extend(hard_disk);
+        raw_info.extend(upload_net);
+        raw_info.extend(download_net);
+        raw_info.extend(self.cpu_type.clone());
+        raw_info.extend(cpu_core_num);
+
+        raw_info.extend(rand_str);
+
+        return blake2_128(&raw_info);
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]

@@ -26,7 +26,6 @@ use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 // use online_profile::types::*;
 use online_profile::MachineInfoByCommittee;
 use online_profile_machine::LCOps;
-use sp_io::hashing::blake2_128;
 use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
 use sp_std::{prelude::*, str, vec::Vec};
 
@@ -487,13 +486,12 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            let machine_id = machine_info_detail.machine_id;
+            let machine_id = machine_info_detail.machine_id.clone();
 
             let mut machine_committee = Self::machine_committee(&machine_id);
             let mut committee_machine = Self::committee_machine(&who);
             let mut machine_ops = Self::ops_detail(&who, &machine_id);
 
-            // 检查
             // 查询是否已经到了提交hash的时间
             ensure!(now >= machine_committee.confirm_start, Error::<T>::TimeNotAllow);
             ensure!(now <= machine_committee.book_time + (3600u32 / 30 * 48).into(), Error::<T>::TimeNotAllow);
@@ -509,7 +507,8 @@ pub mod pallet {
             }
 
             // 检查提交的raw与已提交的Hash一致
-            ensure!(Self::hash_is_identical(&confirm_raw, machine_ops.confirm_hash), Error::<T>::NotAllHashSubmited);
+            let info_hash = machine_info_detail.hash(rand_str);
+            ensure!(info_hash == machine_ops.confirm_hash, Error::<T>::NotAllHashSubmited);
 
             // 用户还未提交过原始信息
             if let Ok(_) = committee_machine.confirmed_machine.binary_search(&machine_id) {
@@ -612,15 +611,15 @@ pub mod pallet {
 // #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     // TODO: 实现machine_info hash
-    fn get_machine_info_hash(machine_info: MachineInfoByCommittee) -> [u8; 16] {
-        let a: [u8; 16] = [0; 16];
-        return a;
-    }
+    // fn get_machine_info_hash(machine_info: MachineInfoByCommittee) -> [u8; 16] {
+    //     let a: [u8; 16] = [0; 16];
+    //     return a;
+    // }
 
-    fn hash_is_identical(raw_input: &Vec<u8>, hash: [u8; 16]) -> bool {
-        let raw_hash: [u8; 16] = blake2_128(raw_input);
-        return raw_hash == hash;
-    }
+    // fn hash_is_identical(raw_input: &Vec<u8>, hash: [u8; 16]) -> bool {
+    //     let raw_hash: [u8; 16] = blake2_128(raw_input);
+    //     return raw_hash == hash;
+    // }
 
     // 根据DBC价格获得最小质押数量
     fn get_min_stake_amount() -> Option<BalanceOf<T>> {
