@@ -164,6 +164,12 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
+
+            // 每个块高检查委员会质押是否足够
+            if let Some(stake_dbc_amount) = Self::stake_dbc_amount() {
+                CommitteeStakeDBCPerOrder::<T>::put(stake_dbc_amount);
+            }
+
             // 分派机器
             Self::distribute_machines();
             Self::statistic_result();
@@ -187,11 +193,16 @@ pub mod pallet {
         }
     }
 
-    // 最小质押默认100RMB等价DBC
+    // 每次订单质押默认100RMB等价DBC
     /// Minmum stake amount to become candidacy (usd * 10**6)
     #[pallet::storage]
-    #[pallet::getter(fn committee_min_stake)]
-    pub(super) type CommitteeMinStake<T: Config> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::getter(fn committee_stake_usd_per_order)]
+    pub(super) type CommitteeStakeUSDPerOrder<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    // 每次订单默认质押等价的DBC数量
+    #[pallet::storage]
+    #[pallet::getter(fn committee_stake_dbc_per_order)]
+    pub(super) type CommitteeStakeDBCPerOrder<T: Config> = StorageValue<_, BalanceOf<T>>;
 
     #[pallet::storage]
     #[pallet::getter(fn committee)]
@@ -220,9 +231,9 @@ pub mod pallet {
         // 设置committee的最小质押，一般等于两天的奖励
         // 单位为usd * 10^6
         #[pallet::weight(0)]
-        pub fn set_committee_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
+        pub fn set_staked_usd_per_order(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            CommitteeMinStake::<T>::put(value);
+            CommitteeStakeUSDPerOrder::<T>::put(value);
             Ok(().into())
         }
 
@@ -239,48 +250,6 @@ pub mod pallet {
             // 将用户添加到fulfill列表中
             LCCommitteeList::add_staker(&mut staker.fulfill_list, member.clone());
             Self::deposit_event(Event::CommitteeAdded(member));
-            Ok(().into())
-        }
-
-        // FIXME 因为每个机器派单都需要质押，所以每个机器都需要质押
-        // 更改设计为：在分派的时候，记录质押数量。如果质押够，则进行后续的分派，如果质押不够，则把该委员会移动到“补充质押的里面”，
-        // 委员会调用这个函数，补充质押,至少补充金额为当前的一次质押
-        // 不能简单的补充质押
-        #[pallet::weight(10000)]
-        pub fn fill_pledge(origin: OriginFor<T>) -> DispatchResultWithPostInfo{
-            let who = ensure_signed(origin)?;
-
-            // 检查是否在fulfill列表中
-            let mut staker = Self::committee();
-            if let Err(_) = staker.fulfill_list.binary_search(&who) {
-                return Err(Error::<T>::NoNeedFulfill.into());
-            }
-
-            // 获取需要质押的数量
-            let min_stake = Self::get_stake_amount();
-            if let None = min_stake {
-                return Err(Error::<T>::MinStakeNotFound.into());
-            }
-            let min_stake = min_stake.unwrap();
-
-            let mut ledger = Self::committee_ledger(&who).unwrap_or(StakingLedger {
-                ..Default::default()
-            });
-
-            // 检查用户余额，更新质押
-            let needed = min_stake - ledger.total;
-            ensure!(needed < <T as Config>::Currency::free_balance(&who), Error::<T>::FreeBalanceNotEnough);
-
-            ledger.active += min_stake - ledger.total;
-            ledger.total = min_stake;
-            Self::update_ledger(&who, &ledger);
-
-            // 从fulfill 移出来，并放到正常委员会列表
-            LCCommitteeList::rm_staker(&mut staker.fulfill_list, &who);
-            LCCommitteeList::add_staker(&mut staker.committee, who.clone());
-
-            Self::deposit_event(Event::CommitteeFulfill(needed));
-
             Ok(().into())
         }
 
@@ -570,27 +539,59 @@ pub mod pallet {
 #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     // 根据DBC价格获得需要质押数量
-    fn get_stake_amount() -> Option<BalanceOf<T>> {
+    fn stake_dbc_amount() -> Option<BalanceOf<T>> {
         let dbc_price: BalanceOf<T> = <dbc_price_ocw::Module<T>>::avg_price()?.saturated_into();
         let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
-        let committee_min_stake: BalanceOf<T> = Self::committee_min_stake().saturated_into();
+        let committee_stake_need: BalanceOf<T> = Self::committee_stake_usd_per_order().saturated_into();
 
-        one_dbc.checked_mul(&committee_min_stake)?.checked_div(&dbc_price)
+        one_dbc.checked_mul(&committee_stake_need)?.checked_div(&dbc_price)
+    }
+
+    // 检查委员会是否有足够的质押
+    // 在每个区块以及每次分配一个机器之后，都需要检查
+    fn check_committee_free_balance() -> Result<(), ()> {
+        let mut committee = Self::committee();
+        let stake_per_gpu = Self::committee_stake_dbc_per_order().ok_or(())?;
+
+        let current_committee = committee.committee.clone();
+        let current_fulfill_list = committee.fulfill_list.clone();
+
+        // 如果free_balance不够，则移动到fulfill_list中
+        for a_committee in current_committee {
+            // 当委员会质押不够时，将委员会移动到fulfill_list中
+            if <T as Config>::Currency::free_balance(&a_committee) < stake_per_gpu {
+                if let Ok(index) = committee.committee.binary_search(&a_committee) {
+                    committee.committee.remove(index);
+                    if let Err(index) = committee.fulfill_list.binary_search(&a_committee) {
+                        committee.fulfill_list.insert(index, a_committee);
+                    }
+                }
+            }
+        }
+        // 如果free_balance够，则移动到正常状态中
+        for a_committee in current_fulfill_list {
+            if <T as Config>::Currency::free_balance(&a_committee) > stake_per_gpu {
+                if let Ok(index) = committee.fulfill_list.binary_search(&a_committee) {
+                    committee.fulfill_list.remove(index);
+                    if let Err(index) = committee.committee.binary_search(&a_committee) {
+                        committee.committee.insert(index, a_committee);
+                    }
+                }
+            }
+        }
+        return Ok(())
     }
 
     // 获取所有新加入的机器，并进行分派给委员会
     fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         for a_machine_id in live_machines.ocw_confirmed_machine {
-            Self::distribute_one_machine(&a_machine_id);
+            let _ = Self::distribute_one_machine(&a_machine_id);
         }
     }
 
-    fn distribute_one_machine(machine_id: &MachineId) {
-        let lucky_committee = Self::lucky_committee();
-        if lucky_committee.len() == 0 {
-            return;
-        }
+    fn distribute_one_machine(machine_id: &MachineId) -> Result<(), ()> {
+        let lucky_committee = Self::lucky_committee().ok_or(())?;
 
         // 每个添加4个小时
         let now = <frame_system::Module<T>>::block_number();
@@ -637,17 +638,21 @@ impl<T: Config> Pallet<T> {
 
         // 将机器状态从ocw_confirmed_machine改为booked_machine
         T::LCOperations::lc_booked_machine(machine_id.clone()); // 最后一步执行这个
+        return Ok(())
     }
 
     // 分派一个machineId给随机的委员会
     // 返回Distribution(9)个随机顺序的账户列表
-    fn lucky_committee() -> Vec<T::AccountId> {
+    fn lucky_committee() -> Option<Vec<T::AccountId>> {
+        // 检查质押数量如果有委员会质押数量不够，则重新获取lucky_committee
+        Self::check_committee_free_balance().ok()?;
+
         let staker = Self::committee();
         let mut verify_schedule = Vec::new();
 
         // 如果委员会数量为0，直接返回空列表
         if staker.committee.len() == 0 {
-            return verify_schedule;
+            return None;
         }
 
         // 每n个区间，委员会循环一次, 这个区间n最大为3，最小为committee.len()
@@ -687,7 +692,7 @@ impl<T: Config> Pallet<T> {
             committee.remove(lucky);
         }
 
-        verify_schedule
+        Some(verify_schedule)
     }
 
     fn statistic_result() {
