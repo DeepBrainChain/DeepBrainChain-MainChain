@@ -81,6 +81,15 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
+        pub fn return_err_test(origin: OriginFor<T>, in_num: u32) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
+            if in_num == 0 {
+                return Err(Error::<T>::TestError.into());
+            }
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
         pub fn set_things5(
             origin: OriginFor<T>,
             new_data: TestMachineInfo<T::AccountId, T::BlockNumber>,
@@ -209,6 +218,11 @@ pub mod pallet {
             );
             Ok(().into())
         }
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        TestError,
     }
 }
 

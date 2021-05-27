@@ -5,6 +5,7 @@
   "OrderId": "u64",
   "LiveMachine": {
     "bonding_machine": "Vec<MachineId>",
+    "ocw_confirming_machine": "Vec<MachineId",
     "ocw_confirmed_machine": "Vec<MachineId>",
     "booked_machine": "Vec<MachineId>",
     "waiting_hash": "Vec<MachineId>",

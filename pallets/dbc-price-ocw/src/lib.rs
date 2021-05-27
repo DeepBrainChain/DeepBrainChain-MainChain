@@ -41,7 +41,7 @@ pub mod pallet {
     // https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD
     #[pallet::storage]
     #[pallet::getter(fn price_url)]
-    pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>, ValueQuery>;
+    pub(super) type PriceURL<T> = StorageValue<_, Vec<URL>>;
 
     /// avgPrice = price * 10**6 usd
     #[pallet::storage]
@@ -69,7 +69,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
-            if Self::price_url().len() == 0 {
+            if let None = Self::price_url() {
                 return
             }
 
@@ -102,9 +102,14 @@ pub mod pallet {
         pub fn add_price_url(origin: OriginFor<T>, new_url: URL) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
-            let mut price_url = PriceURL::<T>::get();
-            price_url.push(new_url);
-            PriceURL::<T>::put(price_url);
+            if let Some(mut price_url) = Self::price_url() {
+                price_url.push(new_url);
+                PriceURL::<T>::put(price_url);
+            } else {
+                let mut out = Vec::new();
+                out.push(new_url);
+                PriceURL::<T>::put(out);
+            }
 
             Ok(().into())
         }
@@ -113,11 +118,13 @@ pub mod pallet {
         pub fn rm_price_url_by_index(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
-            let mut price_url = PriceURL::<T>::get();
-            ensure!(index > price_url.len() as u32, Error::<T>::IndexOutOfRange);
-
-            price_url.remove(index as usize);
-            PriceURL::<T>::put(price_url);
+            if let Some(mut price_url) = Self::price_url() {
+                ensure!(index < price_url.len() as u32, Error::<T>::IndexOutOfRange);
+                price_url.remove(index as usize);
+                PriceURL::<T>::put(price_url);
+            } else {
+                return Err(Error::<T>::IndexOutOfRange.into())
+            }
 
             Ok(().into())
         }
@@ -146,9 +153,13 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn gen_rand_url() -> u32 {
-        let price_url = PriceURL::<T>::get();
-        <random_num::Module<T>>::random_u32((price_url.len() - 1) as u32)
+    fn gen_rand_url() -> Option<u32> {
+        if let Some(price_url) = Self::price_url() {
+            return Some(<random_num::Module<T>>::random_u32(
+                (price_url.len() - 1) as u32,
+            ));
+        }
+        return None;
     }
 
     fn fetch_price_and_send_unsigned_tx() -> Result<(), Error<T>> {
@@ -165,8 +176,18 @@ impl<T: Config> Pallet<T> {
     fn fetch_price() -> Result<u64, http::Error> {
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
 
-        let price_url = PriceURL::<T>::get();
+        let price_url = Self::price_url();
+        if let None = price_url {
+            return Err(http::Error::Unknown);
+        }
+        let price_url = price_url.unwrap();
+
         let rand_price_url_index = Self::gen_rand_url();
+        if let None = rand_price_url_index {
+            return Err(http::Error::Unknown);
+        }
+        let rand_price_url_index = rand_price_url_index.unwrap();
+
         let price_url = str::from_utf8(&price_url[rand_price_url_index as usize])
             .map_err(|_| http::Error::Unknown)?;
 

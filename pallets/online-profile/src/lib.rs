@@ -115,10 +115,8 @@ impl Default for MachineStatus {
 pub struct LiveMachine {
     pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
     pub ocw_confirming_machine: Vec<MachineId>, // ocw把bonding_machine移动到这个列表，表示一个ocw正在处理的机器id，避免多个ocw同时处理一个机器Id
-    pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段
-    // 当machine的确认hash未满时, 委员会从cow_confirmed_machine中读取可以审查的机器ID,
-    // 添加确认信息之后，状态变为`ocw_confirmed_machine`，这时可以继续抢单.但已经打分过的委员不能抢该单
-    pub booked_machine: Vec<MachineId>,
+    pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段。该状态可以由lc分配订单
+    pub booked_machine: Vec<MachineId>, // 当机器已经全部分配了委员会，则变为该状态。若lc确认机器失败(认可=不认可)则返回上一状态，重新分派订单
     pub waiting_hash: Vec<MachineId>, // 当全部委员会添加了全部confirm hash之后，机器添加到waiting_hash，这时，用户可以添加confirm_raw
     pub bonded_machine: Vec<MachineId>, // 当全部委员会添加了confirm_raw之后，机器被成功绑定，变为bonded_machine状态
 }
@@ -217,11 +215,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn cur_stake_per_gpu)]
     pub(super) type CurStakePerGPU<T> = StorageValue<_, BalanceOf<T>>;
-
-    // 用户第一次添加机器需要的质押
-    #[pallet::storage]
-    #[pallet::getter(fn first_bond_stake)]
-    pub(super) type FirstBondStake<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     // 当前系统中工作的GPU数量
     #[pallet::storage]
@@ -351,14 +344,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 设置用户第一次质押时，需要质押的数量
-        #[pallet::weight(0)]
-        pub fn set_first_bond_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            FirstBondStake::<T>::put(amount);
-            Ok(().into())
-        }
-
         // TODO: 删除该方法。该方法用来添加临时接口，以返回所有质押者的rpc接口
         #[pallet::weight(0)]
         pub fn add_temp_account(origin: OriginFor<T>, new_account: T::AccountId) -> DispatchResultWithPostInfo {
@@ -376,7 +361,7 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
 
             // 用户第一次绑定机器需要质押的数量
-            let first_bond_stake = Self::first_bond_stake();
+            let first_bond_stake = Self::stake_per_gpu();
 
             // 资金检查,确保机器还没有被绑定过
             ensure!(<T as Config>::Currency::free_balance(&controller) > first_bond_stake, Error::<T>::BalanceNotEnough);
@@ -871,14 +856,31 @@ impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
 
-    fn book_machine(_id: MachineId) {}
-    // fn submit_confirm_hash(who: T::AccountId, machine_id: MachineId, raw_hash: MachineId) {}
-    // fn submit_raw_confirmation(
-    //     who: T::AccountId,
-    //     machine_id: MachineId,
-    //     raw_confirmation: MachineId,
-    // ) {
-    // }
+    // 委员会订阅了一个机器ID
+    // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
+    fn lc_booked_machine(id: MachineId) {
+        let mut live_machines = Self::live_machines();
+
+        LiveMachine::rm_machine_id(&mut live_machines.ocw_confirmed_machine, &id);
+        LiveMachine::add_machine_id(&mut live_machines.booked_machine, id.clone());
+        LiveMachines::<T>::put(live_machines);
+
+        let mut machine_info = Self::machines_info(&id);
+        machine_info.machine_status = MachineStatus::Booked;
+        MachinesInfo::<T>::insert(&id, machine_info);
+    }
+
+    // 由于委员会没有达成一致，需要重新返回到bonding_machine
+    fn lc_revert_booked_machine(id: MachineId) {
+        let mut live_machines = Self::live_machines();
+
+        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &id);
+        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id.clone());
+
+        let mut machine_info = Self::machines_info(&id);
+        machine_info.machine_status = MachineStatus::Bonding;
+        MachinesInfo::<T>::insert(&id, machine_info);
+    }
 
     // 当多个委员会都对机器进行了确认之后，机器的分数被添加上
     fn confirm_machine_grade(who: T::AccountId, machine_id: MachineId, is_confirmed: bool) {
@@ -904,31 +906,6 @@ impl<T: Config> LCOps for Pallet<T> {
         }
 
         MachinesInfo::<T>::insert(machine_id.clone(), machine_info.clone());
-    }
-
-    // 委员会订阅了一个机器ID
-    fn lc_add_booked_machine(id: MachineId) {
-        let mut live_machines = Self::live_machines();
-
-        LiveMachine::rm_machine_id(&mut live_machines.ocw_confirmed_machine, &id);
-        LiveMachine::add_machine_id(&mut live_machines.booked_machine, id.clone());
-        LiveMachines::<T>::put(live_machines);
-
-        let mut machine_info = Self::machines_info(&id);
-        machine_info.machine_status = MachineStatus::Booked;
-        MachinesInfo::<T>::insert(&id, machine_info);
-    }
-
-    // 由于委员会没有达成一致，需要重新返回到bonding_machine
-    fn lc_revert_booked_machine(id: MachineId) {
-        let mut live_machines = Self::live_machines();
-
-        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &id);
-        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id.clone());
-
-        let mut machine_info = Self::machines_info(&id);
-        machine_info.machine_status = MachineStatus::Bonding;
-        MachinesInfo::<T>::insert(&id, machine_info);
     }
 }
 
