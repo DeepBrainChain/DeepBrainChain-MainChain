@@ -1058,7 +1058,6 @@ impl lease_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type LCOperations = OnlineProfile;
-    type BondingDuration = BondingDuration;
 }
 
 impl maintain_committee::Config for Runtime {

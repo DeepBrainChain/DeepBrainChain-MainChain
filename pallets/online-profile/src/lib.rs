@@ -594,22 +594,10 @@ impl<T: Config> Pallet<T> {
 
         // 计算5w RMB 等值DBC数量
         // dbc_amount = dbc_stake_usd_limit * 10^15 / dbc_price
-        let dbc_price = <dbc_price_ocw::Module<T>>::avg_price();
+        let dbc_price: BalanceOf<T> = <dbc_price_ocw::Module<T>>::avg_price()?.saturated_into();
         let stake_usd_limit: BalanceOf<T> = Self::stake_usd_limit().saturated_into();
-        if let None = dbc_price {
-            return None;
-        }
-        let dbc_price: BalanceOf<T>= dbc_price.unwrap().saturated_into();
-        let dbc_amount = one_dbc.checked_mul(&stake_usd_limit);
-        if let None = dbc_amount {
-            return None
-        }
-        let dbc_amount = dbc_amount.unwrap();
-        let dbc_amount = dbc_amount.checked_div(&dbc_price);
-        if let None = dbc_amount {
-            return None
-        }
-        let dbc_amount = dbc_amount.unwrap();
+        let dbc_amount = one_dbc.checked_mul(&stake_usd_limit)?;
+        let dbc_amount = dbc_amount.checked_div(&dbc_price)?;
 
         // 当前成功加入系统的GPU数量
         let total_gpu_num = Self::total_gpu_num();

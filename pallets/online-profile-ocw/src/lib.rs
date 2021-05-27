@@ -237,11 +237,8 @@ impl<T: Config> Pallet<T> {
     fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
         let mut data: [u8; 35] = [0; 35];
 
-        if let Ok(length) = bs58::decode(addr).into(&mut data) {
-            if length != 35 {
-                return None;
-            }
-        } else {
+        let length = bs58::decode(addr).into(&mut data).ok()?;
+        if length != 35 {
             return None;
         }
 
@@ -250,16 +247,9 @@ impl<T: Config> Pallet<T> {
             _ => return None,
         };
 
-        let account_id32: Result<[u8; 32], _> = data[1..33].try_into();
-        if let Err(_) = account_id32 {
-            return None;
-        }
+        let account_id32: [u8; 32] = data[1..33].try_into().ok()?;
 
-        let account_id32 = account_id32.unwrap();
-        if let Ok(wallet)= T::AccountId::decode(&mut &account_id32[..]) {
-            return Some(wallet);
-        };
-        return None;
+        T::AccountId::decode(&mut &account_id32[..]).ok()
     }
 
     // 产生一组随机的机器信息URL，并更新到存储
@@ -333,12 +323,8 @@ impl<T: Config> Pallet<T> {
         let mut machine_wallet = Vec::new();
 
         for url in info_url.iter() {
-            let ocw_machine_info = Self::fetch_machine_info(&url, id);
-            if let Err(e) = ocw_machine_info {
-                debug::error!("fetch_machine_info failed: {:?}", e);
-                return None;
-            }
-            let ocw_machine_info = ocw_machine_info.unwrap();
+            let ocw_machine_info = Self::fetch_machine_info(&url, id).ok()?;
+
             if ocw_machine_info.data.wallet.len() != 1 {
                 return None;
             }
@@ -353,16 +339,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _vec_u8_to_u64(num_str: &Vec<u8>) -> Option<u64> {
-        let num_str = str::from_utf8(num_str);
-        if let Err(_e) = num_str {
-            return None;
-        }
-        let num_out: u64 = match num_str.unwrap().parse() {
-            Ok(num) => num,
-            Err(_e) => return None,
-        };
-
-        return Some(num_out);
+        str::from_utf8(num_str).ok()?.parse().ok()
     }
 
     fn _vec_identical<C: PartialEq + Copy>(arr: &[C]) -> bool {

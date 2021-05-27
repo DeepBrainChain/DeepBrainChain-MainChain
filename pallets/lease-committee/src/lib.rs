@@ -11,6 +11,8 @@
 //      2. Hash(机器原始信息，委员会随机字符串, bool) == Hash1
 // 如果没有人提交信息，则进行新一轮随机派发。
 
+// 成功上线，则退还委员会质押
+
 // 钱包地址：xxxx
 // 钱包签名信息：xxxx
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -19,25 +21,22 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
+    traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 // use online_profile::types::*;
 use online_profile::MachineInfoByCommittee;
 use online_profile_machine::LCOps;
-use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
+use sp_runtime::{
+    traits::{CheckedDiv, CheckedMul, SaturatedConversion},
+    RuntimeDebug,
+};
 use sp_std::{prelude::*, str, vec::Vec};
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct PendingVerify<BlockNumber> {
-    pub machine_id: MachineId,
-    pub add_height: BlockNumber,
-}
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"leasecom";
 pub const DISTRIBUTION: u32 = 9; // 分成9个区间进行验证
@@ -50,6 +49,16 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
+
+// 记录用户的质押及罚款
+// FIXME: 这个也应该改成记录总质押，否则用户抢了多个单，会有问题
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default)]
+pub struct StakingLedger<Balance: HasCompact> {
+    #[codec(compact)]
+    pub total: Balance,
+    #[codec(compact)]
+    pub active: Balance,
+}
 
 // 记录处于不同状态的委员会的列表，方便派单
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -90,15 +99,6 @@ impl<AccountId: Ord> LCCommitteeList<AccountId> {
     }
 }
 
-// 记录用户的质押及罚款
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default)]
-pub struct StakingLedger<Balance: HasCompact> {
-    #[codec(compact)]
-    pub total: Balance,
-    #[codec(compact)]
-    pub active: Balance,
-}
-
 // 从用户地址查询绑定的机器列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LCCommitteeMachineList {
@@ -131,6 +131,7 @@ pub struct LCCommitteeOps<BlockNumber> {
     pub machine_status: MachineStatus,
 }
 
+// TODO: 增加机器的状态的记录
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineStatus {
     Booked,
@@ -144,20 +145,6 @@ impl Default for MachineStatus {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum CommitteeStatus<BlockNumber> {
-    NotCommittee,          // 非委员会，默认状态
-    Health,                // 正常的委员会状态
-    FillingPledge,         // 需要等待补充押金
-    Chilling(BlockNumber), // 正在退出的状态, 记录Chill时的高度，当达到质押限制时，则可以退出
-}
-
-impl<BlockNumber> Default for CommitteeStatus<BlockNumber> {
-    fn default() -> Self {
-        CommitteeStatus::NotCommittee
-    }
-}
-
 #[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
@@ -168,7 +155,6 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type LCOperations: LCOps<AccountId = Self::AccountId, MachineId = MachineId>;
-        type BondingDuration: Get<EraIndex>;
     }
 
     #[pallet::pallet]
@@ -207,17 +193,6 @@ pub mod pallet {
     #[pallet::getter(fn committee_min_stake)]
     pub(super) type CommitteeMinStake<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-    // 设定委员会审查所需时间，单位：块高
-    #[pallet::type_value]
-    pub fn ConfirmTimeLimitDefault<T: Config>() -> T::BlockNumber {
-        480u32.into()
-    }
-
-    // 记录用户需要在book之后，多少个高度内完成确认
-    #[pallet::storage]
-    #[pallet::getter(fn confirm_time_limit)]
-    pub(super) type ConfirmTimeLimit<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery, ConfirmTimeLimitDefault<T>>;
-
     #[pallet::storage]
     #[pallet::getter(fn committee)]
     pub(super) type Committee<T: Config> = StorageValue<_, LCCommitteeList<T::AccountId>, ValueQuery>;
@@ -233,37 +208,19 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn committee_ops)]
-    pub(super) type CommitteeOps<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Blake2_128Concat,
-        MachineId,
-        LCCommitteeOps<T::BlockNumber>,
-        ValueQuery,
-    >;
+    pub(super) type CommitteeOps<T: Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, MachineId, LCCommitteeOps<T::BlockNumber>, ValueQuery>;
 
-    // #[pallet::storage]
-    // #[pallet::getter(fn black_list)]
-    // pub(super) type BlackList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
-
+    // FIXME
     #[pallet::storage]
     #[pallet::getter(fn committee_ledger)]
-    pub(super) type CommitteeLedger<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Option<StakingLedger<BalanceOf<T>>>,
-        ValueQuery,
-    >;
+    pub(super) type CommitteeLedger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Option<StakingLedger<BalanceOf<T>>>, ValueQuery>;
 
     #[pallet::call]
-    #[rustfmt::skip]
     impl<T: Config> Pallet<T> {
         // 设置committee的最小质押，一般等于两天的奖励
-        /// set min stake to become committee, value: usd * 10^6
+        // 单位为usd * 10^6
         #[pallet::weight(0)]
-        pub fn set_min_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
+        pub fn set_committee_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             CommitteeMinStake::<T>::put(value);
             Ok(().into())
@@ -285,6 +242,10 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // FIXME 因为每个机器派单都需要质押，所以每个机器都需要质押
+        // 更改设计为：在分派的时候，记录质押数量。如果质押够，则进行后续的分派，如果质押不够，则把该委员会移动到“补充质押的里面”，
+        // 委员会调用这个函数，补充质押,至少补充金额为当前的一次质押
+        // 不能简单的补充质押
         #[pallet::weight(10000)]
         pub fn fill_pledge(origin: OriginFor<T>) -> DispatchResultWithPostInfo{
             let who = ensure_signed(origin)?;
@@ -296,7 +257,7 @@ pub mod pallet {
             }
 
             // 获取需要质押的数量
-            let min_stake = Self::get_min_stake_amount();
+            let min_stake = Self::get_stake_amount();
             if let None = min_stake {
                 return Err(Error::<T>::MinStakeNotFound.into());
             }
@@ -437,7 +398,6 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let mut machine_committee = Self::machine_committee(&machine_id);
-            let left_schedule = machine_committee.booked_committee.len();
 
             // 从机器信息列表中移除所有该委员的任务
             if let Err(_) = machine_committee.booked_committee.binary_search(&who) {
@@ -607,29 +567,15 @@ pub mod pallet {
     }
 }
 
-// #[rustfmt::skip]
+#[rustfmt::skip]
 impl<T: Config> Pallet<T> {
-    // TODO: 实现machine_info hash
-    // fn get_machine_info_hash(machine_info: MachineInfoByCommittee) -> [u8; 16] {
-    //     let a: [u8; 16] = [0; 16];
-    //     return a;
-    // }
+    // 根据DBC价格获得需要质押数量
+    fn get_stake_amount() -> Option<BalanceOf<T>> {
+        let dbc_price: BalanceOf<T> = <dbc_price_ocw::Module<T>>::avg_price()?.saturated_into();
+        let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
+        let committee_min_stake: BalanceOf<T> = Self::committee_min_stake().saturated_into();
 
-    // fn hash_is_identical(raw_input: &Vec<u8>, hash: [u8; 16]) -> bool {
-    //     let raw_hash: [u8; 16] = blake2_128(raw_input);
-    //     return raw_hash == hash;
-    // }
-
-    // 根据DBC价格获得最小质押数量
-    fn get_min_stake_amount() -> Option<BalanceOf<T>> {
-        let dbc_price = <dbc_price_ocw::Module<T>>::avg_price();
-        if let None = dbc_price {
-            return None;
-        }
-        let dbc_price = dbc_price.unwrap();
-        let committee_min_stake = Self::committee_min_stake();
-
-        return Some((committee_min_stake / dbc_price).saturated_into());
+        one_dbc.checked_mul(&committee_min_stake)?.checked_div(&dbc_price)
     }
 
     // 获取所有新加入的机器，并进行分派给委员会
@@ -777,11 +723,11 @@ impl<T: Config> Pallet<T> {
     fn revert_book(machine_id: MachineId) {
         T::LCOperations::lc_revert_booked_machine(machine_id.clone());
 
-        let mut machine_committee = Self::machine_committee(&machine_id);
+        let machine_committee = Self::machine_committee(&machine_id);
         for booked_committee in machine_committee.booked_committee {
-            OpsDetail::<T>::remove(&booked_committee, &machine_id);
+            CommitteeOps::<T>::remove(&booked_committee, &machine_id);
 
-            let mut committee_machine = Self::committee_machine();
+            let mut committee_machine = Self::committee_machine(&booked_committee);
             if let Ok(index) = committee_machine.booked_machine.binary_search(&machine_id) {
                 committee_machine.booked_machine.remove(index);
             }
