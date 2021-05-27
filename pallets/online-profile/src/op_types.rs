@@ -24,10 +24,12 @@ pub struct MachineInfoByCommittee {
     pub download_net: u64,
     pub cpu_type: Vec<u8>,
     pub cpu_core_num: u32,
+    pub rand_str: Vec<u8>,
+    pub is_support: u32, // 0 表示反对，其他表示支持
 }
 
 impl MachineInfoByCommittee {
-    pub fn hash(&self, rand_str: Vec<u8>) -> [u8; 16] {
+    pub fn hash(&self) -> [u8; 16] {
         let gpu_num: Vec<u8> = self.gpu_num.to_string().into();
         let cuda_core: Vec<u8> = self.cuda_core.to_string().into();
         let gpu_mem: Vec<u8> = self.gpu_mem.to_string().into();
@@ -36,6 +38,7 @@ impl MachineInfoByCommittee {
         let upload_net: Vec<u8> = self.upload_net.to_string().into();
         let download_net: Vec<u8> = self.download_net.to_string().into();
         let cpu_core_num: Vec<u8> = self.cpu_core_num.to_string().into();
+        let is_support: Vec<u8> = self.is_support.to_string().into();
 
         let mut raw_info = Vec::new();
         raw_info.extend(self.machine_id.clone());
@@ -49,8 +52,8 @@ impl MachineInfoByCommittee {
         raw_info.extend(download_net);
         raw_info.extend(self.cpu_type.clone());
         raw_info.extend(cpu_core_num);
-
-        raw_info.extend(rand_str);
+        raw_info.extend(self.rand_str.clone());
+        raw_info.extend(is_support);
 
         return blake2_128(&raw_info);
     }
