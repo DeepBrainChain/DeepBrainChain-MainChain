@@ -17,7 +17,7 @@
 // 钱包签名信息：xxxx
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, HasCompact};
+use codec::{Decode, Encode};
 use frame_support::{
     ensure,
     pallet_prelude::*,
@@ -28,7 +28,7 @@ use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use online_profile::MachineInfoByCommittee;
 use online_profile_machine::LCOps;
 use sp_runtime::{
-    traits::{CheckedDiv, CheckedMul, SaturatedConversion},
+    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion},
     RuntimeDebug,
 };
 use sp_std::{prelude::*, str, vec::Vec};
@@ -50,17 +50,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-// 记录用户的质押及罚款
-// FIXME: 这个也应该改成记录总质押，否则用户抢了多个单，会有问题
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default)]
-pub struct StakingLedger<Balance: HasCompact> {
-    #[codec(compact)]
-    pub total: Balance,
-    #[codec(compact)]
-    pub active: Balance,
-}
-
-// 记录处于不同状态的委员会的列表，方便派单
+// // 记录处于不同状态的委员会的列表，方便派单
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LCCommitteeList<AccountId: Ord> {
     pub committee: Vec<AccountId>,    // 质押并通过社区选举的委员会
@@ -120,8 +110,9 @@ pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct LCCommitteeOps<BlockNumber> {
+pub struct LCCommitteeOps<BlockNumber, Balance> {
     pub booked_time: BlockNumber,
+    pub staked_dbc: Balance,
     pub verify_time: Vec<BlockNumber>,
     pub confirm_hash: [u8; 16],
     pub hash_time: BlockNumber,
@@ -205,6 +196,10 @@ pub mod pallet {
     pub(super) type CommitteeStakeDBCPerOrder<T: Config> = StorageValue<_, BalanceOf<T>>;
 
     #[pallet::storage]
+    #[pallet::getter(fn committee_total_stake)]
+    pub(super) type CommitteeTotalStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
+
+    #[pallet::storage]
     #[pallet::getter(fn committee)]
     pub(super) type Committee<T: Config> = StorageValue<_, LCCommitteeList<T::AccountId>, ValueQuery>;
 
@@ -219,12 +214,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn committee_ops)]
-    pub(super) type CommitteeOps<T: Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, MachineId, LCCommitteeOps<T::BlockNumber>, ValueQuery>;
-
-    // FIXME
-    #[pallet::storage]
-    #[pallet::getter(fn committee_ledger)]
-    pub(super) type CommitteeLedger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Option<StakingLedger<BalanceOf<T>>>, ValueQuery>;
+    pub(super) type CommitteeOps<T: Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, MachineId, LCCommitteeOps<T::BlockNumber, BalanceOf<T>>, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -316,13 +306,7 @@ pub mod pallet {
             LCCommitteeList::rm_staker(&mut staker.chill_list, &who);
 
             Committee::<T>::put(staker);
-            let ledger = Self::committee_ledger(&who);
-            if let Some(mut ledger) = ledger {
-                ledger.total = 0u32.into();
-                Self::update_ledger(&who, &ledger);
-            }
 
-            CommitteeLedger::<T>::remove(&who);
             Self::deposit_event(Event::ExitFromCandidacy(who));
 
             return Ok(().into());
@@ -595,104 +579,86 @@ impl<T: Config> Pallet<T> {
 
         // 每个添加4个小时
         let now = <frame_system::Module<T>>::block_number();
-        let start_time: Vec<_> = (0..DISTRIBUTION)
-            .map(|x| now + (x * 3600u32 / 30 * 4).into())
-            .collect();
+        let confirm_start = now + (3600u32 / 30 * 36).into(); // 添加确认信息时间为分发之后的36小时
 
-        // 修改机器的操作历史信息：记录分配的委员会及开始时间
-        // TODO: 有优化点
-        for (a_committee, &start_time) in lucky_committee.iter().zip(start_time.iter()) {
-            let mut committee_ops = Self::committee_ops(&a_committee, &machine_id);
-            committee_ops.booked_time = now;
-            committee_ops.verify_time.push(start_time);
-            CommitteeOps::<T>::insert(a_committee, machine_id, committee_ops);
+        for a_book in lucky_committee {
+            let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, a_book);
         }
-
-        // 修改机器对应的委员会
-        let mut machine_committee = Self::machine_committee(machine_id);
-        machine_committee.book_time = now;
-        machine_committee.confirm_start = now + (3600u32 / 30 * 36).into(); // 添加确认信息时间为分发之后的36小时
-        for a_committee in lucky_committee.clone().into_iter() {
-            // 记录该机器分配的委员会到booked_committee
-            if let Err(index) = machine_committee
-                .booked_committee
-                .binary_search(&a_committee)
-            {
-                machine_committee
-                    .booked_committee
-                    .insert(index, a_committee.clone());
-            }
-
-            // 修改委员会的机器, 记录委员会分配了哪些机器
-            // TODO: 有优化点
-            let mut committee_machine = Self::committee_machine(a_committee.clone());
-            if let Err(index) = committee_machine.booked_machine.binary_search(&machine_id) {
-                committee_machine
-                    .booked_machine
-                    .insert(index, machine_id.to_vec());
-            }
-            CommitteeMachine::<T>::insert(a_committee, committee_machine);
-        }
-
-        MachineCommittee::<T>::insert(machine_id, machine_committee);
 
         // 将机器状态从ocw_confirmed_machine改为booked_machine
         T::LCOperations::lc_booked_machine(machine_id.clone()); // 最后一步执行这个
-        return Ok(())
+        Ok(())
     }
+
+    // 一个委员会进行操作
+    fn book_one(machine_id: MachineId, confirm_start: T::BlockNumber,
+                now: T::BlockNumber,order_time: (T::AccountId, Vec<usize>)) -> Result<(), ()> {
+
+        // 增加质押
+        let stake_need = Self::committee_stake_dbc_per_order().ok_or(())?;
+        Self::add_stake(&order_time.0, stake_need)?;
+
+        // 修改machine对应的委员会
+        let mut machine_committee = Self::machine_committee(&machine_id);
+        machine_committee.book_time = now;
+        if let Err(index) = machine_committee.booked_committee.binary_search(&order_time.0) {
+            machine_committee.booked_committee.insert(index, order_time.0.clone());
+        }
+        machine_committee.confirm_start = confirm_start;
+
+        // 修改委员会对应的machine
+        let mut committee_machine = Self::committee_machine(&order_time.0);
+        if let Err(index) = committee_machine.booked_machine.binary_search(&machine_id) {
+            committee_machine.booked_machine.insert(index, machine_id.clone());
+        }
+
+        // 修改委员会的操作
+        let mut committee_ops = Self::committee_ops(&order_time.0, &machine_id);
+        committee_ops.booked_time = now;
+        committee_ops.staked_dbc = stake_need;
+        let start_time: Vec<_> = (0..order_time.1.len()).map(|x| now + (x as u32 * 3600u32 / 30 * 4).into()).collect();
+        committee_ops.verify_time = start_time;
+
+        // 存储变量
+        MachineCommittee::<T>::insert(&machine_id, machine_committee);
+        CommitteeMachine::<T>::insert(&order_time.0, committee_machine);
+        CommitteeOps::<T>::insert(&order_time.0, &machine_id, committee_ops);
+
+        Ok(())
+    }
+
 
     // 分派一个machineId给随机的委员会
     // 返回Distribution(9)个随机顺序的账户列表
-    fn lucky_committee() -> Option<Vec<T::AccountId>> {
+    fn lucky_committee() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
         // 检查质押数量如果有委员会质押数量不够，则重新获取lucky_committee
         Self::check_committee_free_balance().ok()?;
 
         let staker = Self::committee();
-        let mut verify_schedule = Vec::new();
-
+        let mut committee = staker.committee.clone();
         // 如果委员会数量为0，直接返回空列表
-        if staker.committee.len() == 0 {
+        if committee.len() == 0 {
             return None;
         }
 
-        // 每n个区间，委员会循环一次, 这个区间n最大为3，最小为committee.len()
-        let lucky_committee_len = if staker.committee.len() < 3 {
-            staker.committee.len()
-        } else {
-            3
-        };
+        // 有多少个幸运的委员会： min(staker.committee.len(), 3)
+        let lucky_committee_num = committee.len().min(3);
 
-        // 选出lucky_committee_len个委员会
-        let mut committee = staker.committee.clone();
+        // 选出lucky_committee_num个委员会
         let mut lucky_committee = Vec::new();
-        for _ in 0..lucky_committee_len {
-            let lucky_index =
-                <random_num::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
-            lucky_committee.push(committee[lucky_index].clone());
+
+        for _ in 0..lucky_committee_num {
+            let lucky_index = <random_num::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+            lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
             committee.remove(lucky_index);
         }
 
-        let repeat_slot = DISTRIBUTION as usize / lucky_committee_len;
-        let extra_slot = DISTRIBUTION as usize % lucky_committee_len;
-
-        for _ in 0..repeat_slot {
-            let mut committee = lucky_committee.clone();
-            for _ in 0..committee.len() {
-                let lucky =
-                    <random_num::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
-                verify_schedule.push(committee[lucky].clone());
-                committee.remove(lucky);
-            }
+        for i in 0..DISTRIBUTION as usize {
+            let index = i % lucky_committee_num;
+            lucky_committee[index].1.push(i);
         }
 
-        for _ in 0..extra_slot {
-            let mut committee = lucky_committee.clone();
-            let lucky = <random_num::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
-            verify_schedule.push(committee[lucky].clone());
-            committee.remove(lucky);
-        }
-
-        Some(verify_schedule)
+        Some(lucky_committee)
     }
 
     fn statistic_result() {
@@ -726,6 +692,7 @@ impl<T: Config> Pallet<T> {
     // 该函数将清除本模块信息，并将online_profile机器状态改为ocw_confirmed_machine
     // 清除信息： LCCommitteeMachineList, LCMachineCommitteeList, LCCommitteeOps
     fn revert_book(machine_id: MachineId) {
+        // TODO: 查询质押，并退还质押
         T::LCOperations::lc_revert_booked_machine(machine_id.clone());
 
         let machine_committee = Self::machine_committee(&machine_id);
@@ -771,13 +738,19 @@ impl<T: Config> Pallet<T> {
         return (support, against);
     }
 
-    fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<BalanceOf<T>>) {
-        <T as Config>::Currency::set_lock(
-            PALLET_LOCK_ID,
-            controller,
-            ledger.total,
-            WithdrawReasons::all(),
-        );
-        <CommitteeLedger<T>>::insert(controller, Some(ledger));
+    fn add_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        let total_stake = Self::committee_total_stake(&controller).ok_or(())?;
+        let new_stake = total_stake.checked_add(&amount).ok_or(())?;
+
+        <T as Config>::Currency::set_lock(PALLET_LOCK_ID, controller, new_stake, WithdrawReasons::all());
+        Ok(())
+    }
+
+    fn reduce_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        let total_stake = Self::committee_total_stake(&controller).ok_or(())?;
+        let new_stake = total_stake.checked_sub(&amount).ok_or(())?;
+
+        <T as Config>::Currency::set_lock(PALLET_LOCK_ID, controller, new_stake, WithdrawReasons::all());
+        Ok(())
     }
 }
