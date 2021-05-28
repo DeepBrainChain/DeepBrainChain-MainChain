@@ -12,6 +12,7 @@ use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
     pallet_prelude::*,
 };
+use machine_info::OneWallet;
 use online_profile_machine::OCWOps;
 use sp_runtime::{offchain, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
@@ -125,7 +126,6 @@ pub mod pallet {
 
             let bookable_machine = <online_profile::Pallet<T>>::ocw_booking_machine();
             for machine_id in bookable_machine.iter() {
-                // let ocw_machine_info = Self::machine_info_identical(machine_id);
                 let machine_bonded_wallet = Self::get_machine_info_identical_wallet(machine_id);
 
                 let result = Self::call_ocw_machine_info(machine_id.to_vec(), machine_bonded_wallet);
@@ -330,8 +330,8 @@ impl<T: Config> Pallet<T> {
             }
 
             if machine_wallet.len() == 0 {
-                machine_wallet.push(ocw_machine_info.data.wallet)
-            } else if machine_wallet[0] != ocw_machine_info.data.wallet {
+                machine_wallet.push(ocw_machine_info.data.wallet[0].one_wallet.clone())
+            } else if machine_wallet[0] != ocw_machine_info.data.wallet[0].one_wallet {
                 return None;
             }
         }

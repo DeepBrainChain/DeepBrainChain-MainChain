@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 
+# example: python simple_server.py a.json 8000
+# 在8000端口返回该json文件
+
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import sys
 
-filename = 'machine_info.json'
+# filename = 'machine_info.json'
 
-with open(filename) as f:
+with open(sys.argv[1]) as f:
     data = f.read().encode()
- 
-host = ('localhost', int(sys.argv[1]))
+
+host = ('localhost', int(sys.argv[2]))
 
 class Response(BaseHTTPRequestHandler):
     def do_GET(self):
