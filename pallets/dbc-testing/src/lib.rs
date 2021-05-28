@@ -210,12 +210,25 @@ pub mod pallet {
 
         #[pallet::weight(0)]
         fn test_blake2_128(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            ensure_signed(origin)?;
+            ensure_root(origin)?;
             let encode_data: [u8; 16] = blake2_128(&b"Hello world!"[..]); // .to_vec().encode();
             debug::info!(
                 "###### blake2_128 Hash of Hello world! is: {:?}",
                 encode_data
             );
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        fn test_submit_hash(origin: OriginFor<T>, hash: [u8; 16]) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let encode_data: [u8; 16] = blake2_128(&b"Hello world!"[..]); // .to_vec().encode();
+            if encode_data == hash {
+                debug::info!("##### good hash {:?}", hash);
+            } else {
+                debug::info!("##### bad hash {:?}", hash);
+            }
+
             Ok(().into())
         }
     }

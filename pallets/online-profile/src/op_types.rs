@@ -25,7 +25,7 @@ pub struct MachineInfoByCommittee {
     pub cpu_type: Vec<u8>,
     pub cpu_core_num: u32,
     pub rand_str: Vec<u8>,
-    pub is_support: u32, // 0 表示反对，其他表示支持
+    pub is_support: bool, // 0 表示反对，其他表示支持
 }
 
 impl MachineInfoByCommittee {
@@ -38,7 +38,14 @@ impl MachineInfoByCommittee {
         let upload_net: Vec<u8> = self.upload_net.to_string().into();
         let download_net: Vec<u8> = self.download_net.to_string().into();
         let cpu_core_num: Vec<u8> = self.cpu_core_num.to_string().into();
-        let is_support: Vec<u8> = self.is_support.to_string().into();
+
+        let is_support: Vec<u8> = if self.is_support {
+            "true".into()
+        } else {
+            "false".into()
+        };
+
+        // let is_support: Vec<u8> = self.is_support.to_string().into();
 
         let mut raw_info = Vec::new();
         raw_info.extend(self.machine_id.clone());

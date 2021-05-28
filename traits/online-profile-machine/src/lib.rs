@@ -6,10 +6,13 @@ use sp_std::vec::Vec;
 pub trait LCOps {
     type AccountId;
     type MachineId;
+    type MachineInfo;
 
     fn lc_booked_machine(id: Self::MachineId);
-    fn confirm_machine_grade(who: Self::AccountId, id: Self::MachineId, confirm: bool);
     fn lc_revert_booked_machine(id: Self::MachineId);
+
+    fn lc_confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::MachineInfo);
+    fn lc_refuse_machine(who: Vec<Self::AccountId>, id: Self::MachineId);
 }
 
 pub trait OCWOps {

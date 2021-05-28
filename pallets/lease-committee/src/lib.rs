@@ -50,7 +50,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-// // 记录处于不同状态的委员会的列表，方便派单
+// 记录处于不同状态的委员会的列表，方便派单
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LCCommitteeList<AccountId: Ord> {
     pub committee: Vec<AccountId>,    // 质押并通过社区选举的委员会
@@ -128,6 +128,12 @@ pub enum MachineStatus {
     Booked,
     Hashed,
     Confirmed,
+}
+
+enum MachineConfirmStatus<AccountId> {
+    Confirmed(Vec<AccountId>, MachineInfoByCommittee),
+    Refuse(Vec<AccountId>, MachineId),
+    NoConsensus,
 }
 
 impl Default for MachineStatus {
@@ -424,6 +430,7 @@ pub mod pallet {
             machine_ops.confirm_time = now;
             machine_ops.machine_status = MachineStatus::Confirmed;
             machine_ops.machine_info = machine_info_detail;
+            machine_ops.confirm_result = machine_info_detail.is_support;
 
             CommitteeMachine::<T>::insert(&who, committee_machine);
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
@@ -561,7 +568,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 将机器状态从ocw_confirmed_machine改为booked_machine
-        T::LCOperations::lc_booked_machine(machine_id.clone()); // 最后一步执行这个
+        T::LCOperations::lc_booked_machine(machine_id.clone());
         Ok(())
     }
 
@@ -650,16 +657,19 @@ impl<T: Config> Pallet<T> {
                 return;
             }
 
-            let (support, against) = Self::summary_confirmation(&machine_id);
-
-            // 没有委员会添加确认信息，或者意见相反委员会相等, 则进行新一轮评估
-            if support == against {
-                let _ = Self::revert_book(machine_id.clone());
-                return;
-            } else if support > against {
-                // TODO: 机器被成功添加, 则添加上可以获取收益的委员会
-            } else {
-                // TODO: 机器没有被成功添加，拒绝这个机器，
+            match Self::summary_confirmation(&machine_id) {
+                MachineConfirmStatus::Confirmed(committee, machine_info) => {
+                    T::LCOperations::lc_confirm_machine(committee, machine_info);
+                    // TODO: 机器被成功添加, 则添加上可以获取收益的委员会
+                },
+                MachineConfirmStatus::Refuse(committee, machine_id) => {
+                    T::LCOperations::lc_refuse_machine(committee, machine_id);
+                    // 如果是委员会判定失败，则扣除所有奖金
+                },
+                MachineConfirmStatus::NoConsensus => {
+                    // 没有委员会添加确认信息，或者意见相反委员会相等, 则进行新一轮评估
+                    let _ = Self::revert_book(machine_id.clone());
+                },
             }
         }
     }
@@ -699,23 +709,44 @@ impl<T: Config> Pallet<T> {
     }
 
     // 总结机器的确认情况
-    fn summary_confirmation(machine_id: &MachineId) -> (u32, u32) {
+    // 检查机器是否被确认，并检查提交的信息是否一致
+    // 返回三种情况：1. 认可，则添加机器; 2. 不认可，则退出机器； 3. 没达成共识
+    fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
         let machine_committee = Self::machine_committee(machine_id);
         let mut support = 0u32;
         let mut against = 0u32;
+
+        let mut machine_info = Vec::new();
+        let mut support_committee = Vec::new();
+        let mut against_committee = Vec::new();
 
         if machine_committee.confirmed_committee.len() > 0 {
             for a_committee in machine_committee.confirmed_committee {
                 let committee_ops = Self::committee_ops(a_committee, machine_id);
                 if committee_ops.confirm_result == true {
+                    machine_info.push(committee_ops.machine_info);
+                    support_committee.push(a_committee);
                     support += 1;
                 } else {
+                    against_committee.push(a_committee);
                     against += 1;
                 }
             }
         }
 
-        return (support, against);
+        if against > support {
+            return MachineConfirmStatus::Refuse(against_committee, machine_id.to_vec());
+        }
+        if against == support {
+            return MachineConfirmStatus::NoConsensus;
+        }
+
+        // 检查一致意见里，机器信息是否一致
+        if machine_info.iter().unique().len() == 1 {
+            return MachineConfirmStatus::Confirmed(support_committee, machine_info[0]);
+        } else {
+            return MachineConfirmStatus::NoConsensus;
+        }
     }
 
     fn add_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {

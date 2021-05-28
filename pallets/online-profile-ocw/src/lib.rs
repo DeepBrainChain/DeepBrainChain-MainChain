@@ -12,7 +12,6 @@ use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
     pallet_prelude::*,
 };
-use machine_info::OneWallet;
 use online_profile_machine::OCWOps;
 use sp_runtime::{offchain, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};

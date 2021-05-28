@@ -360,6 +360,8 @@ pub mod pallet {
         pub fn bond_machine(origin: OriginFor<T>, machine_owner: T::AccountId, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
+            // TODO: 扣除用户万分之一的dbc用作手续费
+
             // 用户第一次绑定机器需要质押的数量
             let first_bond_stake = Self::stake_per_gpu();
 
@@ -843,6 +845,7 @@ impl<T: Config> OCWOps for Pallet<T> {
 impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
+    type MachineInfo = MachineInfoByCommittee;
 
     // 委员会订阅了一个机器ID
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
@@ -870,31 +873,34 @@ impl<T: Config> LCOps for Pallet<T> {
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 
-    // 当多个委员会都对机器进行了确认之后，机器的分数被添加上
-    fn confirm_machine_grade(who: T::AccountId, machine_id: MachineId, is_confirmed: bool) {
-        let mut machine_info = Self::machines_info(&machine_id);
-        if machine_info.committee_confirm.contains_key(&who) {
-            // TODO: 可以改为返回错误
-            return;
-        }
+    // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
+    fn lc_confirm_machine(who: Vec<T::AccountId>, machine_info: MachineInfoByCommittee) {
+        // let mut machine_info = Self::machines_info(&machine_id);
+        // if machine_info.committee_confirm.contains_key(&who) {
+        //     // TODO: 可以改为返回错误
+        //     return;
+        // }
 
-        machine_info.committee_confirm.insert(
-            who.clone(),
-            CommitteeConfirmation {
-                committee: who.clone(),
-                confirm_time: <frame_system::Module<T>>::block_number(),
-                is_confirmed: is_confirmed,
-            },
-        );
+        // machine_info.committee_confirm.insert(
+        //     who.clone(),
+        //     CommitteeConfirmation {
+        //         committee: who.clone(),
+        //         confirm_time: <frame_system::Module<T>>::block_number(),
+        //         is_confirmed: is_confirmed,
+        //     },
+        // );
 
-        // 被委员会确认之后，如果未满3个，状态将会改变成bonding_machine, 如果已满3个，则改为waiting_hash状态
-        let mut confirmed_committee = vec![];
-        for a_committee in &machine_info.committee_confirm {
-            confirmed_committee.push(a_committee);
-        }
+        // // 被委员会确认之后，如果未满3个，状态将会改变成bonding_machine, 如果已满3个，则改为waiting_hash状态
+        // let mut confirmed_committee = vec![];
+        // for a_committee in &machine_info.committee_confirm {
+        //     confirmed_committee.push(a_committee);
+        // }
 
-        MachinesInfo::<T>::insert(machine_id.clone(), machine_info.clone());
+        // MachinesInfo::<T>::insert(machine_id.clone(), machine_info.clone());
     }
+
+    // 当委员会达成统一意见，拒绝机器时，删掉机器配置信息，并扣除机器质押
+    fn lc_refuse_machine(who: Vec<T::AccountId>, machine_id: MachineId) {}
 }
 
 impl<T: Config> Module<T> {
