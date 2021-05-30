@@ -9,7 +9,10 @@ use codec::EncodeLike;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
-    traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
+    traits::{
+        Currency, ExistenceRequirement::AllowDeath, Get, LockIdentifier, LockableCurrency,
+        WithdrawReasons,
+    },
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{LCOps, OCWOps};
@@ -64,7 +67,7 @@ impl Default for SlashReason {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CommitteeMachine<Balance> {
+pub struct StakerMachine<Balance> {
     pub machine_id: Vec<MachineId>, //用户绑定的所有机器，不与机器状态有关
     pub total_calc_points: u64,
     pub total_gpu_num: u64,
@@ -72,27 +75,15 @@ pub struct CommitteeMachine<Balance> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct MachineInfo<AccountId: Ord, BlockNumber> {
+pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub machine_owner: AccountId, // 允许用户绑定跟自己机器ID不一样的，TODO: 奖励发放给machine_owner
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间, TODO: 改为current_slot
+    pub stake_amount: Balance,
     pub machine_status: MachineStatus,
-    pub ocw_machine_info: MachineInfoDetail,
-    pub machine_grade: u64, // TODO: 添加machine_info时，加上machine_grade
-    pub machine_price: u64, // TODO: 设置3080的分数对应的价格为1000元，其他机器的价格根据3080的进行计算
-    pub committee_confirm: BTreeMap<AccountId, CommitteeConfirmation<AccountId, BlockNumber>>, //记录委员会提交的机器打分
+    pub committee_machine_info: MachineInfoByCommittee, // 委员会提交的机器信息
+    pub machine_price: u64, // 设置3080的分数对应的价格为1000元，其他机器的价格根据3080的进行计算
     pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
     pub reward_deadline: BlockNumber, // 列表中委员分得奖励结束时间 , TODO: 绑定时间改为current_slot比较好
-}
-
-// 委员会提交的机器配置信息
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct MachineInfoDetail {}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub struct CommitteeConfirmation<AccountId, BlockNumber> {
-    pub committee: AccountId,
-    pub confirm_time: BlockNumber,
-    pub is_confirmed: bool,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -239,17 +230,11 @@ pub mod pallet {
     // 机器的详细信息,只有当所有奖励领取完才能删除该变量?
     #[pallet::storage]
     #[pallet::getter(fn machines_info)]
-    pub type MachinesInfo<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        MachineId,
-        MachineInfo<T::AccountId, T::BlockNumber>,
-        ValueQuery,
-    >;
+    pub type MachinesInfo<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn user_machines)]
-    pub(super) type UserMachines<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeMachine<BalanceOf<T>>, ValueQuery>;
+    pub(super) type UserMachines<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, StakerMachine<BalanceOf<T>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn temp_account)]
@@ -387,6 +372,7 @@ pub mod pallet {
             let machine_info = MachineInfo {
                 machine_owner: machine_owner,
                 bonding_height: <frame_system::Module<T>>::block_number(),
+                stake_amount: first_bond_stake,
                 ..Default::default()
             };
             MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -774,7 +760,6 @@ impl<T: Config> Pallet<T> {
     fn add_user_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
         let current_stake = Self::user_total_stake(controller);
         let next_stake = current_stake.checked_add(&amount);
-
         if let None = next_stake {
             return;
         }
@@ -783,7 +768,7 @@ impl<T: Config> Pallet<T> {
         <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
     }
 
-    fn _reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
+    fn reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
         let current_stake = Self::user_total_stake(controller);
         let next_stake = current_stake.checked_sub(&amount);
         if let None = next_stake {
@@ -845,7 +830,7 @@ impl<T: Config> OCWOps for Pallet<T> {
 impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
-    type MachineInfo = MachineInfoByCommittee;
+    type MachineInfoByCommittee = MachineInfoByCommittee;
 
     // 委员会订阅了一个机器ID
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
@@ -873,36 +858,90 @@ impl<T: Config> LCOps for Pallet<T> {
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 
+    // TODO: 完成该逻辑
     // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
-    fn lc_confirm_machine(who: Vec<T::AccountId>, machine_info: MachineInfoByCommittee) {
-        // let mut machine_info = Self::machines_info(&machine_id);
-        // if machine_info.committee_confirm.contains_key(&who) {
-        //     // TODO: 可以改为返回错误
-        //     return;
-        // }
+    // TODO: 机器被成功添加, 则添加上可以获取收益的委员会
+    fn lc_confirm_machine(
+        reported_committee: Vec<T::AccountId>,
+        machine_info_by_committee: MachineInfoByCommittee,
+    ) {
+        let mut machine_info = Self::machines_info(&machine_info_by_committee.machine_id);
+        machine_info.committee_machine_info = machine_info_by_committee.clone();
+        machine_info.reward_committee = reported_committee;
 
-        // machine_info.committee_confirm.insert(
-        //     who.clone(),
-        //     CommitteeConfirmation {
-        //         committee: who.clone(),
-        //         confirm_time: <frame_system::Module<T>>::block_number(),
-        //         is_confirmed: is_confirmed,
-        //     },
-        // );
+        // TODO: 处理绑定失败的情况
+        let stake_per_gpu = Self::calc_stake_amount();
+        if let None = stake_per_gpu {
+            return;
+        }
+        let stake_per_gpu = stake_per_gpu.unwrap();
+        let gpu_num: BalanceOf<T> = machine_info_by_committee.gpu_num.saturated_into();
+        let stake_need = stake_per_gpu.checked_mul(&gpu_num);
+        if let None = stake_need {
+            return;
+        }
 
-        // // 被委员会确认之后，如果未满3个，状态将会改变成bonding_machine, 如果已满3个，则改为waiting_hash状态
-        // let mut confirmed_committee = vec![];
-        // for a_committee in &machine_info.committee_confirm {
-        //     confirmed_committee.push(a_committee);
-        // }
+        // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
+        let stake_need = stake_need.unwrap();
+        let stake_need = stake_need.checked_sub(&machine_info.stake_amount);
+        if let None = stake_need {
+            // 表示不用补交质押
+            machine_info.machine_status = MachineStatus::Bonded;
+        } else {
+            let stake_need = stake_need.unwrap();
+            if <T as Config>::Currency::free_balance(&machine_info.machine_owner) > stake_need {
+                Self::add_user_total_stake(&machine_info.machine_owner, stake_need);
+                machine_info.machine_status = MachineStatus::Bonded;
+            } else {
+                machine_info.machine_status = MachineStatus::WaitingFulfill;
+            }
+        }
 
-        // MachinesInfo::<T>::insert(machine_id.clone(), machine_info.clone());
+        MachinesInfo::<T>::insert(machine_info_by_committee.machine_id, machine_info.clone());
+
+        let mut user_machines = Self::user_machines(&machine_info.machine_owner);
+        user_machines.total_calc_points += machine_info_by_committee.calc_point;
+        user_machines.total_gpu_num += machine_info_by_committee.gpu_num as u64;
+        UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
     }
 
     // 当委员会达成统一意见，拒绝机器时，删掉机器配置信息，并扣除机器质押
-    fn lc_refuse_machine(who: Vec<T::AccountId>, machine_id: MachineId) {}
+    fn lc_refuse_machine(who: Vec<T::AccountId>, machine_id: MachineId) {
+        // 拒绝用户绑定，需要清除存储
+        let machine_info = Self::machines_info(&machine_id);
+        let committee_num: BalanceOf<T> = who.len().saturated_into();
+        let reward_to_committee = machine_info.stake_amount.checked_div(&committee_num);
+        if let None = reward_to_committee {
+            return;
+        }
+        let reward_to_committee = reward_to_committee.unwrap();
+
+        // 将惩罚分给委员会
+        Self::reduce_total_stake(&machine_info.machine_owner, machine_info.stake_amount);
+        for a_committee in who {
+            <T as pallet::Config>::Currency::transfer(
+                &machine_info.machine_owner,
+                &a_committee,
+                reward_to_committee,
+                AllowDeath,
+            );
+        }
+
+        MachinesInfo::<T>::remove(&machine_id);
+
+        let mut live_machines = Self::live_machines();
+        LiveMachine::rm_machine_id(&mut live_machines.waiting_hash, &machine_id);
+        LiveMachines::<T>::put(live_machines);
+
+        let mut user_machines = Self::user_machines(&machine_info.machine_owner);
+        if let Ok(index) = user_machines.machine_id.binary_search(&machine_id) {
+            user_machines.machine_id.remove(index);
+            UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
+        }
+    }
 }
 
+#[rustfmt::skip]
 impl<T: Config> Module<T> {
     pub fn get_total_staker_num() -> u64 {
         let temp_account = Self::temp_account();
@@ -959,10 +998,7 @@ impl<T: Config> Module<T> {
     }
 
     // 返回total_page
-    pub fn get_staker_list_info(
-        cur_page: u64,
-        per_page: u64,
-    ) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
+    pub fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
         let temp_account = Self::temp_account();
         let mut out = Vec::new();
 

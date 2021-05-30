@@ -151,7 +151,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + online_profile::Config + random_num::Config + dbc_price_ocw::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type LCOperations: LCOps<AccountId = Self::AccountId, MachineId = MachineId>;
+        type LCOperations: LCOps<AccountId = Self::AccountId, MachineId = MachineId, MachineInfoByCommittee = MachineInfoByCommittee>;
     }
 
     #[pallet::pallet]
@@ -160,7 +160,6 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        // TODO: finished this
         fn on_finalize(_block_number: T::BlockNumber) {
 
             // 每个块高检查委员会质押是否足够
@@ -429,7 +428,7 @@ pub mod pallet {
             // machine_ops.confirm_raw = confirm_raw.clone();
             machine_ops.confirm_time = now;
             machine_ops.machine_status = MachineStatus::Confirmed;
-            machine_ops.machine_info = machine_info_detail;
+            machine_ops.machine_info = machine_info_detail.clone();
             machine_ops.confirm_result = machine_info_detail.is_support;
 
             CommitteeMachine::<T>::insert(&who, committee_machine);
@@ -660,11 +659,10 @@ impl<T: Config> Pallet<T> {
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(committee, machine_info) => {
                     T::LCOperations::lc_confirm_machine(committee, machine_info);
-                    // TODO: 机器被成功添加, 则添加上可以获取收益的委员会
                 },
                 MachineConfirmStatus::Refuse(committee, machine_id) => {
-                    T::LCOperations::lc_refuse_machine(committee, machine_id);
                     // 如果是委员会判定失败，则扣除所有奖金
+                    T::LCOperations::lc_refuse_machine(committee, machine_id);
                 },
                 MachineConfirmStatus::NoConsensus => {
                     // 没有委员会添加确认信息，或者意见相反委员会相等, 则进行新一轮评估
@@ -722,10 +720,17 @@ impl<T: Config> Pallet<T> {
 
         if machine_committee.confirmed_committee.len() > 0 {
             for a_committee in machine_committee.confirmed_committee {
-                let committee_ops = Self::committee_ops(a_committee, machine_id);
+                let committee_ops = Self::committee_ops(a_committee.clone(), machine_id);
                 if committee_ops.confirm_result == true {
-                    machine_info.push(committee_ops.machine_info);
-                    support_committee.push(a_committee);
+                    if machine_info.len() == 0 {
+                        machine_info.push(committee_ops.machine_info);
+                    } else {
+                        if machine_info[0] != committee_ops.machine_info {
+                            machine_info.push(committee_ops.machine_info);
+                        }
+                    }
+
+                    support_committee.push(a_committee.clone());
                     support += 1;
                 } else {
                     against_committee.push(a_committee);
@@ -742,8 +747,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // 检查一致意见里，机器信息是否一致
-        if machine_info.iter().unique().len() == 1 {
-            return MachineConfirmStatus::Confirmed(support_committee, machine_info[0]);
+        if machine_info.len() == 1 {
+            return MachineConfirmStatus::Confirmed(support_committee, machine_info[0].clone());
         } else {
             return MachineConfirmStatus::NoConsensus;
         }
