@@ -54,16 +54,12 @@ pub struct MachineData {
     #[serde(deserialize_with = "de_string_to_bytes")]
     pub version: Vec<u8>,
 
-    // #[serde(deserialize_with = "de_string_to_bytes")]
     pub wallet: Vec<OneWallet>,
 }
 
-#[derive(Deserialize, Encode, Decode, Default, Debug, PartialEq, Eq, Clone)]
+#[derive(Deserialize, Encode, Decode, Default, Debug, Clone, PartialEq, Eq)]
 #[serde(crate = "alt_serde")]
-pub struct OneWallet {
-    #[serde(deserialize_with = "de_string_to_bytes")]
-    pub one_wallet: Vec<u8>,
-}
+pub struct OneWallet(#[serde(deserialize_with = "de_string_to_bytes")] pub Vec<u8>);
 
 #[derive(Deserialize, Encode, Decode, Default, Debug, PartialEq, Eq, Clone)]
 #[serde(crate = "alt_serde")]

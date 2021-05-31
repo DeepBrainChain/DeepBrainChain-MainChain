@@ -5,7 +5,7 @@
   "OrderId": "u64",
   "LiveMachine": {
     "bonding_machine": "Vec<MachineId>",
-    "ocw_confirming_machine": "Vec<MachineId",
+    "ocw_confirming_machine": "Vec<MachineId>",
     "ocw_confirmed_machine": "Vec<MachineId>",
     "booked_machine": "Vec<MachineId>",
     "waiting_hash": "Vec<MachineId>",
@@ -15,10 +15,10 @@
   "MachineInfo": {
     "machine_owner": "AccountId",
     "bonding_height": "BlockNumber",
+    "stake_amount": "Balance",
     "machine_status": "MachineStatus",
-    "ocw_machine_info": "OCWMachineInfo",
-    "machine_grades": "u64",
-    "committee_confirm": "BTreeMap<AccountId, CommitteeConfirmation",
+    "committee_machine_info": "MachineInfoByCommittee",
+    "machine_price": "u64",
     "reward_committee": "Vec<AccountId>",
     "reward_deadline": "BlockNumber"
   },
@@ -30,14 +30,20 @@
   "MachineStatus": {
     "_enum": ["Bonding", "Booked", "WaitingHash", "Bonded", "WaitingFulfill"]
   },
-  "OCWMachineInfo": {
-    "cpu": "CPU",
-    "disk": "Disk",
-    "gpu": "GPU",
-    "ip": "Vec<u8>",
-    "mem": "Vec<u8>",
-    "os": "Vec<u8>",
-    "version": "Vec<u8>"
+  "MachineInfoByCommittee": {
+    "machine_id": "MachineId",
+    "gpu_type": "Vec<u8>",
+    "gpu_num": "u32",
+    "cuda_core": "u32",
+    "gpu_mem": "u64",
+    "calc_point": "u64",
+    "hard_disk": "u64",
+    "upload_net": "u64",
+    "download_net": "u64",
+    "cpu_type": "Vec<u8>",
+    "cpu_core_num": "u32",
+    "rand_str": "Vec<u8>",
+    "is_support": "bool"
   },
   "CPU": {
     "num": "Vec<u8>",

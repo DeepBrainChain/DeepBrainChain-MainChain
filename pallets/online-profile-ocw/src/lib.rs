@@ -12,6 +12,7 @@ use frame_system::{
     offchain::{CreateSignedTransaction, SubmitTransaction},
     pallet_prelude::*,
 };
+use machine_info::OneWallet;
 use online_profile_machine::OCWOps;
 use sp_runtime::{offchain, traits::SaturatedConversion};
 use sp_std::{convert::TryInto, prelude::*, str};
@@ -180,14 +181,14 @@ pub mod pallet {
         // BondedMachineId 增加 machine_id => ()
         // BondingQueueMachineId 减少 machine_id
         #[pallet::weight(0)]
-        fn ocw_submit_machine_info(origin: OriginFor<T>, machine_id: MachineId ,machine_bonded_wallet: Option<Vec<u8>>) -> DispatchResultWithPostInfo {
+        fn ocw_submit_machine_info(origin: OriginFor<T>, machine_id: MachineId ,machine_bonded_wallet: Option<OneWallet>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
             let request_limit = Self::request_limit();
             let mut request_count = Self::request_count(&machine_id);
 
             if let Some(machine_bonded_wallet) = machine_bonded_wallet {
-                if let Some(wallet_addr) = Self::get_account_from_str(&machine_bonded_wallet) {
+                if let Some(wallet_addr) = Self::get_account_from_str(&machine_bonded_wallet.0) {
                     T::OnlineProfile::rm_booked_id(&machine_id);
                     T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec(), wallet_addr);
                 } else {
@@ -211,7 +212,8 @@ pub mod pallet {
     pub enum Error<T> {
         HttpFetchingError,
         HttpURLParseError,
-        HttpReadBodyError,
+        HttpReadBodyError
+,
         HttpUnmarshalBodyError,
         // HttpDecodeError,
         IndexOutOfRange,
@@ -223,7 +225,7 @@ pub mod pallet {
 
 #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
-    fn call_ocw_machine_info(machine_id: MachineId, machine_bonded_wallet: Option<Vec<u8>>) -> Result<(), Error<T>> {
+    fn call_ocw_machine_info(machine_id: MachineId, machine_bonded_wallet: Option<OneWallet>) -> Result<(), Error<T>> {
         let call = Call::ocw_submit_machine_info(machine_id.to_vec(), machine_bonded_wallet);
         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
             debug::error!("Failed in offchain_unsigned_tx");
@@ -304,33 +306,41 @@ impl<T: Config> Pallet<T> {
         }
 
         let body = response.body().collect::<Vec<u8>>();
-        let body_str = str::from_utf8(&body).map_err(|_| {
-            debug::warn!("No UTF8 body");
+        let body_str = str::from_utf8(&body).map_err(|e| {
+            debug::warn!("No UTF8 body: {:?}", e);
             <Error<T>>::HttpReadBodyError
         })?;
 
-        return serde_json::from_str(&body_str).map_err(|_| {
-            debug::warn!("json unmarshal failed");
+        return serde_json::from_str(&body_str).map_err(|e| {
+            debug::warn!("json unmarshal failed: {:?}", e);
             <Error<T>>::HttpUnmarshalBodyError
         });
     }
 
     // 通过多个URL获取机器信息，如果一致，则验证通过
     // 返回验证一致的钱包地址
-    fn get_machine_info_identical_wallet(id: &MachineId) -> Option<Vec<u8>> {
+    fn get_machine_info_identical_wallet(id: &MachineId) -> Option<OneWallet> {
         let info_url = Self::machine_info_rand_url();
+        if info_url.len() == 0 {
+            return None;
+        }
+
         let mut machine_wallet = Vec::new();
 
         for url in info_url.iter() {
+
+            debug::warn!("Fetch machine_info from: {:?}", url);
+
             let ocw_machine_info = Self::fetch_machine_info(&url, id).ok()?;
 
             if ocw_machine_info.data.wallet.len() != 1 {
+                debug::warn!("machine wallet is: {:?}", ocw_machine_info.data.wallet);
                 return None;
             }
 
             if machine_wallet.len() == 0 {
-                machine_wallet.push(ocw_machine_info.data.wallet[0].one_wallet.clone())
-            } else if machine_wallet[0] != ocw_machine_info.data.wallet[0].one_wallet {
+                machine_wallet.push(ocw_machine_info.data.wallet[0].clone())
+            } else if machine_wallet[0] != ocw_machine_info.data.wallet[0] {
                 return None;
             }
         }

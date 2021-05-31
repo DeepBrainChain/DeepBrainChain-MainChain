@@ -21,7 +21,7 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero},
     Perbill, SaturatedConversion,
 };
-use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*, str};
+use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
 
 pub mod grade_inflation;
 pub mod op_types;
@@ -800,6 +800,7 @@ impl<T: Config> OCWOps for Pallet<T> {
                 a_machine.to_vec(),
             );
         }
+        LiveMachines::<T>::put(live_machines);
 
         return bonding_item;
     }
