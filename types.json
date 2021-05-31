@@ -82,20 +82,28 @@
     "total_gpu_num": "u64",
     "total_reward": "Balance"
   },
+  "LCCommitteeList": {
+    "committee": "Vec<AccountId>",
+    "chill_list": "Vec<AccountId>",
+    "fulfill_list": "Vec<AccountId>",
+    "black_list": "Vec<AccountId>"
+  },
   "LCCommitteeMachineList": {
     "booked_machine": "Vec<(MachineId, BlockNumber)>",
     "hashed_machine": "Vec<MachineId>",
     "confirmed_machine": "Vec<MachineId>",
     "online_machine": "Vec<MachineId>"
   },
-  "LCCommitteeMachineOps": {
+  "LCCommitteeOps": {
     "booked_time": "BlockNumber",
+    "stake_dbc": "Balance",
+    "verify_time": "Vec<BlockNumber>",
     "confirm_hash": "[u8; 16]",
     "hash_time": "BlockNumber",
-    "confirm_raw": "Vec<u8>",
     "confirm_time": "BlockNumber",
     "confirm_result": "bool",
-    "machine_status": "MachineStatus"
+    "machine_status": "MachineStatus",
+    "machine_info": "MachineInfoByCommittee"
   },
   "LCMachineCommitteeList": {
     "book_time": "BlockNumber",

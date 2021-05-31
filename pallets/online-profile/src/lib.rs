@@ -240,6 +240,10 @@ pub mod pallet {
     #[pallet::getter(fn temp_account)]
     pub(super) type TempAccount<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn temp_value)]
+    pub(super) type TempValue<T: Config> = StorageValue<_, u64, ValueQuery>;
+
     // 存储活跃的机器
     #[pallet::storage]
     #[pallet::getter(fn live_machines)]
@@ -801,6 +805,7 @@ impl<T: Config> OCWOps for Pallet<T> {
             );
         }
         LiveMachines::<T>::put(live_machines);
+        TempValue::<T>::put(8u64);
 
         return bonding_item;
     }

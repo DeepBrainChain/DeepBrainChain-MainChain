@@ -161,7 +161,6 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-
             // 每个块高检查委员会质押是否足够
             if let Some(stake_dbc_amount) = Self::stake_dbc_amount() {
                 CommitteeStakeDBCPerOrder::<T>::put(stake_dbc_amount);
@@ -223,6 +222,8 @@ pub mod pallet {
             ensure!(!staker.staker_exist(&member), Error::<T>::AccountAlreadyExist);
             // 将用户添加到fulfill列表中
             LCCommitteeList::add_staker(&mut staker.fulfill_list, member.clone());
+
+            Committee::<T>::put(staker);
             Self::deposit_event(Event::CommitteeAdded(member));
             Ok(().into())
         }
@@ -544,6 +545,8 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
+
+        Committee::<T>::put(committee);
         return Ok(())
     }
 
@@ -557,6 +560,8 @@ impl<T: Config> Pallet<T> {
 
     fn distribute_one_machine(machine_id: &MachineId) -> Result<(), ()> {
         let lucky_committee = Self::lucky_committee().ok_or(())?;
+
+        debug::warn!("lucky_committee: {:?} for machine: {:?}", &lucky_committee, machine_id);
 
         // 每个添加4个小时
         let now = <frame_system::Module<T>>::block_number();
@@ -577,6 +582,8 @@ impl<T: Config> Pallet<T> {
 
         // 增加质押
         let stake_need = Self::committee_stake_dbc_per_order().ok_or(())?;
+        debug::warn!("stake need: {:?}", &stake_need);
+
         Self::add_stake(&order_time.0, stake_need)?;
 
         // 修改machine对应的委员会
@@ -608,7 +615,6 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
-
 
     // 分派一个machineId给随机的委员会
     // 返回Distribution(9)个随机顺序的账户列表

@@ -124,9 +124,12 @@ pub mod pallet {
                 return
             }
 
+            // FIXME: cannot change blockchain type
             let bookable_machine = <online_profile::Pallet<T>>::ocw_booking_machine();
             for machine_id in bookable_machine.iter() {
                 let machine_bonded_wallet = Self::get_machine_info_identical_wallet(machine_id);
+
+                debug::warn!("Get wallet {:?} for machine {:?}", &machine_bonded_wallet, machine_id);
 
                 let result = Self::call_ocw_machine_info(machine_id.to_vec(), machine_bonded_wallet);
                 if let Err(e) = result {
