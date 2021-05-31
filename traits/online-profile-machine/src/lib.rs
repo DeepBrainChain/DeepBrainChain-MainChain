@@ -12,14 +12,14 @@ pub trait LCOps {
     fn lc_revert_booked_machine(id: Self::MachineId);
 
     fn lc_confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::MachineInfoByCommittee);
-    fn lc_refuse_machine(who: Vec<Self::AccountId>, id: Self::MachineId);
+    fn lc_refuse_machine(who: Vec<Self::AccountId>, id: Self::MachineId) -> Result<(), ()>;
 }
 
 pub trait OCWOps {
     type AccountId;
     type MachineId;
 
-    fn ocw_booking_machine() -> Vec<Self::MachineId>;
+    fn ocw_clean_booking_machine();
     fn rm_booked_id(id: &Self::MachineId);
     fn add_ocw_confirmed_id(id: Self::MachineId, wallet: Self::AccountId);
 }

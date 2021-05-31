@@ -109,6 +109,7 @@ pub mod pallet {
 
             match call {
                 Call::ocw_submit_machine_info(_machine_id, _machine_bonded_wallet) => valid_tx(b"ocw_submit_machine_info".to_vec()),
+                Call::ocw_submit_bookable_machine() => valid_tx(b"ocw_submit_bookable_machine".to_vec()),
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -124,9 +125,10 @@ pub mod pallet {
                 return
             }
 
-            // FIXME: cannot change blockchain type
-            let bookable_machine = <online_profile::Pallet<T>>::ocw_booking_machine();
-            for machine_id in bookable_machine.iter() {
+            let bookable_machine = <online_profile::Module<T>>::live_machines();
+            let _ = Self::call_get_bookable_machine();
+
+            for machine_id in bookable_machine.bonding_machine.iter() {
                 let machine_bonded_wallet = Self::get_machine_info_identical_wallet(machine_id);
 
                 debug::warn!("Get wallet {:?} for machine {:?}", &machine_bonded_wallet, machine_id);
@@ -184,7 +186,7 @@ pub mod pallet {
         // BondedMachineId 增加 machine_id => ()
         // BondingQueueMachineId 减少 machine_id
         #[pallet::weight(0)]
-        fn ocw_submit_machine_info(origin: OriginFor<T>, machine_id: MachineId ,machine_bonded_wallet: Option<OneWallet>) -> DispatchResultWithPostInfo {
+        fn ocw_submit_machine_info(origin: OriginFor<T>, machine_id: MachineId, machine_bonded_wallet: Option<OneWallet>) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
             let request_limit = Self::request_limit();
@@ -209,6 +211,13 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        #[pallet::weight(0)]
+        fn ocw_submit_bookable_machine(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            ensure_none(origin)?;
+            T::OnlineProfile::ocw_clean_booking_machine();
+            Ok(().into())
+        }
     }
 
     #[pallet::error]
@@ -228,10 +237,18 @@ pub mod pallet {
 
 #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
+    fn call_get_bookable_machine() -> Result<(), Error<T>> {
+        let call = Call::ocw_submit_bookable_machine();
+        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|e| {
+            debug::error!("Failed in offchain_unsigned_tx: {:?}", e);
+            <Error<T>>::OffchainUnsignedTxError
+        })
+    }
+
     fn call_ocw_machine_info(machine_id: MachineId, machine_bonded_wallet: Option<OneWallet>) -> Result<(), Error<T>> {
         let call = Call::ocw_submit_machine_info(machine_id.to_vec(), machine_bonded_wallet);
-        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
-            debug::error!("Failed in offchain_unsigned_tx");
+        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|e| {
+            debug::error!("Failed in offchain_unsigned_tx: {:?}", e);
             <Error<T>>::OffchainUnsignedTxError
         })
     }

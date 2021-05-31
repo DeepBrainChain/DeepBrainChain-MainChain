@@ -240,10 +240,6 @@ pub mod pallet {
     #[pallet::getter(fn temp_account)]
     pub(super) type TempAccount<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn temp_value)]
-    pub(super) type TempValue<T: Config> = StorageValue<_, u64, ValueQuery>;
-
     // 存储活跃的机器
     #[pallet::storage]
     #[pallet::getter(fn live_machines)]
@@ -792,9 +788,8 @@ impl<T: Config> OCWOps for Pallet<T> {
     type AccountId = T::AccountId;
 
     // ocw启动时，将所有需要验证的机器放到验证区，防止其他worker重复验证
-    fn ocw_booking_machine() -> Vec<MachineId> {
+    fn ocw_clean_booking_machine() {
         let mut live_machines = Self::live_machines();
-
         let bonding_item = live_machines.bonding_machine.clone();
 
         for a_machine in bonding_item.iter() {
@@ -804,10 +799,8 @@ impl<T: Config> OCWOps for Pallet<T> {
                 a_machine.to_vec(),
             );
         }
-        LiveMachines::<T>::put(live_machines);
-        TempValue::<T>::put(8u64);
 
-        return bonding_item;
+        LiveMachines::<T>::put(live_machines);
     }
 
     // 将machine_id从LiveMachines.bonding_machine中移除
@@ -912,15 +905,14 @@ impl<T: Config> LCOps for Pallet<T> {
     }
 
     // 当委员会达成统一意见，拒绝机器时，删掉机器配置信息，并扣除机器质押
-    fn lc_refuse_machine(who: Vec<T::AccountId>, machine_id: MachineId) {
+    fn lc_refuse_machine(who: Vec<T::AccountId>, machine_id: MachineId) -> Result<(), ()> {
         // 拒绝用户绑定，需要清除存储
         let machine_info = Self::machines_info(&machine_id);
         let committee_num: BalanceOf<T> = who.len().saturated_into();
-        let reward_to_committee = machine_info.stake_amount.checked_div(&committee_num);
-        if let None = reward_to_committee {
-            return;
-        }
-        let reward_to_committee = reward_to_committee.unwrap();
+        let reward_to_committee = machine_info
+            .stake_amount
+            .checked_div(&committee_num)
+            .ok_or(())?;
 
         // 将惩罚分给委员会
         Self::reduce_total_stake(&machine_info.machine_owner, machine_info.stake_amount);
@@ -930,7 +922,11 @@ impl<T: Config> LCOps for Pallet<T> {
                 &a_committee,
                 reward_to_committee,
                 AllowDeath,
-            );
+            )
+            .map_err(|e| {
+                debug::error!("Transfer failed when lc refuse machine: {:?}", e);
+                ()
+            })?;
         }
 
         MachinesInfo::<T>::remove(&machine_id);
@@ -944,6 +940,7 @@ impl<T: Config> LCOps for Pallet<T> {
             user_machines.machine_id.remove(index);
             UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
         }
+        Ok(())
     }
 }
 

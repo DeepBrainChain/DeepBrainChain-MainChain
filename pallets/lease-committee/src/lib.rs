@@ -668,7 +668,7 @@ impl<T: Config> Pallet<T> {
                 },
                 MachineConfirmStatus::Refuse(committee, machine_id) => {
                     // 如果是委员会判定失败，则扣除所有奖金
-                    T::LCOperations::lc_refuse_machine(committee, machine_id);
+                    let _ = T::LCOperations::lc_refuse_machine(committee, machine_id);
                 },
                 MachineConfirmStatus::NoConsensus => {
                     // 没有委员会添加确认信息，或者意见相反委员会相等, 则进行新一轮评估
