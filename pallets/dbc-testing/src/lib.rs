@@ -8,6 +8,7 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
 use sp_arithmetic::{traits::Saturating, Permill};
 use sp_io::hashing::blake2_128;
+use sp_runtime::traits::Zero;
 use sp_std::{convert::TryInto, str};
 
 type BalanceOf<T> =
@@ -231,6 +232,17 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        #[pallet::weight(0)]
+        fn test_slash(
+            origin: OriginFor<T>,
+            value: BalanceOf<T>,
+            slash_who: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::do_slash(value, slash_who);
+            Ok(().into())
+        }
     }
 
     #[pallet::error]
@@ -250,5 +262,13 @@ impl<T: Config> Pallet<T> {
         debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
 
         let _b = T::AccountId::decode(&mut &account_id_32[..]).unwrap_or_default();
+    }
+
+    fn do_slash(value: BalanceOf<T>, who: T::AccountId) {
+        let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
+        if !value.is_zero() {
+            let (imbalance, missing) = T::Currency::slash(&who, value);
+            slashed_imbalance.subsume(imbalance);
+        }
     }
 }
