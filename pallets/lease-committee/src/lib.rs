@@ -781,6 +781,7 @@ impl<T: Config> Pallet<T> {
                     }
 
                     // 获取那个index
+                    // FIXME: 增加求平均值
                     let a_machine_info = Self::committee_ops(&support_committee[0], &machine_id).machine_info;
                     return MachineConfirmStatus::Confirmed(support_committee, a_machine_info);
                 }
@@ -794,6 +795,9 @@ impl<T: Config> Pallet<T> {
             }
         }
     }
+
+    // TODO: 增加求平均值
+    // fn get_unsure_machine_info_avg(Vec<MachineInfoByCommittee>) -> MachineInfoByCommittee {}
 
     fn add_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let total_stake = Self::committee_total_stake(&controller).unwrap_or(0u32.into());
