@@ -76,14 +76,14 @@ pub struct StakerMachine<Balance> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
-    pub machine_owner: AccountId, // 允许用户绑定跟自己机器ID不一样的，TODO: 奖励发放给machine_owner
-    pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间, TODO: 改为current_slot
+    pub machine_owner: AccountId, // 允许用户绑定跟自己机器ID不一样的，奖励发放给machine_owner
+    pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
     pub stake_amount: Balance,
     pub machine_status: MachineStatus,
     pub committee_machine_info: MachineInfoByCommittee, // 委员会提交的机器信息
     pub machine_price: u64, // 设置3080的分数对应的价格为1000元，其他机器的价格根据3080的进行计算
     pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
-    pub reward_deadline: BlockNumber, // 列表中委员分得奖励结束时间 , TODO: 绑定时间改为current_slot比较好
+    pub reward_deadline: BlockNumber, // 列表中委员分得奖励结束时间
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -178,12 +178,10 @@ pub mod pallet {
     // 用户线性释放的天数:
     // 25%收益当天释放；75%在150天线性释放
     #[pallet::type_value]
-    pub(super) fn ProfitReleaseDurationDefault<T: Config>() -> u64 {
-        150
-    }
+    pub(super) fn ProfitReleaseDurationDefault<T: Config>() -> u64 {150}
 
-    // OCW获取机器信息时，超时次数
     #[pallet::storage]
+    #[pallet::getter(fn profit_release_duration)]
     pub(super) type ProfitReleaseDuration<T: Config> = StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
 
     // 存储机器的最小质押量，单位DBC, 默认为100000DBC
@@ -201,7 +199,7 @@ pub mod pallet {
     #[pallet::getter(fn user_total_stake)]
     pub(super) type UserTotalStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
-    // 存储当前每卡质押数量,
+    // 存储当前每卡质押数量
     #[pallet::storage]
     #[pallet::getter(fn cur_stake_per_gpu)]
     pub(super) type CurStakePerGPU<T> = StorageValue<_, BalanceOf<T>>;
@@ -765,6 +763,15 @@ impl<T: Config> Pallet<T> {
         let next_stake = next_stake.unwrap();
 
         <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
+
+        // 改变总质押
+        let total_stake = Self::total_stake().checked_add(&amount);
+        if let None = total_stake {
+            debug::warn!("Total stake overflow!");
+            return;
+        }
+        let total_stake = total_stake.unwrap();
+        TotalStake::<T>::put(total_stake)
     }
 
     fn reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
@@ -776,10 +783,18 @@ impl<T: Config> Pallet<T> {
         let next_stake = next_stake.unwrap();
 
         <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
+
+        // 改变总质押
+        let total_stake = Self::total_stake().checked_sub(&amount);
+        if let None = total_stake {
+            debug::warn!("Total stake overflow!");
+            return;
+        }
+        let total_stake = total_stake.unwrap();
+        TotalStake::<T>::put(total_stake)
     }
 }
 
-// TODO: 当request超过三次请求失败时，允许用户退回资金。
 // 当地址不一致，则扣除用户资金
 // online-profile-ocw可以执行的操作
 impl<T: Config> OCWOps for Pallet<T> {
@@ -842,9 +857,8 @@ impl<T: Config> LCOps for Pallet<T> {
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 
-    // TODO: 完成该逻辑
     // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
-    // TODO: 机器被成功添加, 则添加上可以获取收益的委员会
+    // 机器被成功添加, 则添加上可以获取收益的委员会
     fn lc_confirm_machine(
         reported_committee: Vec<T::AccountId>,
         machine_info_by_committee: MachineInfoByCommittee,
@@ -887,6 +901,12 @@ impl<T: Config> LCOps for Pallet<T> {
         user_machines.total_calc_points += machine_info_by_committee.calc_point;
         user_machines.total_gpu_num += machine_info_by_committee.gpu_num as u64;
         UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
+
+        let total_gpu_num = Self::total_gpu_num();
+        TotalGPUNum::<T>::put(total_gpu_num + machine_info_by_committee.gpu_num as u64);
+
+        let total_calc_points = Self::total_calc_points();
+        TotalCalcPoints::<T>::put(total_calc_points + machine_info_by_committee.calc_point);
     }
 
     // 当委员会达成统一意见，拒绝机器时，删掉机器配置信息，并扣除机器质押
@@ -929,6 +949,7 @@ impl<T: Config> LCOps for Pallet<T> {
     }
 }
 
+// RPC
 #[rustfmt::skip]
 impl<T: Config> Module<T> {
     pub fn get_total_staker_num() -> u64 {

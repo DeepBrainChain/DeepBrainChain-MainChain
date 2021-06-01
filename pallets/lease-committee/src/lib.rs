@@ -772,7 +772,6 @@ impl<T: Config> Pallet<T> {
                     let committee_group_index = support_committee_num.iter().position(|r| r == max_support_num).unwrap();
                     let support_committee = committee_for_machine_info[committee_group_index].clone();
 
-
                     if against > max_support_group {
                         return MachineConfirmStatus::Refuse(support_committee, machine_id.to_vec());
                     }
@@ -780,9 +779,7 @@ impl<T: Config> Pallet<T> {
                         return MachineConfirmStatus::NoConsensus;
                     }
 
-                    // 获取那个index
-                    // FIXME: 增加求平均值
-                    let a_machine_info = Self::committee_ops(&support_committee[0], &machine_id).machine_info;
+                    let a_machine_info = Self::get_unsure_machine_info_avg(&support_committee, &machine_id);
                     return MachineConfirmStatus::Confirmed(support_committee, a_machine_info);
                 }
 
@@ -796,8 +793,34 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // TODO: 增加求平均值
-    // fn get_unsure_machine_info_avg(Vec<MachineInfoByCommittee>) -> MachineInfoByCommittee {}
+    // 增加求平均值
+    fn get_unsure_machine_info_avg(committee: &Vec<T::AccountId>, machine_id: &MachineId) -> MachineInfoByCommittee {
+        let mut a_machine_info = Self::committee_ops(&committee[0], machine_id).machine_info;
+
+        let committee_num = committee.len() as u64;
+        if committee_num == 0 {
+            return a_machine_info;
+        }
+
+        let mut upload_net = 0;
+        let mut download_net = 0;
+        let mut longitude = 0;
+        let mut latitude = 0;
+
+        for a_committee in committee {
+            let machine_info = Self::committee_ops(a_committee, machine_id).machine_info;
+            upload_net += machine_info.upload_net;
+            download_net += machine_info.upload_net;
+            longitude += machine_info.longitude;
+            latitude += machine_info.latitude;
+        }
+        a_machine_info.upload_net = upload_net / committee_num;
+        a_machine_info.download_net = download_net / committee_num;
+        a_machine_info.longitude = longitude / committee_num;
+        a_machine_info.latitude = latitude / committee_num;
+
+        return a_machine_info;
+    }
 
     fn add_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let total_stake = Self::committee_total_stake(&controller).unwrap_or(0u32.into());
