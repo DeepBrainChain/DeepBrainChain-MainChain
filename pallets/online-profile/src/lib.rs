@@ -105,7 +105,6 @@ impl Default for MachineStatus {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LiveMachine {
     pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
-    pub ocw_confirming_machine: Vec<MachineId>, // ocw把bonding_machine移动到这个列表，表示一个ocw正在处理的机器id，避免多个ocw同时处理一个机器Id
     pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段。该状态可以由lc分配订单
     pub booked_machine: Vec<MachineId>, // 当机器已经全部分配了委员会，则变为该状态。若lc确认机器失败(认可=不认可)则返回上一状态，重新分派订单
     pub waiting_hash: Vec<MachineId>, // 当全部委员会添加了全部confirm hash之后，机器添加到waiting_hash，这时，用户可以添加confirm_raw
@@ -787,30 +786,15 @@ impl<T: Config> OCWOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
 
-    // ocw启动时，将所有需要验证的机器放到验证区，防止其他worker重复验证
-    fn ocw_clean_booking_machine() {
-        let mut live_machines = Self::live_machines();
-        let bonding_item = live_machines.bonding_machine.clone();
-
-        for a_machine in bonding_item.iter() {
-            LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, a_machine);
-            LiveMachine::add_machine_id(
-                &mut live_machines.ocw_confirming_machine,
-                a_machine.to_vec(),
-            );
-        }
-
-        LiveMachines::<T>::put(live_machines);
-    }
-
     // 将machine_id从LiveMachines.bonding_machine中移除
     fn rm_booked_id(id: &MachineId) {
         let mut live_machines = Self::live_machines();
-        LiveMachine::rm_machine_id(&mut live_machines.ocw_confirming_machine, id);
+        LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, id);
         LiveMachines::<T>::put(live_machines);
     }
 
     // 将machine_id添加到LiveMachines.ocw_confirmed_machine中
+    // ocw添加确认的钱包地址，从bonding中移除,并添加到ocw_confirmed_machine
     fn add_ocw_confirmed_id(machine_id: MachineId, wallet: Self::AccountId) {
         let mut live_machines = Self::live_machines();
 
@@ -820,6 +804,7 @@ impl<T: Config> OCWOps for Pallet<T> {
             return;
         }
 
+        LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
         LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, machine_id);
         LiveMachines::<T>::put(live_machines);
     }

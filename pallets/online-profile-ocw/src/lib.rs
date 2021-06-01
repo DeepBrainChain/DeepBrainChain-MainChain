@@ -109,7 +109,6 @@ pub mod pallet {
 
             match call {
                 Call::ocw_submit_machine_info(_machine_id, _machine_bonded_wallet) => valid_tx(b"ocw_submit_machine_info".to_vec()),
-                Call::ocw_submit_bookable_machine() => valid_tx(b"ocw_submit_bookable_machine".to_vec()),
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -125,17 +124,16 @@ pub mod pallet {
                 return
             }
 
+            // 从online_profile中获取到所有需要验证的机器
             let bookable_machine = <online_profile::Module<T>>::live_machines();
-            let _ = Self::call_get_bookable_machine();
 
             for machine_id in bookable_machine.bonding_machine.iter() {
                 let machine_bonded_wallet = Self::get_machine_info_identical_wallet(machine_id);
+                debug::warn!("#### Get wallet {:?} for machine {:?}", &machine_bonded_wallet, machine_id);
 
-                debug::warn!("Get wallet {:?} for machine {:?}", &machine_bonded_wallet, machine_id);
-
-                let result = Self::call_ocw_machine_info(machine_id.to_vec(), machine_bonded_wallet);
+                let result = Self::call_ocw_submit_machine_info(machine_id.to_vec(), machine_bonded_wallet);
                 if let Err(e) = result {
-                    debug::error!("offchain_worker error: {:?}", e);
+                    debug::error!("#### op_offchain_worker error: {:?}", e);
                 }
             }
         }
@@ -194,7 +192,7 @@ pub mod pallet {
 
             if let Some(machine_bonded_wallet) = machine_bonded_wallet {
                 if let Some(wallet_addr) = Self::get_account_from_str(&machine_bonded_wallet.0) {
-                    T::OnlineProfile::rm_booked_id(&machine_id);
+                    // 从bonding_machine列表中移除，添加到ocw_confirmed_machine中
                     T::OnlineProfile::add_ocw_confirmed_id(machine_id.to_vec(), wallet_addr);
                 } else {
                     request_count += 1;
@@ -209,13 +207,6 @@ pub mod pallet {
             }
             RequestCount::<T>::insert(&machine_id, request_count);
 
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        fn ocw_submit_bookable_machine(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            ensure_none(origin)?;
-            T::OnlineProfile::ocw_clean_booking_machine();
             Ok(().into())
         }
     }
@@ -237,15 +228,7 @@ pub mod pallet {
 
 #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
-    fn call_get_bookable_machine() -> Result<(), Error<T>> {
-        let call = Call::ocw_submit_bookable_machine();
-        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|e| {
-            debug::error!("Failed in offchain_unsigned_tx: {:?}", e);
-            <Error<T>>::OffchainUnsignedTxError
-        })
-    }
-
-    fn call_ocw_machine_info(machine_id: MachineId, machine_bonded_wallet: Option<OneWallet>) -> Result<(), Error<T>> {
+    fn call_ocw_submit_machine_info(machine_id: MachineId, machine_bonded_wallet: Option<OneWallet>) -> Result<(), Error<T>> {
         let call = Call::ocw_submit_machine_info(machine_id.to_vec(), machine_bonded_wallet);
         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|e| {
             debug::error!("Failed in offchain_unsigned_tx: {:?}", e);

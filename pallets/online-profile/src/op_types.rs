@@ -11,6 +11,21 @@ pub type EraIndex = u32;
 
 pub const LOCK_BLOCK_EXPIRATION: u32 = 3; // in block number
 
+// GPU型号：xxxx
+// GPU数量：xxxx
+// CUDA core数量:XXXX
+// GPU显存：xxxGB
+// 算力值：xxxx
+// 硬盘：xxxxGB
+// 上行带宽:xxxKbps
+// 下行带宽:xxxKbps
+// CPU型号：xxxxx
+// CPU内核数：xxxxx
+// CPU频率：xxxxxGHZ
+// 内存数：xxGB
+// 经度：xxxx
+// 纬度：xxxx
+
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 pub struct MachineInfoByCommittee {
     pub machine_id: MachineId,
@@ -20,10 +35,16 @@ pub struct MachineInfoByCommittee {
     pub gpu_mem: u64,
     pub calc_point: u64,
     pub hard_disk: u64,
-    pub upload_net: u64,
-    pub download_net: u64,
     pub cpu_type: Vec<u8>,
     pub cpu_core_num: u32,
+    pub cpu_rate: u64, // cpu 频率
+    pub mem_num: u64,  // 内存数
+
+    pub upload_net: u64,   // 不确定值, 存储平均值
+    pub download_net: u64, // 不确定值, 存储平均值
+    pub longitude: u64,    // 经度, 不确定值，存储平均值
+    pub latitude: u64,     // 纬度, 不确定值，存储平均值
+
     pub rand_str: Vec<u8>,
     pub is_support: bool, // 0 表示反对，其他表示支持
 }
@@ -35,9 +56,14 @@ impl MachineInfoByCommittee {
         let gpu_mem: Vec<u8> = self.gpu_mem.to_string().into();
         let calc_point: Vec<u8> = self.calc_point.to_string().into();
         let hard_disk: Vec<u8> = self.hard_disk.to_string().into();
+        let cpu_core_num: Vec<u8> = self.cpu_core_num.to_string().into();
+        let cpu_rate: Vec<u8> = self.cpu_rate.to_string().into();
+        let mem_num: Vec<u8> = self.mem_num.to_string().into();
+
         let upload_net: Vec<u8> = self.upload_net.to_string().into();
         let download_net: Vec<u8> = self.download_net.to_string().into();
-        let cpu_core_num: Vec<u8> = self.cpu_core_num.to_string().into();
+        let longitude: Vec<u8> = self.longitude.to_string().into();
+        let latitude: Vec<u8> = self.latitude.to_string().into();
 
         let is_support: Vec<u8> = if self.is_support {
             "true".into()
@@ -55,10 +81,16 @@ impl MachineInfoByCommittee {
         raw_info.extend(gpu_mem);
         raw_info.extend(calc_point);
         raw_info.extend(hard_disk);
-        raw_info.extend(upload_net);
-        raw_info.extend(download_net);
         raw_info.extend(self.cpu_type.clone());
         raw_info.extend(cpu_core_num);
+        raw_info.extend(cpu_rate);
+        raw_info.extend(mem_num);
+
+        raw_info.extend(upload_net);
+        raw_info.extend(download_net);
+        raw_info.extend(longitude);
+        raw_info.extend(latitude);
+
         raw_info.extend(self.rand_str.clone());
         raw_info.extend(is_support);
 

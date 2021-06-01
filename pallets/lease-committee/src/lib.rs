@@ -24,7 +24,6 @@ use frame_support::{
     traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-// use online_profile::types::*;
 use online_profile::MachineInfoByCommittee;
 use online_profile_machine::LCOps;
 use sp_runtime::{
@@ -554,6 +553,7 @@ impl<T: Config> Pallet<T> {
     fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         for a_machine_id in live_machines.ocw_confirmed_machine {
+            debug::warn!("#### distribute machine: {:?}", &a_machine_id);
             let _ = Self::distribute_one_machine(&a_machine_id);
         }
     }
@@ -561,7 +561,7 @@ impl<T: Config> Pallet<T> {
     fn distribute_one_machine(machine_id: &MachineId) -> Result<(), ()> {
         let lucky_committee = Self::lucky_committee().ok_or(())?;
 
-        debug::warn!("lucky_committee: {:?} for machine: {:?}", &lucky_committee, machine_id);
+        debug::warn!("#### lucky_committee: {:?} for machine: {:?}", &lucky_committee, machine_id);
 
         // 每个添加4个小时
         let now = <frame_system::Module<T>>::block_number();
@@ -582,9 +582,11 @@ impl<T: Config> Pallet<T> {
 
         // 增加质押
         let stake_need = Self::committee_stake_dbc_per_order().ok_or(())?;
-        debug::warn!("stake need: {:?}", &stake_need);
+        debug::warn!("#### Stake need: {:?}", &stake_need);
 
         Self::add_stake(&order_time.0, stake_need)?;
+
+        debug::warn!("#### will change following status");
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
@@ -753,6 +755,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 检查一致意见里，机器信息是否一致
+        // FIXME: 这里改成，如果两个一致，一个与其他两个不一致，则提交两个一致的委员会的结果
         if machine_info.len() == 1 {
             return MachineConfirmStatus::Confirmed(support_committee, machine_info[0].clone());
         } else {
@@ -761,7 +764,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn add_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        let total_stake = Self::committee_total_stake(&controller).ok_or(())?;
+        let total_stake = Self::committee_total_stake(&controller).unwrap_or(0u32.into());
         let new_stake = total_stake.checked_add(&amount).ok_or(())?;
 
         <T as Config>::Currency::set_lock(PALLET_LOCK_ID, controller, new_stake, WithdrawReasons::all());

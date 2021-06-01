@@ -5,7 +5,6 @@
   "OrderId": "u64",
   "LiveMachine": {
     "bonding_machine": "Vec<MachineId>",
-    "ocw_confirming_machine": "Vec<MachineId>",
     "ocw_confirmed_machine": "Vec<MachineId>",
     "booked_machine": "Vec<MachineId>",
     "waiting_hash": "Vec<MachineId>",
@@ -89,7 +88,7 @@
     "black_list": "Vec<AccountId>"
   },
   "LCCommitteeMachineList": {
-    "booked_machine": "Vec<(MachineId, BlockNumber)>",
+    "booked_machine": "Vec<MachineId>",
     "hashed_machine": "Vec<MachineId>",
     "confirmed_machine": "Vec<MachineId>",
     "online_machine": "Vec<MachineId>"
@@ -107,7 +106,7 @@
   },
   "LCMachineCommitteeList": {
     "book_time": "BlockNumber",
-    "booked_committee": "Vec<(AccountId, BlockNumber)>",
+    "booked_committee": "Vec<AccountId>",
     "hashed_committee": "Vec<AccountId>",
     "confirm_start": "BlockNumber",
     "confirmed_committee": "Vec<AccountId>",
