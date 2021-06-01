@@ -115,9 +115,7 @@ pub struct LCCommitteeOps<BlockNumber, Balance> {
     pub verify_time: Vec<BlockNumber>,
     pub confirm_hash: [u8; 16],
     pub hash_time: BlockNumber,
-    // pub confirm_raw: Vec<u8>,
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
-    pub confirm_result: bool,
     pub machine_status: MachineStatus,
     pub machine_info: MachineInfoByCommittee,
 }
@@ -429,7 +427,6 @@ pub mod pallet {
             machine_ops.confirm_time = now;
             machine_ops.machine_status = MachineStatus::Confirmed;
             machine_ops.machine_info = machine_info_detail.clone();
-            machine_ops.confirm_result = machine_info_detail.is_support;
 
             CommitteeMachine::<T>::insert(&who, committee_machine);
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
@@ -719,47 +716,82 @@ impl<T: Config> Pallet<T> {
     // 返回三种情况：1. 认可，则添加机器; 2. 不认可，则退出机器； 3. 没达成共识
     fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
         let machine_committee = Self::machine_committee(machine_id);
-        let mut support = 0u32;
-        let mut against = 0u32;
 
-        let mut machine_info = Vec::new();
-        let mut support_committee = Vec::new();
+        let mut against = 0usize;
         let mut against_committee = Vec::new();
 
-        if machine_committee.confirmed_committee.len() > 0 {
-            for a_committee in machine_committee.confirmed_committee {
-                let committee_ops = Self::committee_ops(a_committee.clone(), machine_id);
-                if committee_ops.confirm_result == true {
-                    if machine_info.len() == 0 {
-                        machine_info.push(committee_ops.machine_info);
-                    } else {
-                        if machine_info[0] != committee_ops.machine_info {
-                            machine_info.push(committee_ops.machine_info);
-                        }
+        let mut uniq_machine_info: Vec<MachineInfoByCommittee> = Vec::new();
+        let mut committee_for_machine_info = Vec::new();
+
+        if machine_committee.confirmed_committee.len() == 0 {
+            return MachineConfirmStatus::NoConsensus;
+        }
+
+        for a_committee in machine_committee.confirmed_committee {
+            let mut a_machine_info = Self::committee_ops(a_committee.clone(), machine_id).machine_info;
+
+            // 比较时，忽略可能不一样的变量
+            a_machine_info.upload_net = 0;
+            a_machine_info.download_net = 0;
+            a_machine_info.longitude = 0;
+            a_machine_info.latitude = 0;
+
+            // 如果该委员会反对该机器
+            if a_machine_info.is_support == false {
+                against_committee.push(a_committee);
+                against += 1;
+                continue
+            }
+
+            match uniq_machine_info.iter().position(|r| r == &a_machine_info){
+                None => {
+                    uniq_machine_info.push(a_machine_info.clone());
+                    committee_for_machine_info.push(vec![a_committee.clone()]);
+                },
+                Some(index) => {
+                    committee_for_machine_info[index].push(a_committee)
+                }
+            };
+        }
+
+        // 统计committee_for_machine_info中有多少委员会站队最多
+        let support_committee_num: Vec<usize> = committee_for_machine_info.iter().map(|item| item.len()).collect();
+        let max_support = support_committee_num.iter().max(); // 最多多少个委员会达成一致意见
+
+        match max_support {
+            None => {
+                if against > 0{
+                    return MachineConfirmStatus::Refuse(against_committee, machine_id.to_vec());
+                }
+                return MachineConfirmStatus::NoConsensus;
+            },
+            Some(max_support_num) => {
+                let max_support_group = support_committee_num.iter().filter(|n| n == &max_support_num).count();
+
+                if max_support_group == 1 {
+                    let committee_group_index = support_committee_num.iter().position(|r| r == max_support_num).unwrap();
+                    let support_committee = committee_for_machine_info[committee_group_index].clone();
+
+
+                    if against > max_support_group {
+                        return MachineConfirmStatus::Refuse(support_committee, machine_id.to_vec());
+                    }
+                    if against == max_support_group {
+                        return MachineConfirmStatus::NoConsensus;
                     }
 
-                    support_committee.push(a_committee.clone());
-                    support += 1;
-                } else {
-                    against_committee.push(a_committee);
-                    against += 1;
+                    // 获取那个index
+                    let a_machine_info = Self::committee_ops(&support_committee[0], &machine_id).machine_info;
+                    return MachineConfirmStatus::Confirmed(support_committee, a_machine_info);
                 }
+
+                // 否则，max_support_group > 1
+                if against > *max_support_num {
+                    return MachineConfirmStatus::Refuse(against_committee, machine_id.to_vec());
+                }
+                // against == max_support 或者 against < max_support 时，都是无法达成共识
+                return MachineConfirmStatus::NoConsensus;
             }
-        }
-
-        if against > support {
-            return MachineConfirmStatus::Refuse(against_committee, machine_id.to_vec());
-        }
-        if against == support {
-            return MachineConfirmStatus::NoConsensus;
-        }
-
-        // 检查一致意见里，机器信息是否一致
-        // FIXME: 这里改成，如果两个一致，一个与其他两个不一致，则提交两个一致的委员会的结果
-        if machine_info.len() == 1 {
-            return MachineConfirmStatus::Confirmed(support_committee, machine_info[0].clone());
-        } else {
-            return MachineConfirmStatus::NoConsensus;
         }
     }
 
