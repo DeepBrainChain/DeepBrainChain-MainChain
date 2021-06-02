@@ -11,7 +11,10 @@ pub trait LCOps {
     fn lc_booked_machine(id: Self::MachineId);
     fn lc_revert_booked_machine(id: Self::MachineId);
 
-    fn lc_confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo);
+    fn lc_confirm_machine(
+        who: Vec<Self::AccountId>,
+        machine_info: Self::CommitteeUploadInfo,
+    ) -> Result<(), ()>;
     fn lc_refuse_machine(who: Vec<Self::AccountId>, id: Self::MachineId) -> Result<(), ()>;
 }
 

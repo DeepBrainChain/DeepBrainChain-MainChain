@@ -663,7 +663,7 @@ impl<T: Config> Pallet<T> {
 
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(committee, machine_info) => {
-                    T::LCOperations::lc_confirm_machine(committee, machine_info);
+                    let _ = T::LCOperations::lc_confirm_machine(committee, machine_info);
                 },
                 MachineConfirmStatus::Refuse(committee, machine_id) => {
                     // 如果是委员会判定失败，则扣除所有奖金

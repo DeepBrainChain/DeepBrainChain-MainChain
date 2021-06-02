@@ -467,7 +467,9 @@ pub mod pallet {
             let mut ledger = Self::ledger(&controller, &machine_id).ok_or(Error::<T>::LedgerNotFound)?;
             let user_balance = <T as pallet::Config>::Currency::free_balance(&controller);
 
-            let machine_stake_need = Self::calc_machine_stake_need(&machine_id);
+            let machine_info = Self::machines_info(&machine_id);
+            let machine_stake_need = Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num).ok_or(Error::<T>::BalanceOverflow)?;
+
             ensure!(machine_stake_need > user_balance, Error::<T>::InsufficientValue);
 
             if let Some(extra_stake) = machine_stake_need.checked_sub(&ledger.total) {
@@ -547,16 +549,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // // TODO: 重新实现这个函数
-        // #[pallet::weight(10000)]
-        // pub fn rm_bonded_machine(
-        //     origin: OriginFor<T>,
-        //     _machine_id: MachineId,
-        // ) -> DispatchResultWithPostInfo {
-        //     let _user = ensure_signed(origin)?;
-        //     Ok(().into())
-        // }
-
         // 允许其他用户给别人的机器领取奖励
         #[pallet::weight(10000)]
         pub fn payout_all_rewards(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResultWithPostInfo {
@@ -575,7 +567,6 @@ pub mod pallet {
         pub fn payout_rewards(origin: OriginFor<T>, controller: T::AccountId, machine_id: MachineId) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
             ensure!(UserMachines::<T>::contains_key(&controller), Error::<T>::NotMachineController);
-
             Self::do_payout(controller, &machine_id)
         }
 
@@ -628,6 +619,7 @@ pub mod pallet {
         NotMachineController,
         DBCPriceUnavailable,
         StakerMaxChangeReached,
+        BalanceOverflow,
     }
 }
 
@@ -635,7 +627,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
-    pub fn calc_stake_amount() -> Option<BalanceOf<T>> {
+    pub fn calc_stake_amount(gpu_num: u32) -> Option<BalanceOf<T>> {
         let base_stake = Self::stake_per_gpu(); // 10_0000 DBC
         let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
 
@@ -657,12 +649,9 @@ impl<T: Config> Pallet<T> {
         // 当GPU数量大于10_000时
         // 100_000 * 10000 / gpu_num
         let dbc_amount2 = Perbill::from_rational_approximation(10_000u64, total_gpu_num) * base_stake;
-        return Some(dbc_amount2.min(dbc_amount));
-    }
 
-    // TODO: 根据GPU数量修改需要的质押数量
-    fn calc_machine_stake_need(_machine_id: &MachineId) -> BalanceOf<T> {
-        0u32.into()
+        let stake_per_gpu = dbc_amount2.min(dbc_amount);
+        stake_per_gpu.checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())
     }
 
     pub fn do_payout(controller: T::AccountId, machine_id: &MachineId) -> DispatchResultWithPostInfo {
@@ -924,25 +913,13 @@ impl<T: Config> LCOps for Pallet<T> {
     fn lc_confirm_machine(
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
-    ) {
+    ) -> Result<(), ()> {
         let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
         machine_info.machine_info_detail.committee_upload_info = committee_upload_info.clone();
         machine_info.reward_committee = reported_committee;
 
-        // TODO: 处理绑定失败的情况
-        let stake_per_gpu = Self::calc_stake_amount();
-        if let None = stake_per_gpu {
-            return;
-        }
-        let stake_per_gpu = stake_per_gpu.unwrap();
-        let gpu_num: BalanceOf<T> = committee_upload_info.gpu_num.saturated_into();
-        let stake_need = stake_per_gpu.checked_mul(&gpu_num);
-        if let None = stake_need {
-            return;
-        }
-
+        let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
-        let stake_need = stake_need.unwrap();
         let stake_need = stake_need.checked_sub(&machine_info.stake_amount);
         if let None = stake_need {
             // 表示不用补交质押
@@ -969,6 +946,7 @@ impl<T: Config> LCOps for Pallet<T> {
 
         let total_calc_points = Self::total_calc_points();
         TotalCalcPoints::<T>::put(total_calc_points + committee_upload_info.calc_point);
+        return Ok(());
     }
 
     // 当委员会达成统一意见，拒绝机器时，删掉机器配置信息，并扣除机器质押
