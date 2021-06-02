@@ -24,7 +24,7 @@ use frame_support::{
     traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use online_profile::MachineInfoByCommittee;
+use online_profile::CommitteeUploadInfo;
 use online_profile_machine::LCOps;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion},
@@ -117,7 +117,7 @@ pub struct LCCommitteeOps<BlockNumber, Balance> {
     pub hash_time: BlockNumber,
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
     pub machine_status: MachineStatus,
-    pub machine_info: MachineInfoByCommittee,
+    pub machine_info: CommitteeUploadInfo,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -128,7 +128,7 @@ pub enum MachineStatus {
 }
 
 enum MachineConfirmStatus<AccountId> {
-    Confirmed(Vec<AccountId>, MachineInfoByCommittee),
+    Confirmed(Vec<AccountId>, CommitteeUploadInfo),
     Refuse(Vec<AccountId>, MachineId),
     NoConsensus,
 }
@@ -148,7 +148,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + online_profile::Config + random_num::Config + dbc_price_ocw::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type LCOperations: LCOps<AccountId = Self::AccountId, MachineId = MachineId, MachineInfoByCommittee = MachineInfoByCommittee>;
+        type LCOperations: LCOps<AccountId = Self::AccountId, MachineId = MachineId, CommitteeUploadInfo = CommitteeUploadInfo>;
     }
 
     #[pallet::pallet]
@@ -377,7 +377,7 @@ pub mod pallet {
         // 委员会提交的原始信息
         #[pallet::weight(10000)]
         fn submit_confirm_raw(
-            origin: OriginFor<T>, machine_info_detail: MachineInfoByCommittee) -> DispatchResultWithPostInfo
+            origin: OriginFor<T>, machine_info_detail: CommitteeUploadInfo) -> DispatchResultWithPostInfo
         {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
@@ -720,7 +720,7 @@ impl<T: Config> Pallet<T> {
         let mut against = 0usize;
         let mut against_committee = Vec::new();
 
-        let mut uniq_machine_info: Vec<MachineInfoByCommittee> = Vec::new();
+        let mut uniq_machine_info: Vec<CommitteeUploadInfo> = Vec::new();
         let mut committee_for_machine_info = Vec::new();
 
         if machine_committee.confirmed_committee.len() == 0 {
@@ -728,13 +728,7 @@ impl<T: Config> Pallet<T> {
         }
 
         for a_committee in machine_committee.confirmed_committee {
-            let mut a_machine_info = Self::committee_ops(a_committee.clone(), machine_id).machine_info;
-
-            // 比较时，忽略可能不一样的变量
-            a_machine_info.upload_net = 0;
-            a_machine_info.download_net = 0;
-            a_machine_info.longitude = 0;
-            a_machine_info.latitude = 0;
+            let a_machine_info = Self::committee_ops(a_committee.clone(), machine_id).machine_info;
 
             // 如果该委员会反对该机器
             if a_machine_info.is_support == false {
@@ -779,8 +773,7 @@ impl<T: Config> Pallet<T> {
                         return MachineConfirmStatus::NoConsensus;
                     }
 
-                    let a_machine_info = Self::get_unsure_machine_info_avg(&support_committee, &machine_id);
-                    return MachineConfirmStatus::Confirmed(support_committee, a_machine_info);
+                    return MachineConfirmStatus::Confirmed(support_committee, uniq_machine_info[committee_group_index].clone());
                 }
 
                 // 否则，max_support_group > 1
@@ -791,35 +784,6 @@ impl<T: Config> Pallet<T> {
                 return MachineConfirmStatus::NoConsensus;
             }
         }
-    }
-
-    // 增加求平均值
-    fn get_unsure_machine_info_avg(committee: &Vec<T::AccountId>, machine_id: &MachineId) -> MachineInfoByCommittee {
-        let mut a_machine_info = Self::committee_ops(&committee[0], machine_id).machine_info;
-
-        let committee_num = committee.len() as u64;
-        if committee_num == 0 {
-            return a_machine_info;
-        }
-
-        let mut upload_net = 0;
-        let mut download_net = 0;
-        let mut longitude = 0;
-        let mut latitude = 0;
-
-        for a_committee in committee {
-            let machine_info = Self::committee_ops(a_committee, machine_id).machine_info;
-            upload_net += machine_info.upload_net;
-            download_net += machine_info.upload_net;
-            longitude += machine_info.longitude;
-            latitude += machine_info.latitude;
-        }
-        a_machine_info.upload_net = upload_net / committee_num;
-        a_machine_info.download_net = download_net / committee_num;
-        a_machine_info.longitude = longitude / committee_num;
-        a_machine_info.latitude = latitude / committee_num;
-
-        return a_machine_info;
     }
 
     fn add_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {

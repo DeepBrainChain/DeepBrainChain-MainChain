@@ -80,7 +80,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
     pub stake_amount: Balance,
     pub machine_status: MachineStatus,
-    pub committee_machine_info: MachineInfoByCommittee, // 委员会提交的机器信息
+    pub machine_info_detail: MachineInfoDetail, // 委员会提交的机器信息
     pub machine_price: u64, // 设置3080的分数对应的价格为1000元，其他机器的价格根据3080的进行计算
     pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
     pub reward_deadline: BlockNumber, // 列表中委员分得奖励结束时间
@@ -88,16 +88,17 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineStatus {
-    Bonding,
-    Booked,
-    WaitingHash,
-    Bonded,
-    WaitingFulfill, // 等待补交罚款
+    OcwConfirming,
+    CommitteeVerifying,
+    WaitingFulfill, // 补交质押
+    Online,         // 正在上线，且未被租用
+    Offline,        // 机器管理者报告机器已下线
+    Rented,         // 已经被租用
 }
 
 impl Default for MachineStatus {
     fn default() -> Self {
-        MachineStatus::Bonding
+        MachineStatus::OcwConfirming
     }
 }
 
@@ -398,6 +399,60 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 控制账户可以随意修改镜像名称
+        #[pallet::weight(10000)]
+        pub fn staker_change_images_name(origin: OriginFor<T>, machine_id: MachineId, new_images: Vec<ImageName>) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+
+            // 查询机器Id是否在该账户的控制下
+            let user_machines = Self::user_machines(&controller);
+            if let Err(_) = user_machines.machine_id.binary_search(&machine_id) {
+                return Err(Error::<T>::MachineIdNotBonded.into());
+            }
+
+            let mut machine_info = Self::machines_info(&machine_id);
+            machine_info.machine_info_detail.staker_customize_info.images = new_images;
+
+            MachinesInfo::<T>::insert(machine_id, machine_info);
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        pub fn staker_change_machine_info(origin: OriginFor<T>, machine_id: MachineId, upload_net: u64, download_net: u64, longitude: u64, latitude: u64) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+
+            // 查询机器Id是否在该账户的控制下
+            let user_machines = Self::user_machines(&controller);
+            if let Err(_) = user_machines.machine_id.binary_search(&machine_id) {
+                return Err(Error::<T>::MachineIdNotBonded.into());
+            }
+
+            let mut machine_info = Self::machines_info(&machine_id);
+            match machine_info.machine_status {
+                // 判断机器状态，如果机器未上线，不改变机器状态
+                MachineStatus::OcwConfirming | MachineStatus::CommitteeVerifying => {
+
+                },
+                // 如果机器已上线，则减少可修改次数
+                _ => {
+                    let left_change_time = machine_info.machine_info_detail.staker_customize_info.left_change_time;
+                    if left_change_time == 0 {
+                        return Err(Error::<T>::StakerMaxChangeReached.into())
+                    }
+                    machine_info.machine_info_detail.staker_customize_info = StakerCustomizeInfo {
+                        left_change_time: left_change_time - 1,
+                        upload_net,
+                        download_net,
+                        longitude,
+                        latitude,
+                        images:  machine_info.machine_info_detail.staker_customize_info.images
+                    }
+                }
+            }
+
+            Ok(().into())
+        }
+
         // 当用户被罚款后，需要补充质押金额
         #[pallet::weight(10000)]
         fn fulfill_bond(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
@@ -566,6 +621,7 @@ pub mod pallet {
         StakeNotEnough,
         NotMachineController,
         DBCPriceUnavailable,
+        StakerMaxChangeReached,
     }
 }
 
@@ -610,7 +666,7 @@ impl<T: Config> Pallet<T> {
 
         // 检查机器是否处于正常状态
         let machine_info = Self::machines_info(machine_id.to_vec());
-        if machine_info.machine_status != MachineStatus::Bonded {
+        if machine_info.machine_status != MachineStatus::Online || machine_info.machine_status != MachineStatus::Rented {
             return Err(Error::<T>::NotMachineController.into());
         }
 
@@ -829,7 +885,7 @@ impl<T: Config> OCWOps for Pallet<T> {
 impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
-    type MachineInfoByCommittee = MachineInfoByCommittee;
+    type CommitteeUploadInfo = CommitteeUploadInfo;
 
     // 委员会订阅了一个机器ID
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
@@ -841,7 +897,7 @@ impl<T: Config> LCOps for Pallet<T> {
         LiveMachines::<T>::put(live_machines);
 
         let mut machine_info = Self::machines_info(&id);
-        machine_info.machine_status = MachineStatus::Booked;
+        machine_info.machine_status = MachineStatus::CommitteeVerifying;
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 
@@ -853,7 +909,7 @@ impl<T: Config> LCOps for Pallet<T> {
         LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id.clone());
 
         let mut machine_info = Self::machines_info(&id);
-        machine_info.machine_status = MachineStatus::Bonding;
+        machine_info.machine_status = MachineStatus::OcwConfirming;
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 
@@ -861,10 +917,10 @@ impl<T: Config> LCOps for Pallet<T> {
     // 机器被成功添加, 则添加上可以获取收益的委员会
     fn lc_confirm_machine(
         reported_committee: Vec<T::AccountId>,
-        machine_info_by_committee: MachineInfoByCommittee,
+        committee_upload_info: CommitteeUploadInfo,
     ) {
-        let mut machine_info = Self::machines_info(&machine_info_by_committee.machine_id);
-        machine_info.committee_machine_info = machine_info_by_committee.clone();
+        let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
+        machine_info.machine_info_detail.committee_upload_info = committee_upload_info.clone();
         machine_info.reward_committee = reported_committee;
 
         // TODO: 处理绑定失败的情况
@@ -873,7 +929,7 @@ impl<T: Config> LCOps for Pallet<T> {
             return;
         }
         let stake_per_gpu = stake_per_gpu.unwrap();
-        let gpu_num: BalanceOf<T> = machine_info_by_committee.gpu_num.saturated_into();
+        let gpu_num: BalanceOf<T> = committee_upload_info.gpu_num.saturated_into();
         let stake_need = stake_per_gpu.checked_mul(&gpu_num);
         if let None = stake_need {
             return;
@@ -884,29 +940,29 @@ impl<T: Config> LCOps for Pallet<T> {
         let stake_need = stake_need.checked_sub(&machine_info.stake_amount);
         if let None = stake_need {
             // 表示不用补交质押
-            machine_info.machine_status = MachineStatus::Bonded;
+            machine_info.machine_status = MachineStatus::Online;
         } else {
             let stake_need = stake_need.unwrap();
             if <T as Config>::Currency::free_balance(&machine_info.machine_owner) > stake_need {
                 Self::add_user_total_stake(&machine_info.machine_owner, stake_need);
-                machine_info.machine_status = MachineStatus::Bonded;
+                machine_info.machine_status = MachineStatus::Online;
             } else {
                 machine_info.machine_status = MachineStatus::WaitingFulfill;
             }
         }
 
-        MachinesInfo::<T>::insert(machine_info_by_committee.machine_id, machine_info.clone());
+        MachinesInfo::<T>::insert(committee_upload_info.machine_id, machine_info.clone());
 
         let mut user_machines = Self::user_machines(&machine_info.machine_owner);
-        user_machines.total_calc_points += machine_info_by_committee.calc_point;
-        user_machines.total_gpu_num += machine_info_by_committee.gpu_num as u64;
+        user_machines.total_calc_points += committee_upload_info.calc_point;
+        user_machines.total_gpu_num += committee_upload_info.gpu_num as u64;
         UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
 
         let total_gpu_num = Self::total_gpu_num();
-        TotalGPUNum::<T>::put(total_gpu_num + machine_info_by_committee.gpu_num as u64);
+        TotalGPUNum::<T>::put(total_gpu_num + committee_upload_info.gpu_num as u64);
 
         let total_calc_points = Self::total_calc_points();
-        TotalCalcPoints::<T>::put(total_calc_points + machine_info_by_committee.calc_point);
+        TotalCalcPoints::<T>::put(total_calc_points + committee_upload_info.calc_point);
     }
 
     // 当委员会达成统一意见，拒绝机器时，删掉机器配置信息，并扣除机器质押

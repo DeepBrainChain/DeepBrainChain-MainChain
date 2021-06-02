@@ -8,8 +8,15 @@ use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque,
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
+pub type ImageName = Vec<u8>;
 
 pub const LOCK_BLOCK_EXPIRATION: u32 = 3; // in block number
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+pub struct MachineInfoDetail {
+    pub committee_upload_info: CommitteeUploadInfo,
+    pub staker_customize_info: StakerCustomizeInfo,
+}
 
 // GPU型号：xxxx
 // GPU数量：xxxx
@@ -25,9 +32,10 @@ pub const LOCK_BLOCK_EXPIRATION: u32 = 3; // in block number
 // 内存数：xxGB
 // 经度：xxxx
 // 纬度：xxxx
+// 镜像
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
-pub struct MachineInfoByCommittee {
+pub struct CommitteeUploadInfo {
     pub machine_id: MachineId,
     pub gpu_type: Vec<u8>,
     pub gpu_num: u32,
@@ -40,16 +48,11 @@ pub struct MachineInfoByCommittee {
     pub cpu_rate: u64, // cpu 频率
     pub mem_num: u64,  // 内存数
 
-    pub upload_net: u64,   // 不确定值, 存储平均值
-    pub download_net: u64, // 不确定值, 存储平均值
-    pub longitude: u64,    // 经度, 不确定值，存储平均值
-    pub latitude: u64,     // 纬度, 不确定值，存储平均值
-
     pub rand_str: Vec<u8>,
     pub is_support: bool, // 0 表示反对，其他表示支持
 }
 
-impl MachineInfoByCommittee {
+impl CommitteeUploadInfo {
     pub fn hash(&self) -> [u8; 16] {
         let gpu_num: Vec<u8> = self.gpu_num.to_string().into();
         let cuda_core: Vec<u8> = self.cuda_core.to_string().into();
@@ -60,18 +63,11 @@ impl MachineInfoByCommittee {
         let cpu_rate: Vec<u8> = self.cpu_rate.to_string().into();
         let mem_num: Vec<u8> = self.mem_num.to_string().into();
 
-        let upload_net: Vec<u8> = self.upload_net.to_string().into();
-        let download_net: Vec<u8> = self.download_net.to_string().into();
-        let longitude: Vec<u8> = self.longitude.to_string().into();
-        let latitude: Vec<u8> = self.latitude.to_string().into();
-
         let is_support: Vec<u8> = if self.is_support {
             "true".into()
         } else {
             "false".into()
         };
-
-        // let is_support: Vec<u8> = self.is_support.to_string().into();
 
         let mut raw_info = Vec::new();
         raw_info.extend(self.machine_id.clone());
@@ -86,15 +82,35 @@ impl MachineInfoByCommittee {
         raw_info.extend(cpu_rate);
         raw_info.extend(mem_num);
 
-        raw_info.extend(upload_net);
-        raw_info.extend(download_net);
-        raw_info.extend(longitude);
-        raw_info.extend(latitude);
-
         raw_info.extend(self.rand_str.clone());
         raw_info.extend(is_support);
 
         return blake2_128(&raw_info);
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+pub struct StakerCustomizeInfo {
+    pub left_change_time: u64, // 用户对贷款及经纬度的修改次数
+
+    pub upload_net: u64,   // 不确定值, 存储平均值
+    pub download_net: u64, // 不确定值, 存储平均值
+    pub longitude: u64,    // 经度, 不确定值，存储平均值
+    pub latitude: u64,     // 纬度, 不确定值，存储平均值
+
+    pub images: Vec<ImageName>, // 镜像名称
+}
+
+impl Default for StakerCustomizeInfo {
+    fn default() -> Self {
+        StakerCustomizeInfo {
+            left_change_time: 3,
+            upload_net: 0,   // 不确定值, 存储平均值
+            download_net: 0, // 不确定值, 存储平均值
+            longitude: 0,    // 经度, 不确定值，存储平均值
+            latitude: 0,     // 纬度, 不确定值，存储平均值
+            images: Vec::new(),
+        }
     }
 }
 

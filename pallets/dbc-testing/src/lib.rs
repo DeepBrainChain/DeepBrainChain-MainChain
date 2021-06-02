@@ -45,6 +45,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_timestamp::Config {
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: Currency<Self::AccountId>;
         type PhaseReward: PhaseReward<Balance = BalanceOf<Self>>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -249,6 +250,13 @@ pub mod pallet {
     pub enum Error<T> {
         TestError,
     }
+
+    #[pallet::event]
+    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        Slash(T::AccountId, BalanceOf<T>),
+    }
 }
 
 impl<T: Config> Pallet<T> {
@@ -259,7 +267,7 @@ impl<T: Config> Pallet<T> {
             bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
 
         let account_id_32: [u8; 32] = output[1..33].try_into().unwrap();
-        debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
+        debug::info!("##### decoded2 Alice: {:?}, {:?}", decoded, output);
 
         let _b = T::AccountId::decode(&mut &account_id_32[..]).unwrap_or_default();
     }
@@ -268,6 +276,7 @@ impl<T: Config> Pallet<T> {
         let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
         if !value.is_zero() {
             let (imbalance, missing) = T::Currency::slash(&who, value);
+            Self::deposit_event(Event::Slash(who, missing.clone()));
             slashed_imbalance.subsume(imbalance);
         }
     }

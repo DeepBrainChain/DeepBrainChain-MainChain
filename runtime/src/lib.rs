@@ -1024,6 +1024,7 @@ impl pallet_assets::Config for Runtime {
 }
 
 impl dbc_testing::Config for Runtime {
+    type Event = Event;
     type Currency = Balances;
     type PhaseReward = Staking;
     type Slash = Treasury;
@@ -1113,7 +1114,7 @@ construct_runtime!(
         OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
-        DBCTesting: dbc_testing::{Module, Storage, Call},
+        DBCTesting: dbc_testing::{Module, Storage, Call, Event<T>},
     }
 );
 
