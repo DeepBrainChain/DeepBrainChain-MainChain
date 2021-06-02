@@ -397,7 +397,7 @@ pub mod pallet {
             };
 
             // 更新质押和Ledger
-            Self::add_user_total_stake(&controller, first_bond_stake);
+            Self::add_user_total_stake(&controller, first_bond_stake).map_err(|_| Error::<T>::BalanceOverflow)?;
             Ledger::<T>::insert(controller.clone(), machine_id.clone(), Some(item));
 
             Self::deposit_event(Event::BondMachine(controller, machine_id, first_bond_stake));
@@ -483,7 +483,7 @@ pub mod pallet {
                 ));
 
                 // 更新质押和Ledger
-                Self::add_user_total_stake(&controller, extra_stake);
+                Self::add_user_total_stake(&controller, extra_stake).map_err(|_| Error::<T>::BalanceOverflow)?;
                 Ledger::<T>::insert(controller, machine_id, Some(ledger));
             }
 
@@ -805,44 +805,26 @@ impl<T: Config> Pallet<T> {
     //     Ledger::<T>::insert(controller, machine_id, Some(ledger));
     // }
 
-    fn add_user_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
+    fn add_user_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let current_stake = Self::user_total_stake(controller);
-        let next_stake = current_stake.checked_add(&amount);
-        if let None = next_stake {
-            return;
-        }
-        let next_stake = next_stake.unwrap();
-
+        let next_stake = current_stake.checked_add(&amount).ok_or(())?;
         <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
 
         // 改变总质押
-        let total_stake = Self::total_stake().checked_add(&amount);
-        if let None = total_stake {
-            debug::warn!("Total stake overflow!");
-            return;
-        }
-        let total_stake = total_stake.unwrap();
-        TotalStake::<T>::put(total_stake)
+        let total_stake = Self::total_stake().checked_add(&amount).ok_or(())?;
+        TotalStake::<T>::put(total_stake);
+        Ok(())
     }
 
-    fn reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) {
+    fn reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let current_stake = Self::user_total_stake(controller);
-        let next_stake = current_stake.checked_sub(&amount);
-        if let None = next_stake {
-            return;
-        }
-        let next_stake = next_stake.unwrap();
-
+        let next_stake = current_stake.checked_sub(&amount).ok_or(())?;
         <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
 
         // 改变总质押
-        let total_stake = Self::total_stake().checked_sub(&amount);
-        if let None = total_stake {
-            debug::warn!("Total stake overflow!");
-            return;
-        }
-        let total_stake = total_stake.unwrap();
-        TotalStake::<T>::put(total_stake)
+        let total_stake = Self::total_stake().checked_sub(&amount).ok_or(())?;
+        TotalStake::<T>::put(total_stake);
+        Ok(())
     }
 }
 
@@ -927,7 +909,7 @@ impl<T: Config> LCOps for Pallet<T> {
         } else {
             let stake_need = stake_need.unwrap();
             if <T as Config>::Currency::free_balance(&machine_info.machine_owner) > stake_need {
-                Self::add_user_total_stake(&machine_info.machine_owner, stake_need);
+                Self::add_user_total_stake(&machine_info.machine_owner, stake_need)?;
                 machine_info.machine_status = MachineStatus::Online;
             } else {
                 machine_info.machine_status = MachineStatus::WaitingFulfill;
@@ -960,7 +942,7 @@ impl<T: Config> LCOps for Pallet<T> {
             .ok_or(())?;
 
         // 将惩罚分给委员会
-        Self::reduce_total_stake(&machine_info.machine_owner, machine_info.stake_amount);
+        Self::reduce_total_stake(&machine_info.machine_owner, machine_info.stake_amount)?;
         for a_committee in who {
             <T as pallet::Config>::Currency::transfer(
                 &machine_info.machine_owner,

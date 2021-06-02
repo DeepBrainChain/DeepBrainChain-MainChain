@@ -293,16 +293,10 @@ pub mod pallet {
 
             // 检查是否在fulfill列表中
             let mut staker = Self::staker();
-            if let Err(_) = staker.fulfill_list.binary_search(&who) {
-                return Err(Error::<T>::NoNeedFulfill.into());
-            }
+            staker.fulfill_list.binary_search(&who).map_err(|_| Error::<T>::NoNeedFulfill)?;
 
             // 获取需要质押的数量
-            let min_stake = Self::get_min_stake_amount();
-            if let None = min_stake {
-                return Err(Error::<T>::MinStakeNotFound.into());
-            }
-            let min_stake = min_stake.unwrap();
+            let min_stake = Self::get_min_stake_amount().ok_or(Error::<T>::MinStakeNotFound)?;
 
             let mut ledger = Self::committee_ledger(&who).unwrap_or(StakingLedger {
                 ..Default::default()
@@ -334,9 +328,7 @@ pub mod pallet {
             ensure!(staker.staker_exist(&who), Error::<T>::AccountNotExist);
 
             // 只有committee状态才允许进行chill
-            if let Err(_) = staker.committee.binary_search(&who) {
-                return Err(Error::<T>::NotCommittee.into());
-            }
+            staker.committee.binary_search(&who).map_err(|_| Error::<T>::NotCommittee)?;
 
             StakerList::rm_staker(&mut staker.committee, &who);
             StakerList::add_staker(&mut staker.chill_list, who.clone());
@@ -353,9 +345,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             let mut staker = Self::staker();
-            if let Err(_) = staker.chill_list.binary_search(&who) {
-                return Err(Error::<T>::NotInChillList.into());
-            }
+            staker.chill_list.binary_search(&who).map_err(|_| Error::<T>::NotInChillList)?;
 
             StakerList::rm_staker(&mut staker.chill_list, &who);
             StakerList::add_staker(&mut staker.committee, who.clone());
@@ -444,9 +434,7 @@ pub mod pallet {
 
             // 判断发起请求者是状态正常的委员会
             let staker = Self::staker();
-            if let Err(_) = staker.committee.binary_search(&who) {
-                return Err(Error::<T>::NotCommittee.into());
-            }
+            staker.committee.binary_search(&who).map_err(|_| Error::<T>::NotCommittee)?;
 
             // 检查是否有可预订的订单
             let mut live_order = Self::live_order();
@@ -581,15 +569,11 @@ pub mod pallet {
 
             // 判断是否为委员会其列表是否有该order_id
             let committee_booked = Self::committee_machines(&committee);
-            if let Err(_) = committee_booked.booked_order.binary_search(&order_id) {
-                return Err(Error::<T>::NotInBookedList.into());
-            }
+            committee_booked.booked_order.binary_search(&order_id).map_err(|_| Error::<T>::NotInBookedList)?;
 
             // 判断该order_id是否可以提交信息
             let live_order = Self::live_order();
-            if let Err(_) = live_order.fully_order.binary_search(&order_id) {
-                return Err(Error::<T>::OrderStatusNotFeat.into())
-            }
+            live_order.fully_order.binary_search(&order_id).map_err(|_| Error::<T>::OrderStatusNotFeat)?;
 
             // 判断时间是否允许提交记录
             let mut ops_detail = Self::committee_ops(&committee, &order_id);
@@ -674,19 +658,12 @@ impl<T: Config> Pallet<T> {
     fn get_min_stake_amount() -> Option<BalanceOf<T>> {
         let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
 
-        let dbc_price = <dbc_price_ocw::Module<T>>::avg_price();
-        if let None = dbc_price {
-            return None;
-        }
-        let dbc_price = dbc_price.unwrap();
+        let dbc_price = <dbc_price_ocw::Module<T>>::avg_price()?;
         let committee_min_stake = Self::committee_min_stake();
 
         // dbc_need = one_dbc * committee_min_stake / dbc_price
-        let min_stake = one_dbc.checked_mul(&committee_min_stake.saturated_into::<BalanceOf<T>>());
-        if let Some(_) = min_stake {
-            return None;
-        }
-        let min_stake = min_stake.unwrap();
+        let min_stake =
+            one_dbc.checked_mul(&committee_min_stake.saturated_into::<BalanceOf<T>>())?;
         min_stake.checked_div(&dbc_price.saturated_into::<BalanceOf<T>>())
     }
 

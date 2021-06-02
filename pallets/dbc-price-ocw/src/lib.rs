@@ -176,17 +176,9 @@ impl<T: Config> Pallet<T> {
     fn fetch_price() -> Result<u64, http::Error> {
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
 
-        let price_url = Self::price_url();
-        if let None = price_url {
-            return Err(http::Error::Unknown);
-        }
-        let price_url = price_url.unwrap();
+        let price_url = Self::price_url().ok_or(http::Error::Unknown)?;
 
-        let rand_price_url_index = Self::gen_rand_url();
-        if let None = rand_price_url_index {
-            return Err(http::Error::Unknown);
-        }
-        let rand_price_url_index = rand_price_url_index.unwrap();
+        let rand_price_url_index = Self::gen_rand_url().ok_or(http::Error::Unknown)?;
 
         let price_url = str::from_utf8(&price_url[rand_price_url_index as usize])
             .map_err(|_| http::Error::Unknown)?;
