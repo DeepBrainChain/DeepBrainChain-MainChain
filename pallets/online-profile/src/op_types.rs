@@ -18,38 +18,22 @@ pub struct MachineInfoDetail {
     pub staker_customize_info: StakerCustomizeInfo,
 }
 
-// GPU型号：xxxx
-// GPU数量：xxxx
-// CUDA core数量:XXXX
-// GPU显存：xxxGB
-// 算力值：xxxx
-// 硬盘：xxxxGB
-// 上行带宽:xxxKbps
-// 下行带宽:xxxKbps
-// CPU型号：xxxxx
-// CPU内核数：xxxxx
-// CPU频率：xxxxxGHZ
-// 内存数：xxGB
-// 经度：xxxx
-// 纬度：xxxx
-// 镜像
-
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 pub struct CommitteeUploadInfo {
     pub machine_id: MachineId,
-    pub gpu_type: Vec<u8>,
-    pub gpu_num: u32,
-    pub cuda_core: u32,
-    pub gpu_mem: u64,
-    pub calc_point: u64,
-    pub hard_disk: u64,
-    pub cpu_type: Vec<u8>,
-    pub cpu_core_num: u32,
-    pub cpu_rate: u64, // cpu 频率
-    pub mem_num: u64,  // 内存数
+    pub gpu_type: Vec<u8>, // GPU型号
+    pub gpu_num: u32,      // GPU数量
+    pub cuda_core: u32,    // CUDA core数量
+    pub gpu_mem: u64,      // GPU显存
+    pub calc_point: u64,   // 算力值
+    pub hard_disk: u64,    // 硬盘
+    pub cpu_type: Vec<u8>, // CPU型号
+    pub cpu_core_num: u32, // CPU内核数
+    pub cpu_rate: u64,     // CPU频率
+    pub mem_num: u64,      // 内存数
 
     pub rand_str: Vec<u8>,
-    pub is_support: bool, // 0 表示反对，其他表示支持
+    pub is_support: bool, // 委员会是否支持该机器上线
 }
 
 impl CommitteeUploadInfo {
@@ -89,14 +73,15 @@ impl CommitteeUploadInfo {
     }
 }
 
+// 不确定值，由机器管理者提交
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
 pub struct StakerCustomizeInfo {
     pub left_change_time: u64, // 用户对贷款及经纬度的修改次数
 
-    pub upload_net: u64,   // 不确定值, 存储平均值
-    pub download_net: u64, // 不确定值, 存储平均值
-    pub longitude: u64,    // 经度, 不确定值，存储平均值
-    pub latitude: u64,     // 纬度, 不确定值，存储平均值
+    pub upload_net: u64,   // 上行带宽
+    pub download_net: u64, // 下行带宽
+    pub longitude: u64,    // 经度
+    pub latitude: u64,     // 纬度
 
     pub images: Vec<ImageName>, // 镜像名称
 }
@@ -115,7 +100,7 @@ impl Default for StakerCustomizeInfo {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub struct StakingLedger<AccountId, Balance: HasCompact> {
+pub struct OPStakingLedger<AccountId, Balance: HasCompact> {
     pub stash: AccountId,
 
     #[codec(compact)]
@@ -150,7 +135,7 @@ pub struct EraRewardBalance<AccountId: Ord, Balance> {
 }
 
 impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32BitUnsigned>
-    StakingLedger<AccountId, Balance>
+    OPStakingLedger<AccountId, Balance>
 {
     // 筛选去掉已经到期的unlocking
     pub fn consolidate_unlock(self, current_era: EraIndex) -> Self {
@@ -180,7 +165,7 @@ impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32BitUnsigned>
     }
 }
 
-impl<AccountId, Balance> StakingLedger<AccountId, Balance>
+impl<AccountId, Balance> OPStakingLedger<AccountId, Balance>
 where
     Balance: AtLeast32BitUnsigned + Saturating + Copy,
 {

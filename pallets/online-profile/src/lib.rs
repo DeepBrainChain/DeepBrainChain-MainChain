@@ -1,6 +1,9 @@
-// 1万卡一下 质押 = min(100000 DBC, 5w RMB 等值DBC)
-// 1万卡以上，质押 = min(100000 * (10000/卡数), 5w RMB 等值DBC)
-// TODO: 如果验证结果发现，绑定者与机器钱包地址不一致，则进行惩罚
+// 质押数量：
+//  n = min(n1, n2)
+//  n1 = 5w RMB 等值DBC
+//  n2 = 100000 DBC (卡数 <= 10000)
+//  n2 = 100000 * (10000/卡数) (卡数>10000)
+
 // TODO: era结束时重新计算得分, 如果有会影响得分的改变，放到列表中，等era结束进行计算
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -41,6 +44,7 @@ mod tests;
 pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
 pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
+pub const ONE_DBC: u64 = 1000_000_000_000_000;
 
 // 惩罚发生后，有48小时的时间提交议案取消惩罚
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -252,7 +256,7 @@ pub mod pallet {
         T::AccountId,
         Blake2_128Concat,
         MachineId,
-        Option<StakingLedger<T::AccountId, BalanceOf<T>>>,
+        Option<OPStakingLedger<T::AccountId, BalanceOf<T>>>,
         ValueQuery,
     >;
 
@@ -343,10 +347,12 @@ pub mod pallet {
         pub fn bond_machine(origin: OriginFor<T>, machine_owner: T::AccountId, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            // TODO: 扣除用户万分之一的dbc用作手续费
-
             // 用户第一次绑定机器需要质押的数量
             let first_bond_stake = Self::stake_per_gpu();
+
+            // 扣除用户万分之一的dbc用作手续费
+            let service_charge = Perbill::from_rational_approximation(1u64, 10000u64) * first_bond_stake;
+            let _ = <T as pallet::Config>::Currency::slash(&controller, service_charge);
 
             // 资金检查,确保机器还没有被绑定过
             ensure!(<T as Config>::Currency::free_balance(&controller) > first_bond_stake, Error::<T>::BalanceNotEnough);
@@ -380,7 +386,7 @@ pub mod pallet {
             let current_era: u32 = <random_num::Module<T>>::current_slot_height().saturated_into::<u32>();
             let history_depth = Self::history_depth();
             let last_reward_era = current_era.saturating_sub(history_depth);
-            let item = StakingLedger {
+            let item = OPStakingLedger {
                 stash: controller.clone(),
                 total: first_bond_stake,
                 active: first_bond_stake,
@@ -805,7 +811,7 @@ impl<T: Config> Pallet<T> {
 
     // TODO: update_ledger 改成add_stake, reduce_stake + update Ledger
     // // 更新用户的质押的ledger
-    // fn update_ledger(controller: &T::AccountId, machine_id: &MachineId, ledger: &StakingLedger<T::AccountId, BalanceOf<T>>) {
+    // fn update_ledger(controller: &T::AccountId, machine_id: &MachineId, ledger: &OPStakingLedger<T::AccountId, BalanceOf<T>>) {
     //     <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, &ledger.stash, ledger.total, WithdrawReasons::all());
     //     Ledger::<T>::insert(controller, machine_id, Some(ledger));
     // }
