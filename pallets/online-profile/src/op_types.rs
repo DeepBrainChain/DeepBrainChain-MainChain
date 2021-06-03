@@ -125,13 +125,13 @@ pub struct UnlockChunk<Balance: HasCompact> {
     pub era: EraIndex,
 }
 
-// TOOD: 这个用来记录每个Era的总分,
+// 记录每个Era的机器的总分
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug)]
-pub struct EraRewardBalance<AccountId: Ord, Balance> {
-    /// Total number of points. Equals the sum of reward points for each validator.
-    pub total: Balance,
-    /// The reward points earned by a given validator.
-    pub individual: BTreeMap<AccountId, Balance>,
+pub struct EraMachinePoints {
+    // 所有可以奖励的机器总得分
+    pub total: u64,
+    // 某个Era，所有可以奖励的机器
+    pub individual: BTreeMap<MachineId, u64>,
 }
 
 impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32BitUnsigned>

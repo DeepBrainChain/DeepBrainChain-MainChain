@@ -484,7 +484,7 @@ pub mod pallet {
         // 委员会任何时候都可以添加公钥信息，添加公钥信息不应改变委员会的状态。
         // 但是，当委员会在pubkey_list列表中时，为刚成为委员会的状态。添加pubkey则变为fulfill_list状态
         #[pallet::weight(10000)]
-        pub fn reporter_add_pubkey(origin: OriginFor<T>, pubkey: Pubkey) -> DispatchResultWithPostInfo {
+        pub fn committee_add_pubkey(origin: OriginFor<T>, pubkey: Pubkey) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
 
             // 检查是否为委员会
@@ -509,7 +509,7 @@ pub mod pallet {
         // FIXME: 完善逻辑
         // 报告人在委员会完成抢单后，24小时内用委员会的公钥，提交加密后的故障信息
         #[pallet::weight(10000)]
-        pub fn reporter_add_error_hash(origin: OriginFor<T>, order_id: OrderId, to_committee: T::AccountId, encrypted_err_info: Vec<u8>, encrypted_login_info: Vec<u8>) -> DispatchResultWithPostInfo {
+        pub fn reporter_add_error_info(origin: OriginFor<T>, order_id: OrderId, to_committee: T::AccountId, encrypted_err_info: Vec<u8>, encrypted_login_info: Vec<u8>) -> DispatchResultWithPostInfo {
             let _reporter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -562,8 +562,9 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 委员会提交验证之后的Hash
         #[pallet::weight(10000)]
-        pub fn add_confirm_hash(origin: OriginFor<T>, order_id: OrderId, hash: Hash) -> DispatchResultWithPostInfo {
+        pub fn submit_confirm_hash(origin: OriginFor<T>, order_id: OrderId, hash: Hash) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -613,6 +614,22 @@ pub mod pallet {
             // 1. 判断Hash = 报告人提交的原始Hash
 
             // 2. 根据委员会的统计，判断是否有故障，并更新故障信息到online_profile
+
+            Ok(().into())
+        }
+
+        // 机器管理者报告机器下线
+        #[pallet::weight(10000)]
+        pub fn staker_report_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let _who = ensure_signed(origin)?;
+
+            Ok(().into())
+        }
+
+        // 机器管理者报告机器上线
+        #[pallet::weight(10000)]
+        pub fn staker_report_online(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let _who = ensure_signed(origin)?;
 
             Ok(().into())
         }

@@ -1,8 +1,14 @@
-// 质押数量：
-//  n = min(n1, n2)
-//  n1 = 5w RMB 等值DBC
-//  n2 = 100000 DBC (卡数 <= 10000)
-//  n2 = 100000 * (10000/卡数) (卡数>10000)
+// 机器质押数量：
+//   n = min(n1, n2)
+//   n1 = 5w RMB 等值DBC
+//   n2 = 100000 DBC (卡数 <= 10000)
+//   n2 = 100000 * (10000/卡数) (卡数>10000)
+// 在线奖励数量:
+//   First month: 10^8;
+//   Next 2 year: 4 * 10^8;
+//   Next 9 month: 4 * 10^8 * (9 / 12)
+//   Next 5 year: 5 * 10^7
+//   Next 5 years: 2.5 * 10^7
 
 // TODO: era结束时重新计算得分, 如果有会影响得分的改变，放到列表中，等era结束进行计算
 
@@ -18,6 +24,7 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
+use grade_inflation::calc_machine_grade;
 use online_profile_machine::{LCOps, OCWOps};
 use pallet_identity::Data;
 use sp_runtime::{
@@ -70,9 +77,12 @@ impl Default for SlashReason {
     }
 }
 
+// 质押者总览自己的状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StakerMachine<Balance> {
-    pub machine_id: Vec<MachineId>, //用户绑定的所有机器，不与机器状态有关
+    pub total_machine: Vec<MachineId>, // 用户绑定的所有机器，不与机器状态有关
+    pub online_machine: Vec<MachineId>,
+    pub point_inflation: Perbill, // 用户单台机器分数的膨胀系数，介于 [1, 1.1]之间
     pub total_calc_points: u64,
     pub total_gpu_num: u64,
     pub total_reward: Balance,
@@ -85,7 +95,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub stake_amount: Balance,
     pub machine_status: MachineStatus,
     pub machine_info_detail: MachineInfoDetail, // 委员会提交的机器信息
-    pub machine_price: u64, // 设置3080的分数对应的价格为1000元，其他机器的价格根据3080的进行计算
+    pub machine_price: u64, // 租用价格。设置3080的分数对应的价格为1000(可设置)元，其他机器的价格根据3080的价格，按照算力值进行计算的比例进行计算
     pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
     pub reward_deadline: BlockNumber, // 列表中委员分得奖励结束时间
 }
@@ -194,6 +204,16 @@ pub mod pallet {
     #[pallet::getter(fn stake_per_gpu)]
     pub(super) type StakePerGPU<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+    // 标准的显卡租用价格
+    #[pallet::storage]
+    #[pallet::getter(fn standard_gpu_price)]
+    pub(super) type StandardGPUPrice<T: Config> = StorageValue<_, u64>;
+
+    // 标准的显卡算力点数
+    #[pallet::storage]
+    #[pallet::getter(fn standard_gpu_point)]
+    pub(super) type StandardGPUPoint<T: Config> = StorageValue<_, u64>;
+
     // 存储每个机器质押的等值USD上限, 单位 1x10^6 USD
     #[pallet::storage]
     #[pallet::getter(fn stake_usd_limit)]
@@ -260,13 +280,14 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    // 存储每个Era机器的得分
     #[pallet::storage]
-    #[pallet::getter(fn eras_reward_balance)]
-    pub(super) type ErasRewardBalance<T: Config> = StorageMap<
+    #[pallet::getter(fn eras_machine_points)]
+    pub(super) type ErasMachinePoints<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         EraIndex,
-        EraRewardBalance<T::AccountId, BalanceOf<T>>,
+        EraMachinePoints,
         ValueQuery,
     >;
 
@@ -279,6 +300,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn reward_per_year)]
     pub(super) type RewardPerYear<T> = StorageValue<_, BalanceOf<T>>;
+
+    // 每个Era的总奖励
+    #[pallet::storage]
+    #[pallet::getter(fn eras_total_reward)]
+    pub(super) type ErasTotalReward<T: Config> = StorageMap<_, Blake2_128Concat, EraIndex, Option<BalanceOf<T>>>;
 
     // 等于RewardPerYear * (era_duration / year_duration)
     #[pallet::storage]
@@ -341,6 +367,22 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 设置标准GPU租用价格
+        #[pallet::weight(0)]
+        pub fn set_standard_gpu_price(origin: OriginFor<T>, price: u64) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            StandardGPUPrice::<T>::put(price);
+            Ok(().into())
+        }
+
+        // 标准GPU算力点数
+        #[pallet::weight(0)]
+        pub fn set_standard_gpu_point(origin: OriginFor<T>, points: u64) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            StandardGPUPoint::<T>::put(points);
+            Ok(().into())
+        }
+
         // 将machine_id添加到绑定队列,之后ocw工作，验证机器ID与钱包地址是否一致
         // 绑定需要质押first_bond_stake数量的DBC
         #[pallet::weight(10000)]
@@ -361,8 +403,8 @@ pub mod pallet {
 
             // 添加到用户的机器列表
             let mut user_machines = Self::user_machines(&controller);
-            if let Err(index) = user_machines.machine_id.binary_search(&machine_id) {
-                user_machines.machine_id.insert(index, machine_id.clone());
+            if let Err(index) = user_machines.total_machine.binary_search(&machine_id) {
+                user_machines.total_machine.insert(index, machine_id.clone());
                 UserMachines::<T>::insert(&controller, user_machines);
             } else {
                 return Err(Error::<T>::MachineInUserBonded.into());
@@ -412,7 +454,7 @@ pub mod pallet {
 
             // 查询机器Id是否在该账户的控制下
             let user_machines = Self::user_machines(&controller);
-            if let Err(_) = user_machines.machine_id.binary_search(&machine_id) {
+            if let Err(_) = user_machines.total_machine.binary_search(&machine_id) {
                 return Err(Error::<T>::MachineIdNotBonded.into());
             }
 
@@ -429,9 +471,7 @@ pub mod pallet {
 
             // 查询机器Id是否在该账户的控制下
             let user_machines = Self::user_machines(&controller);
-            if let Err(_) = user_machines.machine_id.binary_search(&machine_id) {
-                return Err(Error::<T>::MachineIdNotBonded.into());
-            }
+            user_machines.total_machine.binary_search(&machine_id).map_err(|_| Error::<T>::MachineIdNotBonded);
 
             let mut machine_info = Self::machines_info(&machine_id);
             match machine_info.machine_status {
@@ -556,7 +596,7 @@ pub mod pallet {
             ensure!(UserMachines::<T>::contains_key(&controller), Error::<T>::NotMachineController);
 
             let user_machines = Self::user_machines(&controller);
-            for machine_id in user_machines.machine_id.iter() {
+            for machine_id in user_machines.total_machine.iter() {
                 return Self::do_payout(controller.clone(), machine_id);
             }
 
@@ -623,7 +663,7 @@ pub mod pallet {
     }
 }
 
-#[rustfmt::skip]
+// #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
@@ -648,20 +688,39 @@ impl<T: Config> Pallet<T> {
 
         // 当GPU数量大于10_000时
         // 100_000 * 10000 / gpu_num
-        let dbc_amount2 = Perbill::from_rational_approximation(10_000u64, total_gpu_num) * base_stake;
+        let dbc_amount2 =
+            Perbill::from_rational_approximation(10_000u64, total_gpu_num) * base_stake;
 
         let stake_per_gpu = dbc_amount2.min(dbc_amount);
         stake_per_gpu.checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())
     }
 
-    pub fn do_payout(controller: T::AccountId, machine_id: &MachineId) -> DispatchResultWithPostInfo {
+    // 根据GPU数量和该机器算力点数，算出该机器价格
+    pub fn calc_machine_price(machine_point: u64, gpu_num: u32) -> Option<u64> {
+        let standard_gpu_price = Self::standard_gpu_price()?;
+        let standard_gpu_point = Self::standard_gpu_point()?;
+        standard_gpu_price
+            .checked_mul(10_000)?
+            .checked_mul(machine_point)?
+            .checked_mul(gpu_num as u64)?
+            .checked_div(standard_gpu_point)?
+            .checked_div(10_000u64)
+    }
+
+    pub fn do_payout(
+        controller: T::AccountId,
+        machine_id: &MachineId,
+    ) -> DispatchResultWithPostInfo {
         // 根据解锁数量打币给用户
-        let mut ledger = Self::ledger(controller.clone(), machine_id).ok_or(Error::<T>::LedgerNotFound)?;
+        let mut ledger =
+            Self::ledger(controller.clone(), machine_id).ok_or(Error::<T>::LedgerNotFound)?;
         let can_claim = ledger.released_rewards;
 
         // 检查机器是否处于正常状态
         let machine_info = Self::machines_info(machine_id.to_vec());
-        if machine_info.machine_status != MachineStatus::Online || machine_info.machine_status != MachineStatus::Rented {
+        if machine_info.machine_status != MachineStatus::Online
+            || machine_info.machine_status != MachineStatus::Rented
+        {
             return Err(Error::<T>::NotMachineController.into());
         }
 
@@ -669,24 +728,40 @@ impl<T: Config> Pallet<T> {
         // 99%奖金给机器控制者，1%奖励给用户
 
         // 判断委员会是否应该获得奖励
-        let current_slot_height: u64 = <random_num::Module<T>>::current_slot_height().saturated_into::<u64>();
+        let current_slot_height: u64 =
+            <random_num::Module<T>>::current_slot_height().saturated_into::<u64>();
         if machine_info.reward_deadline.saturated_into::<u64>() >= current_slot_height {
             // 委员会也分得奖励
             let to_controller = Perbill::from_rational_approximation(99u64, 100) * can_claim;
-            let to_committees= can_claim - to_controller;
-            let to_one_committee = Perbill::from_rational_approximation(1u64, machine_info.reward_committee.len() as u64) * to_committees;
+            let to_committees = can_claim - to_controller;
+            let to_one_committee = Perbill::from_rational_approximation(
+                1u64,
+                machine_info.reward_committee.len() as u64,
+            ) * to_committees;
 
             for a_committee in machine_info.reward_committee.iter() {
                 <T as Config>::Currency::deposit_into_existing(&a_committee, to_one_committee)?;
-                Self::deposit_event(Event::ClaimRewards((*a_committee).clone(), machine_id.to_vec(), to_one_committee));
+                Self::deposit_event(Event::ClaimRewards(
+                    (*a_committee).clone(),
+                    machine_id.to_vec(),
+                    to_one_committee,
+                ));
             }
 
             <T as Config>::Currency::deposit_into_existing(&controller, to_controller)?;
-            Self::deposit_event(Event::ClaimRewards(controller.clone(), machine_id.to_vec(), to_controller));
+            Self::deposit_event(Event::ClaimRewards(
+                controller.clone(),
+                machine_id.to_vec(),
+                to_controller,
+            ));
         } else {
             // 奖励全分给控制者
             <T as Config>::Currency::deposit_into_existing(&controller, can_claim)?;
-            Self::deposit_event(Event::ClaimRewards(controller.clone(), machine_id.to_vec(), can_claim));
+            Self::deposit_event(Event::ClaimRewards(
+                controller.clone(),
+                machine_id.to_vec(),
+                can_claim,
+            ));
         }
 
         // 更新已解压数量
@@ -713,16 +788,6 @@ impl<T: Config> Pallet<T> {
 
     // TODO: 在这四个函数中，更新machine的状态
 
-    // 为机器增加奖励
-    pub fn reward_by_ids(era_index: u32, validators_balance: impl IntoIterator<Item = (T::AccountId, BalanceOf<T>)>) {
-        <ErasRewardBalance<T>>::mutate(era_index, |era_rewards| {
-            for (validator, grades) in validators_balance.into_iter() {
-                *era_rewards.individual.entry(validator).or_default() += grades;
-                era_rewards.total += grades;
-            }
-        });
-    }
-
     // 更新以下信息:
     // [机器质押信息] TODO: 质押一定数量之后再解邦
     // [机器质押代币总数量] (这就是为什么需要14天解绑，保证今天解绑不会影响今天总质押)
@@ -735,8 +800,11 @@ impl<T: Config> Pallet<T> {
     // TODO: 在start_era 的时候，更新打分信息,记录质押信息,可以加一个全局锁，将这段函数放在OCW中完成
     // TODO: 清理未收集的数据
     // TODO: 触发惩罚
-    fn _start_era() {
-        let _current_era = <random_num::Module<T>>::current_era();
+    fn start_era() {
+        let current_era = <random_num::Module<T>>::current_era();
+
+        Self::take_grade_clipped(current_era);
+
         // let bonded_machine_id = Self::bonded_machine_id();
 
         // for a_machine_id in bonded_machine_id.iter() {
@@ -747,9 +815,59 @@ impl<T: Config> Pallet<T> {
         // let a_machine_grade = 1;
     }
 
-    fn _end_era() {
-        // TODO: 参考staking模块的end_era
-        // grade_inflation::compute_stake_grades(machine_price, staked_in, machine_grade)
+    // 遍历系统中存在的被绑定的机器, 对机器得分进行快照
+    fn take_grade_clipped(era_index: EraIndex) {
+        let live_machines = Self::live_machines();
+
+        let mut era_machine_points = EraMachinePoints {
+            ..Default::default()
+        };
+
+        for a_machine in live_machines.bonded_machine {
+            let machine_info = Self::machines_info(&a_machine);
+            let staker_machine = Self::user_machines(&machine_info.machine_owner);
+
+            // 机器得分乘以膨胀系数
+            let machine_grade = staker_machine.point_inflation
+                * machine_info
+                    .machine_info_detail
+                    .committee_upload_info
+                    .calc_point;
+            era_machine_points.total += machine_grade;
+            era_machine_points
+                .individual
+                .insert(a_machine, machine_grade);
+        }
+
+        ErasMachinePoints::<T>::insert(era_index, era_machine_points);
+    }
+
+    // 每次有事件影响机器分数时，如机器下线等更新grade快照
+    fn update_grade_clipped(
+        era: EraIndex,
+        machine_id: MachineId,
+        new_grade: u64,
+    ) -> Result<(), ()> {
+        let mut era_machine_points = Self::eras_machine_points(era);
+        let a_machine_points = era_machine_points.individual.get(&machine_id).ok_or(())?;
+
+        era_machine_points.total += new_grade;
+        era_machine_points.total -= a_machine_points;
+        era_machine_points.individual.insert(machine_id, new_grade);
+        ErasMachinePoints::<T>::insert(era, era_machine_points);
+        Ok(())
+    }
+
+    // TODO: 增加计算当前Era奖励数量
+    fn update_current_era_reward(era: EraIndex) {
+        // ErasTotalReward::<T>::insert(era, 0.into());
+    }
+
+    // 根据机器得分发放奖励
+    fn end_era() {
+        let current_era = <random_num::Module<T>>::current_era();
+        let current_total_reward = Self::eras_total_reward(current_era);
+        let era_machine_points = Self::eras_machine_points(current_era);
     }
 
     // 计算每天的奖励，25%添加到用户的余额，75%在150天线性释放，TODO: 一部分释放给委员会
@@ -757,7 +875,7 @@ impl<T: Config> Pallet<T> {
         let ledger = Self::ledger(&controller, &machine_id);
         // ledger 在bond成功会初始化，若不存在，则直接返回
         if let None = ledger {
-            return
+            return;
         }
         let mut ledger = ledger.unwrap();
 
@@ -786,17 +904,19 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-
         Ledger::<T>::insert(controller, machine_id, Some(ledger));
         // Self::update_ledger(&controller, &machine_id, &ledger);
     }
 
     // 扣除n天剩余奖励
-    fn _slash_nday_reward(_controller: T::AccountId, _machine_id: MachineId, _amount: BalanceOf<T>) {
-
+    fn _slash_nday_reward(
+        _controller: T::AccountId,
+        _machine_id: MachineId,
+        _amount: BalanceOf<T>,
+    ) {
     }
 
-    fn _validator_slash(){}
+    fn _validator_slash() {}
 
     // TODO: update_ledger 改成add_stake, reduce_stake + update Ledger
     // // 更新用户的质押的ledger
@@ -808,7 +928,12 @@ impl<T: Config> Pallet<T> {
     fn add_user_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let current_stake = Self::user_total_stake(controller);
         let next_stake = current_stake.checked_add(&amount).ok_or(())?;
-        <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
+        <T as pallet::Config>::Currency::set_lock(
+            PALLET_LOCK_ID,
+            controller,
+            next_stake,
+            WithdrawReasons::all(),
+        );
 
         // 改变总质押
         let total_stake = Self::total_stake().checked_add(&amount).ok_or(())?;
@@ -819,7 +944,12 @@ impl<T: Config> Pallet<T> {
     fn reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let current_stake = Self::user_total_stake(controller);
         let next_stake = current_stake.checked_sub(&amount).ok_or(())?;
-        <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
+        <T as pallet::Config>::Currency::set_lock(
+            PALLET_LOCK_ID,
+            controller,
+            next_stake,
+            WithdrawReasons::all(),
+        );
 
         // 改变总质押
         let total_stake = Self::total_stake().checked_sub(&amount).ok_or(())?;
@@ -916,6 +1046,14 @@ impl<T: Config> LCOps for Pallet<T> {
             }
         }
 
+        // 添加机器价格
+        let machine_price = Self::calc_machine_price(
+            committee_upload_info.calc_point,
+            committee_upload_info.gpu_num,
+        )
+        .ok_or(())?;
+        machine_info.machine_price = machine_price;
+
         MachinesInfo::<T>::insert(committee_upload_info.machine_id, machine_info.clone());
 
         let mut user_machines = Self::user_machines(&machine_info.machine_owner);
@@ -928,6 +1066,7 @@ impl<T: Config> LCOps for Pallet<T> {
 
         let total_calc_points = Self::total_calc_points();
         TotalCalcPoints::<T>::put(total_calc_points + committee_upload_info.calc_point);
+
         return Ok(());
     }
 
@@ -963,10 +1102,18 @@ impl<T: Config> LCOps for Pallet<T> {
         LiveMachines::<T>::put(live_machines);
 
         let mut user_machines = Self::user_machines(&machine_info.machine_owner);
-        if let Ok(index) = user_machines.machine_id.binary_search(&machine_id) {
-            user_machines.machine_id.remove(index);
-            UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
+        if let Ok(index) = user_machines.total_machine.binary_search(&machine_id) {
+            user_machines.total_machine.remove(index);
         }
+        if let Err(index) = user_machines.online_machine.binary_search(&machine_id) {
+            user_machines.online_machine.insert(index, machine_id);
+        }
+
+        // FIXME
+        // calc_machine_grade(base_grade, bond_num);
+
+        UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
+
         Ok(())
     }
 }
