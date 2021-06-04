@@ -16,20 +16,26 @@
     "bonding_height": "BlockNumber",
     "stake_amount": "Balance",
     "machine_status": "MachineStatus",
-    "committee_machine_info": "MachineInfoByCommittee",
+    "machine_info_detail": "MachineInfoDetail",
     "machine_price": "u64",
     "reward_committee": "Vec<AccountId>",
     "reward_deadline": "BlockNumber"
   },
-  "CommitteeConfirmation": {
-    "committee": "AccountId",
-    "confirm_time": "BlockNumber",
-    "is_confirmed": "bool"
-  },
   "MachineStatus": {
-    "_enum": ["Bonding", "Booked", "WaitingHash", "Bonded", "WaitingFulfill"]
+    "_enum": [
+      "OcwConfirming",
+      "CommitteeVerifying",
+      "WaitingFulfill",
+      "Online",
+      "Offline",
+      "Rented"
+    ]
   },
-  "MachineInfoByCommittee": {
+  "MachineInfoDetail": {
+    "committee_upload_info": "CommitteeUploadInfo",
+    "staker_customize_info": "StakerCustomizeInfo"
+  },
+  "CommitteeUploadInfo": {
     "machine_id": "MachineId",
     "gpu_type": "Vec<u8>",
     "gpu_num": "u32",
@@ -37,13 +43,22 @@
     "gpu_mem": "u64",
     "calc_point": "u64",
     "hard_disk": "u64",
-    "upload_net": "u64",
-    "download_net": "u64",
     "cpu_type": "Vec<u8>",
     "cpu_core_num": "u32",
+    "cpu_rate": "u64",
+    "mem_num": "u64",
     "rand_str": "Vec<u8>",
     "is_support": "bool"
   },
+  "StakerCustomizeInfo": {
+    "left_change_time": "u64",
+    "upload_net": "u64",
+    "download_net": "u64",
+    "longitude": "u64",
+    "latitude": "u64",
+    "images": "Vec<ImageName>"
+  },
+  "ImageName": "Text",
   "CPU": {
     "num": "Vec<u8>",
     "type": "Vec<u8>"

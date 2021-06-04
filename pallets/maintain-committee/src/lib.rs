@@ -576,7 +576,7 @@ pub mod pallet {
             let live_order = Self::live_order();
             live_order.fully_order.binary_search(&order_id).map_err(|_| Error::<T>::OrderStatusNotFeat)?;
 
-            // 判断时间是否允许提交记录
+            // TODO: 判断时间是否允许提交记录
             let mut ops_detail = Self::committee_ops(&committee, &order_id);
 
             // 允许之后，添加到存储中

@@ -98,7 +98,49 @@ mod serde_block_number {
     }
 }
 
-// 构造machine_info rpc结构，将crate::MachineInfo flatten
+// // #[rustfmt::skip]
+// https://stackoverflow.com/questions/48288988/how-do-i-write-a-serde-visitor-to-convert-an-array-of-arrays-of-strings-to-a-vec
+// #[cfg(feature = "std")]
+// mod serde_seq_account {
+//     use serde::de::{Deserialize, Deserializer, SerializeSeq, Serializer};
+
+//     pub fn serialize<S: Serializer, T>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
+//         let mut seq = serializer.serialize_seq(Some(t.len()))?;
+//         for e in t {
+//             seq.serialize_element(e)?;
+//         }
+//         seq.end()
+//     }
+
+//     pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<T, D::Error> {
+//         struct InnerVisitor;
+
+//         impl<'de> Visitor<'de> for InnerVisitor {
+//             type Value = Inner;
+
+//             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+//                 formatter.write_str("a nonempty sequence of numbers")
+//             }
+
+//             #[inline]
+//             fn visit_seq<V>(self, mut visitor: V) -> Result<Inner, V::Error>
+//             where
+//                 V: SeqAccess<'de>,
+//             {
+
+//                 let mut vec = Vec::new();
+
+//                 while let Some(Value(elem)) = try!(visitor.next_element()) {
+//                     vec.push(elem);
+//                 }
+
+//                 Ok(Inner(vec))
+//             }
+//         }
+//     }
+// }
+
+// // 构造machine_info rpc结构，将crate::MachineInfo flatten
 
 #[rustfmt::skip]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
@@ -116,7 +158,7 @@ pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
     pub machine_status: MachineStatus,
     pub machine_info_detail: MachineInfoDetail,
     pub machine_price: u64,
-    // #[cfg_attr(feature = "std", serde(with = "serde_account"))]
+    // #[cfg_attr(feature = "std", serde(with = "serde_seq_account"))]
     // pub reward_committee: Vec<AccountId>,
     #[cfg_attr(feature = "std", serde(with = "serde_block_number"))]
     pub reward_deadline: BlockNumber,

@@ -94,7 +94,7 @@ impl<C, Block, AccountId, Balance, BlockNumber>
     > for OpStorage<C, Block>
 where
     Block: BlockT,
-    AccountId: Clone + std::fmt::Display + Codec,
+    AccountId: Clone + std::fmt::Display + Codec + Ord,
     Balance: Codec + MaybeDisplay + Copy + TryInto<NumberOrHex>,
     BlockNumber: Clone + std::fmt::Display + Codec,
     C: Send + Sync + 'static,

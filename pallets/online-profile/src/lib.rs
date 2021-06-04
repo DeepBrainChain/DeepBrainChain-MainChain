@@ -121,6 +121,7 @@ impl Default for MachineStatus {
 
 // 只保存正常声明周期的Machine,删除掉的/绑定失败的不保存在该变量中
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct LiveMachine {
     pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
     pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段。该状态可以由lc分配订单
@@ -1236,6 +1237,7 @@ impl<T: Config> Module<T> {
             machine_status: machine_info.machine_status,
             machine_info_detail: machine_info.machine_info_detail,
             machine_price: machine_info.machine_price,
+            // reward_committee: machine_info.reward_committee,
             reward_deadline: machine_info.reward_deadline,
         }
     }

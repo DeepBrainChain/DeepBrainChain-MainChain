@@ -125,7 +125,60 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 
 ---
 
+### 查询机器列表
 
+```bash
+curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
+     "jsonrpc":"2.0",
+      "id":1,
+      "method":"onlineProfile_getMachineList",
+      "params": []
+    }'
+```
+
++ 返回信息：
+
+```json
+{"jsonrpc":"2.0","result":{"bonded_machine":[],"bonding_machine":[],"booked_machine":[],"ocw_confirmed_machine":[],"waiting_hash":[]},"id":1}
+```
+
+### 查询机器信息
+
+```
+curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
+     "jsonrpc":"2.0",
+      "id":1,
+      "method":"onlineProfile_getMachineInfo",
+      "params": ["0x3267667070334d4142344171325a50455537326e655a5456635a6b627a447a5839366f7039643366766933"]
+    }'
+```
+
+注： machine_id应该转为hex
+
+```python
+a = "2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3"
+>>> b = bytes(a, 'utf-8')
+>>> for c in b:
+     print(c，end=',')
+
+[50,103,102,112,112,51,77,65,66,52,65,113,50,90,80,69,85,55,50,110,101,90,84,86,99,90,107,98,122,68,122,88,57,54,111,112,57,100,51,102,118,105,51]
+
+>>> a = "2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3"
+>>> b = str.encode(a)
+>>> b
+b'2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3'
+>>> b.hex()
+'3267667070334d4142344171325a50455537326e655a5456635a6b627a447a5839366f7039643366766933'
+
+返回结果：
+
+```json
+{"jsonrpc":"2.0","result":{"bondingHeight":"139","machineInfoDetail":{"committee_upload_info":{"calc_point":0,"cpu_core_num":0,"cpu_rate":0,"cpu_type":[],"cuda_core":0,"gpu_mem":0,"gpu_num":0,"gpu_type":[],"hard_disk":0,"is_support":false,"machine_id":[],"mem_num":0,"rand_str":[]},"staker_customize_info":{"download_net":0,"images":[],"latitude":0,"left_change_time":3,"longitude":0,"upload_net":0}},"machineOwner":"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty","machinePrice":0,"machineStatus":"OcwConfirming","rewardDeadline":"0","stakeAmount":"0"},"id":1}
+```
+
+---
+
+---
 
 ### 查询矿工的质押数量
 

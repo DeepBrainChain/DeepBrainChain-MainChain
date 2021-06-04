@@ -13,7 +13,7 @@ use sp_std::prelude::Vec;
 // runtime amalgamator file (the `runtime/src/lib.rs`)
 sp_api::decl_runtime_apis! {
     pub trait OpRpcApi<AccountId, Balance, BlockNumber> where
-        AccountId: codec::Codec,
+        AccountId: codec::Codec + Ord,
         Balance: Codec + MaybeDisplay,
         BlockNumber: Codec + MaybeDisplay,
     {
