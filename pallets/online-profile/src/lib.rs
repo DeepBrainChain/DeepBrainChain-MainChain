@@ -27,6 +27,8 @@ use frame_system::pallet_prelude::*;
 use grade_inflation::calc_machine_grade;
 use online_profile_machine::{LCOps, OCWOps};
 use pallet_identity::Data;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero},
     Perbill, SaturatedConversion,
@@ -101,6 +103,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum MachineStatus {
     OcwConfirming,
     CommitteeVerifying,
@@ -1234,6 +1237,7 @@ impl<T: Config> Module<T> {
             machine_owner: machine_info.machine_owner,
             bonding_height: machine_info.bonding_height,
             stake_amount: machine_info.stake_amount,
+            machine_status: machine_info.machine_status,
             machine_info_detail: RPCMachineInfoDetail {
                 committee_upload_info: RPCCommitteeUploadInfo {
                     machine_id: committ_upload.machine_id,
