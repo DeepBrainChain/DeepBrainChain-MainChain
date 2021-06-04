@@ -1213,4 +1213,12 @@ impl<T: Config> Module<T> {
 
         return out;
     }
+
+    // 获取机器列表
+    pub fn get_machine_list() -> LiveMachine {
+        Self::live_machines()
+    }
+
+    // 获取机器详情
+    pub fn get_machine_info(machine_id: MachineId) {}
 }

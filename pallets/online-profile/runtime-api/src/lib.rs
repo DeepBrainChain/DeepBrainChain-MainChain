@@ -3,7 +3,7 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use codec::Codec;
-pub use online_profile::{StakerInfo, StakerListInfo, SysInfo};
+pub use online_profile::{LiveMachine, StakerInfo, StakerListInfo, SysInfo};
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 
@@ -20,5 +20,6 @@ sp_api::decl_runtime_apis! {
         fn get_staker_list(start: u64, end: u64) -> Vec<AccountId>;
         fn get_staker_identity(account: AccountId) -> Vec<u8>;
         fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<StakerListInfo<Balance, AccountId>>;
+        fn get_machine_list() -> LiveMachine;
     }
 }

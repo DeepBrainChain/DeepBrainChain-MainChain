@@ -1193,6 +1193,10 @@ impl_runtime_apis! {
         fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<online_profile::StakerListInfo<Balance, AccountId>> {
             OnlineProfile::get_staker_list_info(cur_page, per_page)
         }
+
+        fn get_machine_list() -> online_profile::LiveMachine {
+            OnlineProfile::get_machine_list()
+        }
     }
 
     impl sp_api::Core<Block> for Runtime {
