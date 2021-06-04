@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use crate::{ImageName, MachineId, MachineStatus};
+use crate::{CommitteeUploadInfo, ImageName, MachineId, MachineInfoDetail, MachineStatus};
 use codec::{Decode, Encode};
 use sp_std::prelude::Vec;
 
@@ -114,49 +114,10 @@ pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
     pub stake_amount: Balance,
     pub machine_status: MachineStatus,
-    pub machine_info_detail: RPCMachineInfoDetail,
+    pub machine_info_detail: MachineInfoDetail,
     pub machine_price: u64,
     // #[cfg_attr(feature = "std", serde(with = "serde_account"))]
     // pub reward_committee: Vec<AccountId>,
     #[cfg_attr(feature = "std", serde(with = "serde_block_number"))]
     pub reward_deadline: BlockNumber,
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct RPCMachineInfoDetail {
-    pub committee_upload_info: RPCCommitteeUploadInfo,
-    pub staker_customize_info: RPCStakerCustomizeInfo,
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct RPCCommitteeUploadInfo {
-    pub machine_id: MachineId,
-    pub gpu_type: Vec<u8>,
-    pub gpu_num: u32,
-    pub cuda_core: u32,
-    pub gpu_mem: u64,
-    pub calc_point: u64,
-    pub hard_disk: u64,
-    pub cpu_type: Vec<u8>,
-    pub cpu_core_num: u32,
-    pub cpu_rate: u64,
-    pub mem_num: u64,
-
-    pub rand_str: Vec<u8>,
-    pub is_support: bool,
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct RPCStakerCustomizeInfo {
-    pub left_change_time: u64,
-
-    pub upload_net: u64,
-    pub download_net: u64,
-    pub longitude: u64,
-    pub latitude: u64,
-
-    pub images: Vec<ImageName>,
 }

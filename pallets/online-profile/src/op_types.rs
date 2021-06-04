@@ -1,4 +1,6 @@
 use codec::{alloc::string::ToString, Decode, Encode, HasCompact};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_128;
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, Saturating, Zero},
@@ -13,12 +15,14 @@ pub type ImageName = Vec<u8>;
 pub const LOCK_BLOCK_EXPIRATION: u32 = 3; // in block number
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct MachineInfoDetail {
     pub committee_upload_info: CommitteeUploadInfo,
     pub staker_customize_info: StakerCustomizeInfo,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct CommitteeUploadInfo {
     pub machine_id: MachineId,
     pub gpu_type: Vec<u8>, // GPU型号
@@ -75,6 +79,7 @@ impl CommitteeUploadInfo {
 
 // 不确定值，由机器管理者提交
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct StakerCustomizeInfo {
     pub left_change_time: u64, // 用户对贷款及经纬度的修改次数
 
