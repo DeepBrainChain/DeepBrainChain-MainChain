@@ -3,8 +3,8 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_profile::{LiveMachine, StakerInfo, StakerListInfo, SysInfo};
-use online_profile_runtime_api::SumStorageApi as SumStorageRuntimeApi;
+use online_profile::{LiveMachine, MachineId, RPCMachineInfo, StakerInfo, StakerListInfo, SysInfo};
+use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number::NumberOrHex;
@@ -14,9 +14,8 @@ use sp_runtime::{
 };
 use std::{convert::TryInto, sync::Arc};
 
-// TODO: 将这几种responsetype改为enum类型
 #[rpc]
-pub trait SumStorageApi<
+pub trait OpRpcApi<
     BlockHash,
     AccountId,
     ResponseType1,
@@ -25,6 +24,7 @@ pub trait SumStorageApi<
     ResponseType4,
     ResponseType5,
     ResponseType6,
+    ResponseType7,
 >
 {
     #[rpc(name = "onlineProfile_getStakerNum")]
@@ -57,14 +57,21 @@ pub trait SumStorageApi<
 
     #[rpc(name = "onlineProfile_getMachineList")]
     fn get_machine_list(&self, at: Option<BlockHash>) -> Result<ResponseType6>;
+
+    #[rpc(name = "onlineProfile_getMachineInfo")]
+    fn get_machine_info(
+        &self,
+        at: Option<BlockHash>,
+        machine_id: MachineId,
+    ) -> Result<ResponseType7>;
 }
 
-pub struct SumStorage<C, M> {
+pub struct OpStorage<C, M> {
     client: Arc<C>,
     _marker: std::marker::PhantomData<M>,
 }
 
-impl<C, M> SumStorage<C, M> {
+impl<C, M> OpStorage<C, M> {
     pub fn new(client: Arc<C>) -> Self {
         Self {
             client,
@@ -73,8 +80,8 @@ impl<C, M> SumStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, Balance>
-    SumStorageApi<
+impl<C, Block, AccountId, Balance, BlockNumber>
+    OpRpcApi<
         <Block as BlockT>::Hash,
         AccountId,
         SysInfo<Balance>,
@@ -83,15 +90,17 @@ impl<C, Block, AccountId, Balance>
         Vec<u8>,
         Vec<StakerListInfo<Balance, AccountId>>,
         LiveMachine,
-    > for SumStorage<C, Block>
+        RPCMachineInfo<AccountId, BlockNumber, Balance>,
+    > for OpStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec,
     Balance: Codec + MaybeDisplay + Copy + TryInto<NumberOrHex>,
+    BlockNumber: Clone + std::fmt::Display + Codec,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: SumStorageRuntimeApi<Block, AccountId, Balance>,
+    C::Api: OpStorageRuntimeApi<Block, AccountId, Balance, BlockNumber>,
 {
     fn get_total_staker_num(&self, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
         let api = self.client.runtime_api();
@@ -188,6 +197,22 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api.get_machine_list(&at);
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_machine_info(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+        machine_id: MachineId,
+    ) -> Result<RPCMachineInfo<AccountId, BlockNumber, Balance>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_machine_info(&at, machine_id);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

@@ -1119,7 +1119,6 @@ impl<T: Config> LCOps for Pallet<T> {
 }
 
 // RPC
-#[rustfmt::skip]
 impl<T: Config> Module<T> {
     pub fn get_total_staker_num() -> u64 {
         let temp_account = Self::temp_account();
@@ -1176,7 +1175,10 @@ impl<T: Config> Module<T> {
     }
 
     // 返回total_page
-    pub fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
+    pub fn get_staker_list_info(
+        cur_page: u64,
+        per_page: u64,
+    ) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
         let temp_account = Self::temp_account();
         let mut out = Vec::new();
 
@@ -1220,5 +1222,48 @@ impl<T: Config> Module<T> {
     }
 
     // 获取机器详情
-    pub fn get_machine_info(machine_id: MachineId) {}
+    pub fn get_machine_info(
+        machine_id: MachineId,
+    ) -> RPCMachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+        let machine_info = Self::machines_info(&machine_id);
+
+        let committ_upload = machine_info.machine_info_detail.committee_upload_info;
+        let staker_upload = machine_info.machine_info_detail.staker_customize_info;
+
+        RPCMachineInfo {
+            machine_owner: machine_info.machine_owner,
+            bonding_height: machine_info.bonding_height,
+            stake_amount: machine_info.stake_amount,
+            machine_info_detail: RPCMachineInfoDetail {
+                committee_upload_info: RPCCommitteeUploadInfo {
+                    machine_id: committ_upload.machine_id,
+                    gpu_type: committ_upload.gpu_type,
+                    gpu_num: committ_upload.gpu_num,
+                    cuda_core: committ_upload.cuda_core,
+                    gpu_mem: committ_upload.gpu_mem,
+                    calc_point: committ_upload.calc_point,
+                    hard_disk: committ_upload.hard_disk,
+                    cpu_type: committ_upload.cpu_type,
+                    cpu_core_num: committ_upload.cpu_core_num,
+                    cpu_rate: committ_upload.cpu_rate,
+                    mem_num: committ_upload.mem_num,
+
+                    rand_str: committ_upload.rand_str,
+                    is_support: committ_upload.is_support,
+                },
+                staker_customize_info: RPCStakerCustomizeInfo {
+                    left_change_time: staker_upload.left_change_time,
+
+                    upload_net: staker_upload.upload_net,
+                    download_net: staker_upload.download_net,
+                    longitude: staker_upload.longitude,
+                    latitude: staker_upload.latitude,
+
+                    images: staker_upload.images,
+                },
+            },
+            machine_price: machine_info.machine_price,
+            reward_deadline: machine_info.reward_deadline,
+        }
+    }
 }

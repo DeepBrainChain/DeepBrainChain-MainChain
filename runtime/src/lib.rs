@@ -1169,7 +1169,7 @@ mod mmr {
 
 impl_runtime_apis! {
     // Here implement custom runtime API.
-    impl online_profile_runtime_api::SumStorageApi<Block, AccountId, Balance> for Runtime {
+    impl online_profile_runtime_api::OpRpcApi<Block, AccountId, Balance, BlockNumber> for Runtime {
         fn get_total_staker_num() -> u64 {
             OnlineProfile::get_total_staker_num()
         }
@@ -1196,6 +1196,10 @@ impl_runtime_apis! {
 
         fn get_machine_list() -> online_profile::LiveMachine {
             OnlineProfile::get_machine_list()
+        }
+
+        fn get_machine_info(machine_id: online_profile::MachineId) -> online_profile::RPCMachineInfo<AccountId, BlockNumber, Balance> {
+            OnlineProfile::get_machine_info(machine_id)
         }
     }
 

@@ -1,6 +1,7 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+use crate::{ImageName, MachineId};
 use codec::{Decode, Encode};
 use sp_std::prelude::Vec;
 
@@ -80,4 +81,92 @@ mod serde_account {
         let s = String::deserialize(deserializer)?;
         s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
     }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "std")]
+mod serde_block_number {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer, T: std::fmt::Display>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&t.to_string())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>, T: std::str::FromStr>(deserializer: D) -> Result<T, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
+    }
+}
+
+// 构造machine_info rpc结构，将crate::MachineInfo flatten
+
+#[rustfmt::skip]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display, AccountId: std::fmt::Display, BlockNumber: std::fmt::Display")))]
+#[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr, AccountId: std::str::FromStr, BlockNumber: std::str::FromStr")))]
+pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
+    #[cfg_attr(feature = "std", serde(with = "serde_account"))]
+    pub machine_owner: AccountId,
+    #[cfg_attr(feature = "std", serde(with = "serde_block_number"))]
+    pub bonding_height: BlockNumber,
+    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
+    pub stake_amount: Balance,
+    // pub machine_status: RPCMachineStatus,
+    pub machine_info_detail: RPCMachineInfoDetail,
+    pub machine_price: u64,
+    // #[cfg_attr(feature = "std", serde(with = "serde_account"))]
+    // pub reward_committee: Vec<AccountId>,
+    #[cfg_attr(feature = "std", serde(with = "serde_block_number"))]
+    pub reward_deadline: BlockNumber,
+}
+
+// TODO: add machinestatus Display
+// pub enum RPCMachineStatus {
+//     OcwConfirming,
+//     CommitteeVerifying,
+//     WaitingFulfill, // 补交质押
+//     Online,         // 正在上线，且未被租用
+//     Offline,        // 机器管理者报告机器已下线
+//     Rented,         // 已经被租用
+// }
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub struct RPCMachineInfoDetail {
+    pub committee_upload_info: RPCCommitteeUploadInfo,
+    pub staker_customize_info: RPCStakerCustomizeInfo,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub struct RPCCommitteeUploadInfo {
+    pub machine_id: MachineId,
+    pub gpu_type: Vec<u8>,
+    pub gpu_num: u32,
+    pub cuda_core: u32,
+    pub gpu_mem: u64,
+    pub calc_point: u64,
+    pub hard_disk: u64,
+    pub cpu_type: Vec<u8>,
+    pub cpu_core_num: u32,
+    pub cpu_rate: u64,
+    pub mem_num: u64,
+
+    pub rand_str: Vec<u8>,
+    pub is_support: bool,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub struct RPCStakerCustomizeInfo {
+    pub left_change_time: u64,
+
+    pub upload_net: u64,
+    pub download_net: u64,
+    pub longitude: u64,
+    pub latitude: u64,
+
+    pub images: Vec<ImageName>,
 }
