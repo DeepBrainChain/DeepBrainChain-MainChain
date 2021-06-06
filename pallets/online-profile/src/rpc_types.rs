@@ -6,7 +6,6 @@ use codec::{Decode, Encode};
 use sp_std::prelude::Vec;
 
 // 系统统计信息，提供给RPC
-#[rustfmt::skip]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -21,7 +20,6 @@ pub struct SysInfo<Balance> {
     pub total_stake: Balance,   // 添加机器质押的DBC总数量 + staking模块的总质押数量
 }
 
-#[rustfmt::skip]
 #[cfg(feature = "std")]
 mod serde_balance {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -36,7 +34,6 @@ mod serde_balance {
     }
 }
 
-#[rustfmt::skip]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -50,7 +47,6 @@ pub struct StakerInfo<Balance> {
     pub total_reward: Balance,
 }
 
-#[rustfmt::skip]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -68,7 +64,6 @@ pub struct StakerListInfo<Balance, AccountId> {
     pub total_reward: Balance,
 }
 
-#[rustfmt::skip]
 #[cfg(feature = "std")]
 mod serde_account {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -83,7 +78,6 @@ mod serde_account {
     }
 }
 
-#[rustfmt::skip]
 #[cfg(feature = "std")]
 mod serde_block_number {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -98,7 +92,6 @@ mod serde_block_number {
     }
 }
 
-// // #[rustfmt::skip]
 // https://stackoverflow.com/questions/48288988/how-do-i-write-a-serde-visitor-to-convert-an-array-of-arrays-of-strings-to-a-vec
 // #[cfg(feature = "std")]
 // mod serde_seq_account {
@@ -142,7 +135,6 @@ mod serde_block_number {
 
 // // 构造machine_info rpc结构，将crate::MachineInfo flatten
 
-#[rustfmt::skip]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]

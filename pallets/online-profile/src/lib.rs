@@ -167,7 +167,6 @@ impl LiveMachine {
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -667,7 +666,6 @@ pub mod pallet {
     }
 }
 
-// #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )

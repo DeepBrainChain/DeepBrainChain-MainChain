@@ -2,7 +2,6 @@ use crate::mock::*;
 use frame_support::assert_ok;
 
 #[test]
-#[rustfmt::skip]
 fn set_default_value_works() {
     // 测试初始化设置参数
     new_test_ext().execute_with(|| {
@@ -18,7 +17,6 @@ fn set_default_value_works() {
 }
 
 #[test]
-#[rustfmt::skip]
 fn select_committee_works() {
     // 质押--参加选举--当选
     new_test_ext().execute_with(|| {
@@ -53,7 +51,6 @@ fn select_committee_works() {
 }
 
 #[test]
-#[rustfmt::skip]
 fn book_one_machine_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1);
@@ -61,7 +58,6 @@ fn book_one_machine_works() {
 }
 
 #[test]
-#[rustfmt::skip]
 fn bool_all_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1);
@@ -69,7 +65,6 @@ fn bool_all_works() {
 }
 
 #[test]
-#[rustfmt::skip]
 fn white_list_works() {
     // white_list 总能被选为committee
     new_test_ext().execute_with(|| {
@@ -78,7 +73,6 @@ fn white_list_works() {
 }
 
 #[test]
-#[rustfmt::skip]
 fn black_list_works() {
     // black_list 被禁止参加选举
     new_test_ext().execute_with(|| {

@@ -34,7 +34,6 @@ pub const HTTP_HEADER_USER_AGENT: &str = "jimmychu0807";
 pub const FETCH_TIMEOUT_PERIOD: u64 = 3_000; // in milli-seconds
 pub const LOCK_TIMEOUT_EXPIRATION: u64 = FETCH_TIMEOUT_PERIOD + 1_000; // in milli-seconds
 
-#[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -226,7 +225,6 @@ pub mod pallet {
     }
 }
 
-#[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     fn call_ocw_submit_machine_info(machine_id: MachineId, machine_bonded_wallet: Option<OneWallet>) -> Result<(), Error<T>> {
         let call = Call::ocw_submit_machine_info(machine_id.to_vec(), machine_bonded_wallet);

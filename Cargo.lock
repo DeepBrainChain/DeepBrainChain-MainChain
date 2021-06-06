@@ -2936,6 +2936,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "lease-committee-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "lease-committee-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "lease-committee-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "leb128"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4043,6 +4069,8 @@ name = "node-rpc"
 version = "2.0.0"
 dependencies = [
  "jsonrpc-core",
+ "lease-committee-rpc",
+ "lease-committee-runtime-api",
  "node-primitives",
  "node-runtime",
  "online-profile-rpc",
@@ -4099,6 +4127,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "hex-literal",
  "lease-committee",
+ "lease-committee-runtime-api",
  "maintain-committee",
  "node-primitives",
  "online-profile",

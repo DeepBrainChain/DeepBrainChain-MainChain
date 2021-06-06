@@ -10,7 +10,6 @@ fn set_storage_works() {
 }
 
 #[test]
-#[rustfmt::skip]
 fn bond_machine_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1);

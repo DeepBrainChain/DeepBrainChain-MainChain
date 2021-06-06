@@ -116,6 +116,7 @@ std = [
     'online-profile-runtime-api/std',
     'online-profile-ocw/std',
     'lease-committee/std',
+    'lease-committee-runtime-api/std',
     'maintain-committee/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
@@ -386,6 +387,11 @@ package = 'online-profile-ocw'
 default-features = false
 path = '../pallets/lease-committee'
 package = 'lease-committee'
+
+[dependencies.lease-committee-runtime-api]
+default-features = false
+path = '../pallets/lease-committee/runtime-api'
+package = 'lease-committee-runtime-api'
 
 [dependencies.maintain-committee]
 default-features = false

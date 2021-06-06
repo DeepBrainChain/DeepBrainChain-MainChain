@@ -139,7 +139,6 @@ impl Default for MachineStatus {
     }
 }
 
-#[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -498,7 +497,6 @@ pub mod pallet {
     }
 }
 
-#[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     // 根据DBC价格获得需要质押数量
     fn stake_dbc_amount() -> Option<BalanceOf<T>> {
@@ -800,5 +798,12 @@ impl<T: Config> Pallet<T> {
 
         <T as Config>::Currency::set_lock(PALLET_LOCK_ID, controller, new_stake, WithdrawReasons::all());
         Ok(())
+    }
+}
+
+// RPC
+impl<T: Config> Module<T> {
+    pub fn get_sum() -> u64 {
+        return 3
     }
 }

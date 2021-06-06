@@ -5,7 +5,6 @@ use sp_core::offchain::testing;
 use sp_io::TestExternalities;
 use sp_runtime::offchain::{OffchainExt, TransactionPoolExt};
 
-#[rustfmt::skip]
 #[test]
 fn bond_machine_works() {
     new_test_ext().execute_with(|| {
@@ -42,7 +41,6 @@ fn bond_machine_works() {
     });
 }
 
-#[rustfmt::skip]
 #[test]
 fn ocw_fetch_machine_info_works() {
     new_test_ext().execute_with(|| {
@@ -77,7 +75,6 @@ fn ocw_fetch_machine_info_works() {
 
 struct ExternalityBuilder;
 
-// #[rustfmt::skip]
 // impl ExternalityBuilder {
 //     pub fn build() -> (TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock<OffchainState>>) {
 //         const PHRASE: &str = "expire stage crawl shell boss any story swamp skull yello bamboo copy";

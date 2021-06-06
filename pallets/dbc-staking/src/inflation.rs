@@ -60,7 +60,6 @@ mod test {
     }
 
     #[test]
-    #[rustfmt::skip]
     fn npos_curve_is_sensible() {
         const YEAR: u64 = 36525 * 24 * 60 * 60 * 1000 / 100;
         let era_duration: u64 = 365 * 24 * 60 * 60 * 1000;

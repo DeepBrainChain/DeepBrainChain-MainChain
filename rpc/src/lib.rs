@@ -126,6 +126,7 @@ where
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     C::Api: online_profile_runtime_api::OpRpcApi<Block, AccountId, Balance, BlockNumber>,
+    C::Api: lease_committee_runtime_api::LcRpcApi<Block>,
     P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -136,21 +137,9 @@ where
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
     let mut io = jsonrpc_core::IoHandler::default();
-    let FullDeps {
-        client,
-        pool,
-        select_chain,
-        chain_spec,
-        deny_unsafe,
-        babe,
-        grandpa,
-    } = deps;
+    let FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa } = deps;
 
-    let BabeDeps {
-        keystore,
-        babe_config,
-        shared_epoch_changes,
-    } = babe;
+    let BabeDeps { keystore, babe_config, shared_epoch_changes } = babe;
     let GrandpaDeps {
         shared_voter_state,
         shared_authority_set,
@@ -159,37 +148,27 @@ where
         finality_provider,
     } = grandpa;
 
-    io.extend_with(SystemApi::to_delegate(FullSystem::new(
-        client.clone(),
-        pool,
-        deny_unsafe,
-    )));
+    io.extend_with(SystemApi::to_delegate(FullSystem::new(client.clone(), pool, deny_unsafe)));
     // Making synchronous calls in light client freezes the browser currently,
     // more context: https://github.com/paritytech/substrate/pull/3480
     // These RPCs should use an asynchronous caller instead.
     io.extend_with(ContractsApi::to_delegate(Contracts::new(client.clone())));
-    io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
+    io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(client.clone())));
+    io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(BabeRpcHandler::new(
         client.clone(),
+        shared_epoch_changes.clone(),
+        keystore,
+        babe_config,
+        select_chain,
+        deny_unsafe,
     )));
-    io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(
-        BabeRpcHandler::new(
-            client.clone(),
-            shared_epoch_changes.clone(),
-            keystore,
-            babe_config,
-            select_chain,
-            deny_unsafe,
-        ),
-    ));
-    io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
-        GrandpaRpcHandler::new(
-            shared_authority_set.clone(),
-            shared_voter_state,
-            justification_stream,
-            subscription_executor,
-            finality_provider,
-        ),
-    ));
+    io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(GrandpaRpcHandler::new(
+        shared_authority_set.clone(),
+        shared_voter_state,
+        justification_stream,
+        subscription_executor,
+        finality_provider,
+    )));
 
     io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
         sc_sync_state_rpc::SyncStateRpcHandler::new(
@@ -201,8 +180,12 @@ where
         ),
     ));
 
-    io.extend_with(online_profile_rpc::OpRpcApi::to_delegate(
-        online_profile_rpc::OpStorage::new(client),
+    io.extend_with(online_profile_rpc::OpRpcApi::to_delegate(online_profile_rpc::OpStorage::new(
+        client.clone(),
+    )));
+
+    io.extend_with(lease_committee_rpc::LcRpcApi::to_delegate(
+        lease_committee_rpc::LcStorage::new(client),
     ));
 
     io
@@ -219,16 +202,14 @@ where
 {
     use substrate_frame_rpc_system::{LightSystem, SystemApi};
 
-    let LightDeps {
+    let LightDeps { client, pool, remote_blockchain, fetcher } = deps;
+    let mut io = jsonrpc_core::IoHandler::default();
+    io.extend_with(SystemApi::<Hash, AccountId, Index>::to_delegate(LightSystem::new(
         client,
-        pool,
         remote_blockchain,
         fetcher,
-    } = deps;
-    let mut io = jsonrpc_core::IoHandler::default();
-    io.extend_with(SystemApi::<Hash, AccountId, Index>::to_delegate(
-        LightSystem::new(client, remote_blockchain, fetcher, pool),
-    ));
+        pool,
+    )));
 
     io
 }

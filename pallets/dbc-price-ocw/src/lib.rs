@@ -9,7 +9,6 @@ use sp_std::{str, vec::Vec};
 
 pub use pallet::*;
 
-#[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;

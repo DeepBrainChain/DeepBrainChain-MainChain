@@ -170,7 +170,6 @@ impl<BlockNumber> Default for CommitteeStatus<BlockNumber> {
     }
 }
 
-#[rustfmt::skip]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -668,7 +667,6 @@ pub mod pallet {
     }
 }
 
-// #[rustfmt::skip]
 impl<T: Config> Pallet<T> {
     // 根据DBC价格获得最小质押数量
     // DBC精度15，Balance为u128, min_stake不超过10^24 usd 不会超出最大值

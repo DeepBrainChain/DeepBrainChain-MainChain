@@ -125,10 +125,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// Native version.
 #[cfg(any(feature = "std", test))]
 pub fn native_version() -> NativeVersion {
-    NativeVersion {
-        runtime_version: VERSION,
-        can_author_with: Default::default(),
-    }
+    NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
@@ -790,20 +787,12 @@ where
     Call: From<LocalCall>,
 {
     fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: Call,
-        public: <Signature as traits::Verify>::Signer,
-        account: AccountId,
-        nonce: Index,
-    ) -> Option<(
-        Call,
-        <UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload,
-    )> {
+        call: Call, public: <Signature as traits::Verify>::Signer, account: AccountId, nonce: Index,
+    ) -> Option<(Call, <UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload)> {
         let tip = 0;
         // take the biggest period possible.
-        let period = BlockHashCount::get()
-            .checked_next_power_of_two()
-            .map(|c| c / 2)
-            .unwrap_or(2) as u64;
+        let period =
+            BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
         let current_block = System::block_number()
             .saturated_into::<u64>()
             // The `System::block_number` is initialized with `n+1`,
@@ -1200,6 +1189,12 @@ impl_runtime_apis! {
 
         fn get_machine_info(machine_id: online_profile::MachineId) -> online_profile::RPCMachineInfo<AccountId, BlockNumber, Balance> {
             OnlineProfile::get_machine_info(machine_id)
+        }
+    }
+
+    impl lease_committee_runtime_api::LcRpcApi<Block> for Runtime {
+        fn get_sum() -> u64 {
+            LeaseCommittee::get_sum()
         }
     }
 

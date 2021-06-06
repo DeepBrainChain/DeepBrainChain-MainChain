@@ -3,6 +3,8 @@ jsonrpc-core = '15.1.0'
 
 online-profile-rpc = { path = "../pallets/online-profile/rpc" }
 online-profile-runtime-api = { path = "../pallets/online-profile/runtime-api" }
+lease-committee-rpc = { path = "../pallets/lease-committee/rpc" }
+lease-committee-runtime-api = { path = "../pallets/lease-committee/runtime-api" }
 
 [dependencies.node-primitives]
 path = '../primitives'
