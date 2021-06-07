@@ -176,6 +176,43 @@ b'2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3'
 {"jsonrpc":"2.0","result":{"bondingHeight":"139","machineInfoDetail":{"committee_upload_info":{"calc_point":0,"cpu_core_num":0,"cpu_rate":0,"cpu_type":[],"cuda_core":0,"gpu_mem":0,"gpu_num":0,"gpu_type":[],"hard_disk":0,"is_support":false,"machine_id":[],"mem_num":0,"rand_str":[]},"staker_customize_info":{"download_net":0,"images":[],"latitude":0,"left_change_time":3,"longitude":0,"upload_net":0}},"machineOwner":"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty","machinePrice":0,"machineStatus":"OcwConfirming","rewardDeadline":"0","stakeAmount":"0"},"id":1}
 ```
 
+### 查询委员会被分配的机器ID
+```bash
+ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
+     "jsonrpc":"2.0",
+      "id":1,
+      "method":"leaseCommittee_committeeMachineList",
+      "params": ["0x2b7eca733ed4e538339c41cb454092261d722c0ee355ce1744daaee22388c044", "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]
+    }'
+```
+
+参数说明： blockHash, committeeAccountId
+
+返回结果:
+
+```json
+{"jsonrpc":"2.0","result":{"booked_machine":[],"confirmed_machine":[],"hashed_machine":[],"online_machine":[]},"id":1}
+
+```
+
+### 查询委员会验证时间
+```bash
+curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
+     "jsonrpc":"2.0",
+      "id":1,
+      "method":"leaseCommittee_getCommitteeOps",
+      "params": ["0x0fa478725b4dead40343a9a2b543ca6d3c1f52692493b99e6350be1b539d4e52", "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", [50,103,102,112,112,51,77,65,66,52,65,113,50,90,80,69,85,55,50,110,101,90,84,86,99,90,107,98,122,68,122,88,57,54,111,112,57,100,51,102,118,105,51]]
+    }'
+```
+
+参数说明： blockHash, committeeAccountId, machineId
+
+返回结果：
+
+```json
+{"jsonrpc":"2.0","result":{"bookedTime":"0","confirmHash":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"confirmTime":"0","hashTime":"0","machineInfo":{"calc_point":0,"cpu_core_num":0,"cpu_rate":0,"cpu_type":[],"cuda_core":0,"gpu_mem":0,"gpu_num":0,"gpu_type":[],"hard_disk":0,"is_support":false,"machine_id":[],"mem_num":0,"rand_str":[]},"machineStatus":"Booked","stakedDbc":"0"},"id":1}
+```
+
 ---
 
 ---

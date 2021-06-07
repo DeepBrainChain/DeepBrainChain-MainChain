@@ -2942,6 +2942,7 @@ dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
+ "lease-committee",
  "lease-committee-runtime-api",
  "parity-scale-codec",
  "serde",
@@ -2955,6 +2956,7 @@ dependencies = [
 name = "lease-committee-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "lease-committee",
  "parity-scale-codec",
  "sp-api",
  "sp-runtime",

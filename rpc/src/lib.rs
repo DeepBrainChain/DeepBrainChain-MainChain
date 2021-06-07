@@ -126,7 +126,7 @@ where
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     C::Api: online_profile_runtime_api::OpRpcApi<Block, AccountId, Balance, BlockNumber>,
-    C::Api: lease_committee_runtime_api::LcRpcApi<Block>,
+    C::Api: lease_committee_runtime_api::LcRpcApi<Block, AccountId, BlockNumber, Balance>,
     P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,

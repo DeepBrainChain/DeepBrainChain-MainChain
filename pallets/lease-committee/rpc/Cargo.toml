@@ -11,6 +11,8 @@ jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
 
+lease-committee = { version = "0.1.0", path = "../../lease-committee", default-features = false }
+
 # local packages
 lease-committee-runtime-api = { version = "0.1.0", path = "../runtime-api", default-features = false }
 
@@ -43,5 +45,6 @@ default = ["std"]
 std = [
     "sp-api/std",
     "sp-runtime/std",
+    "lease-committee/std",
     "lease-committee-runtime-api/std",
 ]

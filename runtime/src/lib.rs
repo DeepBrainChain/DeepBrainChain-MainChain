@@ -1192,9 +1192,17 @@ impl_runtime_apis! {
         }
     }
 
-    impl lease_committee_runtime_api::LcRpcApi<Block> for Runtime {
+    impl lease_committee_runtime_api::LcRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
         fn get_sum() -> u64 {
             LeaseCommittee::get_sum()
+        }
+
+        fn get_committee_machine_list(committee: AccountId) -> lease_committee::LCCommitteeMachineList {
+            LeaseCommittee::get_committee_machine_list(committee)
+        }
+
+        fn get_committee_ops(committee: AccountId, machine_id: online_profile::MachineId) -> lease_committee::RpcLCCommitteeOps<BlockNumber, Balance> {
+            LeaseCommittee::get_committee_ops(committee, machine_id)
         }
     }
 

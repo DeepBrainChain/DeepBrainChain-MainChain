@@ -30,7 +30,12 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion},
     RuntimeDebug,
 };
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_std::{prelude::*, str, vec::Vec};
+
+mod rpc_types;
+pub use rpc_types::RpcLCCommitteeOps;
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
@@ -90,6 +95,7 @@ impl<AccountId: Ord> LCCommitteeList<AccountId> {
 
 // 从用户地址查询绑定的机器列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct LCCommitteeMachineList {
     pub booked_machine: Vec<MachineId>, // 记录分配给用户的机器ID及开始验证时间
     pub hashed_machine: Vec<MachineId>, // 存储已经提交了Hash信息的机器
@@ -121,6 +127,7 @@ pub struct LCCommitteeOps<BlockNumber, Balance> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum MachineStatus {
     Booked,
     Hashed,
@@ -805,5 +812,24 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> Module<T> {
     pub fn get_sum() -> u64 {
         return 3
+    }
+
+    pub fn get_committee_machine_list(committee: T::AccountId) -> LCCommitteeMachineList {
+        Self::committee_machine(committee)
+    }
+
+    pub fn get_committee_ops(committee: T::AccountId, machine_id: MachineId) -> RpcLCCommitteeOps<T::BlockNumber, BalanceOf<T>> {
+        let lc_committee_ops = Self::committee_ops(&committee, &machine_id);
+
+        RpcLCCommitteeOps {
+            booked_time: lc_committee_ops.booked_time,
+            staked_dbc: lc_committee_ops.staked_dbc,
+            // pub verify_time: Vec<BlockNumber>, // FIXME: return Vec<BlockNumber> type
+            confirm_hash: lc_committee_ops.confirm_hash,
+            hash_time: lc_committee_ops.hash_time,
+            confirm_time: lc_committee_ops.confirm_time,
+            machine_status: lc_committee_ops.machine_status,
+            machine_info: lc_committee_ops.machine_info,
+        }
     }
 }

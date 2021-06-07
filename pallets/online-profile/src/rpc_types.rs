@@ -17,20 +17,26 @@ pub struct SysInfo<Balance> {
     pub total_calc_points: u64, // 系统算力点数
 
     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
-    pub total_stake: Balance,   // 添加机器质押的DBC总数量 + staking模块的总质押数量
+    pub total_stake: Balance, // 添加机器质押的DBC总数量 + staking模块的总质押数量
 }
 
 #[cfg(feature = "std")]
 mod serde_balance {
     use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer, T: std::fmt::Display>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer, T: std::fmt::Display>(
+        t: &T,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&t.to_string())
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>, T: std::str::FromStr>(deserializer: D) -> Result<T, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>, T: std::str::FromStr>(
+        deserializer: D,
+    ) -> Result<T, D::Error> {
         let s = String::deserialize(deserializer)?;
-        s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
+        s.parse::<T>()
+            .map_err(|_| serde::de::Error::custom("Parse from string failed"))
     }
 }
 
@@ -68,13 +74,19 @@ pub struct StakerListInfo<Balance, AccountId> {
 mod serde_account {
     use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer, T: std::fmt::Display>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer, T: std::fmt::Display>(
+        t: &T,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&t.to_string())
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>, T: std::str::FromStr>(deserializer: D) -> Result<T, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>, T: std::str::FromStr>(
+        deserializer: D,
+    ) -> Result<T, D::Error> {
         let s = String::deserialize(deserializer)?;
-        s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
+        s.parse::<T>()
+            .map_err(|_| serde::de::Error::custom("Parse from string failed"))
     }
 }
 
@@ -82,13 +94,19 @@ mod serde_account {
 mod serde_block_number {
     use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer, T: std::fmt::Display>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer, T: std::fmt::Display>(
+        t: &T,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&t.to_string())
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>, T: std::str::FromStr>(deserializer: D) -> Result<T, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>, T: std::str::FromStr>(
+        deserializer: D,
+    ) -> Result<T, D::Error> {
         let s = String::deserialize(deserializer)?;
-        s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
+        s.parse::<T>()
+            .map_err(|_| serde::de::Error::custom("Parse from string failed"))
     }
 }
 
@@ -151,6 +169,7 @@ pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
     pub machine_info_detail: MachineInfoDetail,
     pub machine_price: u64,
     // #[cfg_attr(feature = "std", serde(with = "serde_seq_account"))]
+    // #[serde(inner(AccountId, deserialize_with = "serde_account"))]
     // pub reward_committee: Vec<AccountId>,
     #[cfg_attr(feature = "std", serde(with = "serde_block_number"))]
     pub reward_deadline: BlockNumber,

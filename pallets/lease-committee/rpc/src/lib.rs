@@ -1,6 +1,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
+use lease_committee::{LCCommitteeMachineList, MachineId, RpcLCCommitteeOps};
 use lease_committee_runtime_api::LcRpcApi as LcStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -12,9 +13,24 @@ use sp_runtime::{
 use std::{convert::TryInto, sync::Arc};
 
 #[rpc]
-pub trait LcRpcApi<BlockHash> {
+pub trait LcRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2> {
     #[rpc(name = "leaseCommittee_getSum")]
     fn get_sum(&self, at: Option<BlockHash>) -> Result<u64>;
+
+    #[rpc(name = "leaseCommittee_committeeMachineList")]
+    fn get_committee_machine_list(
+        &self,
+        at: Option<BlockHash>,
+        committee: AccountId,
+    ) -> Result<ResponseType1>;
+
+    #[rpc(name = "leaseCommittee_committeeOps")]
+    fn get_committee_ops(
+        &self,
+        at: Option<BlockHash>,
+        committee: AccountId,
+        machine_id: MachineId,
+    ) -> Result<ResponseType2>;
 }
 
 pub struct LcStorage<C, M> {
@@ -24,26 +40,64 @@ pub struct LcStorage<C, M> {
 
 impl<C, M> LcStorage<C, M> {
     pub fn new(client: Arc<C>) -> Self {
-        Self { client, _marker: Default::default() }
+        Self {
+            client,
+            _marker: Default::default(),
+        }
     }
 }
 
-impl<C, Block> LcRpcApi<<Block as BlockT>::Hash> for LcStorage<C, Block>
+impl<C, Block, AccountId, BlockNumber, Balance>
+    LcRpcApi<<Block as BlockT>::Hash, AccountId, LCCommitteeMachineList, RpcLCCommitteeOps<BlockNumber, Balance>>
+    for LcStorage<C, Block>
 where
     Block: BlockT,
-    // AccountId: Clone + std::fmt::Display + Codec + Ord,
-    // Balance: Codec + MaybeDisplay + Copy + TryInto<NumberOrHex>,
-    // BlockNumber: Clone + std::fmt::Display + Codec,
+    AccountId: Clone + std::fmt::Display + Codec + Ord,
+    Balance: Codec + MaybeDisplay + Copy + TryInto<NumberOrHex>,
+    BlockNumber: Clone + std::fmt::Display + Codec,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: LcStorageRuntimeApi<Block>,
+    C::Api: LcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
 {
     fn get_sum(&self, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api.get_sum(&at);
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_committee_machine_list(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+        committee: AccountId,
+    ) -> Result<LCCommitteeMachineList> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_committee_machine_list(&at, committee);
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_committee_ops(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+        committee: AccountId,
+        machine_id: MachineId,
+    ) -> Result<RpcLCCommitteeOps<BlockNumber, Balance>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_committee_ops(&at, committee, machine_id);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),
