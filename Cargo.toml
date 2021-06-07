@@ -24,6 +24,7 @@ members = [
     'pallets/maintain-committee',
     'traits/phase-reward',
     'traits/online-profile-machine',
+    'pallets/rent-machine',
 ]
 [profile.release]
 panic = 'unwind'

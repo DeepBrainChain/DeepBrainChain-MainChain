@@ -118,6 +118,7 @@ std = [
     'lease-committee/std',
     'lease-committee-runtime-api/std',
     'maintain-committee/std',
+    'rent-machine/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -397,6 +398,11 @@ package = 'lease-committee-runtime-api'
 default-features = false
 path = '../pallets/maintain-committee'
 package = 'maintain-committee'
+
+[dependencies.rent-machine]
+default-features = false
+path = '../pallets/rent-machine'
+package = 'rent-machine'
 
 [dependencies.online-profile-runtime-api]
 default-features = false

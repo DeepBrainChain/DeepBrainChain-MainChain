@@ -93,6 +93,7 @@ pub struct StakerMachine<Balance> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub machine_owner: AccountId, // 允许用户绑定跟自己机器ID不一样的，奖励发放给machine_owner
+    pub machine_renter: AccountId, // 当前机器的租用者
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
     pub stake_amount: Balance,
     pub machine_status: MachineStatus,
@@ -110,6 +111,7 @@ pub enum MachineStatus {
     WaitingFulfill, // 补交质押
     Online,         // 正在上线，且未被租用
     Offline,        // 机器管理者报告机器已下线
+    Creating,       // 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
     Rented,         // 已经被租用
 }
 
@@ -513,7 +515,7 @@ pub mod pallet {
             let machine_info = Self::machines_info(&machine_id);
             let machine_stake_need = Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num).ok_or(Error::<T>::BalanceOverflow)?;
 
-            ensure!(machine_stake_need > user_balance, Error::<T>::InsufficientValue);
+            ensure!(machine_stake_need < user_balance, Error::<T>::InsufficientValue);
 
             if let Some(extra_stake) = machine_stake_need.checked_sub(&ledger.total) {
                 ledger.total += extra_stake;

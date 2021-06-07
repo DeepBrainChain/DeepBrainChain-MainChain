@@ -1055,6 +1055,11 @@ impl maintain_committee::Config for Runtime {
     type Event = Event;
 }
 
+impl rent_machine::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1104,6 +1109,7 @@ construct_runtime!(
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Storage, Call, Event<T>},
+        RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
     }
 );
 
