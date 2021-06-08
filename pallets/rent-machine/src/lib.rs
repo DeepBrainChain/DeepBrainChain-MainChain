@@ -23,6 +23,8 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_s
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
 pub const BLOCK_PER_DAY: u64 = 2880; // 1天按照2880个块
+pub const DAY_PER_MONTH: u64 = 30; // 每个月30天计算租金
+pub const CONFIRMING_DELAY: u64 = 60; // 租用之后60个块内确认机器租用成功
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"rentmach";
 
@@ -32,10 +34,9 @@ pub use pallet::*;
 pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
     pub renter: AccountId, // 租用者
     pub rent_start: BlockNumber, // 租用开始时间
-    pub confirm_rent: BlockNumber,
+    pub confirm_rent: BlockNumber, // 用户确认租成功的时间
     pub rent_end: BlockNumber, // 租用结束时间
     pub stake_amount: Balance, // 用户对该机器的质押
-    pub task_id: Vec<u8>, // task_id
 }
 
 #[frame_support::pallet]
@@ -63,8 +64,8 @@ pub mod pallet {
 
     // 存储用户当前租用的机器列表
     #[pallet::storage]
-    #[pallet::getter(fn rent_machine_list)]
-    pub(super) type RentMachineList<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
+    #[pallet::getter(fn user_rented)]
+    pub(super) type UserRented<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
 
     // 用户当前租用的某个机器的详情
     #[pallet::storage]
@@ -93,13 +94,14 @@ pub mod pallet {
     #[pallet::getter(fn fixed_tx_fee)]
     pub type FixedTxFee<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+    // 租金支付目标地址
     #[pallet::storage]
     #[pallet::getter(fn rent_pot)]
     pub(super) type RentPot<T: Config> = StorageValue<_, T::AccountId>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // 设置机器租金支付地址
+        // 设置机器租金支付目标地址
         #[pallet::weight(0)]
         pub fn set_rent_pot(origin: OriginFor<T>, pot_addr: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -157,10 +159,11 @@ pub mod pallet {
             if let Err(index) = user_rented.binary_search(&machine_id) {
                 user_rented.insert(index, machine_id.clone());
             }
-            RentMachineList::<T>::insert(&renter, user_rented);
+            UserTented::<T>::insert(&renter, user_rented);
 
             // 改变online_profile状态，影响机器佣金
-            T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, renter);
+            T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, renter.clone());
+            PendingConfirming::<T>::insert(machine_id, renter);
 
             Ok(().into())
         }
@@ -169,14 +172,13 @@ pub mod pallet {
         pub fn confirm_rent(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
             let rent_pot = Self::rent_pot().ok_or(Error::<T>::UndefinedRentPot)?;
-
             let now = <frame_system::Module<T>>::block_number();
 
             let mut order_info = Self::rent_order(&renter, &machine_id).ok_or(Error::<T>::NoOrderExist)?;
 
             // 不能超过30分钟
             let machine_start_duration = now.checked_sub(&order_info.rent_start).ok_or(Error::<T>::Overflow)?;
-            if machine_start_duration.saturated_into::<u64>() > 60u64 {
+            if machine_start_duration.saturated_into::<u64>() > CONFIRMING_DELAY {
                 return Err(Error::<T>::ExpiredConfirm.into());
             }
 
@@ -185,19 +187,19 @@ pub mod pallet {
                 return Err(Error::<T>::StatusNotAllowed.into());
             }
 
-            order_info.confirm_rent = now;
-
             // 质押转到特定账户
             Self::reduce_total_stake(&renter, order_info.stake_amount).map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
 
             <T as pallet::Config>::Currency::transfer(&renter, &rent_pot, order_info.stake_amount, KeepAlive)
                 .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
 
+            order_info.confirm_rent = now;
             order_info.stake_amount = 0u64.saturated_into::<BalanceOf<T>>();
             RentOrder::<T>::insert(&renter, &machine_id, order_info);
 
             // 改变online_profile状态
-            T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, renter);
+            T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, renter);
+            PendingConfirming::<T>::remove(&machine_id);
             Ok(().into())
         }
     }
@@ -225,13 +227,15 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // 根据DBC价格获得需要质押数量
+    // 根据DBC价格计算租金
+    // 租金 = 机器价格 * 租用era * one_dbc / dbc_price / 30 (天/月)
     fn stake_dbc_amount(machine_price: u64, rent_duration: EraIndex) -> Option<BalanceOf<T>> {
-        let dbc_price: BalanceOf<T> = <dbc_price_ocw::Module<T>>::avg_price()?.saturated_into();
         let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
+        let dbc_price: BalanceOf<T> = <dbc_price_ocw::Module<T>>::avg_price()?.saturated_into();
 
         let renter_need: BalanceOf<T> = machine_price.checked_mul(rent_duration as u64)?.saturated_into();
-        one_dbc.checked_mul(&renter_need)?.checked_div(&dbc_price)
+
+        one_dbc.checked_mul(&renter_need)?.checked_div(&dbc_price)?.checked_div(DAY_PER_MONTH)
     }
 
     // 每次交易消耗一些交易费
@@ -282,8 +286,10 @@ impl<T: Config> Pallet<T> {
         if let Ok(index) = rent_machine_list.binary_search(machine_id) {
             rent_machine_list.remove(index);
         }
-        RentMachineList::<T>::insert(who, rent_machine_list);
+        UserRented::<T>::insert(who, rent_machine_list);
         PendingConfirming::<T>::remove(machine_id);
+
+        // FIXME: return back staked money!
     }
 
     fn pending_confirming_order() -> BTreeSet<(MachineId, T::AccountId)> {
