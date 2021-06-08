@@ -22,6 +22,7 @@ type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_sys
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
+pub const BLOCK_PER_DAY: u64 = 2880; // 1天按照2880个块
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"rentmach";
 
@@ -45,7 +46,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + online_profile::Config + {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type RTOps: RTOps<MachineId = MachineId, MachineStatus = MachineStatus>;
+        type RTOps: RTOps<MachineId = MachineId, MachineStatus = MachineStatus, AccountId = Self::AccountId>;
         type FixedTxFee: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
@@ -98,7 +99,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // 设置
+        // 设置机器租金支付地址
         #[pallet::weight(0)]
         pub fn set_rent_pot(origin: OriginFor<T>, pot_addr: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -106,6 +107,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 设置租用机器手续费：10 DBC
         #[pallet::weight(0)]
         pub fn set_fixed_tx_fee(origin: OriginFor<T>, tx_fee: BalanceOf<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -118,12 +120,13 @@ pub mod pallet {
         pub fn rent_machine(origin: OriginFor<T>, machine_id: MachineId, duration: EraIndex) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
 
-            // TODO: 用户提交订单，需要扣除10个DBC
+            // 用户提交订单，需要扣除10个DBC
+            Self::pay_fixed_tx_fee(renter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
             let now = <frame_system::Module<T>>::block_number();
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
 
-            // 0. 检查machine_id是否可以租用
+            // 检查machine_id状态是否可以租用
             if machine_info.machine_status != MachineStatus::Online {
                 return Err(Error::<T>::MachineNotRentable.into())
             }
@@ -136,7 +139,7 @@ pub mod pallet {
             ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
 
             // 获取用户租用的结束时间
-            let rent_end = 2880u64.checked_mul(duration as u64).ok_or(Error::<T>::Overflow)?
+            let rent_end = BLOCK_PER_DAY.checked_mul(duration as u64).ok_or(Error::<T>::Overflow)?
                 .saturated_into::<T::BlockNumber>().checked_add(&now).ok_or(Error::<T>::Overflow)?;
 
             // 质押用户的资金，并修改机器状态
@@ -145,7 +148,7 @@ pub mod pallet {
             RentOrder::<T>::insert(&renter, &machine_id, RentOrderDetail {
                 renter: renter.clone(),
                 rent_start: now,
-                rent_end: rent_end,
+                rent_end,
                 stake_amount: rent_fee,
                 ..Default::default()
             });
@@ -157,7 +160,7 @@ pub mod pallet {
             RentMachineList::<T>::insert(&renter, user_rented);
 
             // 改变online_profile状态，影响机器佣金
-            T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating);
+            T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, renter);
 
             Ok(().into())
         }
@@ -194,7 +197,7 @@ pub mod pallet {
             RentOrder::<T>::insert(&renter, &machine_id, order_info);
 
             // 改变online_profile状态
-            T::RTOps::change_machine_status(&machine_id, MachineStatus::Online);
+            T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, renter);
             Ok(().into())
         }
     }
@@ -204,7 +207,6 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         PayTxFee(T::AccountId, BalanceOf<T>),
-        StakeToBeCandidacy(T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -218,6 +220,7 @@ pub mod pallet {
         StatusNotAllowed,
         UnlockToPayFeeFailed,
         UndefinedRentPot,
+        PayTxFeeFailed,
     }
 }
 
@@ -260,14 +263,14 @@ impl<T: Config> Pallet<T> {
                 debug::error!("Duration of confirming rent cannot be None");
                 Self::clean_order(&renter, &machine_id);
 
-                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online);
+                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, renter.clone());
                 continue
             }
             let duration = duration.unwrap();
             if duration > 60u64.saturated_into() { // 超过了60个块，也就是30分钟
                 Self::clean_order(&renter, &machine_id);
 
-                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online);
+                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, renter.clone());
                 continue
             }
         }

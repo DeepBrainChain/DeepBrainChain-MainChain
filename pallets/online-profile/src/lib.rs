@@ -1138,13 +1138,15 @@ impl<T: Config> LCOps for Pallet<T> {
 impl<T: Config> RTOps for Pallet<T> {
     type MachineId = MachineId;
     type MachineStatus = MachineStatus;
+    type AccountId = T::AccountId;
 
-    fn change_machine_status(machine_id: &MachineId, new_status: MachineStatus) {
+    fn change_machine_status(machine_id: &MachineId, new_status: MachineStatus, renter: Self::AccountId) {
         let mut machine_info = Self::machines_info(machine_id);
         if machine_info.machine_status == new_status {
             return
         }
         machine_info.machine_status = new_status;
+        machine_info.machine_renter = renter;
         MachinesInfo::<T>::insert(machine_id, machine_info);
     }
 }
@@ -1206,10 +1208,7 @@ impl<T: Config> Module<T> {
     }
 
     // 返回total_page
-    pub fn get_staker_list_info(
-        cur_page: u64,
-        per_page: u64,
-    ) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
+    pub fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
         let temp_account = Self::temp_account();
         let mut out = Vec::new();
 

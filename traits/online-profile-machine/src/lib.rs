@@ -28,8 +28,9 @@ pub trait OCWOps {
 }
 
 pub trait RTOps {
+    type AccountId;
     type MachineId;
     type MachineStatus;
 
-    fn change_machine_status(machine_id: &Self::MachineId, new_status: Self::MachineStatus);
+    fn change_machine_status(machine_id: &Self::MachineId, new_status: Self::MachineStatus, renter: Self::AccountId);
 }
