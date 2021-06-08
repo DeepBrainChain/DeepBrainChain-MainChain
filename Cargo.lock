@@ -6226,6 +6226,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "online-profile",
+ "online-profile-machine",
  "parity-scale-codec",
  "serde",
  "serde_json 1.0.44",

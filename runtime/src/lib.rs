@@ -1058,6 +1058,8 @@ impl maintain_committee::Config for Runtime {
 impl rent_machine::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
+    type RTOps = OnlineProfile;
+    type FixedTxFee = Treasury;
 }
 
 construct_runtime!(

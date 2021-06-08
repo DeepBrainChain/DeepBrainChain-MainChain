@@ -11,14 +11,9 @@ use sp_io::hashing::blake2_128;
 use sp_runtime::traits::Zero;
 use sp_std::{convert::TryInto, str};
 
-type BalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
+type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 pub use pallet::*;
 
@@ -273,11 +268,14 @@ impl<T: Config> Pallet<T> {
     }
 
     fn do_slash(value: BalanceOf<T>, who: T::AccountId) {
-        let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
+        // let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
         if !value.is_zero() {
-            let (imbalance, missing) = T::Currency::slash(&who, value);
-            Self::deposit_event(Event::Slash(who, missing.clone()));
-            slashed_imbalance.subsume(imbalance);
+            if T::Currency::can_slash(&who, value) {
+                let (imbalance, missing) = T::Currency::slash(&who, value);
+                Self::deposit_event(Event::Slash(who, missing.clone()));
+                // slashed_imbalance.subsume(imbalance);
+                T::Slash::on_unbalanced(imbalance);
+            }
         }
     }
 }

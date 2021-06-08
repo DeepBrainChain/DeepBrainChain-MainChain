@@ -25,7 +25,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use grade_inflation::calc_machine_grade;
-use online_profile_machine::{LCOps, OCWOps};
+use online_profile_machine::{LCOps, OCWOps, RTOps};
 use pallet_identity::Data;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -145,6 +145,7 @@ impl LiveMachine {
             return true;
         }
         if let Ok(_) = self.waiting_hash.binary_search(machine_id) {
+
             return true;
         }
         if let Ok(_) = self.bonded_machine.binary_search(machine_id) {
@@ -194,6 +195,11 @@ pub mod pallet {
     #[pallet::getter(fn history_depth)]
     pub(super) type HistoryDepth<T: Config> =
         StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
+
+    // 控制全局交易费用
+    #[pallet::storage]
+    #[pallet::getter(fn fixed_tx_fee)]
+    pub type FixedTxFee<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     // 用户线性释放的天数:
     // 25%收益当天释放；75%在150天线性释放
@@ -338,6 +344,13 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::weight(0)]
+        pub fn set_fixed_tx_fee(origin: OriginFor<T>, tx_fee: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            FixedTxFee::<T>::put(tx_fee);
+            Ok(().into())
+        }
+
         // 实现当达到5000卡时，开启奖励
         #[pallet::weight(0)]
         pub fn set_reward_start_height(origin: OriginFor<T>, reward_start_height: T::BlockNumber) -> DispatchResultWithPostInfo {
@@ -1119,6 +1132,20 @@ impl<T: Config> LCOps for Pallet<T> {
         UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
 
         Ok(())
+    }
+}
+
+impl<T: Config> RTOps for Pallet<T> {
+    type MachineId = MachineId;
+    type MachineStatus = MachineStatus;
+
+    fn change_machine_status(machine_id: &MachineId, new_status: MachineStatus) {
+        let mut machine_info = Self::machines_info(machine_id);
+        if machine_info.machine_status == new_status {
+            return
+        }
+        machine_info.machine_status = new_status;
+        MachinesInfo::<T>::insert(machine_id, machine_info);
     }
 }
 

@@ -26,3 +26,10 @@ pub trait OCWOps {
     fn rm_booked_id(id: &Self::MachineId);
     fn add_ocw_confirmed_id(id: Self::MachineId, wallet: Self::AccountId);
 }
+
+pub trait RTOps {
+    type MachineId;
+    type MachineStatus;
+
+    fn change_machine_status(machine_id: &Self::MachineId, new_status: Self::MachineStatus);
+}
