@@ -12,13 +12,8 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 pub use online_profile::{MachineStatus, MachineId, EraIndex};
 use online_profile_machine::RTOps;
-use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion},
-    RuntimeDebug,
-};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion};
 use sp_std::{prelude::*, str, vec::Vec, collections::btree_set::BTreeSet};
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
@@ -241,6 +236,14 @@ impl<T: Config> Pallet<T> {
         one_dbc.checked_mul(&renter_need)?.checked_div(&dbc_price)?.checked_div(&DAY_PER_MONTH.saturated_into::<BalanceOf<T>>())
     }
 
+    // TODO: use price trait
+    // fn stake_dbc_amount(machine_price: u64, rent_duration: EraIndex) -> Option<BalanceOf<T>> {
+    //     // let rent_need: BalanceOf<T> = machine_price.checked_mul(rent_duration as u64)?.saturated_into::<BalanceOf<T>>().checked_div(DAY_PER_MONTH)?;
+
+    //     let rent_need = machine_price.checked_mul(rent_duration as u64)?.checked_div(DAY_PER_MONTH)?;
+    //     // <dbc_price_ocw::Module<T>>::get_dbc_amount_by_value(rent_need)
+    // }
+
     // 每次交易消耗一些交易费
     fn pay_fixed_tx_fee(who: T::AccountId) -> Result<(), ()> {
         let fixed_tx_fee = Self::fixed_tx_fee();
@@ -292,7 +295,7 @@ impl<T: Config> Pallet<T> {
         let rent_info = Self::rent_order(who, machine_id);
         if let Some(rent_info) = rent_info {
             // return back staked money!
-            Self::reduce_total_stake(who, rent_info.stake_amount);
+            let _ = Self::reduce_total_stake(who, rent_info.stake_amount);
         }
 
         RentOrder::<T>::remove(who, machine_id);

@@ -33,7 +33,6 @@ pub use pallet::*;
 
 pub type MachineId = Vec<u8>;
 pub type OrderId = u64; // 提交的单据ID
-pub type Pubkey = Vec<u8>;
 pub type Hash = [u8; 16];
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -59,7 +58,6 @@ pub struct ReporterRecord {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StakerList<AccountId: Ord> {
     pub committee: Vec<AccountId>,    // 质押并通过社区选举的委员会
-    pub pubkey_list: Vec<AccountId>,  // 委员会，但需要提交公钥，新加入的委员会需要首先添加pub_key
     pub fulfill_list: Vec<AccountId>, // 委员会, 但需要补交质押
     pub chill_list: Vec<AccountId>,   // 委员会，但不想被派单
     pub black_list: Vec<AccountId>,   // 委员会，黑名单中
@@ -68,9 +66,6 @@ pub struct StakerList<AccountId: Ord> {
 impl<AccountId: Ord> StakerList<AccountId> {
     fn staker_exist(&self, who: &AccountId) -> bool {
         if let Ok(_) = self.committee.binary_search(who) {
-            return true;
-        }
-        if let Ok(_) = self.pubkey_list.binary_search(who) {
             return true;
         }
         if let Ok(_) = self.fulfill_list.binary_search(who) {
@@ -192,6 +187,11 @@ pub mod pallet {
     #[pallet::getter(fn committee_min_stake)]
     pub(super) type CommitteeMinStake<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+    // 成为委员会必须质押的金额
+    #[pallet::storage]
+    #[pallet::getter(fn committee_pre_stake)]
+    pub(super) type CommitteePreStake<T: Config> = StorageValue<_, u64, ValueQuery>;
+
     // 报告人最小质押，默认100RMB等值DBC
     #[pallet::storage]
     #[pallet::getter(fn reporter_min_stake)]
@@ -215,11 +215,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee_limit)]
     pub(super) type CommitteeLimit<T: Config> = StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
-
-    // 委员会的公钥信息
-    #[pallet::storage]
-    #[pallet::getter(fn committee_pubkey)]
-    pub(super) type CommitteePubkey<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Pubkey, ValueQuery>;
 
     // 查询报告人报告的机器
     #[pallet::storage]
@@ -262,6 +257,14 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 设置成为委员会必须质押的金额, 10000 DBC
+        #[pallet::weight(0)]
+        pub fn set_committee_pre_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            CommitteePreStake::<T>::put(value);
+            Ok(().into())
+        }
+
         // 设置报告人最小质押，单位：usd * 10^6
         #[pallet::weight(0)]
         pub fn set_reporter_min_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
@@ -281,7 +284,7 @@ pub mod pallet {
             ensure!(!staker.staker_exist(&member), Error::<T>::AccountAlreadyExist);
 
             // 将用户添加到pubkey_list列表中
-            StakerList::add_staker(&mut staker.pubkey_list, member.clone());
+            StakerList::add_staker(&mut staker.fulfill_list, member.clone());
             Self::deposit_event(Event::CommitteeAdded(member));
             Ok(().into())
         }
@@ -480,31 +483,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 委员会任何时候都可以添加公钥信息，添加公钥信息不应改变委员会的状态。
-        // 但是，当委员会在pubkey_list列表中时，为刚成为委员会的状态。添加pubkey则变为fulfill_list状态
-        #[pallet::weight(10000)]
-        pub fn committee_add_pubkey(origin: OriginFor<T>, pubkey: Pubkey) -> DispatchResultWithPostInfo {
-            let committee = ensure_signed(origin)?;
-
-            // 检查是否为委员会
-            let mut staker = Self::staker();
-            ensure!(staker.staker_exist(&committee), Error::<T>::NotCommittee);
-
-            // 添加pubkey
-            CommitteePubkey::<T>::insert(&committee, pubkey.clone());
-
-            // 检查是否在pubkey_list中， 如果在则改变committee的状态
-            if let Ok(_) = staker.pubkey_list.binary_search(&committee) {
-                StakerList::rm_staker(&mut staker.pubkey_list, &committee);
-                StakerList::add_staker(&mut staker.fulfill_list, committee.clone());
-                Staker::<T>::put(staker);
-            }
-
-            Self::deposit_event(Event::CommitteeAddPubkey(pubkey));
-
-            Ok(().into())
-        }
-
         // FIXME: 完善逻辑
         // 报告人在委员会完成抢单后，24小时内用委员会的公钥，提交加密后的故障信息
         #[pallet::weight(10000)]
@@ -640,7 +618,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         CommitteeAdded(T::AccountId),
         CommitteeFulfill(BalanceOf<T>),
-        CommitteeAddPubkey(Pubkey),
+        // CommitteeAddPubkey(Pubkey),
         Chill(T::AccountId),
         ExitFromCandidacy(T::AccountId),
         UndoChill(T::AccountId),

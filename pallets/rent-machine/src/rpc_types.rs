@@ -1,8 +1,6 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-
 use codec::{Decode, Encode};
-use sp_std::prelude::Vec;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]

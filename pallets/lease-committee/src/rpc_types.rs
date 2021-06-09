@@ -1,8 +1,7 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use crate::{CommitteeUploadInfo, MachineId, MachineStatus};
+use crate::{CommitteeUploadInfo, MachineStatus};
 use codec::{Decode, Encode};
-use sp_std::prelude::Vec;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]

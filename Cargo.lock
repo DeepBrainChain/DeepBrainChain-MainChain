@@ -1281,6 +1281,7 @@ dependencies = [
 name = "dbc-price-ocw"
 version = "0.1.0"
 dependencies = [
+ "dbc-price-trait",
  "frame-support",
  "frame-system",
  "lite-json",
@@ -1292,6 +1293,10 @@ dependencies = [
  "sp-runtime",
  "sp-std",
 ]
+
+[[package]]
+name = "dbc-price-trait"
+version = "0.1.0"
 
 [[package]]
 name = "dbc-staking"

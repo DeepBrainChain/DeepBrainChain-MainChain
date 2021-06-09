@@ -1,13 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{debug, traits::Randomness};
+use frame_support::{debug, traits::Randomness, traits::{Currency, LockableCurrency}};
 use frame_system::offchain::SubmitTransaction;
 use lite_json::json::JsonValue;
 use sp_core::H256;
-use sp_runtime::offchain::{http, Duration};
+use sp_runtime::{offchain::{http, Duration}, traits::{SaturatedConversion, CheckedDiv, CheckedMul}};
 use sp_std::{str, vec::Vec};
+use dbc_price_trait::DbcPrice;
 
 pub use pallet::*;
+
+type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -27,6 +30,7 @@ pub mod pallet {
     {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type RandomnessSource: Randomness<H256>;
+        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
     }
 
     #[pallet::pallet]
@@ -267,5 +271,15 @@ impl<T: Config> Pallet<T> {
 
         AvgPrice::<T>::put(avg_price);
         Self::deposit_event(Event::AddAvgPrice(avg_price));
+    }
+}
+
+impl<T: Config> DbcPrice for Pallet<T> {
+    type Balance = BalanceOf<T>;
+
+    fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance> {
+        let one_dbc: Self::Balance = 1000_000_000_000_000u64.saturated_into();
+        let dbc_price: Self::Balance = Self::avg_price()?.saturated_into();
+        value.saturated_into::<Self::Balance>().checked_mul(&one_dbc)?.checked_div(&dbc_price)
     }
 }

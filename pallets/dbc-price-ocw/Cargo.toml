@@ -11,6 +11,7 @@ targets = ['x86_64-unknown-linux-gnu']
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 lite-json = { version = "0.1", default-features = false } # TODO: check this version
 serde = { version = "1.0.101", optional = true }
+dbc-price-trait = { package = "dbc-price-trait", path = "../../traits/dbc-price-trait", default-features = false }
 
 [dependencies.frame-system]
 default-features = false
