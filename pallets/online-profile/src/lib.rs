@@ -634,6 +634,22 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        // 机器管理者报告机器下线
+        #[pallet::weight(10000)]
+        pub fn staker_report_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            Ok(().into())
+        }
+
+        // 机器管理者报告机器上线
+        #[pallet::weight(10000)]
+        pub fn staker_report_online(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            Ok(().into())
+        }
     }
 
     #[pallet::event]

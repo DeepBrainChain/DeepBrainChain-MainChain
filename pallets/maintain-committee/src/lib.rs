@@ -39,7 +39,7 @@ type BalanceOf<T> =
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"mtcommit";
 
-// 记录该模块中活跃的订单
+// 记录该模块中所有活跃的订单
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LiveOrderList {
     pub reported_order: Vec<OrderId>,         // 委员会还可以抢单的订单
@@ -49,56 +49,20 @@ pub struct LiveOrderList {
     pub fully_raw: Vec<OrderId>,              // 已经全部提交了Raw的机器Id
 }
 
+// 报告人的订单
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct ReporterRecord {
     pub reported_id: Vec<OrderId>,
 }
 
-// 记录处于不同状态的委员会的列表，方便派单
+//  委员会的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StakerList<AccountId: Ord> {
     pub committee: Vec<AccountId>,    // 质押并通过社区选举的委员会
-    pub fulfill_list: Vec<AccountId>, // 委员会, 但需要补交质押
     pub black_list: Vec<AccountId>,   // 委员会，黑名单中
 }
 
-impl<AccountId: Ord> StakerList<AccountId> {
-    fn staker_exist(&self, who: &AccountId) -> bool {
-        if let Ok(_) = self.committee.binary_search(who) {
-            return true;
-        }
-        if let Ok(_) = self.fulfill_list.binary_search(who) {
-            return true;
-        }
-        if let Ok(_) = self.black_list.binary_search(who) {
-            return true;
-        }
-        false
-    }
-
-    fn add_staker(a_field: &mut Vec<AccountId>, new_staker: AccountId) {
-        if let Err(index) = a_field.binary_search(&new_staker) {
-            a_field.insert(index, new_staker);
-        }
-    }
-
-    fn rm_staker(a_field: &mut Vec<AccountId>, drop_staker: &AccountId) {
-        if let Ok(index) = a_field.binary_search(drop_staker) {
-            a_field.remove(index);
-        }
-    }
-}
-
-// 记录用户的质押及罚款
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default)]
-pub struct StakingLedger<Balance: HasCompact> {
-    #[codec(compact)]
-    pub total: Balance,
-    #[codec(compact)]
-    pub active: Balance,
-}
-
-// 从用户地址查询绑定的机器列表
+// 委员会抢到的订单的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct CommitteeMachineList {
     pub booked_order: Vec<OrderId>, // 记录分配给用户的订单及开始验证时间
@@ -107,7 +71,7 @@ pub struct CommitteeMachineList {
     pub online_machine: Vec<MachineId>, // 存储已经成功上线的机器
 }
 
-// 一台机器对应的委员会
+// 订单对应的委员会
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineCommitteeList<AccountId, BlockNumber> {
     pub order_id: OrderId,
@@ -121,7 +85,7 @@ pub struct MachineCommitteeList<AccountId, BlockNumber> {
 
 // 委员会对机器的操作信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CommitteeMachineOps<BlockNumber> {
+pub struct CommitteeMachineOps<BlockNumber, Balance> {
     pub booked_time: BlockNumber,
     pub encrypted_err_info: Option<Vec<u8>>, // reporter 提交的加密后的信息
     pub encrypted_login_info: Option<Vec<u8>>, // 记录机器的登录信息，用委员会公钥加密
@@ -132,6 +96,7 @@ pub struct CommitteeMachineOps<BlockNumber> {
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
     pub confirm_result: bool,
     pub machine_status: MachineStatus,
+    pub staked_balance: Balance,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -144,20 +109,6 @@ pub enum MachineStatus {
 impl Default for MachineStatus {
     fn default() -> Self {
         MachineStatus::Booked
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum CommitteeStatus<BlockNumber> {
-    NotCommittee,          // 非委员会，默认状态
-    Health,                // 正常的委员会状态
-    FillingPledge,         // 需要等待补充押金
-    Chilling(BlockNumber), // 正在退出的状态, 记录Chill时的高度，当达到质押限制时，则可以退出
-}
-
-impl<BlockNumber> Default for CommitteeStatus<BlockNumber> {
-    fn default() -> Self {
-        CommitteeStatus::NotCommittee
     }
 }
 
@@ -183,10 +134,10 @@ pub mod pallet {
     #[pallet::getter(fn committee_min_stake)]
     pub(super) type CommitteeMinStake<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-    // 成为委员会必须质押的金额
-    #[pallet::storage]
-    #[pallet::getter(fn committee_pre_stake)]
-    pub(super) type CommitteePreStake<T: Config> = StorageValue<_, u64, ValueQuery>;
+    // // 成为委员会必须质押的金额
+    // #[pallet::storage]
+    // #[pallet::getter(fn committee_pre_stake)]
+    // pub(super) type CommitteePreStake<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     // 报告人最小质押，默认100RMB等值DBC
     #[pallet::storage]
@@ -196,10 +147,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn staker)]
     pub(super) type Staker<T: Config> = StorageValue<_, StakerList<T::AccountId>, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn committee_ledger)]
-    pub(super) type CommitteeLedger<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Option<StakingLedger<BalanceOf<T>>>, ValueQuery>;
 
     // 默认抢单委员会的个数
     #[pallet::type_value]
@@ -233,7 +180,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee_ops)]
     pub(super) type CommitteeOps<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, OrderId, CommitteeMachineOps<T::BlockNumber>, ValueQuery>;
+        StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, OrderId, CommitteeMachineOps<T::BlockNumber, BalanceOf<T>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn live_order)]
@@ -253,13 +200,13 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 设置成为委员会必须质押的金额, 10000 DBC
-        #[pallet::weight(0)]
-        pub fn set_committee_pre_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            CommitteePreStake::<T>::put(value);
-            Ok(().into())
-        }
+        // // 设置成为委员会必须质押的金额, 10000 DBC
+        // #[pallet::weight(0)]
+        // pub fn set_committee_pre_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
+        //     ensure_root(origin)?;
+        //     CommitteePreStake::<T>::put(value);
+        //     Ok(().into())
+        // }
 
         // 设置报告人最小质押，单位：usd * 10^6
         #[pallet::weight(0)]
@@ -270,98 +217,59 @@ pub mod pallet {
         }
 
         // 该操作由社区决定
-        // Root权限，添加到委员会，直接添加到fulfill列表中。当竞选成功后，需要操作以从fulfill_list到committee
+        // Root权限，添加到委员会，直接添加到committee列表中
         #[pallet::weight(0)]
         pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut staker = Self::staker();
 
-            // 确保用户还未加入到本模块
-            ensure!(!staker.staker_exist(&member), Error::<T>::AccountAlreadyExist);
+            staker.black_list.binary_search(&member).map_err(|_| Error::<T>::AccountAlreadyExist)?;
+            staker.committee.binary_search(&member).map_err(|_| Error::<T>::AccountAlreadyExist)?;
 
-            // 将用户添加到pubkey_list列表中
-            StakerList::add_staker(&mut staker.fulfill_list, member.clone());
+            if let Ok(index) = staker.committee.binary_search(&member) {
+                staker.committee.insert(index, member.clone());
+            }
+
             Self::deposit_event(Event::CommitteeAdded(member));
             Ok(().into())
         }
 
-        // TODO: 设置为抢单时自动扣除押金, 而非手动补充
-        #[pallet::weight(10000)]
-        pub fn fill_pledge(origin: OriginFor<T>) -> DispatchResultWithPostInfo{
-            let who = ensure_signed(origin)?;
-
-            // 检查是否在fulfill列表中
-            let mut staker = Self::staker();
-            staker.fulfill_list.binary_search(&who).map_err(|_| Error::<T>::NoNeedFulfill)?;
-
-            // 获取需要质押的数量
-            let min_stake = Self::get_min_stake_amount().ok_or(Error::<T>::MinStakeNotFound)?;
-
-            let mut ledger = Self::committee_ledger(&who).unwrap_or(StakingLedger {
-                ..Default::default()
-            });
-
-            // 检查用户余额，更新质押
-            let needed = min_stake - ledger.total;
-            ensure!(needed < <T as Config>::Currency::free_balance(&who), Error::<T>::FreeBalanceNotEnough);
-
-            ledger.active += min_stake - ledger.total;
-            ledger.total = min_stake;
-            Self::update_ledger(&who, &ledger);
-
-            // 从fulfill 移出来，并放到正常委员会列表
-            StakerList::rm_staker(&mut staker.fulfill_list, &who);
-            StakerList::add_staker(&mut staker.committee, who.clone());
-
-            Self::deposit_event(Event::CommitteeFulfill(needed));
-
-            Ok(().into())
-        }
-
-        // 委员会可以退出, 从chill_list中退出
+        // FIXME: 完成: 委员会可以退出
         #[pallet::weight(10000)]
         pub fn exit_staker(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
             let mut staker = Self::staker();
-            ensure!(staker.staker_exist(&who), Error::<T>::AccountNotExist);
+            staker.committee.binary_search(&who).map_err(|_|  Error::<T>::AccountNotExist)?;
 
             // 如果有未完成的工作，则不允许退出
             let committee_machines = Self::committee_machines(&who);
             if committee_machines.booked_order.len() > 0 ||
                 committee_machines.hashed_order.len() > 0 ||
                 committee_machines.confirmed_order.len() > 0 {
-                    return Err(Error::<T>::JobNotDone.into());
+                return Err(Error::<T>::JobNotDone.into());
             }
 
-            // 如果是candidacy，则可以直接退出, 从staker中删除
-            // 如果是fulfill_list则可以直接退出(低于5wDBC的将进入fulfill_list，无法抢单,每次惩罚1w)
-            StakerList::rm_staker(&mut staker.committee, &who);
-            StakerList::rm_staker(&mut staker.fulfill_list, &who);
+            if let Ok(index) = staker.committee.binary_search(&who) {
+                staker.committee.remove(index);
+            }
 
             Staker::<T>::put(staker);
-            let ledger = Self::committee_ledger(&who);
-            if let Some(mut ledger) = ledger {
-                ledger.total = 0u32.into();
-                Self::update_ledger(&who, &ledger);
-            }
 
-            CommitteeLedger::<T>::remove(&who);
             Self::deposit_event(Event::ExitFromCandidacy(who));
 
             return Ok(().into());
         }
 
-        // FIXME: 必须特定的用户才能进行报告。避免用户报告同一台机器多次
-        // 用户报告机器有问题
+        // 任何用户可以报告机器有问题
         #[pallet::weight(10000)]
-        pub fn report_machine_state(origin: OriginFor<T>, _raw_hash: Vec<u8>) -> DispatchResultWithPostInfo {
+        pub fn report_machine_fault(origin: OriginFor<T>, _raw_hash: Vec<u8>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let report_time = <frame_system::Module<T>>::block_number();
 
             // 被报告的机器存储起来，委员会进行抢单
             let mut live_order = Self::live_order();
-            let order_id = Self::next_order_id();
+            let order_id = Self::get_new_order_id();
             if let Err(index) = live_order.reported_order.binary_search(&order_id) {
                 live_order.reported_order.insert(index, order_id);
             }
@@ -370,8 +278,8 @@ pub mod pallet {
             // let mut machine_committee = Self::machine_committee(&next_order_id);
 
             ReportedMachines::<T>::insert(&order_id, MachineCommitteeList {
-                order_id: order_id,
-                report_time: now,
+                order_id,
+                report_time,
                 ..Default::default()
             });
 
@@ -382,15 +290,12 @@ pub mod pallet {
             }
             ReporterOrder::<T>::insert(&reporter, reporter_order);
 
-            // 更新NextOrderId
-            NextOrderId::<T>::put(order_id + 1);
-
             Ok(().into())
         }
 
-        // 委员会进行抢单
+        // 委员会进行抢单 TODO: 应该允许委员会指定OrderId
         #[pallet::weight(10000)]
-        pub fn book_one(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn book_one(origin: OriginFor<T>, order_id: OrderId) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -554,22 +459,6 @@ pub mod pallet {
 
             Ok(().into())
         }
-
-        // 机器管理者报告机器下线
-        #[pallet::weight(10000)]
-        pub fn staker_report_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let _who = ensure_signed(origin)?;
-
-            Ok(().into())
-        }
-
-        // 机器管理者报告机器上线
-        #[pallet::weight(10000)]
-        pub fn staker_report_online(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let _who = ensure_signed(origin)?;
-
-            Ok(().into())
-        }
     }
 
     #[pallet::event]
@@ -620,17 +509,13 @@ impl<T: Config> Pallet<T> {
         min_stake.checked_div(&dbc_price.saturated_into::<BalanceOf<T>>())
     }
 
-    fn _get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
-        return blake2_128(raw_str);
+    fn get_new_order_id() -> OrderId {
+        let order_id = Self::next_order_id();
+        NextOrderId::<T>::put(order_id + 1);
+        return order_id;
     }
 
-    fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<BalanceOf<T>>) {
-        <T as Config>::Currency::set_lock(
-            PALLET_LOCK_ID,
-            controller,
-            ledger.total,
-            WithdrawReasons::all(),
-        );
-        <CommitteeLedger<T>>::insert(controller, Some(ledger));
+    fn _get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
+        return blake2_128(raw_str);
     }
 }
