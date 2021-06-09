@@ -261,6 +261,13 @@ pub mod pallet {
             return Ok(().into());
         }
 
+        #[pallet::weight(10000)]
+        pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            todo!();
+            Ok(().into())
+        }
+
         // 任何用户可以报告机器有问题
         #[pallet::weight(10000)]
         pub fn report_machine_fault(origin: OriginFor<T>, _raw_hash: Vec<u8>) -> DispatchResultWithPostInfo {
