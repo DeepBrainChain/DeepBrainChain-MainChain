@@ -119,8 +119,6 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 }
 ```
 
-
-
 ---
 
 ---
@@ -181,7 +179,7 @@ b'2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3'
  curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
      "jsonrpc":"2.0",
       "id":1,
-      "method":"leaseCommittee_committeeMachineList",
+      "method":"leaseCommittee_getCommitteeMachineList",
       "params": ["0x2b7eca733ed4e538339c41cb454092261d722c0ee355ce1744daaee22388c044", "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]
     }'
 ```
@@ -212,6 +210,40 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 ```json
 {"jsonrpc":"2.0","result":{"bookedTime":"0","confirmHash":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"confirmTime":"0","hashTime":"0","machineInfo":{"calc_point":0,"cpu_core_num":0,"cpu_rate":0,"cpu_type":[],"cuda_core":0,"gpu_mem":0,"gpu_num":0,"gpu_type":[],"hard_disk":0,"is_support":false,"machine_id":[],"mem_num":0,"rand_str":[]},"machineStatus":"Booked","stakedDbc":"0"},"id":1}
 ```
+
+### 查询用户租用机器订单
+
+```bash
+curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
+     "jsonrpc":"2.0",
+      "id":1,
+      "method":"rentMachine_getRentOrder",
+      "params": ["0xe602f649549317c389f9f02dea97d552a026c193c0a2584bc1f668efd1134de1","5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", [50,103,102,112,112,51,77,65,66,52,65,113,50,90,80,69,85,55,50,110,101,90,84,86,99,90,107,98,122,68,122,88,57,54,111,112,57,100,51,102,118,105,51]]
+    }'
+```
+
+参数说明： BlockHash, AccountId, MachineId
+
+返回结果：
+```json
+{"jsonrpc":"2.0","result":{"confirmRent":"0","rentEnd":"0","rentStart":"0","renter":"5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM","stakeAmount":"0"},"id":1}
+```
+
+### 查询用户的租用列表
+
+```
+curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
+     "jsonrpc":"2.0",
+      "id":1,
+      "method":"rentMachine_getRentList",
+      "params": ["0xe602f649549317c389f9f02dea97d552a026c193c0a2584bc1f668efd1134de1","5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]
+    }'
+```
+
+参数说明：BlockHash, AccountId
+
+返回结果： ["machine_id1", "machine_id2"]
+
 
 ---
 

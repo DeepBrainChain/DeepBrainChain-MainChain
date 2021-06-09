@@ -1214,6 +1214,20 @@ impl_runtime_apis! {
         }
     }
 
+    impl rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
+        fn get_sum() -> u64 {
+            RentMachine::get_sum()
+        }
+
+        fn get_rent_order(renter: AccountId, machine_id: online_profile::MachineId) -> rent_machine::RpcRentOrderDetail<AccountId, BlockNumber, Balance> {
+            RentMachine::get_rent_order(renter, machine_id)
+        }
+
+        fn get_rent_list(renter: AccountId) -> Vec<online_profile::MachineId> {
+            RentMachine::get_rent_list(renter)
+        }
+    }
+
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
             VERSION

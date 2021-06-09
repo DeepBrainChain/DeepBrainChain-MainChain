@@ -1,8 +1,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use lease_committee::{LCCommitteeMachineList, MachineId, RpcLCCommitteeOps};
-use lease_committee_runtime_api::LcRpcApi as LcStorageRuntimeApi;
+use rent_machine_runtime_api::RmRpcApi as RmStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_rpc::number::NumberOrHex;
@@ -11,34 +10,26 @@ use sp_runtime::{
     traits::{Block as BlockT, MaybeDisplay},
 };
 use std::{convert::TryInto, sync::Arc};
+use rent_machine::{RpcRentOrderDetail, MachineId};
 
 #[rpc]
-pub trait LcRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2> {
-    #[rpc(name = "leaseCommittee_getSum")]
+pub trait RmRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2> {
+    #[rpc(name = "rentMachine_getSum")]
     fn get_sum(&self, at: Option<BlockHash>) -> Result<u64>;
 
-    #[rpc(name = "leaseCommittee_getCommitteeMachineList")]
-    fn get_committee_machine_list(
-        &self,
-        at: Option<BlockHash>,
-        committee: AccountId,
-    ) -> Result<ResponseType1>;
+    #[rpc(name = "rentMachine_getRentOrder")]
+    fn get_rent_order(&self, at: Option<BlockHash>, renter: AccountId, machine_id: MachineId) -> Result<ResponseType1>;
 
-    #[rpc(name = "leaseCommittee_getCommitteeOps")]
-    fn get_committee_ops(
-        &self,
-        at: Option<BlockHash>,
-        committee: AccountId,
-        machine_id: MachineId,
-    ) -> Result<ResponseType2>;
+    #[rpc(name = "rentMachine_getRentList")]
+    fn get_rent_list(&self, at: Option<BlockHash>, renter: AccountId) -> Result<ResponseType2>;
 }
 
-pub struct LcStorage<C, M> {
+pub struct RmStorage<C, M> {
     client: Arc<C>,
     _marker: std::marker::PhantomData<M>,
 }
 
-impl<C, M> LcStorage<C, M> {
+impl<C, M> RmStorage<C, M> {
     pub fn new(client: Arc<C>) -> Self {
         Self {
             client,
@@ -48,8 +39,8 @@ impl<C, M> LcStorage<C, M> {
 }
 
 impl<C, Block, AccountId, BlockNumber, Balance>
-    LcRpcApi<<Block as BlockT>::Hash, AccountId, LCCommitteeMachineList, RpcLCCommitteeOps<BlockNumber, Balance>>
-    for LcStorage<C, Block>
+    RmRpcApi<<Block as BlockT>::Hash, AccountId, RpcRentOrderDetail<AccountId, BlockNumber, Balance>, Vec<MachineId>>
+    for RmStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
@@ -58,7 +49,7 @@ where
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: LcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
+    C::Api: RmStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
 {
     fn get_sum(&self, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
         let api = self.client.runtime_api();
@@ -72,15 +63,11 @@ where
         })
     }
 
-    fn get_committee_machine_list(
-        &self,
-        at: Option<<Block as BlockT>::Hash>,
-        committee: AccountId,
-    ) -> Result<LCCommitteeMachineList> {
+    fn get_rent_order(&self, at: Option<<Block as BlockT>::Hash>, renter: AccountId, machine_id: MachineId) -> Result<RpcRentOrderDetail<AccountId, BlockNumber, Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let runtime_api_result = api.get_rent_order(&at, renter, machine_id);
 
-        let runtime_api_result = api.get_committee_machine_list(&at, committee);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),
@@ -88,16 +75,11 @@ where
         })
     }
 
-    fn get_committee_ops(
-        &self,
-        at: Option<<Block as BlockT>::Hash>,
-        committee: AccountId,
-        machine_id: MachineId,
-    ) -> Result<RpcLCCommitteeOps<BlockNumber, Balance>> {
+    fn get_rent_list(&self, at: Option<<Block as BlockT>::Hash>, renter: AccountId) -> Result<Vec<MachineId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_committee_ops(&at, committee, machine_id);
+        let runtime_api_result = api.get_rent_list(&at, renter);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

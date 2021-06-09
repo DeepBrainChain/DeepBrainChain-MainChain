@@ -10,18 +10,19 @@ use frame_support::{
     traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons, OnUnbalanced, ExistenceRequirement::KeepAlive}
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use online_profile::MachineStatus;
+pub use online_profile::{MachineStatus, MachineId, EraIndex};
 use online_profile_machine::RTOps;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion},
     RuntimeDebug,
 };
 use sp_std::{prelude::*, str, vec::Vec, collections::btree_set::BTreeSet};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
-pub type MachineId = Vec<u8>;
-pub type EraIndex = u32;
+
 pub const BLOCK_PER_DAY: u64 = 2880; // 1天按照2880个块
 pub const DAY_PER_MONTH: u64 = 30; // 每个月30天计算租金
 pub const CONFIRMING_DELAY: u64 = 60; // 租用之后60个块内确认机器租用成功
@@ -29,6 +30,8 @@ pub const CONFIRMING_DELAY: u64 = 60; // 租用之后60个块内确认机器租�
 pub const PALLET_LOCK_ID: LockIdentifier = *b"rentmach";
 
 pub use pallet::*;
+mod rpc_types;
+pub use rpc_types::RpcRentOrderDetail;
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
@@ -155,11 +158,11 @@ pub mod pallet {
                 ..Default::default()
             });
 
-            let mut user_rented = Self::rent_machine_list(&renter);
+            let mut user_rented = Self::user_rented(&renter);
             if let Err(index) = user_rented.binary_search(&machine_id) {
                 user_rented.insert(index, machine_id.clone());
             }
-            UserTented::<T>::insert(&renter, user_rented);
+            UserRented::<T>::insert(&renter, user_rented);
 
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, renter.clone());
@@ -235,7 +238,7 @@ impl<T: Config> Pallet<T> {
 
         let renter_need: BalanceOf<T> = machine_price.checked_mul(rent_duration as u64)?.saturated_into();
 
-        one_dbc.checked_mul(&renter_need)?.checked_div(&dbc_price)?.checked_div(DAY_PER_MONTH)
+        one_dbc.checked_mul(&renter_need)?.checked_div(&dbc_price)?.checked_div(&DAY_PER_MONTH.saturated_into::<BalanceOf<T>>())
     }
 
     // 每次交易消耗一些交易费
@@ -281,15 +284,21 @@ impl<T: Config> Pallet<T> {
     }
 
     fn clean_order(who: &T::AccountId, machine_id: &MachineId) {
-        RentOrder::<T>::remove(who, machine_id);
-        let mut rent_machine_list = Self::rent_machine_list(who);
+        let mut rent_machine_list = Self::user_rented(who);
         if let Ok(index) = rent_machine_list.binary_search(machine_id) {
             rent_machine_list.remove(index);
         }
+
+        let rent_info = Self::rent_order(who, machine_id);
+        if let Some(rent_info) = rent_info {
+            // return back staked money!
+            Self::reduce_total_stake(who, rent_info.stake_amount);
+        }
+
+        RentOrder::<T>::remove(who, machine_id);
         UserRented::<T>::insert(who, rent_machine_list);
         PendingConfirming::<T>::remove(machine_id);
 
-        // FIXME: return back staked money!
     }
 
     fn pending_confirming_order() -> BTreeSet<(MachineId, T::AccountId)> {
@@ -321,5 +330,33 @@ impl<T: Config> Pallet<T> {
         );
 
         Ok(())
+    }
+}
+
+// RPC
+impl<T: Config> Module<T> {
+    pub fn get_sum() -> u64 {
+        3
+    }
+
+    pub fn get_rent_order(renter: T::AccountId, machine_id: MachineId) -> RpcRentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+        let order_info = Self::rent_order(&renter, &machine_id);
+        if let None = order_info {
+            return RpcRentOrderDetail {
+                ..Default::default()
+            }
+        }
+        let order_info = order_info.unwrap();
+        return RpcRentOrderDetail {
+            renter: order_info.renter,
+            rent_start: order_info.rent_start,
+            confirm_rent: order_info.confirm_rent,
+            rent_end: order_info.rent_end,
+            stake_amount: order_info.stake_amount,
+        }
+    }
+
+    pub fn get_rent_list(renter: T::AccountId) -> Vec<MachineId> {
+        Self::user_rented(&renter)
     }
 }

@@ -5,6 +5,8 @@ online-profile-rpc = { path = "../pallets/online-profile/rpc" }
 online-profile-runtime-api = { path = "../pallets/online-profile/runtime-api" }
 lease-committee-rpc = { path = "../pallets/lease-committee/rpc" }
 lease-committee-runtime-api = { path = "../pallets/lease-committee/runtime-api" }
+rent-machine-rpc = { path = "../pallets/rent-machine/rpc" }
+rent-machine-runtime-api = { path = "../pallets/rent-machine/runtime-api" }
 
 [dependencies.node-primitives]
 path = '../primitives'

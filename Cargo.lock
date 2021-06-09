@@ -4079,6 +4079,8 @@ dependencies = [
  "online-profile-runtime-api",
  "pallet-contracts-rpc",
  "pallet-transaction-payment-rpc",
+ "rent-machine-rpc",
+ "rent-machine-runtime-api",
  "sc-chain-spec",
  "sc-client-api",
  "sc-consensus-babe",
@@ -4176,6 +4178,7 @@ dependencies = [
  "parity-scale-codec",
  "random-num",
  "rent-machine",
+ "rent-machine-runtime-api",
  "serde",
  "sp-api",
  "sp-authority-discovery",
@@ -6231,6 +6234,33 @@ dependencies = [
  "serde",
  "serde_json 1.0.44",
  "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "rent-machine-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "rent-machine",
+ "rent-machine-runtime-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "rent-machine-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "rent-machine",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]

@@ -25,6 +25,8 @@ members = [
     'traits/phase-reward',
     'traits/online-profile-machine',
     'pallets/rent-machine',
+    'pallets/rent-machine/rpc',
+    'pallets/rent-machine/runtime-api',
 ]
 [profile.release]
 panic = 'unwind'
