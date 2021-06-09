@@ -1061,8 +1061,6 @@ impl rent_machine::Config for Runtime {
     type Event = Event;
     type RTOps = OnlineProfile;
     type FixedTxFee = Treasury;
-    type DbcPriceTrait = DbcPriceOcw;
-    type Balance = Balance;
 }
 
 construct_runtime!(

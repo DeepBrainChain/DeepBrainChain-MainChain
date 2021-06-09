@@ -59,7 +59,6 @@ pub struct ReporterRecord {
 pub struct StakerList<AccountId: Ord> {
     pub committee: Vec<AccountId>,    // 质押并通过社区选举的委员会
     pub fulfill_list: Vec<AccountId>, // 委员会, 但需要补交质押
-    pub chill_list: Vec<AccountId>,   // 委员会，但不想被派单
     pub black_list: Vec<AccountId>,   // 委员会，黑名单中
 }
 
@@ -69,9 +68,6 @@ impl<AccountId: Ord> StakerList<AccountId> {
             return true;
         }
         if let Ok(_) = self.fulfill_list.binary_search(who) {
-            return true;
-        }
-        if let Ok(_) = self.chill_list.binary_search(who) {
             return true;
         }
         if let Ok(_) = self.black_list.binary_search(who) {
@@ -289,6 +285,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // TODO: 设置为抢单时自动扣除押金, 而非手动补充
         #[pallet::weight(10000)]
         pub fn fill_pledge(origin: OriginFor<T>) -> DispatchResultWithPostInfo{
             let who = ensure_signed(origin)?;
@@ -321,42 +318,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 委员会停止接单
-        #[pallet::weight(10000)]
-        pub fn chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            let mut staker = Self::staker();
-            ensure!(staker.staker_exist(&who), Error::<T>::AccountNotExist);
-
-            // 只有committee状态才允许进行chill
-            staker.committee.binary_search(&who).map_err(|_| Error::<T>::NotCommittee)?;
-
-            StakerList::rm_staker(&mut staker.committee, &who);
-            StakerList::add_staker(&mut staker.chill_list, who.clone());
-
-            Staker::<T>::put(staker);
-            Self::deposit_event(Event::Chill(who));
-
-            Ok(().into())
-        }
-
-        // 委员会可以接单
-        #[pallet::weight(10000)]
-        pub fn undo_chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            let mut staker = Self::staker();
-            staker.chill_list.binary_search(&who).map_err(|_| Error::<T>::NotInChillList)?;
-
-            StakerList::rm_staker(&mut staker.chill_list, &who);
-            StakerList::add_staker(&mut staker.committee, who.clone());
-            Staker::<T>::put(staker);
-
-            Self::deposit_event(Event::UndoChill(who));
-            Ok(().into())
-        }
-
         // 委员会可以退出, 从chill_list中退出
         #[pallet::weight(10000)]
         pub fn exit_staker(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -377,7 +338,6 @@ pub mod pallet {
             // 如果是fulfill_list则可以直接退出(低于5wDBC的将进入fulfill_list，无法抢单,每次惩罚1w)
             StakerList::rm_staker(&mut staker.committee, &who);
             StakerList::rm_staker(&mut staker.fulfill_list, &who);
-            StakerList::rm_staker(&mut staker.chill_list, &who);
 
             Staker::<T>::put(staker);
             let ledger = Self::committee_ledger(&who);
