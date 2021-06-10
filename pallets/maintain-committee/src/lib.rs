@@ -42,11 +42,10 @@ pub const PALLET_LOCK_ID: LockIdentifier = *b"mtcommit";
 // 记录该模块中所有活跃的订单, 根据ReportStatus来划分
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LiveOrderList {
-    pub reported_order: Vec<OrderId>,         // 委员会还可以抢单的订单
-    pub fully_order: Vec<OrderId>,            // 已经被抢完的机器ID，不能再进行抢单
-    pub fully_report_encrypted_info: Vec<OrderId>,  // reporter已经全部提交了Hash的机器ID
-    pub fully_committee_hashed: Vec<OrderId>, // 委员会已经提交了全部Hash的机器Id
-    pub fully_raw: Vec<OrderId>,              // 已经全部提交了Raw的机器Id
+    pub bookable_order: Vec<OrderId>, // 委员会可以抢单的订单
+    pub verifying_order: Vec<OrderId>, // 正在被验证的机器订单,验证完如果还能预定，则转成上面的状态，如果不能则转成下面的状态
+    pub waiting_raw_order: Vec<OrderId>, // 等待提交原始值的订单, 所有委员会提交或时间截止，转为下面状态
+    pub waiting_rechecked_order: Vec<OrderId>, // 等待48小时后执行的订单, 此期间可以申述，由技术委员会审核
 }
 
 // 报告人的订单
@@ -65,16 +64,16 @@ pub struct StakerList<AccountId: Ord> {
 
 // 委员会抢到的订单的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CommitteeMachineList {
+pub struct CommitteeOrderList {
     pub booked_order: Vec<OrderId>, // 记录分配给用户的订单及开始验证时间
     pub hashed_order: Vec<OrderId>, // 存储已经提交了Hash信息的订单
     pub confirmed_order: Vec<OrderId>, // 存储已经提交了原始确认数据的订单
     pub online_machine: Vec<MachineId>, // 存储已经成功上线的机器
 }
 
-// 订单对应的委员会
+// 订单的详细信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct MachineCommitteeList<AccountId, BlockNumber, Balance> {
+pub struct ReportInfoDetail<AccountId, BlockNumber, Balance> {
     pub order_id: OrderId,
     pub report_time: BlockNumber, // 机器被报告时间
     pub raw_hash: Hash, // 包含错误原因的hash
@@ -89,7 +88,7 @@ pub struct MachineCommitteeList<AccountId, BlockNumber, Balance> {
     pub confirm_start: BlockNumber, // 开始提交raw信息的时间
     pub confirmed_committee: Vec<AccountId>,
     pub onlined_committee: Vec<AccountId>,
-    pub machine_status: ReportStatus, // 记录当前订单的状态
+    pub report_status: ReportStatus, // 记录当前订单的状态
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -98,7 +97,7 @@ pub enum ReportStatus {
     WaitingBook, // 前一个委员会的订单已经超过一个小时，自动改成可预订状态
     Verifying, // 已经有委员会抢单，正处于验证中
     SubmitingRaw, // 已经到了3个小时，正在等待委员会上传原始信息
-    Confirmed, // TODO: 委员会已经完成，等待48小时, 执行订单结果
+    CommitteeConfirmed, // 委员会已经完成，等待48小时, 执行订单结果
 }
 
 impl Default for ReportStatus {
@@ -109,7 +108,7 @@ impl Default for ReportStatus {
 
 // 委员会对机器的操作信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CommitteeMachineOps<BlockNumber, Balance> {
+pub struct CommitteeOpsDetail<BlockNumber, Balance> {
     pub booked_time: BlockNumber,
     pub encrypted_err_info: Option<Vec<u8>>, // reporter 提交的加密后的信息
     pub encrypted_time: BlockNumber,
@@ -118,15 +117,17 @@ pub struct CommitteeMachineOps<BlockNumber, Balance> {
     pub confirm_raw: Vec<u8>,
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
     pub confirm_result: bool,
-    pub machine_status: OrderStatus, //TODO: 应该改为委员会自己的状态
+    pub order_status: OrderStatus,
     pub staked_balance: Balance,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum OrderStatus {
-    Verifying, // 一旦预订订单，状态将是Verifying
-    Hashed, // 提交了Hash之后的状态
-    RawSubmited, // 已经提交了原始信息的状态
+    VerifyingWaitingEncrypt, // 一旦预订订单，状态将等待加密信息
+    Verifying, // 一旦预订订单，状态将等待加密信息
+    WaitingHash, // 一个小时之后变为等待Hash
+    WaitingRaw, // 等待提交原始信息
+    Finished, // 委员会已经完成了全部操作
 }
 
 impl Default for OrderStatus {
@@ -199,21 +200,18 @@ pub mod pallet {
 
     // 通过报告单据ID，查询报告的机器的信息(委员会抢单信息)
     #[pallet::storage]
-    #[pallet::getter(fn reported_order_info)]
-    pub(super) type ReportedOrderInfo<T: Config> =
-        StorageMap<_, Blake2_128Concat, OrderId, MachineCommitteeList<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+    #[pallet::getter(fn report_info)]
+    pub(super) type ReportInfo<T: Config> = StorageMap<_, Blake2_128Concat, OrderId, ReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
 
     // 委员会查询自己的抢单信息
     #[pallet::storage]
-    #[pallet::getter(fn committee_machines)]
-    pub(super) type CommitteeMachines<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeMachineList, ValueQuery>;
+    #[pallet::getter(fn committee_order)]
+    pub(super) type CommitteeOrder<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeOrderList, ValueQuery>;
 
     // 存储委员会对单台机器的操作记录
     #[pallet::storage]
     #[pallet::getter(fn committee_ops)]
-    pub(super) type CommitteeOps<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, OrderId, CommitteeMachineOps<T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+    pub(super) type CommitteeOps<T: Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, OrderId, CommitteeOpsDetail<T::BlockNumber, BalanceOf<T>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn live_order)]
@@ -287,10 +285,10 @@ pub mod pallet {
             staker.committee.binary_search(&who).map_err(|_|  Error::<T>::AccountNotExist)?;
 
             // 如果有未完成的工作，则不允许退出
-            let committee_machines = Self::committee_machines(&who);
-            if committee_machines.booked_order.len() > 0 ||
-                committee_machines.hashed_order.len() > 0 ||
-                committee_machines.confirmed_order.len() > 0 {
+            let committee_order = Self::committee_order(&who);
+            if committee_order.booked_order.len() > 0 ||
+                committee_order.hashed_order.len() > 0 ||
+                committee_order.confirmed_order.len() > 0 {
                 return Err(Error::<T>::JobNotDone.into());
             }
 
@@ -319,18 +317,18 @@ pub mod pallet {
             // 被报告的机器存储起来，委员会进行抢单
             let mut live_order = Self::live_order();
             let order_id = Self::get_new_order_id();
-            if let Err(index) = live_order.reported_order.binary_search(&order_id) {
-                live_order.reported_order.insert(index, order_id);
+            if let Err(index) = live_order.bookable_order.binary_search(&order_id) {
+                live_order.bookable_order.insert(index, order_id);
             }
             LiveOrder::<T>::put(live_order);
 
-            ReportedOrderInfo::<T>::insert(&order_id, MachineCommitteeList {
+            ReportInfo::<T>::insert(&order_id, ReportInfoDetail {
                 order_id,
                 report_time,
                 raw_hash,
                 box_public_key,
                 reporter_stake: reporter_stake_need,
-                machine_status: ReportStatus::Reported,
+                report_status: ReportStatus::Reported,
                 ..Default::default()
             });
 
@@ -349,13 +347,13 @@ pub mod pallet {
         pub fn reporter_cancle_fault_report(origin: OriginFor<T>, order_id: OrderId) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
-            let order_detail = Self::reported_order_info(&order_id);
-            ensure!(order_detail.machine_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancle);
+            let order_detail = Self::report_info(&order_id);
+            ensure!(order_detail.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancle);
 
             // 清理存储
             let mut live_order = Self::live_order();
-            if let Ok(index) = live_order.reported_order.binary_search(&order_id) {
-                live_order.reported_order.remove(index);
+            if let Ok(index) = live_order.bookable_order.binary_search(&order_id) {
+                live_order.bookable_order.remove(index);
             }
             LiveOrder::<T>::put(live_order);
 
@@ -365,9 +363,9 @@ pub mod pallet {
             }
             ReporterOrder::<T>::insert(&reporter, reporter_order);
 
-            let order_info = Self::reported_order_info(&order_id);
-            Self::reduce_user_total_stake(&reporter, order_info.reporter_stake);
-            ReportedOrderInfo::<T>::remove(&order_id);
+            let report_info = Self::report_info(&order_id);
+            Self::reduce_user_total_stake(&reporter, report_info.reporter_stake);
+            ReportInfo::<T>::remove(&order_id);
 
             Ok(().into())
         }
@@ -392,8 +390,8 @@ pub mod pallet {
             staker.committee.binary_search(&committee).map_err(|_| Error::<T>::NotCommittee)?;
 
             // 检查订单是否可预订状态
-            let mut order_info = Self::reported_order_info(order_id);
-            ensure!(order_info.machine_status == ReportStatus::WaitingBook, Error::<T>::OrderNotAllowBook);
+            let mut report_info = Self::report_info(order_id);
+            ensure!(report_info.report_status == ReportStatus::WaitingBook, Error::<T>::OrderNotAllowBook);
 
             // 委员会增加质押
             let committee_order_stake = Self::committee_min_stake();
@@ -401,44 +399,42 @@ pub mod pallet {
             Self::add_user_total_stake(&committee, committee_stake_need).map_err(|_| Error::<T>::StakeFailed)?;
 
             // 记录第一个预订订单的时间
-            if order_info.booked_committee.len() == 0 {
-                order_info.first_book_time = now;
+            if report_info.booked_committee.len() == 0 {
+                report_info.first_book_time = now;
             }
 
             // 记录预订订单的委员会
-            if let Err(index) = order_info.booked_committee.binary_search(&committee) {
-                order_info.booked_committee.insert(index, committee.clone());
+            if let Err(index) = report_info.booked_committee.binary_search(&committee) {
+                report_info.booked_committee.insert(index, committee.clone());
             } else {
                 return Err(Error::<T>::AlreadyBooked.into());
             }
 
             // 达到要求的委员会人数，则变为验证中
-            order_info.machine_status = ReportStatus::Verifying;
+            report_info.report_status = ReportStatus::Verifying;
 
             // 如果达到委员会预订限制，则将该订单移动到fully_order列表
             let mut live_order = Self::live_order();
-            if order_info.booked_committee.len() == committee_limit as usize {
-                if let Ok(index) = live_order.reported_order.binary_search(&order_id) {
-                    live_order.reported_order.remove(index);
-                }
-                if let Err(index) = live_order.fully_order.binary_search(&order_id) {
-                    live_order.fully_order.insert(index, order_id);
-                }
+            if let Ok(index) = live_order.bookable_order.binary_search(&order_id) {
+                live_order.bookable_order.remove(index);
+            }
+            if let Err(index) = live_order.verifying_order.binary_search(&order_id) {
+                live_order.verifying_order.insert(index, order_id);
             }
 
             // 添加到委员会自己的存储中
-            let mut committee_booked = Self::committee_machines(&committee);
-            if let Err(index) = committee_booked.booked_order.binary_search(&order_id) {
-                committee_booked.booked_order.insert(index, order_id);
+            let mut committee_order = Self::committee_order(&committee);
+            if let Err(index) = committee_order.booked_order.binary_search(&order_id) {
+                committee_order.booked_order.insert(index, order_id);
             }
-            CommitteeMachines::<T>::insert(&committee, committee_booked);
+            CommitteeOrder::<T>::insert(&committee, committee_order);
 
             // 添加委员会对于机器的操作记录
             let mut ops_detail = Self::committee_ops(&committee, &order_id);
             ops_detail.booked_time = now;
             CommitteeOps::<T>::insert(&committee, &order_id, ops_detail);
 
-            ReportedOrderInfo::<T>::insert(&order_id, order_info);
+            ReportInfo::<T>::insert(&order_id, report_info);
             Ok(().into())
         }
 
@@ -455,12 +451,15 @@ pub mod pallet {
             }
 
             // 且该orde处于验证中
-            let mut reported_order_info = Self::reported_order_info(&order_id);
-            ensure!(reported_order_info.machine_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
+            let mut report_info = Self::report_info(&order_id);
+            ensure!(report_info.report_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
+
+            if let Err(index) = report_info.get_encrypted_info_committee.binary_search(&to_committee) {
+                report_info.get_encrypted_info_committee.insert(index, to_committee.clone());
+            }
 
             // 检查该委员会为预订了该订单的委员会
-            let reported_order_info = Self::reported_order_info(&order_id);
-            if let Err(_) = reported_order_info.booked_committee.binary_search(&to_committee) {
+            if let Err(_) = report_info.booked_committee.binary_search(&to_committee) {
                 return Err(Error::<T>::NotOrderCommittee.into())
             }
 
@@ -471,10 +470,11 @@ pub mod pallet {
 
             committee_ops.encrypted_err_info = Some(encrypted_err_info);
             committee_ops.encrypted_time = now;
+            committee_ops.order_status = OrderStatus::Verifying;
             CommitteeOps::<T>::insert(&to_committee, &order_id, committee_ops);
 
             // 检查是否为所有委员会提交了信息
-            for a_committee in reported_order_info.booked_committee.iter() {
+            for a_committee in report_info.booked_committee.iter() {
                 let committee_ops = Self::committee_ops(&a_committee, &order_id);
                 if let None = committee_ops.encrypted_err_info {
                     // 还有未提供加密信息的委员会
@@ -482,15 +482,7 @@ pub mod pallet {
                 }
             }
 
-            // 所有加密信息都已提供
-            let mut live_order = Self::live_order();
-            if let Ok(index) = live_order.fully_order.binary_search(&order_id) {
-                live_order.fully_order.remove(index);
-            }
-            if let Err(index) = live_order.fully_report_encrypted_info.binary_search(&order_id) {
-                live_order.fully_report_encrypted_info.insert(index, order_id)
-            }
-            LiveOrder::<T>::put(live_order);
+            ReportInfo::<T>::insert(order_id ,report_info);
 
             Ok(().into())
         }
@@ -503,14 +495,14 @@ pub mod pallet {
             let committee_limit = Self::committee_limit();
 
             // 判断是否为委员会其列表是否有该order_id
-            let committee_booked = Self::committee_machines(&committee);
-            committee_booked.booked_order.binary_search(&order_id).map_err(|_| Error::<T>::NotInBookedList)?;
+            let mut committee_order = Self::committee_order(&committee);
+            committee_order.booked_order.binary_search(&order_id).map_err(|_| Error::<T>::NotInBookedList)?;
 
             // 判断该order_id是否可以提交信息
-            let mut reported_order_info = Self::reported_order_info(&order_id);
+            let mut report_info = Self::report_info(&order_id);
 
-            ensure!(reported_order_info.machine_status == ReportStatus::Verifying
-                    || reported_order_info.machine_status == ReportStatus::WaitingBook, Error::<T>::OrderStatusNotFeat);
+            ensure!(report_info.report_status == ReportStatus::Verifying
+                    || report_info.report_status == ReportStatus::WaitingBook, Error::<T>::OrderStatusNotFeat);
 
             // 允许之后，添加到存储中
             let mut ops_detail = Self::committee_ops(&committee, &order_id);
@@ -518,34 +510,35 @@ pub mod pallet {
             ops_detail.hash_time = now;
             CommitteeOps::<T>::insert(&committee, &order_id, ops_detail);
 
-            if let Err(index) = reported_order_info.hashed_committee.binary_search(&committee) {
-                reported_order_info.hashed_committee.insert(index, committee.clone());
+            if let Err(index) = report_info.hashed_committee.binary_search(&committee) {
+                report_info.hashed_committee.insert(index, committee.clone());
             }
 
-            // 判断是否已经全部提交了Hash，如果是，则改变该订单状态 // TODO: 移动到一个统一进程中
-            if reported_order_info.hashed_committee.len() == committee_limit as usize {
-                let mut committee_machine = Self::committee_machines(&committee);
+            // 判断是否已经全部提交了Hash，如果是，则改变该订单状态
+            if report_info.hashed_committee.len() == committee_limit as usize {
+                // let mut committee_order = Self::committee_order(&committee);
 
-                if let Ok(index) = committee_machine.booked_order.binary_search(&order_id) {
-                    committee_machine.booked_order.remove(index);
+                if let Ok(index) = committee_order.booked_order.binary_search(&order_id) {
+                    committee_order.booked_order.remove(index);
                 }
 
-                if let Err(index) = committee_machine.hashed_order.binary_search(&order_id) {
-                    committee_machine.hashed_order.insert(index, order_id);
+                if let Err(index) = committee_order.hashed_order.binary_search(&order_id) {
+                    committee_order.hashed_order.insert(index, order_id);
                 }
 
-                CommitteeMachines::<T>::insert(&committee, committee_machine);
+                CommitteeOrder::<T>::insert(&committee, committee_order);
 
-                let live_order = Self::live_order();
-                if let Ok(index) = live_order.fully_report_encrypted_info.binary_search(&order_id) {
-                    todo!()
+                let mut live_order = Self::live_order();
+                // 提交确认Hash时，状态一定是verify_order,因为如果第三个验证到期，则状态一定是waiting_raw
+                if let Ok(index) = live_order.verifying_order.binary_search(&order_id) {
+                    live_order.verifying_order.remove(index);
                 }
-                if let Err(index) = live_order.fully_committee_hashed.binary_search(&order_id) {
-                    todo!()
+                if let Err(index) = live_order.waiting_raw_order.binary_search(&order_id) {
+                    live_order.waiting_raw_order.insert(index, order_id);
                 }
             }
 
-            ReportedOrderInfo::<T>::insert(&order_id, reported_order_info);
+            ReportInfo::<T>::insert(&order_id, report_info);
             Ok(().into())
         }
 
@@ -554,12 +547,16 @@ pub mod pallet {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            let mut reported_order_info = Self::reported_order_info(order_id);
-            ensure!(reported_order_info.machine_status == ReportStatus::SubmitingRaw, Error::<T>::OrderStatusNotFeat);
+            let mut report_info = Self::report_info(order_id);
+            ensure!(report_info.report_status == ReportStatus::SubmitingRaw, Error::<T>::OrderStatusNotFeat);
 
             // 检查是否提交了该订单的hash
-            if let Err(_) = reported_order_info.hashed_committee.binary_search(&committee) {
+            if let Err(_) = report_info.hashed_committee.binary_search(&committee) {
                 return Err(Error::<T>::NotProperCommittee.into());
+            }
+
+            if let Ok(index) = report_info.confirmed_committee.binary_search(&committee) {
+                report_info.confirmed_committee.insert(index, committee.clone());
             }
 
             let mut committee_ops = Self::committee_ops(&committee, &order_id);
@@ -570,7 +567,7 @@ pub mod pallet {
             reporter_info_raw.extend(reporter_rand_str.clone());
             reporter_info_raw.extend(err_reason.clone());
             let reporter_report_hash = Self::get_hash(&reporter_info_raw);
-            if reporter_report_hash != reported_order_info.raw_hash {
+            if reporter_report_hash != report_info.raw_hash {
                 return Err(Error::<T>::NotEqualReporterSubmit.into());
             }
 
@@ -592,11 +589,22 @@ pub mod pallet {
             }
 
             committee_ops.confirm_result = support_report;
-            reported_order_info.err_info = err_reason;
-            reported_order_info.machine_id = machine_id;
+            report_info.err_info = err_reason;
+            report_info.machine_id = machine_id;
+
+            let mut live_order = Self::live_order();
+            if report_info.hashed_committee.len() == report_info.confirmed_committee.len() {
+                if let Ok(index) = live_order.waiting_raw_order.binary_search(&order_id) {
+                    live_order.waiting_raw_order.insert(index, order_id);
+                }
+                if let Err(index) = live_order.waiting_rechecked_order.binary_search(&order_id) {
+                    live_order.waiting_rechecked_order.insert(index, order_id);
+                }
+            }
+            LiveOrder::<T>::put(live_order);
 
             CommitteeOps::<T>::insert(&committee, &order_id, committee_ops);
-            ReportedOrderInfo::<T>::insert(&order_id, reported_order_info);
+            ReportInfo::<T>::insert(&order_id, report_info);
 
             Ok(().into())
         }
@@ -691,7 +699,19 @@ impl<T: Config> Pallet<T> {
 
     fn heart_beat() {
         let live_order = Self::live_order();
+        let now = <frame_system::Module<T>>::block_number();
+
+        // for order_id in live_order.bookable_order {
+        //     let report_info = Self::report_info(&order_id);
+
+
+        // }
+
+        // 第一个委员会预定之后，第三个小时开始允许提交原始值
+
+        // 只要有委员会提交原始值，第四个小时最终完成订单
+
+        // 委员会第一个小时订单为Verifying, 如果没有提交Hash,则变为WaitingHash
         // let now = Self::
-        todo!()
     }
 }
