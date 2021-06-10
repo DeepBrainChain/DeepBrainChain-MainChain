@@ -52,9 +52,9 @@ impl CommitteeUploadInfo {
         let mem_num: Vec<u8> = self.mem_num.to_string().into();
 
         let is_support: Vec<u8> = if self.is_support {
-            "true".into()
+            "1".into()
         } else {
-            "false".into()
+            "0".into()
         };
 
         let mut raw_info = Vec::new();
