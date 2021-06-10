@@ -81,6 +81,7 @@ pub struct MachineCommitteeList<AccountId, BlockNumber> {
     pub confirm_start: BlockNumber, // 开始提交raw信息的时间
     pub confirmed_committee: Vec<AccountId>,
     pub onlined_committee: Vec<AccountId>,
+    pub machine_status: MachineStatus, // 记录当前订单的状态
 }
 
 // 委员会对机器的操作信息
@@ -133,11 +134,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee_min_stake)]
     pub(super) type CommitteeMinStake<T: Config> = StorageValue<_, u64, ValueQuery>;
-
-    // // 成为委员会必须质押的金额
-    // #[pallet::storage]
-    // #[pallet::getter(fn committee_pre_stake)]
-    // pub(super) type CommitteePreStake<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     // 报告人最小质押，默认100RMB等值DBC
     #[pallet::storage]
@@ -192,7 +188,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // 设置委员会的最小质押，单位： usd * 10^6
+        // 设置委员会的最小质押，单位： usd * 10^6, 如：16美元
         #[pallet::weight(0)]
         pub fn set_committee_min_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -200,15 +196,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // // 设置成为委员会必须质押的金额, 10000 DBC
-        // #[pallet::weight(0)]
-        // pub fn set_committee_pre_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
-        //     ensure_root(origin)?;
-        //     CommitteePreStake::<T>::put(value);
-        //     Ok(().into())
-        // }
-
-        // 设置报告人最小质押，单位：usd * 10^6
+        // 设置报告人最小质押，单位：usd * 10^6, 如：16美元
         #[pallet::weight(0)]
         pub fn set_reporter_min_stake(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -216,8 +204,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 该操作由社区决定
-        // Root权限，添加到委员会，直接添加到committee列表中
+        // 需要Root权限。添加到委员会，直接添加到committee列表中
         #[pallet::weight(0)]
         pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -234,7 +221,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // FIXME: 完成: 委员会可以退出
+        // FIXME: 委员会列表中没有任何任务时，委员会可以退出
         #[pallet::weight(10000)]
         pub fn exit_staker(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -261,18 +248,14 @@ pub mod pallet {
             return Ok(().into());
         }
 
-        #[pallet::weight(10000)]
-        pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let reporter = ensure_signed(origin)?;
-            todo!();
-            Ok(().into())
-        }
-
         // 任何用户可以报告机器有问题
         #[pallet::weight(10000)]
         pub fn report_machine_fault(origin: OriginFor<T>, _raw_hash: Vec<u8>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             let report_time = <frame_system::Module<T>>::block_number();
+
+            // TODO: 1. 质押100刀DBC，并更新质押到某个结构体
+            // 2.
 
             // 被报告的机器存储起来，委员会进行抢单
             let mut live_order = Self::live_order();
@@ -281,8 +264,6 @@ pub mod pallet {
                 live_order.reported_order.insert(index, order_id);
             }
             LiveOrder::<T>::put(live_order);
-
-            // let mut machine_committee = Self::machine_committee(&next_order_id);
 
             ReportedMachines::<T>::insert(&order_id, MachineCommitteeList {
                 order_id,
@@ -297,6 +278,14 @@ pub mod pallet {
             }
             ReporterOrder::<T>::insert(&reporter, reporter_order);
 
+            Ok(().into())
+        }
+
+        // TODO: 增加该逻辑
+        #[pallet::weight(10000)]
+        pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            todo!();
             Ok(().into())
         }
 
@@ -474,7 +463,6 @@ pub mod pallet {
     pub enum Event<T: Config> {
         CommitteeAdded(T::AccountId),
         CommitteeFulfill(BalanceOf<T>),
-        // CommitteeAddPubkey(Pubkey),
         Chill(T::AccountId),
         ExitFromCandidacy(T::AccountId),
         UndoChill(T::AccountId),
@@ -522,7 +510,7 @@ impl<T: Config> Pallet<T> {
         return order_id;
     }
 
-    fn _get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
+    fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
         return blake2_128(raw_str);
     }
 }
