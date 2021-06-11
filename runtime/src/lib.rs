@@ -1054,6 +1054,7 @@ impl lease_committee::Config for Runtime {
 impl maintain_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
+    type Slash = Treasury;
 }
 
 impl rent_machine::Config for Runtime {
