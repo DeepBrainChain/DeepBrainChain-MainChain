@@ -7,6 +7,7 @@ use sp_runtime::{
     RuntimeDebug,
 };
 use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*};
+use sp_runtime::Perbill;
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
@@ -114,10 +115,26 @@ pub struct UnlockChunk<Balance: HasCompact> {
 }
 
 // 记录每个Era的机器的总分
-#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug)]
-pub struct EraMachinePoints {
+#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+pub struct EraMachinePoints<AccountId: Ord> {
     // 所有可以奖励的机器总得分
     pub total: u64,
-    // 某个Era，所有可以奖励的机器
-    pub individual: BTreeMap<MachineId, u64>,
+    // 某个Era，所有的机器的基础得分,机器的在线状态
+    pub individual_points: BTreeMap<MachineId, MachineGradeStatus>,
+    // 某个Era，用户的得分膨胀系数快照
+    pub staker_statistic: BTreeMap<AccountId, StakerStatistics>,
+}
+
+#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+pub struct MachineGradeStatus {
+    pub basic_grade: u64,
+    pub is_online: bool,
+}
+
+#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+pub struct StakerStatistics {
+    pub online_num: u64, // 用户在线的机器数量
+    pub inflation: Perbill, // 用户对应的膨胀系数
+    pub total_machine_grade: u64, // 用户的机器的总计算点数得分(不考虑膨胀)
+    pub online_total_grade: u64, // 用户机器因在线获得的总奖励
 }

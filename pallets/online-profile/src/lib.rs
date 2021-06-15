@@ -80,23 +80,14 @@ impl Default for SlashReason {
     }
 }
 
-// 质押者总览自己的状态
+// 质押者总览自己当前状态状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StakerMachine<Balance> {
     pub total_machine: Vec<MachineId>, // 用户绑定的所有机器，不与机器状态有关
     pub online_machine: Vec<MachineId>,
-    pub point_inflation: Perbill, // 用户单台机器分数的膨胀系数，介于 [0, 0.1]之间
     pub total_calc_points: u64, // 用户的机器总得分，不给算集群膨胀系数与在线奖励
-    pub total_rent_grade: u64, // 用户机器因在线而获得的额外奖励
     pub total_gpu_num: u64,
     pub total_reward: Balance,
-}
-
-impl<Balance> StakerMachine<Balance> {
-    // 该用户总得分 = 因被作用
-    pub fn staker_total_grade(&self) -> u64 {
-        self.total_rent_grade + self.total_calc_points + self.point_inflation * self.total_calc_points
-    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -287,7 +278,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         EraIndex,
-        EraMachinePoints,
+        EraMachinePoints<T::AccountId>,
     >;
 
     #[pallet::storage]
@@ -336,6 +327,18 @@ pub mod pallet {
             }
 
             0
+        }
+
+        fn on_finalize(block_number: T::BlockNumber) {
+            let current_height = block_number.saturated_into::<u64>();
+
+            // 在每个Era结束时执行奖励，发放到用户的Machine
+            // 计算奖励，直接根据当前得分即可
+            if current_height > 0 &&  current_height % 2880 == 0 {
+
+
+            }
+
             // FIXME
             // let a = Self::cur_stake_per_gpu();
             // let cur_stake_per_gpu = Self::calc_stake_amount();
@@ -798,78 +801,6 @@ impl<T: Config> Pallet<T> {
     // [机器总打分信息]
     // [机器分别的打分信息]
 
-    // 可能在一个Era中再次更新的信息:
-    // [机器打分信息]: 如果有减少，则立即更新，如果有增加，则下一个时间更新
-    // [机器总打分信息]: 如果某一个机器打分减少，则总打分信息也会变化
-    // TODO: 在start_era 的时候，更新打分信息,记录质押信息,可以加一个全局锁，将这段函数放在OCW中完成
-    // TODO: 清理未收集的数据
-    // TODO: 触发惩罚
-    fn start_era() {
-        // let current_era = <random_num::Module<T>>::current_era();
-
-        // Self::take_grade_clipped(current_era);
-
-        // let bonded_machine_id = Self::bonded_machine_id();
-
-        // for a_machine_id in bonded_machine_id.iter() {
-        //     let machine_grade = 1;
-        //     // <ErasMachineGrades<T>>::insert(&current_era, "machine_id", machine_grade);
-        // }
-
-        // let a_machine_grade = 1;
-    }
-
-    // 遍历系统中存在的被绑定的机器, 对机器得分进行快照
-    fn take_grade_clipped(era_index: EraIndex) {
-        let live_machines = Self::live_machines();
-
-        let mut era_machine_points = EraMachinePoints {
-            ..Default::default()
-        };
-
-        for a_machine in live_machines.bonded_machine {
-            let machine_info = Self::machines_info(&a_machine);
-            let staker_machine = Self::user_machines(&machine_info.machine_owner);
-
-            // 机器得分乘以膨胀系数
-            let machine_grade = staker_machine.point_inflation
-                * machine_info
-                    .machine_info_detail
-                    .committee_upload_info
-                    .calc_point;
-            era_machine_points.total += machine_grade;
-            era_machine_points
-                .individual
-                .insert(a_machine, machine_grade);
-        }
-
-        ErasMachinePoints::<T>::insert(era_index, era_machine_points);
-    }
-
-    // 每次有事件影响机器分数时，如机器下线等更新grade快照
-    fn update_grade_clipped(era: EraIndex, machine_id: MachineId, new_grade: u64) -> Result<(), ()> {
-        let mut era_machine_points = Self::eras_machine_points(era).ok_or(())?;
-        let a_machine_points = era_machine_points.individual.get(&machine_id).ok_or(())?;
-
-        era_machine_points.total += new_grade;
-        era_machine_points.total -= a_machine_points;
-        era_machine_points.individual.insert(machine_id, new_grade);
-        ErasMachinePoints::<T>::insert(era, era_machine_points);
-        Ok(())
-    }
-
-    // TODO: 增加计算当前Era奖励数量
-    fn update_current_era_reward(era: EraIndex) {
-        // ErasTotalReward::<T>::insert(era, 0.into());
-    }
-
-    // 根据机器得分发放奖励
-    fn end_era() {
-        // let current_era = <random_num::Module<T>>::current_era();
-        // let current_total_reward = Self::eras_total_reward(current_era);
-        // let era_machine_points = Self::eras_machine_points(current_era);
-    }
-
     // // 计算每天的奖励，25%添加到用户的余额，75%在150天线性释放，TODO: 一部分释放给委员会
     // fn _add_daily_reward(controller: T::AccountId, machine_id: MachineId, amount: BalanceOf<T>) {
     //     // let ledger = Self::ledger(&controller, &machine_id);
@@ -950,76 +881,86 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // 因事件发生，更新某个机器得分
     // 由于机器被添加到在线或者不在线，更新矿工机器得分与总得分
     fn update_staker_grades_by_online_machine(staker: T::AccountId, machine_id: MachineId, is_online: bool) {
-        let mut staker_machine = Self::user_machines(&staker);
+        let current_era = Self::current_era();
         let machine_info = Self::machines_info(&machine_id);
         let machine_base_calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
 
-        // 因在线获得的分数奖励，将在下一天生效
-        let current_era = Self::current_era();
-        let mut era_machine_point = Self::eras_machine_points(current_era+1).unwrap(); // 获得下一天奖励
-
-        let old_grades = staker_machine.staker_total_grade();
-
-        if is_online {
-            // 如果是上线则增加机器Id到online_machine
-            if let Err(index) = staker_machine.online_machine.binary_search(&machine_id) {
-                staker_machine.online_machine.insert(index, machine_id.clone());
-            }
-            staker_machine.total_calc_points += machine_base_calc_point;
-            era_machine_point.individual.insert(machine_id.clone(),  machine_base_calc_point); // 基础得分
+        let era_index = if is_online {
+            current_era + 1
         } else {
-            if let Ok(index) = staker_machine.online_machine.binary_search(&machine_id) {
-                staker_machine.online_machine.remove(index);
-            }
-            staker_machine.total_calc_points -= machine_base_calc_point;
-            era_machine_point.individual.remove(&machine_id);
-        }
+            current_era
+        };
 
-        // 重新计算奖励膨胀系数
-        let bond_num = staker_machine.online_machine.len() as u32;
-        staker_machine.point_inflation = if bond_num <= 1000 {
+        // 因增加机器，在线获得的分数奖励，则修改下一天的快照
+        // 如果机器掉线，则修改当天的快照，影响当天奖励
+        let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
+
+        let mut staker_statistic = era_machine_point.staker_statistic.entry(staker.clone()).or_insert(
+            StakerStatistics {
+                ..Default::default()
+            }
+        );
+
+        let old_grade = staker_statistic.inflation * staker_statistic.total_machine_grade + staker_statistic.online_total_grade;
+        staker_statistic.online_num += 1; // offline则减1
+
+        let bond_num = staker_statistic.online_num as u32;
+        staker_statistic.inflation = if bond_num <= 1000 {
             Perbill::from_rational_approximation(bond_num, 10_000) // 线性增加, 最大10%
         } else {
             Perbill::from_rational_approximation(1000u64, 10_000) // max: 10%
         };
 
-        UserMachines::<T>::insert(&staker, staker_machine.clone());
+        staker_statistic.total_machine_grade += machine_info.machine_info_detail.committee_upload_info.calc_point;
 
-        let new_staker_total_grade = staker_machine.staker_total_grade();
-        era_machine_point.total -= old_grades;
-        era_machine_point.total += new_staker_total_grade;
+        let new_grade = staker_statistic.inflation * staker_statistic.total_machine_grade + staker_statistic.online_total_grade;
 
-        ErasMachinePoints::<T>::insert(current_era+1, era_machine_point);
+        // 更新系统总得分
+        let staker_statistic = (*staker_statistic).clone();
+        era_machine_point.staker_statistic.insert(staker.clone(), staker_statistic);
+        era_machine_point.total -= old_grade;
+        era_machine_point.total += new_grade;
+
+        ErasMachinePoints::<T>::insert(&era_index, era_machine_point); // TODO: 应该是当前或者下一个Era
     }
 
-    // 由于机器被租用，而更新得分，只需要更新用户总得分与系统总得分即可
-    fn update_staker_grades_by_rented(staker: T::AccountId, machine_id: MachineId, is_rented: bool) {
-        let mut staker_machine = Self::user_machines(&staker);
+    // // TODO: 由于机器被租用，而更新得分，只需要更新用户总得分与系统总得分即可
+    // fn update_staker_grades_by_rented(staker: T::AccountId, machine_id: MachineId, is_rented: bool) {
+    //     let mut staker_machine = Self::user_machines(&staker);
+    //     let machine_info = Self::machines_info(&machine_id);
+    //     let machine_base_calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
+
+    //     let old_grades = staker_machine.staker_total_grade();
+
+    //     if is_rented {
+    //         // 如果被租用，则该机器额外获得30%的分数加成
+    //         staker_machine.total_rent_grade += Perbill::from_rational_approximation(30u32, 100u32) * machine_base_calc_point;
+    //     } else {
+    //         staker_machine.total_rent_grade -= Perbill::from_rational_approximation(30u32, 100u32) * machine_base_calc_point;
+    //     }
+
+    //     let new_grades = staker_machine.staker_total_grade();
+
+    //     // 因租用/退租产生的分数变化，将在下一天生效
+    //     let current_era = Self::current_era();
+    //     let mut era_machine_point = Self::eras_machine_points(current_era+1).unwrap(); // 获得下一天奖励
+
+    //     era_machine_point.total -= old_grades;
+    //     era_machine_point.total += new_grades;
+
+    //     UserMachines::<T>::insert(staker, staker_machine);
+    //     ErasMachinePoints::<T>::insert(current_era + 1, era_machine_point);
+    // }
+
+    // 根据得分快照，对机器进行奖励
+    fn do_reward(machine_id: MachineId) {
         let machine_info = Self::machines_info(&machine_id);
-        let machine_base_calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
-
-        let old_grades = staker_machine.staker_total_grade();
-
-        if is_rented {
-            // 如果被租用，则该机器额外获得30%的分数加成
-            staker_machine.total_rent_grade += Perbill::from_rational_approximation(30u32, 100u32) * machine_base_calc_point;
-        } else {
-            staker_machine.total_rent_grade -= Perbill::from_rational_approximation(30u32, 100u32) * machine_base_calc_point;
-        }
-
-        let new_grades = staker_machine.staker_total_grade();
-
-        // 因租用/退租产生的分数变化，将在下一天生效
-        let current_era = Self::current_era();
-        let mut era_machine_point = Self::eras_machine_points(current_era+1).unwrap(); // 获得下一天奖励
-
-        era_machine_point.total -= old_grades;
-        era_machine_point.total += new_grades;
-
-        UserMachines::<T>::insert(staker, staker_machine);
-        ErasMachinePoints::<T>::insert(current_era + 1, era_machine_point);
+        // let staker_machine = Self::user_machines(&machine_id);
+        // let machine_grade =
+        // FIXME: 机器的实际得分应该按照什么来计算？因为StakerMachine已经被改变了,因此，应该存一个StakerMachine快照
     }
 }
 
