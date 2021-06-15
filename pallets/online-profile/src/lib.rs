@@ -4,11 +4,11 @@
 //   n2 = 100000 DBC (卡数 <= 10000)
 //   n2 = 100000 * (10000/卡数) (卡数>10000)
 // 在线奖励数量:
-//   First month: 10^8;
-//   Next 2 year: 4 * 10^8;
-//   Next 9 month: 4 * 10^8 * (9 / 12)
-//   Next 5 year: 5 * 10^7
-//   Next 5 years: 2.5 * 10^7
+//   1th month:     10^8;                   Phase0  30 day
+//   Next 2 year:   4 * 10^8;               Phase1  730 day
+//   Next 9 month:  4 * 10^8 * (9 / 12);    Phase2  270 day
+//   Next 5 year:   5 * 10^7;               Phase3  1825 day
+//   Next 5 years:  2.5 * 10^7;             Phase4  1825 day
 // 机器得分如何计算：
 //   机器相对标准配置得到算力点数。机器实际得分 = 算力点数 + 算力点数 * 集群膨胀系数 + 算力点数 * 30%
 //   因此，机器被租用时，机器实际得分 = 算力点数 * (1 + 集群膨胀系数 + 30%租用膨胀系数)
@@ -19,6 +19,8 @@
 
 use codec::EncodeLike;
 use frame_support::{
+    IterableStorageMap,
+    weights::Weight,
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
     traits::{
@@ -33,8 +35,7 @@ use pallet_identity::Data;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{PerThing, Perbill, SaturatedConversion, traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero}};
-use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
-use frame_support::weights::Weight;
+use sp_std::{collections::vec_deque::VecDeque, prelude::*, str, collections::btree_set::BTreeSet};
 
 pub mod grade_inflation;
 pub mod op_types;
@@ -281,9 +282,32 @@ pub mod pallet {
         EraMachinePoints<T::AccountId>,
     >;
 
+    // 在线奖励开始时间
     #[pallet::storage]
-    #[pallet::getter(fn reward_is_on)]
-    pub(super) type RewardIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
+    #[pallet::getter(fn reward_start_era)]
+    pub(super) type RewardStartEra<T: Config> = StorageValue<_, EraIndex>;
+
+    // 第一个月奖励
+    #[pallet::storage]
+    #[pallet::getter(fn phase_0_reward_per_era)]
+    pub(super) type Phase0RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
+
+    // 随后每年总奖励
+    #[pallet::storage]
+    #[pallet::getter(fn phase_1_reward_per_era)]
+    pub(super) type Phase1RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn phase_2_reward_per_era)]
+    pub(super) type Phase2RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn phase_3_reward_per_era)]
+    pub(super) type Phase3RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn phase_4_reward_per_era)]
+    pub(super) type Phase4RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
 
     // 奖励数量：第一个月为1亿，之后每个月为3300万
     // 2年10个月之后，奖励数量减半，之后再五年，奖励减半
@@ -335,8 +359,7 @@ pub mod pallet {
             // 在每个Era结束时执行奖励，发放到用户的Machine
             // 计算奖励，直接根据当前得分即可
             if current_height > 0 &&  current_height % 2880 == 0 {
-
-
+                Self::distribute_reward();
             }
 
             // FIXME
@@ -359,9 +382,23 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 实现当达到5000卡时，开启奖励
         #[pallet::weight(0)]
-        pub fn set_reward_on_status(origin: OriginFor<T>, reward_is_on: bool) -> DispatchResultWithPostInfo {
+        pub fn set_reward_start_era(origin: OriginFor<T>, reward_start_era: EraIndex) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            RewardIsOn::<T>::put(reward_is_on);
+            RewardStartEra::<T>::put(reward_start_era);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_phase_n_reward_per_era(origin: OriginFor<T>, phase: u32, reward_per_era: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            match phase {
+                0 => Phase0RewardPerEra::<T>::put(reward_per_era),
+                1 => Phase1RewardPerEra::<T>::put(reward_per_era),
+                2 => Phase2RewardPerEra::<T>::put(reward_per_era),
+                3 => Phase3RewardPerEra::<T>::put(reward_per_era),
+                4 => Phase4RewardPerEra::<T>::put(reward_per_era),
+                _ => return Err(Error::<T>::RewardPhaseOutOfRange.into()),
+            }
             Ok(().into())
         }
 
@@ -675,6 +712,7 @@ pub mod pallet {
         StakerMaxChangeReached,
         BalanceOverflow,
         PayTxFeeFailed,
+        RewardPhaseOutOfRange,
     }
 }
 
@@ -721,66 +759,35 @@ impl<T: Config> Pallet<T> {
             .checked_div(10_000u64)
     }
 
-    pub fn do_payout(controller: T::AccountId, machine_id: &MachineId) -> DispatchResultWithPostInfo {
-        // 根据解锁数量打币给用户
-        // TODO: machine_info中记录奖励数量
-        let can_claim: BalanceOf<T> = 0u64.saturated_into();
-
-        // 检查机器是否处于正常状态
-        let machine_info = Self::machines_info(machine_id.to_vec());
-        if machine_info.machine_status != MachineStatus::Online
-            || machine_info.machine_status != MachineStatus::Rented
-        {
-            return Err(Error::<T>::NotMachineController.into());
-        }
-
-        // 计算给用户的部分和给委员会的部分
-        // 99%奖金给机器控制者，1%奖励给用户
-
-        // 判断委员会是否应该获得奖励
-
-        let current_height = <frame_system::Module<T>>::block_number().saturated_into::<u64>();
-        if machine_info.reward_deadline.saturated_into::<u64>() >= current_height {
-            // 委员会也分得奖励
-            let to_controller = Perbill::from_rational_approximation(99u64, 100) * can_claim;
-            let to_committees = can_claim - to_controller;
-            let to_one_committee = Perbill::from_rational_approximation(
-                1u64,
-                machine_info.reward_committee.len() as u64,
-            ) * to_committees;
-
-            for a_committee in machine_info.reward_committee.iter() {
-                <T as Config>::Currency::deposit_into_existing(&a_committee, to_one_committee)?;
-                Self::deposit_event(Event::ClaimRewards(
-                    (*a_committee).clone(),
-                    machine_id.to_vec(),
-                    to_one_committee,
-                ));
-            }
-
-            <T as Config>::Currency::deposit_into_existing(&controller, to_controller)?;
-            Self::deposit_event(Event::ClaimRewards(
-                controller.clone(),
-                machine_id.to_vec(),
-                to_controller,
-            ));
-        } else {
-            // 奖励全分给控制者
-            <T as Config>::Currency::deposit_into_existing(&controller, can_claim)?;
-            Self::deposit_event(Event::ClaimRewards(
-                controller.clone(),
-                machine_id.to_vec(),
-                can_claim,
-            ));
-        }
-
-        // TODO: 更新已解压数量到machine_info
-        Ok(().into())
-    }
-
     // 获取机器最近n天的奖励
     pub fn remaining_n_eras_reward(_machine_id: MachineId, _recent_eras: u32) -> BalanceOf<T> {
         return 0u32.into();
+    }
+
+    // 在线奖励数量:
+    fn current_era_reward() -> Option<BalanceOf<T>> {
+        let current_era = Self::current_era() as u64;
+        let reward_start_era = Self::reward_start_era()? as u64;
+
+        if current_era < reward_start_era {
+            return None;
+        }
+
+        let era_duration = current_era - reward_start_era;
+
+        let reward_per_era = if era_duration < 30 {
+            Self::phase_0_reward_per_era()
+        } else if era_duration < 30 + 730 {
+            Self::phase_1_reward_per_era()
+        } else if era_duration < 30 +730 + 270 {
+            Self::phase_2_reward_per_era()
+        } else if era_duration < 30 + 730 + 270 + 1825 {
+            Self::phase_3_reward_per_era()
+        } else {
+            Self::phase_4_reward_per_era()
+        };
+
+        return reward_per_era;
     }
 
     // // 被惩罚了应该是什么状态让用户无法处理其奖金，
@@ -973,13 +980,81 @@ impl<T: Config> Pallet<T> {
         ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
     }
 
-    // 根据得分快照，对机器进行奖励
-    fn do_reward(machine_id: MachineId) {
-        let machine_info = Self::machines_info(&machine_id);
-        // let staker_machine = Self::user_machines(&machine_id);
-        // let machine_grade =
-        // FIXME: 机器的实际得分应该按照什么来计算？因为StakerMachine已经被改变了,因此，应该存一个StakerMachine快照
+    // // TODO: end_era分发奖励
+    // fn distribute_reward() -> Result<(), ()>{
+    //     let current_era = Self::current_era();
+    //     let current_rewward_per_era = Self::current_era_reward().ok_or(())?;
+
+    //     let era_machine_point = Self::eras_machine_points(current_era).unwrap();
+
+    //     return Ok(())
+    // }
+
+    // TODO: 根据得分快照，对机器进行奖励
+    pub fn do_payout(controller: T::AccountId, machine_id: &MachineId) -> DispatchResultWithPostInfo {
+        // 根据解锁数量打币给用户
+        // TODO: machine_info中记录奖励数量
+        let can_claim: BalanceOf<T> = 0u64.saturated_into();
+
+        // 检查机器是否处于正常状态
+        let machine_info = Self::machines_info(machine_id.to_vec());
+        if machine_info.machine_status != MachineStatus::Online
+            || machine_info.machine_status != MachineStatus::Rented
+        {
+            return Err(Error::<T>::NotMachineController.into());
+        }
+
+        // 计算给用户的部分和给委员会的部分
+        // 99%奖金给机器控制者，1%奖励给用户
+
+        // 判断委员会是否应该获得奖励
+
+        let current_height = <frame_system::Module<T>>::block_number().saturated_into::<u64>();
+        if machine_info.reward_deadline.saturated_into::<u64>() >= current_height {
+            // 委员会也分得奖励
+            let to_controller = Perbill::from_rational_approximation(99u64, 100) * can_claim;
+            let to_committees = can_claim - to_controller;
+            let to_one_committee = Perbill::from_rational_approximation(
+                1u64,
+                machine_info.reward_committee.len() as u64,
+            ) * to_committees;
+
+            for a_committee in machine_info.reward_committee.iter() {
+                <T as Config>::Currency::deposit_into_existing(&a_committee, to_one_committee)?;
+                Self::deposit_event(Event::ClaimRewards(
+                    (*a_committee).clone(),
+                    machine_id.to_vec(),
+                    to_one_committee,
+                ));
+            }
+
+            <T as Config>::Currency::deposit_into_existing(&controller, to_controller)?;
+            Self::deposit_event(Event::ClaimRewards(
+                controller.clone(),
+                machine_id.to_vec(),
+                to_controller,
+            ));
+        } else {
+            // 奖励全分给控制者
+            <T as Config>::Currency::deposit_into_existing(&controller, can_claim)?;
+            Self::deposit_event(Event::ClaimRewards(
+                controller.clone(),
+                machine_id.to_vec(),
+                can_claim,
+            ));
+        }
+
+        // TODO: 更新已解压数量到machine_info
+        Ok(().into())
     }
+
+    // fn get_current_staker() -> BTreeSet<T::AccountId> {
+    //     let current_era = Self::current_era();
+    //     // let era_machine_point = Self::eras_machine_points(current_era).unwrap();
+    //     <ErasMachinePoints<T>::staker_statistic as IterableStorageMap<T::AccountId, _>>::iter()
+    //      .map(|(staker, _)| staker)
+    //      .collect::<BTreeSet<_>>()
+    // }
 }
 
 // 当地址不一致，则扣除用户资金
