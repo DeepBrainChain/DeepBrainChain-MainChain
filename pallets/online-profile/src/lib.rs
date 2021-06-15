@@ -9,6 +9,9 @@
 //   Next 9 month: 4 * 10^8 * (9 / 12)
 //   Next 5 year: 5 * 10^7
 //   Next 5 years: 2.5 * 10^7
+// 机器得分如何计算：
+//   机器相对标准配置得到算力点数。机器实际得分 = 算力点数 + 算力点数 * 集群膨胀系数 + 算力点数 * 30%
+//   因此，机器被租用时，机器实际得分 = 算力点数 * (1 + 集群膨胀系数 + 30%租用膨胀系数)
 
 // TODO: era结束时重新计算得分, 如果有会影响得分的改变，放到列表中，等era结束进行计算
 
@@ -29,11 +32,9 @@ use online_profile_machine::{LCOps, OCWOps, RTOps};
 use pallet_identity::Data;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero},
-    Perbill, SaturatedConversion,
-};
+use sp_runtime::{PerThing, Perbill, SaturatedConversion, traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero}};
 use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
+use frame_support::weights::Weight;
 
 pub mod grade_inflation;
 pub mod op_types;
@@ -84,10 +85,18 @@ impl Default for SlashReason {
 pub struct StakerMachine<Balance> {
     pub total_machine: Vec<MachineId>, // 用户绑定的所有机器，不与机器状态有关
     pub online_machine: Vec<MachineId>,
-    pub point_inflation: Perbill, // 用户单台机器分数的膨胀系数，介于 [1, 1.1]之间
-    pub total_calc_points: u64,
+    pub point_inflation: Perbill, // 用户单台机器分数的膨胀系数，介于 [0, 0.1]之间
+    pub total_calc_points: u64, // 用户的机器总得分，不给算集群膨胀系数与在线奖励
+    pub total_rent_grade: u64, // 用户机器因在线而获得的额外奖励
     pub total_gpu_num: u64,
     pub total_reward: Balance,
+}
+
+impl<Balance> StakerMachine<Balance> {
+    // 该用户总得分 = 因被作用
+    pub fn staker_total_grade(&self) -> u64 {
+        self.total_rent_grade + self.total_calc_points + self.point_inflation * self.total_calc_points
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -167,7 +176,7 @@ impl LiveMachine {
     }
 }
 
-
+// 标准GPU租用价格
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StandardGpuPointPrice {
     pub gpu_point: u64,
@@ -186,6 +195,7 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type BondingDuration: Get<EraIndex>;
+        type ProfitReleaseDuration: Get<u64>; // 剩余75%线性释放时间长度(25%立即释放)
     }
 
     #[pallet::pallet]
@@ -200,17 +210,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn history_depth)]
-    pub(super) type HistoryDepth<T: Config> =
-        StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
-
-    // 用户线性释放的天数:
-    // 25%收益当天释放；75%在150天线性释放
-    #[pallet::type_value]
-    pub(super) fn ProfitReleaseDurationDefault<T: Config>() -> u64 {150}
-
-    #[pallet::storage]
-    #[pallet::getter(fn profit_release_duration)]
-    pub(super) type ProfitReleaseDuration<T: Config> = StorageValue<_, u64, ValueQuery, ProfitReleaseDurationDefault<T>>;
+    pub(super) type HistoryDepth<T: Config> = StorageValue<_, u32, ValueQuery, HistoryDepthDefault<T>>;
 
     // 存储机器的最小质押量，单位DBC, 默认为100000DBC
     #[pallet::storage]
@@ -275,6 +275,11 @@ pub mod pallet {
     #[pallet::getter(fn live_machines)]
     pub type LiveMachines<T: Config> = StorageValue<_, LiveMachine, ValueQuery>;
 
+    // 每过2880个block，增加1
+    #[pallet::storage]
+    #[pallet::getter(fn current_era)]
+    pub type CurrentEra<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
+
     // 存储每个Era机器的得分
     #[pallet::storage]
     #[pallet::getter(fn eras_machine_points)]
@@ -283,12 +288,11 @@ pub mod pallet {
         Blake2_128Concat,
         EraIndex,
         EraMachinePoints,
-        ValueQuery,
     >;
 
     #[pallet::storage]
-    #[pallet::getter(fn reward_start_height)]
-    pub type RewardStartHeight<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    #[pallet::getter(fn reward_is_on)]
+    pub(super) type RewardIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     // 奖励数量：第一个月为1亿，之后每个月为3300万
     // 2年10个月之后，奖励数量减半，之后再五年，奖励减半
@@ -309,7 +313,29 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_finalize(_block_number: T::BlockNumber) {
+        fn on_initialize(block_number: T::BlockNumber) -> Weight {
+
+            // 每个Era开始的时候，生成当前Era的快照，和下一个Era的快照
+            // 每天(2880个块)执行一次
+            if block_number.saturated_into::<u64>() % 2880 == 1 {
+                let current_era: u32 = (block_number.saturated_into::<u64>() / 2880) as u32;
+                CurrentEra::<T>::put(current_era);
+
+                if current_era == 0 {
+                    ErasMachinePoints::<T>::insert(0, EraMachinePoints{
+                        ..Default::default()
+                    });
+                    ErasMachinePoints::<T>::insert(1, EraMachinePoints{
+                        ..Default::default()
+                    });
+                }
+
+                // 用当前的Era快照初始化下一个Era的信息
+                let current_era_clipp = Self::eras_machine_points(current_era).unwrap();
+                ErasMachinePoints::<T>::insert(current_era + 1, current_era_clipp);
+            }
+
+            0
             // FIXME
             // let a = Self::cur_stake_per_gpu();
             // let cur_stake_per_gpu = Self::calc_stake_amount();
@@ -330,9 +356,9 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 实现当达到5000卡时，开启奖励
         #[pallet::weight(0)]
-        pub fn set_reward_start_height(origin: OriginFor<T>, reward_start_height: T::BlockNumber) -> DispatchResultWithPostInfo {
+        pub fn set_reward_on_status(origin: OriginFor<T>, reward_is_on: bool) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            RewardStartHeight::<T>::put(reward_start_height);
+            RewardIsOn::<T>::put(reward_is_on);
             Ok(().into())
         }
 
@@ -379,15 +405,16 @@ pub mod pallet {
             // 用户第一次绑定机器需要质押的数量
             let first_bond_stake = Self::stake_per_gpu();
 
-            // TODO: 转到特定账户中
-            // 扣除用户万分之一的dbc用作手续费
-            let service_charge = Perbill::from_rational_approximation(1u64, 10000u64) * first_bond_stake;
-            let _ = <T as pallet::Config>::Currency::slash(&controller, service_charge);
+            // 扣除10个Dbc作为交易手续费
+            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
-            // 资金检查,确保机器还没有被绑定过
+            // 资金检查, 确保机器还没有被绑定过
             ensure!(<T as Config>::Currency::free_balance(&controller) > first_bond_stake, Error::<T>::BalanceNotEnough);
             let mut live_machines = Self::live_machines();
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
+
+            // 更新质押
+            Self::add_user_total_stake(&controller, first_bond_stake).map_err(|_| Error::<T>::BalanceOverflow)?;
 
             // 添加到用户的机器列表
             let mut user_machines = Self::user_machines(&controller);
@@ -411,10 +438,7 @@ pub mod pallet {
             };
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
-            // 更新质押和Ledger
-            Self::add_user_total_stake(&controller, first_bond_stake).map_err(|_| Error::<T>::BalanceOverflow)?;
-            Self::deposit_event(Event::BondMachine(controller, machine_id, first_bond_stake));
-
+            Self::deposit_event(Event::BondMachine(controller.clone(), machine_id.clone(), first_bond_stake));
             Ok(().into())
         }
 
@@ -647,6 +671,7 @@ pub mod pallet {
         DBCPriceUnavailable,
         StakerMaxChangeReached,
         BalanceOverflow,
+        PayTxFeeFailed,
     }
 }
 
@@ -823,7 +848,7 @@ impl<T: Config> Pallet<T> {
 
     // 每次有事件影响机器分数时，如机器下线等更新grade快照
     fn update_grade_clipped(era: EraIndex, machine_id: MachineId, new_grade: u64) -> Result<(), ()> {
-        let mut era_machine_points = Self::eras_machine_points(era);
+        let mut era_machine_points = Self::eras_machine_points(era).ok_or(())?;
         let a_machine_points = era_machine_points.individual.get(&machine_id).ok_or(())?;
 
         era_machine_points.total += new_grade;
@@ -909,7 +934,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+    fn reduce_user_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let current_stake = Self::user_total_stake(controller);
         let next_stake = current_stake.checked_sub(&amount).ok_or(())?;
         <T as pallet::Config>::Currency::set_lock(
@@ -923,6 +948,78 @@ impl<T: Config> Pallet<T> {
         let total_stake = Self::total_stake().checked_sub(&amount).ok_or(())?;
         TotalStake::<T>::put(total_stake);
         Ok(())
+    }
+
+    // 由于机器被添加到在线或者不在线，更新矿工机器得分与总得分
+    fn update_staker_grades_by_online_machine(staker: T::AccountId, machine_id: MachineId, is_online: bool) {
+        let mut staker_machine = Self::user_machines(&staker);
+        let machine_info = Self::machines_info(&machine_id);
+        let machine_base_calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
+
+        // 因在线获得的分数奖励，将在下一天生效
+        let current_era = Self::current_era();
+        let mut era_machine_point = Self::eras_machine_points(current_era+1).unwrap(); // 获得下一天奖励
+
+        let old_grades = staker_machine.staker_total_grade();
+
+        if is_online {
+            // 如果是上线则增加机器Id到online_machine
+            if let Err(index) = staker_machine.online_machine.binary_search(&machine_id) {
+                staker_machine.online_machine.insert(index, machine_id.clone());
+            }
+            staker_machine.total_calc_points += machine_base_calc_point;
+            era_machine_point.individual.insert(machine_id.clone(),  machine_base_calc_point); // 基础得分
+        } else {
+            if let Ok(index) = staker_machine.online_machine.binary_search(&machine_id) {
+                staker_machine.online_machine.remove(index);
+            }
+            staker_machine.total_calc_points -= machine_base_calc_point;
+            era_machine_point.individual.remove(&machine_id);
+        }
+
+        // 重新计算奖励膨胀系数
+        let bond_num = staker_machine.online_machine.len() as u32;
+        staker_machine.point_inflation = if bond_num <= 1000 {
+            Perbill::from_rational_approximation(bond_num, 10_000) // 线性增加, 最大10%
+        } else {
+            Perbill::from_rational_approximation(1000u64, 10_000) // max: 10%
+        };
+
+        UserMachines::<T>::insert(&staker, staker_machine.clone());
+
+        let new_staker_total_grade = staker_machine.staker_total_grade();
+        era_machine_point.total -= old_grades;
+        era_machine_point.total += new_staker_total_grade;
+
+        ErasMachinePoints::<T>::insert(current_era+1, era_machine_point);
+    }
+
+    // 由于机器被租用，而更新得分，只需要更新用户总得分与系统总得分即可
+    fn update_staker_grades_by_rented(staker: T::AccountId, machine_id: MachineId, is_rented: bool) {
+        let mut staker_machine = Self::user_machines(&staker);
+        let machine_info = Self::machines_info(&machine_id);
+        let machine_base_calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
+
+        let old_grades = staker_machine.staker_total_grade();
+
+        if is_rented {
+            // 如果被租用，则该机器额外获得30%的分数加成
+            staker_machine.total_rent_grade += Perbill::from_rational_approximation(30u32, 100u32) * machine_base_calc_point;
+        } else {
+            staker_machine.total_rent_grade -= Perbill::from_rational_approximation(30u32, 100u32) * machine_base_calc_point;
+        }
+
+        let new_grades = staker_machine.staker_total_grade();
+
+        // 因租用/退租产生的分数变化，将在下一天生效
+        let current_era = Self::current_era();
+        let mut era_machine_point = Self::eras_machine_points(current_era+1).unwrap(); // 获得下一天奖励
+
+        era_machine_point.total -= old_grades;
+        era_machine_point.total += new_grades;
+
+        UserMachines::<T>::insert(staker, staker_machine);
+        ErasMachinePoints::<T>::insert(current_era + 1, era_machine_point);
     }
 }
 
@@ -951,8 +1048,12 @@ impl<T: Config> OCWOps for Pallet<T> {
         }
 
         LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
-        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, machine_id);
+        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, machine_id.clone());
         LiveMachines::<T>::put(live_machines);
+
+        // 更新EraMachinePoints，增加机器，将改变下个Era的记录，不影响当前记录，从而不影响当天奖励发放。
+
+        Self::update_staker_grades_by_online_machine(wallet, machine_id, true);
     }
 }
 
@@ -1046,7 +1147,7 @@ impl<T: Config> LCOps for Pallet<T> {
             .ok_or(())?;
 
         // 将惩罚分给委员会
-        Self::reduce_total_stake(&machine_info.machine_owner, machine_info.stake_amount)?;
+        Self::reduce_user_total_stake(&machine_info.machine_owner, machine_info.stake_amount)?;
         for a_committee in who {
             <T as pallet::Config>::Currency::transfer(
                 &machine_info.machine_owner,

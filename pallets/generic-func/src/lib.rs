@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{pallet_prelude::*, traits::{Randomness, Currency, LockableCurrency, OnUnbalanced, ExistenceRequirement::AllowDeath}};
+use frame_support::{pallet_prelude::*,
+    traits::{Randomness, Currency, LockableCurrency, OnUnbalanced, ExistenceRequirement::AllowDeath}
+};
 use frame_system::pallet_prelude::*;
 use sp_core::H256;
 use sp_runtime::{traits::BlakeTwo256, RandomNumberGenerator};
@@ -121,7 +123,7 @@ impl<T: Config> Pallet<T> {
         rng.pick_u32(max)
     }
 
-    // 每次交易消耗一些交易费
+    // 每次交易消耗一些交易费: 10DBC
     pub fn pay_fixed_tx_fee(who: T::AccountId) -> Result<(), ()> {
         let fixed_tx_fee = Self::fixed_tx_fee();
 
