@@ -135,6 +135,6 @@ pub struct MachineGradeStatus {
 pub struct StakerStatistics {
     pub online_num: u64, // 用户在线的机器数量
     pub inflation: Perbill, // 用户对应的膨胀系数
-    pub total_machine_grade: u64, // 用户的机器的总计算点数得分(不考虑膨胀)
-    pub online_total_grade: u64, // 用户机器因在线获得的总奖励
+    pub machine_total_calc_point: u64, // 用户的机器的总计算点数得分(不考虑膨胀)
+    pub rent_extra_grade: u64, // 用户机器因被租用获得的额外得分
 }
