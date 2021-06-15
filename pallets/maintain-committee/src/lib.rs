@@ -43,6 +43,7 @@ type NegativeImbalanceOf<T> =
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"mtcommit";
 
+// 机器故障的订单
 // 记录该模块中所有活跃的订单, 根据ReportStatus来划分
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LiveReportList {
@@ -78,6 +79,7 @@ pub struct ReportInfoDetail<AccountId, BlockNumber, Balance> {
     pub support_committee: Vec<AccountId>, // 支持该报告的委员会
     pub against_committee: Vec<AccountId>, // 不支持该报告的委员会
     pub report_status: ReportStatus, // 记录当前订单的状态
+    pub report_type: ReportType, // 报告的错误类型
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -92,6 +94,20 @@ pub enum ReportStatus {
 impl Default for ReportStatus {
     fn default() -> Self {
         ReportStatus::Reported
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum ReportType {
+    HardwareFault, // 硬件故障
+    MachineOffline, // 机器离线
+    MachineUnrentable, // 无法租用故障
+}
+
+// 默认硬件故障
+impl Default for ReportType {
+    fn default() -> Self {
+        ReportType::HardwareFault
     }
 }
 
@@ -164,10 +180,11 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + dbc_price_ocw::Config {
+    pub trait Config: frame_system::Config + dbc_price_ocw::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        type FixedTxFee: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -347,7 +364,7 @@ pub mod pallet {
             return Ok(().into());
         }
 
-        // 任何用户可以报告机器有问题
+        // 任何用户可以报告机器硬件有问题
         #[pallet::weight(10000)]
         pub fn report_machine_fault(origin: OriginFor<T>, raw_hash: Hash, box_public_key: [u8; 32]) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
@@ -373,6 +390,88 @@ pub mod pallet {
                 box_public_key,
                 reporter_stake: reporter_stake_need,
                 report_status: ReportStatus::Reported,
+                ..Default::default()
+            });
+
+            // 记录到报告人的存储中
+            let mut reporter_report = Self::reporter_report(&reporter);
+            if let Err(index) = reporter_report.reported_id.binary_search(&report_id) {
+                reporter_report.reported_id.insert(index, report_id);
+            }
+            ReporterReport::<T>::insert(&reporter, reporter_report);
+
+            Ok(().into())
+        }
+
+        // 报告机器离线
+        #[pallet::weight(10000)]
+        pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            let report_time = <frame_system::Module<T>>::block_number();
+            let report_id = Self::get_new_report_id();
+
+            let reporter_report_stake = Self::reporter_report_stake();
+            let reporter_stake_need = Self::get_dbc_amount_by_value(reporter_report_stake).ok_or(Error::<T>::GetStakeAmountFailed)?;
+
+            Self::add_user_total_stake(&reporter, reporter_stake_need).map_err(|_| Error::<T>::StakeFailed)?;
+
+            // 支付10个DBC
+            <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+
+            let mut live_report = Self::live_report();
+            if let Err(index) = live_report.bookable_report.binary_search(&report_id) {
+                live_report.bookable_report.insert(index, report_id);
+            }
+            LiveReport::<T>::put(live_report);
+
+            ReportInfo::<T>::insert(&report_id, ReportInfoDetail {
+                reporter: reporter.clone(),
+                report_time,
+                machine_id,
+                reporter_stake: reporter_stake_need,
+                report_status: ReportStatus::Reported,
+                report_type: ReportType::MachineOffline,
+                ..Default::default()
+            });
+
+            // 记录到报告人的存储中
+            let mut reporter_report = Self::reporter_report(&reporter);
+            if let Err(index) = reporter_report.reported_id.binary_search(&report_id) {
+                reporter_report.reported_id.insert(index, report_id);
+            }
+            ReporterReport::<T>::insert(&reporter, reporter_report);
+
+            Ok(().into())
+        }
+
+        // 报告机器无法租用
+        #[pallet::weight(10000)]
+        pub fn report_machine_unrentable(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+
+            let report_time = <frame_system::Module<T>>::block_number();
+            let report_id = Self::get_new_report_id();
+
+            let reporter_report_stake = Self::reporter_report_stake();
+            let reporter_stake_need = Self::get_dbc_amount_by_value(reporter_report_stake).ok_or(Error::<T>::GetStakeAmountFailed)?;
+
+            Self::add_user_total_stake(&reporter, reporter_stake_need).map_err(|_| Error::<T>::StakeFailed)?;
+
+            // 支付10个DBC
+            <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+
+            let mut live_report = Self::live_report();
+            if let Err(index) = live_report.bookable_report.binary_search(&report_id) {
+                live_report.bookable_report.insert(index, report_id);
+            }
+            LiveReport::<T>::put(live_report);
+
+            ReportInfo::<T>::insert(&report_id, ReportInfoDetail {
+                reporter: reporter.clone(),
+                report_time,
+                reporter_stake: reporter_stake_need,
+                report_status: ReportStatus::Reported,
+                report_type: ReportType::MachineUnrentable,
                 ..Default::default()
             });
 
@@ -414,20 +513,12 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: 增加该逻辑
-        #[pallet::weight(10000)]
-        pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let reporter = ensure_signed(origin)?;
-            todo!();
-            Ok(().into())
-        }
-
-        // 委员会进行抢单
+        // 委员会进行抢单: 类型只能是机器故障
         // 状态变化：LiveReport的 bookable -> verifying_report
         // 报告状态变为Verifying
         // 订单状态变为WaitingEncrypt
         #[pallet::weight(10000)]
-        pub fn book_one(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
+        pub fn book_fault_order(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -438,6 +529,9 @@ pub mod pallet {
 
             // 检查订单是否可预订状态
             let mut report_info = Self::report_info(report_id);
+            // 该函数只能预订机器故障的类型
+            ensure!(report_info.report_type == ReportType::HardwareFault, Error::<T>::NotFitReportType);
+
             ensure!(report_info.report_status == ReportStatus::Reported ||
                     report_info.report_status == ReportStatus::WaitingBook, Error::<T>::OrderNotAllowBook);
 
@@ -489,6 +583,24 @@ pub mod pallet {
             CommitteeOps::<T>::insert(&committee, &report_id, ops_detail);
 
             ReportInfo::<T>::insert(&report_id, report_info);
+            Ok(().into())
+        }
+
+        // 预订离线的机器订单
+        #[pallet::weight(10000)]
+        pub fn book_offline_order(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+            todo!();
+            Ok(().into())
+        }
+
+        // 预订无法租用的机器订单
+        #[pallet::weight(10000)]
+        pub fn book_unrentable_order(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+            todo!();
             Ok(().into())
         }
 
@@ -665,6 +777,7 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        PayTxFee(T::AccountId, BalanceOf<T>),
         CommitteeAdded(T::AccountId),
         CommitteeFulfill(BalanceOf<T>),
         Chill(T::AccountId),
@@ -701,6 +814,8 @@ pub mod pallet {
         NotEqualReporterSubmit,
         NotEqualCommitteeSubmit,
         ReduceTotalStakeFailed,
+        PayTxFeeFailed,
+        NotFitReportType,
     }
 }
 
@@ -724,7 +839,7 @@ impl<T: Config> Pallet<T> {
             .checked_div(&dbc_price.saturated_into::<BalanceOf<T>>())
     }
 
-    // TODO: 改成防止溢出的
+    // FIXME: 改成防止溢出的
     fn get_new_report_id() -> ReportId {
         let report_id = Self::next_report_id();
         NextReportId::<T>::put(report_id + 1);
@@ -978,6 +1093,5 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
-
     }
 }

@@ -151,7 +151,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + online_profile::Config + random_num::Config + dbc_price_ocw::Config {
+    pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config + dbc_price_ocw::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type LCOperations: LCOps<AccountId = Self::AccountId, MachineId = MachineId, CommitteeUploadInfo = CommitteeUploadInfo>;
@@ -640,7 +640,7 @@ impl<T: Config> Pallet<T> {
         let mut lucky_committee = Vec::new();
 
         for _ in 0..lucky_committee_num {
-            let lucky_index = <random_num::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+            let lucky_index = <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
             lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
             committee.remove(lucky_index);
         }

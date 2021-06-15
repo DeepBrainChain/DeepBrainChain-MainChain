@@ -109,7 +109,7 @@ std = [
     'pallet-society/std',
     'pallet-recovery/std',
     'pallet-vesting/std',
-    'random-num/std',
+    'generic-func/std',
     'dbc-testing/std',
     'dbc-price-ocw/std',
     'online-profile/std',
@@ -361,10 +361,10 @@ default-features = false
 path = '../pallets/dbc-staking'
 package = 'dbc-staking'
 
-[dependencies.random-num]
+[dependencies.generic-func]
 default-features = false
-path = '../pallets/random-num'
-package = 'random-num'
+path = '../pallets/generic-func'
+package = 'generic-func'
 
 [dependencies.dbc-testing]
 default-features = false

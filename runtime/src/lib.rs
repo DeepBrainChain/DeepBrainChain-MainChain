@@ -1030,9 +1030,12 @@ parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
 }
 
-impl random_num::Config for Runtime {
+impl generic_func::Config for Runtime {
     type BlockPerEra = BlockPerEra;
+    type Currency = Balances;
+    type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
+    type FixedTxFee = Treasury;
 }
 
 impl online_profile::Config for Runtime {
@@ -1055,6 +1058,7 @@ impl maintain_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
+    type FixedTxFee = Treasury;
 }
 
 impl rent_machine::Config for Runtime {
@@ -1106,7 +1110,7 @@ construct_runtime!(
         Assets: pallet_assets::{Module, Call, Storage, Event<T>},
         Mmr: pallet_mmr::{Module, Storage},
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
-        RandomNum: random_num::{Module, Call, Storage},
+        GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},

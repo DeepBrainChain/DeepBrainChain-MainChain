@@ -44,6 +44,11 @@ default-features = false
 path = '../online-profile'
 package = 'online-profile'
 
+[dependencies.generic-func]
+default-features = false
+path = '../generic-func'
+package = 'generic-func'
+
 [dependencies.dbc-price-ocw]
 default-features = false
 path = '../dbc-price-ocw'
@@ -57,6 +62,7 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "online-profile/std",
+    "generic-func/std",
     "serde",
     "sp-io/std",
     "sp-runtime/std",

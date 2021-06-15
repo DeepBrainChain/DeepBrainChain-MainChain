@@ -73,7 +73,7 @@ parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
 }
 
-impl random_num::Config for TestRuntime {
+impl generic_func::Config for TestRuntime {
     type BlockPerEra = BlockPerEra;
     type RandomnessSource = RandomnessCollectiveFlip;
 }
@@ -104,7 +104,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
         OnlineProfileOcw: online_profile_ocw::{Module, Call, ValidateUnsigned},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
-        RandomNum: random_num::{Module, Call, Storage},
+        RandomNum: generic_func::{Module, Call, Storage},
     }
 );
 

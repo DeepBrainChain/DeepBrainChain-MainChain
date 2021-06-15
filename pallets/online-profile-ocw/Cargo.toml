@@ -31,10 +31,10 @@ default-features = false
 path = '../online-profile'
 package = 'online-profile'
 
-[dependencies.random-num]
+[dependencies.generic-func]
 default-features = false
-path = '../random-num'
-package = 'random-num'
+path = '../generic-func'
+package = 'generic-func'
 
 [dependencies.sp-io]
 default-features = false
@@ -78,9 +78,9 @@ package = 'dbc-staking'
 path = '../dbc-price-ocw'
 package = 'dbc-price-ocw'
 
-[dev-dependencies.random-num]
-path = '../random-num'
-package = 'random-num'
+[dev-dependencies.generic-func]
+path = '../generic-func'
+package = 'generic-func'
 
 [dev-dependencies.pallet-balances]
 git = 'https://github.com/paritytech/substrate.git'
@@ -94,7 +94,7 @@ std = [
     "codec/std",
     "frame-support/std",
     "frame-system/std",
-    "random-num/std",
+    "generic-func/std",
     "online-profile/std",
     "serde", # test construct_runtime需要导入
     "sp-io/std",

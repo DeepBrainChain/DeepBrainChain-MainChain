@@ -51,10 +51,10 @@ version = '3.0.0'
 # rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 # version = '3.0.0'
 
-[dependencies.random-num]
+[dependencies.generic-func]
 default-features = false
-path = '../random-num'
-package = 'random-num'
+path = '../generic-func'
+package = 'generic-func'
 
 [dependencies.dbc-price-ocw]
 default-features = false
@@ -99,7 +99,7 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "online-profile/std",
-    "random-num/std",
+    "generic-func/std",
     "serde",
     "sp-io/std",
     "sp-runtime/std",

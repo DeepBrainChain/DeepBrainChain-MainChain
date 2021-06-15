@@ -1,5 +1,5 @@
 [package]
-name = "random-num"
+name = "generic-func"
 version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 edition = "2018"
@@ -44,12 +44,6 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
-[dependencies.pallet-babe]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
 [features]
 default = ["std"]
 std = [
@@ -57,7 +51,6 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "pallet-randomness-collective-flip/std",
-    'pallet-babe/std',
     "sp-core/std",
     "sp-runtime/std",
     "sp-std/std",

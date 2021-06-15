@@ -42,7 +42,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + online_profile::Config + {
+    pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type RTOps: RTOps<MachineId = MachineId, MachineStatus = MachineStatus, AccountId = Self::AccountId>;
@@ -87,11 +87,6 @@ pub mod pallet {
     #[pallet::getter(fn user_total_stake)]
     pub(super) type UserTotalStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
-    // 控制全局交易费用
-    #[pallet::storage]
-    #[pallet::getter(fn fixed_tx_fee)]
-    pub type FixedTxFee<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
-
     // 租金支付目标地址
     #[pallet::storage]
     #[pallet::getter(fn rent_pot)]
@@ -107,21 +102,13 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 设置租用机器手续费：10 DBC
-        #[pallet::weight(0)]
-        pub fn set_fixed_tx_fee(origin: OriginFor<T>, tx_fee: BalanceOf<T>) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            FixedTxFee::<T>::put(tx_fee);
-            Ok(().into())
-        }
-
         // 用户租用机器
         #[pallet::weight(10000)]
         pub fn rent_machine(origin: OriginFor<T>, machine_id: MachineId, duration: EraIndex) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
 
             // 用户提交订单，需要扣除10个DBC
-            Self::pay_fixed_tx_fee(renter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+            <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
             let now = <frame_system::Module<T>>::block_number();
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
@@ -243,20 +230,6 @@ impl<T: Config> Pallet<T> {
     //     let rent_need = machine_price.checked_mul(rent_duration as u64)?.checked_div(DAY_PER_MONTH)?;
     //     // <dbc_price_ocw::Module<T>>::get_dbc_amount_by_value(rent_need)
     // }
-
-    // 每次交易消耗一些交易费
-    fn pay_fixed_tx_fee(who: T::AccountId) -> Result<(), ()> {
-        let fixed_tx_fee = Self::fixed_tx_fee();
-
-        if !<T as pallet::Config>::Currency::can_slash(&who, fixed_tx_fee) {
-            return Err(());
-        }
-
-        let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, fixed_tx_fee);
-        Self::deposit_event(Event::PayTxFee(who, fixed_tx_fee));
-        T::FixedTxFee::on_unbalanced(imbalance);
-        return Ok(())
-    }
 
     // 定时检查机器是否30分钟没有上线
     fn check_machine_starting_status() {

@@ -26,7 +26,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + CreateSignedTransaction<Call<Self>> + random_num::Config
+        frame_system::Config + CreateSignedTransaction<Call<Self>> + generic_func::Config
     {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type RandomnessSource: Randomness<H256>;
@@ -158,7 +158,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn gen_rand_url() -> Option<u32> {
         if let Some(price_url) = Self::price_url() {
-            return Some(<random_num::Module<T>>::random_u32(
+            return Some(<generic_func::Module<T>>::random_u32(
                 (price_url.len() - 1) as u32,
             ));
         }
