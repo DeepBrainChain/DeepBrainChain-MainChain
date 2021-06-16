@@ -77,7 +77,8 @@ pub mod pallet {
         pub fn deposit_into_treasury(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            if !<T as pallet::Config>::Currency::can_slash(&who, amount) {return Err(Error::<T>::FreeBalanceNotEnough.into());
+            if !<T as pallet::Config>::Currency::can_slash(&who, amount) {
+                return Err(Error::<T>::FreeBalanceNotEnough.into());
             }
 
             let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, amount);
@@ -94,6 +95,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         DonateToTreasury(T::AccountId, BalanceOf<T>),
+        TxFeeToTreasury(T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -124,19 +126,18 @@ impl<T: Config> Pallet<T> {
     }
 
     // 每次交易消耗一些交易费: 10DBC
+    // 交易费直接转给国库
     pub fn pay_fixed_tx_fee(who: T::AccountId) -> Result<(), ()> {
         let fixed_tx_fee = Self::fixed_tx_fee();
 
-        if <T as Config>::Currency::free_balance(&who) > fixed_tx_fee {
-            let tx_fee_collector = Self::tx_fee_collector().ok_or(())?;
-            <T as Config>::Currency::transfer(
-                &who,
-                &tx_fee_collector,
-                fixed_tx_fee,
-                AllowDeath
-            ).map_err(|_| ())?;
-            return Ok(())
+        if !<T as pallet::Config>::Currency::can_slash(&who, fixed_tx_fee) {
+            return Err(());
         }
-        return Err(())
+
+        let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, fixed_tx_fee);
+        Self::deposit_event(Event::TxFeeToTreasury(who, fixed_tx_fee));
+        T::FixedTxFee::on_unbalanced(imbalance);
+
+        Ok(())
     }
 }
