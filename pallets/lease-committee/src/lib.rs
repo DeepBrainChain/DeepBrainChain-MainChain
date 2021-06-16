@@ -62,7 +62,6 @@ pub struct LCCommitteeList<AccountId: Ord> {
     pub committee: Vec<AccountId>,    // 质押并通过社区选举的委员会
     pub chill_list: Vec<AccountId>,   // 委员会，但不想被派单
     pub fulfill_list: Vec<AccountId>, // 委员会, 但需要补交质押
-    pub black_list: Vec<AccountId>,   // 委员会，黑名单中
 }
 
 impl<AccountId: Ord> LCCommitteeList<AccountId> {
@@ -74,9 +73,6 @@ impl<AccountId: Ord> LCCommitteeList<AccountId> {
             return true;
         }
         if let Ok(_) = self.fulfill_list.binary_search(who) {
-            return true;
-        }
-        if let Ok(_) = self.black_list.binary_search(who) {
             return true;
         }
         false
@@ -241,12 +237,7 @@ pub mod pallet {
             let mut staker = Self::committee();
             ensure!(staker.staker_exist(&who), Error::<T>::AccountNotExist);
 
-            if let Ok(_) = staker.chill_list.binary_search(&who) {
-                return Err(Error::<T>::AlreadyChill.into());
-            }
-            if let Ok(_) = staker.black_list.binary_search(&who) {
-                return Err(Error::<T>::AlreadyInBlackList.into());
-            }
+            staker.chill_list.binary_search(&who).map_err(|_| Error::<T>::AlreadyChill)?;
 
             LCCommitteeList::rm_staker(&mut staker.committee, &who);
             LCCommitteeList::rm_staker(&mut staker.committee, &who);
@@ -264,9 +255,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             let mut staker = Self::committee();
-            if let Err(_) = staker.chill_list.binary_search(&who) {
-                return Err(Error::<T>::NotInChillList.into());
-            }
+            staker.chill_list.binary_search(&who).map_err(|_| Error::<T>::NotInChillList)?;
 
             LCCommitteeList::rm_staker(&mut staker.chill_list, &who);
             LCCommitteeList::add_staker(&mut staker.fulfill_list, who.clone());
@@ -303,36 +292,6 @@ pub mod pallet {
             Self::deposit_event(Event::ExitFromCandidacy(who));
 
             return Ok(().into());
-        }
-
-        #[pallet::weight(0)]
-        pub fn add_black_list(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            let mut staker = Self::committee();
-            if staker.staker_exist(&member) {
-                LCCommitteeList::rm_staker(&mut staker.committee, &member);
-                LCCommitteeList::rm_staker(&mut staker.chill_list, &member);
-                LCCommitteeList::rm_staker(&mut staker.fulfill_list, &member);
-            }
-
-            LCCommitteeList::add_staker(&mut staker.black_list, member.clone());
-            Committee::<T>::put(staker);
-
-            Self::deposit_event(Event::AddToBlackList(member));
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn rm_black_list(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            let mut staker = Self::committee();
-            // 只从black_list中移出，想要加入委员会，需要社区再次投票
-            LCCommitteeList::rm_staker(&mut staker.black_list, &member);
-
-            Self::deposit_event(Event::RmFromBlackList(member));
-            Ok(().into())
         }
 
         // 添加确认hash
@@ -412,21 +371,17 @@ pub mod pallet {
             ensure!(now <= machine_committee.book_time + SUBMIT_RAW_END.into(), Error::<T>::TimeNotAllow);
 
             // 该用户已经给机器提交过Hash
-            if let Err(_) = machine_committee.hashed_committee.binary_search(&who) {
-                return Err(Error::<T>::NotSubmitHash.into());
-            }
+            machine_committee.hashed_committee.binary_search(&who).map_err(|_| Error::<T>::NotSubmitHash)?;
 
             // 机器ID存在于用户已经Hash的机器里
-            if let Err(_) = committee_machine.hashed_machine.binary_search(&machine_id) {
-                return Err(Error::<T>::NotSubmitHash.into());
-            }
+            committee_machine.hashed_machine.binary_search(&machine_id).map_err(|_| Error::<T>::NotSubmitHash)?;
 
             // 检查提交的raw与已提交的Hash一致
             let info_hash = machine_info_detail.hash();
             ensure!(info_hash == machine_ops.confirm_hash, Error::<T>::NotAllHashSubmited);
 
             // 用户还未提交过原始信息
-            if let Ok(_) = committee_machine.confirmed_machine.binary_search(&machine_id) {
+            if committee_machine.confirmed_machine.binary_search(&machine_id).is_ok() {
                 return Err(Error::<T>::AlreadySubmitRaw.into());
             }
 
@@ -468,11 +423,9 @@ pub mod pallet {
         UndoChill(T::AccountId),
         Withdrawn(T::AccountId, BalanceOf<T>),
         AddToWhiteList(T::AccountId),
-        AddToBlackList(T::AccountId),
         ExitFromCandidacy(T::AccountId),
         CommitteeFulfill(BalanceOf<T>),
         AddConfirmHash(T::AccountId, [u8; 16]),
-        RmFromBlackList(T::AccountId),
     }
 
     #[pallet::error]
@@ -491,12 +444,9 @@ pub mod pallet {
         StakeNotEnough,
         FreeBalanceNotEnough,
         AlreadyInChillList,
-        UserInBlackList,
         AlreadyInWhiteList,
         NotInWhiteList,
         UserInWhiteList,
-        AlreadyInBlackList,
-        NotInBlackList,
         NotInBookList,
         BookFailed,
         AlreadySubmitHash,
