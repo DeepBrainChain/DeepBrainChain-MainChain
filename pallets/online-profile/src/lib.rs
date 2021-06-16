@@ -55,6 +55,7 @@ pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
 pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 pub const ONE_DBC: u64 = 1000_000_000_000_000;
+pub const BLOCK_PER_ERA: u64 = 2880;
 
 // 惩罚发生后，有48小时的时间提交议案取消惩罚
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -329,8 +330,8 @@ pub mod pallet {
 
             // 每个Era开始的时候，生成当前Era的快照，和下一个Era的快照
             // 每天(2880个块)执行一次
-            if block_number.saturated_into::<u64>() % 2880 == 1 {
-                let current_era: u32 = (block_number.saturated_into::<u64>() / 2880) as u32;
+            if block_number.saturated_into::<u64>() % BLOCK_PER_ERA == 1 {
+                let current_era: u32 = (block_number.saturated_into::<u64>() / BLOCK_PER_ERA) as u32;
                 CurrentEra::<T>::put(current_era);
 
                 if current_era == 0 {
@@ -354,7 +355,7 @@ pub mod pallet {
 
             // 在每个Era结束时执行奖励，发放到用户的Machine
             // 计算奖励，直接根据当前得分即可
-            if current_height > 0 &&  current_height % 2880 == 0 {
+            if current_height > 0 &&  current_height % BLOCK_PER_ERA == 0 {
                 let _ = Self::distribute_reward();
             }
         }

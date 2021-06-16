@@ -44,7 +44,9 @@ type BalanceOf<T> =
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"leasecom";
 pub const DISTRIBUTION: u32 = 9; // 分成9个区间进行验证
-                                 // pub const DURATIONPERCOMMITTEE: u32 = 480; // 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
+pub const DURATIONPERCOMMITTEE: u32 = 480; // 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
+pub const SUBMIT_RAW_START: u32 = 4320; // 在分派之后的36个小时后允许提交原始信息
+pub const SUBMIT_RAW_END: u32 = 5760; // 在分派之后的48小时总结
 
 pub use pallet::*;
 
@@ -334,17 +336,29 @@ pub mod pallet {
         }
 
         // 添加确认hash
-        // FIXME: 注意，提交Hash需要检查，不与其他人的/已存在的Hash相同, 否则, 是很严重的作弊行为
         #[pallet::weight(10000)]
-        fn add_confirm_hash(origin: OriginFor<T>, machine_id: MachineId, hash: [u8; 16]) -> DispatchResultWithPostInfo {
+        fn submit_confirm_hash(origin: OriginFor<T>, machine_id: MachineId, hash: [u8; 16]) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
             let mut machine_committee = Self::machine_committee(&machine_id);
 
             // 从机器信息列表中有该委员会
-            if let Err(_) = machine_committee.booked_committee.binary_search(&who) {
-                return Err(Error::<T>::NotInBookList.into());
+            machine_committee.booked_committee.binary_search(&who).map_err(|_| Error::<T>::NotInBookList)?;
+
+            // 该委员会没有提交过Hash
+            if machine_committee.hashed_committee.binary_search(&who).is_ok() {
+                return Err(Error::<T>::AlreadySubmitHash.into());
+            }
+
+            // 检查该Hash未出现过
+            for a_committee in machine_committee.hashed_committee.clone() {
+                let machine_ops = Self::committee_ops(&a_committee, &machine_id);
+                if machine_ops.confirm_hash == hash {
+                    // 与其中一个委员会提交的Hash一致
+                    // FIXME: 注意，提交Hash需要检查，不与其他人的/已存在的Hash相同, 否则, 是很严重的作弊行为
+                    // Self::revert_book(machine_id)
+                }
             }
 
             // 在该机器信息中，记录上委员的Hash
@@ -382,9 +396,7 @@ pub mod pallet {
         // fn submit_confirm_raw(origin: OriginFor<T>, machine_id: MachineId, confirm_raw: Vec<u8>) -> DispatchResultWithPostInfo {
         // 委员会提交的原始信息
         #[pallet::weight(10000)]
-        fn submit_confirm_raw(
-            origin: OriginFor<T>, machine_info_detail: CommitteeUploadInfo) -> DispatchResultWithPostInfo
-        {
+        fn submit_confirm_raw(origin: OriginFor<T>, machine_info_detail: CommitteeUploadInfo) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -394,9 +406,10 @@ pub mod pallet {
             let mut committee_machine = Self::committee_machine(&who);
             let mut machine_ops = Self::committee_ops(&who, &machine_id);
 
+            // TODO: 如果所有人都提交了，则直接可以提交Hash，添加一个状态吧
             // 查询是否已经到了提交hash的时间 必须在36 ~ 48小时之间
             ensure!(now >= machine_committee.confirm_start, Error::<T>::TimeNotAllow);
-            ensure!(now <= machine_committee.book_time + (3600u32 / 30 * 48).into(), Error::<T>::TimeNotAllow);
+            ensure!(now <= machine_committee.book_time + SUBMIT_RAW_END.into(), Error::<T>::TimeNotAllow);
 
             // 该用户已经给机器提交过Hash
             if let Err(_) = machine_committee.hashed_committee.binary_search(&who) {
@@ -567,7 +580,7 @@ impl<T: Config> Pallet<T> {
 
         // 每个添加4个小时
         let now = <frame_system::Module<T>>::block_number();
-        let confirm_start = now + (3600u32 / 30 * 36).into(); // 添加确认信息时间为分发之后的36小时
+        let confirm_start = now + SUBMIT_RAW_START.into(); // 添加确认信息时间为分发之后的36小时
 
         for a_book in lucky_committee {
             let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, a_book);
@@ -608,7 +621,7 @@ impl<T: Config> Pallet<T> {
         let mut committee_ops = Self::committee_ops(&order_time.0, &machine_id);
         committee_ops.booked_time = now;
         committee_ops.staked_dbc = stake_need;
-        let start_time: Vec<_> = order_time.1.into_iter().map(|x| now + (x as u32 * 3600u32 / 30 * 4).into()).collect();
+        let start_time: Vec<_> = order_time.1.into_iter().map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into()).collect();
         committee_ops.verify_time = start_time;
         committee_ops.machine_status = LCMachineStatus::Booked;
 
@@ -661,18 +674,24 @@ impl<T: Config> Pallet<T> {
         for machine_id in booked_machine {
             // 如果机器超过了48个小时，则查看：
             // 是否有委员会提交了确认信息
+            // TODO: 应该允许当所有委员会都提交了Hash之后，直接进入Summary
             let machine_committee = Self::machine_committee(machine_id.clone());
-            if now < machine_committee.book_time + (3600u32 / 30 * 48).into() {
+            if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
                 return;
             }
+
+            // if machine_committee.confirmed_committee.len() == machine_committee.hashed_committee().len() {
+            // }
 
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(committee, machine_info) => {
                     let _ = T::LCOperations::lc_confirm_machine(committee, machine_info);
+                    // TODO: 惩罚拒绝的委员会
                 },
                 MachineConfirmStatus::Refuse(committee, machine_id) => {
                     // 如果是委员会判定失败，则扣除所有奖金
                     let _ = T::LCOperations::lc_refuse_machine(committee, machine_id);
+                    // TODO: 惩罚
                 },
                 MachineConfirmStatus::NoConsensus => {
                     // 没有委员会添加确认信息，或者意见相反委员会相等, 则进行新一轮评估
