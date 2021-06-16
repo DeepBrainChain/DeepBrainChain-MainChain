@@ -16,7 +16,7 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, HasCompact};
+use codec::{Decode, Encode};
 use frame_support::{
     IterableStorageMap,
     pallet_prelude::*,
@@ -446,7 +446,7 @@ pub mod pallet {
 
         // 报告机器无法租用
         #[pallet::weight(10000)]
-        pub fn report_machine_unrentable(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn report_machine_unrentable(origin: OriginFor<T>, _machine_id: MachineId) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
             let report_time = <frame_system::Module<T>>::block_number();
@@ -588,25 +588,23 @@ pub mod pallet {
 
         // 预订离线的机器订单
         #[pallet::weight(10000)]
-        pub fn book_offline_order(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
-            let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
-            todo!();
+        pub fn book_offline_order(origin: OriginFor<T>, _report_id: ReportId) -> DispatchResultWithPostInfo {
+            let _committee = ensure_signed(origin)?;
+            let _now = <frame_system::Module<T>>::block_number();
             Ok(().into())
         }
 
         // 预订无法租用的机器订单
         #[pallet::weight(10000)]
-        pub fn book_unrentable_order(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
-            let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
-            todo!();
+        pub fn book_unrentable_order(origin: OriginFor<T>, _report_id: ReportId) -> DispatchResultWithPostInfo {
+            let _committee = ensure_signed(origin)?;
+            let _now = <frame_system::Module<T>>::block_number();
             Ok(().into())
         }
 
         // 报告人在委员会完成抢单后，30分钟内用委员会的公钥，提交加密后的故障信息
         #[pallet::weight(10000)]
-        pub fn reporter_add_encrypted_error_info(origin: OriginFor<T>, report_id: ReportId, to_committee: T::AccountId, encrypted_err_info: Vec<u8>, encrypted_info: Vec<u8>) -> DispatchResultWithPostInfo {
+        pub fn reporter_add_encrypted_error_info(origin: OriginFor<T>, report_id: ReportId, to_committee: T::AccountId, encrypted_err_info: Vec<u8>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -966,7 +964,7 @@ impl<T: Config> Pallet<T> {
         for a_slash_id in pending_slash_id {
             let a_slash_info = Self::pending_slash(&a_slash_id);
             if now >= a_slash_info.slash_exec_time {
-                Self::reduce_user_total_stake(&a_slash_info.slash_who, a_slash_info.unlock_amount);
+                let _= Self::reduce_user_total_stake(&a_slash_info.slash_who, a_slash_info.unlock_amount);
 
                 // 如果reward_to为0，则将币转到国库
                 if a_slash_info.reward_to.len() == 0 {
@@ -1011,7 +1009,7 @@ impl<T: Config> Pallet<T> {
                 continue
             }
             let verifying_committee = report_info.verifying_committee.unwrap();
-            let mut committee_ops = Self::committee_ops(&verifying_committee, &a_report_id);
+            let committee_ops = Self::committee_ops(&verifying_committee, &a_report_id);
 
             // 如果超过一个小时没提交Hash，则惩罚委员会，
             if now - committee_ops.booked_time >= 120u64.saturated_into::<T::BlockNumber>() {
@@ -1074,16 +1072,16 @@ impl<T: Config> Pallet<T> {
         }
 
         for a_report_id in live_report.waiting_raw_report {
-            let mut report_info = Self::report_info(&a_report_id);
+            let report_info = Self::report_info(&a_report_id);
             // 只有在超过了4个小时的时候才做清算
             if now - report_info.report_time >= 480u64.saturated_into::<T::BlockNumber>() {
                 match Self::summary_report(a_report_id) {
-                    ReportConfirmStatus::Confirmed(committees, reason) => {
+                    ReportConfirmStatus::Confirmed(_committees, _reason) => {
                         // TODO: 机器有问题，则惩罚机器拥有者。
                         // 1. 修改onlineProfile中机器状态
                         // 2. 等待机器重新上线，再进行奖励
                     },
-                    ReportConfirmStatus::Refuse(committee) => {
+                    ReportConfirmStatus::Refuse(_committee) => {
                         // TODO: 惩罚报告人和同意的委员会
                     }
                     // 无共识, 则

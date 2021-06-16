@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use crate::{CommitteeUploadInfo, ImageName, MachineId, MachineInfoDetail, MachineStatus};
+use crate::MachineInfoDetail;
 use codec::{Decode, Encode};
 use sp_std::prelude::Vec;
 
@@ -165,7 +165,7 @@ pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
     pub bonding_height: BlockNumber,
     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
     pub stake_amount: Balance,
-    pub machine_status: MachineStatus,
+    // pub machine_status: MachineStatus<BlockNumber>,
     pub machine_info_detail: MachineInfoDetail,
     pub machine_price: u64,
     // #[cfg_attr(feature = "std", serde(with = "serde_seq_account"))]

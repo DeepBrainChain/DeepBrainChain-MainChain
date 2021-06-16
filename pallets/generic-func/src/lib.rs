@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{pallet_prelude::*,
-    traits::{Randomness, Currency, LockableCurrency, OnUnbalanced, ExistenceRequirement::AllowDeath}
+    traits::{Randomness, Currency, LockableCurrency, OnUnbalanced}
 };
 use frame_system::pallet_prelude::*;
 use sp_core::H256;

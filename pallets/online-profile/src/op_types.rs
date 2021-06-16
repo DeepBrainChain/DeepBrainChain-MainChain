@@ -2,12 +2,8 @@ use codec::{alloc::string::ToString, Decode, Encode, HasCompact};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_128;
-use sp_runtime::{
-    traits::{AtLeast32BitUnsigned, Saturating, Zero},
-    RuntimeDebug,
-};
-use sp_std::{collections::btree_map::BTreeMap, collections::vec_deque::VecDeque, prelude::*};
-use sp_runtime::Perbill;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use sp_runtime::{Perbill, RuntimeDebug};
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;

@@ -45,7 +45,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type RTOps: RTOps<MachineId = MachineId, MachineStatus = MachineStatus, AccountId = Self::AccountId>;
+        type RTOps: RTOps<MachineId = MachineId, MachineStatus = MachineStatus<Self::BlockNumber>, AccountId = Self::AccountId>;
         type FixedTxFee: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
@@ -183,8 +183,10 @@ pub mod pallet {
             RentOrder::<T>::insert(&renter, &machine_id, order_info);
 
             // 改变online_profile状态
-            T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, renter);
+            T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, renter.clone());
             PendingConfirming::<T>::remove(&machine_id);
+
+            Self::deposit_event(Event::ConfirmRent(renter, machine_id));
             Ok(().into())
         }
     }
@@ -194,6 +196,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         PayTxFee(T::AccountId, BalanceOf<T>),
+        ConfirmRent(T::AccountId, MachineId),
     }
 
     #[pallet::error]

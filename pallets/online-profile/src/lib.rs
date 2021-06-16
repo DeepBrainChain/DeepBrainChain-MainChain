@@ -29,13 +29,12 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
-use grade_inflation::calc_machine_grade;
 use online_profile_machine::{LCOps, OCWOps, RTOps};
 use pallet_identity::Data;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::{PerThing, Perbill, SaturatedConversion, traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Zero}};
-use sp_std::{collections::vec_deque::VecDeque, prelude::*, str, collections::btree_set::BTreeSet};
+use sp_runtime::{Perbill, SaturatedConversion, traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub}};
+use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
 
 pub mod grade_inflation;
 pub mod op_types;
@@ -99,7 +98,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub machine_renter: AccountId, // 当前机器的租用者
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
     pub stake_amount: Balance,
-    pub machine_status: MachineStatus,
+    pub machine_status: MachineStatus<BlockNumber>,
     pub machine_info_detail: MachineInfoDetail, // 委员会提交的机器信息
     pub machine_price: u64, // 租用价格。设置3080的分数对应的价格为1000(可设置)元，其他机器的价格根据3080的价格，按照算力值进行计算的比例进行计算
     pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
@@ -107,18 +106,18 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum MachineStatus {
+pub enum MachineStatus<BlockNumber> {
     OcwConfirming,
     CommitteeVerifying,
     WaitingFulfill, // 补交质押
     Online,         // 正在上线，且未被租用
-    Offline,        // 机器管理者报告机器已下线
+    StakerReportOffline(BlockNumber),        // 机器管理者报告机器已下线
+    ReporterReportOffline(BlockNumber),        // 报告人报告机器下线
     Creating,       // 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
     Rented,         // 已经被租用
 }
 
-impl Default for MachineStatus {
+impl<BlockNumber> Default for MachineStatus<BlockNumber> {
     fn default() -> Self {
         MachineStatus::OcwConfirming
     }
@@ -509,38 +508,45 @@ pub mod pallet {
 
         // 超过一年的机器可以在不使用的时候退出
         #[pallet::weight(10000)]
-        pub fn claim_exit(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResultWithPostInfo {
-            let controller = ensure_signed(origin)?;
-            todo!();
+        pub fn claim_exit(origin: OriginFor<T>, _controller: T::AccountId) -> DispatchResultWithPostInfo {
+            let _controller = ensure_signed(origin)?;
             Ok(().into())
         }
 
         #[pallet::weight(10000)]
-        pub fn machine_submit_controller(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResultWithPostInfo {
-            let machine_account = ensure_signed(origin)?;
-            todo!();
+        pub fn machine_submit_controller(origin: OriginFor<T>, _controller: T::AccountId) -> DispatchResultWithPostInfo {
+            let _machine_account = ensure_signed(origin)?;
             Ok(().into())
         }
 
+        // 矿工领取奖励
         #[pallet::weight(10000)]
-        pub fn staker_payout_rewards(origin: OriginFor<T>, controller: T::AccountId, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn staker_claim_rewards(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResultWithPostInfo {
             let staker = ensure_signed(origin)?;
             ensure!(UserMachines::<T>::contains_key(&controller), Error::<T>::NotMachineController);
-            todo!();
+            let mut user_machine = Self::user_machines(&staker);
+            <T as pallet::Config>::Currency::deposit_into_existing(&staker, user_machine.can_claim_reward)
+                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
+
+            user_machine.total_claimed_reward += user_machine.can_claim_reward;
+            user_machine.can_claim_reward = 0u64.saturated_into();
+            UserMachines::<T>::insert(&staker, user_machine);
+
+            Ok(().into())
         }
 
         // 机器管理者报告机器下线
         #[pallet::weight(10000)]
-        pub fn staker_report_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let staker = ensure_signed(origin)?;
+        pub fn staker_report_offline(origin: OriginFor<T>, _machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let _staker = ensure_signed(origin)?;
 
             Ok(().into())
         }
 
         // 机器管理者报告机器上线
         #[pallet::weight(10000)]
-        pub fn staker_report_online(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let staker = ensure_signed(origin)?;
+        pub fn staker_report_online(origin: OriginFor<T>, _machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let _staker = ensure_signed(origin)?;
 
             Ok(().into())
         }
@@ -597,6 +603,7 @@ pub mod pallet {
         BalanceOverflow,
         PayTxFeeFailed,
         RewardPhaseOutOfRange,
+        ClaimRewardFailed,
     }
 }
 
@@ -1057,10 +1064,10 @@ impl<T: Config> LCOps for Pallet<T> {
 
 impl<T: Config> RTOps for Pallet<T> {
     type MachineId = MachineId;
-    type MachineStatus = MachineStatus;
+    type MachineStatus = MachineStatus<T::BlockNumber>;
     type AccountId = T::AccountId;
 
-    fn change_machine_status(machine_id: &MachineId, new_status: MachineStatus, renter: Self::AccountId) {
+    fn change_machine_status(machine_id: &MachineId, new_status: MachineStatus<T::BlockNumber>, renter: Self::AccountId) {
         let mut machine_info = Self::machines_info(machine_id);
         if machine_info.machine_status == new_status {
             return
@@ -1100,7 +1107,8 @@ impl<T: Config> Module<T> {
         }
     }
 
-    pub fn get_staker_list(start: u64, end: u64) -> Vec<T::AccountId> {
+    // TODO:
+    pub fn get_staker_list(_start: u64, _end: u64) -> Vec<T::AccountId> {
         Self::get_all_staker()
     }
 
@@ -1168,7 +1176,7 @@ impl<T: Config> Module<T> {
             machine_owner: machine_info.machine_owner,
             bonding_height: machine_info.bonding_height,
             stake_amount: machine_info.stake_amount,
-            machine_status: machine_info.machine_status,
+            // machine_status: machine_info.machine_status,
             machine_info_detail: machine_info.machine_info_detail,
             machine_price: machine_info.machine_price,
             // reward_committee: machine_info.reward_committee,
