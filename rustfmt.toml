@@ -1,0 +1,6 @@
+# Basic
+max_width = 100
+use_small_heuristics = "Max"
+reorder_imports = true
+newline_style = "Unix"
+use_field_init_shorthand = true
