@@ -110,6 +110,20 @@ pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
     pub confirm_start_time: BlockNumber,     // 系统设定的开始提交raw信息的委员会
     pub confirmed_committee: Vec<AccountId>, // 已经提交了原始信息的委员会
     pub onlined_committee: Vec<AccountId>,   // 若机器成功上线，可以获得该机器在线奖励的委员会
+    pub status: LCVerifyStatus,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum LCVerifyStatus {
+    SubmitingHash,
+    SubmitingRaw,
+    Summarying,
+}
+
+impl Default for LCVerifyStatus {
+    fn default() -> Self {
+        LCVerifyStatus::SubmitingHash
+    }
 }
 
 // 一个委员会对对机器的操作记录
@@ -362,7 +376,7 @@ pub mod pallet {
                 let machine_ops = Self::committee_ops(&a_committee, &machine_id);
                 if machine_ops.confirm_hash == hash {
                     // 与其中一个委员会提交的Hash一致
-                    // FIXME: 注意，提交Hash需要检查，不与其他人的/已存在的Hash相同, 否则, 是很严重的作弊行为
+                    // FIXME: 注意，提交Hash需要检查，不与其他人的/已存在的Hash相同, 否则将被认为是作弊行为
                     // Self::revert_book(machine_id)
                 }
             }
@@ -372,12 +386,12 @@ pub mod pallet {
                 machine_committee.hashed_committee.insert(index, who.clone());
             }
 
-            // 从委员的任务中，删除该机器的任务
             let mut committee_machine = Self::committee_machine(&who);
+
+            // 从委员的任务中，删除该机器的任务
             if let Ok(index) = committee_machine.booked_machine.binary_search(&machine_id) {
                 committee_machine.booked_machine.remove(index);
             }
-
             // 委员会hashedmachine添加上该机器
             if let Err(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
                 committee_machine.hashed_machine.insert(index, machine_id.clone());
@@ -388,6 +402,12 @@ pub mod pallet {
             committee_ops.machine_status = LCMachineStatus::Hashed;
             committee_ops.confirm_hash = hash.clone();
             committee_ops.hash_time = now;
+
+            // 如果委员会都提交了Hash,则直接进入提交原始信息的阶段
+            if machine_committee.booked_committee.len() == machine_committee.hashed_committee.len()
+            {
+                machine_committee.status = LCVerifyStatus::SubmitingRaw;
+            }
 
             // 更新存储
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
@@ -415,13 +435,15 @@ pub mod pallet {
             let mut committee_machine = Self::committee_machine(&who);
             let mut machine_ops = Self::committee_ops(&who, &machine_id);
 
-            // TODO: 如果所有人都提交了，则直接可以提交Hash，添加一个状态吧
-            // 查询是否已经到了提交hash的时间 必须在36 ~ 48小时之间
-            ensure!(now >= machine_committee.confirm_start_time, Error::<T>::TimeNotAllow);
-            ensure!(
-                now <= machine_committee.book_time + SUBMIT_RAW_END.into(),
-                Error::<T>::TimeNotAllow
-            );
+            // 如果所有人都提交了，则直接可以提交Hash
+            if machine_committee.status != LCVerifyStatus::SubmitingRaw {
+                // 查询是否已经到了提交hash的时间 必须在36 ~ 48小时之间
+                ensure!(now >= machine_committee.confirm_start_time, Error::<T>::TimeNotAllow);
+                ensure!(
+                    now <= machine_committee.book_time + SUBMIT_RAW_END.into(),
+                    Error::<T>::TimeNotAllow
+                );
+            }
 
             // 该用户已经给机器提交过Hash
             machine_committee
@@ -460,6 +482,13 @@ pub mod pallet {
             machine_ops.confirm_time = now;
             machine_ops.machine_status = LCMachineStatus::Confirmed;
             machine_ops.machine_info = machine_info_detail.clone();
+
+            // 如果全部都提交完了原始信息，则允许进入summary
+            if machine_committee.confirmed_committee.len()
+                == machine_committee.booked_committee.len()
+            {
+                machine_committee.status = LCVerifyStatus::Summarying;
+            }
 
             CommitteeMachine::<T>::insert(&who, committee_machine);
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
@@ -691,14 +720,13 @@ impl<T: Config> Pallet<T> {
         for machine_id in booked_machine {
             // 如果机器超过了48个小时，则查看：
             // 是否有委员会提交了确认信息
-            // TODO: 应该允许当所有委员会都提交了Hash之后，直接进入Summary
+            // 当所有委员会都提交了原始信息之后，直接进入Summary
             let machine_committee = Self::machine_committee(machine_id.clone());
-            if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
-                return;
+            if machine_committee.status != LCVerifyStatus::Summarying {
+                if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
+                    return;
+                }
             }
-
-            // if machine_committee.confirmed_committee.len() == machine_committee.hashed_committee().len() {
-            // }
 
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
