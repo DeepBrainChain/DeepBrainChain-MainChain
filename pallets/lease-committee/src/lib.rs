@@ -21,7 +21,8 @@ use codec::{Decode, Encode};
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
+    traits::{Currency, LockIdentifier, LockableCurrency, OnUnbalanced, WithdrawReasons},
+    IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use online_profile::CommitteeUploadInfo;
@@ -32,15 +33,19 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion},
     RuntimeDebug,
 };
-use sp_std::{prelude::*, str, vec::Vec};
+use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
 mod rpc_types;
 pub use rpc_types::RpcLCCommitteeOps;
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
+pub type SlashId = u64;
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"leasecom";
 pub const DISTRIBUTION: u32 = 9; // 分成9个区间进行验证
@@ -168,6 +173,17 @@ struct Summary<AccountId> {
     pub info: Option<CommitteeUploadInfo>,
 }
 
+// 即将被执行的罚款
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
+    pub slash_who: AccountId,
+    pub slash_time: BlockNumber,      // 惩罚被创建的时间
+    pub unlock_amount: Balance,       // 执行惩罚前解绑的金额
+    pub slash_amount: Balance,        // 执行惩罚的金额
+    pub slash_exec_time: BlockNumber, // 惩罚被执行的时间
+    pub reward_to: Vec<AccountId>,    // 奖励发放对象。如果为空，则惩罚到国库
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -183,6 +199,7 @@ pub mod pallet {
             MachineId = MachineId,
             CommitteeUploadInfo = CommitteeUploadInfo,
         >;
+        type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -199,6 +216,7 @@ pub mod pallet {
 
             Self::distribute_machines(); // 分派机器
             Self::statistic_result(); // 检查订单状态
+            Self::check_and_exec_slash();
         }
     }
 
@@ -206,6 +224,20 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee_stake_usd_per_order)]
     pub(super) type CommitteeStakeUSDPerOrder<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn next_slash_id)]
+    pub(super) type NextSlashId<T: Config> = StorageValue<_, SlashId, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash)]
+    pub(super) type PendingSlash<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        SlashId,
+        PendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
 
     // 每次订单默认质押等价的DBC数量
     #[pallet::storage]
@@ -346,6 +378,14 @@ pub mod pallet {
             Self::deposit_event(Event::ExitFromCandidacy(who));
 
             return Ok(().into());
+        }
+
+        // 取消一个惩罚
+        #[pallet::weight(0)]
+        pub fn cancle_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            PendingSlash::<T>::remove(slash_id);
+            Ok(().into())
         }
 
         // 添加确认hash
@@ -514,6 +554,8 @@ pub mod pallet {
         ExitFromCandidacy(T::AccountId),
         CommitteeFulfill(BalanceOf<T>),
         AddConfirmHash(T::AccountId, [u8; 16]),
+        Slash(T::AccountId, BalanceOf<T>),
+        MissedSlash(T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -904,6 +946,56 @@ impl<T: Config> Pallet<T> {
             WithdrawReasons::all(),
         );
         Ok(())
+    }
+
+    // 检查并执行slash
+    fn check_and_exec_slash() {
+        let now = <frame_system::Module<T>>::block_number();
+
+        let pending_slash_id = Self::get_slash_id();
+        for a_slash_id in pending_slash_id {
+            let a_slash_info = Self::pending_slash(&a_slash_id);
+            if now >= a_slash_info.slash_exec_time {
+                let _ = Self::reduce_stake(&a_slash_info.slash_who, a_slash_info.unlock_amount);
+
+                // 如果reward_to为0，则将币转到国库
+                if a_slash_info.reward_to.len() == 0 {
+                    if <T as pallet::Config>::Currency::can_slash(
+                        &a_slash_info.slash_who,
+                        a_slash_info.slash_amount,
+                    ) {
+                        let (imbalance, missing) = <T as pallet::Config>::Currency::slash(
+                            &a_slash_info.slash_who,
+                            a_slash_info.slash_amount,
+                        );
+                        Self::deposit_event(Event::Slash(
+                            a_slash_info.slash_who.clone(),
+                            a_slash_info.slash_amount,
+                        ));
+                        Self::deposit_event(Event::MissedSlash(
+                            a_slash_info.slash_who,
+                            missing.clone(),
+                        ));
+                        T::Slash::on_unbalanced(imbalance);
+                    }
+                } else {
+                    // TODO: reward_to将获得slash的奖励
+                }
+            }
+        }
+    }
+
+    // 获得所有被惩罚的订单列表
+    fn get_slash_id() -> BTreeSet<SlashId> {
+        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
+            .map(|(slash_id, _)| slash_id)
+            .collect::<BTreeSet<_>>()
+    }
+
+    fn get_new_slash_id() -> SlashId {
+        let slash_id = Self::next_slash_id();
+        NextSlashId::<T>::put(slash_id + 1);
+        return slash_id;
     }
 }
 

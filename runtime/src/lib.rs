@@ -787,7 +787,10 @@ where
     Call: From<LocalCall>,
 {
     fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: Call, public: <Signature as traits::Verify>::Signer, account: AccountId, nonce: Index,
+        call: Call,
+        public: <Signature as traits::Verify>::Signer,
+        account: AccountId,
+        nonce: Index,
     ) -> Option<(Call, <UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload)> {
         let tip = 0;
         // take the biggest period possible.
@@ -1053,20 +1056,19 @@ impl lease_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type LCOperations = OnlineProfile;
+    type Slash = Treasury;
 }
 
 impl maintain_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
-    type FixedTxFee = Treasury;
 }
 
 impl rent_machine::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type RTOps = OnlineProfile;
-    type FixedTxFee = Treasury;
 }
 
 construct_runtime!(
