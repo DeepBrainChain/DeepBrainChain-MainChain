@@ -157,12 +157,8 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     fn gen_rand_url() -> Option<u32> {
-        if let Some(price_url) = Self::price_url() {
-            return Some(<generic_func::Module<T>>::random_u32(
-                (price_url.len() - 1) as u32,
-            ));
-        }
-        return None;
+        let price_url = Self::price_url()?;
+        return Some(<generic_func::Module<T>>::random_u32((price_url.len() - 1) as u32));
     }
 
     fn fetch_price_and_send_unsigned_tx() -> Result<(), Error<T>> {

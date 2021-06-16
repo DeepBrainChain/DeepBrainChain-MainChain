@@ -49,8 +49,8 @@ pub mod pallet {
 
     // 设置交易费管理者
     #[pallet::storage]
-    #[pallet::getter(fn tx_fee_collector)]
-    pub type TxFeeCollector<T: Config> = StorageValue<_, T::AccountId>;
+    #[pallet::getter(fn rent_fee_collector)]
+    pub type RentFeeCollector<T: Config> = StorageValue<_, T::AccountId>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
@@ -67,9 +67,9 @@ pub mod pallet {
 
         // 设置交易费管理人
         #[pallet::weight(0)]
-        pub fn set_tx_fee_collector(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
+        pub fn set_rent_fee_collector(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            TxFeeCollector::<T>::put(who);
+            RentFeeCollector::<T>::put(who);
             Ok(().into())
         }
 

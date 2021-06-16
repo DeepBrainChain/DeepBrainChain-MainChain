@@ -95,7 +95,7 @@ pub struct StakerMachine<Balance> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub machine_owner: AccountId, // 允许用户绑定跟自己机器ID不一样的，奖励发放给machine_owner
-    pub machine_renter: AccountId, // 当前机器的租用者
+    pub machine_renter: Option<AccountId>, // 当前机器的租用者
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
     pub stake_amount: Balance,
     pub machine_status: MachineStatus<BlockNumber>,
@@ -107,7 +107,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineStatus<BlockNumber> {
-    OcwConfirming,
+    MachineSelfConfirming,
     CommitteeVerifying,
     WaitingFulfill, // 补交质押
     Online,         // 正在上线，且未被租用
@@ -119,7 +119,7 @@ pub enum MachineStatus<BlockNumber> {
 
 impl<BlockNumber> Default for MachineStatus<BlockNumber> {
     fn default() -> Self {
-        MachineStatus::OcwConfirming
+        MachineStatus::MachineSelfConfirming
     }
 }
 
@@ -483,7 +483,7 @@ pub mod pallet {
             let mut machine_info = Self::machines_info(&machine_id);
             match machine_info.machine_status {
                 // 判断机器状态，如果机器未上线，不改变机器状态
-                MachineStatus::OcwConfirming | MachineStatus::CommitteeVerifying => {
+                MachineStatus::MachineSelfConfirming | MachineStatus::CommitteeVerifying => {
 
                 },
                 // 如果机器已上线，则减少可修改次数
@@ -515,7 +515,7 @@ pub mod pallet {
 
         #[pallet::weight(10000)]
         pub fn machine_set_recipient(origin: OriginFor<T>, machine_id: MachineId, recipient: T::AccountId) -> DispatchResultWithPostInfo {
-            let machine_wallet = ensure_signed(origin)?; // TODO: AccountId to Vec<u8>
+            let machine_wallet = ensure_signed(origin)?;
 
             let machine_account = Self::get_account_from_str(&machine_id)
                 .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
@@ -969,7 +969,7 @@ impl<T: Config> LCOps for Pallet<T> {
         LiveMachine::add_machine_id(&mut live_machines.machine_confirmed, id.clone());
 
         let mut machine_info = Self::machines_info(&id);
-        machine_info.machine_status = MachineStatus::OcwConfirming;
+        machine_info.machine_status = MachineStatus::MachineSelfConfirming;
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 
@@ -1080,7 +1080,7 @@ impl<T: Config> RTOps for Pallet<T> {
             return
         }
         machine_info.machine_status = new_status;
-        machine_info.machine_renter = renter.clone();
+        machine_info.machine_renter = Some(renter.clone());
         MachinesInfo::<T>::insert(machine_id, machine_info);
         Self::update_staker_grades_by_rented(renter, machine_id.to_vec(), true)
     }

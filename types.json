@@ -19,6 +19,7 @@
   "BlockNumber": "u32",
   "MachineInfo": {
     "machine_owner": "AccountId",
+    "machine_renter": "Option<AccountId>",
     "bonding_height": "BlockNumber",
     "stake_amount": "Balance",
     "machine_status": "MachineStatus",
@@ -29,11 +30,13 @@
   },
   "MachineStatus": {
     "_enum": [
-      "OcwConfirming",
+      "MachineSelfConfirming",
       "CommitteeVerifying",
       "WaitingFulfill",
       "Online",
-      "Offline",
+      "StakerReportOffline(BlockNumber)",
+      "ReporterReportOffline(BlockNumber",
+      "Creating",
       "Rented"
     ]
   },
@@ -121,9 +124,30 @@
     "confirm_hash": "[u8; 16]",
     "hash_time": "BlockNumber",
     "confirm_time": "BlockNumber",
-    "confirm_result": "bool",
-    "machine_status": "MachineStatus",
-    "machine_info": "MachineInfoByCommittee"
+    "machine_status": "LCMachineStatus",
+    "machine_info": "CommitteeUploadInfo"
+  },
+  "LCMachineStatus": {
+    "_enum": [
+      "Booked",
+      "Hashed",
+      "Confirmed"
+    ]
+  },
+  "CommitteeUploadInfo": {
+    "machine_id": "MachineId",
+    "gpu_type": "Vec<u8>",
+    "gpu_num": "u32",
+    "cuda_core": "u32",
+    "gpu_mem": "u64",
+    "calc_point": "u64",
+    "hard_disk": "u64",
+    "cpu_type": "Vec<u8>",
+    "cpu_core_num": "u32",
+    "cpu_rate": "u64",
+    "mem_num": "u64",
+    "rand_str": "Vec<u8>",
+    "is_support": "bool"
   },
   "LCMachineCommitteeList": {
     "book_time": "BlockNumber",

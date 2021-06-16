@@ -122,13 +122,13 @@ pub struct LCCommitteeOps<BlockNumber, Balance> {
     pub confirm_hash: [u8; 16],
     pub hash_time: BlockNumber,
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
-    pub machine_status: MachineStatus,
+    pub machine_status: LCMachineStatus,
     pub machine_info: CommitteeUploadInfo,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum MachineStatus {
+pub enum LCMachineStatus {
     Booked,
     Hashed,
     Confirmed,
@@ -140,9 +140,9 @@ enum MachineConfirmStatus<AccountId> {
     NoConsensus,
 }
 
-impl Default for MachineStatus {
+impl Default for LCMachineStatus {
     fn default() -> Self {
-        MachineStatus::Booked
+        LCMachineStatus::Booked
     }
 }
 
@@ -365,7 +365,7 @@ pub mod pallet {
 
             // 添加用户对机器的操作记录
             let mut committee_ops = Self::committee_ops(&who, &machine_id);
-            committee_ops.machine_status = MachineStatus::Hashed;
+            committee_ops.machine_status = LCMachineStatus::Hashed;
             committee_ops.confirm_hash = hash.clone();
             committee_ops.hash_time = now;
 
@@ -431,7 +431,7 @@ pub mod pallet {
 
             // machine_ops.confirm_raw = confirm_raw.clone();
             machine_ops.confirm_time = now;
-            machine_ops.machine_status = MachineStatus::Confirmed;
+            machine_ops.machine_status = LCMachineStatus::Confirmed;
             machine_ops.machine_info = machine_info_detail.clone();
 
             CommitteeMachine::<T>::insert(&who, committee_machine);
@@ -608,9 +608,9 @@ impl<T: Config> Pallet<T> {
         let mut committee_ops = Self::committee_ops(&order_time.0, &machine_id);
         committee_ops.booked_time = now;
         committee_ops.staked_dbc = stake_need;
-        let start_time: Vec<_> = (0..order_time.1.len()).map(|x| now + (x as u32 * 3600u32 / 30 * 4).into()).collect();
+        let start_time: Vec<_> = order_time.1.into_iter().map(|x| now + (x as u32 * 3600u32 / 30 * 4).into()).collect();
         committee_ops.verify_time = start_time;
-        committee_ops.machine_status = MachineStatus::Booked;
+        committee_ops.machine_status = LCMachineStatus::Booked;
 
         // 存储变量
         MachineCommittee::<T>::insert(&machine_id, machine_committee);
@@ -795,6 +795,7 @@ impl<T: Config> Pallet<T> {
         let total_stake = Self::committee_total_stake(&controller).unwrap_or(0u32.into());
         let new_stake = total_stake.checked_add(&amount).ok_or(())?;
 
+        CommitteeTotalStake::<T>::insert(controller, new_stake);
         <T as Config>::Currency::set_lock(PALLET_LOCK_ID, controller, new_stake, WithdrawReasons::all());
         Ok(())
     }
@@ -803,6 +804,7 @@ impl<T: Config> Pallet<T> {
         let total_stake = Self::committee_total_stake(&controller).ok_or(())?;
         let new_stake = total_stake.checked_sub(&amount).ok_or(())?;
 
+        CommitteeTotalStake::<T>::insert(controller, new_stake);
         <T as Config>::Currency::set_lock(PALLET_LOCK_ID, controller, new_stake, WithdrawReasons::all());
         Ok(())
     }

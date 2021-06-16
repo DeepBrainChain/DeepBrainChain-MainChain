@@ -1,6 +1,6 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use crate::{CommitteeUploadInfo, MachineStatus};
+use crate::{CommitteeUploadInfo, LCMachineStatus};
 use codec::{Decode, Encode};
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
@@ -19,7 +19,7 @@ pub struct RpcLCCommitteeOps<BlockNumber, Balance> {
     pub hash_time: BlockNumber,
     #[cfg_attr(feature = "std", serde(with = "serde_block_number"))]
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
-    pub machine_status: MachineStatus,
+    pub machine_status: LCMachineStatus,
     pub machine_info: CommitteeUploadInfo,
 }
 
