@@ -295,6 +295,7 @@ impl<T: Config> Pallet<T> {
             WithdrawReasons::all(),
         );
 
+        UserTotalStake::<T>::insert(controller, next_stake);
         Ok(())
     }
 
@@ -308,6 +309,7 @@ impl<T: Config> Pallet<T> {
             WithdrawReasons::all(),
         );
 
+        UserTotalStake::<T>::insert(controller, next_stake);
         Ok(())
     }
 }

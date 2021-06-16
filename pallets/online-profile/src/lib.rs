@@ -740,6 +740,7 @@ impl<T: Config> Pallet<T> {
             WithdrawReasons::all(),
         );
 
+        UserTotalStake::<T>::insert(controller, next_stake);
         // 改变总质押
         let total_stake = Self::total_stake().checked_add(&amount).ok_or(())?;
         TotalStake::<T>::put(total_stake);
@@ -756,6 +757,7 @@ impl<T: Config> Pallet<T> {
             WithdrawReasons::all(),
         );
 
+        UserTotalStake::<T>::insert(controller, next_stake);
         // 改变总质押
         let total_stake = Self::total_stake().checked_sub(&amount).ok_or(())?;
         TotalStake::<T>::put(total_stake);
