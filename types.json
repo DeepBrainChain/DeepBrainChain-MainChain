@@ -1,5 +1,11 @@
 {
   "PriceURL": "Text",
+  "ReportId": "u64",
+  "SlashId": "u64",
+  "StandardGpuPointPrice": {
+    "gpu_point": "u64",
+    "gpu_price": "u64"
+  },
   "URL": "Text",
   "MachineId": "Text",
   "OrderId": "u64",

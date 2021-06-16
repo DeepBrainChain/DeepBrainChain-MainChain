@@ -114,7 +114,6 @@ std = [
     'dbc-price-ocw/std',
     'online-profile/std',
     'online-profile-runtime-api/std',
-    'online-profile-ocw/std',
     'lease-committee/std',
     'lease-committee-runtime-api/std',
     'maintain-committee/std',
@@ -379,11 +378,6 @@ path = '../pallets/dbc-price-ocw'
 default-features = false
 path = '../pallets/online-profile'
 package = 'online-profile'
-
-[dependencies.online-profile-ocw]
-default-features = false
-path = '../pallets/online-profile-ocw'
-package = 'online-profile-ocw'
 
 [dependencies.lease-committee]
 default-features = false

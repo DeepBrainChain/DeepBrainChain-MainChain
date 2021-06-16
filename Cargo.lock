@@ -4155,7 +4155,6 @@ dependencies = [
  "maintain-committee",
  "node-primitives",
  "online-profile",
- "online-profile-ocw",
  "online-profile-runtime-api",
  "pallet-assets",
  "pallet-authority-discovery",
@@ -4377,6 +4376,7 @@ name = "online-profile"
 version = "0.1.0"
 dependencies = [
  "alt_serde",
+ "bs58",
  "dbc-price-ocw",
  "dbc-staking",
  "frame-support",
@@ -4400,31 +4400,6 @@ dependencies = [
 name = "online-profile-machine"
 version = "0.1.0"
 dependencies = [
- "sp-std",
-]
-
-[[package]]
-name = "online-profile-ocw"
-version = "0.1.0"
-dependencies = [
- "alt_serde",
- "bs58",
- "dbc-price-ocw",
- "dbc-staking",
- "frame-support",
- "frame-system",
- "generic-func",
- "online-profile",
- "online-profile-machine",
- "pallet-balances",
- "pallet-randomness-collective-flip",
- "parity-scale-codec",
- "serde",
- "serde_json 1.0.44",
- "sp-core",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
  "sp-std",
 ]
 

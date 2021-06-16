@@ -554,7 +554,7 @@ impl<T: Config> Pallet<T> {
     // 获取所有新加入的机器，并进行分派给委员会
     fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
-        for a_machine_id in live_machines.ocw_confirmed_machine {
+        for a_machine_id in live_machines.machine_confirmed {
             debug::warn!("#### distribute machine: {:?}", &a_machine_id);
             let _ = Self::distribute_one_machine(&a_machine_id);
         }

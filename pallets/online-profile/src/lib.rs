@@ -29,12 +29,12 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{LCOps, OCWOps, RTOps};
+use online_profile_machine::{LCOps, RTOps};
 use pallet_identity::Data;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{Perbill, SaturatedConversion, traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub}};
-use sp_std::{collections::vec_deque::VecDeque, prelude::*, str};
+use sp_std::{collections::vec_deque::VecDeque, prelude::*, str, convert::TryInto};
 
 pub mod grade_inflation;
 pub mod op_types;
@@ -128,7 +128,7 @@ impl<BlockNumber> Default for MachineStatus<BlockNumber> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct LiveMachine {
     pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
-    pub ocw_confirmed_machine: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段。该状态可以由lc分配订单
+    pub machine_confirmed: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段。该状态可以由lc分配订单
     pub booked_machine: Vec<MachineId>, // 当机器已经全部分配了委员会，则变为该状态。若lc确认机器失败(认可=不认可)则返回上一状态，重新分派订单
     pub waiting_hash: Vec<MachineId>, // 当全部委员会添加了全部confirm hash之后，机器添加到waiting_hash，这时，用户可以添加confirm_raw
     pub bonded_machine: Vec<MachineId>, // 当全部委员会添加了confirm_raw之后，机器被成功绑定，变为bonded_machine状态
@@ -140,7 +140,7 @@ impl LiveMachine {
         if let Ok(_) = self.bonding_machine.binary_search(machine_id) {
             return true;
         }
-        if let Ok(_) = self.ocw_confirmed_machine.binary_search(machine_id) {
+        if let Ok(_) = self.machine_confirmed.binary_search(machine_id) {
             return true;
         }
         if let Ok(_) = self.booked_machine.binary_search(machine_id) {
@@ -514,8 +514,26 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        pub fn machine_submit_controller(origin: OriginFor<T>, _controller: T::AccountId) -> DispatchResultWithPostInfo {
-            let _machine_account = ensure_signed(origin)?;
+        pub fn machine_set_recipient(origin: OriginFor<T>, machine_id: MachineId, recipient: T::AccountId) -> DispatchResultWithPostInfo {
+            let machine_wallet = ensure_signed(origin)?; // TODO: AccountId to Vec<u8>
+
+            let machine_account = Self::get_account_from_str(&machine_id)
+                .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
+
+            if machine_wallet != machine_account {
+                return Err(Error::<T>::MachineWalletMachineIdNotMatch.into());
+            }
+
+            let mut machine_info = Self::machines_info(&machine_id);
+            machine_info.machine_owner = recipient;
+
+            let mut live_machines = Self::live_machines();
+            LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
+            LiveMachine::add_machine_id(&mut live_machines.machine_confirmed, machine_id.clone());
+
+            MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
+            LiveMachines::<T>::put(live_machines);
+
             Ok(().into())
         }
 
@@ -604,10 +622,32 @@ pub mod pallet {
         PayTxFeeFailed,
         RewardPhaseOutOfRange,
         ClaimRewardFailed,
+        MachineWalletMachineIdNotMatch,
+        ConvertMachineIdToWalletFailed,
     }
 }
 
 impl<T: Config> Pallet<T> {
+    // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
+    // from_ss58check_with_version
+    fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
+        let mut data: [u8; 35] = [0; 35];
+
+        let length = bs58::decode(addr).into(&mut data).ok()?;
+        if length != 35 {
+            return None;
+        }
+
+        let (_prefix_len, _ident) = match data[0] {
+            0..=63 => (1, data[0] as u16),
+            _ => return None,
+        };
+
+        let account_id32: [u8; 32] = data[1..33].try_into().ok()?;
+
+        T::AccountId::decode(&mut &account_id32[..]).ok()
+    }
+
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
     pub fn calc_stake_amount(gpu_num: u32) -> Option<BalanceOf<T>> {
@@ -901,40 +941,6 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-// 当地址不一致，则扣除用户资金
-// online-profile-ocw可以执行的操作
-impl<T: Config> OCWOps for Pallet<T> {
-    type MachineId = MachineId;
-    type AccountId = T::AccountId;
-
-    // 将machine_id从LiveMachines.bonding_machine中移除
-    fn rm_booked_id(id: &MachineId) {
-        let mut live_machines = Self::live_machines();
-        LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, id);
-        LiveMachines::<T>::put(live_machines);
-    }
-
-    // 将machine_id添加到LiveMachines.ocw_confirmed_machine中
-    // ocw添加确认的钱包地址，从bonding中移除,并添加到ocw_confirmed_machine
-    fn add_ocw_confirmed_id(machine_id: MachineId, wallet: Self::AccountId) {
-        let mut live_machines = Self::live_machines();
-
-        // 检查wallet是否与用户一致， 如果wallet地址与用户绑定机器的地址不一致，则直接返回
-        let machine_info = Self::machines_info(&machine_id);
-        if machine_info.machine_owner != wallet {
-            return;
-        }
-
-        LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
-        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, machine_id.clone());
-        LiveMachines::<T>::put(live_machines);
-
-        // 更新EraMachinePoints，增加机器，将改变下个Era的记录，不影响当前记录，从而不影响当天奖励发放。
-
-        Self::update_staker_grades_by_online_machine(wallet, machine_id, true);
-    }
-}
-
 // 审查委员会可以执行的操作
 impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
@@ -946,7 +952,7 @@ impl<T: Config> LCOps for Pallet<T> {
     fn lc_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
-        LiveMachine::rm_machine_id(&mut live_machines.ocw_confirmed_machine, &id);
+        LiveMachine::rm_machine_id(&mut live_machines.machine_confirmed, &id);
         LiveMachine::add_machine_id(&mut live_machines.booked_machine, id.clone());
         LiveMachines::<T>::put(live_machines);
 
@@ -960,7 +966,7 @@ impl<T: Config> LCOps for Pallet<T> {
         let mut live_machines = Self::live_machines();
 
         LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &id);
-        LiveMachine::add_machine_id(&mut live_machines.ocw_confirmed_machine, id.clone());
+        LiveMachine::add_machine_id(&mut live_machines.machine_confirmed, id.clone());
 
         let mut machine_info = Self::machines_info(&id);
         machine_info.machine_status = MachineStatus::OcwConfirming;
@@ -998,7 +1004,7 @@ impl<T: Config> LCOps for Pallet<T> {
         .ok_or(())?;
         machine_info.machine_price = machine_price;
 
-        MachinesInfo::<T>::insert(committee_upload_info.machine_id, machine_info.clone());
+        MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
 
         let mut user_machines = Self::user_machines(&machine_info.machine_owner);
         user_machines.total_calc_points += committee_upload_info.calc_point;
@@ -1011,6 +1017,7 @@ impl<T: Config> LCOps for Pallet<T> {
         let total_calc_points = Self::total_calc_points();
         TotalCalcPoints::<T>::put(total_calc_points + committee_upload_info.calc_point);
 
+        Self::update_staker_grades_by_online_machine(machine_info.machine_owner, committee_upload_info.machine_id, true);
         return Ok(());
     }
 

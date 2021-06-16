@@ -1049,10 +1049,6 @@ impl online_profile::Config for Runtime {
     type ProfitReleaseDuration = ProfitReleaseDuration;
 }
 
-impl online_profile_ocw::Config for Runtime {
-    type OnlineProfile = OnlineProfile;
-}
-
 impl lease_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
@@ -1118,7 +1114,6 @@ construct_runtime!(
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
-        OnlineProfileOcw: online_profile_ocw::{Module, Call, Storage, ValidateUnsigned},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Storage, Call, Event<T>},

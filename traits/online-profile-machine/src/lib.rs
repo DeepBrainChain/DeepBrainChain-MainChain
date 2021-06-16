@@ -18,15 +18,6 @@ pub trait LCOps {
     fn lc_refuse_machine(who: Vec<Self::AccountId>, id: Self::MachineId) -> Result<(), ()>;
 }
 
-pub trait OCWOps {
-    type AccountId;
-    type MachineId;
-
-    // fn ocw_clean_booking_machine();
-    fn rm_booked_id(id: &Self::MachineId);
-    fn add_ocw_confirmed_id(id: Self::MachineId, wallet: Self::AccountId);
-}
-
 pub trait RTOps {
     type AccountId;
     type MachineId;

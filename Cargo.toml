@@ -17,7 +17,6 @@ members = [
     'pallets/online-profile',
     'pallets/online-profile/rpc',
     'pallets/online-profile/runtime-api',
-    'pallets/online-profile-ocw',
     'pallets/lease-committee',
     'pallets/lease-committee/rpc',
     'pallets/lease-committee/runtime-api',
