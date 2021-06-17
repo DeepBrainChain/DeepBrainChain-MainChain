@@ -124,7 +124,6 @@ enum ReportConfirmStatus<AccountId> {
 pub struct MTCommitteeList<AccountId: Ord> {
     pub committee: Vec<AccountId>, // 质押并通过社区选举的委员会
     pub waiting_box_pubkey: Vec<AccountId>,
-    pub black_list: Vec<AccountId>, // 委员会，黑名单中
 }
 
 // 委员会抢到的订单的列表
@@ -338,10 +337,6 @@ pub mod pallet {
             ensure_root(origin)?;
             let mut committee_list = Self::committee();
 
-            committee_list
-                .black_list
-                .binary_search(&member)
-                .map_err(|_| Error::<T>::AccountAlreadyExist)?;
             committee_list
                 .committee
                 .binary_search(&member)
