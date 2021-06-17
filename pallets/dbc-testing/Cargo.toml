@@ -87,12 +87,12 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
-# [dependencies.sp-core]
-# default-features = false
-# package = 'sp-core'
-# git = 'https://github.com/paritytech/substrate.git'
-# rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-# version = '3.0.0'
+[dependencies.sp-core]
+default-features = false
+package = 'sp-core'
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
 
 [dependencies.sp-io]
 default-features = false
@@ -135,7 +135,7 @@ std = [
     "sp-arithmetic/std",
     "sp-consensus-babe/std",
     "sp-io/std",
-    # "sp-core/std",
+    "sp-core/std",
     "sp-staking/std",
     "sp-runtime/std",
     "serde",

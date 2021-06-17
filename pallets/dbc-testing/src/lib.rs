@@ -7,13 +7,24 @@ use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
 use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
 use sp_arithmetic::{traits::Saturating, Permill};
+//use sp_core::Public;
+use sp_core::crypto::Public;
 use sp_io::hashing::blake2_128;
-use sp_runtime::traits::Zero;
-use sp_std::{convert::TryInto, str};
+use sp_runtime::traits::{Verify, Zero};
+use sp_std::{
+    convert::{TryFrom, TryInto},
+    prelude::*,
+    str,
+};
 
-type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type BalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
+type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::PositiveImbalance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 pub use pallet::*;
 
@@ -209,10 +220,7 @@ pub mod pallet {
         fn test_blake2_128(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let encode_data: [u8; 16] = blake2_128(&b"Hello world!"[..]); // .to_vec().encode();
-            debug::info!(
-                "###### blake2_128 Hash of Hello world! is: {:?}",
-                encode_data
-            );
+            debug::info!("###### blake2_128 Hash of Hello world! is: {:?}", encode_data);
             Ok(().into())
         }
 
@@ -237,6 +245,27 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Self::do_slash(value, slash_who);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        fn verify_sig(
+            origin: OriginFor<T>,
+            msg: Vec<u8>,
+            sig: Vec<u8>,
+            account: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let out = match sp_core::sr25519::Signature::try_from(&sig[..]) {
+                Ok(signature) => {
+                    // 获取帐号的方法
+                    let public = sp_core::sr25519::Public::from_slice(account.as_ref());
+                    signature.verify(&msg[..], &public)
+                }
+                _ => false,
+            };
+            debug::error!("##### verify result: {}", out);
             Ok(().into())
         }
     }
