@@ -121,7 +121,7 @@ enum ReportConfirmStatus<AccountId> {
 
 //  委员会的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CommitteeList<AccountId: Ord> {
+pub struct MTCommitteeList<AccountId: Ord> {
     pub committee: Vec<AccountId>, // 质押并通过社区选举的委员会
     pub waiting_box_pubkey: Vec<AccountId>,
     pub black_list: Vec<AccountId>, // 委员会，黑名单中
@@ -213,7 +213,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn committee)]
-    pub(super) type Committee<T: Config> = StorageValue<_, CommitteeList<T::AccountId>, ValueQuery>;
+    pub(super) type Committee<T: Config> =
+        StorageValue<_, MTCommitteeList<T::AccountId>, ValueQuery>;
 
     // 默认抢单委员会的个数
     #[pallet::type_value]

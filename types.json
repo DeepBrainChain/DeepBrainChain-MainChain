@@ -212,5 +212,9 @@
     "machine_grade": "u64",
     "machine_price": "u64",
     "reward_deadline": "BlockNumber"
+  },
+  "MTCommitteeList": {
+    "committee": "Vec<AccountId>",
+    "waiting_box_pubkey": "Vec<AccountId>"
   }
 }

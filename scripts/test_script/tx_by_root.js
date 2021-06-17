@@ -21,37 +21,26 @@ async function main() {
   const keyring = createTestKeyring();
   const adminPair = keyring.getPairs()[0];
 
-  const bobPair = keyring.bob;
-
   // 创建方法map
   var funcMap = {};
   funcMap["dbcPriceOcw"] = {};
   funcMap["dbcPriceOcw"]["addPriceUrl"] = api.tx.dbcPriceOcw.addPriceUrl;
 
   funcMap["leaseCommittee"] = {};
-  funcMap["leaseCommittee"]["setStakedUsdPerOrder"] =
-    api.tx.leaseCommittee.setStakedUsdPerOrder;
-  funcMap["leaseCommittee"]["addCommittee"] =
-    api.tx.leaseCommittee.addCommittee;
+  funcMap["leaseCommittee"]["setStakedUsdPerOrder"] = api.tx.leaseCommittee.setStakedUsdPerOrder;
+  funcMap["leaseCommittee"]["addCommittee"] = api.tx.leaseCommittee.addCommittee;
 
   funcMap["genericFunc"] = {};
   funcMap["genericFunc"]["setFixedTxFee"] = api.tx.genericFunc.setFixedTxFee;
 
   funcMap["onlineProfile"] = {};
   funcMap["onlineProfile"]["setGpuStake"] = api.tx.onlineProfile.setGpuStake;
-  funcMap["onlineProfile"]["setRewardStartEra"] =
-    api.tx.onlineProfile.setRewardStartEra;
-  funcMap["onlineProfile"]["setPhaseNRewardPerEra"] =
-    api.tx.onlineProfile.setPhaseNRewardPerEra;
-  funcMap["onlineProfile"]["setStakeUsdLimit"] =
-    api.tx.onlineProfile.setStakeUsdLimit;
-  funcMap["onlineProfile"]["setStandardGpuPointPrice"] =
-    api.tx.onlineProfile.setStandardGpuPointPrice;
+  funcMap["onlineProfile"]["setRewardStartEra"] = api.tx.onlineProfile.setRewardStartEra;
+  funcMap["onlineProfile"]["setPhaseNRewardPerEra"] = api.tx.onlineProfile.setPhaseNRewardPerEra;
+  funcMap["onlineProfile"]["setStakeUsdLimit"] = api.tx.onlineProfile.setStakeUsdLimit;
+  funcMap["onlineProfile"]["setStandardGpuPointPrice"] = api.tx.onlineProfile.setStandardGpuPointPrice;
 
   const callFunc = funcMap[args["module"]][args["func"]];
-
-  // console.log(adminPair.address);
-
   await do_sign_tx(api, callFunc, adminPair, ...args._).catch((error) =>
     console.log(error.message)
   );

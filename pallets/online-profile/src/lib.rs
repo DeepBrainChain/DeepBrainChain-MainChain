@@ -1,4 +1,4 @@
-// 机器质押数量：
+// 机器单卡质押数量：
 //   n = min(n1, n2)
 //   n1 = 5w RMB 等值DBC
 //   n2 = 100000 DBC (卡数 <= 10000)
@@ -21,10 +21,7 @@ use codec::EncodeLike;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
-    traits::{
-        Currency, ExistenceRequirement::AllowDeath, Get, LockIdentifier, LockableCurrency,
-        WithdrawReasons,
-    },
+    traits::{Currency, Get, LockIdentifier, LockableCurrency, OnUnbalanced, WithdrawReasons},
     weights::Weight,
     IterableStorageMap,
 };
@@ -37,7 +34,12 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub},
     Perbill, SaturatedConversion,
 };
-use sp_std::{collections::vec_deque::VecDeque, convert::TryInto, prelude::*, str};
+use sp_std::{
+    collections::{btree_set::BTreeSet, vec_deque::VecDeque},
+    convert::TryInto,
+    prelude::*,
+    str,
+};
 
 pub mod grade_inflation;
 pub mod op_types;
@@ -98,6 +100,7 @@ pub struct StakerMachine<Balance> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
+    pub controller: AccountId,             // 绑定机器的人
     pub machine_owner: AccountId, // 允许用户绑定跟自己机器ID不一样的，奖励发放给machine_owner
     pub machine_renter: Option<AccountId>, // 当前机器的租用者
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
@@ -113,6 +116,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 pub enum MachineStatus<BlockNumber> {
     MachineSelfConfirming,
     CommitteeVerifying,
+    CommitteeRefused(BlockNumber),      // 委员会拒绝机器上线
     WaitingFulfill,                     // 补交质押
     Online,                             // 正在上线，且未被租用
     StakerReportOffline(BlockNumber),   // 机器管理者报告机器已下线
@@ -132,10 +136,10 @@ impl<BlockNumber> Default for MachineStatus<BlockNumber> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct LiveMachine {
     pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
-    pub machine_confirmed: Vec<MachineId>, // OCW从bonding_machine中读取机器ID，确认之后，添加到本字段。该状态可以由lc分配订单
+    pub machine_confirmed: Vec<MachineId>, // 机器钱包发送确认信息之后，添加到本字段。该状态可以由lc分配订单
     pub booked_machine: Vec<MachineId>, // 当机器已经全部分配了委员会，则变为该状态。若lc确认机器失败(认可=不认可)则返回上一状态，重新分派订单
-    pub waiting_hash: Vec<MachineId>, // 当全部委员会添加了全部confirm hash之后，机器添加到waiting_hash，这时，用户可以添加confirm_raw
-    pub bonded_machine: Vec<MachineId>, // 当全部委员会添加了confirm_raw之后，机器被成功绑定，变为bonded_machine状态
+    pub online_machine: Vec<MachineId>, // 被委员会确认之后之后，机器上线
+    pub fulfilling_machine: Vec<MachineId>, // 拒绝接入后变为该状态
 }
 
 impl LiveMachine {
@@ -150,10 +154,10 @@ impl LiveMachine {
         if let Ok(_) = self.booked_machine.binary_search(machine_id) {
             return true;
         }
-        if let Ok(_) = self.waiting_hash.binary_search(machine_id) {
+        if let Ok(_) = self.online_machine.binary_search(machine_id) {
             return true;
         }
-        if let Ok(_) = self.bonded_machine.binary_search(machine_id) {
+        if let Ok(_) = self.fulfilling_machine.binary_search(machine_id) {
             return true;
         }
         false
@@ -179,8 +183,23 @@ pub struct StandardGpuPointPrice {
     pub gpu_price: u64,
 }
 
+pub type SlashId = u64;
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
+
+// 即将被执行的罚款
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
+    pub slash_who: AccountId,
+    pub slash_time: BlockNumber,      // 惩罚被创建的时间
+    pub unlock_amount: Balance,       // 执行惩罚前解绑的金额
+    pub slash_amount: Balance,        // 执行惩罚的金额
+    pub slash_exec_time: BlockNumber, // 惩罚被执行的时间
+    pub reward_to: Vec<AccountId>,    // 奖励发放对象。如果为空，则惩罚到国库
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -197,6 +216,7 @@ pub mod pallet {
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type BondingDuration: Get<EraIndex>;
         type ProfitReleaseDuration: Get<u64>; // 剩余75%线性释放时间长度(25%立即释放)
+        type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -259,6 +279,20 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn total_stake)]
     pub(super) type TotalStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn next_slash_id)]
+    pub(super) type NextSlashId<T: Config> = StorageValue<_, SlashId, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash)]
+    pub(super) type PendingSlash<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        SlashId,
+        PendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
 
     // 机器的详细信息,只有当所有奖励领取完才能删除该变量?
     #[pallet::storage]
@@ -367,6 +401,8 @@ pub mod pallet {
             if current_height > 0 && current_height % BLOCK_PER_ERA == 0 {
                 let _ = Self::distribute_reward();
             }
+
+            Self::check_and_exec_slash();
         }
     }
 
@@ -478,6 +514,7 @@ pub mod pallet {
 
             // 初始化MachineInfo, 并添加到MachinesInfo
             let machine_info = MachineInfo {
+                controller: controller.clone(),
                 machine_owner,
                 bonding_height: <frame_system::Module<T>>::block_number(),
                 stake_amount: first_bond_stake,
@@ -490,6 +527,30 @@ pub mod pallet {
                 machine_id.clone(),
                 first_bond_stake,
             ));
+            Ok(().into())
+        }
+
+        // 机器没有成功上线，则需要在10天内手动执行rebond
+        #[pallet::weight(10000)]
+        pub fn rebond_machine(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+            let mut machine_info = Self::machines_info(&machine_id);
+
+            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+            // ensure!(machine_info.machine_status == MachineStatus::CommitteeRefused(_))
+            if let MachineStatus::CommitteeRefused(refuse_time) = machine_info.machine_status {
+                // 超过10天
+                // if refuse_time - now > 28800u64.saturated_into::<T::BlockNumber>() {
+                // return Err();
+                // }
+            } else {
+                // return Err(Error::<T>::Notsta);
+            }
+
             Ok(().into())
         }
 
@@ -663,6 +724,8 @@ pub mod pallet {
         Withdrawn(T::AccountId, MachineId, BalanceOf<T>),
         ClaimRewards(T::AccountId, MachineId, BalanceOf<T>),
         ReporterStake(T::AccountId, MachineId, BalanceOf<T>),
+        Slash(T::AccountId, BalanceOf<T>),
+        MissedSlash(T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -1026,6 +1089,89 @@ impl<T: Config> Pallet<T> {
             .map(|(staker, _)| staker)
             .collect::<Vec<_>>()
     }
+
+    fn get_new_slash_id() -> SlashId {
+        let slash_id = Self::next_slash_id();
+        NextSlashId::<T>::put(slash_id + 1);
+        return slash_id;
+    }
+
+    fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
+        let slash_id = Self::get_new_slash_id();
+        let now = <frame_system::Module<T>>::block_number();
+        PendingSlash::<T>::insert(
+            slash_id,
+            PendingSlashInfo {
+                slash_who: who,
+                slash_time: now,
+                unlock_amount: amount,
+                slash_amount: amount,
+                slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
+                reward_to,
+            },
+        );
+    }
+
+    // 获得所有被惩罚的订单列表
+    fn get_slash_id() -> BTreeSet<SlashId> {
+        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
+            .map(|(slash_id, _)| slash_id)
+            .collect::<BTreeSet<_>>()
+    }
+
+    // 检查fulfilling list，如果超过10天，则清除记录，退还质押
+    fn check_and_clean_refused_machine() {
+        let now = <frame_system::Module<T>>::block_number();
+
+        let live_machines = Self::live_machines();
+        for a_machine in live_machines.fulfilling_machine {
+            let machine_info = Self::machines_info(&a_machine);
+
+            if let MachineStatus::CommitteeRefused(refuse_time) = machine_info.machine_status {
+                if refuse_time - now >= 28800u64.saturated_into::<T::BlockNumber>() {}
+            }
+        }
+    }
+
+    // 检查并执行slash
+    fn check_and_exec_slash() {
+        let now = <frame_system::Module<T>>::block_number();
+
+        let pending_slash_id = Self::get_slash_id();
+        for a_slash_id in pending_slash_id {
+            let a_slash_info = Self::pending_slash(&a_slash_id);
+            if now >= a_slash_info.slash_exec_time {
+                let _ = Self::reduce_user_total_stake(
+                    &a_slash_info.slash_who,
+                    a_slash_info.unlock_amount,
+                );
+
+                // 如果reward_to为0，则将币转到国库
+                if a_slash_info.reward_to.len() == 0 {
+                    if <T as pallet::Config>::Currency::can_slash(
+                        &a_slash_info.slash_who,
+                        a_slash_info.slash_amount,
+                    ) {
+                        let (imbalance, missing) = <T as pallet::Config>::Currency::slash(
+                            &a_slash_info.slash_who,
+                            a_slash_info.slash_amount,
+                        );
+                        Self::deposit_event(Event::Slash(
+                            a_slash_info.slash_who.clone(),
+                            a_slash_info.slash_amount,
+                        ));
+                        Self::deposit_event(Event::MissedSlash(
+                            a_slash_info.slash_who,
+                            missing.clone(),
+                        ));
+                        T::Slash::on_unbalanced(imbalance);
+                    }
+                } else {
+                    // TODO: reward_to将获得slash的奖励
+                }
+            }
+        }
+    }
 }
 
 // 审查委员会可以执行的操作
@@ -1115,46 +1261,25 @@ impl<T: Config> LCOps for Pallet<T> {
         return Ok(());
     }
 
-    // 当委员会达成统一意见，拒绝机器时，删掉机器配置信息，并扣除机器质押
-    fn lc_refuse_machine(who: Vec<T::AccountId>, machine_id: MachineId) -> Result<(), ()> {
+    // 当委员会达成统一意见，拒绝机器时，机器状态改为补充质押。并记录拒绝时间。
+    fn lc_refuse_machine(machine_id: MachineId) -> Result<(), ()> {
         // 拒绝用户绑定，需要清除存储
-        let machine_info = Self::machines_info(&machine_id);
-        let committee_num: BalanceOf<T> = who.len().saturated_into();
-        let reward_to_committee = machine_info.stake_amount.checked_div(&committee_num).ok_or(())?;
+        let mut machine_info = Self::machines_info(&machine_id);
+        let now = <frame_system::Module<T>>::block_number();
 
-        // 将惩罚分给委员会
-        Self::reduce_user_total_stake(&machine_info.machine_owner, machine_info.stake_amount)?;
-        for a_committee in who {
-            <T as pallet::Config>::Currency::transfer(
-                &machine_info.machine_owner,
-                &a_committee,
-                reward_to_committee,
-                AllowDeath,
-            )
-            .map_err(|e| {
-                debug::error!("Transfer failed when lc refuse machine: {:?}", e);
-                ()
-            })?;
-        }
+        // 惩罚5%，并将机器ID移动到LiveMachine的补充质押中。
+        let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
+        machine_info.stake_amount = machine_info.stake_amount - slash;
 
-        MachinesInfo::<T>::remove(&machine_id);
+        Self::add_slash(machine_info.controller.clone(), slash, Vec::new());
+
+        machine_info.machine_status = MachineStatus::CommitteeRefused(now);
+        MachinesInfo::<T>::insert(&machine_id, machine_info);
 
         let mut live_machines = Self::live_machines();
-        LiveMachine::rm_machine_id(&mut live_machines.waiting_hash, &machine_id);
+        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &machine_id);
+        LiveMachine::add_machine_id(&mut live_machines.fulfilling_machine, machine_id);
         LiveMachines::<T>::put(live_machines);
-
-        let mut user_machines = Self::user_machines(&machine_info.machine_owner);
-        if let Ok(index) = user_machines.total_machine.binary_search(&machine_id) {
-            user_machines.total_machine.remove(index);
-        }
-        if let Err(index) = user_machines.online_machine.binary_search(&machine_id) {
-            user_machines.online_machine.insert(index, machine_id);
-        }
-
-        // FIXME
-        // calc_machine_grade(base_grade, bond_num);
-
-        UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
 
         Ok(())
     }

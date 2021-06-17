@@ -760,50 +760,92 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
 
         for machine_id in booked_machine {
-            // 如果机器超过了48个小时，则查看：
-            // 是否有委员会提交了确认信息
-            // 当所有委员会都提交了原始信息之后，直接进入Summary
             let machine_committee = Self::machine_committee(machine_id.clone());
+            // 当不为Summary状态时查看是否到了48小时，如果不到则返回
             if machine_committee.status != LCVerifyStatus::Summarying {
                 if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
                     return;
                 }
             }
 
+            let mut slash_committee = Vec::new(); // 应该被惩罚的委员会
+            let mut reward_committee = Vec::new(); // 当拒绝上线时，惩罚委员会的币奖励给拒绝的委员会
+            let mut unstake_committee = Vec::new(); // 解除质押的委员会
+
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
+                    slash_committee.extend(summary.unruly.clone());
+                    slash_committee.extend(summary.against);
+                    slash_committee.extend(summary.invalid_support);
+                    unstake_committee.extend(summary.valid_support.clone());
                     let _ = T::LCOperations::lc_confirm_machine(
                         summary.valid_support,
                         summary.info.unwrap(),
                     );
-                    // TODO: 惩罚拒绝的委员会
                 }
                 MachineConfirmStatus::Refuse(summary) => {
-                    // 如果是委员会判定失败，则扣除所有奖金
-                    let _ = T::LCOperations::lc_refuse_machine(summary.against, machine_id);
-                    // TODO: 惩罚
+                    slash_committee.extend(summary.unruly.clone());
+                    slash_committee.extend(summary.invalid_support);
+                    reward_committee.extend(summary.against.clone());
+                    unstake_committee.extend(summary.against.clone());
+
+                    // FIXME 修改逻辑
+                    let _ = T::LCOperations::lc_refuse_machine(machine_id.clone());
                 }
                 MachineConfirmStatus::NoConsensus(summary) => {
-                    // TODO: 对没有提交信息的进行惩罚
-                    // 没有委员会添加确认信息，或者意见相反委员会相等, 则进行新一轮分派评估
+                    slash_committee.extend(summary.unruly.clone());
+                    unstake_committee.extend(machine_committee.confirmed_committee.clone());
                     let _ = Self::revert_book(machine_id.clone());
+
+                    // FIXME: 查询质押，并退还质押： 应该改成onlineProfile上一中状态
+                    T::LCOperations::lc_revert_booked_machine(machine_id.clone());
                 }
             }
+
+            // 惩罚没有提交信息的委员会
+            for a_committee in slash_committee {
+                let committee_ops = Self::committee_ops(&a_committee, &machine_id);
+                Self::add_slash(a_committee, committee_ops.staked_dbc, reward_committee.clone());
+                // TODO: 应该从book的信息中移除
+            }
+
+            for a_committee in unstake_committee {
+                let committee_ops = Self::committee_ops(&a_committee, &machine_id);
+                Self::reduce_stake(&a_committee, committee_ops.staked_dbc);
+            }
         }
+    }
+
+    fn clean_book(machine_id: MachineId, committee: T::AccountId) {
+        CommitteeOps::<T>::remove(&committee, &machine_id);
+
+        let mut committee_machine = Self::committee_machine(&committee);
+        if let Ok(index) = committee_machine.booked_machine.binary_search(&machine_id) {
+            committee_machine.booked_machine.remove(index);
+        }
+        if let Ok(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
+            committee_machine.hashed_machine.remove(index);
+        }
+        if let Ok(index) = committee_machine.confirmed_machine.binary_search(&machine_id) {
+            committee_machine.confirmed_machine.remove(index);
+        }
+        CommitteeMachine::<T>::insert(committee, committee_machine);
     }
 
     // 重新进行派单评估
     // 该函数将清除本模块信息，并将online_profile机器状态改为ocw_confirmed_machine
     // 清除信息： LCCommitteeMachineList, LCMachineCommitteeList, LCCommitteeOps
     fn revert_book(machine_id: MachineId) -> Result<(), ()> {
-        // 查询质押，并退还质押
-        T::LCOperations::lc_revert_booked_machine(machine_id.clone());
-
         let machine_committee = Self::machine_committee(&machine_id);
-        for booked_committee in machine_committee.booked_committee {
+
+        // 给提交了信息的委员会退押金
+        for booked_committee in machine_committee.confirmed_committee {
             let committee_ops = Self::committee_ops(&booked_committee, &machine_id);
             Self::reduce_stake(&booked_committee, committee_ops.staked_dbc)?;
+        }
 
+        // 清除预订了机器的委员会
+        for booked_committee in machine_committee.booked_committee {
             CommitteeOps::<T>::remove(&booked_committee, &machine_id);
 
             let mut committee_machine = Self::committee_machine(&booked_committee);
@@ -823,9 +865,11 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // 总结机器的确认情况
-    // 检查机器是否被确认，并检查提交的信息是否一致
-    // 返回三种情况：1. 认可，则添加机器; 2. 不认可，则退出机器； 3. 没达成共识
+    // 总结机器的确认情况: 检查机器是否被确认，并检查提交的信息是否一致
+    // 返回三种状态：
+    // 1. 无共识：处理办法：退还委员会质押，机器重新派单。
+    // 2. 支持上线: 处理办法：扣除所有反对上线，支持上线但提交无效信息的委员会的质押。
+    // 3. 反对上线: 处理办法：反对的委员会平分支持的委员会的质押。扣5%矿工质押，允许矿工再次质押而上线。
     fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
         let machine_committee = Self::machine_committee(machine_id);
 
@@ -834,22 +878,15 @@ impl<T: Config> Pallet<T> {
         let mut uniq_machine_info: Vec<CommitteeUploadInfo> = Vec::new(); // 支持的委员会可能提交不同的机器信息
         let mut committee_for_machine_info = Vec::new(); // 不同机器信息对应的委员会
 
-        // 记录没有提交全部信息的委员会
         for a_committee in machine_committee.booked_committee {
-            if machine_committee.hashed_committee.binary_search(&a_committee).is_err() {
+            // 记录没有提交原始信息的委员会
+            if machine_committee.confirmed_committee.binary_search(&a_committee).is_err() {
                 summary.unruly.push(a_committee);
+                continue;
             }
-        }
 
-        // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
-        if machine_committee.confirmed_committee.len() == 0 {
-            return MachineConfirmStatus::NoConsensus(summary);
-        }
-
-        for a_committee in machine_committee.confirmed_committee {
             let a_machine_info = Self::committee_ops(a_committee.clone(), machine_id).machine_info;
-
-            // 如果该委员会反对该机器
+            // 记录上反对上线的委员会
             if a_machine_info.is_support == false {
                 summary.against.push(a_committee);
                 continue;
@@ -857,12 +894,16 @@ impl<T: Config> Pallet<T> {
 
             match uniq_machine_info.iter().position(|r| r == &a_machine_info) {
                 None => {
-                    // 收到了一个独特的machine info
                     uniq_machine_info.push(a_machine_info.clone());
                     committee_for_machine_info.push(vec![a_committee.clone()]);
                 }
                 Some(index) => committee_for_machine_info[index].push(a_committee),
             };
+        }
+
+        // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
+        if machine_committee.confirmed_committee.len() == 0 {
+            return MachineConfirmStatus::NoConsensus(summary);
         }
 
         // 统计committee_for_machine_info中有多少委员会站队最多
@@ -876,6 +917,7 @@ impl<T: Config> Pallet<T> {
                 if summary.against.len() > 0 {
                     return MachineConfirmStatus::Refuse(summary);
                 }
+                // 反对者支持者都为0
                 return MachineConfirmStatus::NoConsensus(summary);
             }
             Some(max_support_num) => {
@@ -899,22 +941,27 @@ impl<T: Config> Pallet<T> {
                         committee_for_machine_info[committee_group_index].clone();
 
                     if summary.against.len() > max_support_group {
+                        // 反对多于支持
                         return MachineConfirmStatus::Refuse(summary);
-                    }
-                    if summary.against.len() == max_support_group {
+                    } else if summary.against.len() == max_support_group {
+                        // 反对等于支持
                         return MachineConfirmStatus::NoConsensus(summary);
+                    } else {
+                        // 反对小于支持
+                        summary.info = Some(uniq_machine_info[committee_group_index].clone());
+                        return MachineConfirmStatus::Confirmed(summary);
                     }
-
-                    summary.info = Some(uniq_machine_info[committee_group_index].clone());
-                    return MachineConfirmStatus::Confirmed(summary);
                 }
 
-                // 如果有两组都是Max个委员会支
-                // 否则，max_support_group > 1，且反对的占多数
+                // 如果有两组都是Max个委员会支, 则所有的支持都是无效的支持
+                for index in 0..committee_for_machine_info.len() {
+                    summary.invalid_support.extend(committee_for_machine_info[index].clone())
+                }
                 if summary.against.len() > *max_support_num {
                     return MachineConfirmStatus::Refuse(summary);
                 }
-                // against == max_support 或者 against < max_support 时，都是无法达成共识
+
+                // against <= max_support 且 max_support_group > 1，且反对的不占多数
                 return MachineConfirmStatus::NoConsensus(summary);
             }
         }
@@ -976,7 +1023,7 @@ impl<T: Config> Pallet<T> {
                             a_slash_info.slash_who,
                             missing.clone(),
                         ));
-                        T::Slash::on_unbalanced(imbalance);
+                        <T as pallet::Config>::Slash::on_unbalanced(imbalance);
                     }
                 } else {
                     // TODO: reward_to将获得slash的奖励
@@ -990,6 +1037,22 @@ impl<T: Config> Pallet<T> {
         <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
             .map(|(slash_id, _)| slash_id)
             .collect::<BTreeSet<_>>()
+    }
+
+    fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
+        let slash_id = Self::get_new_slash_id();
+        let now = <frame_system::Module<T>>::block_number();
+        PendingSlash::<T>::insert(
+            slash_id,
+            PendingSlashInfo {
+                slash_who: who,
+                slash_time: now,
+                unlock_amount: amount,
+                slash_amount: amount,
+                slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
+                reward_to,
+            },
+        );
     }
 
     fn get_new_slash_id() -> SlashId {

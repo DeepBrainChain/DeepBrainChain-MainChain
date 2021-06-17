@@ -15,7 +15,7 @@ pub trait LCOps {
         who: Vec<Self::AccountId>,
         machine_info: Self::CommitteeUploadInfo,
     ) -> Result<(), ()>;
-    fn lc_refuse_machine(who: Vec<Self::AccountId>, id: Self::MachineId) -> Result<(), ()>;
+    fn lc_refuse_machine(machien_id: Self::MachineId) -> Result<(), ()>;
 }
 
 pub trait RTOps {
@@ -23,5 +23,9 @@ pub trait RTOps {
     type MachineId;
     type MachineStatus;
 
-    fn change_machine_status(machine_id: &Self::MachineId, new_status: Self::MachineStatus, renter: Self::AccountId);
+    fn change_machine_status(
+        machine_id: &Self::MachineId,
+        new_status: Self::MachineStatus,
+        renter: Self::AccountId,
+    );
 }
