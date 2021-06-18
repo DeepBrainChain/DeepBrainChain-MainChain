@@ -81,7 +81,8 @@
     "num": "Vec<u8>",
     "type": "Vec<u8>"
   },
-  "Disk": {},
+  "Disk": {
+  },
   "GPU": {
     "num": "Vec<u8>",
     "gpus": "Vec<GPUDetail>"
@@ -266,6 +267,12 @@
     "hashed_order": "Vec<ReportId>",
     "confirmed_order": "Vec<ReportId>",
     "online_machine": "Vec<MachineId>"
+  },
+  "MTLiveReportList": {
+    "bookable_report": "Vec<ReportId>",
+    "verifying_report": "Vec<ReportId>",
+    "waiting_raw_report": "Vec<ReportId>",
+    "waiting_rechecked_report": "Vec<ReportId>"
   },
   "MTReportInfoDetail": {
     "reporter": "AccountId",

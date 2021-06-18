@@ -12,7 +12,7 @@ import sys
 with open(sys.argv[1]) as f:
     data = f.read().encode()
 
-host = ('localhost', int(sys.argv[2]))
+host = ('0.0.0.0', int(sys.argv[2]))
 
 class Response(BaseHTTPRequestHandler):
     def do_GET(self):
