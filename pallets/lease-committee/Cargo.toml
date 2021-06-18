@@ -56,10 +56,10 @@ default-features = false
 path = '../generic-func'
 package = 'generic-func'
 
-[dependencies.dbc-price-ocw]
+[dependencies.committee]
 default-features = false
-path = '../dbc-price-ocw'
-package = 'dbc-price-ocw'
+path = '../committee'
+package = 'committee'
 
 [dev-dependencies.sp-core]
 git = 'https://github.com/paritytech/substrate.git'
@@ -95,7 +95,7 @@ version = '3.0.0'
 default = ["std"]
 std = [
     "codec/std",
-    "dbc-price-ocw/std",
+    "committee/std",
     "frame-support/std",
     "frame-system/std",
     "online-profile/std",

@@ -1053,11 +1053,16 @@ impl online_profile::Config for Runtime {
     type Slash = Treasury;
 }
 
+impl committee::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type Slash = Treasury;
+}
+
 impl lease_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type LCOperations = OnlineProfile;
-    type Slash = Treasury;
 }
 
 impl maintain_committee::Config for Runtime {
@@ -1117,6 +1122,7 @@ construct_runtime!(
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
+        Committee: committee::{Module, Call, Storage, Event<T>},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Storage, Call, Event<T>},

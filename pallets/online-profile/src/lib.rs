@@ -537,12 +537,12 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
-            let mut machine_info = Self::machines_info(&machine_id);
+            let _now = <frame_system::Module<T>>::block_number();
+            let machine_info = Self::machines_info(&machine_id);
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
             // ensure!(machine_info.machine_status == MachineStatus::CommitteeRefused(_))
-            if let MachineStatus::CommitteeRefused(refuse_time) = machine_info.machine_status {
+            if let MachineStatus::CommitteeRefused(_refuse_time) = machine_info.machine_status {
                 // 超过10天
                 // if refuse_time - now > 28800u64.saturated_into::<T::BlockNumber>() {
                 // return Err();
@@ -1120,7 +1120,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // 检查fulfilling list，如果超过10天，则清除记录，退还质押
-    fn check_and_clean_refused_machine() {
+    fn _check_and_clean_refused_machine() {
         let now = <frame_system::Module<T>>::block_number();
 
         let live_machines = Self::live_machines();

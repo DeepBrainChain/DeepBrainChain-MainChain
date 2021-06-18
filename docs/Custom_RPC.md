@@ -137,8 +137,10 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 + 返回信息：
 
 ```json
-{"jsonrpc":"2.0","result":{"bonded_machine":[],"bonding_machine":[],"booked_machine":[],"ocw_confirmed_machine":[],"waiting_hash":[]},"id":1}
+{"jsonrpc":"2.0","result":{"bonding_machine":[],"booked_machine":[],"fulfilling_machine":[],"machine_confirmed":[],"online_machine":[]},"id":1}
 ```
+
+结果说明：
 
 ### 查询机器信息
 

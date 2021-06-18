@@ -119,13 +119,6 @@ enum ReportConfirmStatus<AccountId> {
     NoConsensus,
 }
 
-//  委员会的列表
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct MTCommitteeList<AccountId: Ord> {
-    pub committee: Vec<AccountId>, // 质押并通过社区选举的委员会
-    pub waiting_box_pubkey: Vec<AccountId>,
-}
-
 // 委员会抢到的订单的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MTCommitteeOrderList {
@@ -164,16 +157,16 @@ impl Default for MTOrderStatus {
     }
 }
 
-// 即将被执行的罚款
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
-    pub slash_who: AccountId,
-    pub slash_time: BlockNumber,      // 惩罚被创建的时间
-    pub unlock_amount: Balance,       // 执行惩罚前解绑的金额
-    pub slash_amount: Balance,        // 执行惩罚的金额
-    pub slash_exec_time: BlockNumber, // 惩罚被执行的时间
-    pub reward_to: Vec<AccountId>,    // 奖励发放对象。如果为空，则惩罚到国库
-}
+// // 即将被执行的罚款
+// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+// pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
+//     pub slash_who: AccountId,
+//     pub slash_time: BlockNumber,      // 惩罚被创建的时间
+//     pub unlock_amount: Balance,       // 执行惩罚前解绑的金额
+//     pub slash_amount: Balance,        // 执行惩罚的金额
+//     pub slash_exec_time: BlockNumber, // 惩罚被执行的时间
+//     pub reward_to: Vec<AccountId>,    // 奖励发放对象。如果为空，则惩罚到国库
+// }
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -196,35 +189,20 @@ pub mod pallet {
             // 每个块检查状态是否需要变化。
             // 抢单逻辑不能在finalize中处理，防止一个块有多个抢单请求
             Self::heart_beat();
-            Self::check_and_exec_slash();
+            // Self::check_and_exec_slash();
         }
     }
-
-    // 委员会最小质押, 默认100RMB等值DBC
-    #[pallet::storage]
-    #[pallet::getter(fn committee_min_stake)]
-    pub(super) type CommitteeMinStake<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     // 报告人最小质押，默认100RMB等值DBC
     #[pallet::storage]
     #[pallet::getter(fn reporter_report_stake)]
     pub(super) type ReporterReportStake<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn committee)]
-    pub(super) type Committee<T: Config> =
-        StorageValue<_, MTCommitteeList<T::AccountId>, ValueQuery>;
-
     // 默认抢单委员会的个数
     #[pallet::type_value]
     pub fn CommitteeLimitDefault<T: Config>() -> u32 {
         3
     }
-
-    #[pallet::storage]
-    #[pallet::getter(fn box_pubkey)]
-    pub(super) type BoxPubkey<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, [u8; 32], ValueQuery>;
 
     // 存储每个用户在该模块中的总质押量
     #[pallet::storage]
@@ -282,33 +260,8 @@ pub mod pallet {
     #[pallet::getter(fn next_report_id)]
     pub(super) type NextReportId<T: Config> = StorageValue<_, ReportId, ValueQuery>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn next_slash_id)]
-    pub(super) type NextSlashId<T: Config> = StorageValue<_, SlashId, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn pending_slash)]
-    pub(super) type PendingSlash<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        SlashId,
-        PendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ValueQuery,
-    >;
-
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // 设置委员会抢单质押，单位： usd * 10^6, 如：16美元
-        #[pallet::weight(0)]
-        pub fn set_committee_order_stake(
-            origin: OriginFor<T>,
-            value: u64,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            CommitteeMinStake::<T>::put(value);
-            Ok(().into())
-        }
-
         // 设置报告人报告质押，单位：usd * 10^6, 如：16美元
         #[pallet::weight(0)]
         pub fn set_reporter_report_stake(
@@ -318,87 +271,6 @@ pub mod pallet {
             ensure_root(origin)?;
             ReporterReportStake::<T>::put(value);
             Ok(().into())
-        }
-
-        // 取消一个惩罚
-        #[pallet::weight(0)]
-        pub fn cancle_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            PendingSlash::<T>::remove(slash_id);
-            Ok(().into())
-        }
-
-        // 需要Root权限。添加到委员会，直接添加到committee列表中
-        #[pallet::weight(0)]
-        pub fn add_committee(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            let mut committee_list = Self::committee();
-
-            committee_list
-                .committee
-                .binary_search(&member)
-                .map_err(|_| Error::<T>::AccountAlreadyExist)?;
-
-            if let Ok(index) = committee_list.waiting_box_pubkey.binary_search(&member) {
-                committee_list.committee.insert(index, member.clone());
-            }
-
-            Self::deposit_event(Event::CommitteeAdded(member));
-            Ok(().into())
-        }
-
-        // 委员会需要手动添加自己的加密公钥信息
-        #[pallet::weight(0)]
-        pub fn committee_set_box_pubkey(
-            origin: OriginFor<T>,
-            box_pubkey: [u8; 32],
-        ) -> DispatchResultWithPostInfo {
-            let committee = ensure_signed(origin)?;
-            let mut committee_list = Self::committee();
-
-            // 不是委员会则返回错误
-            if committee_list.committee.binary_search(&committee).is_err()
-                && committee_list.waiting_box_pubkey.binary_search(&committee).is_err()
-            {
-                return Err(Error::<T>::NotCommittee.into());
-            }
-
-            BoxPubkey::<T>::insert(&committee, box_pubkey);
-            if let Ok(index) = committee_list.waiting_box_pubkey.binary_search(&committee) {
-                committee_list.waiting_box_pubkey.remove(index);
-            }
-
-            Ok(().into())
-        }
-
-        // 委员会列表中没有任何任务时，委员会可以退出
-        #[pallet::weight(10000)]
-        pub fn exit_committee(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            let mut committee_list = Self::committee();
-            if let Ok(index) = committee_list.committee.binary_search(&who) {
-                committee_list.committee.remove(index);
-            } else {
-                return Err(Error::<T>::NotCommittee.into());
-            }
-
-            // 如果有未完成的工作，则不允许退出
-            let committee_order = Self::committee_order(&who);
-            if committee_order.booked_order.len() > 0
-                || committee_order.hashed_order.len() > 0
-                || committee_order.confirmed_order.len() > 0
-            {
-                return Err(Error::<T>::JobNotDone.into());
-            }
-
-            Committee::<T>::put(committee_list);
-            Self::deposit_event(Event::CommitteeExit(who));
-
-            return Ok(().into());
         }
 
         // 任何用户可以报告机器硬件有问题
@@ -596,10 +468,11 @@ pub mod pallet {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            // 判断发起请求者是状态正常的委员会
-            if !Self::is_valid_committee(&committee) {
-                return Err(Error::<T>::NotCommittee.into());
-            }
+            // TODO: 由committee 判断
+            // // 判断发起请求者是状态正常的委员会
+            // if !Self::is_valid_committee(&committee) {
+            //     return Err(Error::<T>::NotCommittee.into());
+            // }
 
             // 检查订单是否可预订状态
             let mut report_info = Self::report_info(report_id);
@@ -618,12 +491,12 @@ pub mod pallet {
             // 改变report状态
             report_info.report_status = ReportStatus::Verifying;
 
-            // 委员会增加质押
-            let committee_order_stake = Self::committee_min_stake();
-            let committee_stake_need = Self::get_dbc_amount_by_value(committee_order_stake)
-                .ok_or(Error::<T>::GetStakeAmountFailed)?;
-            Self::add_user_total_stake(&committee, committee_stake_need)
-                .map_err(|_| Error::<T>::StakeFailed)?;
+            // 委员会增加质押: TODO: 由committee执行
+            // let committee_order_stake = Self::committee_min_stake();
+            // let committee_stake_need = Self::get_dbc_amount_by_value(committee_order_stake)
+            //     .ok_or(Error::<T>::GetStakeAmountFailed)?;
+            // Self::add_user_total_stake(&committee, committee_stake_need)
+            //     .map_err(|_| Error::<T>::StakeFailed)?;
 
             // 记录第一个预订订单的时间
             if report_info.booked_committee.len() == 0 {
@@ -949,15 +822,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // 状态正常的委员会
-    pub fn is_valid_committee(who: &T::AccountId) -> bool {
-        let committee_list = Self::committee();
-        if let Ok(_) = committee_list.committee.binary_search(&who) {
-            return true;
-        }
-        return false;
-    }
-
     // 根据DBC价格获得最小质押数量
     // DBC精度15，Balance为u128, min_stake不超过10^24 usd 不会超出最大值
     fn get_dbc_amount_by_value(stake_value: u64) -> Option<BalanceOf<T>> {
@@ -976,11 +840,11 @@ impl<T: Config> Pallet<T> {
         return report_id;
     }
 
-    fn get_new_slash_id() -> SlashId {
-        let slash_id = Self::next_slash_id();
-        NextSlashId::<T>::put(slash_id + 1);
-        return slash_id;
-    }
+    // fn get_new_slash_id() -> SlashId {
+    //     let slash_id = Self::next_slash_id();
+    //     NextSlashId::<T>::put(slash_id + 1);
+    //     return slash_id;
+    // }
 
     fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
         return blake2_128(raw_str);
@@ -1037,32 +901,32 @@ impl<T: Config> Pallet<T> {
         Self::clean_from_live_report(&report_id);
         ReportInfo::<T>::remove(&report_id);
 
-        // 惩罚该用户, 添加到slash列表中
-        Self::add_slash(reporter, report_info.reporter_stake, reward_to);
+        // 惩罚该用户, 添加到slash列表中: TODO: 由committee执行
+        // Self::add_slash(reporter, report_info.reporter_stake, reward_to);
     }
 
-    // 获得所有被惩罚的订单列表
-    fn get_slash_id() -> BTreeSet<SlashId> {
-        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
-            .map(|(slash_id, _)| slash_id)
-            .collect::<BTreeSet<_>>()
-    }
+    // // 获得所有被惩罚的订单列表
+    // fn get_slash_id() -> BTreeSet<SlashId> {
+    //     <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
+    //         .map(|(slash_id, _)| slash_id)
+    //         .collect::<BTreeSet<_>>()
+    // }
 
-    fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
-        let slash_id = Self::get_new_slash_id();
-        let now = <frame_system::Module<T>>::block_number();
-        PendingSlash::<T>::insert(
-            slash_id,
-            PendingSlashInfo {
-                slash_who: who,
-                slash_time: now,
-                unlock_amount: amount,
-                slash_amount: amount,
-                slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
-                reward_to,
-            },
-        );
-    }
+    // fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
+    //     let slash_id = Self::get_new_slash_id();
+    //     let now = <frame_system::Module<T>>::block_number();
+    //     PendingSlash::<T>::insert(
+    //         slash_id,
+    //         PendingSlashInfo {
+    //             slash_who: who,
+    //             slash_time: now,
+    //             unlock_amount: amount,
+    //             slash_amount: amount,
+    //             slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
+    //             reward_to,
+    //         },
+    //     );
+    // }
 
     // 从委员会的订单列表中删除
     fn clean_from_committee_order(committee: &T::AccountId, report_id: &ReportId) {
@@ -1098,45 +962,46 @@ impl<T: Config> Pallet<T> {
         LiveReport::<T>::put(live_report);
     }
 
-    // 检查并执行slash
-    fn check_and_exec_slash() {
-        let now = <frame_system::Module<T>>::block_number();
+    // TODO: 由committee执行
+    // // 检查并执行slash
+    // fn check_and_exec_slash() {
+    //     let now = <frame_system::Module<T>>::block_number();
 
-        let pending_slash_id = Self::get_slash_id();
-        for a_slash_id in pending_slash_id {
-            let a_slash_info = Self::pending_slash(&a_slash_id);
-            if now >= a_slash_info.slash_exec_time {
-                let _ = Self::reduce_user_total_stake(
-                    &a_slash_info.slash_who,
-                    a_slash_info.unlock_amount,
-                );
+    //     let pending_slash_id = Self::get_slash_id();
+    //     for a_slash_id in pending_slash_id {
+    //         let a_slash_info = Self::pending_slash(&a_slash_id);
+    //         if now >= a_slash_info.slash_exec_time {
+    //             let _ = Self::reduce_user_total_stake(
+    //                 &a_slash_info.slash_who,
+    //                 a_slash_info.unlock_amount,
+    //             );
 
-                // 如果reward_to为0，则将币转到国库
-                if a_slash_info.reward_to.len() == 0 {
-                    if <T as pallet::Config>::Currency::can_slash(
-                        &a_slash_info.slash_who,
-                        a_slash_info.slash_amount,
-                    ) {
-                        let (imbalance, missing) = <T as pallet::Config>::Currency::slash(
-                            &a_slash_info.slash_who,
-                            a_slash_info.slash_amount,
-                        );
-                        Self::deposit_event(Event::Slash(
-                            a_slash_info.slash_who.clone(),
-                            a_slash_info.slash_amount,
-                        ));
-                        Self::deposit_event(Event::MissedSlash(
-                            a_slash_info.slash_who,
-                            missing.clone(),
-                        ));
-                        T::Slash::on_unbalanced(imbalance);
-                    }
-                } else {
-                    // TODO: reward_to将获得slash的奖励
-                }
-            }
-        }
-    }
+    //             // 如果reward_to为0，则将币转到国库
+    //             if a_slash_info.reward_to.len() == 0 {
+    //                 if <T as pallet::Config>::Currency::can_slash(
+    //                     &a_slash_info.slash_who,
+    //                     a_slash_info.slash_amount,
+    //                 ) {
+    //                     let (imbalance, missing) = <T as pallet::Config>::Currency::slash(
+    //                         &a_slash_info.slash_who,
+    //                         a_slash_info.slash_amount,
+    //                     );
+    //                     Self::deposit_event(Event::Slash(
+    //                         a_slash_info.slash_who.clone(),
+    //                         a_slash_info.slash_amount,
+    //                     ));
+    //                     Self::deposit_event(Event::MissedSlash(
+    //                         a_slash_info.slash_who,
+    //                         missing.clone(),
+    //                     ));
+    //                     T::Slash::on_unbalanced(imbalance);
+    //                 }
+    //             } else {
+    //                 // TODO: reward_to将获得slash的奖励
+    //             }
+    //         }
+    //     }
+    // }
 
     // 最后结果返回一个Enum类型
     fn summary_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {

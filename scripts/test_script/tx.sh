@@ -15,9 +15,14 @@ python ../simple_server.py ../price.json 8002 1>server3.log 2>&1 &
 python ../simple_server.py ../price.json 8003 1>server4.log 2>&1 &
 
 # 设置初始价格
-node tx_by_root.js --port $ws --type-file $tf \
-    --module dbcPriceOcw --func addPriceUrl \
+node tx_by_root.js --port $ws --type-file $tf --module dbcPriceOcw --func addPriceUrl \
+    "http://127.0.0.1:8000"
+node tx_by_root.js --port $ws --type-file $tf --module dbcPriceOcw --func addPriceUrl \
     "http://127.0.0.1:8001"
+node tx_by_root.js --port $ws --type-file $tf --module dbcPriceOcw --func addPriceUrl \
+    "http://127.0.0.1:8002"
+node tx_by_root.js --port $ws --type-file $tf --module dbcPriceOcw --func addPriceUrl \
+    "http://127.0.0.1:8003"
 
 # 委员会每次抢单质押数量
 node tx_by_root.js --port $ws --type-file $tf --module leaseCommittee --func setStakedUsdPerOrder \
@@ -37,11 +42,11 @@ node tx_by_root.js --port $ws --type-file $tf --module leaseCommittee --func add
 
 # 设置每次交易的固定费率, 10DBC
 node tx_by_root.js --port $ws --type-file $tf --module genericFunc --func setFixedTxFee \
-    10000000000000000
+    10000
 
 # 设置单卡最多质押数量：100000 DBC
 node tx_by_root.js --port $ws --type-file $tf --module onlineProfile --func setGpuStake \
-    100000000000000000000
+    10000
 
 # 设置奖励开始Era时间
 node tx_by_root.js --port $ws --type-file $tf --module onlineProfile --func setRewardStartEra \
@@ -49,13 +54,13 @@ node tx_by_root.js --port $ws --type-file $tf --module onlineProfile --func setR
 
 # 设置每个Phase中，奖励/Era
 node tx_by_root.js --port $ws --type-file $tf --module onlineProfile --func setPhaseNRewardPerEra \
-    0 200000000000000000000
+    0 10000
 node tx_by_root.js --port $ws --type-file $tf --module onlineProfile --func setPhaseNRewardPerEra \
-    1 100000000000000000000
+    1 10000
 
 # 设置单卡质押价值上限 7700 USD ~~ 50000 RMB
 node tx_by_root.js --port $ws --type-file $tf --module onlineProfile --func setStakeUsdLimit \
-   7700000000
+   10000
 
 # 设置标准GPU的租金价格/算力点数
 node tx_by_root.js --port $ws --type-file $tf --module onlineProfile --func setStandardGpuPointPrice \
