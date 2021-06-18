@@ -26,10 +26,11 @@ async function main() {
   funcMap["dbcPriceOcw"] = {};
   funcMap["dbcPriceOcw"]["addPriceUrl"] = api.tx.dbcPriceOcw.addPriceUrl;
 
-  funcMap["leaseCommittee"] = {};
-  funcMap["leaseCommittee"]["setStakedUsdPerOrder"] = api.tx.leaseCommittee.setStakedUsdPerOrder;
-  funcMap["leaseCommittee"]["addCommittee"] = api.tx.leaseCommittee.addCommittee;
+  funcMap["committee"] = {};
+  funcMap["committee"]["setStakedUsdPerOrder"] = api.tx.committee.setStakedUsdPerOrder;
+  funcMap["committee"]["addCommittee"] = api.tx.committee.addCommittee;
 
+  funcMap["leaseCommittee"] = {};
   funcMap["genericFunc"] = {};
   funcMap["genericFunc"]["setFixedTxFee"] = api.tx.genericFunc.setFixedTxFee;
 

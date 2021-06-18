@@ -130,11 +130,11 @@
     "total_gpu_num": "u64",
     "total_reward": "Balance"
   },
-  "LCCommitteeList": {
-    "committee": "Vec<AccountId>",
+  "CommitteeList": {
+    "normal": "Vec<AccountId>",
     "chill_list": "Vec<AccountId>",
     "fulfill_list": "Vec<AccountId>",
-    "black_list": "Vec<AccountId>"
+    "waiting_box_pubkey": "Vec<AccountId>"
   },
   "LCCommitteeMachineList": {
     "booked_machine": "Vec<MachineId>",
@@ -237,10 +237,6 @@
     "machine_grade": "u64",
     "machine_price": "u64",
     "reward_deadline": "BlockNumber"
-  },
-  "MTCommitteeList": {
-    "committee": "Vec<AccountId>",
-    "waiting_box_pubkey": "Vec<AccountId>"
   },
   "MTCommitteeOpsDetail": {
     "booked_time": "BlockNumber",

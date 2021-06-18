@@ -145,7 +145,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // 设置committee每次验证需要质押数量, 单位为usd * 10^6
+        // 设置committee每次操作需要质押数量, 单位为usd * 10^6
         #[pallet::weight(0)]
         pub fn set_staked_usd_per_order(
             origin: OriginFor<T>,
@@ -189,7 +189,7 @@ pub mod pallet {
 
             BoxPubkey::<T>::insert(&committee, box_pubkey);
 
-            if committee_list.waiting_box_pubkey.binary_search(&committee).is_err() {
+            if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
                 CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
                 CommitteeList::add_one(&mut committee_list.fulfill_list, committee);
                 Committee::<T>::put(committee_list);

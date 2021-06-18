@@ -39,9 +39,14 @@ async function main() {
   // 创建方法map
   var funcMap = {};
   funcMap["onlineProfile"] = {};
+  funcMap["onlineProfile"]["setController"] = api.tx.onlineProfile.setController;
+
   funcMap["dbcTesting"] = {};
   funcMap["onlineProfile"]["bondMachine"] = api.tx.onlineProfile.bondMachine;
   funcMap["dbcTesting"]["sayHello"] = api.tx.dbcTesting.sayHello;
+
+  funcMap["committee"] = {};
+  funcMap["committee"]["committeeSetBoxPubkey"] = api.tx.committee.committeeSetBoxPubkey;
 
   var callFunc = funcMap[args["module"]][args["func"]];
   await do_sign_tx(callFunc, accountFromKeyring, nonce, ...args._).catch(
