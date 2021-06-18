@@ -16,6 +16,15 @@
     "waiting_hash": "Vec<MachineId>",
     "bonded_machine": "Vec<MachineId>"
   },
+  "StakerMachine": {
+    "total_machine": "Vec<MachineId>",
+    "online_machine": "Vec<MachineId>",
+    "total_calc_points": "u64",
+    "total_gpu_num": "u64",
+    "total_claimed_reward": "Balance",
+    "can_claim_reward": "Balance",
+    "left_reward": "VecDeque<Balance>"
+  },
   "BlockNumber": "u32",
   "MachineInfo": {
     "machine_owner": "AccountId",
@@ -85,6 +94,21 @@
     "consumers": "u32",
     "providers": "u32",
     "data": "AccountData"
+  },
+  "EraMachinePoints": {
+    "total": "u64",
+    "individual_points": "BTreeMap<MachineId, MachineGradeStatus>",
+    "staker_statistic": "BTreeMap<AccountId, StakerStatistics>"
+  },
+  "MachineGradeStatus": {
+    "basic_grade": "u64",
+    "is_online": "bool"
+  },
+  "StakerStatistics": {
+    "online_num": "u64",
+    "inflation": "Perbill",
+    "machine_total_calc_point": "u64",
+    "rent_extra_grade": "u64"
   },
   "StakingLedger": {
     "stash": "AccountId",
@@ -216,5 +240,82 @@
   "MTCommitteeList": {
     "committee": "Vec<AccountId>",
     "waiting_box_pubkey": "Vec<AccountId>"
+  },
+  "MTCommitteeOpsDetail": {
+    "booked_time": "BlockNumber",
+    "encrypted_err_info": "Option<Vec<u8>>",
+    "encrypted_time": "BlockNumber",
+    "confirm_hash": "Hash",
+    "hash_time": "BlockNumber",
+    "confirm_raw": "Vec<u8>",
+    "confirm_time": "BlockNumber",
+    "confirm_result": "bool",
+    "staked_balance": "Balance",
+    "order_status": "MTOrderStatus"
+  },
+  "MTOrderStatus": {
+    "_enum": [
+      "WaitingEncrypt",
+      "Verifying",
+      "WaitingRaw",
+      "Finished"
+    ]
+  },
+  "MTCommitteeOrderList": {
+    "booked_order": "Vec<ReportId>",
+    "hashed_order": "Vec<ReportId>",
+    "confirmed_order": "Vec<ReportId>",
+    "online_machine": "Vec<MachineId>"
+  },
+  "MTReportInfoDetail": {
+    "reporter": "AccountId",
+    "report_time": "BlockNumber",
+    "raw_hash": "Hash",
+    "box_public_key": "[u8; 32]",
+    "reporter_stake": "Balance",
+    "first_book_time": "BlockNumber",
+    "machine_id": "MachineId",
+    "err_info": "Vec<u8>",
+    "verifying_committee": "Option<AccountId>",
+    "booked_committee": "Vec<AccountId>",
+    "get_encrypted_info_committee": "Vec<AccountId>",
+    "hashed_committee": "Vec<AccountId>",
+    "confirm_start": "BlockNumber",
+    "confirmed_committee": "Vec<AccountId>",
+    "support_committee": "Vec<AccountId>",
+    "against_committee": "Vec<AccountId>",
+    "report_status": "ReportStatus",
+    "report_type": "ReportType"
+  },
+  "ReportStatus": {
+    "_enum": [
+      "Reported",
+      "WaitingBook",
+      "Verifying",
+      "SubmitingRaw",
+      "CommitteeConfirmed"
+    ]
+  },
+  "ReportType": {
+    "_enum": [
+      "HardwareFault",
+      "MachineOffline",
+      "MachineUnrentable"
+    ]
+  },
+  "PendingSlashInfo": {
+    "slash_who": "AccountId",
+    "slash_time": "BlockNumber",
+    "unlock_amount": "Balance",
+    "slash_amount": "Balance",
+    "slash_exec_time": "BlockNumber",
+    "reward_to": "Vec<AccountId>"
+  },
+  "RentOrderDetail": {
+    "renter": "AccountId",
+    "rent_start": "BlockNumber",
+    "confirm_rent": "BlockNumber",
+    "rent_end": "BlockNumber",
+    "stake_amount": "Balance"
   }
 }

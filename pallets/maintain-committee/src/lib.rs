@@ -47,7 +47,7 @@ pub const PALLET_LOCK_ID: LockIdentifier = *b"mtcommit";
 // 机器故障的订单
 // 记录该模块中所有活跃的订单, 根据ReportStatus来划分
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct LiveReportList {
+pub struct MTLiveReportList {
     pub bookable_report: Vec<ReportId>,    // 委员会可以抢单的订单
     pub verifying_report: Vec<ReportId>, // 正在被验证的机器订单,验证完如能预定，转成上面状态，如不能则转成下面状态
     pub waiting_raw_report: Vec<ReportId>, // 等待提交原始值的订单, 所有委员会提交或时间截止，转为下面状态
@@ -62,7 +62,7 @@ pub struct ReporterRecord {
 
 // 订单的详细信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct ReportInfoDetail<AccountId, BlockNumber, Balance> {
+pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
     pub reporter: AccountId,
     pub report_time: BlockNumber, // 机器被报告时间
     pub raw_hash: Hash,           // 包含错误原因的hash
@@ -128,7 +128,7 @@ pub struct MTCommitteeList<AccountId: Ord> {
 
 // 委员会抢到的订单的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CommitteeOrderList {
+pub struct MTCommitteeOrderList {
     pub booked_order: Vec<ReportId>, // 记录分配给用户的订单及开始验证时间
     pub hashed_order: Vec<ReportId>, // 存储已经提交了Hash信息的订单
     pub confirmed_order: Vec<ReportId>, // 存储已经提交了原始确认数据的订单
@@ -137,7 +137,7 @@ pub struct CommitteeOrderList {
 
 // 委员会对机器的操作信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CommitteeOpsDetail<BlockNumber, Balance> {
+pub struct MTCommitteeOpsDetail<BlockNumber, Balance> {
     pub booked_time: BlockNumber,
     pub encrypted_err_info: Option<Vec<u8>>, // reporter 提交的加密后的信息
     pub encrypted_time: BlockNumber,
@@ -147,20 +147,20 @@ pub struct CommitteeOpsDetail<BlockNumber, Balance> {
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
     pub confirm_result: bool,
     pub staked_balance: Balance,
-    pub order_status: OrderStatus,
+    pub order_status: MTOrderStatus,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum OrderStatus {
+pub enum MTOrderStatus {
     WaitingEncrypt, // 一旦预订订单，状态将等待加密信息
     Verifying,      // 一旦预订订单，状态将等待加密信息
     WaitingRaw,     // 等待提交原始信息
     Finished,       // 委员会已经完成了全部操作
 }
 
-impl Default for OrderStatus {
+impl Default for MTOrderStatus {
     fn default() -> Self {
-        OrderStatus::Verifying
+        MTOrderStatus::Verifying
     }
 }
 
@@ -251,7 +251,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         ReportId,
-        ReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -259,7 +259,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee_order)]
     pub(super) type CommitteeOrder<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeOrderList, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, MTCommitteeOrderList, ValueQuery>;
 
     // 存储委员会对单台机器的操作记录
     #[pallet::storage]
@@ -270,13 +270,13 @@ pub mod pallet {
         T::AccountId,
         Blake2_128Concat,
         ReportId,
-        CommitteeOpsDetail<T::BlockNumber, BalanceOf<T>>,
+        MTCommitteeOpsDetail<T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
     #[pallet::storage]
     #[pallet::getter(fn live_report)]
-    pub(super) type LiveReport<T: Config> = StorageValue<_, LiveReportList, ValueQuery>;
+    pub(super) type LiveReport<T: Config> = StorageValue<_, MTLiveReportList, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn next_report_id)]
@@ -428,7 +428,7 @@ pub mod pallet {
 
             ReportInfo::<T>::insert(
                 &report_id,
-                ReportInfoDetail {
+                MTReportInfoDetail {
                     reporter: reporter.clone(),
                     report_time,
                     raw_hash,
@@ -478,7 +478,7 @@ pub mod pallet {
 
             ReportInfo::<T>::insert(
                 &report_id,
-                ReportInfoDetail {
+                MTReportInfoDetail {
                     reporter: reporter.clone(),
                     report_time,
                     machine_id,
@@ -529,7 +529,7 @@ pub mod pallet {
 
             ReportInfo::<T>::insert(
                 &report_id,
-                ReportInfoDetail {
+                MTReportInfoDetail {
                     reporter: reporter.clone(),
                     report_time,
                     reporter_stake: reporter_stake_need,
@@ -662,7 +662,7 @@ pub mod pallet {
             // 添加委员会对于机器的操作记录
             let mut ops_detail = Self::committee_ops(&committee, &report_id);
             ops_detail.booked_time = now;
-            ops_detail.order_status = OrderStatus::WaitingEncrypt;
+            ops_detail.order_status = MTOrderStatus::WaitingEncrypt;
             CommitteeOps::<T>::insert(&committee, &report_id, ops_detail);
 
             ReportInfo::<T>::insert(&report_id, report_info);
@@ -717,7 +717,7 @@ pub mod pallet {
                 Error::<T>::OrderStatusNotFeat
             );
             ensure!(
-                committee_ops.order_status == OrderStatus::WaitingEncrypt,
+                committee_ops.order_status == MTOrderStatus::WaitingEncrypt,
                 Error::<T>::OrderStatusNotFeat
             );
             // 检查该委员会为预订了该订单的委员会
@@ -735,7 +735,7 @@ pub mod pallet {
 
             committee_ops.encrypted_err_info = Some(encrypted_err_info);
             committee_ops.encrypted_time = now;
-            committee_ops.order_status = OrderStatus::Verifying;
+            committee_ops.order_status = MTOrderStatus::Verifying;
 
             CommitteeOps::<T>::insert(&to_committee, &report_id, committee_ops);
             ReportInfo::<T>::insert(report_id, report_info);
@@ -765,7 +765,7 @@ pub mod pallet {
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
             // 判断该委员会的状态是验证中
             ensure!(
-                committee_ops.order_status == OrderStatus::Verifying,
+                committee_ops.order_status == MTOrderStatus::Verifying,
                 Error::<T>::OrderStatusNotFeat
             );
 
@@ -800,7 +800,7 @@ pub mod pallet {
             report_info.verifying_committee = None;
 
             // 修改committeeOps存储/状态
-            committee_ops.order_status = OrderStatus::WaitingRaw;
+            committee_ops.order_status = MTOrderStatus::WaitingRaw;
             committee_ops.confirm_hash = hash;
             committee_ops.hash_time = now;
             CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
