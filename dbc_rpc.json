@@ -1,0 +1,33 @@
+{
+  "onlineProfile": {
+    "getOpInfo": {
+      "description": "get op info",
+      "params": [],
+      "type": "SysInfo<Balance>"
+    },
+    "getStakerNum": {
+      "description": "get staker num",
+      "params": [],
+      "type": "u64"
+    },
+    "getStakerListInfo": {
+       "description": "get staker list",
+      "params": [
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        },
+        {
+          "name": "start",
+          "type": "u64"
+        },
+        {
+          "name": "end",
+          "type": "u64"
+        }
+      ],
+      "type": "Vec<StakerListInfo<Balance, AccountId>>"
+    }
+  }
+}
