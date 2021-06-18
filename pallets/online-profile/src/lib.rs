@@ -30,13 +30,14 @@ use online_profile_machine::{LCOps, RTOps};
 use pallet_identity::Data;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_core::crypto::Public;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub},
+    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Verify},
     Perbill, SaturatedConversion,
 };
 use sp_std::{
     collections::{btree_set::BTreeSet, vec_deque::VecDeque},
-    convert::TryInto,
+    convert::{TryFrom, TryInto},
     prelude::*,
     str,
 };
@@ -280,6 +281,18 @@ pub mod pallet {
     #[pallet::getter(fn total_stake)]
     pub(super) type TotalStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+    // stash 对应的controller
+    #[pallet::storage]
+    #[pallet::getter(fn stash_controller)]
+    pub(super) type StashController<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
+
+    // controller控制的stash
+    #[pallet::storage]
+    #[pallet::getter(fn controller_stash)]
+    pub(super) type ControllerStash<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
+
     #[pallet::storage]
     #[pallet::getter(fn next_slash_id)]
     pub(super) type NextSlashId<T: Config> = StorageValue<_, SlashId, ValueQuery>;
@@ -470,15 +483,27 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 由stash账户发起请求设置一个控制账户
+        #[pallet::weight(10000)]
+        pub fn set_controller(
+            origin: OriginFor<T>,
+            controller: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let stash = ensure_signed(origin)?;
+            StashController::<T>::insert(stash.clone(), controller.clone());
+            ControllerStash::<T>::insert(controller, stash);
+            Ok(().into())
+        }
+
         // 将machine_id添加到绑定队列,之后ocw工作，验证机器ID与钱包地址是否一致
         // 绑定需要质押first_bond_stake数量的DBC
         #[pallet::weight(10000)]
         pub fn bond_machine(
             origin: OriginFor<T>,
-            machine_owner: T::AccountId,
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
+            let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
 
             // 用户第一次绑定机器需要质押的数量
             let first_bond_stake = Self::stake_per_gpu();
@@ -489,14 +514,14 @@ pub mod pallet {
 
             // 资金检查, 确保机器还没有被绑定过
             ensure!(
-                <T as Config>::Currency::free_balance(&controller) > first_bond_stake,
+                <T as Config>::Currency::free_balance(&stash) > first_bond_stake,
                 Error::<T>::BalanceNotEnough
             );
             let mut live_machines = Self::live_machines();
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
 
             // 更新质押
-            Self::add_user_total_stake(&controller, first_bond_stake)
+            Self::add_user_total_stake(&stash, first_bond_stake)
                 .map_err(|_| Error::<T>::BalanceOverflow)?;
 
             // 添加到用户的机器列表
@@ -515,7 +540,7 @@ pub mod pallet {
             // 初始化MachineInfo, 并添加到MachinesInfo
             let machine_info = MachineInfo {
                 controller: controller.clone(),
-                machine_owner,
+                machine_owner: stash,
                 bonding_height: <frame_system::Module<T>>::block_number(),
                 stake_amount: first_bond_stake,
                 ..Default::default()
@@ -629,30 +654,41 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 该方法由controller账户发出
+        // machine 设置 stash账户
+        // MachineId对应的私钥对字符串进行加密： "machineIdstash", 其中，machineId为machineId字符串，stash为Stash账户字符串
         #[pallet::weight(10000)]
-        pub fn machine_set_recipient(
+        pub fn machine_set_stash(
             origin: OriginFor<T>,
-            machine_id: MachineId,
-            recipient: T::AccountId,
+            machine_id: Vec<u8>,
+            stash_account: Vec<u8>,
+            sig: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            let machine_wallet = ensure_signed(origin)?;
+            let sender = ensure_signed(origin)?;
 
-            let machine_account = Self::get_account_from_str(&machine_id)
-                .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
+            let mut msg = Vec::new();
+            msg.extend(machine_id.clone());
+            msg.extend(stash_account.clone());
+            // 验证签名是否为MachineId发出
+            if Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()) {
+                let mut machine_info = Self::machines_info(&machine_id);
 
-            if machine_wallet != machine_account {
-                return Err(Error::<T>::MachineWalletMachineIdNotMatch.into());
+                let stash_account = Self::get_account_from_str(&stash_account)
+                    .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
+                machine_info.machine_owner = stash_account;
+
+                let mut live_machines = Self::live_machines();
+                LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
+                LiveMachine::add_machine_id(
+                    &mut live_machines.machine_confirmed,
+                    machine_id.clone(),
+                );
+
+                MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
+                LiveMachines::<T>::put(live_machines);
+            } else {
+                return Err(Error::<T>::BadSignature.into());
             }
-
-            let mut machine_info = Self::machines_info(&machine_id);
-            machine_info.machine_owner = recipient;
-
-            let mut live_machines = Self::live_machines();
-            LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
-            LiveMachine::add_machine_id(&mut live_machines.machine_confirmed, machine_id.clone());
-
-            MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
-            LiveMachines::<T>::put(live_machines);
 
             Ok(().into())
         }
@@ -730,6 +766,7 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        BadSignature,
         MachineIdExist,
         MachineIdNotBonded,
         MachineInBonded,
@@ -761,10 +798,21 @@ pub mod pallet {
         ClaimRewardFailed,
         MachineWalletMachineIdNotMatch,
         ConvertMachineIdToWalletFailed,
+        NoStashBond,
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn verify_sig(msg: Vec<u8>, sig: Vec<u8>, account: Vec<u8>) -> bool {
+        match sp_core::sr25519::Signature::try_from(&sig[..]) {
+            Ok(signature) => {
+                let public = sp_core::sr25519::Public::from_slice(account.as_ref());
+                return signature.verify(&msg[..], &public);
+            }
+            _ => return false,
+        };
+    }
+
     // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
     // from_ss58check_with_version
     fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
