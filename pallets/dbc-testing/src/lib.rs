@@ -257,6 +257,13 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
+            debug::error!(
+                "#### msg: {:?}, sig: {:?}, sign_by: {:?}",
+                msg.clone(),
+                sig.clone(),
+                account.clone()
+            );
+
             let out = match sp_core::sr25519::Signature::try_from(&sig[..]) {
                 Ok(signature) => {
                     // 获取帐号的方法

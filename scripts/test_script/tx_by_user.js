@@ -16,16 +16,24 @@ import minimist from "minimist";
 
 async function main() {
   // 读取参数
-  const args = minimist(process.argv.slice(2), { string: ["key"] });
+  var args = minimist(process.argv.slice(2), { string: ["key", "sig"] });
+
+  if (args.hasOwnProperty( "sig"))  {
+    args._.push(args["sig"]);
+  }
 
   // 构建连接
   const wsProvider = new WsProvider(args["port"]);
   const type_path = fs.readFileSync(args["type-file"]);
   const type_json = JSON.parse(type_path);
+  const rpc_path = fs.readFileSync(args["rpc-file"]);
+  const rpc_json = JSON.parse(rpc_path);
+
   // Create the API and wait until ready
   const api = await ApiPromise.create({
     provider: wsProvider,
     types: type_json,
+    rpc: rpc_json,
   });
 
   // 读取密钥 type: sr25519, ssFormat: 42 (defaults)
@@ -40,6 +48,7 @@ async function main() {
   var funcMap = {};
   funcMap["onlineProfile"] = {};
   funcMap["onlineProfile"]["setController"] = api.tx.onlineProfile.setController;
+  funcMap["onlineProfile"]["machineSetStash"] = api.tx.onlineProfile.machineSetStash;
 
   funcMap["dbcTesting"] = {};
   funcMap["onlineProfile"]["bondMachine"] = api.tx.onlineProfile.bondMachine;

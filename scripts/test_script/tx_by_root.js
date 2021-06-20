@@ -12,10 +12,14 @@ async function main() {
   const wsProvider = new WsProvider(args["port"]);
   const type_path = fs.readFileSync(args["type-file"]);
   const type_json = JSON.parse(type_path);
+  const rpc_path = fs.readFileSync(args["rpc-file"]);
+  const rpc_json = JSON.parse(rpc_path);
+
   // Create the API and wait until ready
   const api = await ApiPromise.create({
     provider: wsProvider,
     types: type_json,
+    rpc: rpc_json,
   });
 
   const keyring = createTestKeyring();

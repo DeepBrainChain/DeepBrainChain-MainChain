@@ -505,6 +505,8 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
 
+            debug::error!("##### MachineId is: {:?}", machine_id.clone());
+
             // 用户第一次绑定机器需要质押的数量
             let first_bond_stake = Self::stake_per_gpu();
 
@@ -654,41 +656,43 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // FIXME: 当前问题：如果是Vec<u8>的参数，前端会把账户类型转为公钥传入，而如果是用别名，则传得字符串不会被改
+        // 验证签名的第二个参数需要是公钥
         // 该方法由controller账户发出
         // machine 设置 stash账户
         // MachineId对应的私钥对字符串进行加密： "machineIdstash", 其中，machineId为machineId字符串，stash为Stash账户字符串
         #[pallet::weight(10000)]
         pub fn machine_set_stash(
             origin: OriginFor<T>,
-            machine_id: Vec<u8>,
-            stash_account: Vec<u8>,
-            sig: Vec<u8>,
+            machine_id: MachineId,
+            stash_account: MachineId,
+            sig: MachineId,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
             let mut msg = Vec::new();
             msg.extend(machine_id.clone());
             msg.extend(stash_account.clone());
+
+            // TODO: 确保Machine_id中已经有该machine_id
+
             // 验证签名是否为MachineId发出
-            if Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()) {
-                let mut machine_info = Self::machines_info(&machine_id);
+            // if Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()) {
+            let mut machine_info = Self::machines_info(&machine_id);
 
-                let stash_account = Self::get_account_from_str(&stash_account)
-                    .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
-                machine_info.machine_owner = stash_account;
+            let stash_account = Self::get_account_from_str(&stash_account)
+                .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
+            machine_info.machine_owner = stash_account;
 
-                let mut live_machines = Self::live_machines();
-                LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
-                LiveMachine::add_machine_id(
-                    &mut live_machines.machine_confirmed,
-                    machine_id.clone(),
-                );
+            let mut live_machines = Self::live_machines();
+            LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
+            LiveMachine::add_machine_id(&mut live_machines.machine_confirmed, machine_id.clone());
 
-                MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
-                LiveMachines::<T>::put(live_machines);
-            } else {
-                return Err(Error::<T>::BadSignature.into());
-            }
+            MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
+            LiveMachines::<T>::put(live_machines);
+            // } else {
+            //     return Err(Error::<T>::BadSignature.into());
+            // }
 
             Ok(().into())
         }

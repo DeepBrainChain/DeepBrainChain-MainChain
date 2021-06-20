@@ -490,44 +490,36 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // TODO: 重新写该方法
+    // 分派一个machineId给随机的委员会
+    // 返回Distribution(9)个随机顺序的账户列表
     fn lucky_committee() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
-        return None;
+        let mut committee = <committee::Module<T>>::available_committee().ok()?;
+
+        // 如果委员会数量为0，直接返回空列表
+        if committee.len() == 0 {
+            return None;
+        }
+
+        // 有多少个幸运的委员会： min(staker.committee.len(), 3)
+        let lucky_committee_num = committee.len().min(3);
+
+        // 选出lucky_committee_num个委员会
+        let mut lucky_committee = Vec::new();
+
+        for _ in 0..lucky_committee_num {
+            let lucky_index =
+                <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+            lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
+            committee.remove(lucky_index);
+        }
+
+        for i in 0..DISTRIBUTION as usize {
+            let index = i % lucky_committee_num;
+            lucky_committee[index].1.push(i);
+        }
+
+        Some(lucky_committee)
     }
-
-    // // 分派一个machineId给随机的委员会
-    // // 返回Distribution(9)个随机顺序的账户列表
-    // fn lucky_committee() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
-    //     // 检查质押数量如果有委员会质押数量不够，则重新获取lucky_committee
-    //     Self::check_committee_free_balance().ok()?;
-
-    //     let staker = Self::committee();
-    //     let mut committee = staker.committee.clone();
-    //     // 如果委员会数量为0，直接返回空列表
-    //     if committee.len() == 0 {
-    //         return None;
-    //     }
-
-    //     // 有多少个幸运的委员会： min(staker.committee.len(), 3)
-    //     let lucky_committee_num = committee.len().min(3);
-
-    //     // 选出lucky_committee_num个委员会
-    //     let mut lucky_committee = Vec::new();
-
-    //     for _ in 0..lucky_committee_num {
-    //         let lucky_index =
-    //             <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
-    //         lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
-    //         committee.remove(lucky_index);
-    //     }
-
-    //     for i in 0..DISTRIBUTION as usize {
-    //         let index = i % lucky_committee_num;
-    //         lucky_committee[index].1.push(i);
-    //     }
-
-    //     Some(lucky_committee)
-    // }
 
     fn statistic_result() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();

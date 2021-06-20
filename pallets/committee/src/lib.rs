@@ -38,9 +38,8 @@ pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
 // 处于不同状态的委员会的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct CommitteeList<AccountId: Ord> {
-    pub normal: Vec<AccountId>,       // 质押并通过社区选举的委员会，正常状态
-    pub chill_list: Vec<AccountId>,   // 委员会，但不想被派单
-    pub fulfill_list: Vec<AccountId>, // 委员会, 但需要补交质押
+    pub normal: Vec<AccountId>,     // 质押并通过社区选举的委员会，正常状态
+    pub chill_list: Vec<AccountId>, // 委员会，但不想被派单
     pub waiting_box_pubkey: Vec<AccountId>, // 等待提交box pubkey的委员会
 }
 
@@ -50,9 +49,6 @@ impl<AccountId: Ord> CommitteeList<AccountId> {
             return true;
         }
         if let Ok(_) = self.chill_list.binary_search(who) {
-            return true;
-        }
-        if let Ok(_) = self.fulfill_list.binary_search(who) {
             return true;
         }
         if let Ok(_) = self.waiting_box_pubkey.binary_search(who) {
@@ -191,7 +187,7 @@ pub mod pallet {
 
             if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
                 CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
-                CommitteeList::add_one(&mut committee_list.fulfill_list, committee);
+                CommitteeList::add_one(&mut committee_list.normal, committee);
                 Committee::<T>::put(committee_list);
             }
 
@@ -213,7 +209,6 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::PubkeyNotSet);
 
             CommitteeList::rm_one(&mut committee_list.normal, &committee);
-            CommitteeList::rm_one(&mut committee_list.fulfill_list, &committee);
             CommitteeList::add_one(&mut committee_list.chill_list, committee.clone());
 
             Committee::<T>::put(committee_list);
@@ -234,7 +229,6 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::NotInChillList)?;
 
             CommitteeList::rm_one(&mut committee_list.chill_list, &who);
-            CommitteeList::add_one(&mut committee_list.fulfill_list, who.clone());
             Committee::<T>::put(committee_list);
 
             Self::deposit_event(Event::UndoChill(who));
@@ -258,7 +252,6 @@ pub mod pallet {
             }
 
             CommitteeList::rm_one(&mut committee_list.normal, &committee);
-            CommitteeList::rm_one(&mut committee_list.fulfill_list, &committee);
             CommitteeList::rm_one(&mut committee_list.chill_list, &committee);
             CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
 
@@ -363,33 +356,28 @@ impl<T: Config> Pallet<T> {
         one_dbc.checked_mul(&committee_stake_need)?.checked_div(&dbc_price)
     }
 
-    // 检查委员会是否有足够的质押
+    // 检查委员会是否有足够的质押,返回有可以抢单的机器列表
     // 在每个区块以及每次分配一个机器之后，都需要检查
-    fn check_committee_free_balance() -> Result<(), ()> {
-        let mut committee_list = Self::committee();
+    pub fn available_committee() -> Result<Vec<T::AccountId>, ()> {
+        let committee_list = Self::committee();
         let stake_per_gpu = Self::committee_stake_dbc_per_order().ok_or(())?;
 
         let normal_committee = committee_list.normal.clone();
-        let current_fulfill_list = committee_list.fulfill_list.clone();
 
-        // 如果free_balance不够，则移动到fulfill_list中
+        let mut out = Vec::new();
+
+        // 如果free_balance足够，则复制到out列表中
         for a_committee in normal_committee {
             // 当委员会质押不够时，将委员会移动到fulfill_list中
-            if <T as Config>::Currency::free_balance(&a_committee) < stake_per_gpu {
-                CommitteeList::rm_one(&mut committee_list.normal, &a_committee);
-                CommitteeList::add_one(&mut committee_list.fulfill_list, a_committee);
-            }
-        }
-        // 如果free_balance够，则移动到正常状态中
-        for a_committee in current_fulfill_list {
             if <T as Config>::Currency::free_balance(&a_committee) > stake_per_gpu {
-                CommitteeList::rm_one(&mut committee_list.fulfill_list, &a_committee);
-                CommitteeList::add_one(&mut committee_list.normal, a_committee);
+                out.push(a_committee.clone());
             }
         }
 
-        Committee::<T>::put(committee_list);
-        return Ok(());
+        if out.len() > 0 {
+            return Ok(out);
+        }
+        return Err(());
     }
 
     fn change_stake(
