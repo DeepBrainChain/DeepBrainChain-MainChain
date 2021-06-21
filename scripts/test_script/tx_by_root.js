@@ -45,6 +45,9 @@ async function main() {
   funcMap["onlineProfile"]["setStakeUsdLimit"] = api.tx.onlineProfile.setStakeUsdLimit;
   funcMap["onlineProfile"]["setStandardGpuPointPrice"] = api.tx.onlineProfile.setStandardGpuPointPrice;
 
+  funcMap["rentMachine"] = {};
+  funcMap["rentMachine"]["setRentPot"] = api.tx.rentMachine.setRentPot;
+
   const callFunc = funcMap[args["module"]][args["func"]];
   await do_sign_tx(api, callFunc, adminPair, ...args._).catch((error) =>
     console.log(error.message)

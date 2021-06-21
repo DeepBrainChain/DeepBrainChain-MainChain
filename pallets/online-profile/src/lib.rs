@@ -408,7 +408,9 @@ pub mod pallet {
             // 在每个Era结束时执行奖励，发放到用户的Machine
             // 计算奖励，直接根据当前得分即可
             if current_height > 0 && current_height % BLOCK_PER_ERA == 0 {
-                let _ = Self::distribute_reward();
+                if let Err(_) = Self::distribute_reward() {
+                    debug::error!("##### Failed to distribute reward");
+                }
             }
 
             Self::check_and_exec_slash();
@@ -881,7 +883,7 @@ impl<T: Config> Pallet<T> {
         return 0u32.into();
     }
 
-    // 在线奖励数量:
+    // 在线奖励数量: TODO: 正式网将修改奖励时间
     fn current_era_reward() -> Option<BalanceOf<T>> {
         let current_era = Self::current_era() as u64;
         let reward_start_era = Self::reward_start_era()? as u64;
@@ -1030,8 +1032,8 @@ impl<T: Config> Pallet<T> {
 
     // 由于机器被租用，而更新得分
     // 机器被租用和退租都修改下一天得分
-    fn update_staker_grades_by_rented(
-        staker: T::AccountId,
+    fn update_staker_grades_by_rented_change(
+        // staker: T::AccountId,
         machine_id: MachineId,
         is_rented: bool,
     ) {
@@ -1043,7 +1045,7 @@ impl<T: Config> Pallet<T> {
         let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
         let mut staker_statistic = era_machine_point
             .staker_statistic
-            .entry(staker.clone())
+            .entry(machine_info.controller.clone())
             .or_insert(StakerStatistics { ..Default::default() });
 
         // 某台机器被租用，则该机器得分多30%
@@ -1059,7 +1061,9 @@ impl<T: Config> Pallet<T> {
         }
 
         let staker_statistic = (*staker_statistic).clone();
-        era_machine_point.staker_statistic.insert(staker.clone(), staker_statistic);
+        era_machine_point
+            .staker_statistic
+            .insert(machine_info.controller.clone(), staker_statistic);
         ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
     }
 
@@ -1355,6 +1359,7 @@ impl<T: Config> RTOps for Pallet<T> {
         machine_id: &MachineId,
         new_status: MachineStatus<T::BlockNumber>,
         renter: Self::AccountId,
+        is_rent: bool,
     ) {
         let mut machine_info = Self::machines_info(machine_id);
         if machine_info.machine_status == new_status {
@@ -1363,10 +1368,8 @@ impl<T: Config> RTOps for Pallet<T> {
         machine_info.machine_status = new_status;
         machine_info.machine_renter = Some(renter.clone());
         MachinesInfo::<T>::insert(machine_id, machine_info);
-        Self::update_staker_grades_by_rented(renter, machine_id.to_vec(), true)
+        Self::update_staker_grades_by_rented_change(machine_id.to_vec(), is_rent)
     }
-
-    // TODO: 退租
 }
 
 // RPC

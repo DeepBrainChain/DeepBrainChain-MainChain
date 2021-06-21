@@ -23,7 +23,7 @@
     "total_gpu_num": "u64",
     "total_claimed_reward": "Balance",
     "can_claim_reward": "Balance",
-    "left_reward": "VecDeque<Balance>"
+    "left_reward": "Vec<Balance>"
   },
   "BlockNumber": "u32",
   "MachineInfo": {

@@ -65,6 +65,11 @@ async function main() {
   funcMap["leaseCommittee"]["submitConfirmHash"] = api.tx.leaseCommittee.submitConfirmHash;
   funcMap["leaseCommittee"]["submitConfirmRaw"] = api.tx.leaseCommittee.submitConfirmRaw;
 
+  funcMap["rentMachine"] = {};
+  funcMap["rentMachine"]["rentMachine"] = api.tx.rentMachine.rentMachine;
+  funcMap["rentMachine"]["confirmRent"] = api.tx.rentMachine.confirmRent;
+  funcMap["rentMachine"]["addRent"] = api.tx.rentMachine.addRent;
+
   var callFunc = funcMap[args["module"]][args["func"]];
   await do_sign_tx(callFunc, accountFromKeyring, nonce, ...args._).catch(
     (error) => console.log(error.message)

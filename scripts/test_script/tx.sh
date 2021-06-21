@@ -4,6 +4,9 @@ ws="ws://127.0.0.1:9944"
 tf="../../dbc_types.json"
 rpc="../../dbc_rpc.json"
 
+alice="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+alice_key="0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a"
+
 bob="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
 bob_key="0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89"
 
@@ -15,6 +18,8 @@ bob_stash_key="0x1a7d114100653850c65edecda8a9b2b4dd65d900edef8e70b1a6ecdcda96705
 
 eve_key="0x786ad0e2df456fe43dd1f91ebca22e235bc162e0bb8d53c633e8c85b2af68b7a"
 ferdie_key="0x42438b7883391c05512a938e36c2df0131e088b3756d6aa7a755fbff19d2f842"
+
+alice_slash="5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY"
 
 # echo "script pid is: " $$
 # https://blog.csdn.net/jinjiaoooo/article/details/38349603
@@ -120,3 +125,18 @@ node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module leaseComm
 # 查询派单
 # TODO: 通过js查询数据
 
+
+# 设置租用合约
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module rentMachine --func setRentPot $alice_slash
+
+# 发送租用请求
+node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module rentMachine --func rentMachine \
+    --key $alice_key $bob 100
+
+# 发送确认租用
+node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module rentMachine --func confirmRent \
+    --key $alice_key $bob
+
+# 续租
+node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module rentMachine --func addRent \
+    --key $alice_key $bob 100

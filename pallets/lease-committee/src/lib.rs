@@ -346,6 +346,7 @@ pub mod pallet {
             machine_ops.confirm_time = now;
             machine_ops.machine_status = LCMachineStatus::Confirmed;
             machine_ops.machine_info = machine_info_detail.clone();
+            machine_ops.machine_info.rand_str = Vec::new();
 
             // 如果全部都提交完了原始信息，则允许进入summary
             if machine_committee.confirmed_committee.len()

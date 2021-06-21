@@ -27,6 +27,7 @@ pub trait RTOps {
         machine_id: &Self::MachineId,
         new_status: Self::MachineStatus,
         renter: Self::AccountId,
+        is_rent: bool,
     );
 }
 
