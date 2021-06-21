@@ -4,6 +4,18 @@ ws="ws://127.0.0.1:9944"
 tf="../../dbc_types.json"
 rpc="../../dbc_rpc.json"
 
+bob="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+bob_key="0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89"
+
+dave="5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy"
+dave_key="0x868020ae0687dda7d57565093a69090211449845a7e11453612800b663307246"
+
+bob_stash="5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc"
+bob_stash_key="0x1a7d114100653850c65edecda8a9b2b4dd65d900edef8e70b1a6ecdcda967056"
+
+eve_key="0x786ad0e2df456fe43dd1f91ebca22e235bc162e0bb8d53c633e8c85b2af68b7a"
+ferdie_key="0x42438b7883391c05512a938e36c2df0131e088b3756d6aa7a755fbff19d2f842"
+
 # echo "script pid is: " $$
 # https://blog.csdn.net/jinjiaoooo/article/details/38349603
 # pstree pid -p| awk -F"[()]" '{print $2}'| xargs kill -9
@@ -24,38 +36,39 @@ node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module dbcPriceO
 node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module dbcPriceOcw --func addPriceUrl \
     "http://127.0.0.1:8003"
 
+# 查询存储：当前平均价格
+node query_storage.js --port $ws --type-file $tf --rpc-file $rpc --module dbcPriceOcw --func avgPrice
+node query_storage.js --port $ws --type-file $tf --rpc-file $rpc --module dbcPriceOcw --func priceURL
+
 # 委员会每次抢单质押数量
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module committee --func setStakedUsdPerOrder \
-    16000000
-
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module committee --func setStakedUsdPerOrder 16000000
 # 设置每次交易的固定费率, 10DBC
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module genericFunc --func setFixedTxFee \
-    10000
-
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module genericFunc --func setFixedTxFee 10000
 # 设置单卡最多质押数量：100000 DBC
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setGpuStake \
-    10000
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setGpuStake 10000
+# 设置奖励开始Era时间
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setRewardStartEra 1
+# 设置每个Phase中，奖励/Era
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setPhaseNRewardPerEra 0 10000
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setPhaseNRewardPerEra 1 10000
+# 设置单卡质押价值上限 7700 USD ~~ 50000 RMB
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setStakeUsdLimit 10000
 
-# stash账户设置控制账户
-bob_stash_key="0x1a7d114100653850c65edecda8a9b2b4dd65d900edef8e70b1a6ecdcda967056"
-# 控制账户为：Dave
-dave="5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy"
-# 该机器ID为Bob
-bob="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
-# 机器stash账户为BobStash:
-bob_stash="5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc"
+# TODO: 传递一个结构体作为参数
+
+# 设置标准GPU的租金价格/算力点数 FIXME: 应该传第一个参数
+# node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setStandardGpuPointPrice 1000 1000
+
+# 查询存储：
+node query_storage.js --port $ws --type-file $tf --rpc-file $rpc --module committee --func committeeStakeDBCPerOrder
+node query_storage.js --port $ws --type-file $tf --rpc-file $rpc --module genericFunc --func fixedTxFee
+node query_storage.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func stakePerGPU
+
+# stash账户设置控制账户.控制账户为：Dave; 该机器ID为Bob; 机器stash账户为BobStash:
 node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setController \
     --key $bob_stash_key $dave
 
-# 绑定机器
-
-# 私钥
-bob_key="0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89"
-eve_key="0x786ad0e2df456fe43dd1f91ebca22e235bc162e0bb8d53c633e8c85b2af68b7a"
-ferdie_key="0x42438b7883391c05512a938e36c2df0131e088b3756d6aa7a755fbff19d2f842"
-dave_key="0x868020ae0687dda7d57565093a69090211449845a7e11453612800b663307246"
-
-# dave为控制人，绑定了一个机器：Bob, 受益账户为BobStash
+# 绑定机器: dave为控制人，绑定了一个机器：Bob, 受益账户为BobStash
 node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func bondMachine \
     --key $dave_key $bob
 
@@ -70,7 +83,6 @@ node gen_signature.js --key $bob_key --msg $bob$bob_stash
 sig="0x0089673806c55e6e9d4ce4ea46c6d24736599c0f48f16fa7719b303b6a204602fcf33946d3a588a87f9619db0890b027d1ad358fa9a3de10f57e03e2a3423782"
 node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func machineSetStash \
     --key $dave_key --sig $sig $bob $bob_stash
-
 
 # 增加三个委员会
 # Dave
@@ -97,26 +109,14 @@ node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module committee
 node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module committee --func committeeSetBoxPubkey \
     --key $ferdie_key 0xf660309770b2bd379e2514d88c146a7ddc3759533cf06d9fb4b41159e560325e
 
+# TODO: 矿工设定不确定的值，以补充机器信息
+# TODO: 矿工添加镜像信息
+
+# 提交机器信息Hash
+# python ../hash_str.py
+node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module leaseCommittee --func submitConfirmHash \
+    --key $dave_key --hash "0x646026f937c4e34b0d36ff8b4d0d3e5f" $bob
 
 # 查询派单
 # TODO: 通过js查询数据
-
-
-# 设置奖励开始Era时间
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setRewardStartEra \
-    1
-
-# 设置每个Phase中，奖励/Era
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setPhaseNRewardPerEra \
-    0 10000
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setPhaseNRewardPerEra \
-    1 10000
-
-# 设置单卡质押价值上限 7700 USD ~~ 50000 RMB
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setStakeUsdLimit \
-   10000
-
-# 设置标准GPU的租金价格/算力点数
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setStandardGpuPointPrice \
-    1000 1000
 

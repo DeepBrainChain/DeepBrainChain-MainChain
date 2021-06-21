@@ -29,3 +29,22 @@ pub trait RTOps {
         renter: Self::AccountId,
     );
 }
+
+pub trait ManageCommittee {
+    type AccountId;
+    type BalanceOf;
+
+    fn available_committee() -> Result<Vec<Self::AccountId>, ()>;
+    fn change_stake(
+        controller: &Self::AccountId,
+        amount: Self::BalanceOf,
+        is_add: bool,
+    ) -> Result<(), ()>;
+    fn stake_per_order() -> Option<Self::BalanceOf>;
+}
+
+pub trait DbcPrice {
+    type Balance;
+
+    fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance>;
+}

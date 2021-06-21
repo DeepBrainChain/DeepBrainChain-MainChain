@@ -24,7 +24,6 @@ members = [
     'pallets/maintain-committee',
     'traits/phase-reward',
     'traits/online-profile-machine',
-    'traits/dbc-price-trait',
     'pallets/rent-machine',
     'pallets/rent-machine/rpc',
     'pallets/rent-machine/runtime-api',

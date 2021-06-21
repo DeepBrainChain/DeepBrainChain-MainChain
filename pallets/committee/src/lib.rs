@@ -9,6 +9,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
+use online_profile_machine::ManageCommittee;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion},
     RuntimeDebug,
@@ -95,8 +96,6 @@ pub mod pallet {
                 CommitteeStakeDBCPerOrder::<T>::put(stake_dbc_amount);
             }
 
-            // Self::distribute_machines(); // 分派机器
-            // Self::statistic_result(); // 检查订单状态
             Self::check_and_exec_slash();
         }
     }
@@ -134,7 +133,7 @@ pub mod pallet {
     pub(super) type CommitteeTotalStake<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
 
-    // 每次订单默认质押等价的DBC数量
+    // 每次订单默认质押等价的DBC数量，每个块更新一次
     #[pallet::storage]
     #[pallet::getter(fn committee_stake_dbc_per_order)]
     pub(super) type CommitteeStakeDBCPerOrder<T: Config> = StorageValue<_, BalanceOf<T>>;
@@ -356,54 +355,6 @@ impl<T: Config> Pallet<T> {
         one_dbc.checked_mul(&committee_stake_need)?.checked_div(&dbc_price)
     }
 
-    // 检查委员会是否有足够的质押,返回有可以抢单的机器列表
-    // 在每个区块以及每次分配一个机器之后，都需要检查
-    pub fn available_committee() -> Result<Vec<T::AccountId>, ()> {
-        let committee_list = Self::committee();
-        let stake_per_gpu = Self::committee_stake_dbc_per_order().ok_or(())?;
-
-        let normal_committee = committee_list.normal.clone();
-
-        let mut out = Vec::new();
-
-        // 如果free_balance足够，则复制到out列表中
-        for a_committee in normal_committee {
-            // 当委员会质押不够时，将委员会移动到fulfill_list中
-            if <T as Config>::Currency::free_balance(&a_committee) > stake_per_gpu {
-                out.push(a_committee.clone());
-            }
-        }
-
-        if out.len() > 0 {
-            return Ok(out);
-        }
-        return Err(());
-    }
-
-    fn change_stake(
-        controller: &T::AccountId,
-        amount: BalanceOf<T>,
-        is_add: bool,
-    ) -> Result<(), ()> {
-        let total_stake = Self::committee_total_stake(&controller).unwrap_or(0u32.into());
-
-        let new_stake = if is_add {
-            total_stake.checked_add(&amount).ok_or(())?
-        } else {
-            total_stake.checked_sub(&amount).ok_or(())?
-        };
-
-        <T as Config>::Currency::set_lock(
-            PALLET_LOCK_ID,
-            controller,
-            new_stake,
-            WithdrawReasons::all(),
-        );
-        CommitteeTotalStake::<T>::insert(controller, new_stake);
-
-        Ok(())
-    }
-
     // 检查并执行slash
     fn check_and_exec_slash() {
         let now = <frame_system::Module<T>>::block_number();
@@ -449,7 +400,7 @@ impl<T: Config> Pallet<T> {
             .collect::<BTreeSet<_>>()
     }
 
-    fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
+    pub fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
         let slash_id = Self::get_new_slash_id();
         let now = <frame_system::Module<T>>::block_number();
         PendingSlash::<T>::insert(
@@ -478,5 +429,62 @@ impl<T: Config> Pallet<T> {
             return true;
         }
         return false;
+    }
+}
+
+impl<T: Config> ManageCommittee for Pallet<T> {
+    type AccountId = T::AccountId;
+    type BalanceOf = BalanceOf<T>;
+
+    // 检查委员会是否有足够的质押,返回有可以抢单的机器列表
+    // 在每个区块以及每次分配一个机器之后，都需要检查
+    fn available_committee() -> Result<Vec<T::AccountId>, ()> {
+        let committee_list = Self::committee();
+        let stake_per_gpu = Self::committee_stake_dbc_per_order().ok_or(())?;
+
+        let normal_committee = committee_list.normal.clone();
+
+        let mut out = Vec::new();
+
+        // 如果free_balance足够，则复制到out列表中
+        for a_committee in normal_committee {
+            // 当委员会质押不够时，将委员会移动到fulfill_list中
+            if <T as Config>::Currency::free_balance(&a_committee) > stake_per_gpu {
+                out.push(a_committee.clone());
+            }
+        }
+
+        if out.len() > 0 {
+            return Ok(out);
+        }
+        return Err(());
+    }
+
+    fn change_stake(
+        controller: &T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> Result<(), ()> {
+        let total_stake = Self::committee_total_stake(&controller).unwrap_or(0u32.into());
+
+        let new_stake = if is_add {
+            total_stake.checked_add(&amount).ok_or(())?
+        } else {
+            total_stake.checked_sub(&amount).ok_or(())?
+        };
+
+        <T as Config>::Currency::set_lock(
+            PALLET_LOCK_ID,
+            controller,
+            new_stake,
+            WithdrawReasons::all(),
+        );
+        CommitteeTotalStake::<T>::insert(controller, new_stake);
+
+        Ok(())
+    }
+
+    fn stake_per_order() -> Option<BalanceOf<T>> {
+        Self::committee_stake_dbc_per_order()
     }
 }

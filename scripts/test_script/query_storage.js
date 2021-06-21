@@ -26,6 +26,19 @@ async function main() {
   funcMap["system"] = {};
   funcMap["system"]["account"] = api.query.system.account;
 
+  funcMap["dbcPriceOcw"] = {};
+  funcMap["dbcPriceOcw"]["avgPrice"] = api.query.dbcPriceOcw.avgPrice;
+  funcMap["dbcPriceOcw"]["priceURL"] = api.query.dbcPriceOcw.priceURL;
+
+  funcMap["committee"] = {};
+  funcMap["committee"]["committeeStakeDBCPerOrder"] = api.query.committee.committeeStakeDBCPerOrder;
+
+  funcMap["genericFunc"] = {};
+  funcMap["genericFunc"]["fixedTxFee"] = api.query.genericFunc.fixedTxFee;
+
+  funcMap["onlineProfile"] = {};
+  funcMap["onlineProfile"]["stakePerGPU"] = api.query.onlineProfile.stakePerGPU;
+
   var callFunc = funcMap[args["module"]][args["func"]];
   await do_query(callFunc, ...args._).catch((error) =>
     console.log(error.message)

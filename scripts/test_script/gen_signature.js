@@ -18,18 +18,12 @@ async function main() {
   console.log(`### SignedBy: ${keyPair.address}`);
   console.log(`### Signature: ${u8aToHex(signature)}`);
 
-  //   // verify the message using Alice's address
-  //   // const isValid = alice.verify(message, signature);
-  //   const { isValid } = signatureVerify(args["msg"], signature, keyPair.address);
+  // verify the message using Alice's address
+  // const isValid = keyPair.verify(message, signature);
+  const { isValid } = signatureVerify(args["msg"], signature, keyPair.address);
 
-  //   // output the result
-  //   console.log(`${u8aToHex(signature)} is ${isValid ? "valid" : "invalid"}`);
-
-  //   console.log(
-  //     `###Signature: ${u8aToHex(signature)}\n###Message: ${u8aToHex(
-  //       message
-  //     )},\n###Sender: ${alice.address}`
-  //   );
+  // output the result
+  console.log(`${u8aToHex(signature)} is ${isValid ? "valid" : "invalid"}`);
 }
 
 main().catch((error) => console.log(error.message));

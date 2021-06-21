@@ -61,7 +61,8 @@ pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
 pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 pub const ONE_DBC: u64 = 1000_000_000_000_000;
-pub const BLOCK_PER_ERA: u64 = 2880;
+// pub const BLOCK_PER_ERA: u64 = 2880;
+pub const BLOCK_PER_ERA: u64 = 100; // TODO: 测试网一天设置为100个块
 
 // 惩罚发生后，有48小时的时间提交议案取消惩罚
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -255,11 +256,6 @@ pub mod pallet {
     #[pallet::getter(fn user_total_stake)]
     pub(super) type UserTotalStake<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
-
-    // 存储当前每卡质押数量
-    #[pallet::storage]
-    #[pallet::getter(fn cur_stake_per_gpu)]
-    pub(super) type CurStakePerGPU<T> = StorageValue<_, BalanceOf<T>>;
 
     // 当前系统中工作的GPU数量
     #[pallet::storage]
@@ -1264,6 +1260,8 @@ impl<T: Config> LCOps for Pallet<T> {
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
+        debug::warn!("##### CommitteeUploadInfo is: {:?}", committee_upload_info);
+
         let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
         machine_info.machine_info_detail.committee_upload_info = committee_upload_info.clone();
         machine_info.reward_committee = reported_committee;
@@ -1299,6 +1297,17 @@ impl<T: Config> LCOps for Pallet<T> {
         user_machines.total_gpu_num += committee_upload_info.gpu_num as u64;
         UserMachines::<T>::insert(&machine_info.machine_owner, user_machines);
 
+        let mut live_machines = Self::live_machines();
+        LiveMachine::rm_machine_id(
+            &mut live_machines.booked_machine,
+            &committee_upload_info.machine_id,
+        );
+        LiveMachine::add_machine_id(
+            &mut live_machines.online_machine,
+            committee_upload_info.machine_id.clone(),
+        );
+        LiveMachines::<T>::put(live_machines);
+
         let total_gpu_num = Self::total_gpu_num();
         TotalGPUNum::<T>::put(total_gpu_num + committee_upload_info.gpu_num as u64);
 
@@ -1313,7 +1322,7 @@ impl<T: Config> LCOps for Pallet<T> {
         return Ok(());
     }
 
-    // 当委员会达成统一意见，拒绝机器时，机器状态改为补充质押。并记录拒绝时间。
+    // TODO: 当委员会达成统一意见，拒绝机器时，机器状态改为补充质押。并记录拒绝时间。
     fn lc_refuse_machine(machine_id: MachineId) -> Result<(), ()> {
         // 拒绝用户绑定，需要清除存储
         let mut machine_info = Self::machines_info(&machine_id);

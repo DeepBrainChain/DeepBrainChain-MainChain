@@ -16,10 +16,14 @@ import minimist from "minimist";
 
 async function main() {
   // 读取参数
-  var args = minimist(process.argv.slice(2), { string: ["key", "sig"] });
+  var args = minimist(process.argv.slice(2), { string: ["key", "sig", "hash"] });
 
-  if (args.hasOwnProperty( "sig"))  {
+  if (args.hasOwnProperty("sig"))  {
     args._.push(args["sig"]);
+  }
+
+  if (args.hasOwnProperty("hash")) {
+    args._.push(args["hash"])
   }
 
   // 构建连接
@@ -33,7 +37,7 @@ async function main() {
   const api = await ApiPromise.create({
     provider: wsProvider,
     types: type_json,
-    rpc: rpc_json,
+    // rpc: rpc_json,
   });
 
   // 读取密钥 type: sr25519, ssFormat: 42 (defaults)
@@ -56,6 +60,10 @@ async function main() {
 
   funcMap["committee"] = {};
   funcMap["committee"]["committeeSetBoxPubkey"] = api.tx.committee.committeeSetBoxPubkey;
+
+  funcMap["leaseCommittee"] = {};
+  funcMap["leaseCommittee"]["submitConfirmHash"] = api.tx.leaseCommittee.submitConfirmHash;
+  funcMap["leaseCommittee"]["submitConfirmRaw"] = api.tx.leaseCommittee.submitConfirmRaw;
 
   var callFunc = funcMap[args["module"]][args["func"]];
   await do_sign_tx(callFunc, accountFromKeyring, nonce, ...args._).catch(

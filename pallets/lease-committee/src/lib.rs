@@ -25,7 +25,7 @@ use frame_support::{
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use online_profile::CommitteeUploadInfo;
-use online_profile_machine::LCOps;
+use online_profile_machine::{LCOps, ManageCommittee};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
@@ -41,9 +41,14 @@ type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub const DISTRIBUTION: u32 = 9; // 分成9个区间进行验证
-pub const DURATIONPERCOMMITTEE: u32 = 480; // 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
-pub const SUBMIT_RAW_START: u32 = 4320; // 在分派之后的36个小时后允许提交原始信息
-pub const SUBMIT_RAW_END: u32 = 5760; // 在分派之后的48小时总结
+
+// pub const DURATIONPERCOMMITTEE: u32 = 480; // 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
+// pub const SUBMIT_RAW_START: u32 = 4320; // 在分派之后的36个小时后允许提交原始信息
+// pub const SUBMIT_RAW_END: u32 = 5760; // 在分派之后的48小时总结
+
+pub const DURATIONPERCOMMITTEE: u32 = 40; // 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
+pub const SUBMIT_RAW_START: u32 = 360; // 在分派之后的36个小时后允许提交原始信息
+pub const SUBMIT_RAW_END: u32 = 480; // 在分派之后的48小时总结
 
 pub use pallet::*;
 
@@ -80,6 +85,7 @@ pub enum LCVerifyStatus {
     SubmitingHash,
     SubmitingRaw,
     Summarying,
+    Finished,
 }
 
 impl Default for LCVerifyStatus {
@@ -156,6 +162,10 @@ pub mod pallet {
             MachineId = MachineId,
             CommitteeUploadInfo = CommitteeUploadInfo,
         >;
+        type ManageCommittee: ManageCommittee<
+            AccountId = Self::AccountId,
+            BalanceOf = BalanceOf<Self>,
+        >;
     }
 
     #[pallet::pallet]
@@ -165,14 +175,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-            // 每个块高检查委员会质押是否足够 // TODO: 由 committee 执行
-            // if let Some(stake_dbc_amount) = Self::stake_dbc_amount() {
-            // CommitteeStakeDBCPerOrder::<T>::put(stake_dbc_amount);
-            //}
-
             Self::distribute_machines(); // 分派机器
             Self::statistic_result(); // 检查订单状态
-                                      // Self::check_and_exec_slash();
         }
     }
 
@@ -215,6 +219,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
+
+            debug::error!("####### Hash is: {:?}", hash);
 
             let mut machine_committee = Self::machine_committee(&machine_id);
 
@@ -450,10 +456,9 @@ impl<T: Config> Pallet<T> {
         now: T::BlockNumber,
         order_time: (T::AccountId, Vec<usize>),
     ) -> Result<(), ()> {
-        // 增加质押 : 由committee 执行
-        // let stake_need = Self::committee_stake_dbc_per_order().ok_or(())?;
-        // debug::warn!("#### Stake need: {:?}", &stake_need);
-        // Self::add_stake(&order_time.0, stake_need)?;
+        // 增加质押：由committee执行
+        let stake_need = T::ManageCommittee::stake_per_order().ok_or(())?;
+        T::ManageCommittee::change_stake(&order_time.0, stake_need, true)?;
 
         debug::warn!("#### will change following status");
 
@@ -473,7 +478,7 @@ impl<T: Config> Pallet<T> {
 
         // 修改委员会的操作
         let mut committee_ops = Self::committee_ops(&order_time.0, &machine_id);
-        // committee_ops.staked_dbc = stake_need; // TODO: 由committee记录并提供
+        committee_ops.staked_dbc = stake_need;
         let start_time: Vec<_> = order_time
             .1
             .into_iter()
@@ -527,6 +532,8 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
 
         for machine_id in booked_machine {
+            debug::warn!("##### Statistic... {:?}", machine_id);
+
             let machine_committee = Self::machine_committee(machine_id.clone());
             // 当不为Summary状态时查看是否到了48小时，如果不到则返回
             if machine_committee.status != LCVerifyStatus::Summarying {
@@ -539,18 +546,42 @@ impl<T: Config> Pallet<T> {
             let mut reward_committee = Vec::new(); // 当拒绝上线时，惩罚委员会的币奖励给拒绝的委员会
             let mut unstake_committee = Vec::new(); // 解除质押的委员会
 
+            debug::warn!("##### Summarying... {:?}", machine_id);
+
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
+                    debug::warn!("##### Summarying result is... confirmed");
                     slash_committee.extend(summary.unruly.clone());
                     slash_committee.extend(summary.against);
                     slash_committee.extend(summary.invalid_support);
                     unstake_committee.extend(summary.valid_support.clone());
-                    let _ = T::LCOperations::lc_confirm_machine(
-                        summary.valid_support,
+                    if let Ok(_) = T::LCOperations::lc_confirm_machine(
+                        summary.valid_support.clone(),
                         summary.info.unwrap(),
-                    );
+                    ) {
+                        let valid_support = summary.valid_support.clone();
+                        for a_committee in valid_support {
+                            let mut committee_machine = Self::committee_machine(&a_committee);
+                            if let Ok(index) =
+                                committee_machine.confirmed_machine.binary_search(&machine_id)
+                            {
+                                committee_machine.confirmed_machine.remove(index);
+                            }
+                            if let Err(index) =
+                                committee_machine.online_machine.binary_search(&machine_id)
+                            {
+                                committee_machine.online_machine.insert(index, machine_id.clone());
+                            }
+                            CommitteeMachine::<T>::insert(&a_committee, committee_machine);
+                        }
+
+                        let mut machine_committee = Self::machine_committee(&machine_id);
+                        machine_committee.status = LCVerifyStatus::Finished;
+                        machine_committee.onlined_committee = summary.valid_support;
+                    }
                 }
                 MachineConfirmStatus::Refuse(summary) => {
+                    debug::warn!("##### Summarying result is... confirmed");
                     slash_committee.extend(summary.unruly.clone());
                     slash_committee.extend(summary.invalid_support);
                     reward_committee.extend(summary.against.clone());
@@ -560,6 +591,7 @@ impl<T: Config> Pallet<T> {
                     let _ = T::LCOperations::lc_refuse_machine(machine_id.clone());
                 }
                 MachineConfirmStatus::NoConsensus(summary) => {
+                    debug::warn!("##### Summarying result is... confirmed");
                     slash_committee.extend(summary.unruly.clone());
                     unstake_committee.extend(machine_committee.confirmed_committee.clone());
                     let _ = Self::revert_book(machine_id.clone());
@@ -573,6 +605,7 @@ impl<T: Config> Pallet<T> {
             for a_committee in slash_committee {
                 let committee_ops = Self::committee_ops(&a_committee, &machine_id);
                 // TODO:  由committee模块提供
+                // TODO: add_slash应该能够传BalanceOf的参数
                 // Self::add_slash(a_committee, committee_ops.staked_dbc, reward_committee.clone());
                 // TODO: 应该从book的信息中移除
             }

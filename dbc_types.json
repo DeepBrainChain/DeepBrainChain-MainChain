@@ -27,6 +27,7 @@
   },
   "BlockNumber": "u32",
   "MachineInfo": {
+    "controller": "AccountId",
     "machine_owner": "AccountId",
     "machine_renter": "Option<AccountId>",
     "bonding_height": "BlockNumber",
@@ -41,6 +42,7 @@
     "_enum": [
       "MachineSelfConfirming",
       "CommitteeVerifying",
+      "CommitteeRefused",
       "WaitingFulfill",
       "Online",
       "StakerReportOffline(BlockNumber)",
@@ -133,7 +135,6 @@
   "CommitteeList": {
     "normal": "Vec<AccountId>",
     "chill_list": "Vec<AccountId>",
-    "fulfill_list": "Vec<AccountId>",
     "waiting_box_pubkey": "Vec<AccountId>"
   },
   "LCCommitteeMachineList": {
@@ -143,8 +144,7 @@
     "online_machine": "Vec<MachineId>"
   },
   "LCCommitteeOps": {
-    "booked_time": "BlockNumber",
-    "stake_dbc": "Balance",
+    "staked_dbc": "Balance",
     "verify_time": "Vec<BlockNumber>",
     "confirm_hash": "[u8; 16]",
     "hash_time": "BlockNumber",
@@ -178,9 +178,18 @@
     "book_time": "BlockNumber",
     "booked_committee": "Vec<AccountId>",
     "hashed_committee": "Vec<AccountId>",
-    "confirm_start": "BlockNumber",
+    "confirm_start_time": "BlockNumber",
     "confirmed_committee": "Vec<AccountId>",
-    "onlined_committee": "Vec<AccountId>"
+    "onlined_committee": "Vec<AccountId>",
+    "status": "LCVerifyStatus"
+  },
+  "LCVerifyStatus": {
+    "_enum": [
+      "SubmitingHash",
+      "SubmitingRaw",
+      "Summarying",
+      "Finished"
+    ]
   },
   "CommitteeMachineList": {
     "booked_order": "Vec<OrderId>",

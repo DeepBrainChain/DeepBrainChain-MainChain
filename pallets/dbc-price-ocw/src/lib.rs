@@ -1,16 +1,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{debug, traits::Randomness, traits::{Currency, LockableCurrency}};
+use frame_support::{
+    debug,
+    traits::Randomness,
+    traits::{Currency, LockableCurrency},
+};
 use frame_system::offchain::SubmitTransaction;
 use lite_json::json::JsonValue;
+use online_profile_machine::DbcPrice;
 use sp_core::H256;
-use sp_runtime::{offchain::{http, Duration}, traits::{SaturatedConversion, CheckedDiv, CheckedMul}};
+use sp_runtime::{
+    offchain::{http, Duration},
+    traits::{CheckedDiv, CheckedMul, SaturatedConversion},
+};
 use sp_std::{str, vec::Vec};
-use dbc_price_trait::DbcPrice;
 
 pub use pallet::*;
 
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -21,7 +29,8 @@ pub mod pallet {
 
     /// The type to sign and send transactions.
     pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
-    pub const MAX_LEN: usize = 64;
+    // pub const MAX_LEN: usize = 64;
+    pub const MAX_LEN: usize = 4; // TODO: 测试网仅取最近四次的价格作为平均价格
     type URL = Vec<u8>;
 
     #[pallet::config]
@@ -73,7 +82,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let None = Self::price_url() {
-                return
+                return;
             }
 
             debug::native::info!(
@@ -92,7 +101,10 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
-        pub fn submit_price_unsigned(origin: OriginFor<T>, price: u64) -> DispatchResultWithPostInfo {
+        pub fn submit_price_unsigned(
+            origin: OriginFor<T>,
+            price: u64,
+        ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
             Self::add_price(price);
@@ -118,7 +130,10 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn rm_price_url_by_index(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
+        pub fn rm_price_url_by_index(
+            origin: OriginFor<T>,
+            index: u32,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             if let Some(mut price_url) = Self::price_url() {
@@ -126,7 +141,7 @@ pub mod pallet {
                 price_url.remove(index as usize);
                 PriceURL::<T>::put(price_url);
             } else {
-                return Err(Error::<T>::IndexOutOfRange.into())
+                return Err(Error::<T>::IndexOutOfRange.into());
             }
 
             Ok(().into())
@@ -184,14 +199,9 @@ impl<T: Config> Pallet<T> {
 
         let request = http::Request::get(price_url);
 
-        let pending = request
-            .deadline(deadline)
-            .send()
-            .map_err(|_| http::Error::IoError)?;
+        let pending = request.deadline(deadline).send().map_err(|_| http::Error::IoError)?;
 
-        let response = pending
-            .try_wait(deadline)
-            .map_err(|_| http::Error::DeadlineReached)??;
+        let response = pending.try_wait(deadline).map_err(|_| http::Error::DeadlineReached)??;
         // Let's check the status code before we proceed to reading the response.
         if response.code != 200 {
             debug::warn!("Unexpected status code: {}", response.code);
@@ -224,12 +234,12 @@ impl<T: Config> Pallet<T> {
         let price = val.ok().and_then(|v| match v {
             JsonValue::Object(obj) => {
                 let mut chars = "USD".chars();
-                obj.into_iter()
-                    .find(|(k, _)| k.iter().all(|k| Some(*k) == chars.next()))
-                    .and_then(|v| match v.1 {
+                obj.into_iter().find(|(k, _)| k.iter().all(|k| Some(*k) == chars.next())).and_then(
+                    |v| match v.1 {
                         JsonValue::Number(number) => Some(number),
                         _ => None,
-                    })
+                    },
+                )
             }
             _ => None,
         })?;

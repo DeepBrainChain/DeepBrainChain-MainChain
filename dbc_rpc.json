@@ -11,7 +11,7 @@
       "type": "u64"
     },
     "getStakerListInfo": {
-       "description": "get staker list",
+      "description": "get staker list",
       "params": [
         {
           "name": "at",
@@ -28,6 +28,56 @@
         }
       ],
       "type": "Vec<StakerListInfo<Balance, AccountId>>"
+    },
+    "getMachineInfo": {
+      "description": "TODO description",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        }
+      ],
+      "type": "RPCMachineInfo<AccountId, BlockNumber, Balance>"
+    },
+    "getMachineList": {
+      "description": "TODO description"
+    },
+    "getStakerIdentity": {
+      "description": "TODO description",
+      "params": [
+        {
+          "account": "AccountId"
+        }
+      ],
+      "type": "Vec<u8>"
+    },
+    "getStakerInfo": {
+      "description": "TODO description"
+    },
+    "getStakerList": {
+      "description": "TODO description"
+    }
+  },
+  "leaseCommittee": {
+    "getCommitteeMachineList": {
+      "description": "TODO description"
+    },
+    "getCommitteeOps": {
+      "description": "TODO description"
+    },
+    "getSum": {
+      "description": "TODO description"
+    }
+  },
+  "rentMachine": {
+    "getRentList": {
+      "description": "TODO description"
+    },
+    "getRentOrder": {
+      "description": "TODO description"
+    },
+    "getSum": {
+      "description": "TODO description"
     }
   }
 }
