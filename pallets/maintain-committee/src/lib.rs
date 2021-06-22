@@ -23,6 +23,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
+use online_profile_machine::DbcPrice;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion},
@@ -177,6 +178,7 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -285,7 +287,7 @@ pub mod pallet {
             let report_id = Self::get_new_report_id();
 
             let reporter_report_stake = Self::reporter_report_stake();
-            let reporter_stake_need = Self::get_dbc_amount_by_value(reporter_report_stake)
+            let reporter_stake_need = T::DbcPrice::get_dbc_amount_by_value(reporter_report_stake)
                 .ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             Self::add_user_total_stake(&reporter, reporter_stake_need)
@@ -332,7 +334,7 @@ pub mod pallet {
             let report_id = Self::get_new_report_id();
 
             let reporter_report_stake = Self::reporter_report_stake();
-            let reporter_stake_need = Self::get_dbc_amount_by_value(reporter_report_stake)
+            let reporter_stake_need = T::DbcPrice::get_dbc_amount_by_value(reporter_report_stake)
                 .ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             Self::add_user_total_stake(&reporter, reporter_stake_need)
@@ -383,7 +385,7 @@ pub mod pallet {
             let report_id = Self::get_new_report_id();
 
             let reporter_report_stake = Self::reporter_report_stake();
-            let reporter_stake_need = Self::get_dbc_amount_by_value(reporter_report_stake)
+            let reporter_stake_need = T::DbcPrice::get_dbc_amount_by_value(reporter_report_stake)
                 .ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             Self::add_user_total_stake(&reporter, reporter_stake_need)
@@ -822,17 +824,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // 根据DBC价格获得最小质押数量
-    // DBC精度15，Balance为u128, min_stake不超过10^24 usd 不会超出最大值
-    fn get_dbc_amount_by_value(stake_value: u64) -> Option<BalanceOf<T>> {
-        let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
-        let dbc_price = <dbc_price_ocw::Module<T>>::avg_price()?;
-
-        one_dbc
-            .checked_mul(&stake_value.saturated_into::<BalanceOf<T>>())?
-            .checked_div(&dbc_price.saturated_into::<BalanceOf<T>>())
-    }
-
     // FIXME: 改成防止溢出的
     fn get_new_report_id() -> ReportId {
         let report_id = Self::next_report_id();

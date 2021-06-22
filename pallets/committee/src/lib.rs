@@ -9,7 +9,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::ManageCommittee;
+use online_profile_machine::{DbcPrice, ManageCommittee};
 use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion},
     RuntimeDebug,
@@ -82,6 +82,7 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -91,10 +92,13 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-            // 每个块高检查委员会质押是否足够
-            if let Some(stake_dbc_amount) = Self::stake_dbc_amount() {
-                CommitteeStakeDBCPerOrder::<T>::put(stake_dbc_amount);
-            }
+            if let Some(stake_dbc_value) = Self::committee_stake_usd_per_order() {
+                if let Some(stake_dbc_amount) =
+                    T::DbcPrice::get_dbc_amount_by_value(stake_dbc_value)
+                {
+                    CommitteeStakeDBCPerOrder::<T>::put(stake_dbc_amount);
+                }
+            };
 
             Self::check_and_exec_slash();
         }
@@ -103,7 +107,7 @@ pub mod pallet {
     // 每次订单质押默认100RMB等价DBC
     #[pallet::storage]
     #[pallet::getter(fn committee_stake_usd_per_order)]
-    pub(super) type CommitteeStakeUSDPerOrder<T: Config> = StorageValue<_, u64, ValueQuery>;
+    pub(super) type CommitteeStakeUSDPerOrder<T: Config> = StorageValue<_, u64>;
 
     #[pallet::storage]
     #[pallet::getter(fn next_slash_id)]
@@ -345,16 +349,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // 根据DBC价格获得需要质押数量
-    fn stake_dbc_amount() -> Option<BalanceOf<T>> {
-        let dbc_price: BalanceOf<T> = <dbc_price_ocw::Module<T>>::avg_price()?.saturated_into();
-        let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
-        let committee_stake_need: BalanceOf<T> =
-            Self::committee_stake_usd_per_order().saturated_into();
-
-        one_dbc.checked_mul(&committee_stake_need)?.checked_div(&dbc_price)
-    }
-
     // 检查并执行slash
     fn check_and_exec_slash() {
         let now = <frame_system::Module<T>>::block_number();

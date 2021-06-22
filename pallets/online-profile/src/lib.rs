@@ -26,7 +26,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{LCOps, RTOps};
+use online_profile_machine::{DbcPrice, LCOps, RTOps};
 use pallet_identity::Data;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -60,7 +60,6 @@ mod tests;
 pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
 pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
-pub const ONE_DBC: u64 = 1000_000_000_000_000;
 // pub const BLOCK_PER_ERA: u64 = 2880;
 pub const BLOCK_PER_ERA: u64 = 100; // TODO: 测试网一天设置为100个块
 
@@ -221,6 +220,7 @@ pub mod pallet {
         type BondingDuration: Get<EraIndex>;
         type ProfitReleaseDuration: Get<u64>; // 剩余75%线性释放时间长度(25%立即释放)
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -732,6 +732,7 @@ pub mod pallet {
             _machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let _staker = ensure_signed(origin)?;
+            // TODO: 应该影响机器打分
 
             Ok(().into())
         }
@@ -864,31 +865,17 @@ impl<T: Config> Pallet<T> {
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
     pub fn calc_stake_amount(gpu_num: u32) -> Option<BalanceOf<T>> {
-        let base_stake = Self::stake_per_gpu(); // 10_0000 DBC
-        let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
-
-        // 计算5w RMB 等值DBC数量
-        // dbc_amount = dbc_stake_usd_limit * 10^15 / dbc_price
-        let dbc_price: BalanceOf<T> = <dbc_price_ocw::Module<T>>::avg_price()?.saturated_into();
-        let stake_usd_limit: BalanceOf<T> = Self::stake_usd_limit().saturated_into();
-        let dbc_amount = one_dbc.checked_mul(&stake_usd_limit)?;
-        let dbc_amount = dbc_amount.checked_div(&dbc_price)?;
-
-        // 当前成功加入系统的GPU数量
         let total_gpu_num = Self::total_gpu_num();
 
-        if total_gpu_num <= 10_000 {
-            // GPU数量小于10_000时，直接返回base_saturated_into() satura
-            return Some(base_stake.min(dbc_amount));
+        let mut base_stake = Self::stake_per_gpu(); // 单卡10_0000 DBC
+        if total_gpu_num > 10_000 {
+            base_stake = Perbill::from_rational_approximation(10_000u64, total_gpu_num) * base_stake
         }
 
-        // 当GPU数量大于10_000时
-        // 100_000 * 10000 / gpu_num
-        let dbc_amount2 =
-            Perbill::from_rational_approximation(10_000u64, total_gpu_num) * base_stake;
+        let stake_usd_limit = Self::stake_usd_limit();
+        let stake_limit = T::DbcPrice::get_dbc_amount_by_value(stake_usd_limit)?;
 
-        let stake_per_gpu = dbc_amount2.min(dbc_amount);
-        stake_per_gpu.checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())
+        return base_stake.min(stake_limit).checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>());
     }
 
     // 根据GPU数量和该机器算力点数，算出该机器价格

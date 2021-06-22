@@ -1,7 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{pallet_prelude::*,
-    traits::{Randomness, Currency, LockableCurrency, OnUnbalanced}
+use frame_support::{
+    pallet_prelude::*,
+    traits::{Currency, LockableCurrency, OnUnbalanced, Randomness},
 };
 use frame_system::pallet_prelude::*;
 use sp_core::H256;
@@ -12,8 +13,9 @@ pub use pallet::*;
 
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -59,7 +61,10 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 设置租用机器手续费：10 DBC
         #[pallet::weight(0)]
-        pub fn set_fixed_tx_fee(origin: OriginFor<T>, tx_fee: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn set_fixed_tx_fee(
+            origin: OriginFor<T>,
+            tx_fee: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             FixedTxFee::<T>::put(tx_fee);
             Ok(().into())
@@ -67,14 +72,20 @@ pub mod pallet {
 
         // 设置交易费管理人
         #[pallet::weight(0)]
-        pub fn set_rent_fee_collector(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
+        pub fn set_rent_fee_collector(
+            origin: OriginFor<T>,
+            who: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             RentFeeCollector::<T>::put(who);
             Ok(().into())
         }
 
         #[pallet::weight(0)]
-        pub fn deposit_into_treasury(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn deposit_into_treasury(
+            origin: OriginFor<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
             if !<T as pallet::Config>::Currency::can_slash(&who, amount) {
@@ -108,11 +119,7 @@ impl<T: Config> Pallet<T> {
     // Add randomness
     fn update_nonce() -> Vec<u8> {
         let nonce = RandNonce::<T>::get();
-        let nonce: u64 = if nonce == u64::MAX {
-            0
-        } else {
-            RandNonce::<T>::get() + 1
-        };
+        let nonce: u64 = if nonce == u64::MAX { 0 } else { RandNonce::<T>::get() + 1 };
         RandNonce::<T>::put(nonce);
         nonce.encode()
     }

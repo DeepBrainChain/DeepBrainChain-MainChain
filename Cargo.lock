@@ -3564,6 +3564,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "generic-func",
+ "online-profile-machine",
  "parity-scale-codec",
  "serde",
  "sp-io",

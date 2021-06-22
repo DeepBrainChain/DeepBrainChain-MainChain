@@ -281,11 +281,11 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> DbcPrice for Pallet<T> {
-    type Balance = BalanceOf<T>;
+    type BalanceOf = BalanceOf<T>;
 
-    fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance> {
-        let one_dbc: Self::Balance = 1000_000_000_000_000u64.saturated_into();
-        let dbc_price: Self::Balance = Self::avg_price()?.saturated_into();
-        value.saturated_into::<Self::Balance>().checked_mul(&one_dbc)?.checked_div(&dbc_price)
+    fn get_dbc_amount_by_value(value: u64) -> Option<Self::BalanceOf> {
+        let one_dbc: Self::BalanceOf = 1000_000_000_000_000u64.saturated_into();
+        let dbc_price: Self::BalanceOf = Self::avg_price()?.saturated_into();
+        value.saturated_into::<Self::BalanceOf>().checked_mul(&one_dbc)?.checked_div(&dbc_price)
     }
 }

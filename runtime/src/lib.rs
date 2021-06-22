@@ -1051,12 +1051,14 @@ impl online_profile::Config for Runtime {
     type BondingDuration = BondingDuration;
     type ProfitReleaseDuration = ProfitReleaseDuration;
     type Slash = Treasury;
+    type DbcPrice = DBCPriceOCW;
 }
 
 impl committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
+    type DbcPrice = DBCPriceOCW;
 }
 
 impl lease_committee::Config for Runtime {
@@ -1070,12 +1072,14 @@ impl maintain_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
+    type DbcPrice = DBCPriceOCW;
 }
 
 impl rent_machine::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type RTOps = OnlineProfile;
+    type DbcPrice = DBCPriceOCW;
 }
 
 construct_runtime!(

@@ -8,7 +8,8 @@ gpu_num = "4"
 cuda_core = "4352"
 gpu_mem = "11283456"
 calc_point = "6825"
-hard_disk = "3905110864"
+sys_disk = "12345465"
+data_disk = "324567733"
 cpu_type = "Intel(R) Xeon(R) Silver 4110 CPU"
 cpu_core_num = "32"
 cpu_rate = "26"
@@ -23,7 +24,8 @@ raw_input = (
     + cuda_core
     + gpu_mem
     + calc_point
-    + hard_disk
+    + sys_disk
+    + data_disk
     + cpu_type
     + cpu_core_num
     + cpu_rate

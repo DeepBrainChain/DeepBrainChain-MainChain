@@ -16,7 +16,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 pub use online_profile::{EraIndex, MachineId, MachineStatus};
-use online_profile_machine::RTOps;
+use online_profile_machine::{DbcPrice, RTOps};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
@@ -70,6 +70,7 @@ pub mod pallet {
             MachineStatus = MachineStatus<Self::BlockNumber>,
             AccountId = Self::AccountId,
         >;
+        type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -153,7 +154,11 @@ pub mod pallet {
                 Error::<T>::MachineNotRentable,
             );
             // 获得machine_price
-            let rent_fee = Self::stake_dbc_amount(machine_info.machine_price, duration)
+            let rent_fee_value = machine_info
+                .machine_price
+                .checked_mul(duration as u64)
+                .ok_or(Error::<T>::Overflow)?;
+            let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
 
             // 检查用户是否有足够的资金，来租用机器
@@ -269,7 +274,12 @@ pub mod pallet {
                 Self::rent_order(&renter, &machine_id).ok_or(Error::<T>::NoOrderExist)?;
 
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-            let rent_fee = Self::stake_dbc_amount(machine_info.machine_price, add_duration)
+
+            let rent_fee_value = machine_info
+                .machine_price
+                .checked_mul(add_duration as u64)
+                .ok_or(Error::<T>::Overflow)?;
+            let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
 
             // 检查用户是否有足够的资金，来租用机器
@@ -310,21 +320,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // 根据DBC价格计算租金
-    // 租金 = 机器价格 * 租用era * one_dbc / dbc_price / 30 (天/月)
-    fn stake_dbc_amount(machine_price: u64, rent_duration: EraIndex) -> Option<BalanceOf<T>> {
-        let one_dbc: BalanceOf<T> = 1000_000_000_000_000u64.saturated_into();
-        let dbc_price: BalanceOf<T> = <dbc_price_ocw::Module<T>>::avg_price()?.saturated_into();
-
-        let renter_need: BalanceOf<T> =
-            machine_price.checked_mul(rent_duration as u64)?.saturated_into();
-
-        one_dbc
-            .checked_mul(&renter_need)?
-            .checked_div(&dbc_price)?
-            .checked_div(&DAY_PER_MONTH.saturated_into::<BalanceOf<T>>())
-    }
-
     // 定时检查机器是否30分钟没有上线
     fn check_machine_starting_status() {
         let pending_confirming = Self::pending_confirming_order();
