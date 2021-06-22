@@ -205,7 +205,7 @@ pub mod pallet {
             committee_list
                 .waiting_box_pubkey
                 .binary_search(&committee)
-                .map_err(|_| Error::<T>::PubkeyNotSet);
+                .map_err(|_| Error::<T>::PubkeyNotSet)?;
 
             CommitteeList::rm_one(&mut committee_list.normal, &committee);
             CommitteeList::add_one(&mut committee_list.chill_list, committee.clone());

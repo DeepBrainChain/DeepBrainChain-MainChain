@@ -108,6 +108,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
     pub stake_amount: Balance,
     pub machine_status: MachineStatus<BlockNumber>,
+    pub total_rented_duration: u64,             // 总租用累计时长
+    pub total_rented_times: u64,                // 总租用次数
     pub machine_info_detail: MachineInfoDetail, // 委员会提交的机器信息
     pub machine_price: u64, // 租用价格。设置3080的分数对应的价格为1000(可设置)元，其他机器的价格根据3080的价格，按照算力值进行计算的比例进行计算
     pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
@@ -488,6 +490,12 @@ pub mod pallet {
             controller: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let stash = ensure_signed(origin)?;
+            // 不允许多个stash指定同一个controller
+            ensure!(
+                !<ControllerStash<T>>::contains_key(&controller),
+                Error::<T>::AlreadyController
+            );
+
             StashController::<T>::insert(stash.clone(), controller.clone());
             ControllerStash::<T>::insert(controller, stash);
             Ok(().into())
@@ -654,65 +662,65 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // FIXME: 当前问题：如果是Vec<u8>的参数，前端会把账户类型转为公钥传入，而如果是用别名，则传得字符串不会被改
-        // 验证签名的第二个参数需要是公钥
-        // 该方法由controller账户发出
         // machine 设置 stash账户
         // MachineId对应的私钥对字符串进行加密： "machineIdstash", 其中，machineId为machineId字符串，stash为Stash账户字符串
         #[pallet::weight(10000)]
         pub fn machine_set_stash(
             origin: OriginFor<T>,
-            machine_id: MachineId,
-            stash_account: MachineId,
-            sig: MachineId,
+            msg: Vec<u8>,
+            sig: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin)?;
+            let _ = ensure_signed(origin)?;
 
-            let mut msg = Vec::new();
-            msg.extend(machine_id.clone());
-            msg.extend(stash_account.clone());
+            ensure!(msg.len() == 96, Error::<T>::BadMsgLen);
 
-            // TODO: 确保Machine_id中已经有该machine_id
+            let machine_id: Vec<u8> = msg[..48].to_vec();
+            let stash_account: Vec<u8> = msg[48..].to_vec();
+
+            let mut live_machines = Self::live_machines();
+            ensure!(
+                live_machines.bonding_machine.binary_search(&machine_id).is_ok(),
+                Error::<T>::NotAllowedSetStash
+            );
 
             // 验证签名是否为MachineId发出
-            // if Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()) {
+            if !Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()) {
+                return Err(Error::<T>::BadSignature.into());
+            }
+
             let mut machine_info = Self::machines_info(&machine_id);
 
             let stash_account = Self::get_account_from_str(&stash_account)
                 .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
             machine_info.machine_owner = stash_account;
 
-            let mut live_machines = Self::live_machines();
             LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
             LiveMachine::add_machine_id(&mut live_machines.machine_confirmed, machine_id.clone());
 
             MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
             LiveMachines::<T>::put(live_machines);
-            // } else {
-            //     return Err(Error::<T>::BadSignature.into());
-            // }
 
             Ok(().into())
         }
 
-        // 矿工领取奖励
+        // controller进行领取收益
         #[pallet::weight(10000)]
-        pub fn staker_claim_rewards(
-            origin: OriginFor<T>,
-            controller: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            let staker = ensure_signed(origin)?;
+        pub fn claim_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+            let stash_account =
+                Self::stash_controller(&controller).ok_or(Error::<T>::NoStashAccount)?;
             ensure!(UserMachines::<T>::contains_key(&controller), Error::<T>::NotMachineController);
-            let mut user_machine = Self::user_machines(&staker);
+            let mut user_machine = Self::user_machines(&controller); // FIXME: 可以领取的不是存在这里？？
+
             <T as pallet::Config>::Currency::deposit_into_existing(
-                &staker,
+                &stash_account,
                 user_machine.can_claim_reward,
             )
             .map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
             user_machine.total_claimed_reward += user_machine.can_claim_reward;
             user_machine.can_claim_reward = 0u64.saturated_into();
-            UserMachines::<T>::insert(&staker, user_machine);
+            UserMachines::<T>::insert(&controller, user_machine);
 
             Ok(().into())
         }
@@ -801,6 +809,10 @@ pub mod pallet {
         MachineWalletMachineIdNotMatch,
         ConvertMachineIdToWalletFailed,
         NoStashBond,
+        AlreadyController,
+        NoStashAccount,
+        NotAllowedSetStash,
+        BadMsgLen,
     }
 }
 
@@ -808,8 +820,13 @@ impl<T: Config> Pallet<T> {
     fn verify_sig(msg: Vec<u8>, sig: Vec<u8>, account: Vec<u8>) -> bool {
         match sp_core::sr25519::Signature::try_from(&sig[..]) {
             Ok(signature) => {
-                let public = sp_core::sr25519::Public::from_slice(account.as_ref());
-                return signature.verify(&msg[..], &public);
+                let public = Self::get_public_from_str(&account);
+                if public.is_none() {
+                    return false;
+                }
+                let public = public.unwrap();
+
+                return signature.verify(&msg[..], &public.into());
             }
             _ => return false,
         };
@@ -817,7 +834,7 @@ impl<T: Config> Pallet<T> {
 
     // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
     // from_ss58check_with_version
-    fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
+    fn get_accountid32(addr: &Vec<u8>) -> Option<[u8; 32]> {
         let mut data: [u8; 35] = [0; 35];
 
         let length = bs58::decode(addr).into(&mut data).ok()?;
@@ -831,8 +848,17 @@ impl<T: Config> Pallet<T> {
         };
 
         let account_id32: [u8; 32] = data[1..33].try_into().ok()?;
+        Some(account_id32)
+    }
 
+    fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
+        let account_id32: [u8; 32] = Self::get_accountid32(addr)?;
         T::AccountId::decode(&mut &account_id32[..]).ok()
+    }
+
+    fn get_public_from_str(addr: &Vec<u8>) -> Option<sp_core::sr25519::Public> {
+        let account_id32: [u8; 32] = Self::get_accountid32(addr)?;
+        Some(sp_core::sr25519::Public::from_slice(&account_id32))
     }
 
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
@@ -1027,43 +1053,6 @@ impl<T: Config> Pallet<T> {
         era_machine_point.total += new_grade;
 
         UserMachines::<T>::insert(&staker, staker_machine);
-        ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
-    }
-
-    // 由于机器被租用，而更新得分
-    // 机器被租用和退租都修改下一天得分
-    fn update_staker_grades_by_rented_change(
-        // staker: T::AccountId,
-        machine_id: MachineId,
-        is_rented: bool,
-    ) {
-        let era_index = Self::current_era() + 1;
-        let machine_info = Self::machines_info(&machine_id);
-        let machine_base_calc_point =
-            machine_info.machine_info_detail.committee_upload_info.calc_point;
-
-        let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
-        let mut staker_statistic = era_machine_point
-            .staker_statistic
-            .entry(machine_info.controller.clone())
-            .or_insert(StakerStatistics { ..Default::default() });
-
-        // 某台机器被租用，则该机器得分多30%
-        // 某台机器被退租，则该机器得分少30%
-        let grade_change =
-            Perbill::from_rational_approximation(30u64, 100u64) * machine_base_calc_point;
-        if is_rented {
-            staker_statistic.rent_extra_grade += grade_change;
-            era_machine_point.total += grade_change;
-        } else {
-            staker_statistic.rent_extra_grade -= grade_change;
-            era_machine_point.total -= grade_change;
-        }
-
-        let staker_statistic = (*staker_statistic).clone();
-        era_machine_point
-            .staker_statistic
-            .insert(machine_info.controller.clone(), staker_statistic);
         ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
     }
 
@@ -1358,17 +1347,54 @@ impl<T: Config> RTOps for Pallet<T> {
     fn change_machine_status(
         machine_id: &MachineId,
         new_status: MachineStatus<T::BlockNumber>,
-        renter: Self::AccountId,
-        is_rent: bool,
+        renter: Option<Self::AccountId>,
+        rent_duration: Option<u64>,
     ) {
         let mut machine_info = Self::machines_info(machine_id);
-        if machine_info.machine_status == new_status {
-            return;
+        let era_index = Self::current_era() + 1;
+
+        machine_info.machine_status = new_status.clone();
+        machine_info.machine_renter = renter;
+
+        let machine_base_calc_point =
+            machine_info.machine_info_detail.committee_upload_info.calc_point;
+        let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
+        let mut staker_statistic = era_machine_point
+            .staker_statistic
+            .entry(machine_info.controller.clone())
+            .or_insert(StakerStatistics { ..Default::default() });
+        // 某台机器被租用，则该机器得分多30%
+        // 某台机器被退租，则该机器得分少30%
+        let grade_change =
+            Perbill::from_rational_approximation(30u64, 100u64) * machine_base_calc_point;
+
+        match new_status {
+            MachineStatus::Rented => {
+                // 机器创建成功
+                staker_statistic.rent_extra_grade += grade_change;
+                era_machine_point.total += grade_change;
+                machine_info.total_rented_times += 1;
+            }
+            // 租用结束 或 租用失败(半小时无确认)
+            MachineStatus::Online => {
+                if rent_duration.is_some() {
+                    // 租用结束
+                    staker_statistic.rent_extra_grade -= grade_change;
+                    era_machine_point.total -= grade_change;
+                    machine_info.total_rented_duration += rent_duration.unwrap();
+                }
+            }
+            _ => {}
         }
-        machine_info.machine_status = new_status;
-        machine_info.machine_renter = Some(renter.clone());
-        MachinesInfo::<T>::insert(machine_id, machine_info);
-        Self::update_staker_grades_by_rented_change(machine_id.to_vec(), is_rent)
+
+        let staker_statistic = (*staker_statistic).clone();
+        era_machine_point
+            .staker_statistic
+            .insert(machine_info.controller.clone(), staker_statistic);
+
+        // 改变租用时长或者租用次数
+        MachinesInfo::<T>::insert(&machine_id, machine_info);
+        ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
     }
 }
 

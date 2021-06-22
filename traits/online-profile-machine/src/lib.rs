@@ -26,8 +26,8 @@ pub trait RTOps {
     fn change_machine_status(
         machine_id: &Self::MachineId,
         new_status: Self::MachineStatus,
-        renter: Self::AccountId,
-        is_rent: bool,
+        renter: Option<Self::AccountId>,
+        rent_duration: Option<u64>, // 不为None时，表示租用结束
     );
 }
 

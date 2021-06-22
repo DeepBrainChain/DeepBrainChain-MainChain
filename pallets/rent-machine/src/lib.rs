@@ -22,10 +22,8 @@ use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
 
+pub const WAITING_CONFIRMING: u64 = 60; // 等待60个块，用户确认是否租用成功
 pub const BLOCK_PER_DAY: u64 = 2880; // 1天按照2880个块
 pub const DAY_PER_MONTH: u64 = 30; // 每个月30天计算租金
 pub const CONFIRMING_DELAY: u64 = 60; // 租用之后60个块内确认机器租用成功
@@ -143,19 +141,17 @@ pub mod pallet {
             duration: EraIndex,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+            let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
 
             // 用户提交订单，需要扣除10个DBC
             <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone())
                 .map_err(|_| Error::<T>::PayTxFeeFailed)?;
-
-            let now = <frame_system::Module<T>>::block_number();
-            let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-
             // 检查machine_id状态是否可以租用
-            if machine_info.machine_status != MachineStatus::Online {
-                return Err(Error::<T>::MachineNotRentable.into());
-            }
-
+            ensure!(
+                machine_info.machine_status == MachineStatus::Online,
+                Error::<T>::MachineNotRentable,
+            );
             // 获得machine_price
             let rent_fee = Self::stake_dbc_amount(machine_info.machine_price, duration)
                 .ok_or(Error::<T>::Overflow)?;
@@ -198,8 +194,8 @@ pub mod pallet {
             T::RTOps::change_machine_status(
                 &machine_id,
                 MachineStatus::Creating,
-                renter.clone(),
-                true,
+                Some(renter.clone()),
+                None,
             );
             PendingConfirming::<T>::insert(machine_id, renter);
 
@@ -251,8 +247,8 @@ pub mod pallet {
             T::RTOps::change_machine_status(
                 &machine_id,
                 MachineStatus::Rented,
-                renter.clone(),
-                true,
+                Some(renter.clone()),
+                None,
             );
             PendingConfirming::<T>::remove(&machine_id);
 
@@ -339,30 +335,13 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
             let rent_order = rent_order.unwrap();
-            let duration = now.checked_sub(&rent_order.rent_start);
-            if let None = duration {
-                debug::error!("Duration of confirming rent cannot be None");
-                Self::clean_order(&renter, &machine_id);
+            let duration = now.checked_sub(&rent_order.rent_start).unwrap_or(0u64.saturated_into());
 
-                T::RTOps::change_machine_status(
-                    &machine_id,
-                    MachineStatus::Online,
-                    renter.clone(),
-                    false,
-                );
-                continue;
-            }
-            let duration = duration.unwrap();
-            if duration > 60u64.saturated_into() {
+            if duration > WAITING_CONFIRMING.saturated_into() {
                 // 超过了60个块，也就是30分钟
                 Self::clean_order(&renter, &machine_id);
 
-                T::RTOps::change_machine_status(
-                    &machine_id,
-                    MachineStatus::Online,
-                    renter.clone(),
-                    false,
-                );
+                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None);
                 continue;
             }
         }
@@ -432,30 +411,20 @@ impl<T: Config> Pallet<T> {
         let all_renter = Self::get_all_renter();
         for a_renter in all_renter {
             let user_rented = Self::user_rented(&a_renter);
-            let mut rented_machine = user_rented.clone();
 
             for a_machine in user_rented {
                 let mut rent_info = Self::rent_order(&a_renter, &a_machine).ok_or(())?;
-                if rent_info.rent_end
-                    > now + (BLOCK_PER_DAY * 10u64).saturated_into::<T::BlockNumber>()
-                {
-                    RentOrder::<T>::remove(&a_renter, &a_machine);
-                    if let Ok(index) = rented_machine.binary_search(&a_machine) {
-                        rented_machine.remove(index);
-                    }
-                } else if rent_info.rent_end > now {
+                if rent_info.rent_end > now {
                     rent_info.rent_status = RentStatus::RentExpired;
                     T::RTOps::change_machine_status(
                         &a_machine,
-                        MachineStatus::Creating,
-                        a_renter.clone(),
-                        false,
+                        MachineStatus::Online,
+                        None,
+                        Some((now - rent_info.rent_start).saturated_into()),
                     );
-                    RentOrder::<T>::insert(&a_renter, &a_machine, rent_info);
+                    Self::clean_order(&a_renter, &a_machine);
                 }
             }
-
-            UserRented::<T>::insert(&a_renter, rented_machine);
         }
         Ok(())
     }

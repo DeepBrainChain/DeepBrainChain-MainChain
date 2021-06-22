@@ -2,8 +2,8 @@ use codec::{alloc::string::ToString, Decode, Encode, HasCompact};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_128;
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 use sp_runtime::{Perbill, RuntimeDebug};
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
@@ -27,7 +27,8 @@ pub struct CommitteeUploadInfo {
     pub cuda_core: u32,    // CUDA core数量
     pub gpu_mem: u64,      // GPU显存
     pub calc_point: u64,   // 算力值
-    pub hard_disk: u64,    // 硬盘
+    pub sys_disk: u64,     // 系统盘大小
+    pub data_disk: u64,    // 数据盘大小
     pub cpu_type: Vec<u8>, // CPU型号
     pub cpu_core_num: u32, // CPU内核数
     pub cpu_rate: u64,     // CPU频率
@@ -43,16 +44,13 @@ impl CommitteeUploadInfo {
         let cuda_core: Vec<u8> = self.cuda_core.to_string().into();
         let gpu_mem: Vec<u8> = self.gpu_mem.to_string().into();
         let calc_point: Vec<u8> = self.calc_point.to_string().into();
-        let hard_disk: Vec<u8> = self.hard_disk.to_string().into();
+        let sys_disk: Vec<u8> = self.sys_disk.to_string().into();
+        let data_disk: Vec<u8> = self.data_disk.to_string().into();
         let cpu_core_num: Vec<u8> = self.cpu_core_num.to_string().into();
         let cpu_rate: Vec<u8> = self.cpu_rate.to_string().into();
         let mem_num: Vec<u8> = self.mem_num.to_string().into();
 
-        let is_support: Vec<u8> = if self.is_support {
-            "1".into()
-        } else {
-            "0".into()
-        };
+        let is_support: Vec<u8> = if self.is_support { "1".into() } else { "0".into() };
 
         let mut raw_info = Vec::new();
         raw_info.extend(self.machine_id.clone());
@@ -61,7 +59,8 @@ impl CommitteeUploadInfo {
         raw_info.extend(cuda_core);
         raw_info.extend(gpu_mem);
         raw_info.extend(calc_point);
-        raw_info.extend(hard_disk);
+        raw_info.extend(sys_disk);
+        raw_info.extend(data_disk);
         raw_info.extend(self.cpu_type.clone());
         raw_info.extend(cpu_core_num);
         raw_info.extend(cpu_rate);
@@ -129,8 +128,8 @@ pub struct MachineGradeStatus {
 
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
 pub struct StakerStatistics {
-    pub online_num: u64, // 用户在线的机器数量
-    pub inflation: Perbill, // 用户对应的膨胀系数
+    pub online_num: u64,               // 用户在线的机器数量
+    pub inflation: Perbill,            // 用户对应的膨胀系数
     pub machine_total_calc_point: u64, // 用户的机器的总计算点数得分(不考虑膨胀)
-    pub rent_extra_grade: u64, // 用户机器因被租用获得的额外得分
+    pub rent_extra_grade: u64,         // 用户机器因被租用获得的额外得分
 }
