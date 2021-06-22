@@ -110,14 +110,20 @@ pub struct UnlockChunk<Balance: HasCompact> {
 }
 
 // 记录每个Era的机器的总分
+// NOTE: 这个账户应该是stash账户，而不是controller账户
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
 pub struct EraMachinePoints<AccountId: Ord> {
-    // 所有可以奖励的机器总得分
-    pub total: u64,
-    // 某个Era，所有的机器的基础得分,机器的在线状态
-    pub individual_points: BTreeMap<MachineId, MachineGradeStatus>,
-    // 某个Era，用户的得分膨胀系数快照
-    pub staker_statistic: BTreeMap<AccountId, StakerStatistics>,
+    pub total: u64, // 所有可以奖励的机器总得分
+    pub staker_statistic: BTreeMap<AccountId, StashMachineStatistics>, // 某个Era，stash账户的得分系数快照
+}
+
+#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+pub struct StashMachineStatistics {
+    pub online_gpu_num: u64,           // 用户在线的机器数量
+    pub inflation: Perbill,            // 用户对应的膨胀系数
+    pub machine_total_calc_point: u64, // 用户的机器的总计算点数得分(不考虑膨胀)
+    pub rent_extra_grade: u64,         // 用户机器因被租用获得的额外得分
+    pub individual_machine: BTreeMap<MachineId, MachineGradeStatus>,
 }
 
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
@@ -126,10 +132,10 @@ pub struct MachineGradeStatus {
     pub is_online: bool,
 }
 
-#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
-pub struct StakerStatistics {
-    pub online_num: u64,               // 用户在线的机器数量
-    pub inflation: Perbill,            // 用户对应的膨胀系数
-    pub machine_total_calc_point: u64, // 用户的机器的总计算点数得分(不考虑膨胀)
-    pub rent_extra_grade: u64,         // 用户机器因被租用获得的额外得分
+impl StashMachineStatistics {
+    pub fn total_grades(&self) -> Option<u64> {
+        (self.inflation * self.machine_total_calc_point)
+            .checked_add(self.machine_total_calc_point)?
+            .checked_add(self.rent_extra_grade)
+    }
 }
