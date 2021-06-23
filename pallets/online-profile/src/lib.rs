@@ -626,14 +626,12 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 机器online可以修改，online之后不能修改
         #[pallet::weight(10000)]
-        pub fn staker_change_machine_info(
+        pub fn change_machine_info(
             origin: OriginFor<T>,
             machine_id: MachineId,
-            upload_net: u64,
-            download_net: u64,
-            longitude: u64,
-            latitude: u64,
+            customize_machine_info: StakerCustomizeInfo,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
@@ -644,24 +642,16 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::MachineIdNotBonded);
 
             let mut machine_info = Self::machines_info(&machine_id);
+
             match machine_info.machine_status {
-                // 判断机器状态，如果机器未上线，不改变机器状态
-                MachineStatus::MachineSelfConfirming | MachineStatus::CommitteeVerifying => {}
-                // 如果机器已上线，则减少可修改次数
+                MachineStatus::MachineSelfConfirming
+                | MachineStatus::CommitteeVerifying
+                | MachineStatus::CommitteeRefused(_)
+                | MachineStatus::WaitingFulfill => {
+                    machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
+                }
                 _ => {
-                    let left_change_time =
-                        machine_info.machine_info_detail.staker_customize_info.left_change_time;
-                    if left_change_time == 0 {
-                        return Err(Error::<T>::StakerMaxChangeReached.into());
-                    }
-                    machine_info.machine_info_detail.staker_customize_info = StakerCustomizeInfo {
-                        left_change_time: left_change_time - 1,
-                        upload_net,
-                        download_net,
-                        longitude,
-                        latitude,
-                        images: machine_info.machine_info_detail.staker_customize_info.images,
-                    }
+                    return Err(Error::<T>::NotAllowedChangeMachineInfo.into());
                 }
             }
 
@@ -685,6 +675,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             msg: Vec<u8>,
             sig: Vec<u8>,
+            customize_machine_info: StakerCustomizeInfo,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
@@ -709,6 +700,7 @@ pub mod pallet {
             let stash_account = Self::get_account_from_str(&stash_account)
                 .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
             machine_info.machine_owner = stash_account;
+            machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
 
             // stash 账户必须是已经和controller账户绑定
             if let Some(bonded_stash_account) = Self::controller_stash(&controller) {
@@ -845,6 +837,7 @@ pub mod pallet {
         NotAllowedSetStash,
         BadMsgLen,
         NotBondedStashAccount,
+        NotAllowedChangeMachineInfo,
     }
 }
 
@@ -1473,7 +1466,7 @@ impl<T: Config> Module<T> {
     pub fn get_op_info() -> SysInfo<BalanceOf<T>> {
         SysInfo {
             total_gpu_num: Self::total_gpu_num(),
-            total_staker: Self::total_staker(),
+            total_staker: Self::get_total_staker_num(),
             total_calc_points: Self::total_calc_points(),
             total_stake: Self::total_stake(),
         }
@@ -1489,7 +1482,6 @@ impl<T: Config> Module<T> {
         }
     }
 
-    // TODO:
     pub fn get_staker_list(_start: u64, _end: u64) -> Vec<T::AccountId> {
         Self::get_all_stash()
     }

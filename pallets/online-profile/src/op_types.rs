@@ -73,31 +73,16 @@ impl CommitteeUploadInfo {
     }
 }
 
-// 不确定值，由机器管理者提交
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+// 由机器管理者自定义的提交
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct StakerCustomizeInfo {
-    pub left_change_time: u64, // 用户对贷款及经纬度的修改次数
-
     pub upload_net: u64,   // 上行带宽
     pub download_net: u64, // 下行带宽
     pub longitude: u64,    // 经度
     pub latitude: u64,     // 纬度
 
     pub images: Vec<ImageName>, // 镜像名称
-}
-
-impl Default for StakerCustomizeInfo {
-    fn default() -> Self {
-        StakerCustomizeInfo {
-            left_change_time: 3,
-            upload_net: 0,   // 不确定值, 存储平均值
-            download_net: 0, // 不确定值, 存储平均值
-            longitude: 0,    // 经度, 不确定值，存储平均值
-            latitude: 0,     // 纬度, 不确定值，存储平均值
-            images: Vec::new(),
-        }
-    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
