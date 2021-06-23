@@ -142,6 +142,11 @@ pub mod pallet {
     #[pallet::getter(fn committee_stake_dbc_per_order)]
     pub(super) type CommitteeStakeDBCPerOrder<T: Config> = StorageValue<_, BalanceOf<T>>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn committee_reward)]
+    pub(super) type CommitteeReward<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置committee每次操作需要质押数量, 单位为usd * 10^6
@@ -193,6 +198,20 @@ pub mod pallet {
                 CommitteeList::add_one(&mut committee_list.normal, committee);
                 Committee::<T>::put(committee_list);
             }
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+            let can_claim_reward =
+                Self::committee_reward(&committee).ok_or(Error::<T>::NoRewardCanClaim)?;
+
+            <T as pallet::Config>::Currency::deposit_into_existing(&committee, can_claim_reward)
+                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
+
+            CommitteeReward::<T>::insert(committee, 0u32.saturated_into::<BalanceOf<T>>());
 
             Ok(().into())
         }
@@ -345,6 +364,8 @@ pub mod pallet {
         NoLedgerFound,
         TimeNotAllow,
         NotSubmitHash,
+        NoRewardCanClaim,
+        ClaimRewardFailed,
     }
 }
 
@@ -480,5 +501,11 @@ impl<T: Config> ManageCommittee for Pallet<T> {
 
     fn stake_per_order() -> Option<BalanceOf<T>> {
         Self::committee_stake_dbc_per_order()
+    }
+
+    fn add_reward(committee: T::AccountId, reward: BalanceOf<T>) {
+        <CommitteeReward<T>>::mutate(&committee, |raw_reward| {
+            raw_reward.unwrap_or(0u32.saturated_into::<BalanceOf<T>>()) + reward
+        });
     }
 }

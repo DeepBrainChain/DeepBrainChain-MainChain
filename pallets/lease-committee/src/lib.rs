@@ -458,8 +458,8 @@ impl<T: Config> Pallet<T> {
         order_time: (T::AccountId, Vec<usize>),
     ) -> Result<(), ()> {
         // 增加质押：由committee执行
-        let stake_need = T::ManageCommittee::stake_per_order().ok_or(())?;
-        T::ManageCommittee::change_stake(&order_time.0, stake_need, true)?;
+        let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
+        <T as pallet::Config>::ManageCommittee::change_stake(&order_time.0, stake_need, true)?;
 
         debug::warn!("#### will change following status");
 

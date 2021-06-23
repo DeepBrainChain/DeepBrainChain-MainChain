@@ -1052,6 +1052,7 @@ impl online_profile::Config for Runtime {
     type ProfitReleaseDuration = ProfitReleaseDuration;
     type Slash = Treasury;
     type DbcPrice = DBCPriceOCW;
+    type ManageCommittee = Committee;
 }
 
 impl committee::Config for Runtime {

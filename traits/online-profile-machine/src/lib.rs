@@ -42,6 +42,7 @@ pub trait ManageCommittee {
         is_add: bool,
     ) -> Result<(), ()>;
     fn stake_per_order() -> Option<Self::BalanceOf>;
+    fn add_reward(committee: Self::AccountId, reward: Self::BalanceOf);
 }
 
 pub trait DbcPrice {

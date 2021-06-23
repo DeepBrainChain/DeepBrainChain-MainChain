@@ -26,7 +26,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{DbcPrice, LCOps, RTOps};
+use online_profile_machine::{DbcPrice, LCOps, ManageCommittee, RTOps};
 use pallet_identity::Data;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -221,6 +221,10 @@ pub mod pallet {
         type ProfitReleaseDuration: Get<u64>; // 剩余75%线性释放时间长度(25%立即释放)
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
+        type ManageCommittee: ManageCommittee<
+            AccountId = Self::AccountId,
+            BalanceOf = BalanceOf<Self>,
+        >;
     }
 
     #[pallet::pallet]
@@ -910,11 +914,6 @@ impl<T: Config> Pallet<T> {
             .checked_div(10_000u64)
     }
 
-    // 获取机器最近n天的奖励
-    pub fn remaining_n_eras_reward(_machine_id: MachineId, _recent_eras: u32) -> BalanceOf<T> {
-        return 0u32.into();
-    }
-
     // 在线奖励数量: TODO: 正式网将修改奖励时间
     fn current_era_reward() -> Option<BalanceOf<T>> {
         let current_era = Self::current_era() as u64;
@@ -1065,7 +1064,7 @@ impl<T: Config> Pallet<T> {
     // end_era分发奖励
     fn distribute_reward() -> Result<(), ()> {
         let current_era = Self::current_era();
-        let current_rewward_per_era = Self::current_era_reward().ok_or(())?;
+        let current_reward_per_era = Self::current_era_reward().ok_or(())?;
 
         let era_machine_point = Self::eras_machine_points(current_era).unwrap();
         // let user_machines = Self::user_machines()
@@ -1081,58 +1080,80 @@ impl<T: Config> Pallet<T> {
                 left_reward += a_left;
             }
 
-            // let left_reward: BalanceOf<T> = stash_machines.left_reward.iter().sum(); // 过去75%奖励总和
-            let mut release_now = Perbill::from_rational_approximation(5u32, 1000u32) * left_reward;
+            let mut release_now = Perbill::from_rational_approximation(1u32, 150u32) * left_reward;
             if stash_machines.left_reward.len() == 150 {
                 stash_machines.left_reward.pop_front();
             }
 
-            // 2. TODO:发放当天奖励
+            // 2. 发放当天新生成的奖励
             match era_machine_point.staker_statistic.get(&a_stash) {
                 None => {
                     stash_machines.left_reward.push_back(0u32.saturated_into());
                 }
                 Some(staker_statistic) => {
-                    // let mut stash_machine = Self::stash_machines(&a_stash); // 记录用户获得的奖励和还未释放的奖励
-
                     let stash_actual_grade = staker_statistic.total_grades().unwrap();
 
+                    // stash当前Era获得的总奖励
                     let should_reward = Perbill::from_rational_approximation(
                         stash_actual_grade,
                         era_machine_point.total,
-                    ) * current_rewward_per_era;
+                    ) * current_reward_per_era;
 
-                    // 应该获得的奖励，应该按照25立即发放，75线性发放
-                    // 25% 发放到用户的user_machine中，75也是。
-                    // 1%的奖励发放给委员会的帐号里
+                    // 当前Era获得的奖励，1%发放给委员会。剩余部分的25%立即发放，75%线性发放
                     let reward_to_committee =
                         Perbill::from_rational_approximation(1u64, 100u64) * should_reward;
                     // TODO: 应该按照机器当前得分占该用户的总得分的比例，来分奖励
+                    // for a_machine in staker_statistic.
+                    // while let Some((machine_id, machine_status)) =
+                    let individual_machines = staker_statistic.individual_machine.clone();
+                    for (machine_id, machine_online_info) in individual_machines.into_iter() {
+                        let machine_info = Self::machines_info(&machine_id);
+                        if machine_info.reward_committee.len() == 0usize {
+                            continue;
+                        }
 
-                    let left_reward = should_reward - reward_to_committee;
+                        let machine_rent_extra_grade = if machine_online_info.is_online {
+                            Perbill::from_rational_approximation(30u32, 100u32)
+                                * machine_online_info.basic_grade
+                        } else {
+                            0u64
+                        };
+
+                        let machine_inflation_extra_grade =
+                            staker_statistic.inflation * machine_online_info.basic_grade;
+                        let machine_actual_grade = machine_online_info.basic_grade
+                            + machine_rent_extra_grade
+                            + machine_inflation_extra_grade;
+
+                        let machine_committee_get = Perbill::from_rational_approximation(
+                            machine_actual_grade,
+                            stash_actual_grade,
+                        ) * reward_to_committee;
+
+                        let individual_committee_should_reward =
+                            Perbill::from_rational_approximation(
+                                1u32,
+                                machine_info.reward_committee.len() as u32,
+                            ) * machine_committee_get;
+                        for a_committee in machine_info.reward_committee {
+                            T::ManageCommittee::add_reward(
+                                a_committee,
+                                individual_committee_should_reward,
+                            );
+                        }
+                    }
+
+                    let left_reward = should_reward - reward_to_committee; // 99%的部分
 
                     let staker_get_now =
                         Perbill::from_rational_approximation(25u64, 100u64) * left_reward; // 用户立刻获得0.99 * 0.25的奖励
                     let staker_left_reward = left_reward - staker_get_now; // 剩余0.99 * 75%的奖励留作线性释放
-
-                    // 矿工实际获得的奖励，还应该加上前面150天没有释放的奖励之和的1/150
-                    let mut left_reward_sum = 0u64.saturated_into();
-                    let left_reward = stash_machines.left_reward.clone(); // 剩余的75%的奖励
-                    for a_left_reward in left_reward {
-                        left_reward_sum += a_left_reward;
-                    }
-                    let linear_released: BalanceOf<T> =
-                        Perbill::from_rational_approximation(1u64, 150u64) * left_reward_sum; // 应该线性释放的奖励
-
-                    // 计算当前Era应该释放的奖励
-                    stash_machines.can_claim_reward =
-                        stash_machines.can_claim_reward + linear_released + staker_get_now;
+                    release_now += staker_get_now;
 
                     stash_machines.left_reward.push_back(staker_left_reward);
-                    // 如果长多超过了150，则第一天的已经发放完了
-                    if stash_machines.left_reward.len() > 150 {
-                        stash_machines.left_reward.pop_front();
-                    }
+
+                    // 计算当前Era应该释放的奖励
+                    stash_machines.can_claim_reward += release_now;
 
                     StashMachines::<T>::insert(&a_stash, stash_machines);
                 }
