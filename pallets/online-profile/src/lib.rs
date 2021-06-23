@@ -102,9 +102,9 @@ pub struct StakerMachine<Balance> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub controller: AccountId,             // 绑定机器的人
-    pub machine_owner: AccountId, // 允许用户绑定跟自己机器ID不一样的，奖励发放给machine_owner
+    pub machine_owner: AccountId,          // 奖励发放账户(机器内置钱包地址)
     pub machine_renter: Option<AccountId>, // 当前机器的租用者
-    pub bonding_height: BlockNumber, // 记录机器第一次绑定的时间
+    pub bonding_height: BlockNumber,       // 记录机器第一次绑定的时间
     pub stake_amount: Balance,
     pub machine_status: MachineStatus<BlockNumber>,
     pub total_rented_duration: u64,             // 总租用累计时长
@@ -902,14 +902,14 @@ impl<T: Config> Pallet<T> {
     }
 
     // 根据GPU数量和该机器算力点数，算出该机器价格
-    pub fn calc_machine_price(machine_point: u64, gpu_num: u32) -> Option<u64> {
+    // NOTE: machine_point为该机器的总算力点数
+    pub fn calc_machine_price(machine_point: u64) -> Option<u64> {
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
         // let standard_gpu_point = Self::standard_gpu_point()?;
         standard_gpu_point_price
             .gpu_price
             .checked_mul(10_000)?
             .checked_mul(machine_point)?
-            .checked_mul(gpu_num as u64)?
             .checked_div(standard_gpu_point_price.gpu_point)?
             .checked_div(10_000u64)
     }
@@ -990,11 +990,12 @@ impl<T: Config> Pallet<T> {
     // 因增加机器，在线获得的分数奖励，则修改下一天的快照
     // 如果机器掉线，则修改当天的快照，影响当天奖励
     fn update_staker_grades_by_online_machine(
-        staker: T::AccountId,
+        stash_account: T::AccountId,
         machine_id: MachineId,
         is_online: bool,
     ) {
         let current_era = Self::current_era();
+
         let era_index = if is_online { current_era + 1 } else { current_era }; // 影响哪个Era机器得分
 
         let machine_info = Self::machines_info(&machine_id);
@@ -1002,9 +1003,7 @@ impl<T: Config> Pallet<T> {
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info;
 
         let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
-        let mut stash_machine = Self::stash_machines(&staker); // NOTE: 存储控制账户控制的机器
-
-        let stash_account = Self::controller_stash(&staker).unwrap();
+        let mut stash_machine = Self::stash_machines(&stash_account); // NOTE: 存储控制账户控制的机器
 
         let mut staker_statistic = era_machine_point
             .staker_statistic
@@ -1038,6 +1037,11 @@ impl<T: Config> Pallet<T> {
             }
             stash_machine.total_calc_points += machine_base_info.calc_point;
             stash_machine.total_gpu_num += machine_base_info.gpu_num as u64;
+
+            staker_statistic.individual_machine.insert(
+                machine_id,
+                MachineGradeStatus { basic_grade: machine_base_info.calc_point, is_rented: false },
+            );
         } else {
             staker_statistic.machine_total_calc_point -= machine_base_info.calc_point;
 
@@ -1046,21 +1050,22 @@ impl<T: Config> Pallet<T> {
             }
             stash_machine.total_calc_points -= machine_base_info.calc_point;
             stash_machine.total_gpu_num -= machine_base_info.gpu_num as u64;
+
+            staker_statistic.individual_machine.remove(&machine_id);
         }
 
         let new_grade = staker_statistic.total_grades().unwrap();
 
         // 更新系统总得分
         let staker_statistic = (*staker_statistic).clone();
-        era_machine_point.staker_statistic.insert(staker.clone(), staker_statistic);
+        era_machine_point.staker_statistic.insert(stash_account.clone(), staker_statistic);
         era_machine_point.total -= old_grade;
         era_machine_point.total += new_grade;
 
-        StashMachines::<T>::insert(&staker, stash_machine);
+        StashMachines::<T>::insert(&stash_account, stash_machine);
         ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
     }
 
-    // FIXME: 修复逻辑
     // end_era分发奖励
     fn distribute_reward() -> Result<(), ()> {
         let current_era = Self::current_era();
@@ -1083,6 +1088,7 @@ impl<T: Config> Pallet<T> {
             let mut release_now = Perbill::from_rational_approximation(1u32, 150u32) * left_reward;
             if stash_machines.left_reward.len() == 150 {
                 stash_machines.left_reward.pop_front();
+                // TODO: 删除150天前存储的数据
             }
 
             // 2. 发放当天新生成的奖励
@@ -1112,7 +1118,7 @@ impl<T: Config> Pallet<T> {
                             continue;
                         }
 
-                        let machine_rent_extra_grade = if machine_online_info.is_online {
+                        let machine_rent_extra_grade = if machine_online_info.is_rented {
                             Perbill::from_rational_approximation(30u32, 100u32)
                                 * machine_online_info.basic_grade
                         } else {
@@ -1325,19 +1331,10 @@ impl<T: Config> LCOps for Pallet<T> {
         // 为 None 表示不用补交质押，已经质押的数量按现在的币价已经足够
 
         // 添加机器价格
-        let machine_price = Self::calc_machine_price(
-            committee_upload_info.calc_point,
-            committee_upload_info.gpu_num,
-        )
-        .ok_or(())?;
-        machine_info.machine_price = machine_price;
-
-        let mut stash_machines = Self::stash_machines(&machine_info.machine_owner);
-        stash_machines.total_calc_points += committee_upload_info.calc_point;
-        stash_machines.total_gpu_num += committee_upload_info.gpu_num as u64;
+        machine_info.machine_price =
+            Self::calc_machine_price(committee_upload_info.calc_point).ok_or(())?;
 
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
-        StashMachines::<T>::insert(&machine_info.machine_owner, stash_machines);
         LiveMachines::<T>::put(live_machines);
 
         let total_gpu_num = Self::total_gpu_num();
@@ -1410,14 +1407,39 @@ impl<T: Config> RTOps for Pallet<T> {
             MachineStatus::Rented => {
                 // 机器创建成功
                 staker_statistic.rent_extra_grade += grade_change;
+                staker_statistic.individual_machine.insert(
+                    machine_id.to_vec(),
+                    MachineGradeStatus {
+                        basic_grade: machine_info
+                            .machine_info_detail
+                            .committee_upload_info
+                            .calc_point,
+                        is_rented: true,
+                    },
+                );
+
                 era_machine_point.total += grade_change;
                 machine_info.total_rented_times += 1;
+
+                // TODO: 修改individual状态
+                // machine_info.
             }
             // 租用结束 或 租用失败(半小时无确认)
             MachineStatus::Online => {
                 if rent_duration.is_some() {
                     // 租用结束
                     staker_statistic.rent_extra_grade -= grade_change;
+                    staker_statistic.individual_machine.insert(
+                        machine_id.to_vec(),
+                        MachineGradeStatus {
+                            basic_grade: machine_info
+                                .machine_info_detail
+                                .committee_upload_info
+                                .calc_point,
+                            is_rented: false,
+                        },
+                    );
+
                     era_machine_point.total -= grade_change;
                     machine_info.total_rented_duration += rent_duration.unwrap();
                 }

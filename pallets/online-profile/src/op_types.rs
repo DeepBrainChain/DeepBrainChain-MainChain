@@ -129,7 +129,7 @@ pub struct StashMachineStatistics {
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
 pub struct MachineGradeStatus {
     pub basic_grade: u64,
-    pub is_online: bool,
+    pub is_rented: bool,
 }
 
 impl StashMachineStatistics {

@@ -103,18 +103,18 @@
   },
   "EraMachinePoints": {
     "total": "u64",
-    "individual_points": "BTreeMap<MachineId, MachineGradeStatus>",
-    "staker_statistic": "BTreeMap<AccountId, StakerStatistics>"
+    "staker_statistic": "BTreeMap<AccountId, StashMachineStatistics>"
   },
   "MachineGradeStatus": {
     "basic_grade": "u64",
     "is_online": "bool"
   },
-  "StakerStatistics": {
-    "online_num": "u64",
+  "StashMachineStatistics": {
+    "online_gpu_num": "u64",
     "inflation": "Perbill",
     "machine_total_calc_point": "u64",
-    "rent_extra_grade": "u64"
+    "rent_extra_grade": "u64",
+    "individual_machine": "BTreeMap<MachineId, MachineGradeStatus>"
   },
   "StakingLedger": {
     "stash": "AccountId",
@@ -169,7 +169,8 @@
     "cuda_core": "u32",
     "gpu_mem": "u64",
     "calc_point": "u64",
-    "hard_disk": "u64",
+    "sys_disk": "u64",
+    "data_disk": "u64",
     "cpu_type": "Vec<u8>",
     "cpu_core_num": "u32",
     "cpu_rate": "u64",

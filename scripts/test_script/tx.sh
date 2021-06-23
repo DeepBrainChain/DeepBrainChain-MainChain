@@ -46,23 +46,23 @@ node query_storage.js --port $ws --type-file $tf --rpc-file $rpc --module dbcPri
 node query_storage.js --port $ws --type-file $tf --rpc-file $rpc --module dbcPriceOcw --func priceURL
 
 # 委员会每次抢单质押数量
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module committee --func setStakedUsdPerOrder 16000000
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module committee --func setStakedUsdPerOrder 20000000
 # 设置每次交易的固定费率, 10DBC
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module genericFunc --func setFixedTxFee 10000
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module genericFunc --func setFixedTxFee 10
 # 设置单卡最多质押数量：100000 DBC
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setGpuStake 10000
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setGpuStake 100000
 # 设置奖励开始Era时间
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setRewardStartEra 1
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setRewardStartEra 0
 # 设置每个Phase中，奖励/Era
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setPhaseNRewardPerEra 0 10000
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setPhaseNRewardPerEra 1 10000
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setPhaseNRewardPerEra 0 1000000
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setPhaseNRewardPerEra 1 1000000
 # 设置单卡质押价值上限 7700 USD ~~ 50000 RMB
-node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setStakeUsdLimit 10000
+node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setStakeUsdLimit 7700000000
 
 # TODO: 传递一个结构体作为参数
 
 # 设置标准GPU的租金价格/算力点数 FIXME: 应该传第一个参数
-# node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setStandardGpuPointPrice 1000 1000
+# node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setStandardGpuPointPrice 1000 200000000
 
 # 查询存储：
 node query_storage.js --port $ws --type-file $tf --rpc-file $rpc --module committee --func committeeStakeDBCPerOrder
@@ -87,7 +87,7 @@ node gen_signature.js --key $bob_key --msg $bob$bob_stash
 # 由控制人提交，机器地址提交签名，与资金账户绑定
 sig="0x0089673806c55e6e9d4ce4ea46c6d24736599c0f48f16fa7719b303b6a204602fcf33946d3a588a87f9619db0890b027d1ad358fa9a3de10f57e03e2a3423782"
 node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func machineSetStash \
-    --key $dave_key --sig $sig $bob $bob_stash
+    --key $dave_key --sig $sig $bob$bob_stash
 
 # 增加三个委员会
 # Dave
@@ -120,7 +120,9 @@ node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module committee
 # 提交机器信息Hash
 # python ../hash_str.py
 node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module leaseCommittee --func submitConfirmHash \
-    --key $dave_key --hash "0x646026f937c4e34b0d36ff8b4d0d3e5f" $bob
+    --key $dave_key --hash "0x6e10845ba0abcc5e058d0ed395d34a98" $bob
+
+# 提交原始信息
 
 # 查询派单
 # TODO: 通过js查询数据
