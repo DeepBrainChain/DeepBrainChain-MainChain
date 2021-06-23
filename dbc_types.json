@@ -116,19 +116,6 @@
     "rent_extra_grade": "u64",
     "individual_machine": "BTreeMap<MachineId, MachineGradeStatus>"
   },
-  "StakingLedger": {
-    "stash": "AccountId",
-    "total": "Compact<Balance>",
-    "active": "Compact<Balance>",
-    "unlocking": "Vec<UnlockChunk>",
-    "claimed_rewards": "Vec<EraIndex>",
-    "released_rewards": "Balance",
-    "upcoming_rewards": "Vec<Balance>"
-  },
-  "UnlockChunk": {
-    "value": "Compact<Balance>",
-    "era": "Compact<EraIndex>"
-  },
   "CommitteeMachine": {
     "machine_id": "Vec<MachineId>",
     "total_calc_points": "u64",
