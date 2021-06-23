@@ -1142,6 +1142,11 @@ impl<T: Config> Pallet<T> {
                                 machine_info.reward_committee.len() as u32,
                             ) * machine_committee_get;
                         for a_committee in machine_info.reward_committee {
+                            debug::warn!(
+                                "##### reward to committee: {:?}, {:?}",
+                                &a_committee,
+                                individual_committee_should_reward
+                            );
                             T::ManageCommittee::add_reward(
                                 a_committee,
                                 individual_committee_should_reward,

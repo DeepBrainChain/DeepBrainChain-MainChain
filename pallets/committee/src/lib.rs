@@ -504,8 +504,8 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     }
 
     fn add_reward(committee: T::AccountId, reward: BalanceOf<T>) {
-        <CommitteeReward<T>>::mutate(&committee, |raw_reward| {
-            raw_reward.unwrap_or(0u32.saturated_into::<BalanceOf<T>>()) + reward
-        });
+        let raw_reward =
+            Self::committee_reward(&committee).unwrap_or(0u32.saturated_into::<BalanceOf<T>>());
+        CommitteeReward::<T>::insert(&committee, raw_reward + reward);
     }
 }
