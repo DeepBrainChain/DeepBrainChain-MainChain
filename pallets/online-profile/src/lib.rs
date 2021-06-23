@@ -734,7 +734,7 @@ pub mod pallet {
         pub fn claim_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let stash_account =
-                Self::stash_controller(&controller).ok_or(Error::<T>::NoStashAccount)?;
+                Self::controller_stash(&controller).ok_or(Error::<T>::NoStashAccount)?;
             ensure!(
                 StashMachines::<T>::contains_key(&stash_account),
                 Error::<T>::NotMachineController
