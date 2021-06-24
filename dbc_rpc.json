@@ -1,30 +1,42 @@
 {
   "onlineProfile": {
     "getOpInfo": {
-      "description": "get op info",
-      "params": [],
-      "type": "SysInfo<Balance>"
-    },
-    "getStakerNum": {
-      "description": "get staker num",
-      "params": [],
-      "type": "u64"
-    },
-    "getStakerListInfo": {
-      "description": "get staker list",
+      "description": "Get system info of onlineProfile pallet",
       "params": [
         {
           "name": "at",
           "type": "Hash",
           "isOptional": true
-        },
+        }
+      ],
+      "type": "SysInfo<Balance>"
+    },
+    "getStakerNum": {
+      "description": "Get how many stash account",
+      "params": [
         {
-          "name": "start",
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "u64"
+    },
+    "getStakerListInfo": {
+      "description": "Get current stash account info",
+      "params": [
+        {
+          "name": "cur_page",
           "type": "u64"
         },
         {
-          "name": "end",
+          "name": "per_page",
           "type": "u64"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
         }
       ],
       "type": "Vec<StakerListInfo<Balance, AccountId>>"
@@ -35,49 +47,142 @@
         {
           "name": "machine_id",
           "type": "MachineId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
         }
       ],
       "type": "RPCMachineInfo<AccountId, BlockNumber, Balance>"
     },
     "getMachineList": {
-      "description": "TODO description"
-    },
-    "getStakerIdentity": {
-      "description": "TODO description",
+      "description": "Get all machine in online profile pallet",
       "params": [
         {
-          "account": "AccountId"
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "LiveMachine"
+    },
+    "getStakerIdentity": {
+      "description": "Get identity of one account",
+      "params": [
+        {
+          "name": "account",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
         }
       ],
       "type": "Vec<u8>"
     },
     "getStakerInfo": {
-      "description": "TODO description"
-    },
-    "getStakerList": {
-      "description": "TODO description"
+      "description": "Get info of stash account",
+      "params": [
+        {
+          "name": "account",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "StakerInfo<Balance>"
     }
   },
   "leaseCommittee": {
     "getCommitteeMachineList": {
-      "description": "TODO description"
+      "description": "Get machine list of one committee",
+      "params": [
+        {
+          "name": "committee",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "LCCommitteeMachineList"
     },
     "getCommitteeOps": {
-      "description": "TODO description"
+      "description": "Get ops committee can do",
+      "params": [
+        {
+          "name": "committee",
+          "type": "AccountId"
+        },
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "RpcLCCommitteeOps<BlockNumber, Balance>"
     },
-    "getSum": {
-      "description": "TODO description"
+    "getMachineCommitteeList": {
+      "description": "Get machine info when is onlining",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "LCMachineCommitteeList<AccountId, BlockNumber>"
     }
   },
   "rentMachine": {
     "getRentList": {
-      "description": "TODO description"
+      "description": "TODO description",
+      "params": [
+        {
+          "name": "renter",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Vec<MachineId>"
     },
     "getRentOrder": {
-      "description": "TODO description"
-    },
-    "getSum": {
-      "description": "TODO description"
+      "description": "TODO description",
+      "params": [
+        {
+          "name": "renter",
+          "type": "AccountId"
+        },
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "RpcRentOrderDetail<AccountId, BlockNumber, Balance>"
     }
   }
 }

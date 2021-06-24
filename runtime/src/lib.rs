@@ -1200,10 +1200,6 @@ impl_runtime_apis! {
             OnlineProfile::get_staker_info(who)
         }
 
-        fn get_staker_list(start: u64, end: u64) -> Vec<AccountId> {
-            OnlineProfile::get_staker_list(start, end)
-        }
-
         fn get_staker_identity(who: AccountId) -> Vec<u8> {
             OnlineProfile::get_staker_identity(who)
         }
@@ -1222,10 +1218,6 @@ impl_runtime_apis! {
     }
 
     impl lease_committee_runtime_api::LcRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_sum() -> u64 {
-            LeaseCommittee::get_sum()
-        }
-
         fn get_committee_machine_list(committee: AccountId) -> lease_committee::LCCommitteeMachineList {
             LeaseCommittee::get_committee_machine_list(committee)
         }
@@ -1240,10 +1232,6 @@ impl_runtime_apis! {
     }
 
     impl rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_sum() -> u64 {
-            RentMachine::get_sum()
-        }
-
         fn get_rent_order(renter: AccountId, machine_id: online_profile::MachineId) -> rent_machine::RpcRentOrderDetail<AccountId, BlockNumber, Balance> {
             RentMachine::get_rent_order(renter, machine_id)
         }

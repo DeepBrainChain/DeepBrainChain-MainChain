@@ -19,7 +19,7 @@ async function main() {
   const api = await ApiPromise.create({
     provider: wsProvider,
     types: type_json,
-    // rpc: rpc_json,
+    rpc: rpc_json,
   });
 
   const keyring = createTestKeyring();

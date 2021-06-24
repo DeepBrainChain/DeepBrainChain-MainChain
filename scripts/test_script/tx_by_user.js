@@ -37,7 +37,7 @@ async function main() {
   const api = await ApiPromise.create({
     provider: wsProvider,
     types: type_json,
-    // rpc: rpc_json,
+    rpc: rpc_json,
   });
 
   // 读取密钥 type: sr25519, ssFormat: 42 (defaults)

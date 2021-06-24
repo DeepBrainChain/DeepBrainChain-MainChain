@@ -1500,10 +1500,6 @@ impl<T: Config> Module<T> {
         }
     }
 
-    pub fn get_staker_list(_start: u64, _end: u64) -> Vec<T::AccountId> {
-        Self::get_all_stash()
-    }
-
     pub fn get_staker_identity(account: impl EncodeLike<T::AccountId>) -> Vec<u8> {
         let account_info = <pallet_identity::Module<T>>::identity(account);
         if let None = account_info {

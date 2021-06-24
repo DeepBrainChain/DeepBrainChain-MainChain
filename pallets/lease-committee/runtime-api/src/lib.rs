@@ -17,7 +17,6 @@ sp_api::decl_runtime_apis! {
         BlockNumber: Codec + MaybeDisplay,
         Balance: Codec + MaybeDisplay,
     {
-        fn get_sum() -> u64;
         fn get_machine_committee_list(machine_id: MachineId) -> LCMachineCommitteeList<AccountId, BlockNumber>;
         fn get_committee_machine_list(committee: AccountId) -> LCCommitteeMachineList;
         fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> RpcLCCommitteeOps<BlockNumber, Balance>;

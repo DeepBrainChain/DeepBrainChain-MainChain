@@ -14,9 +14,6 @@ use std::{convert::TryInto, sync::Arc};
 
 #[rpc]
 pub trait RmRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2> {
-    #[rpc(name = "rentMachine_getSum")]
-    fn get_sum(&self, at: Option<BlockHash>) -> Result<u64>;
-
     #[rpc(name = "rentMachine_getRentOrder")]
     fn get_rent_order(
         &self,
@@ -57,18 +54,6 @@ where
     C: HeaderBackend<Block>,
     C::Api: RmStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
 {
-    fn get_sum(&self, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        let runtime_api_result = api.get_sum(&at);
-        runtime_api_result.map_err(|e| RpcError {
-            code: ErrorCode::ServerError(9876),
-            message: "Something wrong".into(),
-            data: Some(format!("{:?}", e).into()),
-        })
-    }
-
     fn get_rent_order(
         &self,
         renter: AccountId,

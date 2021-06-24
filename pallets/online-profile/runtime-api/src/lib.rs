@@ -20,7 +20,6 @@ sp_api::decl_runtime_apis! {
         fn get_total_staker_num() -> u64;
         fn get_op_info() -> SysInfo<Balance>;
         fn get_staker_info(account: AccountId) -> StakerInfo<Balance>;
-        fn get_staker_list(start: u64, end: u64) -> Vec<AccountId>;
         fn get_staker_identity(account: AccountId) -> Vec<u8>;
         fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<StakerListInfo<Balance, AccountId>>;
         fn get_machine_list() -> LiveMachine;
