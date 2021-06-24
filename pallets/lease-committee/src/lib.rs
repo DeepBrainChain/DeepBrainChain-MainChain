@@ -606,7 +606,7 @@ impl<T: Config> Pallet<T> {
 
             // 惩罚没有提交信息的委员会
             for a_committee in slash_committee {
-                let committee_ops = Self::committee_ops(&a_committee, &machine_id);
+                let _committee_ops = Self::committee_ops(&a_committee, &machine_id);
                 // TODO:  由committee模块提供
                 // TODO: add_slash应该能够传BalanceOf的参数
                 // Self::add_slash(a_committee, committee_ops.staked_dbc, reward_committee.clone());
@@ -614,7 +614,7 @@ impl<T: Config> Pallet<T> {
             }
 
             for a_committee in unstake_committee {
-                let committee_ops = Self::committee_ops(&a_committee, &machine_id);
+                let _committee_ops = Self::committee_ops(&a_committee, &machine_id);
                 // TODO: 由committee模块提供
                 // Self::reduce_stake(&a_committee, committee_ops.staked_dbc);
             }
@@ -645,7 +645,7 @@ impl<T: Config> Pallet<T> {
 
         // 给提交了信息的委员会退押金
         for booked_committee in machine_committee.confirmed_committee {
-            let committee_ops = Self::committee_ops(&booked_committee, &machine_id);
+            let _committee_ops = Self::committee_ops(&booked_committee, &machine_id);
             // TODO: committee 提供
             // Self::reduce_stake(&booked_committee, committee_ops.staked_dbc)?;
         }

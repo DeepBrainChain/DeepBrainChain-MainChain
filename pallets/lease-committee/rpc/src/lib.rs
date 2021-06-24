@@ -22,23 +22,23 @@ pub trait LcRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2, ResponseT
     #[rpc(name = "leaseCommittee_getCommitteeMachineList")]
     fn get_committee_machine_list(
         &self,
-        at: Option<BlockHash>,
         committee: AccountId,
+        at: Option<BlockHash>,
     ) -> Result<ResponseType1>;
 
     #[rpc(name = "leaseCommittee_getCommitteeOps")]
     fn get_committee_ops(
         &self,
-        at: Option<BlockHash>,
         committee: AccountId,
         machine_id: MachineId,
+        at: Option<BlockHash>,
     ) -> Result<ResponseType2>;
 
     #[rpc(name = "leaseCommittee_getMachineCommitteeList")]
     fn get_machine_committee_list(
         &self,
-        at: Option<BlockHash>,
         machine_id: MachineId,
+        at: Option<BlockHash>,
     ) -> Result<ResponseType3>;
 }
 
@@ -85,8 +85,8 @@ where
 
     fn get_committee_machine_list(
         &self,
-        at: Option<<Block as BlockT>::Hash>,
         committee: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> Result<LCCommitteeMachineList> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
@@ -101,9 +101,9 @@ where
 
     fn get_committee_ops(
         &self,
-        at: Option<<Block as BlockT>::Hash>,
         committee: AccountId,
         machine_id: MachineId,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> Result<RpcLCCommitteeOps<BlockNumber, Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
@@ -118,8 +118,8 @@ where
 
     fn get_machine_committee_list(
         &self,
-        at: Option<<Block as BlockT>::Hash>,
         machine_id: MachineId,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> Result<LCMachineCommitteeList<AccountId, BlockNumber>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));

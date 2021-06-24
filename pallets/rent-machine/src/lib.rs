@@ -9,7 +9,7 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{
-        Currency, ExistenceRequirement::KeepAlive, LockIdentifier, LockableCurrency, OnUnbalanced,
+        Currency, ExistenceRequirement::KeepAlive, LockIdentifier, LockableCurrency,
         WithdrawReasons,
     },
     IterableStorageMap,
@@ -17,7 +17,7 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 pub use online_profile::{EraIndex, MachineId, MachineStatus};
 use online_profile_machine::{DbcPrice, RTOps};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, SaturatedConversion};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
 type BalanceOf<T> =
@@ -81,7 +81,9 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
             Self::check_machine_starting_status();
-            Self::check_if_rent_finished();
+            if Self::check_if_rent_finished().is_err() {
+                debug::error!("Check if rent is finished failed");
+            }
         }
     }
 

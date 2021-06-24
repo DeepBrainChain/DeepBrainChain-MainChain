@@ -32,7 +32,7 @@ use pallet_identity::Data;
 use serde::{Deserialize, Serialize};
 use sp_core::crypto::Public;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Verify},
+    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify},
     Perbill, SaturatedConversion,
 };
 use sp_std::{
@@ -616,7 +616,7 @@ pub mod pallet {
             let controller_machines = Self::controller_machines(&controller);
             controller_machines
                 .binary_search(&machine_id)
-                .map_err(|_| Error::<T>::MachineIdNotBonded);
+                .map_err(|_| Error::<T>::MachineIdNotBonded)?;
 
             let mut machine_info = Self::machines_info(&machine_id);
             machine_info.machine_info_detail.staker_customize_info.images = new_images;
@@ -638,7 +638,7 @@ pub mod pallet {
             let controller_machines = Self::controller_machines(&controller);
             controller_machines
                 .binary_search(&machine_id)
-                .map_err(|_| Error::<T>::MachineIdNotBonded);
+                .map_err(|_| Error::<T>::MachineIdNotBonded)?;
 
             let mut machine_info = Self::machines_info(&machine_id);
 

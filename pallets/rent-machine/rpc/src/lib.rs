@@ -1,6 +1,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
+use rent_machine::{MachineId, RpcRentOrderDetail};
 use rent_machine_runtime_api::RmRpcApi as RmStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -10,7 +11,6 @@ use sp_runtime::{
     traits::{Block as BlockT, MaybeDisplay},
 };
 use std::{convert::TryInto, sync::Arc};
-use rent_machine::{RpcRentOrderDetail, MachineId};
 
 #[rpc]
 pub trait RmRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2> {
@@ -18,10 +18,15 @@ pub trait RmRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2> {
     fn get_sum(&self, at: Option<BlockHash>) -> Result<u64>;
 
     #[rpc(name = "rentMachine_getRentOrder")]
-    fn get_rent_order(&self, at: Option<BlockHash>, renter: AccountId, machine_id: MachineId) -> Result<ResponseType1>;
+    fn get_rent_order(
+        &self,
+        renter: AccountId,
+        machine_id: MachineId,
+        at: Option<BlockHash>,
+    ) -> Result<ResponseType1>;
 
     #[rpc(name = "rentMachine_getRentList")]
-    fn get_rent_list(&self, at: Option<BlockHash>, renter: AccountId) -> Result<ResponseType2>;
+    fn get_rent_list(&self, renter: AccountId, at: Option<BlockHash>) -> Result<ResponseType2>;
 }
 
 pub struct RmStorage<C, M> {
@@ -31,16 +36,17 @@ pub struct RmStorage<C, M> {
 
 impl<C, M> RmStorage<C, M> {
     pub fn new(client: Arc<C>) -> Self {
-        Self {
-            client,
-            _marker: Default::default(),
-        }
+        Self { client, _marker: Default::default() }
     }
 }
 
 impl<C, Block, AccountId, BlockNumber, Balance>
-    RmRpcApi<<Block as BlockT>::Hash, AccountId, RpcRentOrderDetail<AccountId, BlockNumber, Balance>, Vec<MachineId>>
-    for RmStorage<C, Block>
+    RmRpcApi<
+        <Block as BlockT>::Hash,
+        AccountId,
+        RpcRentOrderDetail<AccountId, BlockNumber, Balance>,
+        Vec<MachineId>,
+    > for RmStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
@@ -63,7 +69,12 @@ where
         })
     }
 
-    fn get_rent_order(&self, at: Option<<Block as BlockT>::Hash>, renter: AccountId, machine_id: MachineId) -> Result<RpcRentOrderDetail<AccountId, BlockNumber, Balance>> {
+    fn get_rent_order(
+        &self,
+        renter: AccountId,
+        machine_id: MachineId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<RpcRentOrderDetail<AccountId, BlockNumber, Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let runtime_api_result = api.get_rent_order(&at, renter, machine_id);
@@ -75,7 +86,11 @@ where
         })
     }
 
-    fn get_rent_list(&self, at: Option<<Block as BlockT>::Hash>, renter: AccountId) -> Result<Vec<MachineId>> {
+    fn get_rent_list(
+        &self,
+        renter: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<MachineId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

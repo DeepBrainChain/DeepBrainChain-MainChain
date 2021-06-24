@@ -34,25 +34,25 @@ pub trait OpRpcApi<
     fn get_op_info(&self, at: Option<BlockHash>) -> Result<ResponseType1>;
 
     #[rpc(name = "onlineProfile_getStakerInfo")]
-    fn get_staker_info(&self, at: Option<BlockHash>, account: AccountId) -> Result<ResponseType2>;
+    fn get_staker_info(&self, account: AccountId, at: Option<BlockHash>) -> Result<ResponseType2>;
 
     #[rpc(name = "onlineProfile_getStakerList")]
-    fn get_staker_list(&self, at: Option<BlockHash>, start: u64, end: u64)
+    fn get_staker_list(&self, start: u64, end: u64, at: Option<BlockHash>)
         -> Result<ResponseType3>;
 
     #[rpc(name = "onlineProfile_getStakerIdentity")]
     fn get_staker_identity(
         &self,
-        at: Option<BlockHash>,
         account: AccountId,
+        at: Option<BlockHash>,
     ) -> Result<ResponseType4>;
 
     #[rpc(name = "onlineProfile_getStakerListInfo")]
     fn get_staker_list_info(
         &self,
-        at: Option<BlockHash>,
         cur_page: u64,
         per_page: u64,
+        at: Option<BlockHash>,
     ) -> Result<ResponseType5>;
 
     #[rpc(name = "onlineProfile_getMachineList")]
@@ -61,8 +61,8 @@ pub trait OpRpcApi<
     #[rpc(name = "onlineProfile_getMachineInfo")]
     fn get_machine_info(
         &self,
-        at: Option<BlockHash>,
         machine_id: MachineId,
+        at: Option<BlockHash>,
     ) -> Result<ResponseType7>;
 }
 
@@ -73,10 +73,7 @@ pub struct OpStorage<C, M> {
 
 impl<C, M> OpStorage<C, M> {
     pub fn new(client: Arc<C>) -> Self {
-        Self {
-            client,
-            _marker: Default::default(),
-        }
+        Self { client, _marker: Default::default() }
     }
 }
 
@@ -128,8 +125,8 @@ where
 
     fn get_staker_info(
         &self,
-        at: Option<<Block as BlockT>::Hash>,
         account: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> Result<StakerInfo<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
@@ -144,9 +141,9 @@ where
 
     fn get_staker_list(
         &self,
-        at: Option<<Block as BlockT>::Hash>,
         start: u64,
         end: u64,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<AccountId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
@@ -161,8 +158,8 @@ where
 
     fn get_staker_identity(
         &self,
-        at: Option<<Block as BlockT>::Hash>,
         account: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
@@ -177,9 +174,9 @@ where
 
     fn get_staker_list_info(
         &self,
-        at: Option<<Block as BlockT>::Hash>,
         cur_page: u64,
         per_page: u64,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> Result<Vec<StakerListInfo<Balance, AccountId>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
@@ -206,8 +203,8 @@ where
 
     fn get_machine_info(
         &self,
-        at: Option<<Block as BlockT>::Hash>,
         machine_id: MachineId,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> Result<RPCMachineInfo<AccountId, BlockNumber, Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
