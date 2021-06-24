@@ -70,6 +70,7 @@ pub struct LCCommitteeMachineList {
 
 // 机器对应的验证委员会
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
     pub book_time: BlockNumber,              // 系统分派订单的时间
     pub booked_committee: Vec<AccountId>,    // 订单分配的委员会
@@ -81,6 +82,7 @@ pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum LCVerifyStatus {
     SubmitingHash,
     SubmitingRaw,
@@ -776,6 +778,12 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> Module<T> {
     pub fn get_sum() -> u64 {
         return 3;
+    }
+
+    pub fn get_machine_committee_list(
+        machine_id: MachineId,
+    ) -> LCMachineCommitteeList<T::AccountId, T::BlockNumber> {
+        Self::machine_committee(machine_id)
     }
 
     pub fn get_committee_machine_list(committee: T::AccountId) -> LCCommitteeMachineList {

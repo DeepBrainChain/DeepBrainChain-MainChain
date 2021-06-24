@@ -1233,6 +1233,10 @@ impl_runtime_apis! {
         fn get_committee_ops(committee: AccountId, machine_id: online_profile::MachineId) -> lease_committee::RpcLCCommitteeOps<BlockNumber, Balance> {
             LeaseCommittee::get_committee_ops(committee, machine_id)
         }
+
+        fn get_machine_committee_list(machine_id: online_profile::MachineId) -> lease_committee::LCMachineCommitteeList<AccountId, BlockNumber> {
+            LeaseCommittee::get_machine_committee_list(machine_id)
+        }
     }
 
     impl rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
