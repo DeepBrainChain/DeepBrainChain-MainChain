@@ -154,10 +154,12 @@ pub mod pallet {
                 Error::<T>::MachineNotRentable,
             );
             // 获得machine_price
-            let rent_fee_value = machine_info
-                .machine_price
-                .checked_mul(duration as u64)
-                .ok_or(Error::<T>::Overflow)?;
+            let machine_price = <online_profile::Module<T>>::calc_machine_price(
+                machine_info.machine_info_detail.committee_upload_info.calc_point,
+            )
+            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let rent_fee_value =
+                machine_price.checked_mul(duration as u64).ok_or(Error::<T>::Overflow)?;
             let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
 
@@ -275,10 +277,12 @@ pub mod pallet {
 
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
 
-            let rent_fee_value = machine_info
-                .machine_price
-                .checked_mul(add_duration as u64)
-                .ok_or(Error::<T>::Overflow)?;
+            let machine_price = <online_profile::Module<T>>::calc_machine_price(
+                machine_info.machine_info_detail.committee_upload_info.calc_point,
+            )
+            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let rent_fee_value =
+                machine_price.checked_mul(add_duration as u64).ok_or(Error::<T>::Overflow)?;
             let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
 
@@ -316,6 +320,7 @@ pub mod pallet {
         UnlockToPayFeeFailed,
         UndefinedRentPot,
         PayTxFeeFailed,
+        GetMachinePriceFailed,
     }
 }
 

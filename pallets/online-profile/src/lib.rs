@@ -110,9 +110,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub total_rented_duration: u64,             // 总租用累计时长
     pub total_rented_times: u64,                // 总租用次数
     pub machine_info_detail: MachineInfoDetail, // 委员会提交的机器信息
-    pub machine_price: u64, // 租用价格。设置3080的分数对应的价格为1000(可设置)元，其他机器的价格根据3080的价格，按照算力值进行计算的比例进行计算
-    pub reward_committee: Vec<AccountId>, // 列表中的委员将分得用户奖励
-    pub reward_deadline: BlockNumber, // 列表中委员分得奖励结束时间
+    pub reward_committee: Vec<AccountId>,       // 列表中的委员将分得用户奖励
+    pub reward_deadline: BlockNumber,           // 列表中委员分得奖励结束时间
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -1328,10 +1327,6 @@ impl<T: Config> LCOps for Pallet<T> {
         }
         // 为 None 表示不用补交质押，已经质押的数量按现在的币价已经足够
 
-        // 添加机器价格
-        machine_info.machine_price =
-            Self::calc_machine_price(committee_upload_info.calc_point).ok_or(())?;
-
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
         LiveMachines::<T>::put(live_machines);
 
@@ -1557,7 +1552,6 @@ impl<T: Config> Module<T> {
             stake_amount: machine_info.stake_amount,
             // machine_status: machine_info.machine_status,
             machine_info_detail: machine_info.machine_info_detail,
-            machine_price: machine_info.machine_price,
             // reward_committee: machine_info.reward_committee,
             reward_deadline: machine_info.reward_deadline,
         }

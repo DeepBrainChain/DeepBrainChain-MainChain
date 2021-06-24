@@ -35,8 +35,7 @@ mod serde_balance {
         deserializer: D,
     ) -> Result<T, D::Error> {
         let s = String::deserialize(deserializer)?;
-        s.parse::<T>()
-            .map_err(|_| serde::de::Error::custom("Parse from string failed"))
+        s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
     }
 }
 
@@ -56,8 +55,14 @@ pub struct StakerInfo<Balance> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-#[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display, AccountId: std::fmt::Display")))]
-#[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr, AccountId: std::str::FromStr")))]
+#[cfg_attr(
+    feature = "std",
+    serde(bound(serialize = "Balance: std::fmt::Display, AccountId: std::fmt::Display"))
+)]
+#[cfg_attr(
+    feature = "std",
+    serde(bound(deserialize = "Balance: std::str::FromStr, AccountId: std::str::FromStr"))
+)]
 pub struct StakerListInfo<Balance, AccountId> {
     pub staker_name: Vec<u8>,
     #[cfg_attr(feature = "std", serde(with = "serde_account"))]
@@ -85,8 +90,7 @@ mod serde_account {
         deserializer: D,
     ) -> Result<T, D::Error> {
         let s = String::deserialize(deserializer)?;
-        s.parse::<T>()
-            .map_err(|_| serde::de::Error::custom("Parse from string failed"))
+        s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
     }
 }
 
@@ -105,8 +109,7 @@ mod serde_block_number {
         deserializer: D,
     ) -> Result<T, D::Error> {
         let s = String::deserialize(deserializer)?;
-        s.parse::<T>()
-            .map_err(|_| serde::de::Error::custom("Parse from string failed"))
+        s.parse::<T>().map_err(|_| serde::de::Error::custom("Parse from string failed"))
     }
 }
 
@@ -156,8 +159,18 @@ mod serde_block_number {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-#[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display, AccountId: std::fmt::Display, BlockNumber: std::fmt::Display")))]
-#[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr, AccountId: std::str::FromStr, BlockNumber: std::str::FromStr")))]
+#[cfg_attr(
+    feature = "std",
+    serde(bound(
+        serialize = "Balance: std::fmt::Display, AccountId: std::fmt::Display, BlockNumber: std::fmt::Display"
+    ))
+)]
+#[cfg_attr(
+    feature = "std",
+    serde(bound(
+        deserialize = "Balance: std::str::FromStr, AccountId: std::str::FromStr, BlockNumber: std::str::FromStr"
+    ))
+)]
 pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
     #[cfg_attr(feature = "std", serde(with = "serde_account"))]
     pub machine_owner: AccountId,
@@ -167,7 +180,6 @@ pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
     pub stake_amount: Balance,
     // pub machine_status: MachineStatus<BlockNumber>,
     pub machine_info_detail: MachineInfoDetail,
-    pub machine_price: u64,
     // #[cfg_attr(feature = "std", serde(with = "serde_seq_account"))]
     // #[serde(inner(AccountId, deserialize_with = "serde_account"))]
     // pub reward_committee: Vec<AccountId>,
