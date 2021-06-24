@@ -74,7 +74,6 @@
     "is_support": "bool"
   },
   "StakerCustomizeInfo": {
-    "left_change_time": "u64",
     "upload_net": "u64",
     "download_net": "u64",
     "longitude": "u64",
