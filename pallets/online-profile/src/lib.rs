@@ -109,6 +109,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub machine_status: MachineStatus<BlockNumber>,
     pub total_rented_duration: u64,             // 总租用累计时长
     pub total_rented_times: u64,                // 总租用次数
+    pub total_rent_fee: Balance,                // 总租金收益(银河竞赛前获得)
+    pub total_burn_fee: Balance,                // 总销毁数量
     pub machine_info_detail: MachineInfoDetail, // 委员会提交的机器信息
     pub reward_committee: Vec<AccountId>,       // 列表中的委员将分得用户奖励
     pub reward_deadline: BlockNumber,           // 列表中委员分得奖励结束时间
@@ -266,6 +268,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn total_gpu_num)]
     pub(super) type TotalGPUNum<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    // 5000张卡银河竞赛开启
+    #[pallet::storage]
+    #[pallet::getter(fn galaxy_is_on)]
+    pub(super) type GalaxyIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     // 当前系统中矿工数
     #[pallet::storage]
@@ -1330,8 +1337,13 @@ impl<T: Config> LCOps for Pallet<T> {
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
         LiveMachines::<T>::put(live_machines);
 
-        let total_gpu_num = Self::total_gpu_num();
-        TotalGPUNum::<T>::put(total_gpu_num + committee_upload_info.gpu_num as u64);
+        let total_gpu_num = Self::total_gpu_num() + committee_upload_info.gpu_num as u64;
+        if !Self::galaxy_is_on() && total_gpu_num > 5000 {
+            // NOTE: 5000张卡开启银河竞赛
+            GalaxyIsOn::<T>::put(true);
+        }
+
+        TotalGPUNum::<T>::put(total_gpu_num);
         let total_calc_points = Self::total_calc_points();
         TotalCalcPoints::<T>::put(total_calc_points + committee_upload_info.calc_point);
 
@@ -1371,6 +1383,7 @@ impl<T: Config> RTOps for Pallet<T> {
     type MachineId = MachineId;
     type MachineStatus = MachineStatus<T::BlockNumber>;
     type AccountId = T::AccountId;
+    type BalanceOf = BalanceOf<T>;
 
     fn change_machine_status(
         machine_id: &MachineId,
@@ -1448,6 +1461,16 @@ impl<T: Config> RTOps for Pallet<T> {
         // 改变租用时长或者租用次数
         MachinesInfo::<T>::insert(&machine_id, machine_info);
         ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
+    }
+
+    fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {
+        let mut machine_info = Self::machines_info(&machine_id);
+        if is_burn {
+            machine_info.total_burn_fee += amount;
+        } else {
+            machine_info.total_rent_fee += amount;
+        }
+        MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 }
 

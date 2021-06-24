@@ -22,6 +22,7 @@ pub trait RTOps {
     type AccountId;
     type MachineId;
     type MachineStatus;
+    type BalanceOf;
 
     fn change_machine_status(
         machine_id: &Self::MachineId,
@@ -29,6 +30,8 @@ pub trait RTOps {
         renter: Option<Self::AccountId>,
         rent_duration: Option<u64>, // 不为None时，表示租用结束
     );
+
+    fn change_machine_rent_fee(amount: Self::BalanceOf, machine_id: Self::MachineId, is_burn: bool);
 }
 
 pub trait ManageCommittee {

@@ -69,6 +69,7 @@ pub mod pallet {
             MachineId = MachineId,
             MachineStatus = MachineStatus<Self::BlockNumber>,
             AccountId = Self::AccountId,
+            BalanceOf = BalanceOf<Self>,
         >;
         type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
     }
@@ -239,13 +240,37 @@ pub mod pallet {
             Self::reduce_total_stake(&renter, order_info.stake_amount)
                 .map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
 
-            <T as pallet::Config>::Currency::transfer(
-                &renter,
-                &rent_pot,
-                order_info.stake_amount,
-                KeepAlive,
-            )
-            .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
+            // NOTE: 银河竞赛开启，租金销毁
+            let galaxy_is_on = <online_profile::Module<T>>::galaxy_is_on();
+            if galaxy_is_on {
+                <T as pallet::Config>::Currency::transfer(
+                    &renter,
+                    &rent_pot,
+                    order_info.stake_amount,
+                    KeepAlive,
+                )
+                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
+
+                T::RTOps::change_machine_rent_fee(
+                    order_info.stake_amount,
+                    machine_id.clone(),
+                    true,
+                );
+            } else {
+                <T as pallet::Config>::Currency::transfer(
+                    &renter,
+                    &machine_info.machine_owner,
+                    order_info.stake_amount,
+                    KeepAlive,
+                )
+                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
+
+                T::RTOps::change_machine_rent_fee(
+                    order_info.stake_amount,
+                    machine_id.clone(),
+                    false,
+                );
+            }
 
             order_info.confirm_rent = now;
             order_info.stake_amount = 0u64.saturated_into::<BalanceOf<T>>();
