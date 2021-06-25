@@ -560,7 +560,7 @@ pub mod pallet {
             let mut stash_machines = Self::stash_machines(&stash);
             if let Err(index) = stash_machines.total_machine.binary_search(&machine_id) {
                 stash_machines.total_machine.insert(index, machine_id.clone());
-                StashMachines::<T>::insert(&controller, stash_machines);
+                StashMachines::<T>::insert(&stash, stash_machines);
             } else {
                 return Err(Error::<T>::MachineInUserBonded.into());
             }
@@ -1552,10 +1552,10 @@ impl<T: Config> Module<T> {
         }
 
         if page_end >= all_stash.len() {
-            page_end = all_stash.len() - 1;
+            page_end = all_stash.len();
         }
 
-        if page_end > page_start {
+        if page_start > page_end {
             page_end = page_start;
         }
 
