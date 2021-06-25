@@ -3,9 +3,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_profile::{
-    LiveMachine, MachineId, RPCMachineInfo, RpcSysInfo, StakerInfo, StakerListInfo,
-};
+use online_profile::{LiveMachine, MachineId, RPCMachineInfo, RpcSysInfo, StakerInfo};
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -17,16 +15,7 @@ use sp_runtime::{
 use std::{convert::TryInto, sync::Arc};
 
 #[rpc]
-pub trait OpRpcApi<
-    BlockHash,
-    AccountId,
-    ResponseType1,
-    ResponseType2,
-    ResponseType3,
-    ResponseType4,
-    ResponseType5,
-    ResponseType6,
->
+pub trait OpRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2, ResponseType3, ResponseType4>
 {
     #[rpc(name = "onlineProfile_getStakerNum")]
     fn get_total_staker_num(&self, at: Option<BlockHash>) -> Result<u64>;
@@ -37,30 +26,15 @@ pub trait OpRpcApi<
     #[rpc(name = "onlineProfile_getStakerInfo")]
     fn get_staker_info(&self, account: AccountId, at: Option<BlockHash>) -> Result<ResponseType2>;
 
-    #[rpc(name = "onlineProfile_getStakerIdentity")]
-    fn get_staker_identity(
-        &self,
-        account: AccountId,
-        at: Option<BlockHash>,
-    ) -> Result<ResponseType3>;
-
-    #[rpc(name = "onlineProfile_getStakerListInfo")]
-    fn get_staker_list_info(
-        &self,
-        cur_page: u64,
-        per_page: u64,
-        at: Option<BlockHash>,
-    ) -> Result<ResponseType4>;
-
     #[rpc(name = "onlineProfile_getMachineList")]
-    fn get_machine_list(&self, at: Option<BlockHash>) -> Result<ResponseType5>;
+    fn get_machine_list(&self, at: Option<BlockHash>) -> Result<ResponseType3>;
 
     #[rpc(name = "onlineProfile_getMachineInfo")]
     fn get_machine_info(
         &self,
         machine_id: MachineId,
         at: Option<BlockHash>,
-    ) -> Result<ResponseType6>;
+    ) -> Result<ResponseType4>;
 }
 
 pub struct OpStorage<C, M> {
@@ -80,8 +54,6 @@ impl<C, Block, AccountId, Balance, BlockNumber>
         AccountId,
         RpcSysInfo<Balance>,
         StakerInfo<Balance>,
-        Vec<u8>,
-        Vec<StakerListInfo<Balance, AccountId>>,
         LiveMachine,
         RPCMachineInfo<AccountId, BlockNumber, Balance>,
     > for OpStorage<C, Block>
@@ -128,39 +100,6 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api.get_staker_info(&at, account);
-        runtime_api_result.map_err(|e| RpcError {
-            code: ErrorCode::ServerError(9876),
-            message: "Something wrong".into(),
-            data: Some(format!("{:?}", e).into()),
-        })
-    }
-
-    fn get_staker_identity(
-        &self,
-        account: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<u8>> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        let runtime_api_result = api.get_staker_identity(&at, account);
-        runtime_api_result.map_err(|e| RpcError {
-            code: ErrorCode::ServerError(9876),
-            message: "Something wrong".into(),
-            data: Some(format!("{:?}", e).into()),
-        })
-    }
-
-    fn get_staker_list_info(
-        &self,
-        cur_page: u64,
-        per_page: u64,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<StakerListInfo<Balance, AccountId>>> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        let runtime_api_result = api.get_staker_list_info(&at, cur_page, per_page);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

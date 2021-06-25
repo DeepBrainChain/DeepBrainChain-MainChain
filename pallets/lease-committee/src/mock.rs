@@ -9,9 +9,9 @@ pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
 use sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
+    testing::{Header, TestXt},
+    traits::{BlakeTwo256, IdentityLookup, Verify},
+    ModuleId, Perbill, Permill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -67,19 +67,79 @@ impl dbc_price_ocw::Config for TestRuntime {
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 
+type EnsureRootOrHalfCouncil = EnsureOneOf<
+    AccountId,
+    EnsureRoot<AccountId>,
+    pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>,
+>;
+impl pallet_identity::Config for TestRuntime {
+    type Event = Event;
+    type Currency = Balances;
+    type BasicDeposit = ();
+    type FieldDeposit = ();
+    type SubAccountDeposit = ();
+    type MaxSubAccounts = ();
+    type MaxAdditionalFields = ();
+    type MaxRegistrars = ();
+    type Slashed = Treasury;
+    type ForceOrigin = EnsureRootOrHalfCouncil;
+    type RegistrarOrigin = EnsureRootOrHalfCouncil;
+    type WeightInfo = ();
+}
+
+type TestExtrinsic = TestXt<Call, ()>;
+impl<LocalCall> system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
+where
+    Call: From<LocalCall>,
+{
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: Call,
+        _public: <Signature as Verify>::Signer,
+        _account: <TestRuntime as system::Config>::AccountId,
+        index: <TestRuntime as system::Config>::Index,
+    ) -> Option<(Call, <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
+        Some((call, (index, ())))
+    }
+}
+
+impl frame_system::offchain::SigningTypes for TestRuntime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = TestExtrinsic;
+}
+
+parameter_types! {
+    pub const BlockPerEra: u32 = 3600 * 24 / 30;
+}
+
+impl generic_func::Config for TestRuntime {
+    type BlockPerEra = BlockPerEra;
+    type Currency = Balances;
+    type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
+    type FixedTxFee = Treasury;
+}
+
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub const ProposalBondMinimum: u64 = 1;
     pub const SpendPeriod: u64 = 2;
     pub const Burn: Permill = Permill::from_percent(50);
     pub const DataDepositPerByte: u64 = 1;
-    pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+    pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
     pub const MaxApprovals: u32 = 100;
 }
 // impl pallet_treasury::Config for Test {
 impl pallet_treasury::Config for TestRuntime {
-    type PalletId = TreasuryPalletId;
-    type Currency = pallet_balances::Pallet<Test>;
+    type ModuleId = TreasuryModuleId;
+    type Currency = Balances;
     type ApproveOrigin = frame_system::EnsureRoot<u128>;
     type RejectOrigin = frame_system::EnsureRoot<u128>;
     type Event = Event;
@@ -90,8 +150,7 @@ impl pallet_treasury::Config for TestRuntime {
     type Burn = Burn;
     type BurnDestination = (); // Just gets burned.
     type WeightInfo = ();
-    type SpendFunds = Bounties;
-    type MaxApprovals = MaxApprovals;
+    type SpendFunds = ();
 }
 
 impl committee::Config for TestRuntime {
@@ -102,7 +161,7 @@ impl committee::Config for TestRuntime {
 }
 
 parameter_types! {
-    pub const CommitteeDuration: pallet_staking::EraIndex = 7;
+    pub const CommitteeDuration: u32 = 7;
 }
 
 impl lease_committee::Config for TestRuntime {
@@ -113,8 +172,7 @@ impl lease_committee::Config for TestRuntime {
 }
 
 parameter_types! {
-    pub const BlockPerEra: u32 = 3600 * 24 / 30;
-    pub const BondingDuration: pallet_staking::EraIndex = 7;
+    pub const BondingDuration: u32 = 7;
     pub const ProfitReleaseDuration: u64 = 150;
 }
 
@@ -142,6 +200,9 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
         Committee: committee::{Module, Call, Storage, Event<T>},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
+        Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
+        GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
+        Identity: pallet_identity::{Module, Call, Storage, Event<T>},
     }
 );
 

@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::MachineInfoDetail;
 use codec::{Decode, Encode};
-use sp_std::prelude::Vec;
 
 // 系统统计信息，提供给RPC
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
@@ -52,33 +51,6 @@ pub struct StakerInfo<Balance> {
     pub calc_points: u64,
     pub gpu_num: u64,
 
-    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
-    pub total_reward: Balance,
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-#[cfg_attr(
-    feature = "std",
-    serde(bound(serialize = "Balance: std::fmt::Display, AccountId: std::fmt::Display"))
-)]
-#[cfg_attr(
-    feature = "std",
-    serde(bound(deserialize = "Balance: std::str::FromStr, AccountId: std::str::FromStr"))
-)]
-pub struct StakerListInfo<Balance, AccountId> {
-    pub index: u64,
-    pub staker_name: Vec<u8>,
-    #[cfg_attr(feature = "std", serde(with = "serde_account"))]
-    pub staker_account: AccountId,
-    pub calc_points: u64,
-    pub total_gpu_num: u64,
-    pub total_rented_gpu: u64,
-    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
-    pub total_rent_fee: Balance, // 总租金收益(银河竞赛前获得)
-    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
-    pub total_burn_fee: Balance, // 总销毁数量
     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
     pub total_reward: Balance,
 }

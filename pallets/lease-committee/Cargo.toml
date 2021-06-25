@@ -76,10 +76,6 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
-[dev-dependencies.pallet-staking]
-path = '../dbc-staking'
-package = 'dbc-staking'
-
 [dev-dependencies.pallet-randomness-collective-flip]
 package = 'pallet-randomness-collective-flip'
 git = 'https://github.com/paritytech/substrate.git'
@@ -87,6 +83,20 @@ rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
 [dev-dependencies.sp-keyring]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.dbc-price-ocw]
+path = '../dbc-price-ocw'
+package = 'dbc-price-ocw'
+
+[dev-dependencies.pallet-treasury]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.pallet-identity]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'

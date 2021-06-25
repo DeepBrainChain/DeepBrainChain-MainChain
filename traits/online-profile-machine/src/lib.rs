@@ -34,6 +34,14 @@ pub trait RTOps {
     fn change_machine_rent_fee(amount: Self::BalanceOf, machine_id: Self::MachineId, is_burn: bool);
 }
 
+pub trait OPRPCQuery {
+    type AccountId;
+    type StashMachine;
+
+    fn get_all_stash() -> Vec<Self::AccountId>;
+    fn get_stash_machine(stash: Self::AccountId) -> Self::StashMachine;
+}
+
 pub trait ManageCommittee {
     type AccountId;
     type BalanceOf;

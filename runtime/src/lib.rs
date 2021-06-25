@@ -1055,6 +1055,11 @@ impl online_profile::Config for Runtime {
     type ManageCommittee = Committee;
 }
 
+impl simple_rpc::Config for Runtime {
+    type Currency = Balances;
+    type OPRpcQuery = OnlineProfile;
+}
+
 impl committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
@@ -1128,6 +1133,7 @@ construct_runtime!(
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
+        SimpleRpc: simple_rpc::{Module},
         Committee: committee::{Module, Call, Storage, Event<T>},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
@@ -1200,20 +1206,23 @@ impl_runtime_apis! {
             OnlineProfile::get_staker_info(who)
         }
 
-        fn get_staker_identity(who: AccountId) -> Vec<u8> {
-            OnlineProfile::get_staker_identity(who)
-        }
-
-        fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<online_profile::StakerListInfo<Balance, AccountId>> {
-            OnlineProfile::get_staker_list_info(cur_page, per_page)
-        }
-
         fn get_machine_list() -> online_profile::LiveMachine {
             OnlineProfile::get_machine_list()
         }
 
         fn get_machine_info(machine_id: online_profile::MachineId) -> online_profile::RPCMachineInfo<AccountId, BlockNumber, Balance> {
             OnlineProfile::get_machine_info(machine_id)
+        }
+    }
+
+    impl simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance> for Runtime {
+
+        fn get_staker_identity(who: AccountId) -> Vec<u8> {
+            SimpleRpc::get_staker_identity(who)
+        }
+
+        fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<simple_rpc::StakerListInfo<Balance, AccountId>> {
+            SimpleRpc::get_staker_list_info(cur_page, per_page)
         }
     }
 

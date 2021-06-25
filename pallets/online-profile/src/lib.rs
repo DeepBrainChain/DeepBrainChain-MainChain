@@ -26,8 +26,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{DbcPrice, LCOps, ManageCommittee, RTOps};
-use pallet_identity::Data;
+use online_profile_machine::{DbcPrice, LCOps, ManageCommittee, OPRPCQuery, RTOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::crypto::Public;
@@ -231,12 +230,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + dbc_price_ocw::Config
-        + generic_func::Config
-        + pallet_identity::Config
-    {
+    pub trait Config: frame_system::Config + dbc_price_ocw::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type BondingDuration: Get<EraIndex>;
@@ -591,6 +585,41 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(10000)]
+        pub fn fulfill_machine(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+
+            let mut machine_info = Self::machines_info(&machine_id);
+            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+
+            let stake_need = Self::calc_stake_amount(
+                machine_info.machine_info_detail.committee_upload_info.gpu_num,
+            )
+            .ok_or(Error::<T>::CalcStakeAmountFailed)?;
+
+            if machine_info.stake_amount < stake_need {
+                let extra_stake = stake_need - machine_info.stake_amount;
+                ensure!(
+                    <T as Config>::Currency::free_balance(&machine_info.machine_owner)
+                        > extra_stake,
+                    Error::<T>::BalanceNotEnough
+                );
+                // 更新质押
+                Self::add_user_total_stake(&machine_info.machine_owner, extra_stake)
+                    .map_err(|_| Error::<T>::BalanceOverflow)?;
+                machine_info.stake_amount = stake_need;
+            }
+            machine_info.machine_status = MachineStatus::Online;
+
+            // TODO: 变成重新online的状态
+
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
+            Ok(().into())
+        }
+
         // 机器没有成功上线，则需要在10天内手动执行rebond
         #[pallet::weight(10000)]
         pub fn rebond_machine(
@@ -710,6 +739,14 @@ pub mod pallet {
 
             let stash_account = Self::get_account_from_str(&stash_account)
                 .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
+
+            let controller_stash =
+                Self::controller_stash(&controller).ok_or(Error::<T>::NotBondedStashAccount)?;
+            ensure!(
+                controller_stash == stash_account,
+                Error::<T>::MachineStashNotEqualControllerStash
+            );
+
             machine_info.machine_owner = stash_account;
             machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
 
@@ -849,6 +886,8 @@ pub mod pallet {
         BadMsgLen,
         NotBondedStashAccount,
         NotAllowedChangeMachineInfo,
+        MachineStashNotEqualControllerStash,
+        CalcStakeAmountFailed,
     }
 }
 
@@ -1194,12 +1233,6 @@ impl<T: Config> Pallet<T> {
         return Ok(());
     }
 
-    fn get_all_stash() -> Vec<T::AccountId> {
-        <StashMachines<T> as IterableStorageMap<T::AccountId, _>>::iter()
-            .map(|(staker, _)| staker)
-            .collect::<Vec<_>>()
-    }
-
     fn get_new_slash_id() -> SlashId {
         let slash_id = Self::next_slash_id();
         NextSlashId::<T>::put(slash_id + 1);
@@ -1499,6 +1532,21 @@ impl<T: Config> RTOps for Pallet<T> {
     }
 }
 
+impl<T: Config> OPRPCQuery for Pallet<T> {
+    type AccountId = T::AccountId;
+    type StashMachine = StakerMachine<BalanceOf<T>>;
+
+    fn get_all_stash() -> Vec<T::AccountId> {
+        <StashMachines<T> as IterableStorageMap<T::AccountId, _>>::iter()
+            .map(|(staker, _)| staker)
+            .collect::<Vec<_>>()
+    }
+
+    fn get_stash_machine(stash: T::AccountId) -> StakerMachine<BalanceOf<T>> {
+        Self::stash_machines(stash)
+    }
+}
+
 // RPC
 impl<T: Config> Module<T> {
     pub fn get_total_staker_num() -> u64 {
@@ -1527,70 +1575,6 @@ impl<T: Config> Module<T> {
             gpu_num: staker_info.total_gpu_num,
             total_reward: staker_info.total_claimed_reward + staker_info.can_claim_reward,
         }
-    }
-
-    pub fn get_staker_identity(account: impl EncodeLike<T::AccountId>) -> Vec<u8> {
-        let account_info = <pallet_identity::Module<T>>::identity(account);
-        if let None = account_info {
-            return Vec::new();
-        }
-        let account_info = account_info.unwrap();
-
-        match account_info.info.display {
-            Data::Raw(out) => return out,
-            _ => return Vec::new(),
-        }
-    }
-
-    // 返回total_page
-    pub fn get_staker_list_info(
-        cur_page: u64,
-        per_page: u64,
-    ) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
-        let all_stash = Self::get_all_stash();
-        let mut stash_list_info = Vec::new();
-
-        if all_stash.len() == 0 {
-            return stash_list_info;
-        }
-
-        let cur_page = cur_page as usize;
-        let per_page = per_page as usize;
-        let page_start = cur_page * per_page;
-        let mut page_end = page_start + per_page;
-
-        if page_start >= all_stash.len() {
-            return stash_list_info;
-        }
-
-        if page_end >= all_stash.len() {
-            page_end = all_stash.len();
-        }
-
-        if page_start > page_end {
-            page_end = page_start;
-        }
-
-        for (index, a_stash) in all_stash.into_iter().enumerate() {
-            let staker_info = Self::stash_machines(a_stash.clone());
-            let identity = Self::get_staker_identity(a_stash.clone());
-
-            stash_list_info.push(StakerListInfo {
-                index: index as u64 + 1,
-                staker_name: identity,
-                staker_account: a_stash.clone(),
-                calc_points: staker_info.total_calc_points,
-                total_gpu_num: staker_info.total_gpu_num,
-                total_rented_gpu: staker_info.total_rented_gpu,
-                total_rent_fee: staker_info.total_rent_fee,
-                total_burn_fee: staker_info.total_burn_fee,
-                total_reward: staker_info.total_claimed_reward + staker_info.can_claim_reward,
-            })
-        }
-
-        stash_list_info.sort_by(|a, b| b.calc_points.cmp(&a.calc_points));
-
-        return stash_list_info[page_start..page_end].to_vec();
     }
 
     // 获取机器列表

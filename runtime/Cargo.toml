@@ -114,6 +114,8 @@ std = [
     'dbc-price-ocw/std',
     'online-profile/std',
     'online-profile-runtime-api/std',
+    'simple-rpc/std',
+    'simple-rpc-runtime-api/std',
     'committee/std',
     'lease-committee/std',
     'lease-committee-runtime-api/std',
@@ -379,6 +381,16 @@ path = '../pallets/dbc-price-ocw'
 default-features = false
 path = '../pallets/online-profile'
 package = 'online-profile'
+
+[dependencies.simple-rpc]
+default-features = false
+path = '../pallets/simple-rpc'
+package = 'simple-rpc'
+
+[dependencies.simple-rpc-runtime-api]
+default-features = false
+path = '../pallets/simple-rpc/runtime-api'
+package = 'simple-rpc-runtime-api'
 
 [dependencies.committee]
 default-features = false

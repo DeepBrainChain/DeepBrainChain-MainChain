@@ -2947,14 +2947,16 @@ name = "lease-committee"
 version = "0.1.0"
 dependencies = [
  "committee",
- "dbc-staking",
+ "dbc-price-ocw",
  "frame-support",
  "frame-system",
  "generic-func",
  "online-profile",
  "online-profile-machine",
  "pallet-balances",
+ "pallet-identity",
  "pallet-randomness-collective-flip",
+ "pallet-treasury",
  "parity-scale-codec",
  "serde",
  "serde_json 1.0.44",
@@ -4124,6 +4126,8 @@ dependencies = [
  "sc-rpc",
  "sc-rpc-api",
  "sc-sync-state-rpc",
+ "simple-rpc-rpc",
+ "simple-rpc-runtime-api",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -4212,6 +4216,8 @@ dependencies = [
  "rent-machine",
  "rent-machine-runtime-api",
  "serde",
+ "simple-rpc",
+ "simple-rpc-runtime-api",
  "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -4398,7 +4404,6 @@ dependencies = [
  "generic-func",
  "online-profile-machine",
  "pallet-balances",
- "pallet-identity",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "serde",
@@ -7734,6 +7739,45 @@ dependencies = [
  "num-complex",
  "num-traits",
  "paste 0.1.18",
+]
+
+[[package]]
+name = "simple-rpc"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "online-profile",
+ "online-profile-machine",
+ "pallet-identity",
+ "parity-scale-codec",
+ "serde",
+ "sp-std",
+]
+
+[[package]]
+name = "simple-rpc-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "simple-rpc",
+ "simple-rpc-runtime-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "simple-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "simple-rpc",
+ "sp-api",
+ "sp-std",
 ]
 
 [[package]]
