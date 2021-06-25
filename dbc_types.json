@@ -29,6 +29,15 @@
     "total_burn_fee": "Balance"
   },
   "BlockNumber": "u32",
+  "SysInfoDetail": {
+    "total_gpu_num": "u64",
+    "total_rented_gpu": "u64",
+    "total_staker": "u64",
+    "total_calc_points": "u64",
+    "total_stake": "Balance",
+    "total_rent_fee": "Balance",
+    "total_burn_fee": "Balance"
+  },
   "MachineInfo": {
     "controller": "AccountId",
     "machine_owner": "AccountId",
