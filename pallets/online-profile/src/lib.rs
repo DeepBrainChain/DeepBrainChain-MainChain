@@ -1571,11 +1571,12 @@ impl<T: Config> Module<T> {
             page_end = page_start;
         }
 
-        for a_stash in all_stash.into_iter() {
+        for (index, a_stash) in all_stash.into_iter().enumerate() {
             let staker_info = Self::stash_machines(a_stash.clone());
             let identity = Self::get_staker_identity(a_stash.clone());
 
             stash_list_info.push(StakerListInfo {
+                index: index as u64 + 1,
                 staker_name: identity,
                 staker_account: a_stash.clone(),
                 calc_points: staker_info.total_calc_points,

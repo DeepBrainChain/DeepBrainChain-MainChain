@@ -68,6 +68,7 @@ pub struct StakerInfo<Balance> {
     serde(bound(deserialize = "Balance: std::str::FromStr, AccountId: std::str::FromStr"))
 )]
 pub struct StakerListInfo<Balance, AccountId> {
+    pub index: u64,
     pub staker_name: Vec<u8>,
     #[cfg_attr(feature = "std", serde(with = "serde_account"))]
     pub staker_account: AccountId,
