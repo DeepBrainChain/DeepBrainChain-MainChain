@@ -94,9 +94,12 @@ pub struct StakerMachine<Balance> {
     pub online_machine: Vec<MachineId>,
     pub total_calc_points: u64, // 用户的机器总得分，不给算集群膨胀系数与在线奖励
     pub total_gpu_num: u64,
+    pub total_rented_gpu: u64,
     pub total_claimed_reward: Balance,
     pub can_claim_reward: Balance,      // 用户可以立即领取的奖励
     pub left_reward: VecDeque<Balance>, // 存储最多150个Era的奖励(150天将全部释放)，某个Era的数值等于 [0.99 * 0.75 * 当天该用户的所有奖励]
+    pub total_rent_fee: Balance,        // 总租金收益(银河竞赛前获得)
+    pub total_burn_fee: Balance,        // 总销毁数量
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -268,6 +271,10 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn total_gpu_num)]
     pub(super) type TotalGPUNum<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn total_rented_gpu)]
+    pub(super) type TotalRentedGPU<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     // 5000张卡银河竞赛开启
     #[pallet::storage]
@@ -1393,6 +1400,7 @@ impl<T: Config> RTOps for Pallet<T> {
     ) {
         let mut machine_info = Self::machines_info(machine_id);
         let era_index = Self::current_era() + 1;
+        let mut total_rented_gpu = Self::total_rented_gpu();
 
         machine_info.machine_status = new_status.clone();
         machine_info.machine_renter = renter;
@@ -1404,8 +1412,7 @@ impl<T: Config> RTOps for Pallet<T> {
             .staker_statistic
             .entry(machine_info.controller.clone())
             .or_insert(StashMachineStatistics { ..Default::default() });
-        // 某台机器被租用，则该机器得分多30%
-        // 某台机器被退租，则该机器得分少30%
+        // 机器被租用，则该机器得分多30%; 被退租，得分少30%
         let grade_change =
             Perbill::from_rational_approximation(30u64, 100u64) * machine_base_calc_point;
 
@@ -1427,6 +1434,8 @@ impl<T: Config> RTOps for Pallet<T> {
                 era_machine_point.total += grade_change;
                 machine_info.total_rented_times += 1;
 
+                total_rented_gpu +=
+                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
                 // TODO: 修改individual状态
                 // machine_info.
             }
@@ -1448,6 +1457,9 @@ impl<T: Config> RTOps for Pallet<T> {
 
                     era_machine_point.total -= grade_change;
                     machine_info.total_rented_duration += rent_duration.unwrap();
+
+                    total_rented_gpu -=
+                        machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
                 }
             }
             _ => {}
@@ -1459,17 +1471,22 @@ impl<T: Config> RTOps for Pallet<T> {
             .insert(machine_info.controller.clone(), staker_statistic);
 
         // 改变租用时长或者租用次数
+        TotalRentedGPU::<T>::put(total_rented_gpu);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
         ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
     }
 
     fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {
         let mut machine_info = Self::machines_info(&machine_id);
+        let mut staker_machine = Self::stash_machines(&machine_info.machine_owner);
         if is_burn {
             machine_info.total_burn_fee += amount;
+            staker_machine.total_burn_fee += amount;
         } else {
             machine_info.total_rent_fee += amount;
+            staker_machine.total_rent_fee += amount;
         }
+        StashMachines::<T>::insert(&machine_info.machine_owner, staker_machine);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 }
@@ -1518,11 +1535,11 @@ impl<T: Config> Module<T> {
         cur_page: u64,
         per_page: u64,
     ) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
-        let temp_account = Self::get_all_stash();
-        let mut out = Vec::new();
+        let all_stash = Self::get_all_stash();
+        let mut stash_list_info = Vec::new();
 
-        if temp_account.len() == 0 {
-            return out;
+        if all_stash.len() == 0 {
+            return stash_list_info;
         }
 
         let cur_page = cur_page as usize;
@@ -1530,29 +1547,37 @@ impl<T: Config> Module<T> {
         let page_start = cur_page * per_page;
         let mut page_end = page_start + per_page;
 
-        if page_start >= temp_account.len() {
-            return out;
+        if page_start >= all_stash.len() {
+            return stash_list_info;
         }
 
-        if page_end >= temp_account.len() {
-            page_end = temp_account.len() - 1;
+        if page_end >= all_stash.len() {
+            page_end = all_stash.len() - 1;
         }
 
-        for a_account in temp_account[page_start..page_end].into_iter() {
-            let staker_info = Self::stash_machines(a_account.clone());
-            let identity = Self::get_staker_identity(a_account.clone());
+        if page_end > page_start {
+            page_end = page_start;
+        }
 
-            out.push(StakerListInfo {
+        for a_stash in all_stash.into_iter() {
+            let staker_info = Self::stash_machines(a_stash.clone());
+            let identity = Self::get_staker_identity(a_stash.clone());
+
+            stash_list_info.push(StakerListInfo {
                 staker_name: identity,
-                staker_account: a_account.clone(),
+                staker_account: a_stash.clone(),
                 calc_points: staker_info.total_calc_points,
-                gpu_num: staker_info.total_gpu_num,
-                gpu_rent_rate: 0u64,
+                total_gpu_num: staker_info.total_gpu_num,
+                total_rented_gpu: staker_info.total_rented_gpu,
+                total_rent_fee: staker_info.total_rent_fee,
+                total_burn_fee: staker_info.total_burn_fee,
                 total_reward: staker_info.total_claimed_reward + staker_info.can_claim_reward,
             })
         }
 
-        return out;
+        stash_list_info.sort_by(|a, b| b.calc_points.cmp(&a.calc_points));
+
+        return stash_list_info[page_start..page_end].to_vec();
     }
 
     // 获取机器列表
@@ -1570,6 +1595,10 @@ impl<T: Config> Module<T> {
             bonding_height: machine_info.bonding_height,
             stake_amount: machine_info.stake_amount,
             // machine_status: machine_info.machine_status,
+            total_rented_duration: machine_info.total_rented_duration,
+            total_rented_times: machine_info.total_rented_times,
+            total_rent_fee: machine_info.total_rent_fee,
+            total_burn_fee: machine_info.total_burn_fee,
             machine_info_detail: machine_info.machine_info_detail,
             // reward_committee: machine_info.reward_committee,
             reward_deadline: machine_info.reward_deadline,

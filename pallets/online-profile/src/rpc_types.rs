@@ -68,9 +68,12 @@ pub struct StakerListInfo<Balance, AccountId> {
     #[cfg_attr(feature = "std", serde(with = "serde_account"))]
     pub staker_account: AccountId,
     pub calc_points: u64,
-    pub gpu_num: u64,
-    pub gpu_rent_rate: u64,
-
+    pub total_gpu_num: u64,
+    pub total_rented_gpu: u64,
+    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
+    pub total_rent_fee: Balance, // 总租金收益(银河竞赛前获得)
+    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
+    pub total_burn_fee: Balance, // 总销毁数量
     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
     pub total_reward: Balance,
 }
@@ -179,6 +182,12 @@ pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
     pub stake_amount: Balance,
     // pub machine_status: MachineStatus<BlockNumber>,
+    pub total_rented_duration: u64,
+    pub total_rented_times: u64,
+    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
+    pub total_rent_fee: Balance,
+    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
+    pub total_burn_fee: Balance,
     pub machine_info_detail: MachineInfoDetail,
     // #[cfg_attr(feature = "std", serde(with = "serde_seq_account"))]
     // #[serde(inner(AccountId, deserialize_with = "serde_account"))]
