@@ -21,9 +21,12 @@
     "online_machine": "Vec<MachineId>",
     "total_calc_points": "u64",
     "total_gpu_num": "u64",
+    "total_rented_gpu": "u64",
     "total_claimed_reward": "Balance",
     "can_claim_reward": "Balance",
-    "left_reward": "Vec<Balance>"
+    "left_reward": "Vec<Balance>",
+    "total_rent_fee": "Balance",
+    "total_burn_fee": "Balance"
   },
   "BlockNumber": "u32",
   "MachineInfo": {
