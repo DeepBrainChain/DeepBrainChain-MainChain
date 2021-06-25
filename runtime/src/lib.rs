@@ -1192,7 +1192,7 @@ impl_runtime_apis! {
             OnlineProfile::get_total_staker_num()
         }
 
-        fn get_op_info() -> online_profile::SysInfo<Balance> {
+        fn get_op_info() -> online_profile::RpcSysInfo<Balance> {
             OnlineProfile::get_op_info()
         }
 

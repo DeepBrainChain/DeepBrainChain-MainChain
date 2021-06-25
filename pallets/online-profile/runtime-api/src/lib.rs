@@ -4,7 +4,7 @@
 
 use codec::Codec;
 pub use online_profile::{
-    LiveMachine, MachineId, RPCMachineInfo, StakerInfo, StakerListInfo, SysInfo,
+    LiveMachine, MachineId, RPCMachineInfo, RpcSysInfo, StakerInfo, StakerListInfo,
 };
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
@@ -18,7 +18,7 @@ sp_api::decl_runtime_apis! {
         BlockNumber: Codec + MaybeDisplay,
     {
         fn get_total_staker_num() -> u64;
-        fn get_op_info() -> SysInfo<Balance>;
+        fn get_op_info() -> RpcSysInfo<Balance>;
         fn get_staker_info(account: AccountId) -> StakerInfo<Balance>;
         fn get_staker_identity(account: AccountId) -> Vec<u8>;
         fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<StakerListInfo<Balance, AccountId>>;

@@ -3,7 +3,9 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_profile::{LiveMachine, MachineId, RPCMachineInfo, StakerInfo, StakerListInfo, SysInfo};
+use online_profile::{
+    LiveMachine, MachineId, RPCMachineInfo, RpcSysInfo, StakerInfo, StakerListInfo,
+};
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -76,7 +78,7 @@ impl<C, Block, AccountId, Balance, BlockNumber>
     OpRpcApi<
         <Block as BlockT>::Hash,
         AccountId,
-        SysInfo<Balance>,
+        RpcSysInfo<Balance>,
         StakerInfo<Balance>,
         Vec<u8>,
         Vec<StakerListInfo<Balance, AccountId>>,
@@ -105,7 +107,7 @@ where
         })
     }
 
-    fn get_op_info(&self, at: Option<<Block as BlockT>::Hash>) -> Result<SysInfo<Balance>> {
+    fn get_op_info(&self, at: Option<<Block as BlockT>::Hash>) -> Result<RpcSysInfo<Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

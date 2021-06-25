@@ -11,13 +11,17 @@ use sp_std::prelude::Vec;
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "std", serde(bound(serialize = "Balance: std::fmt::Display")))]
 #[cfg_attr(feature = "std", serde(bound(deserialize = "Balance: std::str::FromStr")))]
-pub struct SysInfo<Balance> {
-    pub total_gpu_num: u64,     // 当前系统中工作的GPU数量
-    pub total_staker: u64,      // 矿工总数
-    pub total_calc_points: u64, // 系统算力点数
-
+pub struct RpcSysInfo<Balance> {
+    pub total_gpu_num: u64,
+    pub total_rented_gpu: u64,
+    pub total_staker: u64,
+    pub total_calc_points: u64,
     #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
-    pub total_stake: Balance, // 添加机器质押的DBC总数量 + staking模块的总质押数量
+    pub total_stake: Balance,
+    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
+    pub total_rent_fee: Balance,
+    #[cfg_attr(feature = "std", serde(with = "serde_balance"))]
+    pub total_burn_fee: Balance,
 }
 
 #[cfg(feature = "std")]

@@ -208,6 +208,24 @@ pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub reward_to: Vec<AccountId>,    // 奖励发放对象。如果为空，则惩罚到国库
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct SysInfoDetail<Balance> {
+    /// 在线机器的GPU的总数
+    pub total_gpu_num: u64,
+    /// 被租用机器的GPU的总数
+    pub total_rented_gpu: u64,
+    /// 系统中总stash账户数量
+    pub total_staker: u64,
+    /// 系统中总算力点数
+    pub total_calc_points: u64,
+    /// 系统中DBC质押总数
+    pub total_stake: Balance,
+    /// 系统中产生的租金收益总数(银河竞赛开启前)
+    pub total_rent_fee: Balance,
+    /// 系统中租金销毁总数(银河竞赛开启后)
+    pub total_burn_fee: Balance,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -267,34 +285,14 @@ pub mod pallet {
     pub(super) type UserTotalStake<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
-    // 当前系统中工作的GPU数量
-    #[pallet::storage]
-    #[pallet::getter(fn total_gpu_num)]
-    pub(super) type TotalGPUNum<T: Config> = StorageValue<_, u64, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn total_rented_gpu)]
-    pub(super) type TotalRentedGPU<T: Config> = StorageValue<_, u64, ValueQuery>;
-
     // 5000张卡银河竞赛开启
     #[pallet::storage]
     #[pallet::getter(fn galaxy_is_on)]
     pub(super) type GalaxyIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-    // 当前系统中矿工数
     #[pallet::storage]
-    #[pallet::getter(fn total_staker)]
-    pub(super) type TotalStaker<T: Config> = StorageValue<_, u64, ValueQuery>;
-
-    // 当前系统中总算力点数
-    #[pallet::storage]
-    #[pallet::getter(fn total_calc_points)]
-    pub(super) type TotalCalcPoints<T: Config> = StorageValue<_, u64, ValueQuery>;
-
-    // 机器质押的DBC总数量
-    #[pallet::storage]
-    #[pallet::getter(fn total_stake)]
-    pub(super) type TotalStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+    #[pallet::getter(fn sys_info)]
+    pub(super) type SysInfo<T: Config> = StorageValue<_, SysInfoDetail<BalanceOf<T>>, ValueQuery>;
 
     // stash 对应的controller
     #[pallet::storage]
@@ -894,11 +892,12 @@ impl<T: Config> Pallet<T> {
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
     pub fn calc_stake_amount(gpu_num: u32) -> Option<BalanceOf<T>> {
-        let total_gpu_num = Self::total_gpu_num();
+        let sys_info = Self::sys_info();
 
         let mut base_stake = Self::stake_per_gpu(); // 单卡10_0000 DBC
-        if total_gpu_num > 10_000 {
-            base_stake = Perbill::from_rational_approximation(10_000u64, total_gpu_num) * base_stake
+        if sys_info.total_gpu_num > 10_000 {
+            base_stake =
+                Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num) * base_stake
         }
 
         let stake_usd_limit = Self::stake_usd_limit();
@@ -968,8 +967,9 @@ impl<T: Config> Pallet<T> {
 
         UserTotalStake::<T>::insert(controller, next_stake);
         // 改变总质押
-        let total_stake = Self::total_stake().checked_add(&amount).ok_or(())?;
-        TotalStake::<T>::put(total_stake);
+        let mut sys_info = Self::sys_info();
+        sys_info.total_stake = sys_info.total_stake.checked_add(&amount).ok_or(())?;
+        SysInfo::<T>::put(sys_info);
         Ok(())
     }
 
@@ -984,9 +984,12 @@ impl<T: Config> Pallet<T> {
         );
 
         UserTotalStake::<T>::insert(controller, next_stake);
+
         // 改变总质押
-        let total_stake = Self::total_stake().checked_sub(&amount).ok_or(())?;
-        TotalStake::<T>::put(total_stake);
+        let mut sys_info = Self::sys_info();
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
+        SysInfo::<T>::put(sys_info);
+
         Ok(())
     }
 
@@ -1010,6 +1013,7 @@ impl<T: Config> Pallet<T> {
 
         let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
         let mut stash_machine = Self::stash_machines(&stash_account); // NOTE: 存储控制账户控制的机器
+        let mut sys_info = Self::sys_info();
 
         let mut staker_statistic = era_machine_point
             .staker_statistic
@@ -1043,6 +1047,8 @@ impl<T: Config> Pallet<T> {
             }
             stash_machine.total_calc_points += machine_base_info.calc_point;
             stash_machine.total_gpu_num += machine_base_info.gpu_num as u64;
+            sys_info.total_calc_points += machine_base_info.calc_point;
+            sys_info.total_gpu_num += machine_base_info.gpu_num as u64;
 
             staker_statistic.individual_machine.insert(
                 machine_id,
@@ -1056,6 +1062,8 @@ impl<T: Config> Pallet<T> {
             }
             stash_machine.total_calc_points -= machine_base_info.calc_point;
             stash_machine.total_gpu_num -= machine_base_info.gpu_num as u64;
+            sys_info.total_calc_points -= machine_base_info.calc_point;
+            sys_info.total_gpu_num -= machine_base_info.gpu_num as u64;
 
             staker_statistic.individual_machine.remove(&machine_id);
         }
@@ -1068,6 +1076,12 @@ impl<T: Config> Pallet<T> {
         era_machine_point.total -= old_grade;
         era_machine_point.total += new_grade;
 
+        if !Self::galaxy_is_on() && sys_info.total_gpu_num > 5000 {
+            // NOTE: 5000张卡开启银河竞赛
+            GalaxyIsOn::<T>::put(true);
+        }
+
+        SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&stash_account, stash_machine);
         ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
     }
@@ -1344,16 +1358,6 @@ impl<T: Config> LCOps for Pallet<T> {
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
         LiveMachines::<T>::put(live_machines);
 
-        let total_gpu_num = Self::total_gpu_num() + committee_upload_info.gpu_num as u64;
-        if !Self::galaxy_is_on() && total_gpu_num > 5000 {
-            // NOTE: 5000张卡开启银河竞赛
-            GalaxyIsOn::<T>::put(true);
-        }
-
-        TotalGPUNum::<T>::put(total_gpu_num);
-        let total_calc_points = Self::total_calc_points();
-        TotalCalcPoints::<T>::put(total_calc_points + committee_upload_info.calc_point);
-
         Self::update_staker_grades_by_online_machine(
             machine_info.machine_owner,
             committee_upload_info.machine_id,
@@ -1400,7 +1404,7 @@ impl<T: Config> RTOps for Pallet<T> {
     ) {
         let mut machine_info = Self::machines_info(machine_id);
         let era_index = Self::current_era() + 1;
-        let mut total_rented_gpu = Self::total_rented_gpu();
+        let mut sys_info = Self::sys_info();
 
         machine_info.machine_status = new_status.clone();
         machine_info.machine_renter = renter;
@@ -1434,7 +1438,7 @@ impl<T: Config> RTOps for Pallet<T> {
                 era_machine_point.total += grade_change;
                 machine_info.total_rented_times += 1;
 
-                total_rented_gpu +=
+                sys_info.total_rented_gpu +=
                     machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
                 // TODO: 修改individual状态
                 // machine_info.
@@ -1458,7 +1462,7 @@ impl<T: Config> RTOps for Pallet<T> {
                     era_machine_point.total -= grade_change;
                     machine_info.total_rented_duration += rent_duration.unwrap();
 
-                    total_rented_gpu -=
+                    sys_info.total_rented_gpu -=
                         machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
                 }
             }
@@ -1471,7 +1475,7 @@ impl<T: Config> RTOps for Pallet<T> {
             .insert(machine_info.controller.clone(), staker_statistic);
 
         // 改变租用时长或者租用次数
-        TotalRentedGPU::<T>::put(total_rented_gpu);
+        SysInfo::<T>::put(sys_info);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
         ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
     }
@@ -1479,13 +1483,17 @@ impl<T: Config> RTOps for Pallet<T> {
     fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {
         let mut machine_info = Self::machines_info(&machine_id);
         let mut staker_machine = Self::stash_machines(&machine_info.machine_owner);
+        let mut sys_info = Self::sys_info();
         if is_burn {
             machine_info.total_burn_fee += amount;
             staker_machine.total_burn_fee += amount;
+            sys_info.total_burn_fee += amount;
         } else {
             machine_info.total_rent_fee += amount;
             staker_machine.total_rent_fee += amount;
+            sys_info.total_rent_fee += amount;
         }
+        SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_owner, staker_machine);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
@@ -1498,12 +1506,16 @@ impl<T: Config> Module<T> {
         return all_stash.len() as u64;
     }
 
-    pub fn get_op_info() -> SysInfo<BalanceOf<T>> {
-        SysInfo {
-            total_gpu_num: Self::total_gpu_num(),
+    pub fn get_op_info() -> RpcSysInfo<BalanceOf<T>> {
+        let sys_info = Self::sys_info();
+        RpcSysInfo {
+            total_gpu_num: sys_info.total_gpu_num,
+            total_rented_gpu: sys_info.total_rented_gpu,
             total_staker: Self::get_total_staker_num(),
-            total_calc_points: Self::total_calc_points(),
-            total_stake: Self::total_stake(),
+            total_calc_points: sys_info.total_calc_points,
+            total_stake: sys_info.total_stake,
+            total_rent_fee: sys_info.total_rent_fee,
+            total_burn_fee: sys_info.total_burn_fee,
         }
     }
 

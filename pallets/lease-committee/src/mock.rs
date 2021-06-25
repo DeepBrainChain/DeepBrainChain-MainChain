@@ -11,6 +11,7 @@ pub use sp_keyring::{
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
+    Perbill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -60,28 +61,71 @@ impl pallet_balances::Config for TestRuntime {
     type WeightInfo = ();
 }
 
+impl dbc_price_ocw::Config for TestRuntime {
+    type Currency = Balances;
+    type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
+}
+
+parameter_types! {
+    pub const ProposalBond: Permill = Permill::from_percent(5);
+    pub const ProposalBondMinimum: u64 = 1;
+    pub const SpendPeriod: u64 = 2;
+    pub const Burn: Permill = Permill::from_percent(50);
+    pub const DataDepositPerByte: u64 = 1;
+    pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+    pub const MaxApprovals: u32 = 100;
+}
+// impl pallet_treasury::Config for Test {
+impl pallet_treasury::Config for TestRuntime {
+    type PalletId = TreasuryPalletId;
+    type Currency = pallet_balances::Pallet<Test>;
+    type ApproveOrigin = frame_system::EnsureRoot<u128>;
+    type RejectOrigin = frame_system::EnsureRoot<u128>;
+    type Event = Event;
+    type OnSlash = ();
+    type ProposalBond = ProposalBond;
+    type ProposalBondMinimum = ProposalBondMinimum;
+    type SpendPeriod = SpendPeriod;
+    type Burn = Burn;
+    type BurnDestination = (); // Just gets burned.
+    type WeightInfo = ();
+    type SpendFunds = Bounties;
+    type MaxApprovals = MaxApprovals;
+}
+
+impl committee::Config for TestRuntime {
+    type Currency = Balances;
+    type Event = Event;
+    type Slash = Treasury;
+    type DbcPrice = DBCPriceOCW;
+}
+
 parameter_types! {
     pub const CommitteeDuration: pallet_staking::EraIndex = 7;
 }
 
 impl lease_committee::Config for TestRuntime {
-    type Currency = Balances;
     type Event = Event;
-    type CommitteeMachine = OnlineProfile;
-    type CommitteeDuration = CommitteeDuration;
+    type Currency = Balances;
+    type LCOperations = OnlineProfile;
+    type ManageCommittee = Committee;
 }
 
 parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
     pub const BondingDuration: pallet_staking::EraIndex = 7;
+    pub const ProfitReleaseDuration: u64 = 150;
 }
 
 impl online_profile::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
-    type RandomnessSource = RandomnessCollectiveFlip;
-    type BlockPerEra = BlockPerEra;
     type BondingDuration = BondingDuration;
+    type ProfitReleaseDuration = ProfitReleaseDuration;
+    type Slash = Treasury;
+    type DbcPrice = DBCPriceOCW;
+    type ManageCommittee = Committee;
 }
 
 // Configure a mock runtime to test the pallet.
@@ -96,6 +140,8 @@ frame_support::construct_runtime!(
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
+        Committee: committee::{Module, Call, Storage, Event<T>},
+        DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
     }
 );
 
