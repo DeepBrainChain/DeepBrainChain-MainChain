@@ -259,7 +259,7 @@ pub mod pallet {
             } else {
                 <T as pallet::Config>::Currency::transfer(
                     &renter,
-                    &machine_info.machine_owner,
+                    &machine_info.machine_stash,
                     order_info.stake_amount,
                     KeepAlive,
                 )

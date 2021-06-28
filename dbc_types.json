@@ -11,12 +11,13 @@
   "OrderId": "u64",
   "LiveMachine": {
     "bonding_machine": "Vec<MachineId>",
-    "machine_confirmed": "Vec<MachineId>",
+    "confirmed_machine": "Vec<MachineId>",
     "booked_machine": "Vec<MachineId>",
     "online_machine": "Vec<MachineId>",
-    "fulfilling_machine": "Vec<MachineId>"
+    "fulfilling_machine": "Vec<MachineId>",
+    "refused_machine": "Vec<MachineId>"
   },
-  "StakerMachine": {
+  "StashMachine": {
     "total_machine": "Vec<MachineId>",
     "online_machine": "Vec<MachineId>",
     "total_calc_points": "u64",
@@ -55,7 +56,7 @@
   },
   "MachineStatus": {
     "_enum": [
-      "MachineSelfConfirming",
+      "AddingCustomizeInfo",
       "CommitteeVerifying",
       "CommitteeRefused",
       "WaitingFulfill",

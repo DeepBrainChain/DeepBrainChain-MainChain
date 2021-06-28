@@ -1041,16 +1041,10 @@ impl generic_func::Config for Runtime {
     type FixedTxFee = Treasury;
 }
 
-parameter_types! {
-    pub const ProfitReleaseDuration: u64 = 150;
-}
-
 impl online_profile::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type BondingDuration = BondingDuration;
-    type ProfitReleaseDuration = ProfitReleaseDuration;
-    // type Slash = Treasury;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
 }

@@ -6,7 +6,7 @@ use frame_support::{
     traits::{Currency, LockableCurrency},
 };
 use frame_system::pallet_prelude::*;
-use online_profile::StakerMachine;
+use online_profile::StashMachine;
 use online_profile_machine::OPRPCQuery;
 pub use pallet::*;
 use pallet_identity::Data;
@@ -27,7 +27,7 @@ pub mod pallet {
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type OPRpcQuery: OPRPCQuery<
             AccountId = Self::AccountId,
-            StashMachine = StakerMachine<BalanceOf<Self>>,
+            StashMachine = StashMachine<BalanceOf<Self>>,
         >;
     }
 

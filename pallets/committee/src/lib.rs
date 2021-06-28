@@ -133,8 +133,8 @@ pub mod pallet {
     pub(super) type Committee<T: Config> = StorageValue<_, CommitteeList<T::AccountId>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn committee_total_stake)]
-    pub(super) type CommitteeTotalStake<T: Config> =
+    #[pallet::getter(fn user_total_stake)]
+    pub(super) type UserTotalStake<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
 
     // 每次订单默认质押等价的DBC数量，每个块更新一次
@@ -266,7 +266,7 @@ pub mod pallet {
             let mut committee_list = Self::committee();
             ensure!(committee_list.exist_in_committee(&committee), Error::<T>::NotCommittee);
 
-            if let Some(committee_stake) = Self::committee_total_stake(&committee) {
+            if let Some(committee_stake) = Self::user_total_stake(&committee) {
                 ensure!(
                     committee_stake == 0u64.saturated_into::<BalanceOf<T>>(),
                     Error::<T>::JobNotDone
@@ -480,7 +480,11 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         amount: BalanceOf<T>,
         is_add: bool,
     ) -> Result<(), ()> {
-        let total_stake = Self::committee_total_stake(&controller).unwrap_or(0u32.into());
+        let total_stake = Self::user_total_stake(&controller).unwrap_or(0u32.into());
+
+        if is_add && <T as Config>::Currency::free_balance(&controller) <= amount {
+            return Err(());
+        }
 
         let new_stake = if is_add {
             total_stake.checked_add(&amount).ok_or(())?
@@ -494,7 +498,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
             new_stake,
             WithdrawReasons::all(),
         );
-        CommitteeTotalStake::<T>::insert(controller, new_stake);
+        UserTotalStake::<T>::insert(controller, new_stake);
 
         Ok(())
     }
