@@ -21,7 +21,7 @@ use codec::EncodeLike;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
-    traits::{Currency, Get, LockIdentifier, LockableCurrency, OnUnbalanced, WithdrawReasons},
+    traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
     weights::Weight,
     IterableStorageMap,
 };
@@ -35,7 +35,7 @@ use sp_runtime::{
     Perbill, SaturatedConversion,
 };
 use sp_std::{
-    collections::{btree_set::BTreeSet, vec_deque::VecDeque},
+    collections::vec_deque::VecDeque,
     convert::{TryFrom, TryInto},
     prelude::*,
     str,
@@ -61,30 +61,6 @@ pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 // pub const BLOCK_PER_ERA: u64 = 2880;
 pub const BLOCK_PER_ERA: u64 = 100; // TODO: 测试网一天设置为100个块
-
-// 惩罚发生后，有48小时的时间提交议案取消惩罚
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct MachinesSlash<AccountId, BlockNumber, Balance> {
-    pub reporter: AccountId,
-    pub reporter_time: BlockNumber,
-    pub slash_reason: SlashReason,
-    pub slash_amount: Balance,
-    pub unapplied_slash: u32, // 记录多少个阶段的奖励被扣除
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum SlashReason {
-    MinuteOffline3, // 3min 掉线
-    MinuteOffline7, // 7min 掉线
-    DaysOffline2,   // 2days 掉线
-    DaysOffline5,   // 5days 掉线
-}
-
-impl Default for SlashReason {
-    fn default() -> Self {
-        SlashReason::MinuteOffline3
-    }
-}
 
 // stash账户总览自己当前状态状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -189,23 +165,9 @@ pub struct StandardGpuPointPrice {
     pub gpu_price: u64,
 }
 
-pub type SlashId = u64;
+// pub type SlashId = u64;
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
-
-// 即将被执行的罚款
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
-    pub slash_who: AccountId,
-    pub slash_time: BlockNumber,      // 惩罚被创建的时间
-    pub unlock_amount: Balance,       // 执行惩罚前解绑的金额
-    pub slash_amount: Balance,        // 执行惩罚的金额
-    pub slash_exec_time: BlockNumber, // 惩罚被执行的时间
-    pub reward_to: Vec<AccountId>,    // 奖励发放对象。如果为空，则惩罚到国库
-}
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct SysInfoDetail<Balance> {
@@ -235,7 +197,7 @@ pub mod pallet {
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type BondingDuration: Get<EraIndex>;
         type ProfitReleaseDuration: Get<u64>; // 剩余75%线性释放时间长度(25%立即释放)
-        type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+                                              // type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
         type ManageCommittee: ManageCommittee<
             AccountId = Self::AccountId,
@@ -299,20 +261,6 @@ pub mod pallet {
     #[pallet::getter(fn controller_stash)]
     pub(super) type ControllerStash<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn next_slash_id)]
-    pub(super) type NextSlashId<T: Config> = StorageValue<_, SlashId, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn pending_slash)]
-    pub(super) type PendingSlash<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        SlashId,
-        PendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ValueQuery,
-    >;
 
     // 机器的详细信息,只有当所有奖励领取完才能删除该变量?
     #[pallet::storage]
@@ -430,8 +378,6 @@ pub mod pallet {
                     debug::error!("##### Failed to distribute reward");
                 }
             }
-
-            Self::check_and_exec_slash();
         }
     }
 
@@ -841,8 +787,6 @@ pub mod pallet {
         Withdrawn(T::AccountId, MachineId, BalanceOf<T>),
         ClaimRewards(T::AccountId, MachineId, BalanceOf<T>),
         ReporterStake(T::AccountId, MachineId, BalanceOf<T>),
-        Slash(T::AccountId, BalanceOf<T>),
-        MissedSlash(T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -1233,35 +1177,6 @@ impl<T: Config> Pallet<T> {
         return Ok(());
     }
 
-    fn get_new_slash_id() -> SlashId {
-        let slash_id = Self::next_slash_id();
-        NextSlashId::<T>::put(slash_id + 1);
-        return slash_id;
-    }
-
-    fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
-        let slash_id = Self::get_new_slash_id();
-        let now = <frame_system::Module<T>>::block_number();
-        PendingSlash::<T>::insert(
-            slash_id,
-            PendingSlashInfo {
-                slash_who: who,
-                slash_time: now,
-                unlock_amount: amount,
-                slash_amount: amount,
-                slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
-                reward_to,
-            },
-        );
-    }
-
-    // 获得所有被惩罚的订单列表
-    fn get_slash_id() -> BTreeSet<SlashId> {
-        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
-            .map(|(slash_id, _)| slash_id)
-            .collect::<BTreeSet<_>>()
-    }
-
     // 检查fulfilling list，如果超过10天，则清除记录，退还质押
     fn _check_and_clean_refused_machine() {
         let now = <frame_system::Module<T>>::block_number();
@@ -1272,46 +1187,6 @@ impl<T: Config> Pallet<T> {
 
             if let MachineStatus::CommitteeRefused(refuse_time) = machine_info.machine_status {
                 if refuse_time - now >= 28800u64.saturated_into::<T::BlockNumber>() {}
-            }
-        }
-    }
-
-    // 检查并执行slash
-    fn check_and_exec_slash() {
-        let now = <frame_system::Module<T>>::block_number();
-
-        let pending_slash_id = Self::get_slash_id();
-        for a_slash_id in pending_slash_id {
-            let a_slash_info = Self::pending_slash(&a_slash_id);
-            if now >= a_slash_info.slash_exec_time {
-                let _ = Self::reduce_user_total_stake(
-                    &a_slash_info.slash_who,
-                    a_slash_info.unlock_amount,
-                );
-
-                // 如果reward_to为0，则将币转到国库
-                if a_slash_info.reward_to.len() == 0 {
-                    if <T as pallet::Config>::Currency::can_slash(
-                        &a_slash_info.slash_who,
-                        a_slash_info.slash_amount,
-                    ) {
-                        let (imbalance, missing) = <T as pallet::Config>::Currency::slash(
-                            &a_slash_info.slash_who,
-                            a_slash_info.slash_amount,
-                        );
-                        Self::deposit_event(Event::Slash(
-                            a_slash_info.slash_who.clone(),
-                            a_slash_info.slash_amount,
-                        ));
-                        Self::deposit_event(Event::MissedSlash(
-                            a_slash_info.slash_who,
-                            missing.clone(),
-                        ));
-                        T::Slash::on_unbalanced(imbalance);
-                    }
-                } else {
-                    // TODO: reward_to将获得slash的奖励
-                }
             }
         }
     }
@@ -1409,7 +1284,7 @@ impl<T: Config> LCOps for Pallet<T> {
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
         machine_info.stake_amount = machine_info.stake_amount - slash;
 
-        Self::add_slash(machine_info.controller.clone(), slash, Vec::new());
+        // Self::add_slash(machine_info.controller.clone(), slash, Vec::new());
 
         machine_info.machine_status = MachineStatus::CommitteeRefused(now);
         MachinesInfo::<T>::insert(&machine_id, machine_info);

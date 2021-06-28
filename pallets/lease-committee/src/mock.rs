@@ -11,8 +11,10 @@ pub use sp_keyring::{
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
-    ModuleId, Perbill, Permill,
+    ModuleId, Permill,
 };
+
+use frame_system::EnsureRoot;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -67,26 +69,6 @@ impl dbc_price_ocw::Config for TestRuntime {
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 
-type EnsureRootOrHalfCouncil = EnsureOneOf<
-    AccountId,
-    EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>,
->;
-impl pallet_identity::Config for TestRuntime {
-    type Event = Event;
-    type Currency = Balances;
-    type BasicDeposit = ();
-    type FieldDeposit = ();
-    type SubAccountDeposit = ();
-    type MaxSubAccounts = ();
-    type MaxAdditionalFields = ();
-    type MaxRegistrars = ();
-    type Slashed = Treasury;
-    type ForceOrigin = EnsureRootOrHalfCouncil;
-    type RegistrarOrigin = EnsureRootOrHalfCouncil;
-    type WeightInfo = ();
-}
-
 type TestExtrinsic = TestXt<Call, ()>;
 impl<LocalCall> system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
 where
@@ -136,12 +118,12 @@ parameter_types! {
     pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
     pub const MaxApprovals: u32 = 100;
 }
-// impl pallet_treasury::Config for Test {
+
 impl pallet_treasury::Config for TestRuntime {
     type ModuleId = TreasuryModuleId;
     type Currency = Balances;
-    type ApproveOrigin = frame_system::EnsureRoot<u128>;
-    type RejectOrigin = frame_system::EnsureRoot<u128>;
+    type ApproveOrigin = EnsureRoot<Self::AccountId>;
+    type RejectOrigin = EnsureRoot<Self::AccountId>;
     type Event = Event;
     type OnSlash = ();
     type ProposalBond = ProposalBond;
@@ -181,7 +163,6 @@ impl online_profile::Config for TestRuntime {
     type Event = Event;
     type BondingDuration = BondingDuration;
     type ProfitReleaseDuration = ProfitReleaseDuration;
-    type Slash = Treasury;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
 }
@@ -202,7 +183,6 @@ frame_support::construct_runtime!(
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
-        Identity: pallet_identity::{Module, Call, Storage, Event<T>},
     }
 );
 

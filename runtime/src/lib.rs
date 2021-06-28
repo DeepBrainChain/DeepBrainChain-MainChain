@@ -1050,7 +1050,7 @@ impl online_profile::Config for Runtime {
     type Event = Event;
     type BondingDuration = BondingDuration;
     type ProfitReleaseDuration = ProfitReleaseDuration;
-    type Slash = Treasury;
+    // type Slash = Treasury;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
 }
