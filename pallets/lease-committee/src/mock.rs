@@ -1,5 +1,5 @@
 use crate as lease_committee;
-use frame_support::parameter_types;
+use frame_support::{parameter_types, traits::OnFinalize};
 pub use frame_system::{self as system, RawOrigin};
 pub use sp_core::{
     sr25519::{self, Signature},
@@ -135,6 +135,17 @@ impl pallet_treasury::Config for TestRuntime {
     type SpendFunds = ();
 }
 
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
@@ -183,6 +194,7 @@ frame_support::construct_runtime!(
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
     }
 );
 
@@ -207,4 +219,23 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     .unwrap();
 
     t.into()
+}
+
+pub type BlockNumber = u64;
+
+pub const BLOCK_TIME: u64 = 1000;
+pub const INIT_TIMESTAMP: u64 = 30_000;
+
+pub fn run_to_block(n: BlockNumber) {
+    Committee::on_finalize(System::block_number());
+    LeaseCommittee::on_finalize(System::block_number());
+    OnlineProfile::on_finalize(System::block_number());
+    for b in (System::block_number() + 1)..=n {
+        System::set_block_number(b);
+        Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
+        if b != n {
+            Committee::on_finalize(System::block_number());
+            LeaseCommittee::on_finalize(System::block_number());
+        }
+    }
 }

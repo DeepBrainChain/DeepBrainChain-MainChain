@@ -121,7 +121,8 @@ pub struct LiveMachine {
     pub machine_confirmed: Vec<MachineId>, // 机器钱包发送确认信息之后，添加到本字段。该状态可以由lc分配订单
     pub booked_machine: Vec<MachineId>, // 当机器已经全部分配了委员会，则变为该状态。若lc确认机器失败(认可=不认可)则返回上一状态，重新分派订单
     pub online_machine: Vec<MachineId>, // 被委员会确认之后之后，机器上线
-    pub fulfilling_machine: Vec<MachineId>, // 拒绝接入后变为该状态
+    pub fulfilling_machine: Vec<MachineId>, // 委员会同意上线，但是由于stash账户质押不够，而变为补充质押状态
+    pub refused_machine: Vec<MachineId>,    // 被委员会拒绝的机器（10天内还能重新申请上线）
 }
 
 impl LiveMachine {
@@ -140,6 +141,9 @@ impl LiveMachine {
             return true;
         }
         if let Ok(_) = self.fulfilling_machine.binary_search(machine_id) {
+            return true;
+        }
+        if let Ok(_) = self.refused_machine.binary_search(machine_id) {
             return true;
         }
         false
@@ -197,7 +201,6 @@ pub mod pallet {
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type BondingDuration: Get<EraIndex>;
         type ProfitReleaseDuration: Get<u64>; // 剩余75%线性释放时间长度(25%立即释放)
-                                              // type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
         type ManageCommittee: ManageCommittee<
             AccountId = Self::AccountId,
@@ -378,6 +381,8 @@ pub mod pallet {
                     debug::error!("##### Failed to distribute reward");
                 }
             }
+
+            Self::clean_refused_machine();
         }
     }
 
@@ -469,11 +474,27 @@ pub mod pallet {
         pub fn bond_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
+            msg: Vec<u8>,
+            sig: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
 
-            debug::error!("##### MachineId is: {:?}", machine_id.clone());
+            // 验证msg
+            ensure!(msg.len() == 96, Error::<T>::BadMsgLen);
+
+            let sig_machine_id: Vec<u8> = msg[..48].to_vec();
+            ensure!(machine_id == sig_machine_id, Error::<T>::SigMachineIdNotEqualBondedMachineId);
+
+            let sig_stash_account: Vec<u8> = msg[48..].to_vec();
+            let sig_stash_account = Self::get_account_from_str(&sig_stash_account)
+                .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
+            ensure!(sig_stash_account == stash, Error::<T>::MachineStashNotEqualControllerStash);
+
+            // 验证签名是否为MachineId发出
+            if Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()).is_none() {
+                return Err(Error::<T>::BadSignature.into());
+            }
 
             // 用户第一次绑定机器需要质押的数量
             let first_bond_stake = Self::stake_per_gpu();
@@ -531,6 +552,57 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 机器online之前可以修改，online之后不能修改
+        #[pallet::weight(10000)]
+        pub fn add_machine_info(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            customize_machine_info: StakerCustomizeInfo,
+        ) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+
+            // 查询机器Id是否在该账户的控制下
+            let mut machine_info = Self::machines_info(&machine_id);
+            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+
+            match machine_info.machine_status {
+                MachineStatus::MachineSelfConfirming
+                | MachineStatus::CommitteeVerifying
+                | MachineStatus::CommitteeRefused(_)
+                | MachineStatus::WaitingFulfill => {
+                    machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
+                    MachinesInfo::<T>::insert(&machine_id, machine_info);
+                }
+                _ => {
+                    return Err(Error::<T>::NotAllowedChangeMachineInfo.into());
+                }
+            }
+
+            Ok(().into())
+        }
+
+        // 控制账户可以随意修改镜像名称
+        #[pallet::weight(10000)]
+        pub fn change_images_name(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            new_images: Vec<ImageName>,
+        ) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+
+            // 查询机器Id是否在该账户的控制下
+            let controller_machines = Self::controller_machines(&controller);
+            controller_machines
+                .binary_search(&machine_id)
+                .map_err(|_| Error::<T>::MachineIdNotBonded)?;
+
+            let mut machine_info = Self::machines_info(&machine_id);
+            machine_info.machine_info_detail.staker_customize_info.images = new_images;
+
+            MachinesInfo::<T>::insert(machine_id, machine_info);
+            Ok(().into())
+        }
+
         #[pallet::weight(10000)]
         pub fn fulfill_machine(
             origin: OriginFor<T>,
@@ -567,79 +639,31 @@ pub mod pallet {
         }
 
         // 机器没有成功上线，则需要在10天内手动执行rebond
+        // 如果绑定失败，会扣除5%的DBC（5000），用户重新绑定，需要补充质押
         #[pallet::weight(10000)]
         pub fn rebond_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let _now = <frame_system::Module<T>>::block_number();
-            let machine_info = Self::machines_info(&machine_id);
+            let now = <frame_system::Module<T>>::block_number();
+            let mut machine_info = Self::machines_info(&machine_id);
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-            // ensure!(machine_info.machine_status == MachineStatus::CommitteeRefused(_))
-            if let MachineStatus::CommitteeRefused(_refuse_time) = machine_info.machine_status {
-                // 超过10天
-                // if refuse_time - now > 28800u64.saturated_into::<T::BlockNumber>() {
-                // return Err();
-                // }
-            } else {
-                // return Err(Error::<T>::Notsta);
-            }
-
-            Ok(().into())
-        }
-
-        // 控制账户可以随意修改镜像名称
-        #[pallet::weight(10000)]
-        pub fn change_images_name(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            new_images: Vec<ImageName>,
-        ) -> DispatchResultWithPostInfo {
-            let controller = ensure_signed(origin)?;
-
-            // 查询机器Id是否在该账户的控制下
-            let controller_machines = Self::controller_machines(&controller);
-            controller_machines
-                .binary_search(&machine_id)
-                .map_err(|_| Error::<T>::MachineIdNotBonded)?;
-
-            let mut machine_info = Self::machines_info(&machine_id);
-            machine_info.machine_info_detail.staker_customize_info.images = new_images;
-
-            MachinesInfo::<T>::insert(machine_id, machine_info);
-            Ok(().into())
-        }
-
-        // 机器online可以修改，online之后不能修改
-        #[pallet::weight(10000)]
-        pub fn change_machine_info(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            customize_machine_info: StakerCustomizeInfo,
-        ) -> DispatchResultWithPostInfo {
-            let controller = ensure_signed(origin)?;
-
-            // 查询机器Id是否在该账户的控制下
-            let controller_machines = Self::controller_machines(&controller);
-            controller_machines
-                .binary_search(&machine_id)
-                .map_err(|_| Error::<T>::MachineIdNotBonded)?;
-
-            let mut machine_info = Self::machines_info(&machine_id);
-
             match machine_info.machine_status {
-                MachineStatus::MachineSelfConfirming
-                | MachineStatus::CommitteeVerifying
-                | MachineStatus::CommitteeRefused(_)
-                | MachineStatus::WaitingFulfill => {
-                    machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
-                }
-                _ => {
-                    return Err(Error::<T>::NotAllowedChangeMachineInfo.into());
-                }
+                MachineStatus::CommitteeRefused(_) => {}
+                _ => return Err(Error::<T>::NotRefusedMachine.into()),
             }
+
+            let mut live_machines = Self::live_machines();
+
+            LiveMachine::rm_machine_id(&mut live_machines.refused_machine, &machine_id);
+            LiveMachine::add_machine_id(&mut live_machines.machine_confirmed, machine_id.clone());
+
+            machine_info.machine_status = MachineStatus::CommitteeVerifying;
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
+
+            LiveMachines::<T>::put(live_machines);
 
             Ok(().into())
         }
@@ -651,67 +675,6 @@ pub mod pallet {
             _controller: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let _controller = ensure_signed(origin)?;
-            Ok(().into())
-        }
-
-        // machine 设置 stash账户
-        // MachineId对应的私钥对字符串进行加密： "machineIdstash", 其中，machineId为machineId字符串，stash为Stash账户字符串
-        #[pallet::weight(10000)]
-        pub fn machine_set_stash(
-            origin: OriginFor<T>,
-            msg: Vec<u8>,
-            sig: Vec<u8>,
-            customize_machine_info: StakerCustomizeInfo,
-        ) -> DispatchResultWithPostInfo {
-            let controller = ensure_signed(origin)?;
-
-            ensure!(msg.len() == 96, Error::<T>::BadMsgLen);
-
-            let machine_id: Vec<u8> = msg[..48].to_vec();
-            let stash_account: Vec<u8> = msg[48..].to_vec();
-
-            let mut live_machines = Self::live_machines();
-            ensure!(
-                live_machines.bonding_machine.binary_search(&machine_id).is_ok(),
-                Error::<T>::NotAllowedSetStash
-            );
-
-            // 验证签名是否为MachineId发出
-            if Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()).is_none() {
-                return Err(Error::<T>::BadSignature.into());
-            }
-
-            let mut machine_info = Self::machines_info(&machine_id);
-
-            let stash_account = Self::get_account_from_str(&stash_account)
-                .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
-
-            let controller_stash =
-                Self::controller_stash(&controller).ok_or(Error::<T>::NotBondedStashAccount)?;
-            ensure!(
-                controller_stash == stash_account,
-                Error::<T>::MachineStashNotEqualControllerStash
-            );
-
-            machine_info.machine_owner = stash_account;
-            machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
-
-            // stash 账户必须是已经和controller账户绑定
-            if let Some(bonded_stash_account) = Self::controller_stash(&controller) {
-                ensure!(
-                    bonded_stash_account == bonded_stash_account,
-                    Error::<T>::NotBondedStashAccount
-                );
-            } else {
-                return Err(Error::<T>::NotBondedStashAccount.into());
-            }
-
-            LiveMachine::rm_machine_id(&mut live_machines.bonding_machine, &machine_id);
-            LiveMachine::add_machine_id(&mut live_machines.machine_confirmed, machine_id.clone());
-
-            MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
-            LiveMachines::<T>::put(live_machines);
-
             Ok(().into())
         }
 
@@ -742,23 +705,41 @@ pub mod pallet {
 
         // 机器管理者报告机器下线
         #[pallet::weight(10000)]
-        pub fn staker_report_offline(
+        pub fn controller_report_offline(
             origin: OriginFor<T>,
-            _machine_id: MachineId,
+            machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
-            let _staker = ensure_signed(origin)?;
+            let controller = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+
+            let mut machine_info = Self::machines_info(&machine_id);
+            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+
+            machine_info.machine_status = MachineStatus::StakerReportOffline(now);
+
             // TODO: 应该影响机器打分
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Ok(().into())
         }
 
         // 机器管理者报告机器上线
         #[pallet::weight(10000)]
-        pub fn staker_report_online(
+        pub fn controller_report_online(
             origin: OriginFor<T>,
-            _machine_id: MachineId,
+            machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
-            let _staker = ensure_signed(origin)?;
+            let controller = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+
+            let mut machine_info = Self::machines_info(&machine_id);
+            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+
+            machine_info.machine_status = MachineStatus::Online;
+
+            // TODO: 根据机器掉线时间进行惩罚
+
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Ok(().into())
         }
@@ -832,10 +813,45 @@ pub mod pallet {
         NotAllowedChangeMachineInfo,
         MachineStashNotEqualControllerStash,
         CalcStakeAmountFailed,
+        NotRefusedMachine,
+        SigMachineIdNotEqualBondedMachineId,
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn clean_refused_machine() {
+        let mut live_machines = Self::live_machines();
+        if live_machines.refused_machine.len() == 0 {
+            return;
+        }
+
+        let mut live_machines_is_changed = false;
+        let now = <frame_system::Module<T>>::block_number();
+
+        let refused_machine = live_machines.refused_machine.clone();
+
+        for a_machine in refused_machine {
+            let machine_info = Self::machines_info(&a_machine);
+            match machine_info.machine_status {
+                MachineStatus::CommitteeRefused(refuse_time) => {
+                    if now - refuse_time > (10 * 2880u32).saturated_into::<T::BlockNumber>() {
+                        LiveMachine::rm_machine_id(&mut live_machines.refused_machine, &a_machine);
+
+                        live_machines_is_changed = true;
+                        MachinesInfo::<T>::remove(a_machine);
+
+                        // TODO: clean
+                        // TODO: 退质押
+                    }
+                }
+                _ => {}
+            }
+        }
+        if live_machines_is_changed {
+            LiveMachines::<T>::put(live_machines);
+        }
+    }
+
     fn verify_sig(msg: Vec<u8>, sig: Vec<u8>, account: Vec<u8>) -> Option<()> {
         let signature = sp_core::sr25519::Signature::try_from(&sig[..]).ok()?;
         let public = Self::get_public_from_str(&account)?;
@@ -980,7 +996,8 @@ impl<T: Config> Pallet<T> {
     // 因事件发生，更新某个机器得分。
     // 由于机器被添加到在线或者不在线，更新矿工机器得分与总得分
     // 因增加机器，在线获得的分数奖励，则修改下一天的快照
-    // 如果机器掉线，则修改当天的快照，影响当天奖励
+    // 如果机器掉线，则修改当天的快照，影响当天奖励，
+    // FIXME: 同时修改明天快照，因为明天快照是在今天刚开始时初始化的。
     fn update_staker_grades_by_online_machine(
         stash_account: T::AccountId,
         machine_id: MachineId,

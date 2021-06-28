@@ -1,7 +1,9 @@
-use crate::mock::*;
+use crate::{mock::*, LCMachineCommitteeList};
+use committee::CommitteeList;
 use dbc_price_ocw::MAX_LEN;
 use frame_support::assert_ok;
-use online_profile::StakerCustomizeInfo;
+use online_profile::{LiveMachine, StakerCustomizeInfo};
+use std::convert::TryInto;
 
 #[test]
 #[rustfmt::skip]
@@ -53,7 +55,7 @@ fn set_default_value_works() {
         assert_ok!(OnlineProfile::bond_machine(Origin::signed(controller), machine_id.as_bytes().to_vec()));
 
         let msg = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
-        let sig = "eed81df40497170e1148bfd16ce03008b709ba2b75a719f74c453309f92eb014990545d4193772552dd6e5b686afe05c3121e24078b894a920d93b6bf41aa089";
+        let sig = "0006e4e10234b2a6dab987ad9535b1a50829f12ba1fbb8ec2de98fa05e7f1e4da86fc36cca7262e8b698b2f52e2a0697b871a55c38f9d3d70e25cffa9eade48f";
         // submit machine signed info to confirm stash account
         assert_ok!(OnlineProfile::machine_set_stash(
             Origin::signed(controller),
@@ -67,6 +69,42 @@ fn set_default_value_works() {
                 ..Default::default()
             }
         ));
+
+        // 增加三个委员会
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), one));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), two));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), alice));
+
+        // 委员会提交box_pubkey
+        let one_box_pubkey = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12").unwrap().try_into().unwrap();
+        let two_box_pubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a").unwrap().try_into().unwrap();
+        let alice_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f").unwrap().try_into().unwrap();
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(one), one_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(two), two_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(alice), alice_box_pubkey));
+
+        // 委员会处于正常状态
+        assert_eq!(Committee::committee(), CommitteeList{normal: vec!(two, one, alice), ..Default::default()});
+
+        // 订单处于正常状态
+        assert_eq!(OnlineProfile::live_machines(), LiveMachine{
+            machine_confirmed: vec!(machine_id.as_bytes().to_vec()),
+            ..Default::default()
+        });
+
+        LeaseCommittee::distribute_machines();
+
+        // 订单处于正常状态
+        assert_eq!(OnlineProfile::live_machines(), LiveMachine{
+            machine_confirmed: vec!(machine_id.as_bytes().to_vec()),
+            ..Default::default()
+        });
+
+        run_to_block(10);
+        assert_eq!(
+            LeaseCommittee::machine_committee(machine_id.as_bytes().to_vec()),
+            LCMachineCommitteeList{..Default::default()}
+        );
 
         // 委员会分配订单
 

@@ -426,7 +426,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     // 获取所有新加入的机器，并进行分派给委员会
-    fn distribute_machines() {
+    pub fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         for a_machine_id in live_machines.machine_confirmed {
             debug::warn!("#### distribute machine: {:?}", &a_machine_id);
@@ -529,7 +529,7 @@ impl<T: Config> Pallet<T> {
         Some(lucky_committee)
     }
 
-    fn statistic_result() {
+    pub fn statistic_result() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         let booked_machine = live_machines.booked_machine;
         let now = <frame_system::Module<T>>::block_number();
