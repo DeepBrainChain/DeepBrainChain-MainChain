@@ -1077,8 +1077,22 @@ impl lease_committee::Config for Runtime {
 impl maintain_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type Slash = Treasury;
     type DbcPrice = DBCPriceOCW;
+    type ManageCommittee = Committee;
+}
+
+impl maintain_offline::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type DbcPrice = DBCPriceOCW;
+    type ManageCommittee = Committee;
+}
+
+impl maintain_unrentable::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type DbcPrice = DBCPriceOCW;
+    type ManageCommittee = Committee;
 }
 
 impl rent_machine::Config for Runtime {
@@ -1137,6 +1151,8 @@ construct_runtime!(
         Committee: committee::{Module, Call, Storage, Event<T>},
         LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
+        MaintainOffline: maintain_offline::{Module, Call, Storage, Event<T>},
+        MaintainUnrentable: maintain_unrentable::{Module, Call, Storage, Event<T>},
         DBCTesting: dbc_testing::{Module, Storage, Call, Event<T>},
         RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
     }

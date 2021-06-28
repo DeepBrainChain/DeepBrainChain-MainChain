@@ -2951,6 +2951,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "generic-func",
+ "hex",
  "online-profile",
  "online-profile-machine",
  "pallet-balances",
@@ -3575,6 +3576,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "maintain-offline"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "maintain-committee",
+ "online-profile-machine",
+ "parity-scale-codec",
+ "serde",
+ "sp-std",
+]
+
+[[package]]
+name = "maintain-unrentable"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "maintain-committee",
+ "online-profile-machine",
+ "parity-scale-codec",
+ "serde",
+ "sp-std",
+]
+
+[[package]]
 name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4171,6 +4200,8 @@ dependencies = [
  "lease-committee",
  "lease-committee-runtime-api",
  "maintain-committee",
+ "maintain-offline",
+ "maintain-unrentable",
  "node-primitives",
  "online-profile",
  "online-profile-runtime-api",

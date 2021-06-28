@@ -101,6 +101,9 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dev-dependencies.hex]
+version = '0.4'
+
 [features]
 default = ["std"]
 std = [

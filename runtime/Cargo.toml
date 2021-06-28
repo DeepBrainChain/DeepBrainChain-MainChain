@@ -120,6 +120,8 @@ std = [
     'lease-committee/std',
     'lease-committee-runtime-api/std',
     'maintain-committee/std',
+    'maintain-offline/std',
+    'maintain-unrentable/std',
     'rent-machine/std',
     'rent-machine-runtime-api/std',
 ]
@@ -411,6 +413,16 @@ package = 'lease-committee-runtime-api'
 default-features = false
 path = '../pallets/maintain-committee'
 package = 'maintain-committee'
+
+[dependencies.maintain-offline]
+default-features = false
+path = '../pallets/maintain-offline'
+package = 'maintain-offline'
+
+[dependencies.maintain-unrentable]
+default-features = false
+path = '../pallets/maintain-unrentable'
+package = 'maintain-unrentable'
 
 [dependencies.rent-machine]
 default-features = false

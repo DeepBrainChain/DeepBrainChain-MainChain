@@ -250,7 +250,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // 存储获取到的价格
-    fn add_price(price: u64) {
+    pub fn add_price(price: u64) {
         debug::info!("Adding to the average: {}", price);
         let mut prices = Prices::<T>::get();
         if prices.len() < MAX_LEN {
@@ -265,7 +265,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // TODO: 可以增加去除最低分，最高分
-    fn add_avg_price() {
+    pub fn add_avg_price() {
         let prices = Prices::<T>::get();
         if prices.len() != MAX_LEN {
             return;
