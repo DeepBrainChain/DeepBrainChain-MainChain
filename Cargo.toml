@@ -25,8 +25,6 @@ members = [
     'pallets/simple-rpc/rpc',
     'pallets/simple-rpc/runtime-api',
     'pallets/maintain-committee',
-    'pallets/maintain-offline',
-    'pallets/maintain-unrentable',
     'traits/phase-reward',
     'traits/online-profile-machine',
     'pallets/rent-machine',

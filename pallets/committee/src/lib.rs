@@ -436,20 +436,20 @@ impl<T: Config> Pallet<T> {
         NextSlashId::<T>::put(slash_id + 1);
         return slash_id;
     }
+}
 
-    // 状态正常的委员会
-    pub fn is_valid_committee(who: &T::AccountId) -> bool {
+impl<T: Config> ManageCommittee for Pallet<T> {
+    type AccountId = T::AccountId;
+    type BalanceOf = BalanceOf<T>;
+
+    // 检查是否为状态正常的委员会
+    fn is_valid_committee(who: &T::AccountId) -> bool {
         let committee_list = Self::committee();
         if let Ok(_) = committee_list.normal.binary_search(&who) {
             return true;
         }
         return false;
     }
-}
-
-impl<T: Config> ManageCommittee for Pallet<T> {
-    type AccountId = T::AccountId;
-    type BalanceOf = BalanceOf<T>;
 
     // 检查委员会是否有足够的质押,返回有可以抢单的机器列表
     // 在每个区块以及每次分配一个机器之后，都需要检查

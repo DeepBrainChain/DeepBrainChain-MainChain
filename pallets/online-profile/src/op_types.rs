@@ -92,29 +92,28 @@ pub struct StakerCustomizeInfo {
     pub images: Vec<ImageName>,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub struct UnlockChunk<Balance: HasCompact> {
-    #[codec(compact)]
-    pub value: Balance,
-
-    #[codec(compact)]
-    pub era: EraIndex,
-}
-
-// 记录每个Era的机器的总分
-// NOTE: 这个账户应该是stash账户，而不是controller账户
+/// 记录每个Era的机器的总分
+/// NOTE: 这个账户应该是stash账户，而不是controller账户
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
 pub struct EraMachinePoints<AccountId: Ord> {
-    pub total: u64, // 所有可以奖励的机器总得分
-    pub staker_statistic: BTreeMap<AccountId, StashMachineStatistics>, // 某个Era，stash账户的得分系数快照
+    /// 所有可以奖励的机器总得分
+    pub total: u64,
+    /// 某个Era，stash账户的得分系数快照
+    pub staker_statistic: BTreeMap<AccountId, StashMachineStatistics>,
 }
 
+/// Stash账户的统计
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
 pub struct StashMachineStatistics {
-    pub online_gpu_num: u64,           // 用户在线的机器数量
-    pub inflation: Perbill,            // 用户对应的膨胀系数
-    pub machine_total_calc_point: u64, // 用户的机器的总计算点数得分(不考虑膨胀)
-    pub rent_extra_grade: u64,         // 用户机器因被租用获得的额外得分
+    /// 用户在线的GPU数量
+    pub online_gpu_num: u64,
+    /// 用户对应的膨胀系数，由在线GPU数量决定
+    pub inflation: Perbill,
+    /// 用户的机器的总计算点数得分(不考虑膨胀)
+    pub machine_total_calc_point: u64,
+    /// 用户机器因被租用获得的额外得分
+    pub rent_extra_grade: u64,
+    /// 每台机器的基础得分与租用情况
     pub individual_machine: BTreeMap<MachineId, MachineGradeStatus>,
 }
 
@@ -124,7 +123,85 @@ pub struct MachineGradeStatus {
     pub is_rented: bool,
 }
 
+impl<AccountId> EraMachinePoints<AccountId>
+where
+    AccountId: Ord + Clone,
+{
+    /// 增加一台在线的机器，gpu数量 + gpu的总得分
+    /// NOTE: 只修改当前Era，调用下线逻辑前应检查机器存在
+    pub fn change_machine_online_status(
+        &mut self,
+        stash: AccountId,
+        gpu_num: u64,
+        basic_grade: u64,
+        machine_id: MachineId,
+        is_online: bool,
+    ) {
+        let mut staker_statistic = self
+            .staker_statistic
+            .entry(stash.clone())
+            .or_insert(StashMachineStatistics { ..Default::default() });
+
+        let old_grade = staker_statistic.total_grades().unwrap();
+
+        if is_online {
+            staker_statistic.online_gpu_num += gpu_num;
+        } else {
+            staker_statistic.online_gpu_num -= gpu_num;
+        }
+
+        // 更新inflation系数；最大10%
+        staker_statistic.inflation = if staker_statistic.online_gpu_num <= 1000 {
+            Perbill::from_rational_approximation(staker_statistic.online_gpu_num, 10_000)
+        } else {
+            Perbill::from_rational_approximation(1000u64, 10_000) // max: 10%
+        };
+
+        if is_online {
+            staker_statistic.machine_total_calc_point += basic_grade;
+            staker_statistic
+                .individual_machine
+                .insert(machine_id, MachineGradeStatus { basic_grade, is_rented: false });
+        } else {
+            staker_statistic.machine_total_calc_point -= basic_grade;
+            staker_statistic.individual_machine.remove(&machine_id);
+        }
+
+        let new_grade = staker_statistic.total_grades().unwrap();
+
+        let staker_statistic = (*staker_statistic).clone();
+
+        // 更新self
+        self.total += new_grade;
+        self.total -= old_grade;
+        self.staker_statistic.insert(stash, staker_statistic);
+    }
+
+    // TODO: refa
+    /// 因机器租用状态改变，而影响得分
+    pub fn change_machine_rent_status(
+        &mut self,
+        stash: AccountId,
+        gpu_num: u64,
+        basic_grade: u64,
+        machine_id: MachineId,
+        is_rented: bool,
+    ) {
+        let mut staker_statistic = self
+            .staker_statistic
+            .entry(stash.clone())
+            .or_insert(StashMachineStatistics { ..Default::default() });
+
+        let old_grade = staker_statistic.total_grades().unwrap();
+        if is_rented {
+        } else {
+        }
+    }
+}
+
 impl StashMachineStatistics {
+    /// 该Stash账户对应的总得分
+    /// total_grades = inflation * total_calc_point + total_calc_point + rent_grade
     pub fn total_grades(&self) -> Option<u64> {
         (self.inflation * self.machine_total_calc_point)
             .checked_add(self.machine_total_calc_point)?

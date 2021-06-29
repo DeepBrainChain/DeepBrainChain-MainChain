@@ -46,6 +46,8 @@ pub trait ManageCommittee {
     type AccountId;
     type BalanceOf;
 
+    fn is_valid_committee(who: &Self::AccountId) -> bool;
+
     fn available_committee() -> Result<Vec<Self::AccountId>, ()>;
     fn change_stake(
         controller: &Self::AccountId,

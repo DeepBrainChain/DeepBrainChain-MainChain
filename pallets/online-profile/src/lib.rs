@@ -505,16 +505,9 @@ pub mod pallet {
                 ..Default::default()
             };
 
-            let mut sys_info = Self::sys_info();
-            sys_info.total_stake = sys_info
-                .total_stake
-                .checked_add(&first_bond_stake)
-                .ok_or(Error::<T>::BalanceOverflow)?;
-
-            T::ManageCommittee::change_stake(&stash, first_bond_stake, true)
+            Self::add_user_total_stake(&stash, first_bond_stake)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
-            SysInfo::<T>::put(sys_info);
             ControllerMachines::<T>::insert(&controller, controller_machines);
             StashMachines::<T>::insert(&stash, stash_machines);
             LiveMachines::<T>::put(live_machines);
@@ -606,15 +599,8 @@ pub mod pallet {
             if machine_info.stake_amount < stake_need {
                 let extra_stake = stake_need - machine_info.stake_amount;
 
-                let mut sys_info = Self::sys_info();
-                sys_info.total_stake = sys_info
-                    .total_stake
-                    .checked_add(&extra_stake)
-                    .ok_or(Error::<T>::BalanceOverflow)?;
-
-                T::ManageCommittee::change_stake(&machine_info.machine_stash, extra_stake, true)
+                Self::add_user_total_stake(&machine_info.machine_stash, extra_stake)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
-                SysInfo::<T>::put(sys_info);
 
                 machine_info.stake_amount = stake_need;
             }
@@ -644,12 +630,10 @@ pub mod pallet {
             // 补充质押
             let stake_need = Self::stake_per_gpu();
             if stake_need > machine_info.stake_amount {
-                T::ManageCommittee::change_stake(
-                    &machine_info.machine_stash,
-                    stake_need - machine_info.stake_amount,
-                    true,
-                )
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                let extra_stake = stake_need - machine_info.stake_amount;
+
+                Self::add_user_total_stake(&machine_info.machine_stash, extra_stake)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
                 machine_info.stake_amount = stake_need;
             }
@@ -848,7 +832,11 @@ impl<T: Config> Pallet<T> {
                             debug::error!("Reduce user stake failed");
                             continue;
                         }
-                        if sys_info.total_stake.checked_sub(&machine_info.stake_amount).is_none() {
+                        if let Some(value) =
+                            sys_info.total_stake.checked_sub(&machine_info.stake_amount)
+                        {
+                            sys_info.total_stake = value;
+                        } else {
                             debug::error!("Reduce total stake failed");
                             continue;
                         }
@@ -983,43 +971,26 @@ impl<T: Config> Pallet<T> {
 
     fn _validator_slash() {}
 
-    // fn add_user_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-    //     let current_stake = Self::user_total_stake(controller);
-    //     let next_stake = current_stake.checked_add(&amount).ok_or(())?;
-    //     <T as pallet::Config>::Currency::set_lock(
-    //         PALLET_LOCK_ID,
-    //         controller,
-    //         next_stake,
-    //         WithdrawReasons::all(),
-    //     );
+    fn add_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        T::ManageCommittee::change_stake(&who, amount, true)?;
 
-    //     UserTotalStake::<T>::insert(controller, next_stake);
-    //     // 改变总质押
-    //     let mut sys_info = Self::sys_info();
-    //     sys_info.total_stake = sys_info.total_stake.checked_add(&amount).ok_or(())?;
-    //     SysInfo::<T>::put(sys_info);
-    //     Ok(())
-    // }
+        // 改变总质押
+        let mut sys_info = Self::sys_info();
+        sys_info.total_stake = sys_info.total_stake.checked_add(&amount).ok_or(())?;
+        SysInfo::<T>::put(sys_info);
+        Ok(())
+    }
 
-    // fn reduce_user_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-    //     let current_stake = Self::user_total_stake(controller);
-    //     let next_stake = current_stake.checked_sub(&amount).ok_or(())?;
-    //     <T as pallet::Config>::Currency::set_lock(
-    //         PALLET_LOCK_ID,
-    //         controller,
-    //         next_stake,
-    //         WithdrawReasons::all(),
-    //     );
+    fn reduce_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        T::ManageCommittee::change_stake(&who, amount, false)?;
 
-    //     UserTotalStake::<T>::insert(controller, next_stake);
+        // 改变总质押
+        let mut sys_info = Self::sys_info();
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
+        SysInfo::<T>::put(sys_info);
 
-    //     // 改变总质押
-    //     let mut sys_info = Self::sys_info();
-    //     sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
-    //     SysInfo::<T>::put(sys_info);
-
-    //     Ok(())
-    // }
+        Ok(())
+    }
 
     // TODO: 完善unwarp
     // 因事件发生，更新某个机器得分。
@@ -1095,6 +1066,9 @@ impl<T: Config> Pallet<T> {
             sys_info.total_gpu_num -= machine_base_info.gpu_num as u64;
 
             staker_statistic.individual_machine.remove(&machine_id);
+
+            // TODO: 更改下一天的记录，将机器从中删除
+            let mut next_era_machine_point = Self::eras_machine_points(era_index + 1).unwrap();
         }
 
         let new_grade = staker_statistic.total_grades().unwrap();
@@ -1315,12 +1289,13 @@ impl<T: Config> LCOps for Pallet<T> {
         // 拒绝用户绑定，需要清除存储
         let mut machine_info = Self::machines_info(&machine_id);
         let now = <frame_system::Module<T>>::block_number();
+        let mut sys_info = Self::sys_info();
 
         // 惩罚5%，并将机器ID移动到LiveMachine的补充质押中。
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
         machine_info.stake_amount = machine_info.stake_amount - slash;
 
-        // Self::add_slash(machine_info.controller.clone(), slash, Vec::new());
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&slash).unwrap();
 
         machine_info.machine_status = MachineStatus::CommitteeRefused(now);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -1329,6 +1304,8 @@ impl<T: Config> LCOps for Pallet<T> {
         LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &machine_id);
         LiveMachine::add_machine_id(&mut live_machines.refused_machine, machine_id);
         LiveMachines::<T>::put(live_machines);
+
+        SysInfo::<T>::put(sys_info);
 
         Ok(())
     }
