@@ -18,7 +18,7 @@ pub trait RmRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2> {
     fn get_rent_order(
         &self,
         renter: AccountId,
-        machine_id: MachineId,
+        machine_id: String,
         at: Option<BlockHash>,
     ) -> Result<ResponseType1>;
 
@@ -57,13 +57,14 @@ where
     fn get_rent_order(
         &self,
         renter: AccountId,
-        machine_id: MachineId,
+        machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<RpcRentOrderDetail<AccountId, BlockNumber, Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-        let runtime_api_result = api.get_rent_order(&at, renter, machine_id);
+        let machine_id = machine_id.as_bytes().to_vec();
 
+        let runtime_api_result = api.get_rent_order(&at, renter, machine_id);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

@@ -1,9 +1,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use lease_committee::{
-    LCCommitteeMachineList, LCMachineCommitteeList, MachineId, RpcLCCommitteeOps,
-};
+use lease_committee::{LCCommitteeMachineList, LCMachineCommitteeList, RpcLCCommitteeOps};
 use lease_committee_runtime_api::LcRpcApi as LcStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -27,14 +25,14 @@ pub trait LcRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2, ResponseT
     fn get_committee_ops(
         &self,
         committee: AccountId,
-        machine_id: MachineId,
+        machine_id: String,
         at: Option<BlockHash>,
     ) -> Result<ResponseType2>;
 
     #[rpc(name = "leaseCommittee_getMachineCommitteeList")]
     fn get_machine_committee_list(
         &self,
-        machine_id: MachineId,
+        machine_id: String,
         at: Option<BlockHash>,
     ) -> Result<ResponseType3>;
 }
@@ -87,11 +85,12 @@ where
     fn get_committee_ops(
         &self,
         committee: AccountId,
-        machine_id: MachineId,
+        machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<RpcLCCommitteeOps<BlockNumber, Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let machine_id = machine_id.as_bytes().to_vec();
 
         let runtime_api_result = api.get_committee_ops(&at, committee, machine_id);
         runtime_api_result.map_err(|e| RpcError {
@@ -103,11 +102,12 @@ where
 
     fn get_machine_committee_list(
         &self,
-        machine_id: MachineId,
+        machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<LCMachineCommitteeList<AccountId, BlockNumber>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let machine_id = machine_id.as_bytes().to_vec();
 
         let runtime_api_result = api.get_machine_committee_list(&at, machine_id);
         runtime_api_result.map_err(|e| RpcError {

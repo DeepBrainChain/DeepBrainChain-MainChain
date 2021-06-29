@@ -3,7 +3,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_profile::{LiveMachine, MachineId, RPCMachineInfo, RpcSysInfo, StakerInfo};
+use online_profile::{LiveMachine, RPCMachineInfo, RpcSysInfo, StakerInfo};
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -30,11 +30,7 @@ pub trait OpRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2, ResponseT
     fn get_machine_list(&self, at: Option<BlockHash>) -> Result<ResponseType3>;
 
     #[rpc(name = "onlineProfile_getMachineInfo")]
-    fn get_machine_info(
-        &self,
-        machine_id: MachineId,
-        at: Option<BlockHash>,
-    ) -> Result<ResponseType4>;
+    fn get_machine_info(&self, machine_id: String, at: Option<BlockHash>) -> Result<ResponseType4>;
 }
 
 pub struct OpStorage<C, M> {
@@ -121,11 +117,12 @@ where
 
     fn get_machine_info(
         &self,
-        machine_id: MachineId,
+        machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<RPCMachineInfo<AccountId, BlockNumber, Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let machine_id = machine_id.as_bytes().to_vec();
 
         let runtime_api_result = api.get_machine_info(&at, machine_id);
         runtime_api_result.map_err(|e| RpcError {
