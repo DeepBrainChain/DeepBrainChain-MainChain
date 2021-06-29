@@ -1227,6 +1227,8 @@ impl<T: Config> LCOps for Pallet<T> {
 
         let mut machine_info = Self::machines_info(&id);
         machine_info.machine_status = MachineStatus::DistributingOrder;
+
+        LiveMachines::<T>::put(live_machines);
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 

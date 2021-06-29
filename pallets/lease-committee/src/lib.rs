@@ -584,7 +584,7 @@ impl<T: Config> Pallet<T> {
                     }
                 }
                 MachineConfirmStatus::Refuse(summary) => {
-                    debug::warn!("##### Summarying result is... confirmed");
+                    debug::warn!("##### Summarying result is... refused");
                     slash_committee.extend(summary.unruly.clone());
                     slash_committee.extend(summary.invalid_support);
                     reward_committee.extend(summary.against.clone());
@@ -594,7 +594,7 @@ impl<T: Config> Pallet<T> {
                     let _ = T::LCOperations::lc_refuse_machine(machine_id.clone());
                 }
                 MachineConfirmStatus::NoConsensus(summary) => {
-                    debug::warn!("##### Summarying result is... confirmed");
+                    debug::warn!("##### Summarying result is... NoConsensus");
                     slash_committee.extend(summary.unruly.clone());
                     unstake_committee.extend(machine_committee.confirmed_committee.clone());
                     let _ = Self::revert_book(machine_id.clone());
