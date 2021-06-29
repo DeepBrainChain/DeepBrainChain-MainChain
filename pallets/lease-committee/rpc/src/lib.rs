@@ -13,13 +13,13 @@ use sp_runtime::{
 use std::{convert::TryInto, sync::Arc};
 
 #[rpc]
-pub trait LcRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2, ResponseType3> {
+pub trait LcRpcApi<BlockHash, AccountId, BlockNumber> {
     #[rpc(name = "leaseCommittee_getCommitteeMachineList")]
     fn get_committee_machine_list(
         &self,
         committee: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<ResponseType1>;
+    ) -> Result<LCCommitteeMachineList>;
 
     #[rpc(name = "leaseCommittee_getCommitteeOps")]
     fn get_committee_ops(
@@ -27,14 +27,14 @@ pub trait LcRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2, ResponseT
         committee: AccountId,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> Result<ResponseType2>;
+    ) -> Result<RpcLCCommitteeOps<BlockNumber>>;
 
     #[rpc(name = "leaseCommittee_getMachineCommitteeList")]
     fn get_machine_committee_list(
         &self,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> Result<ResponseType3>;
+    ) -> Result<LCMachineCommitteeList<AccountId, BlockNumber>>;
 }
 
 pub struct LcStorage<C, M> {
@@ -48,23 +48,20 @@ impl<C, M> LcStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, BlockNumber, Balance>
+impl<C, Block, AccountId, BlockNumber>
     LcRpcApi<
         <Block as BlockT>::Hash,
         AccountId,
-        LCCommitteeMachineList,
-        RpcLCCommitteeOps<BlockNumber, Balance>,
-        LCMachineCommitteeList<AccountId, BlockNumber>,
+        BlockNumber,
     > for LcStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
-    Balance: Codec + MaybeDisplay + Copy + TryInto<NumberOrHex>,
     BlockNumber: Clone + std::fmt::Display + Codec,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: LcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
+    C::Api: LcStorageRuntimeApi<Block, AccountId, BlockNumber>,
 {
     fn get_committee_machine_list(
         &self,
@@ -87,7 +84,7 @@ where
         committee: AccountId,
         machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RpcLCCommitteeOps<BlockNumber, Balance>> {
+    ) -> Result<RpcLCCommitteeOps<BlockNumber>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();

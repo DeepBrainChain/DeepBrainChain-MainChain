@@ -793,14 +793,14 @@ impl<T: Config> Module<T> {
     pub fn get_committee_ops(
         committee: T::AccountId,
         machine_id: MachineId,
-    ) -> RpcLCCommitteeOps<T::BlockNumber, BalanceOf<T>> {
+    ) -> RpcLCCommitteeOps<T::BlockNumber> {
         let lc_committee_ops = Self::committee_ops(&committee, &machine_id);
         let committee_info = Self::machine_committee(&machine_id);
 
         RpcLCCommitteeOps {
             booked_time: committee_info.book_time,
-            staked_dbc: lc_committee_ops.staked_dbc,
-            // pub verify_time: Vec<BlockNumber>, // FIXME: return Vec<BlockNumber> type
+            // staked_dbc: lc_committee_ops.staked_dbc,
+            verify_time: lc_committee_ops.verify_time, // FIXME: return Vec<BlockNumber> type
             confirm_hash: lc_committee_ops.confirm_hash,
             hash_time: lc_committee_ops.hash_time,
             confirm_time: lc_committee_ops.confirm_time,

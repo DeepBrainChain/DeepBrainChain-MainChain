@@ -101,20 +101,6 @@ name = "alt_serde"
 version = "1.0.119"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbdd08f26bc9972e3597a32bb7fe2b0de4e85ccfb4214acec94165b940aa537e"
-dependencies = [
- "alt_serde_derive",
-]
-
-[[package]]
-name = "alt_serde_derive"
-version = "1.0.119"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "629ddaf5b2675d9a27e9521a88870f8edea113e4a83d6d5178268b0d70e9a9a3"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
 
 [[package]]
 name = "ansi_term"
@@ -4398,7 +4384,6 @@ dependencies = [
 name = "online-profile"
 version = "0.1.0"
 dependencies = [
- "alt_serde",
  "bs58",
  "dbc-price-ocw",
  "dbc-staking",
@@ -4410,7 +4395,6 @@ dependencies = [
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "serde",
- "serde_json 1.0.44",
  "sp-core",
  "sp-io",
  "sp-keyring",
@@ -6235,7 +6219,6 @@ dependencies = [
  "online-profile-machine",
  "parity-scale-codec",
  "serde",
- "serde_json 1.0.44",
  "sp-io",
  "sp-runtime",
  "sp-std",
