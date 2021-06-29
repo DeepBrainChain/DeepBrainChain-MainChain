@@ -98,7 +98,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineStatus<BlockNumber> {
     AddingCustomizeInfo, // 还没有增加自定义信息
-    DistributingOrder, // 正在等待派单
+    DistributingOrder,   // 正在等待派单
     CommitteeVerifying,
     CommitteeRefused(BlockNumber),      // 委员会拒绝机器上线
     WaitingFulfill,                     // 补交质押
@@ -506,9 +506,13 @@ pub mod pallet {
             };
 
             let mut sys_info = Self::sys_info();
-            sys_info.total_stake = sys_info.total_stake.checked_add(&first_bond_stake).ok_or(Error::<T>::BalanceOverflow)?;
+            sys_info.total_stake = sys_info
+                .total_stake
+                .checked_add(&first_bond_stake)
+                .ok_or(Error::<T>::BalanceOverflow)?;
 
-            T::ManageCommittee::change_stake(&stash, first_bond_stake, true).map_err(|_| Error::<T>::BalanceNotEnough)?;
+            T::ManageCommittee::change_stake(&stash, first_bond_stake, true)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             SysInfo::<T>::put(sys_info);
             ControllerMachines::<T>::insert(&controller, controller_machines);
@@ -525,6 +529,7 @@ pub mod pallet {
         }
 
         /// 机器需要添加信息才能进行派单。在正式上线前可以修改
+        // 机器在没有被使用的时候，（TODO: 是不是需要用户手动点击下线）
         #[pallet::weight(10000)]
         pub fn add_machine_info(
             origin: OriginFor<T>,
@@ -541,7 +546,8 @@ pub mod pallet {
                 MachineStatus::AddingCustomizeInfo
                 | MachineStatus::CommitteeVerifying
                 | MachineStatus::CommitteeRefused(_)
-                | MachineStatus::WaitingFulfill => {
+                | MachineStatus::WaitingFulfill
+                | MachineStatus::StakerReportOffline(_) => {
                     machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
                 }
                 _ => {
@@ -601,9 +607,13 @@ pub mod pallet {
                 let extra_stake = stake_need - machine_info.stake_amount;
 
                 let mut sys_info = Self::sys_info();
-                sys_info.total_stake = sys_info.total_stake.checked_add(&extra_stake).ok_or(Error::<T>::BalanceOverflow)?;
+                sys_info.total_stake = sys_info
+                    .total_stake
+                    .checked_add(&extra_stake)
+                    .ok_or(Error::<T>::BalanceOverflow)?;
 
-                T::ManageCommittee::change_stake(&machine_info.machine_stash, extra_stake, true).map_err(|_| Error::<T>::BalanceNotEnough)?;
+                T::ManageCommittee::change_stake(&machine_info.machine_stash, extra_stake, true)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
                 SysInfo::<T>::put(sys_info);
 
                 machine_info.stake_amount = stake_need;
@@ -634,12 +644,12 @@ pub mod pallet {
             // 补充质押
             let stake_need = Self::stake_per_gpu();
             if stake_need > machine_info.stake_amount {
-
                 T::ManageCommittee::change_stake(
                     &machine_info.machine_stash,
                     stake_need - machine_info.stake_amount,
-                    true)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                    true,
+                )
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
                 machine_info.stake_amount = stake_need;
             }
@@ -830,7 +840,11 @@ impl<T: Config> Pallet<T> {
 
                         live_machines_is_changed = true;
 
-                        if let Err(_) = T::ManageCommittee::change_stake(&machine_info.machine_stash, machine_info.stake_amount, false) {
+                        if let Err(_) = T::ManageCommittee::change_stake(
+                            &machine_info.machine_stash,
+                            machine_info.stake_amount,
+                            false,
+                        ) {
                             debug::error!("Reduce user stake failed");
                             continue;
                         }
@@ -839,7 +853,8 @@ impl<T: Config> Pallet<T> {
                             continue;
                         }
 
-                        let mut controller_machines = Self::controller_machines(&machine_info.controller);
+                        let mut controller_machines =
+                            Self::controller_machines(&machine_info.controller);
                         if let Ok(index) = controller_machines.binary_search(&a_machine) {
                             controller_machines.remove(index);
                         }
@@ -849,7 +864,10 @@ impl<T: Config> Pallet<T> {
                             stash_machines.total_machine.remove(index);
                         }
 
-                        ControllerMachines::<T>::insert(&machine_info.controller, controller_machines);
+                        ControllerMachines::<T>::insert(
+                            &machine_info.controller,
+                            controller_machines,
+                        );
                         StashMachines::<T>::insert(&machine_info.machine_stash, stash_machines);
                         MachinesInfo::<T>::remove(a_machine);
                     }
@@ -1262,9 +1280,10 @@ impl<T: Config> LCOps for Pallet<T> {
         let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
         // if let Some(stake_need) = stake_need.checked_sub(&machine_info.stake_amount) {
         if let Ok(_) = T::ManageCommittee::change_stake(
-        &machine_info.machine_stash,
+            &machine_info.machine_stash,
             stake_need - machine_info.stake_amount,
-            true) {
+            true,
+        ) {
             LiveMachine::add_machine_id(
                 &mut live_machines.online_machine,
                 committee_upload_info.machine_id.clone(),

@@ -8,6 +8,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
 pub type ImageName = Vec<u8>;
+pub type TelecomName = Vec<u8>;
 
 pub const LOCK_BLOCK_EXPIRATION: u32 = 3; // in block number
 
@@ -77,12 +78,18 @@ impl CommitteeUploadInfo {
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct StakerCustomizeInfo {
-    pub upload_net: u64,   // 上行带宽
-    pub download_net: u64, // 下行带宽
-    pub longitude: u64,    // 经度
-    pub latitude: u64,     // 纬度
-
-    pub images: Vec<ImageName>, // 镜像名称
+    /// 上行带宽
+    pub upload_net: u64,
+    /// 下行带宽
+    pub download_net: u64,
+    /// 经度
+    pub longitude: u64,
+    /// 纬度
+    pub latitude: u64,
+    /// 网络运营商
+    pub telecom_operators: Vec<Vec<u8>>,
+    /// 镜像名称
+    pub images: Vec<ImageName>,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]

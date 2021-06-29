@@ -1353,6 +1353,7 @@ dependencies = [
  "pallet-session",
  "pallet-staking-reward-curve 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
  "pallet-timestamp",
+ "pallet-treasury",
  "parity-scale-codec",
  "phase-reward",
  "serde",

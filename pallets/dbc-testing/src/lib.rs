@@ -3,7 +3,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::debug;
-use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
+use frame_support::traits::{Currency, ExistenceRequirement::KeepAlive, Imbalance, OnUnbalanced};
 use frame_system::{self as system, ensure_root, ensure_signed};
 use phase_reward::PhaseReward;
 use sp_arithmetic::{traits::Saturating, Permill};
@@ -50,7 +50,9 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_timestamp::Config {
+    pub trait Config:
+        frame_system::Config + pallet_timestamp::Config + pallet_treasury::Config
+    {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: Currency<Self::AccountId>;
         type PhaseReward: PhaseReward<Balance = BalanceOf<Self>>;
@@ -118,7 +120,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
-            T::Slash::on_unbalanced(T::Currency::issue(collateral));
+            T::Slash::on_unbalanced(<T as pallet::Config>::Currency::issue(collateral));
 
             let _now = <frame_system::Module<T>>::block_number();
             Ok(().into())
@@ -135,7 +137,7 @@ pub mod pallet {
 
             let mut total_imbalance = <PositiveImbalanceOf<T>>::zero();
 
-            let r = T::Currency::deposit_into_existing(&to_reward, reward).ok();
+            let r = <T as pallet::Config>::Currency::deposit_into_existing(&to_reward, reward).ok();
             total_imbalance.maybe_subsume(r);
             T::Reward::on_unbalanced(total_imbalance);
 
@@ -275,6 +277,21 @@ pub mod pallet {
             debug::error!("##### verify result: {}", out);
             Ok(().into())
         }
+
+        #[pallet::weight(0)]
+        fn send_to_treasury(
+            origin: OriginFor<T>,
+            from: T::AccountId,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let treasury_account = <pallet_treasury::Module<T>>::account_id();
+            <T as pallet::Config>::Currency::transfer(&from, &treasury_account, amount, KeepAlive)
+                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
+
+            Ok(().into())
+        }
     }
 
     #[pallet::error]
@@ -306,8 +323,8 @@ impl<T: Config> Pallet<T> {
     fn do_slash(value: BalanceOf<T>, who: T::AccountId) {
         // let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
         if !value.is_zero() {
-            if T::Currency::can_slash(&who, value) {
-                let (imbalance, missing) = T::Currency::slash(&who, value);
+            if <T as pallet::Config>::Currency::can_slash(&who, value) {
+                let (imbalance, missing) = <T as pallet::Config>::Currency::slash(&who, value);
                 Self::deposit_event(Event::Slash(who, missing.clone()));
                 // slashed_imbalance.subsume(imbalance);
                 T::Slash::on_unbalanced(imbalance);

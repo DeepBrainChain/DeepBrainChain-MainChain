@@ -92,9 +92,11 @@
     "download_net": "u64",
     "longitude": "u64",
     "latitude": "u64",
+    "telecom_operators": "Vec<TelecomName>",
     "images": "Vec<ImageName>"
   },
   "ImageName": "Text",
+  "TelecomName": "Text",
   "CPU": {
     "num": "Vec<u8>",
     "type": "Vec<u8>"
