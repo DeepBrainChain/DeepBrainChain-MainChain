@@ -13,7 +13,7 @@ jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
 
 # local packages
-rent-machine-runtime-api = { version = "0.1.0", path = "../runtime-api", default-features = false }
+rent-machine-runtime-api = { version = "0.1.0", path = "./runtime-api", default-features = false }
 rent-machine = { version = "0.1.0", path = "../../rent-machine", default-features = false }
 
 [dependencies.sp-api]

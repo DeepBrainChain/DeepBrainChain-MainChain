@@ -14,7 +14,7 @@ jsonrpc-derive = "15.0"
 lease-committee = { version = "0.1.0", path = "../../lease-committee", default-features = false }
 
 # local packages
-lease-committee-runtime-api = { version = "0.1.0", path = "../runtime-api", default-features = false }
+lease-committee-runtime-api = { version = "0.1.0", path = "./runtime-api", default-features = false }
 
 [dependencies.sp-api]
 default-features = false

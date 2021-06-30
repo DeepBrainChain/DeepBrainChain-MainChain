@@ -15,7 +15,7 @@ online-profile = { version = "0.1.0", path = "../../online-profile", default-fea
 
 # local packages
 
-online-profile-runtime-api = { version = "0.1.0", path = "../runtime-api", default-features = false }
+online-profile-runtime-api = { version = "0.1.0", path = "./runtime-api", default-features = false }
 
 [dependencies.sp-api]
 default-features = false

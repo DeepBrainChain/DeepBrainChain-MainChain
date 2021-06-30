@@ -1,11 +1,12 @@
 [package]
-name = "online-profile-runtime-api"
+name = "lease-committee-runtime-api"
 version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-online-profile = { version = "0.1.0", path = "../../online-profile", default-features = false }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+
+lease-committee = { version = "0.1.0", path = "../../../lease-committee", default-features = false }
 
 [dependencies.sp-api]
 default-features = false
@@ -29,7 +30,7 @@ version = '3.0.0'
 default = ["std"]
 std = [
     "codec/std",
-    "online-profile/std",
+    "lease-committee/std",
     "sp-api/std",
     "sp-runtime/std",
     "sp-std/std",
