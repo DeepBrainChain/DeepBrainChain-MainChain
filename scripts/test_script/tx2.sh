@@ -4,11 +4,41 @@ ws="ws://127.0.0.1:9944"
 tf="../../dbc_types.json"
 rpc="../../dbc_rpc.json"
 
+# 机器地址
+{
+  "accountId": "0x4a7ebb1efec4a7338a78de924d74f0fadff987a18611abfa2a06a7021f952224",
+  "publicKey": "0x4a7ebb1efec4a7338a78de924d74f0fadff987a18611abfa2a06a7021f952224",
+  "secretPhrase": "sadness rain permit dismiss before song nut pizza town energy share cannon",
+  "secretSeed": "0x6c6de13aaed8aac5aad0c94339b67a6ca717f7b4e976cd3e7c212ccf344d0861",
+  "ss58Address": "5DkP3iKSWfkGKVvFvZBmLvEf3j5L9VnMEAejzXo3k6zVmEaT",
+  "ss58PublicKey": "5DkP3iKSWfkGKVvFvZBmLvEf3j5L9VnMEAejzXo3k6zVmEaT"
+}
+
+# 控制账户
+{
+  "accountId": "0x3c9cd4630e50f9d2edd2de6105f796a7144b9e938f1cac5c5a876d2c17de0302",
+  "publicKey": "0x3c9cd4630e50f9d2edd2de6105f796a7144b9e938f1cac5c5a876d2c17de0302",
+  "secretPhrase": "auction pioneer grab retire term friend genuine barrel flock smooth deal decline",
+  "secretSeed": "0xcecc04e37c035a581914a61e25faaa15330849ce684c3341e87d09a0e07aa03e",
+  "ss58Address": "5DSBKRGcphQmrRCvcRv9UncaURubYqh5aCXwhJAZSeQcvPXt",
+  "ss58PublicKey": "5DSBKRGcphQmrRCvcRv9UncaURubYqh5aCXwhJAZSeQcvPXt"
+}
+
+# stash 账户
+{
+  "accountId": "0xfef3dd60daefeb164549d827f96a9439e41948136fadb85faff43622a2bac203",
+  "publicKey": "0xfef3dd60daefeb164549d827f96a9439e41948136fadb85faff43622a2bac203",
+  "secretPhrase": "antenna actress expect bleak predict gravity slogan toddler crowd appear case engage",
+  "secretSeed": "0xc8b9506f42fe9f3fc5553777c57e333bb5436ebe226dd6f98a81366d9c285bea",
+  "ss58Address": "5HpzToFQ7VSc7a6aWCaqWgpny8Ld77QUv7GUGp6gRRqJ88hU",
+  "ss58PublicKey": "5HpzToFQ7VSc7a6aWCaqWgpny8Ld77QUv7GUGp6gRRqJ88hU"
+}
+
+
 alice="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
 alice_key="0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a"
 
 bob="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
-bob_pubkey="0x8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
 bob_key="0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89"
 
 dave="5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy"
@@ -84,7 +114,7 @@ node gen_signature.js --key $bob_key --msg $bob$bob_stash
 ### SignedBy: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty
 ### Signature: 0x0089673806c55e6e9d4ce4ea46c6d24736599c0f48f16fa7719b303b6a204602fcf33946d3a588a87f9619db0890b027d1ad358fa9a3de10f57e03e2a3423782
 
-
+# FIXME: upload net info also
 # 由控制人提交，机器地址提交签名，与资金账户绑定
 sig="0x0089673806c55e6e9d4ce4ea46c6d24736599c0f48f16fa7719b303b6a204602fcf33946d3a588a87f9619db0890b027d1ad358fa9a3de10f57e03e2a3423782"
 node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func machineSetStash \

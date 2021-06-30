@@ -292,6 +292,35 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        #[pallet::weight(0)]
+        fn decode_hex_pubkey(
+            origin: OriginFor<T>,
+            hex_account: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            if hex_account.len() != 122 {
+                debug::error!("Length not equal 122: {:?}", hex_account);
+            }
+
+            let pubkey_u8 = hex_account[..64].to_vec();
+            debug::error!("Pubkey_u8 is: {:?}", pubkey_u8);
+
+            // pubkey_u8 to str
+            let pubkey_str = str::from_utf8(&pubkey_u8).unwrap();
+            debug::error!("Pubkey_str is: {:?}", pubkey_str);
+
+            // pubkey_str to hex array
+            let t: Result<Vec<u8>, _> = (0..pubkey_str.len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&pubkey_str[i..i + 2], 16))
+                .collect();
+            if let Ok(t) = t {
+                debug::error!("hex pubkey is: {:?}", t);
+            }
+            Ok(().into())
+        }
     }
 
     #[pallet::error]

@@ -40,6 +40,7 @@ use sp_std::{
     convert::{TryFrom, TryInto},
     prelude::*,
     str,
+    vec::Vec,
 };
 
 pub mod grade_inflation;
@@ -51,62 +52,91 @@ pub use rpc_types::*;
 
 pub use pallet::*;
 
-#[cfg(test)]
-mod mock;
-
-#[cfg(test)]
-mod tests;
-
 pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
 pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;
 // pub const BLOCK_PER_ERA: u64 = 2880;
 pub const BLOCK_PER_ERA: u64 = 100; // TODO: 测试网一天设置为100个块
 
-// stash账户总览自己当前状态状态
+/// stash账户总览自己当前状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StashMachine<Balance> {
-    pub total_machine: Vec<MachineId>, // 用户绑定的所有机器，不与机器状态有关
+    /// stash账户绑定的所有机器，不与机器状态有关
+    pub total_machine: Vec<MachineId>,
+    /// stash账户绑定的处于在线状态的机器
     pub online_machine: Vec<MachineId>,
-    pub total_calc_points: u64, // 用户的机器总得分，不给算集群膨胀系数与在线奖励
+    /// 在线机器总得分，不给算集群膨胀系数与在线奖励
+    pub total_calc_points: u64,
+    /// 在线机器的总GPU个数
     pub total_gpu_num: u64,
+    /// 被租用的GPU个数
     pub total_rented_gpu: u64,
+    /// 总计领取奖励数量
     pub total_claimed_reward: Balance,
-    pub can_claim_reward: Balance,      // 用户可以立即领取的奖励
-    pub left_reward: VecDeque<Balance>, // 存储最多150个Era的奖励(150天将全部释放)，某个Era的数值等于 [0.99 * 0.75 * 当天该用户的所有奖励]
-    pub total_rent_fee: Balance,        // 总租金收益(银河竞赛前获得)
-    pub total_burn_fee: Balance,        // 总销毁数量
+    /// 目前能够领取奖励的数量
+    pub can_claim_reward: Balance,
+    /// 每个Era剩余的99% * 75%奖励。存储最多150个Era的奖励(150天将全部释放)
+    pub left_reward: VecDeque<Balance>,
+    /// 总租金收益(银河竞赛前获得)
+    pub total_rent_fee: Balance,
+    /// 总销毁数量(银河竞赛后销毁)
+    pub total_burn_fee: Balance,
 }
 
+/// 机器的信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
-    pub controller: AccountId,             // 绑定机器的人
-    pub machine_stash: AccountId,          // 奖励发放账户(机器内置钱包地址)
-    pub machine_renter: Option<AccountId>, // 当前机器的租用者
-    pub bonding_height: BlockNumber,       // 记录机器第一次绑定的时间
+    /// 绑定机器的人
+    pub controller: AccountId,
+    /// 奖励发放账户(机器内置钱包地址)
+    pub machine_stash: AccountId,
+    /// 当前机器的租用者
+    pub machine_renter: Option<AccountId>,
+    /// 记录机器第一次绑定上线的时间
+    pub bonding_height: BlockNumber,
+    /// 该机器质押数量
     pub stake_amount: Balance,
+    /// 机器的状态
     pub machine_status: MachineStatus<BlockNumber>,
-    pub total_rented_duration: u64,             // 总租用累计时长
-    pub total_rented_times: u64,                // 总租用次数
-    pub total_rent_fee: Balance,                // 总租金收益(银河竞赛前获得)
-    pub total_burn_fee: Balance,                // 总销毁数量
-    pub machine_info_detail: MachineInfoDetail, // 委员会提交的机器信息
-    pub reward_committee: Vec<AccountId>,       // 列表中的委员将分得用户奖励
-    pub reward_deadline: BlockNumber,           // 列表中委员分得奖励结束时间
+    /// 总租用累计时长
+    pub total_rented_duration: u64,
+    /// 总租用次数
+    pub total_rented_times: u64,
+    /// 总租金收益(银河竞赛前获得)
+    pub total_rent_fee: Balance,
+    /// 总销毁数量
+    pub total_burn_fee: Balance,
+    /// 委员会提交的机器信息与用户自定义的信息
+    pub machine_info_detail: MachineInfoDetail,
+    /// 列表中的委员将分得用户每天奖励的1%
+    pub reward_committee: Vec<AccountId>,
+    /// 列表中委员分得奖励结束时间
+    pub reward_deadline: BlockNumber,
 }
 
+/// 机器状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineStatus<BlockNumber> {
-    AddingCustomizeInfo, // 还没有增加自定义信息
-    DistributingOrder,   // 正在等待派单
+    /// 执行bond操作后，等待提交自定义信息
+    AddingCustomizeInfo,
+    /// 正在等待派单
+    DistributingOrder,
+    /// 派单后正在进行验证
     CommitteeVerifying,
-    CommitteeRefused(BlockNumber),      // 委员会拒绝机器上线
-    WaitingFulfill,                     // 补交质押
-    Online,                             // 正在上线，且未被租用
-    StakerReportOffline(BlockNumber),   // 机器管理者报告机器已下线
-    ReporterReportOffline(BlockNumber), // 报告人报告机器下线
-    Creating, // 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
-    Rented,   // 已经被租用
+    /// 委员会拒绝机器上线
+    CommitteeRefused(BlockNumber),
+    /// 补交质押
+    WaitingFulfill,
+    /// 正在上线，且未被租用
+    Online,
+    /// 机器管理者报告机器已下线
+    StakerReportOffline(BlockNumber),
+    /// 报告人报告机器下线
+    ReporterReportOffline(BlockNumber),
+    /// 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
+    Creating,
+    /// 已经被租用
+    Rented,
 }
 
 impl<BlockNumber> Default for MachineStatus<BlockNumber> {
@@ -116,19 +146,26 @@ impl<BlockNumber> Default for MachineStatus<BlockNumber> {
 }
 
 // 只保存正常声明周期的Machine,删除掉的/绑定失败的不保存在该变量中
+/// 系统中存在的机器列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct LiveMachine {
-    pub bonding_machine: Vec<MachineId>, // 用户质押DBC并绑定机器，机器ID添加到本字段
-    pub confirmed_machine: Vec<MachineId>, // 补交了自定义信息的机器
-    pub booked_machine: Vec<MachineId>, // 当机器已经全部分配了委员会，则变为该状态。若lc确认机器失败(认可=不认可)则返回上一状态，重新分派订单
-    pub online_machine: Vec<MachineId>, // 被委员会确认之后之后，机器上线
-    pub fulfilling_machine: Vec<MachineId>, // 委员会同意上线，但是由于stash账户质押不够，而变为补充质押状态
-    pub refused_machine: Vec<MachineId>,    // 被委员会拒绝的机器（10天内还能重新申请上线）
+    /// 用户质押DBC并绑定机器，机器等待控制人提交信息
+    pub bonding_machine: Vec<MachineId>,
+    /// 补交了自定义信息的机器，机器等待分派委员会
+    pub confirmed_machine: Vec<MachineId>,
+    /// 当机器已经全部分配了委员会。若lc确认机器失败(认可=不认可时)则返回上一状态，重新分派订单
+    pub booked_machine: Vec<MachineId>,
+    /// 委员会确认之后，机器上线
+    pub online_machine: Vec<MachineId>,
+    /// 委员会同意上线，但是由于stash账户质押不够，需要补充质押
+    pub fulfilling_machine: Vec<MachineId>,
+    /// 被委员会拒绝的机器（10天内还能重新申请上线）
+    pub refused_machine: Vec<MachineId>,
 }
 
 impl LiveMachine {
-    // 检查machine_id是否存
+    /// 检查machine_id是否存
     fn machine_id_exist(&self, machine_id: &MachineId) -> bool {
         if let Ok(_) = self.bonding_machine.binary_search(machine_id) {
             return true;
@@ -151,12 +188,14 @@ impl LiveMachine {
         false
     }
 
+    /// 向LiveMachine某个字段添加machine_id
     fn add_machine_id(a_field: &mut Vec<MachineId>, machine_id: MachineId) {
         if let Err(index) = a_field.binary_search(&machine_id) {
             a_field.insert(index, machine_id);
         }
     }
 
+    /// 从LiveMachine某个字段删除machine_id
     fn rm_machine_id(a_field: &mut Vec<MachineId>, machine_id: &MachineId) {
         if let Ok(index) = a_field.binary_search(machine_id) {
             a_field.remove(index);
@@ -164,17 +203,19 @@ impl LiveMachine {
     }
 }
 
-// 标准GPU租用价格
+/// 标准GPU租用价格
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StandardGpuPointPrice {
+    /// 标准GPU算力点数
     pub gpu_point: u64,
+    /// 标准GPu价格
     pub gpu_price: u64,
 }
 
-// pub type SlashId = u64;
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+/// 在线奖励系统信息统计
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct SysInfoDetail<Balance> {
     /// 在线机器的GPU的总数
@@ -213,7 +254,7 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
-    /// 机器单卡质押数量。单位DBC。如100_000DBC
+    /// 机器单卡质押数量，单位DBC。如100_000DBC
     #[pallet::storage]
     #[pallet::getter(fn stake_per_gpu)]
     pub(super) type StakePerGPU<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
@@ -393,7 +434,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 设置单卡质押数量
+        /// 设置单卡质押DBC数量
         #[pallet::weight(0)]
         pub fn set_gpu_stake(
             origin: OriginFor<T>,
@@ -404,7 +445,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 设置单GPU质押量换算成USD的上限
+        /// 单GPU质押量等价USD的上限
         #[pallet::weight(0)]
         pub fn set_stake_usd_limit(
             origin: OriginFor<T>,
@@ -415,7 +456,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 设置标准GPU租用标准算力与标准价格
+        /// 设置标准GPU标准算力与租用价格
         #[pallet::weight(0)]
         pub fn set_standard_gpu_point_price(
             origin: OriginFor<T>,
@@ -426,7 +467,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 由stash账户发起请求设置一个控制账户
+        /// stash账户设置一个控制账户
         #[pallet::weight(10000)]
         pub fn set_controller(
             origin: OriginFor<T>,
@@ -444,8 +485,10 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 将machine_id添加到绑定队列,之后ocw工作，验证机器ID与钱包地址是否一致
-        // 绑定需要质押first_bond_stake数量的DBC
+        /// 控制账户上线一个机器
+        /// msg = d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
+        ///     + 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+        /// sig 为machine_id对应的私钥对msg进行签名
         #[pallet::weight(10000)]
         pub fn bond_machine(
             origin: OriginFor<T>,
@@ -459,13 +502,13 @@ pub mod pallet {
 
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
 
-            // 验证msg
-            ensure!(msg.len() == 96, Error::<T>::BadMsgLen);
+            // 验证msg: len(pubkey + account) = 64 + 48
+            ensure!(msg.len() == 112, Error::<T>::BadMsgLen);
 
-            let sig_machine_id: Vec<u8> = msg[..48].to_vec();
+            let sig_machine_id: Vec<u8> = msg[..64].to_vec();
             ensure!(machine_id == sig_machine_id, Error::<T>::SigMachineIdNotEqualBondedMachineId);
 
-            let sig_stash_account: Vec<u8> = msg[48..].to_vec();
+            let sig_stash_account: Vec<u8> = msg[64..].to_vec();
             let sig_stash_account = Self::get_account_from_str(&sig_stash_account)
                 .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
             ensure!(sig_stash_account == stash, Error::<T>::MachineStashNotEqualControllerStash);
@@ -521,8 +564,8 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 机器需要添加信息才能进行派单。在正式上线前可以修改
-        // 机器在没有被使用的时候，（TODO: 是不是需要用户手动点击下线）
+        /// 控制账户添加机器信息
+        /// 机器需要添加信息才能进行委员会验证。在正式与无人使用时可以修改
         #[pallet::weight(10000)]
         pub fn add_machine_info(
             origin: OriginFor<T>,
@@ -610,8 +653,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 机器没有成功上线，则需要在10天内手动执行rebond
-        // 如果绑定失败，会扣除5%的DBC（5000），用户重新绑定，需要补充质押
+        /// 如果绑定失败，会扣除5%的DBC（5000），要在10天内手动执行rebond并补充质押
         #[pallet::weight(10000)]
         pub fn rebond_machine(
             origin: OriginFor<T>,
@@ -650,7 +692,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // controller进行领取收益
+        /// 控制账户进行领取收益到stash账户
         #[pallet::weight(10000)]
         pub fn claim_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
@@ -675,7 +717,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 机器管理者报告机器下线
+        /// 控制账户报告机器下线
         #[pallet::weight(10000)]
         pub fn controller_report_offline(
             origin: OriginFor<T>,
@@ -695,7 +737,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 机器管理者报告机器上线
+        /// 控制账户报告机器上线
         #[pallet::weight(10000)]
         pub fn controller_report_online(
             origin: OriginFor<T>,
@@ -869,9 +911,20 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // 接收到[u8; 64] -> str -> [u8; 32] -> pubkey
     fn verify_sig(msg: Vec<u8>, sig: Vec<u8>, account: Vec<u8>) -> Option<()> {
         let signature = sp_core::sr25519::Signature::try_from(&sig[..]).ok()?;
-        let public = Self::get_public_from_str(&account)?;
+        // let public = Self::get_public_from_str(&account)?;
+
+        let pubkey_str = str::from_utf8(&account).ok()?;
+        let pubkey_hex: Result<Vec<u8>, _> = (0..pubkey_str.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&pubkey_str[i..i + 2], 16))
+            .collect();
+        let pubkey_hex = pubkey_hex.ok()?;
+
+        let account_id32: [u8; 32] = pubkey_hex.try_into().ok()?;
+        let public = sp_core::sr25519::Public::from_slice(&account_id32);
 
         signature.verify(&msg[..], &public.into()).then(|| ())
     }
@@ -900,7 +953,7 @@ impl<T: Config> Pallet<T> {
         T::AccountId::decode(&mut &account_id32[..]).ok()
     }
 
-    fn get_public_from_str(addr: &Vec<u8>) -> Option<sp_core::sr25519::Public> {
+    fn _get_public_from_str(addr: &Vec<u8>) -> Option<sp_core::sr25519::Public> {
         let account_id32: [u8; 32] = Self::get_accountid32(addr)?;
         Some(sp_core::sr25519::Public::from_slice(&account_id32))
     }
