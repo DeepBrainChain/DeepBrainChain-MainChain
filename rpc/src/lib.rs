@@ -127,7 +127,7 @@ where
     C::Api: BlockBuilder<Block>,
     C::Api: online_profile_runtime_api::OpRpcApi<Block, AccountId, Balance, BlockNumber>,
     C::Api: simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance>,
-    C::Api: lease_committee_runtime_api::LcRpcApi<Block, AccountId, BlockNumber>,
+    C::Api: lease_committee_runtime_api::LcRpcApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance>,
     P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,

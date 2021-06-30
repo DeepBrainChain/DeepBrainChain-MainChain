@@ -1,43 +1,133 @@
-### 查询当前高度Hash
+## 自定义RPC的查询
 
-```bash
-curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
-     "jsonrpc":"2.0",
-      "id":1,
-      "method":"chain_getBlockHash",
-      "params": []
-    }'
-{"jsonrpc":"2.0","result":"0x987898b4b27051d13ee47f45eefe053c9f09a37393c9a601ac27acb27e6a265e","id":1}
-```
+说明：可以连接区块链的`websocket接口`进行查询。测试网WS接口：`wss://innertest.dbcwallet.io`
 
-### 查询在线奖励系统的信息
-
-```bash
-curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
-     "jsonrpc":"2.0",
-      "id":1,
-      "method":"onlineProfile_getOpInfo",
-      "params": []
-}'
-```
-
-+ 返回信息：
+查询请求方式：
 
 ```json
-{"jsonrpc":"2.0","result":{"totalCalcPoints":0,"totalGpuNum":0,"totalStake":"0","totalStaker":0},"id":1}
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": method_name,
+  "params": [params_1, params_2...]
+}
 ```
 
+其中，method_name 和 params_1, params_2... 根据需要替换成实际的方法名与参数。
 
-### 查询共有多少矿工
+例如，利用Postman连接websocket查询机器信息：
 
-```json
-curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
-     "jsonrpc":"2.0",
-      "id":1,
-      "method":"onlineProfile_getStakerNum",
-      "params": []
-}'
-```
+![image-20210630233136723](Custom_RPC.assets/image-20210630233136723.png)
+
+
+
+#### 查询在线奖励模块资金账户数量
+
++ 方法: `onlineProfile_getStakerNum`
+
++ 参数: 无
+
++ 结果示例：
+
+  ```json
+  {
+      "jsonrpc": "2.0",
+      "result": 1,
+      "id": 1
+  }
+  ```
+  
++ 结果说明：
+
+  `result` 字段为资金账户数量
+
+#### 查询在线奖励模块系统信息
+
++ 方法: `onlineProfile_getOpInfo`
+
++ 参数：无
+
++ 结果示例：
+
+  ```json
+  {
+      "jsonrpc": "2.0",
+      "result": {
+          "totalBurnFee": "0",
+          "totalCalcPoints": 3210,
+          "totalGpuNum": 4,
+          "totalRentFee": "0",
+          "totalRentedGpu": 0,
+          "totalStake": "200000000000000000",
+          "totalStaker": 1
+      },
+      "id": 1
+  }
+  ```
+  
++ 结果说明：
+
+  TODO
+
+#### 查询资金账户的信息
+
++ 方法：`onlineProfile_getStakerInfo`
+
++ 参数：资金账户。例如 "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc"
+
++ 结果示例：
+
+  ```json
+  {
+      "jsonrpc": "2.0",
+      "result": {
+          "calcPoints": 3310,
+          "gpuNum": 4,
+          "totalReward": "0"
+      },
+      "id": 1
+  }
+  ```
+  
++ 结果说明：
+
+  TODO
+
+#### 查询系统中所有的机器
+
++ 方法：`onlineProfile_getMachineList`
+
++ 参数：无
+
++ 结果示例：
+
+  ```
+  
+  ```
+
+#### 查询机器的信息
+
++ 方法：`onlineProfile_getMachineInfo`
+
++ 参数：`MachineId`. 如：`8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48`
+
++ 结果示例：
+
+  ```
+  ```
+
+#### 查询按经纬度位置区分的GPU信息统计
+
++ 方法：`onlineProfile_getPosGpuInfo`
+
++ 参数：无
+
++ 结果示例：
+
+  ```
+  
+  ```
+
 
 ###  分页查询矿工质押详情
 
@@ -172,7 +262,7 @@ b'2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3'
 
 返回结果：
 
-```json
+​```json
 {"jsonrpc":"2.0","result":{"bondingHeight":"139","machineInfoDetail":{"committee_upload_info":{"calc_point":0,"cpu_core_num":0,"cpu_rate":0,"cpu_type":[],"cuda_core":0,"gpu_mem":0,"gpu_num":0,"gpu_type":[],"hard_disk":0,"is_support":false,"machine_id":[],"mem_num":0,"rand_str":[]},"staker_customize_info":{"download_net":0,"images":[],"latitude":0,"left_change_time":3,"longitude":0,"upload_net":0}},"machineOwner":"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty","machinePrice":0,"machineStatus":"OcwConfirming","rewardDeadline":"0","stakeAmount":"0"},"id":1}
 ```
 

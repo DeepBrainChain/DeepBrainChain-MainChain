@@ -9,7 +9,7 @@ use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
 #[rpc]
-pub trait LcRpcApi<BlockHash, AccountId, BlockNumber> {
+pub trait LcRpcApi<BlockHash, AccountId, BlockNumber, Balance> {
     #[rpc(name = "leaseCommittee_getCommitteeMachineList")]
     fn get_committee_machine_list(
         &self,
@@ -23,7 +23,7 @@ pub trait LcRpcApi<BlockHash, AccountId, BlockNumber> {
         committee: AccountId,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> Result<RpcLCCommitteeOps<BlockNumber>>;
+    ) -> Result<RpcLCCommitteeOps<BlockNumber, Balance>>;
 
     #[rpc(name = "leaseCommittee_getMachineCommitteeList")]
     fn get_machine_committee_list(
@@ -44,16 +44,17 @@ impl<C, M> LcStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, BlockNumber> LcRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber>
+impl<C, Block, AccountId, BlockNumber, Balance> LcRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance>
     for LcStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
     BlockNumber: Clone + std::fmt::Display + Codec,
+    Balance: Codec + std::fmt::Display,
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: LcStorageRuntimeApi<Block, AccountId, BlockNumber>,
+    C::Api: LcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
 {
     fn get_committee_machine_list(
         &self,
@@ -76,7 +77,7 @@ where
         committee: AccountId,
         machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RpcLCCommitteeOps<BlockNumber>> {
+    ) -> Result<RpcLCCommitteeOps<BlockNumber, Balance>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
