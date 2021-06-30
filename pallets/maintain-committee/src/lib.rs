@@ -305,7 +305,7 @@ pub mod pallet {
                             raw_hash: hash,
                             box_public_key: box_pubkey,
                             reporter_stake: reporter_stake_need,
-                            report_type,
+                            report_type: report_type.clone(),
                             report_status: ReportStatus::Reported,
                             ..Default::default()
                         },
@@ -322,7 +322,7 @@ pub mod pallet {
                             reporter: reporter.clone(),
                             report_time,
                             reporter_stake: reporter_stake_need,
-                            report_type,
+                            report_type: report_type.clone(),
                             machine_id,
                             report_status: ReportStatus::Reported,
                             ..Default::default()
@@ -337,6 +337,7 @@ pub mod pallet {
                 reporter_report.reported_id.insert(index, report_id);
             }
             ReporterReport::<T>::insert(&reporter, reporter_report);
+            Self::deposit_event(Event::ReportMachineFault(reporter, report_type));
 
             Ok(().into())
         }
@@ -710,8 +711,7 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        PayTxFee(T::AccountId, BalanceOf<T>),
-        CommitteeFulfill(BalanceOf<T>),
+        ReportMachineFault(T::AccountId, ReportType),
     }
 
     #[pallet::error]
@@ -736,10 +736,15 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // FIXME: 改成防止溢出的
     fn get_new_report_id() -> ReportId {
         let report_id = Self::next_report_id();
-        NextReportId::<T>::put(report_id + 1);
+
+        if report_id == u64::MAX {
+            NextReportId::<T>::put(0);
+        } else {
+            NextReportId::<T>::put(report_id + 1);
+        };
+
         return report_id;
     }
 

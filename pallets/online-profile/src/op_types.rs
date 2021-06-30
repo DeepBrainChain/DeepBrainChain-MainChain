@@ -96,7 +96,7 @@ pub struct StakerCustomizeInfo {
 /// NOTE: 这个账户应该是stash账户，而不是controller账户
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
 pub struct EraMachinePoints<AccountId: Ord> {
-    /// 所有可以奖励的机器总得分
+    /// 所有在线机器总得分(包括因在线/绑定多台获得的额外得分)
     pub total: u64,
     /// 某个Era，stash账户的得分系数快照
     pub staker_statistic: BTreeMap<AccountId, StashMachineStatistics>,
@@ -119,7 +119,9 @@ pub struct StashMachineStatistics {
 
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
 pub struct MachineGradeStatus {
+    /// 机器的基础得分
     pub basic_grade: u64,
+    /// 机器的租用状态
     pub is_rented: bool,
 }
 
@@ -150,13 +152,15 @@ where
             staker_statistic.online_gpu_num -= gpu_num;
         }
 
-        // 更新inflation系数；最大10%
+        // 根据显卡数量n更新inflation系数: inflation = min(10%, n/10000)
+        // 当stash账户显卡数量n=1000时，inflation最大为10%
         staker_statistic.inflation = if staker_statistic.online_gpu_num <= 1000 {
             Perbill::from_rational_approximation(staker_statistic.online_gpu_num, 10_000)
         } else {
-            Perbill::from_rational_approximation(1000u64, 10_000) // max: 10%
+            Perbill::from_rational_approximation(1000u64, 10_000)
         };
 
+        // 根据在线情况更改stash的基础分
         if is_online {
             staker_statistic.machine_total_calc_point += basic_grade;
             staker_statistic
@@ -167,21 +171,24 @@ where
             staker_statistic.individual_machine.remove(&machine_id);
         }
 
+        // 更新系统分数记录
         let new_grade = staker_statistic.total_grades().unwrap();
-
-        let staker_statistic = (*staker_statistic).clone();
-
-        // 更新self
         self.total += new_grade;
         self.total -= old_grade;
-        self.staker_statistic.insert(stash, staker_statistic);
+
+        // 更新该stash账户的记录
+        if staker_statistic.online_gpu_num == 0 {
+            self.staker_statistic.remove(&stash);
+        } else {
+            let staker_statistic = (*staker_statistic).clone();
+            self.staker_statistic.insert(stash, staker_statistic);
+        }
     }
 
     /// 因机器租用状态改变，而影响得分
     pub fn change_machine_rent_status(
         &mut self,
         stash: AccountId,
-        gpu_num: u64,
         basic_grade: u64,
         machine_id: MachineId,
         is_rented: bool,
@@ -191,10 +198,25 @@ where
             .entry(stash.clone())
             .or_insert(StashMachineStatistics { ..Default::default() });
 
-        let old_grade = staker_statistic.total_grades().unwrap();
+        // 因租用而产生的分数
+        let grade_by_rent = Perbill::from_rational_approximation(30u64, 100u64) * basic_grade;
+
+        // 更新rent_extra_grade
         if is_rented {
+            self.total += grade_by_rent;
+            staker_statistic.rent_extra_grade += grade_by_rent;
         } else {
+            self.total -= grade_by_rent;
+            staker_statistic.rent_extra_grade -= grade_by_rent;
         }
+
+        // 更新该机器的租用状态
+        staker_statistic
+            .individual_machine
+            .insert(machine_id.clone(), MachineGradeStatus { basic_grade, is_rented });
+
+        let staker_statistic = (*staker_statistic).clone();
+        self.staker_statistic.insert(stash, staker_statistic);
     }
 }
 

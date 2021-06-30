@@ -12,9 +12,7 @@
 //! 机器得分如何计算：
 //!   机器相对标准配置得到算力点数。机器实际得分 = 算力点数 + 算力点数 * 集群膨胀系数 + 算力点数 * 30%
 //!   因此，机器被租用时，机器实际得分 = 算力点数 * (1 + 集群膨胀系数 + 30%租用膨胀系数)
-
-// 剩余75%线性释放时间长度(25%立即释放)
-// TODO: era结束时重新计算得分, 如果有会影响得分的改变，放到列表中，等era结束进行计算
+//!  在线奖励释放：25%立即释放,剩余75%线性释放时间长度
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -22,7 +20,7 @@ use codec::EncodeLike;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
-    traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
+    traits::{Currency, Get, LockIdentifier, LockableCurrency},
     weights::Weight,
     IterableStorageMap,
 };
@@ -52,11 +50,9 @@ pub use rpc_types::*;
 
 pub use pallet::*;
 
-pub const PALLET_LOCK_ID: LockIdentifier = *b"oprofile";
-pub const REPORTER_LOCK_ID: LockIdentifier = *b"reporter";
-pub const MAX_UNLOCKING_CHUNKS: usize = 32;
+/// 每个Era有多少个Block
 // pub const BLOCK_PER_ERA: u64 = 2880;
-pub const BLOCK_PER_ERA: u64 = 100; // TODO: 测试网一天设置为100个块
+pub const BLOCK_PER_ERA: u64 = 100; // 测试网一天设置为100个块
 
 /// stash账户总览自己当前状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -1023,84 +1019,59 @@ impl<T: Config> Pallet<T> {
         machine_id: MachineId,
         is_online: bool,
     ) {
+        // 影响哪个Era机器得分: 机器上线影响下一Era得分，机器下线影响当前Era和下一Era得分
         let current_era = Self::current_era();
-
-        let era_index = if is_online { current_era + 1 } else { current_era }; // 影响哪个Era机器得分
+        let era_index = if is_online { current_era + 1 } else { current_era };
 
         let machine_info = Self::machines_info(&machine_id);
-        // let machine_base_calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info;
 
         let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
         let mut stash_machine = Self::stash_machines(&stash_account); // NOTE: 存储控制账户控制的机器
         let mut sys_info = Self::sys_info();
 
-        let mut staker_statistic = era_machine_point
-            .staker_statistic
-            .entry(stash_account.clone())
-            .or_insert(StashMachineStatistics { ..Default::default() });
+        // 根据机器上线还是下线，更改得分
+        era_machine_point.change_machine_online_status(
+            stash_account.clone(),
+            machine_base_info.gpu_num as u64,
+            machine_base_info.calc_point,
+            machine_id.clone(),
+            is_online,
+        );
 
-        // 用户之前的总得分
-        let old_grade = staker_statistic.total_grades().unwrap();
-
-        // 重新计算膨胀得分
         if is_online {
-            staker_statistic.online_gpu_num += machine_base_info.gpu_num as u64;
-        } else {
-            staker_statistic.online_gpu_num -= machine_base_info.gpu_num as u64;
-        }
-
-        // 更新膨胀系数
-        let bond_gpu_num = staker_statistic.online_gpu_num;
-        staker_statistic.inflation = if bond_gpu_num <= 1000 {
-            Perbill::from_rational_approximation(bond_gpu_num, 10_000) // 线性增加, 最大10%
-        } else {
-            Perbill::from_rational_approximation(1000u64, 10_000) // max: 10%
-        };
-
-        // 新的机器算里得分之和
-        if is_online {
-            staker_statistic.machine_total_calc_point += machine_base_info.calc_point;
-
             if let Err(index) = stash_machine.online_machine.binary_search(&machine_id) {
                 stash_machine.online_machine.insert(index, machine_id.clone());
             }
             stash_machine.total_calc_points += machine_base_info.calc_point;
             stash_machine.total_gpu_num += machine_base_info.gpu_num as u64;
+
             sys_info.total_calc_points += machine_base_info.calc_point;
             sys_info.total_gpu_num += machine_base_info.gpu_num as u64;
-
-            staker_statistic.individual_machine.insert(
-                machine_id,
-                MachineGradeStatus { basic_grade: machine_base_info.calc_point, is_rented: false },
-            );
         } else {
-            staker_statistic.machine_total_calc_point -= machine_base_info.calc_point;
-
             if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
                 stash_machine.online_machine.remove(index);
             }
             stash_machine.total_calc_points -= machine_base_info.calc_point;
             stash_machine.total_gpu_num -= machine_base_info.gpu_num as u64;
+
             sys_info.total_calc_points -= machine_base_info.calc_point;
             sys_info.total_gpu_num -= machine_base_info.gpu_num as u64;
 
-            staker_statistic.individual_machine.remove(&machine_id);
-
-            // TODO: 更改下一天的记录，将机器从中删除
+            // NOTE: 需要注意，如果是机器下线还需要更改Era+1的得分
             let mut next_era_machine_point = Self::eras_machine_points(era_index + 1).unwrap();
+            next_era_machine_point.change_machine_online_status(
+                stash_account.clone(),
+                machine_base_info.gpu_num as u64,
+                machine_base_info.calc_point,
+                machine_id.clone(),
+                is_online,
+            );
+            ErasMachinePoints::<T>::insert(era_index + 1, next_era_machine_point);
         }
 
-        let new_grade = staker_statistic.total_grades().unwrap();
-
-        // 更新系统总得分
-        let staker_statistic = (*staker_statistic).clone();
-        era_machine_point.staker_statistic.insert(stash_account.clone(), staker_statistic);
-        era_machine_point.total -= old_grade;
-        era_machine_point.total += new_grade;
-
+        // NOTE: 5000张卡开启银河竞赛
         if !Self::galaxy_is_on() && sys_info.total_gpu_num > 5000 {
-            // NOTE: 5000张卡开启银河竞赛
             GalaxyIsOn::<T>::put(true);
         }
 
@@ -1218,7 +1189,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-// 审查委员会可以执行的操作
+/// 审查委员会可以执行的操作
 impl<T: Config> LCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
@@ -1231,14 +1202,15 @@ impl<T: Config> LCOps for Pallet<T> {
 
         LiveMachine::rm_machine_id(&mut live_machines.confirmed_machine, &id);
         LiveMachine::add_machine_id(&mut live_machines.booked_machine, id.clone());
-        LiveMachines::<T>::put(live_machines);
 
         let mut machine_info = Self::machines_info(&id);
         machine_info.machine_status = MachineStatus::CommitteeVerifying;
+
+        LiveMachines::<T>::put(live_machines);
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 
-    // 由于委员会没有达成一致，需要重新返回到bonding_machine
+    /// 由于委员会没有达成一致，需要重新返回到bonding_machine
     fn lc_revert_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
