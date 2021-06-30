@@ -1,4 +1,4 @@
-use codec::{alloc::string::ToString, Decode, Encode, HasCompact};
+use codec::{alloc::string::ToString, Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_128;
@@ -177,7 +177,6 @@ where
         self.staker_statistic.insert(stash, staker_statistic);
     }
 
-    // TODO: refa
     /// 因机器租用状态改变，而影响得分
     pub fn change_machine_rent_status(
         &mut self,

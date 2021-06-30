@@ -5,12 +5,8 @@ use lease_committee::{LCCommitteeMachineList, LCMachineCommitteeList, RpcLCCommi
 use lease_committee_runtime_api::LcRpcApi as LcStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_rpc::number::NumberOrHex;
-use sp_runtime::{
-    generic::BlockId,
-    traits::{Block as BlockT, MaybeDisplay},
-};
-use std::{convert::TryInto, sync::Arc};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use std::sync::Arc;
 
 #[rpc]
 pub trait LcRpcApi<BlockHash, AccountId, BlockNumber> {
@@ -48,12 +44,8 @@ impl<C, M> LcStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, BlockNumber>
-    LcRpcApi<
-        <Block as BlockT>::Hash,
-        AccountId,
-        BlockNumber,
-    > for LcStorage<C, Block>
+impl<C, Block, AccountId, BlockNumber> LcRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber>
+    for LcStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
