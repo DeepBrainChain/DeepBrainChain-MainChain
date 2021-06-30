@@ -3,7 +3,7 @@
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_profile::{LiveMachine, RPCMachineInfo, RpcSysInfo, StakerInfo};
+use online_profile::{LiveMachine, PosInfo, RPCMachineInfo, RpcSysInfo, StakerInfo};
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -15,7 +15,15 @@ use sp_runtime::{
 use std::{convert::TryInto, sync::Arc};
 
 #[rpc]
-pub trait OpRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2, ResponseType3, ResponseType4>
+pub trait OpRpcApi<
+    BlockHash,
+    AccountId,
+    ResponseType1,
+    ResponseType2,
+    ResponseType3,
+    ResponseType4,
+    ResponseType5,
+>
 {
     #[rpc(name = "onlineProfile_getStakerNum")]
     fn get_total_staker_num(&self, at: Option<BlockHash>) -> Result<u64>;
@@ -31,6 +39,9 @@ pub trait OpRpcApi<BlockHash, AccountId, ResponseType1, ResponseType2, ResponseT
 
     #[rpc(name = "onlineProfile_getMachineInfo")]
     fn get_machine_info(&self, machine_id: String, at: Option<BlockHash>) -> Result<ResponseType4>;
+
+    #[rpc(name = "onlineProfile_getPosGpuInfo")]
+    fn get_pos_gpu_info(&self, at: Option<BlockHash>) -> Result<ResponseType5>;
 }
 
 pub struct OpStorage<C, M> {
@@ -52,6 +63,7 @@ impl<C, Block, AccountId, Balance, BlockNumber>
         StakerInfo<Balance>,
         LiveMachine,
         RPCMachineInfo<AccountId, BlockNumber, Balance>,
+        Vec<(u64, u64, PosInfo)>,
     > for OpStorage<C, Block>
 where
     Block: BlockT,
@@ -125,6 +137,21 @@ where
         let machine_id = machine_id.as_bytes().to_vec();
 
         let runtime_api_result = api.get_machine_info(&at, machine_id);
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_pos_gpu_info(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<(u64, u64, PosInfo)>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_pos_gpu_info(&at);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

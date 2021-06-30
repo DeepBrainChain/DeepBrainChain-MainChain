@@ -2,7 +2,7 @@
 
 from hashlib import blake2b
 
-machine_id = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
 gpu_type = "GeForceRTX2080Ti"
 gpu_num = "4"
 cuda_core = "4352"

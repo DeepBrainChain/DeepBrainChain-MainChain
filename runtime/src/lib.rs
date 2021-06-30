@@ -1207,6 +1207,10 @@ impl_runtime_apis! {
         fn get_machine_info(machine_id: online_profile::MachineId) -> online_profile::RPCMachineInfo<AccountId, BlockNumber, Balance> {
             OnlineProfile::get_machine_info(machine_id)
         }
+
+        fn get_pos_gpu_info() -> Vec<(u64, u64, online_profile::PosInfo)> {
+            OnlineProfile::get_pos_gpu_info()
+        }
     }
 
     impl simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance> for Runtime {

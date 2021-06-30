@@ -2,6 +2,7 @@
   "PriceURL": "Text",
   "ReportId": "u64",
   "SlashId": "u64",
+  "BoxPubkey": "[u8; 32]",
   "StandardGpuPointPrice": {
     "gpu_point": "u64",
     "gpu_price": "u64"
@@ -151,7 +152,7 @@
   "LCCommitteeOps": {
     "staked_dbc": "Balance",
     "verify_time": "Vec<BlockNumber>",
-    "confirm_hash": "[u8; 16]",
+    "confirm_hash": "Hash",
     "hash_time": "BlockNumber",
     "confirm_time": "BlockNumber",
     "machine_status": "LCMachineStatus",
@@ -289,7 +290,7 @@
     "reporter": "AccountId",
     "report_time": "BlockNumber",
     "raw_hash": "Hash",
-    "box_public_key": "[u8; 32]",
+    "box_public_key": "BoxPubkey",
     "reporter_stake": "Balance",
     "first_book_time": "BlockNumber",
     "machine_id": "MachineId",
@@ -303,7 +304,7 @@
     "support_committee": "Vec<AccountId>",
     "against_committee": "Vec<AccountId>",
     "report_status": "ReportStatus",
-    "report_type": "ReportType"
+    "machine_fault_type": "MachineFaultType"
   },
   "ReportStatus": {
     "_enum": [
@@ -314,11 +315,11 @@
       "CommitteeConfirmed"
     ]
   },
-  "ReportType": {
+  "MachineFaultType": {
     "_enum": [
-      "HardwareFault",
-      "MachineOffline",
-      "MachineUnrentable"
+      "HardwareFault(Hash, BoxPubkey)",
+      "MachineOffline(Hash, BoxPubkey)",
+      "MachineUnrentable(MachineId)"
     ]
   },
   "PendingSlashInfo": {

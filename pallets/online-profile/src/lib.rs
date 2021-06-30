@@ -20,9 +20,9 @@ use codec::EncodeLike;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
-    traits::{Currency, Get, LockIdentifier, LockableCurrency},
+    traits::{Currency, Get, LockableCurrency},
     weights::Weight,
-    IterableStorageMap,
+    IterableStorageDoubleMap, IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{DbcPrice, LCOps, ManageCommittee, OPRPCQuery, RTOps};
@@ -126,7 +126,7 @@ pub enum MachineStatus<BlockNumber> {
     /// 正在上线，且未被租用
     Online,
     /// 机器管理者报告机器已下线
-    StakerReportOffline(BlockNumber),
+    StakerReportOffline(BlockNumber, Box<Self>),
     /// 报告人报告机器下线
     ReporterReportOffline(BlockNumber),
     /// 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
@@ -230,6 +230,20 @@ pub struct SysInfoDetail<Balance> {
     pub total_burn_fee: Balance,
 }
 
+/// 不同经纬度GPU信息统计
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct PosInfo {
+    /// 在线机器的GPU数量
+    pub online_gpu: u64,
+    /// 离线GPU数量
+    pub offline_gpu: u64,
+    /// 被租用机器GPU数量
+    pub rented_gpu: u64,
+    /// 在线机器算力点数
+    pub online_gpu_calc_points: u64,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -280,6 +294,12 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn sys_info)]
     pub(super) type SysInfo<T: Config> = StorageValue<_, SysInfoDetail<BalanceOf<T>>, ValueQuery>;
+
+    /// 不同经纬度GPU信息统计
+    #[pallet::storage]
+    #[pallet::getter(fn pos_gpu_info)]
+    pub(super) type PosGPUInfo<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, u64, Blake2_128Concat, u64, PosInfo, ValueQuery>;
 
     /// stash 对应的 controller
     #[pallet::storage]
@@ -579,7 +599,7 @@ pub mod pallet {
                 | MachineStatus::CommitteeVerifying
                 | MachineStatus::CommitteeRefused(_)
                 | MachineStatus::WaitingFulfill
-                | MachineStatus::StakerReportOffline(_) => {
+                | MachineStatus::StakerReportOffline(_, _) => {
                     machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
                 }
                 _ => {
@@ -725,10 +745,14 @@ pub mod pallet {
             let mut machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
-            machine_info.machine_status = MachineStatus::StakerReportOffline(now);
+            // TODO: 检查机器状态，在online之后，还应该是这种状态
+            machine_info.machine_status =
+                MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status));
 
             // TODO: 应该影响机器打分
             MachinesInfo::<T>::insert(&machine_id, machine_info);
+
+            Self::change_pos_gpu_by_online(&machine_id, false);
 
             Ok(().into())
         }
@@ -751,21 +775,11 @@ pub mod pallet {
 
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
+            Self::change_pos_gpu_by_online(&machine_id, true);
             Ok(().into())
         }
 
-        // TODO: 将slash移到committee模块
-        #[pallet::weight(0)]
-        pub fn cancle_slash(
-            origin: OriginFor<T>,
-            _machine_id: MachineId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            Ok(().into())
-        }
-
-        // 超过一年的机器可以在不使用的时候退出
+        /// 超过一年的机器可以在不使用的时候退出
         #[pallet::weight(10000)]
         pub fn claim_exit(
             origin: OriginFor<T>,
@@ -806,6 +820,46 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// 特定位置GPU上线/下线
+    fn change_pos_gpu_by_online(machine_id: &MachineId, is_online: bool) {
+        let machine_info = Self::machines_info(machine_id);
+
+        let longitude = machine_info.machine_info_detail.staker_customize_info.longitude;
+        let latitude = machine_info.machine_info_detail.staker_customize_info.latitude;
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
+        let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
+
+        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
+
+        if is_online {
+            pos_gpu_info.online_gpu += gpu_num as u64;
+            pos_gpu_info.online_gpu_calc_points += calc_point;
+        } else {
+            pos_gpu_info.online_gpu -= gpu_num as u64;
+            pos_gpu_info.offline_gpu += gpu_num as u64;
+            pos_gpu_info.online_gpu_calc_points -= calc_point;
+        }
+        PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
+    }
+
+    /// 特定位置GPU被租用/租用结束
+    fn change_pos_gpu_by_rent(machine_id: &MachineId, is_rented: bool) {
+        let machine_info = Self::machines_info(machine_id);
+
+        let longitude = machine_info.machine_info_detail.staker_customize_info.longitude;
+        let latitude = machine_info.machine_info_detail.staker_customize_info.latitude;
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
+
+        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
+        if is_rented {
+            pos_gpu_info.rented_gpu += gpu_num as u64;
+        } else {
+            pos_gpu_info.rented_gpu -= gpu_num as u64;
+        }
+
+        PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
+    }
+
     // 检查fulfilling list，如果超过10天，则清除记录，退还质押
     fn clean_refused_machine() {
         let mut live_machines = Self::live_machines();
@@ -938,20 +992,19 @@ impl<T: Config> Pallet<T> {
         return base_stake.min(stake_limit).checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>());
     }
 
-    // 根据GPU数量和该机器算力点数，算出该机器价格
-    // NOTE: machine_point为该机器的总算力点数
+    /// 根据GPU数量和该机器算力点数，计算该机器相比标准配置的价格
     pub fn calc_machine_price(machine_point: u64) -> Option<u64> {
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
-        // let standard_gpu_point = Self::standard_gpu_point()?;
         standard_gpu_point_price
             .gpu_price
-            .checked_mul(10_000)?
             .checked_mul(machine_point)?
+            .checked_mul(10_000)?
             .checked_div(standard_gpu_point_price.gpu_point)?
-            .checked_div(10_000u64)
+            .checked_div(10_000)
     }
 
-    // 在线奖励数量: TODO: 正式网将修改奖励时间
+    // TODO: 正式网将修改奖励时间
+    /// 计算当前Era在线奖励数量
     fn current_era_reward() -> Option<BalanceOf<T>> {
         let current_era = Self::current_era() as u64;
         let reward_start_era = Self::reward_start_era()? as u64;
@@ -1009,17 +1062,15 @@ impl<T: Config> Pallet<T> {
     }
 
     // TODO: 完善unwarp
-    // 因事件发生，更新某个机器得分。
-    // 由于机器被添加到在线或者不在线，更新矿工机器得分与总得分
-    // 因增加机器，在线获得的分数奖励，则修改下一天的快照
-    // 如果机器掉线，则修改当天的快照，影响当天奖励，
-    // FIXME: 同时修改明天快照，因为明天快照是在今天刚开始时初始化的。
+    /// 由于机器在线或者下线，更新矿工机器得分与总得分:
+    ///     机器上线，则修改下一天的得分快照
+    ///     机器掉线，则修改当天与下一天的快照，影响今后奖励
     fn update_staker_grades_by_online_machine(
         stash_account: T::AccountId,
         machine_id: MachineId,
         is_online: bool,
     ) {
-        // 影响哪个Era机器得分: 机器上线影响下一Era得分，机器下线影响当前Era和下一Era得分
+        // 机器上线影响下一Era得分，机器下线影响当前Era和下一Era得分
         let current_era = Self::current_era();
         let era_index = if is_online { current_era + 1 } else { current_era };
 
@@ -1027,7 +1078,7 @@ impl<T: Config> Pallet<T> {
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info;
 
         let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
-        let mut stash_machine = Self::stash_machines(&stash_account); // NOTE: 存储控制账户控制的机器
+        let mut stash_machine = Self::stash_machines(&stash_account);
         let mut sys_info = Self::sys_info();
 
         // 根据机器上线还是下线，更改得分
@@ -1270,6 +1321,11 @@ impl<T: Config> LCOps for Pallet<T> {
         LiveMachines::<T>::put(live_machines);
         SysInfo::<T>::put(sys_info);
 
+        Self::change_pos_gpu_by_online(&committee_upload_info.machine_id, true);
+
+        // // TODO: 增加机器数量
+        // let pos_gpu_info = Self::pos_gpu_info(machine_info.);
+
         Self::update_staker_grades_by_online_machine(
             machine_info.machine_stash,
             committee_upload_info.machine_id,
@@ -1357,6 +1413,8 @@ impl<T: Config> RTOps for Pallet<T> {
                     machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
                 // TODO: 修改individual状态
                 // machine_info.
+
+                Self::change_pos_gpu_by_rent(machine_id, true);
             }
             // 租用结束 或 租用失败(半小时无确认)
             MachineStatus::Online => {
@@ -1379,6 +1437,8 @@ impl<T: Config> RTOps for Pallet<T> {
 
                     sys_info.total_rented_gpu -=
                         machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+
+                    Self::change_pos_gpu_by_rent(machine_id, false);
                 }
             }
             _ => {}
@@ -1482,5 +1542,12 @@ impl<T: Config> Module<T> {
             // reward_committee: machine_info.reward_committee,
             reward_deadline: machine_info.reward_deadline,
         }
+    }
+
+    /// 获得系统中所有位置列表
+    pub fn get_pos_gpu_info() -> Vec<(u64, u64, PosInfo)> {
+        <PosGPUInfo<T> as IterableStorageDoubleMap<u64, u64, PosInfo>>::iter()
+            .map(|(k1, k2, v)| (k1, k2, v))
+            .collect()
     }
 }

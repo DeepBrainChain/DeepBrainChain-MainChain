@@ -19,7 +19,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
-    traits::{Currency, LockIdentifier, LockableCurrency},
+    traits::{Currency, LockableCurrency},
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{DbcPrice, ManageCommittee};
@@ -36,16 +36,18 @@ pub type BoxPubkey = [u8; 32];
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub const PALLET_LOCK_ID: LockIdentifier = *b"mtcommit";
-
 /// 机器故障的报告
 /// 记录该模块中所有活跃的报告, 根据ReportStatus来区分
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MTLiveReportList {
-    pub bookable_report: Vec<ReportId>,    // 委员会可以抢单的报告
-    pub verifying_report: Vec<ReportId>, // 正在被验证的机器报告,验证完如能预定，转成上面状态，如不能则转成下面状态
-    pub waiting_raw_report: Vec<ReportId>, // 等待提交原始值的报告, 所有委员会提交或时间截止，转为下面状态
-    pub waiting_rechecked_report: Vec<ReportId>, // 等待48小时后执行的报告, 此期间可以申述，由技术委员会审核
+    /// 委员会可以抢单的报告
+    pub bookable_report: Vec<ReportId>,
+    /// 正在被验证的机器报告,验证完如能预定，转成上面状态，如不能则转成下面状态
+    pub verifying_report: Vec<ReportId>,
+    /// 等待提交原始值的报告, 所有委员会提交或时间截止，转为下面状态
+    pub waiting_raw_report: Vec<ReportId>,
+    /// 等待48小时后执行的报告, 此期间可以申述，由技术委员会审核
+    pub waiting_rechecked_report: Vec<ReportId>,
 }
 
 /// 报告人的报告记录
@@ -57,33 +59,56 @@ pub struct ReporterRecord {
 // 报告的详细信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
+    ///报告人
     pub reporter: AccountId,
-    pub report_time: BlockNumber,  // 机器被报告时间
-    pub raw_hash: Hash,            // 包含错误原因的hash
-    pub box_public_key: BoxPubkey, // 用户私钥生成的box_public_key，用于委员会解密
+    /// 报告提交时间
+    pub report_time: BlockNumber,
+    /// 包含错误原因的hash
+    pub raw_hash: Hash,
+    /// 用户私钥生成的box_public_key，用于委员会解密
+    pub box_public_key: BoxPubkey,
+    /// 报告人质押数量
     pub reporter_stake: Balance,
+    /// 第一个委员会抢单时间
     pub first_book_time: BlockNumber,
-    pub machine_id: MachineId, // 只有委员会提交原始信息时才存入
+    /// 出问题的机器，只有委员会提交原始信息时才存入
+    pub machine_id: MachineId,
+    /// 机器的故障原因
     pub err_info: Vec<u8>,
-    pub verifying_committee: Option<AccountId>, // 当前哪个委员会正在验证机器
-    pub booked_committee: Vec<AccountId>,       // 记录分配给机器的委员会及验证开始时间
-    pub get_encrypted_info_committee: Vec<AccountId>, // 已经获得了加密信息的委员会列表
+    /// 当前正在验证机器的委员会
+    pub verifying_committee: Option<AccountId>,
+    /// 抢单的委员会
+    pub booked_committee: Vec<AccountId>,
+    /// 获得报告人提交了加密信息的委员会列表
+    pub get_encrypted_info_committee: Vec<AccountId>,
+    /// 提交了检查报告Hash的委员会
     pub hashed_committee: Vec<AccountId>,
-    pub confirm_start: BlockNumber,          // 开始提交raw信息的时间
-    pub confirmed_committee: Vec<AccountId>, // 提交了Raw信息的委员会
-    pub support_committee: Vec<AccountId>,   // 支持该报告的委员会
-    pub against_committee: Vec<AccountId>,   // 不支持该报告的委员会
-    pub report_status: ReportStatus,         // 记录当前订单的状态
-    pub report_type: ReportType,             // 报告的错误类型
+    /// 开始提交raw信息的时间
+    pub confirm_start: BlockNumber,
+    /// 提交了Raw信息的委员会
+    pub confirmed_committee: Vec<AccountId>,
+    /// 支持报告人的委员会
+    pub support_committee: Vec<AccountId>,
+    /// 不支持报告人的委员会
+    pub against_committee: Vec<AccountId>,
+    /// 当前报告的状态
+    pub report_status: ReportStatus,
+    /// 机器的故障类型
+    pub machine_fault_type: MachineFaultType,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum ReportStatus {
-    Reported,           // 没有任何人预订过的报告, 允许取消
-    WaitingBook,        // 前一个委员会的报告已经超过一个小时，自动改成可预订状态
-    Verifying,          // 已经有委员会抢单，正处于验证中
-    SubmitingRaw,       // 已经到了3个小时，正在等待委员会上传原始信息
-    CommitteeConfirmed, // 委员会已经完成，等待48小时, 检查报告结果
+    /// 没有委员会预订过的报告, 允许报告人取消
+    Reported,
+    /// 前一个委员会的报告已经超过一个小时，自动改成可预订状态
+    WaitingBook,
+    /// 有委员会抢单，处于验证中
+    Verifying,
+    /// 距离第一个验证人抢单3个小时后，等待委员会上传原始信息
+    SubmitingRaw,
+    /// 委员会已经完成，等待第48小时, 检查报告结果
+    CommitteeConfirmed,
 }
 
 impl Default for ReportStatus {
@@ -93,16 +118,19 @@ impl Default for ReportStatus {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum ReportType {
-    HardwareFault(Hash, BoxPubkey),     // 硬件故障
-    MachineUnrentable(Hash, BoxPubkey), // 无法租用故障 // NOTE: 前两种应该没有必要区分
-    MachineOffline(MachineId),          // 机器离线
+pub enum MachineFaultType {
+    /// 硬件故障
+    HardwareFault(Hash, BoxPubkey),
+    /// 无法租用故障
+    MachineUnrentable(Hash, BoxPubkey),
+    /// 机器离线
+    MachineOffline(MachineId),
 }
 
 // 默认硬件故障
-impl Default for ReportType {
+impl Default for MachineFaultType {
     fn default() -> Self {
-        ReportType::HardwareFault([0; 16], [0; 32])
+        MachineFaultType::HardwareFault([0; 16], [0; 32])
     }
 }
 
@@ -113,25 +141,31 @@ enum ReportConfirmStatus<AccountId> {
     NoConsensus,
 }
 
-// 委员会抢到的报告的列表
+/// 委员会抢到的报告的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MTCommitteeReportList {
-    pub booked_report: Vec<ReportId>,    // 委员会的报告
-    pub hashed_report: Vec<ReportId>,    // 已经提交了Hash信息的报告
-    pub confirmed_report: Vec<ReportId>, // 已经提交了原始确认数据的报告
-    pub online_machine: Vec<MachineId>,  // 已经成功上线的机器
+    /// 委员会的报告
+    pub booked_report: Vec<ReportId>,
+    /// 已经提交了Hash信息的报告
+    pub hashed_report: Vec<ReportId>,
+    /// 已经提交了原始确认数据的报告
+    pub confirmed_report: Vec<ReportId>,
+    /// 已经成功上线的机器
+    pub online_machine: Vec<MachineId>,
 }
 
-// 委员会对报告的操作信息
+/// 委员会对报告的操作信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MTCommitteeOpsDetail<BlockNumber, Balance> {
     pub booked_time: BlockNumber,
-    pub encrypted_err_info: Option<Vec<u8>>, // reporter 提交的加密后的信息
+    /// reporter 提交的加密后的信息
+    pub encrypted_err_info: Option<Vec<u8>>,
     pub encrypted_time: BlockNumber,
     pub confirm_hash: Hash,
     pub hash_time: BlockNumber,
     pub confirm_raw: Vec<u8>,
-    pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
+    /// 委员会提交raw信息的时间
+    pub confirm_time: BlockNumber,
     pub confirm_result: bool,
     pub staked_balance: Balance,
     pub order_status: MTOrderStatus,
@@ -139,10 +173,14 @@ pub struct MTCommitteeOpsDetail<BlockNumber, Balance> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MTOrderStatus {
-    WaitingEncrypt, // 预订报告，状态将等待加密信息
-    Verifying,      // 获得加密信息之后，状态将等待加密信息
-    WaitingRaw,     // 等待提交原始信息
-    Finished,       // 委员会已经完成了全部操作
+    /// 预订报告，状态将等待加密信息
+    WaitingEncrypt,
+    /// 获得加密信息之后，状态将等待加密信息
+    Verifying,
+    /// 等待提交原始信息
+    WaitingRaw,
+    /// 委员会已经完成了全部操作
+    Finished,
 }
 
 impl Default for MTOrderStatus {
@@ -150,9 +188,6 @@ impl Default for MTOrderStatus {
         MTOrderStatus::Verifying
     }
 }
-
-// #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-// pub enum MTReportType
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -252,7 +287,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // 设置报告人报告质押，单位：usd * 10^6, 如：16美元
+        /// 设置报告人报告质押，单位：USD*10^6, 如设置：15384615 为100RMB (汇率6.5)
         #[pallet::weight(0)]
         pub fn set_reporter_report_stake(
             origin: OriginFor<T>,
@@ -263,83 +298,44 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // FIXME: Enum类型的值在前端无法显示
         /// 用户报告机器有故障：无法租用或者硬件故障或者离线
         /// 报告无法租用提交Hash:机器ID+随机数+报告内容
         /// 报告硬件故障提交Hash:机器ID+随机数+报告内容+租用机器的Session信息
+
+        /// 用户报告机器硬件故障
         #[pallet::weight(10000)]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
-            report_type: ReportType,
+            hash: Hash,
+            box_pubkey: BoxPubkey,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            let report_time = <frame_system::Module<T>>::block_number();
-            let report_id = Self::get_new_report_id();
 
-            // 质押100RMB等值DBC
-            let reporter_report_stake = Self::reporter_report_stake();
-            let reporter_stake_need = T::DbcPrice::get_dbc_amount_by_value(reporter_report_stake)
-                .ok_or(Error::<T>::GetStakeAmountFailed)?;
-            <T as pallet::Config>::ManageCommittee::change_stake(
-                &reporter,
-                reporter_stake_need,
-                true,
-            )
-            .map_err(|_| Error::<T>::StakeFailed)?;
+            Self::report_handler(reporter, MachineFaultType::HardwareFault(hash, box_pubkey))
+        }
 
-            // 被报告的机器存储起来，委员会进行抢单
-            let mut live_report = Self::live_report();
-            if let Err(index) = live_report.bookable_report.binary_search(&report_id) {
-                live_report.bookable_report.insert(index, report_id);
-            }
-            LiveReport::<T>::put(live_report);
+        /// 用户报告机器无法租用
+        #[pallet::weight(10000)]
+        pub fn report_machine_unrentable(
+            origin: OriginFor<T>,
+            hash: Hash,
+            box_pubkey: BoxPubkey,
+        ) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
 
-            match report_type.clone() {
-                // 当是前面两种情况时，记录下Hash和box_pubkey
-                ReportType::HardwareFault(hash, box_pubkey)
-                | ReportType::MachineUnrentable(hash, box_pubkey) => {
-                    ReportInfo::<T>::insert(
-                        &report_id,
-                        MTReportInfoDetail {
-                            reporter: reporter.clone(),
-                            report_time,
-                            raw_hash: hash,
-                            box_public_key: box_pubkey,
-                            reporter_stake: reporter_stake_need,
-                            report_type: report_type.clone(),
-                            report_status: ReportStatus::Reported,
-                            ..Default::default()
-                        },
-                    );
-                }
-                // 当是offline时，记录下MachineId，还需要10个DBC作为手续费
-                ReportType::MachineOffline(machine_id) => {
-                    <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
-                        .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+            Self::report_handler(reporter, MachineFaultType::MachineUnrentable(hash, box_pubkey))
+        }
 
-                    ReportInfo::<T>::insert(
-                        &report_id,
-                        MTReportInfoDetail {
-                            reporter: reporter.clone(),
-                            report_time,
-                            reporter_stake: reporter_stake_need,
-                            report_type: report_type.clone(),
-                            machine_id,
-                            report_status: ReportStatus::Reported,
-                            ..Default::default()
-                        },
-                    );
-                }
-            }
+        /// 用户报告机器掉线
+        #[pallet::weight(10000)]
+        pub fn report_machine_offline(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
 
-            // 记录到报告人的存储中
-            let mut reporter_report = Self::reporter_report(&reporter);
-            if let Err(index) = reporter_report.reported_id.binary_search(&report_id) {
-                reporter_report.reported_id.insert(index, report_id);
-            }
-            ReporterReport::<T>::insert(&reporter, reporter_report);
-            Self::deposit_event(Event::ReportMachineFault(reporter, report_type));
-
-            Ok(().into())
+            Self::report_handler(reporter, MachineFaultType::MachineOffline(machine_id))
         }
 
         // 报告人可以在抢单之前取消该报告
@@ -423,8 +419,9 @@ pub mod pallet {
             }
 
             // 支付手续费或押金
-            match report_info.report_type {
-                ReportType::HardwareFault(_, _) | ReportType::MachineUnrentable(_, _) => {
+            match report_info.machine_fault_type {
+                MachineFaultType::HardwareFault(_, _)
+                | MachineFaultType::MachineUnrentable(_, _) => {
                     // 此两种情况，需要质押100RMB等值DBC
                     let committee_order_stake = T::ManageCommittee::stake_per_order()
                         .ok_or(Error::<T>::GetStakeAmountFailed)?;
@@ -455,7 +452,7 @@ pub mod pallet {
                     }
                     LiveReport::<T>::put(live_report);
                 }
-                ReportType::MachineOffline(_) => {
+                MachineFaultType::MachineOffline(_) => {
                     // 付10个DBC的手续费
                     <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone())
                         .map_err(|_| Error::<T>::PayTxFeeFailed)?;
@@ -511,7 +508,7 @@ pub mod pallet {
 
             // 该orde处于验证中, 且还没有提交过加密信息
             let mut report_info = Self::report_info(&report_id);
-            if let ReportType::MachineOffline(_) = report_info.report_type {
+            if let MachineFaultType::MachineOffline(_) = report_info.machine_fault_type {
                 return Err(Error::<T>::NotNeedEncryptedInfo.into());
             }
 
@@ -711,7 +708,7 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        ReportMachineFault(T::AccountId, ReportType),
+        ReportMachineFault(T::AccountId, MachineFaultType),
     }
 
     #[pallet::error]
@@ -736,6 +733,76 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn report_handler(
+        reporter: T::AccountId,
+        machine_fault_type: MachineFaultType,
+    ) -> DispatchResultWithPostInfo {
+        let report_time = <frame_system::Module<T>>::block_number();
+        let report_id = Self::get_new_report_id();
+
+        // 质押100RMB等值DBC
+        let reporter_report_stake = Self::reporter_report_stake();
+        let reporter_stake_need = T::DbcPrice::get_dbc_amount_by_value(reporter_report_stake)
+            .ok_or(Error::<T>::GetStakeAmountFailed)?;
+        <T as pallet::Config>::ManageCommittee::change_stake(&reporter, reporter_stake_need, true)
+            .map_err(|_| Error::<T>::StakeFailed)?;
+
+        // 被报告的机器存储起来，委员会进行抢单
+        let mut live_report = Self::live_report();
+        if let Err(index) = live_report.bookable_report.binary_search(&report_id) {
+            live_report.bookable_report.insert(index, report_id);
+        }
+        LiveReport::<T>::put(live_report);
+
+        match machine_fault_type.clone() {
+            // 当是前面两种情况时，记录下Hash和box_pubkey
+            MachineFaultType::HardwareFault(hash, box_pubkey)
+            | MachineFaultType::MachineUnrentable(hash, box_pubkey) => {
+                ReportInfo::<T>::insert(
+                    &report_id,
+                    MTReportInfoDetail {
+                        reporter: reporter.clone(),
+                        report_time,
+                        raw_hash: hash,
+                        box_public_key: box_pubkey,
+                        reporter_stake: reporter_stake_need,
+                        machine_fault_type: machine_fault_type.clone(),
+                        report_status: ReportStatus::Reported,
+                        ..Default::default()
+                    },
+                );
+            }
+            // 当是offline时，记录下MachineId，还需要10个DBC作为手续费
+            MachineFaultType::MachineOffline(machine_id) => {
+                <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
+                    .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+
+                ReportInfo::<T>::insert(
+                    &report_id,
+                    MTReportInfoDetail {
+                        reporter: reporter.clone(),
+                        report_time,
+                        reporter_stake: reporter_stake_need,
+                        machine_fault_type: machine_fault_type.clone(),
+                        machine_id,
+                        report_status: ReportStatus::Reported,
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+
+        // 记录到报告人的存储中
+        let mut reporter_report = Self::reporter_report(&reporter);
+        if let Err(index) = reporter_report.reported_id.binary_search(&report_id) {
+            reporter_report.reported_id.insert(index, report_id);
+        }
+        ReporterReport::<T>::insert(&reporter, reporter_report);
+        Self::deposit_event(Event::ReportMachineFault(reporter, machine_fault_type));
+
+        Ok(().into())
+    }
+
     fn get_new_report_id() -> ReportId {
         let report_id = Self::next_report_id();
 
