@@ -11,6 +11,9 @@ use sp_std::prelude::*;
 
 pub use pallet::*;
 
+mod rpc_types;
+pub use rpc_types::*;
+
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<

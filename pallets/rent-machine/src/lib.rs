@@ -459,10 +459,6 @@ impl<T: Config> Pallet<T> {
 
 // RPC
 impl<T: Config> Module<T> {
-    pub fn get_sum() -> u64 {
-        3
-    }
-
     pub fn get_rent_order(
         renter: T::AccountId,
         machine_id: MachineId,

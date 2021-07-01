@@ -112,6 +112,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 
 /// 机器状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum MachineStatus<BlockNumber> {
     /// 执行bond操作后，等待提交自定义信息
     AddingCustomizeInfo,
@@ -779,11 +780,24 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 超过一年的机器可以在不使用的时候退出
+        /// 超过365天的机器可以在距离上次租用10天，且没被租用时退出
         #[pallet::weight(10000)]
         pub fn claim_exit(
             origin: OriginFor<T>,
             _controller: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let _controller = ensure_signed(origin)?;
+            Ok(().into())
+        }
+
+        /// 满足365天可以申请重新质押，退回质押币
+        ///
+        /// 在系统中上线满365天之后，可以按当时机器需要的质押数量，重新入网。多余的币解绑
+        /// 在重新上线之后，下次再执行本操作，需要等待365天
+        #[pallet::weight(10000)]
+        pub fn rebond_online_machine(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let _controller = ensure_signed(origin)?;
             Ok(().into())
@@ -1533,13 +1547,13 @@ impl<T: Config> Module<T> {
             machine_owner: machine_info.machine_stash,
             bonding_height: machine_info.bonding_height,
             stake_amount: machine_info.stake_amount,
-            // machine_status: machine_info.machine_status,
+            machine_status: machine_info.machine_status,
             total_rented_duration: machine_info.total_rented_duration,
             total_rented_times: machine_info.total_rented_times,
             total_rent_fee: machine_info.total_rent_fee,
             total_burn_fee: machine_info.total_burn_fee,
             machine_info_detail: machine_info.machine_info_detail,
-            // reward_committee: machine_info.reward_committee,
+            reward_committee: machine_info.reward_committee,
             reward_deadline: machine_info.reward_deadline,
         }
     }

@@ -759,7 +759,7 @@ impl<T: Config> Module<T> {
         RpcLCCommitteeOps {
             booked_time: committee_info.book_time,
             staked_dbc: lc_committee_ops.staked_dbc,
-            verify_time: lc_committee_ops.verify_time, // FIXME: return Vec<BlockNumber> type
+            verify_time: lc_committee_ops.verify_time,
             confirm_hash: lc_committee_ops.confirm_hash,
             hash_time: lc_committee_ops.hash_time,
             confirm_time: lc_committee_ops.confirm_time,
