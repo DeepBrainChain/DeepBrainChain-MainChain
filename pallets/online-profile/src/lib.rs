@@ -113,6 +113,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 /// 机器状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum MachineStatus<BlockNumber> {
     /// 执行bond操作后，等待提交自定义信息
     AddingCustomizeInfo,
@@ -146,6 +147,7 @@ impl<BlockNumber> Default for MachineStatus<BlockNumber> {
 /// 系统中存在的机器列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LiveMachine {
     /// 用户质押DBC并绑定机器，机器等待控制人提交信息
     pub bonding_machine: Vec<MachineId>,
@@ -234,6 +236,7 @@ pub struct SysInfoDetail<Balance> {
 /// 不同经纬度GPU信息统计
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct PosInfo {
     /// 在线机器的GPU数量
     pub online_gpu: u64,
