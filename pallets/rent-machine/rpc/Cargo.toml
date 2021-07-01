@@ -4,47 +4,32 @@ version = "0.1.0"
 authors = ["bobo"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
 
-# local packages
-rent-machine-runtime-api = { version = "0.1.0", path = "./runtime-api", default-features = false }
-rent-machine = { version = "0.1.0", path = "../../rent-machine", default-features = false }
+generic-func = { version = "0.1.0", path = "../../generic-func" }
+rent-machine-runtime-api = { version = "0.1.0", path = "./runtime-api" }
+rent-machine = { version = "0.1.0", path = "../../rent-machine" }
 
 [dependencies.sp-api]
-default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
 [dependencies.sp-runtime]
-default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
 [dependencies.sp-blockchain]
-default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
 [dependencies.sp-rpc]
-default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
-
-[features]
-default = ["std"]
-std = [
-    "sp-api/std",
-    "sp-runtime/std",
-    "rent-machine/std",
-    "rent-machine-runtime-api/std",
-]

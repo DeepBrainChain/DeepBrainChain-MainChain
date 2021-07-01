@@ -61,6 +61,7 @@ mod tests;
 // 从用户地址查询绑定的机器列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LCCommitteeMachineList {
     pub booked_machine: Vec<MachineId>, // 记录分配给用户的机器ID及开始验证时间
     pub hashed_machine: Vec<MachineId>, // 存储已经提交了Hash信息的机器
@@ -71,6 +72,7 @@ pub struct LCCommitteeMachineList {
 // 机器对应的验证委员会
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
     pub book_time: BlockNumber,              // 系统分派订单的时间
     pub booked_committee: Vec<AccountId>,    // 订单分配的委员会
@@ -83,6 +85,7 @@ pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum LCVerifyStatus {
     SubmitingHash,
     SubmitingRaw,
@@ -110,6 +113,7 @@ pub struct LCCommitteeOps<BlockNumber, Balance> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum LCMachineStatus {
     Booked,
     Hashed,
@@ -735,10 +739,6 @@ impl<T: Config> Pallet<T> {
 
 // RPC
 impl<T: Config> Module<T> {
-    pub fn get_sum() -> u64 {
-        return 3;
-    }
-
     pub fn get_machine_committee_list(
         machine_id: MachineId,
     ) -> LCMachineCommitteeList<T::AccountId, T::BlockNumber> {
@@ -752,14 +752,14 @@ impl<T: Config> Module<T> {
     pub fn get_committee_ops(
         committee: T::AccountId,
         machine_id: MachineId,
-    ) -> RpcLCCommitteeOps<T::BlockNumber> {
+    ) -> RpcLCCommitteeOps<T::BlockNumber, BalanceOf<T>> {
         let lc_committee_ops = Self::committee_ops(&committee, &machine_id);
         let committee_info = Self::machine_committee(&machine_id);
 
         RpcLCCommitteeOps {
             booked_time: committee_info.book_time,
-            // staked_dbc: lc_committee_ops.staked_dbc,
-            verify_time: lc_committee_ops.verify_time, // FIXME: return Vec<BlockNumber> type
+            staked_dbc: lc_committee_ops.staked_dbc,
+            verify_time: lc_committee_ops.verify_time,
             confirm_hash: lc_committee_ops.confirm_hash,
             hash_time: lc_committee_ops.hash_time,
             confirm_time: lc_committee_ops.confirm_time,

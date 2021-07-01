@@ -12,12 +12,13 @@ use sp_std::prelude::Vec;
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // runtime amalgamator file (the `runtime/src/lib.rs`)
 sp_api::decl_runtime_apis! {
-    pub trait LcRpcApi<AccountId, BlockNumber> where
+    pub trait LcRpcApi<AccountId, BlockNumber, Balance> where
         AccountId: codec::Codec + Ord,
         BlockNumber: Codec + MaybeDisplay,
+        Balance: Codec + MaybeDisplay,
     {
         fn get_machine_committee_list(machine_id: MachineId) -> LCMachineCommitteeList<AccountId, BlockNumber>;
         fn get_committee_machine_list(committee: AccountId) -> LCCommitteeMachineList;
-        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> RpcLCCommitteeOps<BlockNumber>;
+        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> RpcLCCommitteeOps<BlockNumber, Balance>;
     }
 }

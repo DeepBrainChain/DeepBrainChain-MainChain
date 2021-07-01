@@ -2149,6 +2149,7 @@ dependencies = [
  "frame-system",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
+ "serde",
  "sp-core",
  "sp-runtime",
  "sp-std",
@@ -2960,6 +2961,7 @@ dependencies = [
 name = "lease-committee-rpc"
 version = "0.1.0"
 dependencies = [
+ "generic-func",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -4413,6 +4415,7 @@ dependencies = [
 name = "online-profile-rpc"
 version = "0.1.0"
 dependencies = [
+ "generic-func",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -6228,6 +6231,7 @@ dependencies = [
 name = "rent-machine-rpc"
 version = "0.1.0"
 dependencies = [
+ "generic-func",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",

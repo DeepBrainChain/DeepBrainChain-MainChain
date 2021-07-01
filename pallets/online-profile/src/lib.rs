@@ -112,6 +112,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 
 /// 机器状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum MachineStatus<BlockNumber> {
     /// 执行bond操作后，等待提交自定义信息
     AddingCustomizeInfo,
@@ -145,6 +147,7 @@ impl<BlockNumber> Default for MachineStatus<BlockNumber> {
 /// 系统中存在的机器列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LiveMachine {
     /// 用户质押DBC并绑定机器，机器等待控制人提交信息
     pub bonding_machine: Vec<MachineId>,
@@ -233,6 +236,7 @@ pub struct SysInfoDetail<Balance> {
 /// 不同经纬度GPU信息统计
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct PosInfo {
     /// 在线机器的GPU数量
     pub online_gpu: u64,
@@ -779,11 +783,24 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 超过一年的机器可以在不使用的时候退出
+        /// 超过365天的机器可以在距离上次租用10天，且没被租用时退出
         #[pallet::weight(10000)]
         pub fn claim_exit(
             origin: OriginFor<T>,
             _controller: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let _controller = ensure_signed(origin)?;
+            Ok(().into())
+        }
+
+        /// 满足365天可以申请重新质押，退回质押币
+        ///
+        /// 在系统中上线满365天之后，可以按当时机器需要的质押数量，重新入网。多余的币解绑
+        /// 在重新上线之后，下次再执行本操作，需要等待365天
+        #[pallet::weight(10000)]
+        pub fn rebond_online_machine(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let _controller = ensure_signed(origin)?;
             Ok(().into())
@@ -1533,13 +1550,13 @@ impl<T: Config> Module<T> {
             machine_owner: machine_info.machine_stash,
             bonding_height: machine_info.bonding_height,
             stake_amount: machine_info.stake_amount,
-            // machine_status: machine_info.machine_status,
+            machine_status: machine_info.machine_status,
             total_rented_duration: machine_info.total_rented_duration,
             total_rented_times: machine_info.total_rented_times,
             total_rent_fee: machine_info.total_rent_fee,
             total_burn_fee: machine_info.total_burn_fee,
             machine_info_detail: machine_info.machine_info_detail,
-            // reward_committee: machine_info.reward_committee,
+            reward_committee: machine_info.reward_committee,
             reward_deadline: machine_info.reward_deadline,
         }
     }
