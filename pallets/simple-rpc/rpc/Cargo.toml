@@ -12,8 +12,8 @@ jsonrpc-derive = "15.0"
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 
+generic-func = { version = "0.1.0", path = "../../generic-func" }
 simple-rpc = { version = "0.1.0", path = "../../simple-rpc", default-features = false }
-
 simple-rpc-runtime-api = { version = "0.1.0", path = "./runtime-api", default-features = false }
 
 [dependencies.sp-runtime]

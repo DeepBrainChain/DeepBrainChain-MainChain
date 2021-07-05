@@ -87,15 +87,15 @@ pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum LCVerifyStatus {
-    SubmitingHash,
-    SubmitingRaw,
-    Summarying,
+    SubmittingHash,
+    SubmittingRaw,
+    Summarizing,
     Finished,
 }
 
 impl Default for LCVerifyStatus {
     fn default() -> Self {
-        LCVerifyStatus::SubmitingHash
+        LCVerifyStatus::SubmittingHash
     }
 }
 
@@ -276,7 +276,7 @@ pub mod pallet {
             // 如果委员会都提交了Hash,则直接进入提交原始信息的阶段
             if machine_committee.booked_committee.len() == machine_committee.hashed_committee.len()
             {
-                machine_committee.status = LCVerifyStatus::SubmitingRaw;
+                machine_committee.status = LCVerifyStatus::SubmittingRaw;
             }
 
             // 更新存储
@@ -306,7 +306,7 @@ pub mod pallet {
             let mut machine_ops = Self::committee_ops(&who, &machine_id);
 
             // 如果所有人都提交了，则直接可以提交Hash
-            if machine_committee.status != LCVerifyStatus::SubmitingRaw {
+            if machine_committee.status != LCVerifyStatus::SubmittingRaw {
                 // 查询是否已经到了提交hash的时间 必须在36 ~ 48小时之间
                 ensure!(now >= machine_committee.confirm_start_time, Error::<T>::TimeNotAllow);
                 ensure!(
@@ -358,7 +358,7 @@ pub mod pallet {
             if machine_committee.confirmed_committee.len()
                 == machine_committee.booked_committee.len()
             {
-                machine_committee.status = LCVerifyStatus::Summarying;
+                machine_committee.status = LCVerifyStatus::Summarizing;
             }
 
             CommitteeMachine::<T>::insert(&who, committee_machine);
@@ -503,7 +503,7 @@ impl<T: Config> Pallet<T> {
 
             let machine_committee = Self::machine_committee(machine_id.clone());
             // 当不为Summary状态时查看是否到了48小时，如果不到则返回
-            if machine_committee.status != LCVerifyStatus::Summarying {
+            if machine_committee.status != LCVerifyStatus::Summarizing {
                 if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
                     return;
                 }

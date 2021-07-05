@@ -191,9 +191,9 @@
   },
   "LCVerifyStatus": {
     "_enum": [
-      "SubmitingHash",
-      "SubmitingRaw",
-      "Summarying",
+      "SubmittingHash",
+      "SubmittingRaw",
+      "Summarizing",
       "Finished"
     ]
   },

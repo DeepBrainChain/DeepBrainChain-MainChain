@@ -7749,6 +7749,7 @@ dependencies = [
 name = "simple-rpc-rpc"
 version = "0.1.0"
 dependencies = [
+ "generic-func",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
