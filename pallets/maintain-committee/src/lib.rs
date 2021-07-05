@@ -106,7 +106,7 @@ pub enum ReportStatus {
     /// 有委员会抢单，处于验证中
     Verifying,
     /// 距离第一个验证人抢单3个小时后，等待委员会上传原始信息
-    SubmitingRaw,
+    SubmittingRaw,
     /// 委员会已经完成，等待第48小时, 检查报告结果
     CommitteeConfirmed,
 }
@@ -595,8 +595,8 @@ pub mod pallet {
                 }
                 LiveReport::<T>::put(live_report);
 
-                // FIXME: 不能直接变成SubmitingRaw防止有人提前提交原始值
-                report_info.report_status = ReportStatus::SubmitingRaw;
+                // FIXME: 不能直接变成SubmittingRaw防止有人提前提交原始值
+                report_info.report_status = ReportStatus::SubmittingRaw;
             }
 
             report_info.verifying_committee = None;
@@ -620,7 +620,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 订单状态必须是等待SubmitingRaw
+        // 订单状态必须是等待SubmittingRaw
         #[pallet::weight(10000)]
         fn submit_confirm_raw(
             origin: OriginFor<T>,
@@ -636,7 +636,7 @@ pub mod pallet {
 
             let mut report_info = Self::report_info(report_id);
             ensure!(
-                report_info.report_status == ReportStatus::SubmitingRaw,
+                report_info.report_status == ReportStatus::SubmittingRaw,
                 Error::<T>::OrderStatusNotFeat
             );
 
@@ -940,7 +940,7 @@ impl<T: Config> Pallet<T> {
                 }
                 if now - report_info.report_time >= 360u64.saturated_into::<T::BlockNumber>() {
                     // 这时正好是3个小时, 报告状态变为等待Raw, 则移动到等待提交Raw中
-                    report_info.report_status = ReportStatus::SubmitingRaw;
+                    report_info.report_status = ReportStatus::SubmittingRaw;
                     if let Err(index) = live_report.waiting_raw_report.binary_search(&a_report_id) {
                         live_report.waiting_raw_report.insert(index, a_report_id);
                     }
@@ -981,7 +981,7 @@ impl<T: Config> Pallet<T> {
                 {
                     report_info.get_encrypted_info_committee.remove(index);
                 }
-                report_info.report_status = ReportStatus::SubmitingRaw;
+                report_info.report_status = ReportStatus::SubmittingRaw;
 
                 // 从live_report中修改
                 if let Ok(index) = live_report.verifying_report.binary_search(&a_report_id) {

@@ -468,6 +468,7 @@ impl<T: Config> Pallet<T> {
 
         // 如果委员会数量为0，直接返回空列表
         if committee.len() == 0 {
+            debug::warn!("No available committee found");
             return None;
         }
 

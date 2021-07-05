@@ -75,15 +75,16 @@ node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module onlinePro
     --key $bob_stash_key $dave
 
 # 绑定机器: dave为控制人，绑定了一个机器：Bob, 受益账户为BobStash
+# FIXME: 参数分别为：machine_id; msg; sig
 node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func bondMachine \
     --key $dave_key $bob
 
 # 生成签名信息，由机器签名
+# 签名消息为机器ID（公钥形式） + stash_Account
 node gen_signature.js --key $bob_key --msg $bob$bob_stash
-### MSG: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc
+### MSG: 8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a485HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc
 ### SignedBy: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty
-### Signature: 0x0089673806c55e6e9d4ce4ea46c6d24736599c0f48f16fa7719b303b6a204602fcf33946d3a588a87f9619db0890b027d1ad358fa9a3de10f57e03e2a3423782
-
+### Signature: 0xe06315613598344a3ff3809d269a4635fe0709e3c3a02c00e33a0e0f6cdd1b37289e21e7a74787a5d64f2b0b2c2797e2061c0394a014106297041297d77e8389
 
 # 由控制人提交，机器地址提交签名，与资金账户绑定
 sig="0x0089673806c55e6e9d4ce4ea46c6d24736599c0f48f16fa7719b303b6a204602fcf33946d3a588a87f9619db0890b027d1ad358fa9a3de10f57e03e2a3423782"

@@ -102,8 +102,7 @@
     "num": "Vec<u8>",
     "type": "Vec<u8>"
   },
-  "Disk": {
-  },
+  "Disk": {},
   "GPU": {
     "num": "Vec<u8>",
     "gpus": "Vec<GPUDetail>"
@@ -311,7 +310,7 @@
       "Reported",
       "WaitingBook",
       "Verifying",
-      "SubmitingRaw",
+      "SubmittingRaw",
       "CommitteeConfirmed"
     ]
   },
