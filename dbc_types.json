@@ -91,8 +91,8 @@
   "StakerCustomizeInfo": {
     "upload_net": "u64",
     "download_net": "u64",
-    "longitude": "u64",
-    "latitude": "u64",
+    "longitude": "i64",
+    "latitude": "i64",
     "telecom_operators": "Vec<TelecomName>",
     "images": "Vec<ImageName>"
   },
@@ -119,6 +119,12 @@
   "EraMachinePoints": {
     "total": "u64",
     "staker_statistic": "BTreeMap<AccountId, StashMachineStatistics>"
+  },
+  "PosInfo": {
+    "online_gpu": "u64",
+    "offline_gpu": "u64",
+    "rented_gpu": "u64",
+    "online_gpu_calc_points": "u64"
   },
   "MachineGradeStatus": {
     "basic_grade": "u64",
@@ -163,22 +169,6 @@
       "Hashed",
       "Confirmed"
     ]
-  },
-  "CommitteeUploadInfo": {
-    "machine_id": "MachineId",
-    "gpu_type": "Vec<u8>",
-    "gpu_num": "u32",
-    "cuda_core": "u32",
-    "gpu_mem": "u64",
-    "calc_point": "u64",
-    "sys_disk": "u64",
-    "data_disk": "u64",
-    "cpu_type": "Vec<u8>",
-    "cpu_core_num": "u32",
-    "cpu_rate": "u64",
-    "mem_num": "u64",
-    "rand_str": "Vec<u8>",
-    "is_support": "bool"
   },
   "LCMachineCommitteeList": {
     "book_time": "BlockNumber",
@@ -273,10 +263,10 @@
       "Finished"
     ]
   },
-  "MTCommitteeOrderList": {
-    "booked_order": "Vec<ReportId>",
-    "hashed_order": "Vec<ReportId>",
-    "confirmed_order": "Vec<ReportId>",
+  "MTCommitteeReportList": {
+    "booked_report": "Vec<ReportId>",
+    "hashed_report": "Vec<ReportId>",
+    "confirmed_report": "Vec<ReportId>",
     "online_machine": "Vec<MachineId>"
   },
   "MTLiveReportList": {
