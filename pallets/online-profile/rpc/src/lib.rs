@@ -43,7 +43,7 @@ where
     ) -> Result<RPCMachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>>;
 
     #[rpc(name = "onlineProfile_getPosGpuInfo")]
-    fn get_pos_gpu_info(&self, at: Option<BlockHash>) -> Result<Vec<(u64, u64, PosInfo)>>;
+    fn get_pos_gpu_info(&self, at: Option<BlockHash>) -> Result<Vec<(i64, i64, PosInfo)>>;
 }
 
 pub struct OpStorage<C, M> {
@@ -169,7 +169,7 @@ where
     fn get_pos_gpu_info(
         &self,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<(u64, u64, PosInfo)>> {
+    ) -> Result<Vec<(i64, i64, PosInfo)>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

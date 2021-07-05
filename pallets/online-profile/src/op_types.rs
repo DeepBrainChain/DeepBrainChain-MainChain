@@ -82,10 +82,10 @@ pub struct StakerCustomizeInfo {
     pub upload_net: u64,
     /// 下行带宽
     pub download_net: u64,
-    /// 经度
-    pub longitude: u64,
-    /// 纬度
-    pub latitude: u64,
+    /// 经度(+东经; -西经)
+    pub longitude: i64,
+    /// 纬度(+北纬； -南纬)
+    pub latitude: i64,
     /// 网络运营商
     pub telecom_operators: Vec<Vec<u8>>,
     /// 镜像名称

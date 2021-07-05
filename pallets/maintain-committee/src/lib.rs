@@ -298,11 +298,9 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // FIXME: Enum类型的值在前端无法显示
         /// 用户报告机器有故障：无法租用或者硬件故障或者离线
         /// 报告无法租用提交Hash:机器ID+随机数+报告内容
         /// 报告硬件故障提交Hash:机器ID+随机数+报告内容+租用机器的Session信息
-
         /// 用户报告机器硬件故障
         #[pallet::weight(10000)]
         pub fn report_machine_fault(

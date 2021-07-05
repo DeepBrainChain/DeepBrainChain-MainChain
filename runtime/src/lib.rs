@@ -1208,7 +1208,7 @@ impl_runtime_apis! {
             OnlineProfile::get_machine_info(machine_id)
         }
 
-        fn get_pos_gpu_info() -> Vec<(u64, u64, online_profile::PosInfo)> {
+        fn get_pos_gpu_info() -> Vec<(i64, i64, online_profile::PosInfo)> {
             OnlineProfile::get_pos_gpu_info()
         }
     }

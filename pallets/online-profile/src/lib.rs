@@ -303,7 +303,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn pos_gpu_info)]
     pub(super) type PosGPUInfo<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, u64, Blake2_128Concat, u64, PosInfo, ValueQuery>;
+        StorageDoubleMap<_, Blake2_128Concat, i64, Blake2_128Concat, i64, PosInfo, ValueQuery>;
 
     /// stash 对应的 controller
     #[pallet::storage]
@@ -432,6 +432,7 @@ pub mod pallet {
             reward_start_era: EraIndex,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
+
             RewardStartEra::<T>::put(reward_start_era);
             Ok(().into())
         }
@@ -1562,8 +1563,8 @@ impl<T: Config> Module<T> {
     }
 
     /// 获得系统中所有位置列表
-    pub fn get_pos_gpu_info() -> Vec<(u64, u64, PosInfo)> {
-        <PosGPUInfo<T> as IterableStorageDoubleMap<u64, u64, PosInfo>>::iter()
+    pub fn get_pos_gpu_info() -> Vec<(i64, i64, PosInfo)> {
+        <PosGPUInfo<T> as IterableStorageDoubleMap<i64, i64, PosInfo>>::iter()
             .map(|(k1, k2, v)| (k1, k2, v))
             .collect()
     }
