@@ -392,15 +392,15 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         for a_machine_id in live_machines.confirmed_machine {
-            debug::warn!("#### distribute machine: {:?}", &a_machine_id);
+            debug::warn!("Distribute machine: {:?}", &a_machine_id);
             let _ = Self::distribute_one_machine(&a_machine_id);
         }
     }
 
-    fn distribute_one_machine(machine_id: &MachineId) -> Result<(), ()> {
+    pub fn distribute_one_machine(machine_id: &MachineId) -> Result<(), ()> {
         let lucky_committee = Self::lucky_committee().ok_or(())?;
 
-        debug::warn!("#### lucky_committee: {:?} for machine: {:?}", &lucky_committee, machine_id);
+        debug::warn!("Lucky committee: {:?} for machine: {:?}", &lucky_committee, machine_id);
 
         // 每个添加4个小时
         let now = <frame_system::Module<T>>::block_number();
@@ -426,7 +426,7 @@ impl<T: Config> Pallet<T> {
         let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
         <T as pallet::Config>::ManageCommittee::change_stake(&order_time.0, stake_need, true)?;
 
-        debug::warn!("#### will change following status");
+        debug::warn!("Will change following status");
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
@@ -463,7 +463,7 @@ impl<T: Config> Pallet<T> {
 
     // 分派一个machineId给随机的委员会
     // 返回Distribution(9)个随机顺序的账户列表
-    fn lucky_committee() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
+    pub fn lucky_committee() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
         let mut committee = <committee::Module<T>>::available_committee().ok()?;
 
         // 如果委员会数量为0，直接返回空列表

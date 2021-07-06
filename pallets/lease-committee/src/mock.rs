@@ -1,5 +1,8 @@
 use crate as lease_committee;
-use frame_support::{parameter_types, traits::OnFinalize};
+use frame_support::{
+    parameter_types,
+    traits::{OnFinalize, OnInitialize},
+};
 pub use frame_system::{self as system, RawOrigin};
 pub use sp_core::{
     sr25519::{self, Signature},
@@ -173,7 +176,7 @@ impl online_profile::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type BondingDuration = BondingDuration;
-    type ProfitReleaseDuration = ProfitReleaseDuration;
+    // type ProfitReleaseDuration = ProfitReleaseDuration;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
 }
@@ -227,15 +230,19 @@ pub const BLOCK_TIME: u64 = 1000;
 pub const INIT_TIMESTAMP: u64 = 30_000;
 
 pub fn run_to_block(n: BlockNumber) {
-    Committee::on_finalize(System::block_number());
-    LeaseCommittee::on_finalize(System::block_number());
-    OnlineProfile::on_finalize(System::block_number());
-    for b in (System::block_number() + 1)..=n {
-        System::set_block_number(b);
-        Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
-        if b != n {
-            Committee::on_finalize(System::block_number());
-            LeaseCommittee::on_finalize(System::block_number());
-        }
+    for b in System::block_number()..=n {
+        // 当前块结束
+        OnlineProfile::on_finalize(b);
+        LeaseCommittee::on_finalize(b);
+        Committee::on_finalize(b);
+        System::on_finalize(b);
+
+        System::set_block_number(b + 1);
+
+        // 下一块初始化
+        System::on_initialize(b + 1);
+        LeaseCommittee::on_initialize(b + 1);
+        Committee::on_initialize(b + 1);
+        OnlineProfile::on_initialize(b + 1);
     }
 }

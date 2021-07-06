@@ -1,15 +1,17 @@
+#![allow(dead_code)]
+
 use crate::{mock::*, LCMachineCommitteeList};
 use committee::CommitteeList;
 use dbc_price_ocw::MAX_LEN;
 use frame_support::assert_ok;
-use online_profile::{LiveMachine, StakerCustomizeInfo};
+use online_profile::{LiveMachine, StakerCustomizeInfo, StandardGpuPointPrice};
 use std::convert::TryInto;
 
 #[test]
 #[rustfmt::skip]
-fn set_default_value_works() {
+fn machine_online_works() {
     new_test_ext().execute_with(|| {
-        System::set_block_number(1); // 随机函数需要
+        System::set_block_number(1); // 随机函数需要初始化
 
         let alice: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
         let bob: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Bob).into();
@@ -21,13 +23,13 @@ fn set_default_value_works() {
 
         let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into(); // Controller
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into(); // Stash
-        let machine_id = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"; // Bob account
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"; // Bob pubkey
 
         assert_eq!(Balances::free_balance(alice), 1000_000);
 
         // 初始化price_ocw (0.012$)
         assert_eq!(DBCPriceOCW::avg_price(), None);
-        for i in 0..MAX_LEN {
+        for _ in 0..MAX_LEN {
             DBCPriceOCW::add_price(12_000u64);
         }
         DBCPriceOCW::add_avg_price();
@@ -47,28 +49,48 @@ fn set_default_value_works() {
         assert_ok!(OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 1, 1_000_000u32.into()));
         // 设置单卡质押上限：7_700_000_000
         assert_ok!(OnlineProfile::set_stake_usd_limit(RawOrigin::Root.into(), 7_700_000_000u64.into()));
+        // 设置标准GPU租金价格
+        assert_ok!(OnlineProfile::set_standard_gpu_point_price(RawOrigin::Root.into(), StandardGpuPointPrice{gpu_point: 1000, gpu_price: 77000000}));
+
+        run_to_block(2);
+
+        // 查询状态
+        assert_eq!(DbcPrice::get_dbc_amount_by_value(123), Some(123u64.into()));
+        assert_eq!(Committee::committee_stake_usd_per_order(), Some(15_000_000));
+        assert_eq!(Committee::committee_stake_dbc_per_order(), Some(1000));
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
 
         // controller bond_machine
-        assert_ok!(OnlineProfile::bond_machine(Origin::signed(controller), machine_id.as_bytes().to_vec()));
+        let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a485CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
 
-        let msg = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
-        let sig = "0006e4e10234b2a6dab987ad9535b1a50829f12ba1fbb8ec2de98fa05e7f1e4da86fc36cca7262e8b698b2f52e2a0697b871a55c38f9d3d70e25cffa9eade48f";
-        // submit machine signed info to confirm stash account
-        assert_ok!(OnlineProfile::machine_set_stash(
+        // NOTE:  测试中签名不以0x开头
+        let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e0254f4a9b010e2d8a5cce9d262e9193b76be87b46f6bef4219517cf939520bfff84";
+        assert_ok!(OnlineProfile::bond_machine(
             Origin::signed(controller),
-            msg.as_bytes().to_vec() ,
-            hex::decode(sig).unwrap() ,
-            StakerCustomizeInfo{
-                upload_net: 1100,
-                download_net: 1101,
-                longitude: 1102,
-                latitude: 1103,
-                ..Default::default()
-            }
+            machine_id.as_bytes().to_vec(),
+            msg.as_bytes().to_vec(),
+            hex::decode(sig).unwrap()
         ));
+
+        assert_ok!(OnlineProfile::add_machine_info(
+            Origin::signed(controller),
+            machine_id.as_bytes().to_vec(),
+            online_profile::StakerCustomizeInfo {
+                upload_net: 1234,
+                download_net: 1101,
+                longitude: 1112,
+                latitude: 2223,
+                ..Default::default()}
+        ));
+
+        run_to_block(3);
+        // 订单处于正常状态
+        assert_eq!(OnlineProfile::live_machines(), LiveMachine{
+            confirmed_machine: vec!(machine_id.as_bytes().to_vec()),
+            ..Default::default()
+        });
 
         // 增加三个委员会
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), one));
@@ -83,24 +105,38 @@ fn set_default_value_works() {
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(two), two_box_pubkey));
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(alice), alice_box_pubkey));
 
-        // 委员会处于正常状态
+        // 委员会处于正常状态(排序后的列表)
         assert_eq!(Committee::committee(), CommitteeList{normal: vec!(two, one, alice), ..Default::default()});
+
+        // 获取可派单的委员会正常
+        assert_ok!(LeaseCommittee::lucky_committee().ok_or(()));
+
+
+
+
+        assert_ok!(LeaseCommittee::distribute_one_machine(&machine_id.as_bytes().to_vec()));
+
+        run_to_block(5);
 
         // 订单处于正常状态
         assert_eq!(OnlineProfile::live_machines(), LiveMachine{
-            machine_confirmed: vec!(machine_id.as_bytes().to_vec()),
+            confirmed_machine: vec!(machine_id.as_bytes().to_vec()),
             ..Default::default()
         });
 
-        LeaseCommittee::distribute_machines();
+        // TODO: 过几个块
+
+
+        // LeaseCommittee::distribute_machines();
 
         // 订单处于正常状态
         assert_eq!(OnlineProfile::live_machines(), LiveMachine{
-            machine_confirmed: vec!(machine_id.as_bytes().to_vec()),
+            confirmed_machine: vec!(machine_id.as_bytes().to_vec()),
             ..Default::default()
         });
 
         run_to_block(10);
+        // FIXME
         assert_eq!(
             LeaseCommittee::machine_committee(machine_id.as_bytes().to_vec()),
             LCMachineCommitteeList{..Default::default()}
