@@ -9,9 +9,10 @@ targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-lite-json = { version = "0.1", default-features = false } # TODO: check this version
+lite-json = { version = "0.1", default-features = false }
 serde = { version = "1.0.101", optional = true }
 online-profile-machine = { package = "online-profile-machine", path = "../../traits/online-profile-machine", default-features = false }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }
 
 [dependencies.frame-system]
 default-features = false
@@ -57,13 +58,11 @@ package = 'generic-func'
 [features]
 default = ['std']
 std = [
-    'frame-support/std',
-    'frame-system/std',
-    "lite-json/std",
-    "generic-func/std",
-    'sp-core/std',
-    "sp-io/std",
-    "sp-std/std",
-    "sp-runtime/std",
-    "serde",
+  'frame-support/std',
+  'frame-system/std',
+  "generic-func/std",
+  'sp-core/std',
+  "sp-io/std",
+  "sp-std/std",
+  "sp-runtime/std",
 ]

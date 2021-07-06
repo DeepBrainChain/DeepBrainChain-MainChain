@@ -1290,6 +1290,7 @@ dependencies = [
  "online-profile-machine",
  "parity-scale-codec",
  "serde",
+ "serde_json 1.0.64",
  "sp-core",
  "sp-io",
  "sp-runtime",

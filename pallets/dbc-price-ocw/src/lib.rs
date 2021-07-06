@@ -1,12 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// use alt_serde::{Deserialize, Deserializer};
 use frame_support::{
     debug,
     traits::Randomness,
     traits::{Currency, LockableCurrency},
 };
 use frame_system::offchain::SubmitTransaction;
-use lite_json::json::JsonValue;
 use online_profile_machine::DbcPrice;
 use sp_core::H256;
 use sp_runtime::{
@@ -16,6 +16,7 @@ use sp_runtime::{
 use sp_std::{str, vec::Vec};
 
 pub use pallet::*;
+pub mod parse_price;
 
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -188,7 +189,7 @@ impl<T: Config> Pallet<T> {
 
     // 获取并返回当前价格
     fn fetch_price() -> Result<u64, http::Error> {
-        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
+        let timeout = sp_io::offchain::timestamp().add(Duration::from_millis(4_000));
 
         let price_url = Self::price_url().ok_or(http::Error::Unknown)?;
 
@@ -199,9 +200,9 @@ impl<T: Config> Pallet<T> {
 
         let request = http::Request::get(price_url);
 
-        let pending = request.deadline(deadline).send().map_err(|_| http::Error::IoError)?;
+        let pending = request.deadline(timeout).send().map_err(|_| http::Error::IoError)?;
 
-        let response = pending.try_wait(deadline).map_err(|_| http::Error::DeadlineReached)??;
+        let response = pending.try_wait(timeout).map_err(|_| http::Error::DeadlineReached)??;
         // Let's check the status code before we proceed to reading the response.
         if response.code != 200 {
             debug::warn!("Unexpected status code: {}", response.code);
@@ -215,10 +216,13 @@ impl<T: Config> Pallet<T> {
             http::Error::Unknown
         })?;
 
-        let price = match Self::parse_price(body_str) {
-            Some(price) => Ok(price),
+        let price = match parse_price::parse_price(body_str) {
+            Some(price) => {
+                debug::warn!("Get dbc price: {:?}", price);
+                Ok(price)
+            }
             None => {
-                debug::warn!("Unable to extract price from the response: {:?}", body_str);
+                debug::error!("Unable to extract price from the response: {:?}", body_str);
                 Err(http::Error::Unknown)
             }
         }?;
@@ -226,27 +230,6 @@ impl<T: Config> Pallet<T> {
         debug::warn!("Got price: {} cents", price);
 
         Ok(price)
-    }
-
-    // 将str价格转为u64 (*10^6)
-    fn parse_price(price_str: &str) -> Option<u64> {
-        let val = lite_json::parse_json(price_str);
-        let price = val.ok().and_then(|v| match v {
-            JsonValue::Object(obj) => {
-                let mut chars = "USD".chars();
-                obj.into_iter().find(|(k, _)| k.iter().all(|k| Some(*k) == chars.next())).and_then(
-                    |v| match v.1 {
-                        JsonValue::Number(number) => Some(number),
-                        _ => None,
-                    },
-                )
-            }
-            _ => None,
-        })?;
-
-        // out = price.integer * 10**6 + price.fraction / 10**fraction_length * 10**6
-        let fraction = price.fraction * 10_u64.pow(6) / 10_u64.pow(price.fraction_length);
-        Some(price.integer as u64 * 1000_000 + fraction)
     }
 
     // 存储获取到的价格
@@ -264,7 +247,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::AddNewPrice(price));
     }
 
-    // TODO: 可以增加去除最低分，最高分
     pub fn add_avg_price() {
         let prices = Prices::<T>::get();
         if prices.len() != MAX_LEN {
