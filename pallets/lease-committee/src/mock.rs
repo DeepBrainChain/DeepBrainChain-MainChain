@@ -45,7 +45,7 @@ impl system::Config for TestRuntime {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<u128>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -57,7 +57,7 @@ parameter_types! {
 }
 
 impl pallet_balances::Config for TestRuntime {
-    type Balance = u64;
+    type Balance = u128;
     type MaxLocks = ();
     type Event = Event;
     type DustRemoval = ();
@@ -204,18 +204,19 @@ frame_support::construct_runtime!(
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    let init_balance = 10000000000000000000000;
 
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {
         balances: vec![
-            (sr25519::Public::from(Sr25519Keyring::Alice).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Bob).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Charlie).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Dave).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Eve).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::One).into(), 1000_000),
-            (sr25519::Public::from(Sr25519Keyring::Two).into(), 1000_000),
+            (sr25519::Public::from(Sr25519Keyring::Alice).into(), init_balance),
+            (sr25519::Public::from(Sr25519Keyring::Bob).into(), init_balance),
+            (sr25519::Public::from(Sr25519Keyring::Charlie).into(), init_balance),
+            (sr25519::Public::from(Sr25519Keyring::Dave).into(), init_balance),
+            (sr25519::Public::from(Sr25519Keyring::Eve).into(), init_balance),
+            (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), init_balance),
+            (sr25519::Public::from(Sr25519Keyring::One).into(), init_balance),
+            (sr25519::Public::from(Sr25519Keyring::Two).into(), init_balance),
         ],
     }
     .assimilate_storage(&mut t)
@@ -225,9 +226,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 pub type BlockNumber = u64;
-
-pub const BLOCK_TIME: u64 = 1000;
-pub const INIT_TIMESTAMP: u64 = 30_000;
 
 pub fn run_to_block(n: BlockNumber) {
     for b in System::block_number()..=n {
