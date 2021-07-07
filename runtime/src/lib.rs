@@ -1196,7 +1196,7 @@ impl_runtime_apis! {
             OnlineProfile::get_op_info()
         }
 
-        fn get_staker_info(who: AccountId) -> online_profile::StakerInfo<Balance> {
+        fn get_staker_info(who: AccountId) -> online_profile::StakerInfo<Balance, BlockNumber> {
             OnlineProfile::get_staker_info(who)
         }
 
@@ -1245,6 +1245,12 @@ impl_runtime_apis! {
 
         fn get_rent_list(renter: AccountId) -> Vec<online_profile::MachineId> {
             RentMachine::get_rent_list(renter)
+        }
+    }
+
+    impl committee_runtime_api::CmRpcApi<Block, AccountId> for Runtime {
+        fn get_committee_list() -> committee::CommitteeList<AccountId> {
+            Committee::get_committee_list()
         }
     }
 

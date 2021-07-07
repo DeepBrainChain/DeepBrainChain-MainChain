@@ -18,6 +18,8 @@ members = [
     'pallets/online-profile/rpc',
     'pallets/online-profile/rpc/runtime-api',
     'pallets/committee',
+    'pallets/committee/rpc',
+    'pallets/committee/rpc/runtime-api',
     'pallets/lease-committee',
     'pallets/lease-committee/rpc',
     'pallets/lease-committee/rpc/runtime-api',

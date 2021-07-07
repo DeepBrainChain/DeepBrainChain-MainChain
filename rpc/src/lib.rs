@@ -129,6 +129,7 @@ where
     C::Api: simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance>,
     C::Api: lease_committee_runtime_api::LcRpcApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance>,
+    C::Api: committee_runtime_api::CmRpcApi<Block, AccountId>,
     P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -195,8 +196,10 @@ where
     )));
 
     io.extend_with(simple_rpc_rpc::SimpleRpcApi::to_delegate(simple_rpc_rpc::SrStorage::new(
-        client,
+        client.clone(),
     )));
+
+    io.extend_with(committee_rpc::CmRpcApi::to_delegate(committee_rpc::CmStorage::new(client)));
 
     io
 }

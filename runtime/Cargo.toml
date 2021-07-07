@@ -117,6 +117,7 @@ std = [
     'simple-rpc/std',
     'simple-rpc-runtime-api/std',
     'committee/std',
+    'committee-runtime-api/std',
     'lease-committee/std',
     'lease-committee-runtime-api/std',
     'maintain-committee/std',
@@ -396,6 +397,11 @@ package = 'simple-rpc-runtime-api'
 default-features = false
 path = '../pallets/committee'
 package = 'committee'
+
+[dependencies.committee-runtime-api]
+default-features = false
+path = '../pallets/committee/rpc/runtime-api'
+package = 'committee-runtime-api'
 
 [dependencies.lease-committee]
 default-features = false

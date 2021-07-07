@@ -9,6 +9,8 @@ rent-machine-rpc = { path = "../pallets/rent-machine/rpc" }
 rent-machine-runtime-api = { path = "../pallets/rent-machine/rpc/runtime-api" }
 simple-rpc-rpc = { path = "../pallets/simple-rpc/rpc" }
 simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api" }
+committee-rpc = { path = "../pallets/committee/rpc" }
+committee-runtime-api = { path = "../pallets/committee/rpc/runtime-api" }
 
 [dependencies.node-primitives]
 path = '../primitives'

@@ -1,3 +1,4 @@
+use super::MachineId;
 use crate::{MachineInfoDetail, MachineStatus};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
@@ -21,10 +22,21 @@ pub struct RpcSysInfo<Balance> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct StakerInfo<Balance> {
+pub struct StakerInfo<Balance, BlockNumber> {
     pub calc_points: u64,
     pub gpu_num: u64,
     pub total_reward: Balance,
+    pub bonded_machines: Vec<MachineBriefInfo<BlockNumber>>,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct MachineBriefInfo<BlockNumber> {
+    pub machine_id: MachineId,
+    pub gpu_num: u32,
+    pub calc_point: u64,
+    pub machine_status: MachineStatus<BlockNumber>,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]

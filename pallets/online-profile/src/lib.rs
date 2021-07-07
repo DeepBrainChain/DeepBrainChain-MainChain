@@ -681,7 +681,7 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            // let now = <frame_system::Module<T>>::block_number();
             let mut machine_info = Self::machines_info(&machine_id);
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
@@ -1095,7 +1095,7 @@ impl<T: Config> Pallet<T> {
         let machine_info = Self::machines_info(&machine_id);
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info;
 
-        let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
+        let mut era_machine_point = Self::eras_machine_points(era_index).unwrap_or_default();
         let mut stash_machine = Self::stash_machines(&stash_account);
         let mut sys_info = Self::sys_info();
 
@@ -1527,22 +1527,37 @@ impl<T: Config> Module<T> {
         }
     }
 
-    pub fn get_staker_info(account: impl EncodeLike<T::AccountId>) -> StakerInfo<BalanceOf<T>> {
+    pub fn get_staker_info(
+        account: impl EncodeLike<T::AccountId>,
+    ) -> StakerInfo<BalanceOf<T>, T::BlockNumber> {
         let staker_info = Self::stash_machines(account);
+
+        let mut staker_machines = Vec::new();
+
+        for a_machine in staker_info.total_machine {
+            let machine_info = Self::machines_info(&a_machine);
+            staker_machines.push(rpc_types::MachineBriefInfo {
+                machine_id: a_machine,
+                gpu_num: machine_info.machine_info_detail.committee_upload_info.gpu_num,
+                calc_point: machine_info.machine_info_detail.committee_upload_info.calc_point,
+                machine_status: machine_info.machine_status,
+            })
+        }
 
         StakerInfo {
             calc_points: staker_info.total_calc_points,
             gpu_num: staker_info.total_gpu_num,
             total_reward: staker_info.total_claimed_reward + staker_info.can_claim_reward,
+            bonded_machines: staker_machines,
         }
     }
 
-    // 获取机器列表
+    /// 获取机器列表
     pub fn get_machine_list() -> LiveMachine {
         Self::live_machines()
     }
 
-    // 获取机器详情
+    /// 获取机器详情
     pub fn get_machine_info(
         machine_id: MachineId,
     ) -> RPCMachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {

@@ -1,12 +1,15 @@
+#![allow(dead_code)]
+
 use crate::{mock::*, LCMachineCommitteeList};
 use committee::CommitteeList;
 use dbc_price_ocw::MAX_LEN;
 use frame_support::assert_ok;
-use online_profile::{LiveMachine, StakerCustomizeInfo, StandardGpuPointPrice};
+use online_profile::{
+    CommitteeUploadInfo, LiveMachine, StakerCustomizeInfo, StandardGpuPointPrice,
+};
 use std::convert::TryInto;
 
 #[test]
-#[rustfmt::skip]
 fn machine_online_works() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1); // 随机函数需要初始化
@@ -117,6 +120,7 @@ fn machine_online_works() {
             ..Default::default()
         });
 
+        // 查询机器中有订阅的委员会
         assert_eq!(
             LeaseCommittee::machine_committee(machine_id.as_bytes().to_vec()),
             LCMachineCommitteeList{
@@ -126,11 +130,47 @@ fn machine_online_works() {
                 ..Default::default()}
         );
 
-        // 委员会分配订单
-
-        // 委员会提交机器hash
+        // 委员会提交机器Hash
+        let machine_info_hash = "d80b116fd318f19fd89da792aba5e875";
+        assert_ok!(LeaseCommittee::submit_confirm_hash(
+            Origin::signed(one),
+            machine_id.as_bytes().to_vec(),
+            hex::decode(machine_info_hash).unwrap().try_into().unwrap()
+        ));
 
         // 委员会提交原始信息
+        assert_ok!(LeaseCommittee::submit_confirm_raw(
+            Origin::signed(one),
+            CommitteeUploadInfo {
+                machine_id: machine_id.as_bytes().to_vec(),
+                gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
+                gpu_num: 4,
+                cuda_core: 4352,
+                gpu_mem: 11283456,
+                calc_point: 6825,
+                sys_disk: 12345465,
+                data_disk: 324567733,
+                cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
+                cpu_core_num: 32,
+                cpu_rate: 26,
+                mem_num: 527988672,
+
+                rand_str: "abcdefg".as_bytes().to_vec(),
+                is_support: true,
+            }
+        ));
+
+        run_to_block(10);
+
+        // 检查机器状态
+        assert_eq!(OnlineProfile::live_machines(), LiveMachine{
+            online_machine: vec!(machine_id.as_bytes().to_vec()),
+            ..Default::default()
+        });
+
+        run_to_block(3000);
+        // 查询奖励
+
     });
 }
 

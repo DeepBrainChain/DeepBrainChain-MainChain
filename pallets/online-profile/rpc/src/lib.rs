@@ -30,7 +30,7 @@ where
         &self,
         account: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<StakerInfo<RpcBalance<Balance>>>;
+    ) -> Result<StakerInfo<RpcBalance<Balance>, BlockNumber>>;
 
     #[rpc(name = "onlineProfile_getMachineList")]
     fn get_machine_list(&self, at: Option<BlockHash>) -> Result<LiveMachine>;
@@ -108,7 +108,7 @@ where
         &self,
         account: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<StakerInfo<RpcBalance<Balance>>> {
+    ) -> Result<StakerInfo<RpcBalance<Balance>, BlockNumber>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -116,6 +116,7 @@ where
             calc_points: staker_info.calc_points,
             gpu_num: staker_info.gpu_num,
             total_reward: staker_info.total_reward.into(),
+            bonded_machines: staker_info.bonded_machines,
         });
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),

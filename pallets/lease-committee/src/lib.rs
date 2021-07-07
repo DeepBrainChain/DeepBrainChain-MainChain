@@ -218,7 +218,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 添加确认hash
         #[pallet::weight(10000)]
-        fn submit_confirm_hash(
+        pub fn submit_confirm_hash(
             origin: OriginFor<T>,
             machine_id: MachineId,
             hash: [u8; 16],
@@ -289,10 +289,9 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // fn submit_confirm_raw(origin: OriginFor<T>, machine_id: MachineId, confirm_raw: Vec<u8>) -> DispatchResultWithPostInfo {
-        // 委员会提交的原始信息
+        /// 委员会提交的原始信息
         #[pallet::weight(10000)]
-        fn submit_confirm_raw(
+        pub fn submit_confirm_raw(
             origin: OriginFor<T>,
             machine_info_detail: CommitteeUploadInfo,
         ) -> DispatchResultWithPostInfo {

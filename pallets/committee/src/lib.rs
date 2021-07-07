@@ -10,6 +10,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{DbcPrice, ManageCommittee};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_runtime::{
     traits::{CheckedAdd, CheckedSub, SaturatedConversion},
     RuntimeDebug,
@@ -38,6 +40,8 @@ pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
 
 // 处于不同状态的委员会的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct CommitteeList<AccountId: Ord> {
     pub normal: Vec<AccountId>,     // 质押并通过社区选举的委员会，正常状态
     pub chill_list: Vec<AccountId>, // 委员会，但不想被派单
@@ -511,5 +515,12 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         let raw_reward =
             Self::committee_reward(&committee).unwrap_or(0u32.saturated_into::<BalanceOf<T>>());
         CommitteeReward::<T>::insert(&committee, raw_reward + reward);
+    }
+}
+
+// RPC
+impl<T: Config> Module<T> {
+    pub fn get_committee_list() -> CommitteeList<T::AccountId> {
+        Self::committee()
     }
 }
