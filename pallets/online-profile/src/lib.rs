@@ -722,7 +722,7 @@ pub mod pallet {
                 StashMachines::<T>::contains_key(&stash_account),
                 Error::<T>::NotMachineController
             );
-            let mut stash_machine = Self::stash_machines(&controller);
+            let mut stash_machine = Self::stash_machines(&stash_account);
 
             <T as pallet::Config>::Currency::deposit_into_existing(
                 &stash_account,
@@ -732,7 +732,7 @@ pub mod pallet {
 
             stash_machine.total_claimed_reward += stash_machine.can_claim_reward;
             stash_machine.can_claim_reward = 0u64.saturated_into();
-            StashMachines::<T>::insert(&controller, stash_machine);
+            StashMachines::<T>::insert(&stash_account, stash_machine);
 
             Ok(().into())
         }

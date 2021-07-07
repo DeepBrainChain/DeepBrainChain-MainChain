@@ -7,7 +7,7 @@ use frame_support::assert_ok;
 use online_profile::{
     CommitteeUploadInfo, LiveMachine, StakerCustomizeInfo, StandardGpuPointPrice,
 };
-use std::convert::TryInto;
+use std::{collections::VecDeque, convert::TryInto};
 
 #[test]
 fn machine_online_works() {
@@ -175,35 +175,99 @@ fn machine_online_works() {
             online_profile::EraMachinePoints{..Default::default()}
         );
 
+        // FIXME 验证Era1奖励数量
         // let era_1_era_points = OnlineProfile::eras_machine_points(1).unwrap();
-        assert_eq!(
-            OnlineProfile::eras_machine_points(1).unwrap(),
-            online_profile::EraMachinePoints{..Default::default()}
-        );
+        // assert_eq!(
+        //     era_1_era_points,
+        //     online_profile::EraMachinePoints{..Default::default()}
+        // );
 
         // 过一个Era: 一天是2880个块
         run_to_block(2880 * 2 + 2);
-        assert_eq!(
-            OnlineProfile::eras_machine_points(0).unwrap(),
-            online_profile::EraMachinePoints{..Default::default()}
-        );
+        // assert_eq!(
+        //     OnlineProfile::eras_machine_points(0).unwrap(),
+        //     online_profile::EraMachinePoints{..Default::default()}
+        // );
 
-        assert_eq!(
-            OnlineProfile::eras_machine_points(1).unwrap(),
-            online_profile::EraMachinePoints{..Default::default()}
-        );
-
-
+        // assert_eq!(
+        //     OnlineProfile::eras_machine_points(1).unwrap(),
+        //     online_profile::EraMachinePoints{..Default::default()}
+        // );
 
         // 第二个Era矿工查询奖励
+        // let stash_machine = OnlineProfile::stash_machines(&stash);
+        // assert_eq!(stash_machine.)
+        assert_eq!(
+            OnlineProfile::stash_machines(&stash),
+            online_profile::StashMachine{
+                total_machine: vec![machine_id.as_bytes().to_vec()],
+                online_machine: vec![machine_id.as_bytes().to_vec()],
+                total_calc_points: 6825,
+                total_gpu_num: 4,
+                total_rented_gpu: 0,
+                total_claimed_reward: 0,
+                can_claim_reward: 247,
 
+                left_reward: vec![743].into_iter().collect(),
+                total_rent_fee: 0,
+                total_burn_fee: 0,
+
+                ..Default::default()
+            }
+        );
+
+        // 委员会查询奖励
+        assert_eq!(Committee::committee_reward(one).unwrap(), 10);
+
+        run_to_block(2880 * 3 + 2);
+        // 线性释放
+        assert_eq!(
+            OnlineProfile::stash_machines(&stash),
+            online_profile::StashMachine{
+                total_machine: vec![machine_id.as_bytes().to_vec()],
+                online_machine: vec![machine_id.as_bytes().to_vec()],
+                total_calc_points: 6825,
+                total_gpu_num: 4,
+                total_rented_gpu: 0,
+                total_claimed_reward: 0,
+                can_claim_reward: 499,
+
+                left_reward: vec![743, 743].into_iter().collect(),
+                total_rent_fee: 0,
+                total_burn_fee: 0,
+
+                ..Default::default()
+            }
+        );
 
 
         // 委员会查询奖励
+        assert_eq!(Committee::committee_reward(one).unwrap(), 20);
 
         // 矿工领取奖励
+        assert_ok!(OnlineProfile::claim_rewards(Origin::signed(controller)));
+        // 领取奖励后，查询剩余奖励
+        assert_eq!(
+            OnlineProfile::stash_machines(&stash),
+            online_profile::StashMachine{
+                total_machine: vec![machine_id.as_bytes().to_vec()],
+                online_machine: vec![machine_id.as_bytes().to_vec()],
+                total_calc_points: 6825,
+                total_gpu_num: 4,
+                total_rented_gpu: 0,
+                total_claimed_reward: 499,
+                can_claim_reward: 0,
+
+                left_reward: vec![743, 743].into_iter().collect(),
+                total_rent_fee: 0,
+                total_burn_fee: 0,
+
+                ..Default::default()
+            }
+        );
 
         // 委员会领取奖励
+        assert_ok!(Committee::claim_reward(Origin::signed(one)));
 
     });
 }
