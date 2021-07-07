@@ -157,18 +157,14 @@
   "LCCommitteeOps": {
     "staked_dbc": "Balance",
     "verify_time": "Vec<BlockNumber>",
-    "confirm_hash": "Hash",
+    "confirm_hash": "[u8; 16]",
     "hash_time": "BlockNumber",
     "confirm_time": "BlockNumber",
     "machine_status": "LCMachineStatus",
     "machine_info": "CommitteeUploadInfo"
   },
   "LCMachineStatus": {
-    "_enum": [
-      "Booked",
-      "Hashed",
-      "Confirmed"
-    ]
+    "_enum": ["Booked", "Hashed", "Confirmed"]
   },
   "LCMachineCommitteeList": {
     "book_time": "BlockNumber",
@@ -180,12 +176,7 @@
     "status": "LCVerifyStatus"
   },
   "LCVerifyStatus": {
-    "_enum": [
-      "SubmittingHash",
-      "SubmittingRaw",
-      "Summarizing",
-      "Finished"
-    ]
+    "_enum": ["SubmittingHash", "SubmittingRaw", "Summarizing", "Finished"]
   },
   "CommitteeMachineList": {
     "booked_order": "Vec<OrderId>",
@@ -198,7 +189,7 @@
     "encrypted_err_info": "Option<Vec<u8>>",
     "encrypted_login_info": "Option<Vec<u8>>",
     "encrypted_time": "BlockNumber",
-    "confirm_hash": "Hash",
+    "confirm_hash": "[u8; 16]",
     "hash_time": "BlockNumber",
     "confirm_raw": "Vec<u8>",
     "confirm_time": "BlockNumber",
@@ -247,7 +238,7 @@
     "booked_time": "BlockNumber",
     "encrypted_err_info": "Option<Vec<u8>>",
     "encrypted_time": "BlockNumber",
-    "confirm_hash": "Hash",
+    "confirm_hash": "[u8; 16]",
     "hash_time": "BlockNumber",
     "confirm_raw": "Vec<u8>",
     "confirm_time": "BlockNumber",
@@ -256,12 +247,7 @@
     "order_status": "MTOrderStatus"
   },
   "MTOrderStatus": {
-    "_enum": [
-      "WaitingEncrypt",
-      "Verifying",
-      "WaitingRaw",
-      "Finished"
-    ]
+    "_enum": ["WaitingEncrypt", "Verifying", "WaitingRaw", "Finished"]
   },
   "MTCommitteeReportList": {
     "booked_report": "Vec<ReportId>",
@@ -278,7 +264,7 @@
   "MTReportInfoDetail": {
     "reporter": "AccountId",
     "report_time": "BlockNumber",
-    "raw_hash": "Hash",
+    "raw_hash": "[u8; 16]",
     "box_public_key": "BoxPubkey",
     "reporter_stake": "Balance",
     "first_book_time": "BlockNumber",
@@ -306,8 +292,8 @@
   },
   "MachineFaultType": {
     "_enum": [
-      "HardwareFault(Hash, BoxPubkey)",
-      "MachineOffline(Hash, BoxPubkey)",
+      "HardwareFault([u8; 16], BoxPubkey)",
+      "MachineOffline([u8; 16], BoxPubkey)",
       "MachineUnrentable(MachineId)"
     ]
   },

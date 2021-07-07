@@ -31,7 +31,6 @@ pub use pallet::*;
 
 pub type MachineId = Vec<u8>;
 pub type ReportId = u64; // 提交的单据ID
-pub type Hash = [u8; 16];
 pub type BoxPubkey = [u8; 32];
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -64,7 +63,7 @@ pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
     /// 报告提交时间
     pub report_time: BlockNumber,
     /// 包含错误原因的hash
-    pub raw_hash: Hash,
+    pub raw_hash: [u8; 16],
     /// 用户私钥生成的box_public_key，用于委员会解密
     pub box_public_key: BoxPubkey,
     /// 报告人质押数量
@@ -120,9 +119,9 @@ impl Default for ReportStatus {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineFaultType {
     /// 硬件故障
-    HardwareFault(Hash, BoxPubkey),
+    HardwareFault([u8; 16], BoxPubkey),
     /// 无法租用故障
-    MachineUnrentable(Hash, BoxPubkey),
+    MachineUnrentable([u8; 16], BoxPubkey),
     /// 机器离线
     MachineOffline(MachineId),
 }
@@ -161,7 +160,7 @@ pub struct MTCommitteeOpsDetail<BlockNumber, Balance> {
     /// reporter 提交的加密后的信息
     pub encrypted_err_info: Option<Vec<u8>>,
     pub encrypted_time: BlockNumber,
-    pub confirm_hash: Hash,
+    pub confirm_hash: [u8; 16],
     pub hash_time: BlockNumber,
     pub confirm_raw: Vec<u8>,
     /// 委员会提交raw信息的时间
@@ -305,7 +304,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
-            hash: Hash,
+            hash: [u8; 16],
             box_pubkey: BoxPubkey,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
@@ -317,7 +316,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn report_machine_unrentable(
             origin: OriginFor<T>,
-            hash: Hash,
+            hash: [u8; 16],
             box_pubkey: BoxPubkey,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
@@ -548,7 +547,7 @@ pub mod pallet {
         pub fn submit_confirm_hash(
             origin: OriginFor<T>,
             report_id: ReportId,
-            hash: Hash,
+            hash: [u8; 16],
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
