@@ -7,12 +7,11 @@ use frame_support::assert_ok;
 use online_profile::{
     CommitteeUploadInfo, LiveMachine, StakerCustomizeInfo, StandardGpuPointPrice,
 };
-use std::{collections::VecDeque, convert::TryInto};
+use std::convert::TryInto;
 
 #[test]
 fn machine_online_works() {
     new_test_ext().execute_with(|| {
-        // System::set_block_number(1); // 随机函数需要初始化
         run_to_block(1);
 
         let alice: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
@@ -27,7 +26,7 @@ fn machine_online_works() {
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into(); // Stash
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"; // Bob pubkey
 
-        assert_eq!(Balances::free_balance(alice), 10000000000000000000000);
+        assert_eq!(Balances::free_balance(alice), INIT_BALANCE);
 
         // 初始化price_ocw (0.012$)
         assert_eq!(DBCPriceOCW::avg_price(), None);
@@ -39,36 +38,35 @@ fn machine_online_works() {
 
         // 初始化设置参数
         // 委员会每次抢单质押数量 (15$)
-        assert_ok!(Committee::set_staked_usd_per_order(RawOrigin::Root.into(), 15_000u32.into()));
-        // 操作时的固定费率
-        assert_ok!(GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10u32.into()));
-        // 每张GPU质押数量
-        assert_ok!(OnlineProfile::set_gpu_stake(RawOrigin::Root.into(), 100_000u32.into()));
+        assert_ok!(Committee::set_staked_usd_per_order(RawOrigin::Root.into(), 15_000_000));
+        // 操作时的固定费率: 10 DBC
+        assert_ok!(GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10*ONE_DBC));
+        // 每张GPU质押数量: 100,000 DBC
+        assert_ok!(OnlineProfile::set_gpu_stake(RawOrigin::Root.into(), 100_000 * ONE_DBC));
         // 设置奖励发放开始时间
-        assert_ok!(OnlineProfile::set_reward_start_era(RawOrigin::Root.into(), 0u32));
-        // 设置每个Era奖励数量
-        assert_ok!(OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 0, 1_000u32.into()));
-        assert_ok!(OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 1, 1_000u32.into()));
-        // 设置单卡质押上限：7_700_000_000
-        assert_ok!(OnlineProfile::set_stake_usd_limit(RawOrigin::Root.into(), 8000u64.into()));
-        // 设置标准GPU租金价格
-        assert_ok!(OnlineProfile::set_standard_gpu_point_price(RawOrigin::Root.into(), StandardGpuPointPrice{gpu_point: 1000, gpu_price: 8000}));
+        assert_ok!(OnlineProfile::set_reward_start_era(RawOrigin::Root.into(), 0));
+        // 设置每个Era奖励数量: 1,100,000
+        assert_ok!(OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 0, 1_100_000*ONE_DBC));
+        assert_ok!(OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 1, 1_100_000*ONE_DBC));
+        // 设置单卡质押上限： 7700_000_000
+        assert_ok!(OnlineProfile::set_stake_usd_limit(RawOrigin::Root.into(), 7700_000_000));
+        // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
+        assert_ok!(OnlineProfile::set_standard_gpu_point_price(RawOrigin::Root.into(), StandardGpuPointPrice{gpu_point: 1000, gpu_price: 150_000_000}));
 
         run_to_block(2);
 
         // 查询状态
-        // assert_eq!(<Committee::Pallet<TestRuntime> as committee::Config>::DbcPrice::get_dbc_amount_by_value(123), Some(123u64.into()));
-        assert_eq!(Committee::committee_stake_usd_per_order(), Some(15_000));
-        assert_eq!(Committee::committee_stake_dbc_per_order(), Some(1250000000000000));
+        assert_eq!(Committee::committee_stake_usd_per_order(), Some(15_000_000));
+        assert_eq!(Committee::committee_stake_dbc_per_order(), Some(1250 * ONE_DBC)); // 15_000_000 / 12_000 * 10*15 = 1250 DBC
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
 
         // controller bond_machine
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a485CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
-
         // NOTE:  测试中签名不以0x开头
         let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e0254f4a9b010e2d8a5cce9d262e9193b76be87b46f6bef4219517cf939520bfff84";
+
         assert_ok!(OnlineProfile::bond_machine(
             Origin::signed(controller),
             machine_id.as_bytes().to_vec(),
@@ -76,15 +74,42 @@ fn machine_online_works() {
             hex::decode(sig).unwrap()
         ));
 
+        // NOTE: 查询bond_machine之后的各种状态
+        // 1. LiveMachine
+        assert_eq!(OnlineProfile::live_machines(), LiveMachine{
+            bonding_machine: vec!(machine_id.as_bytes().to_vec()),
+            ..Default::default()
+        });
+        // 2. 查询Controller支付10 DBC手续费
+        assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 10 * ONE_DBC);
+        // 3. 查询Stash质押数量: 10wDBC
+        assert_eq!(Committee::user_total_stake(stash).unwrap(), 100_000 * ONE_DBC);
+        // 4. 查询stash_machine的信息
+        // 5. 查询controller_machine信息
+        // 6. 查询MachineInfo
+        // 7. 查询系统总质押SysInfo
+        assert_eq!(
+            OnlineProfile::sys_info(),
+            online_profile::SysInfoDetail {
+                total_gpu_num: 0,
+                total_staker: 0,
+                total_calc_points: 0,
+                total_stake: 100000 * ONE_DBC,
+                ..Default::default()
+        });
+
+        // 控制账户添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
             Origin::signed(controller),
             machine_id.as_bytes().to_vec(),
             StakerCustomizeInfo {
-                upload_net: 1234,
-                download_net: 1101,
-                longitude: 1112,
-                latitude: 2223,
-                ..Default::default()}
+                upload_net: 10000,
+                download_net: 10000,
+                longitude: 1157894,
+                latitude: 235678,
+                telecom_operators: vec!["China Unicom".into()],
+                images: vec!["Ubuntu18.04 LTS".into()],
+            }
         ));
 
         run_to_block(3);
@@ -109,7 +134,6 @@ fn machine_online_works() {
 
         // 委员会处于正常状态(排序后的列表)
         assert_eq!(Committee::committee(), CommitteeList{normal: vec![one], ..Default::default()});
-
         // 获取可派单的委员会正常
         assert_ok!(LeaseCommittee::lucky_committee().ok_or(()));
 
@@ -206,9 +230,9 @@ fn machine_online_works() {
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
                 total_claimed_reward: 0,
-                can_claim_reward: 247,
+                can_claim_reward: 272250*ONE_DBC, // 1100000 * 99% * 25% = 272250 DBC
 
-                left_reward: vec![743].into_iter().collect(),
+                left_reward: vec![816750*ONE_DBC].into_iter().collect(), // 1100000 * 99% * 25% = 816750 DBC
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
@@ -217,7 +241,7 @@ fn machine_online_works() {
         );
 
         // 委员会查询奖励
-        assert_eq!(Committee::committee_reward(one).unwrap(), 10);
+        assert_eq!(Committee::committee_reward(one).unwrap(), 11000*ONE_DBC); // 1100000 * 1%
 
         run_to_block(2880 * 3 + 2);
         // 线性释放
@@ -230,9 +254,9 @@ fn machine_online_works() {
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
                 total_claimed_reward: 0,
-                can_claim_reward: 499,
+                can_claim_reward: 549944999455500000000, // 272250 + 272250 + 816750 / 150 = 549945.0
 
-                left_reward: vec![743, 743].into_iter().collect(),
+                left_reward: vec![816750*ONE_DBC, 816750*ONE_DBC].into_iter().collect(),
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
@@ -240,34 +264,39 @@ fn machine_online_works() {
             }
         );
 
-
         // 委员会查询奖励
-        assert_eq!(Committee::committee_reward(one).unwrap(), 20);
+        assert_eq!(Committee::committee_reward(one).unwrap(), 22000*ONE_DBC);
 
         // 矿工领取奖励
         assert_ok!(OnlineProfile::claim_rewards(Origin::signed(controller)));
         // 领取奖励后，查询剩余奖励
         assert_eq!(
             OnlineProfile::stash_machines(&stash),
-            online_profile::StashMachine{
+            online_profile::StashMachine {
                 total_machine: vec![machine_id.as_bytes().to_vec()],
                 online_machine: vec![machine_id.as_bytes().to_vec()],
                 total_calc_points: 6825,
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
-                total_claimed_reward: 499,
+                total_claimed_reward: 549944999455500000000,
                 can_claim_reward: 0,
 
-                left_reward: vec![743, 743].into_iter().collect(),
+                left_reward: vec![816750*ONE_DBC, 816750*ONE_DBC].into_iter().collect(),
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
                 ..Default::default()
             }
         );
+        // 领取奖励后，查询账户余额
+        assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 549944999455500000000);
 
         // 委员会领取奖励
         assert_ok!(Committee::claim_reward(Origin::signed(one)));
+        assert_eq!(Balances::free_balance(one), INIT_BALANCE + 22000*ONE_DBC);
 
+        // TODO: Rent machine
+
+        // TODO: report machine
     });
 }

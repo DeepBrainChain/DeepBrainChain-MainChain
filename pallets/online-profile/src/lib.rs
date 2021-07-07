@@ -41,7 +41,6 @@ use sp_std::{
     vec::Vec,
 };
 
-pub mod grade_inflation;
 pub mod op_types;
 pub mod rpc_types;
 
@@ -220,9 +219,9 @@ pub struct SysInfoDetail<Balance> {
     pub total_gpu_num: u64,
     /// 被租用机器的GPU的总数
     pub total_rented_gpu: u64,
-    /// 系统中总stash账户数量
+    /// 系统中总stash账户数量(有机器成功上线)
     pub total_staker: u64,
-    /// 系统中总算力点数
+    /// 系统中上线的总算力点数
     pub total_calc_points: u64,
     /// 系统中DBC质押总数
     pub total_stake: Balance,
@@ -521,9 +520,7 @@ pub mod pallet {
             let mut live_machines = Self::live_machines();
 
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
-
-            // 验证msg: len(pubkey + account) = 64 + 48
-            ensure!(msg.len() == 112, Error::<T>::BadMsgLen);
+            ensure!(msg.len() == 112, Error::<T>::BadMsgLen); // 验证msg: len(pubkey + account) = 64 + 48
 
             let sig_machine_id: Vec<u8> = msg[..64].to_vec();
             ensure!(machine_id == sig_machine_id, Error::<T>::SigMachineIdNotEqualBondedMachineId);
@@ -538,8 +535,9 @@ pub mod pallet {
                 return Err(Error::<T>::BadSignature.into());
             }
 
-            // 用户第一次绑定机器需要质押的数量
-            let first_bond_stake = Self::stake_per_gpu();
+            // 用户绑定机器需要质押一张显卡的DBC
+            let stake_amount =
+                Self::calc_stake_amount(1).ok_or(Error::<T>::CalcStakeAmountFailed)?;
 
             // 扣除10个Dbc作为交易手续费
             <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone())
@@ -563,12 +561,12 @@ pub mod pallet {
                 controller: controller.clone(),
                 machine_stash: stash.clone(),
                 bonding_height: <frame_system::Module<T>>::block_number(),
-                stake_amount: first_bond_stake,
+                stake_amount,
                 machine_status: MachineStatus::AddingCustomizeInfo,
                 ..Default::default()
             };
 
-            Self::add_user_total_stake(&stash, first_bond_stake)
+            Self::add_user_total_stake(&stash, stake_amount)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             ControllerMachines::<T>::insert(&controller, controller_machines);
@@ -579,13 +577,13 @@ pub mod pallet {
             Self::deposit_event(Event::BondMachine(
                 controller.clone(),
                 machine_id.clone(),
-                first_bond_stake,
+                stake_amount,
             ));
             Ok(().into())
         }
 
-        /// 控制账户添加机器信息
-        /// 机器需要添加信息才能进行委员会验证。在正式与无人使用时可以修改
+        /// 控制账户添加机器信息: 经纬度*10^4取整
+        /// 符号：东经+,西经-；北纬+,南纬-,
         #[pallet::weight(10000)]
         pub fn add_machine_info(
             origin: OriginFor<T>,
@@ -593,6 +591,12 @@ pub mod pallet {
             customize_machine_info: StakerCustomizeInfo,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
+
+            if customize_machine_info.telecom_operators.len() == 0
+                || customize_machine_info.images.len() == 0
+            {
+                return Err(Error::<T>::TelecomAndImageIsNull.into());
+            }
 
             // 查询机器Id是否在该账户的控制下
             let mut machine_info = Self::machines_info(&machine_id);
@@ -833,6 +837,7 @@ pub mod pallet {
         CalcStakeAmountFailed,
         NotRefusedMachine,
         SigMachineIdNotEqualBondedMachineId,
+        TelecomAndImageIsNull,
     }
 }
 
@@ -1169,8 +1174,8 @@ impl<T: Config> Pallet<T> {
 
             let mut release_now = Perbill::from_rational_approximation(1u32, 150u32) * left_reward;
             if stash_machines.left_reward.len() == 150 {
+                // 删除150天前存储的数据
                 stash_machines.left_reward.pop_front();
-                // TODO: 删除150天前存储的数据
             }
 
             // 2. 发放当天新生成的奖励

@@ -22,6 +22,12 @@ use frame_system::EnsureRoot;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
+// 1 DBC = 1 * 10^15
+pub const ONE_DBC: u128 = 1_000_000_000_000_000;
+// 初始1000WDBC
+pub const INIT_BALANCE: u128 = 10_000_000 * ONE_DBC;
+pub type BlockNumber = u64;
+
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
@@ -204,19 +210,18 @@ frame_support::construct_runtime!(
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
-    let init_balance = 10000000000000000000000;
 
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {
         balances: vec![
-            (sr25519::Public::from(Sr25519Keyring::Alice).into(), init_balance),
-            (sr25519::Public::from(Sr25519Keyring::Bob).into(), init_balance),
-            (sr25519::Public::from(Sr25519Keyring::Charlie).into(), init_balance),
-            (sr25519::Public::from(Sr25519Keyring::Dave).into(), init_balance),
-            (sr25519::Public::from(Sr25519Keyring::Eve).into(), init_balance),
-            (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), init_balance),
-            (sr25519::Public::from(Sr25519Keyring::One).into(), init_balance),
-            (sr25519::Public::from(Sr25519Keyring::Two).into(), init_balance),
+            (sr25519::Public::from(Sr25519Keyring::Alice).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Bob).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Charlie).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Dave).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Eve).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::One).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Two).into(), INIT_BALANCE),
         ],
     }
     .assimilate_storage(&mut t)
@@ -224,8 +229,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
     t.into()
 }
-
-pub type BlockNumber = u64;
 
 pub fn run_to_block(n: BlockNumber) {
     for b in System::block_number()..=n {
