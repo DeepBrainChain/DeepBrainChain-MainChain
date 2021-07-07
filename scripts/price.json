@@ -1,1 +1,10 @@
-{ "USD": 0.01221 }
+{
+  "status": 1,
+  "code": "10502",
+  "msg": "dbc价格获取成功",
+  "content": {
+    "dbc_price": 0.006354266,
+    "update_time": null,
+    "percent_change_24h": -17.94
+  }
+}

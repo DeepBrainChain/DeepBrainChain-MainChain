@@ -14,17 +14,16 @@ async function main() {
   // create the message, actual signature and verify
   const signature = keyPair.sign(stringToU8a(args["msg"]));
 
-  console.log(`### MSG: ${args["msg"]}`);
-  console.log(`### SignedBy: ${keyPair.address}`);
+  console.log(`### Message: ${args["msg"]}`);
+  console.log(`### Signer: ${u8aToHex(keyPair.publicKey).slice(2)}`);
   console.log(`### Signature: ${u8aToHex(signature)}`);
 
-  // verify the message using Alice's address
-  // const isValid = keyPair.verify(message, signature);
-  const { isValid } = signatureVerify(args["msg"], signature, keyPair.address);
+  // // verify the message using Alice's address
+  // // const isValid = keyPair.verify(message, signature);
+  // const { isValid } = signatureVerify(args["msg"], signature, keyPair.address);
 
-  // output the result
-  console.log(`${u8aToHex(signature)} is ${isValid ? "valid" : "invalid"}`);
+  // // output the result
+  // console.log(`${u8aToHex(signature)} is ${isValid ? "valid" : "invalid"}`);
 }
 
-main().catch((error) => console.log(error.message));
-
+main().catch(error => console.log(error.message));

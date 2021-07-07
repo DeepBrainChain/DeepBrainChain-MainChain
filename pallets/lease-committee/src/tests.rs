@@ -12,15 +12,16 @@ use std::convert::TryInto;
 #[test]
 fn machine_online_works() {
     new_test_ext().execute_with(|| {
-        System::set_block_number(1); // 随机函数需要初始化
+        // System::set_block_number(1); // 随机函数需要初始化
+        run_to_block(1);
 
         let alice: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let bob: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Bob).into();
-        let charile: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let _bob: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Bob).into();
+        let _charile: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let _dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
 
         let one: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let two: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let _two: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
 
         let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into(); // Controller
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into(); // Stash
@@ -125,7 +126,7 @@ fn machine_online_works() {
             LeaseCommittee::machine_committee(machine_id.as_bytes().to_vec()),
             LCMachineCommitteeList{
                 book_time: 4,
-                confirm_start_time: 364,
+                confirm_start_time: 4324,
                 booked_committee: vec![one],
                 ..Default::default()}
         );
@@ -168,72 +169,41 @@ fn machine_online_works() {
             ..Default::default()
         });
 
-        run_to_block(3000);
-        // 查询奖励
+        // 检查EraMachinePoints
+        assert_eq!(
+            OnlineProfile::eras_machine_points(0).unwrap(),
+            online_profile::EraMachinePoints{..Default::default()}
+        );
+
+        // let era_1_era_points = OnlineProfile::eras_machine_points(1).unwrap();
+        assert_eq!(
+            OnlineProfile::eras_machine_points(1).unwrap(),
+            online_profile::EraMachinePoints{..Default::default()}
+        );
+
+        // 过一个Era: 一天是2880个块
+        run_to_block(2880 * 2 + 2);
+        assert_eq!(
+            OnlineProfile::eras_machine_points(0).unwrap(),
+            online_profile::EraMachinePoints{..Default::default()}
+        );
+
+        assert_eq!(
+            OnlineProfile::eras_machine_points(1).unwrap(),
+            online_profile::EraMachinePoints{..Default::default()}
+        );
+
+
+
+        // 第二个Era矿工查询奖励
+
+
+
+        // 委员会查询奖励
+
+        // 矿工领取奖励
+
+        // 委员会领取奖励
 
     });
-}
-
-#[test]
-fn select_committee_works() {
-    // 质押--参加选举--当选
-    new_test_ext().execute_with(|| {
-        System::set_block_number(1);
-
-        let alice: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let bob: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Bob).into();
-        let charile: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let eve: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-
-        assert_eq!(Balances::free_balance(alice), 10000000000000000000000);
-
-        // // 设置初始值
-        // let _ = LeaseCommittee::set_min_stake(RawOrigin::Root.into(), 500_000u32.into());
-        // let _ = LeaseCommittee::set_alternate_committee_limit(RawOrigin::Root.into(), 5u32);
-        // let _ = LeaseCommittee::set_committee_limit(RawOrigin::Root.into(), 3u32);
-
-        // // 参加选举，成为候选人
-        // assert_ok!(LeaseCommittee::stake_for_alternate_committee(
-        //     Origin::signed(alice),
-        //     500_000u32.into()
-        // ));
-        // assert_ok!(LeaseCommittee::stake_for_alternate_committee(
-        //     Origin::signed(bob),
-        //     500_000u32.into()
-        // ));
-        // assert_ok!(LeaseCommittee::stake_for_alternate_committee(
-        //     Origin::signed(charile),
-        //     500_000u32.into()
-        // ));
-        // assert_ok!(LeaseCommittee::stake_for_alternate_committee(
-        //     Origin::signed(dave),
-        //     500_000u32.into()
-        // ));
-        // assert_ok!(LeaseCommittee::stake_for_alternate_committee(
-        //     Origin::signed(eve),
-        //     500_000u32.into()
-        // ));
-
-        // assert_eq!(LeaseCommittee::alternate_committee().len(), 5);
-        // assert_ok!(LeaseCommittee::reelection_committee(RawOrigin::Root.into()));
-
-        // assert_eq!(LeaseCommittee::committee().len(), 3);
-        // assert_eq!(LeaseCommittee::alternate_committee().len(), 5);
-    })
-}
-
-#[test]
-fn book_one_machine_works() {
-    new_test_ext().execute_with(|| {
-        System::set_block_number(1);
-    })
-}
-
-#[test]
-fn bool_all_works() {
-    new_test_ext().execute_with(|| {
-        System::set_block_number(1);
-    })
 }

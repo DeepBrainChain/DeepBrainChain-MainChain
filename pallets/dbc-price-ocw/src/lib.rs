@@ -30,8 +30,7 @@ pub mod pallet {
 
     /// The type to sign and send transactions.
     pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
-    // pub const MAX_LEN: usize = 64;
-    pub const MAX_LEN: usize = 4; // TODO: 测试网仅取最近四次的价格作为平均价格
+    pub const MAX_LEN: usize = 64;
     type URL = Vec<u8>;
 
     #[pallet::config]

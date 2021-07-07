@@ -42,13 +42,9 @@ type BalanceOf<T> =
 
 pub const DISTRIBUTION: u32 = 9; // 分成9个区间进行验证
 
-// pub const DURATIONPERCOMMITTEE: u32 = 480; // 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
-// pub const SUBMIT_RAW_START: u32 = 4320; // 在分派之后的36个小时后允许提交原始信息
-// pub const SUBMIT_RAW_END: u32 = 5760; // 在分派之后的48小时总结
-
-pub const DURATIONPERCOMMITTEE: u32 = 40; // 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
-pub const SUBMIT_RAW_START: u32 = 360; // 在分派之后的36个小时后允许提交原始信息
-pub const SUBMIT_RAW_END: u32 = 480; // 在分派之后的48小时总结
+pub const DURATIONPERCOMMITTEE: u32 = 480; // 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
+pub const SUBMIT_RAW_START: u32 = 4320; // 在分派之后的36个小时后允许提交原始信息
+pub const SUBMIT_RAW_END: u32 = 5760; // 在分派之后的48小时总结
 
 pub use pallet::*;
 

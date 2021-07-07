@@ -51,8 +51,7 @@ pub use rpc_types::*;
 pub use pallet::*;
 
 /// 每个Era有多少个Block
-// pub const BLOCK_PER_ERA: u64 = 2880;
-pub const BLOCK_PER_ERA: u64 = 100; // 测试网一天设置为100个块
+pub const BLOCK_PER_ERA: u64 = 2880;
 
 /// stash账户总览自己当前状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -1154,7 +1153,7 @@ impl<T: Config> Pallet<T> {
         let current_era = Self::current_era();
         let current_reward_per_era = Self::current_era_reward().ok_or(())?;
 
-        let era_machine_point = Self::eras_machine_points(current_era).unwrap();
+        let era_machine_point = Self::eras_machine_points(current_era).unwrap_or_default();
         // let user_machines = Self::user_machines()
         // 遍历列表，获得奖励
         let all_stash = Self::get_all_stash();
