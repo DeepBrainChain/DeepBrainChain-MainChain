@@ -73,7 +73,7 @@
 
 + 方法：`onlineProfile_getStakerInfo`
 
-+ 参数：资金账户。例如 "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc"
++ 参数：资金账户。例如 `5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc`
 
 + 结果示例：
 
@@ -85,11 +85,31 @@
           "gpuNum": 4,
           "totalReward": "0"
       },
+      "id": 1{
+      "jsonrpc": "2.0",
+      "result": {
+          "bondedMachines": [
+              {
+                  "calcPoint": 0,
+                  "gpuNum": 0,
+                  "machineId": [
+                      56, 101, 97, 102, 48, 52, 49, 53, 49, 54, 56, 55, 55, ...
+                  ],
+                  "machineStatus": "addingCustomizeInfo"
+              }
+          ],
+          "calcPoints": 0,
+          "gpuNum": 0,
+          "totalReward": "0"
+      },
       "id": 1
+  }
   }
   ```
   
 + 结果说明：
+
+  其中， `machineId`字段为`Vec<u8>`，需要转为`String`类型
 
   TODO
 
@@ -101,8 +121,22 @@
 
 + 结果示例：
 
-  ```
-  
+  ```json
+  {
+  	"jsonrpc": "2.0",
+  	"result": {
+  		"bondingMachine": [],
+  		"bookedMachine": [
+  			[56, 101, 97, 102, 48, 52, 49, 53, 49, 54, 56, 55, 55, ...],
+              [102, 99, 53, 50, 56, 55, 54,4 9, 51, 54, 57,...]
+  		],
+  		"confirmedMachine": [],
+  		"fulfillingMachine": [],
+  		"onlineMachine": [],
+  		"refusedMachine": []
+  	},
+  	"id": 1
+  }
   ```
 
 #### 查询机器的信息
@@ -113,7 +147,55 @@
 
 + 结果示例：
 
-  ```
+  ```json
+  {
+  	"jsonrpc": "2.0",
+  	"result": {
+  		"bondingHeight": 1505,
+  		"machineInfoDetail": {
+  			"committee_upload_info": {
+  				"calc_point": 0,
+  				"cpu_core_num": 0,
+  				"cpu_rate": 0,
+  				"cpu_type": [],
+  				"cuda_core": 0,
+  				"data_disk": 0,
+  				"gpu_mem": 0,
+  				"gpu_num": 0,
+  				"gpu_type": [],
+  				"is_support": false,
+  				"machine_id": [],
+  				"mem_num": 0,
+  				"rand_str": [],
+  				"sys_disk": 0
+  			},
+  			"staker_customize_info": {
+  				"download_net": 1102,
+  				"images": [
+  					[85,98,117,110,116,117,49,56,46,48,52,32,76,84,83],
+  					[67,101,110,116,79,83,32,56]
+  				],
+  				"latitude": 1104,
+  				"longitude": 1103,
+  				"telecom_operators": [
+  					[67,104,105,110,97,32,85,110,105,99,111,109],
+  					[67,104,105,110,97,32,77,111,98,105,108,101]
+  				],
+  				"upload_net": 1101
+  			}
+  		},
+  		"machineOwner": "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",
+  		"machineStatus": "committeeVerifying",
+  		"rewardCommittee": [],
+  		"rewardDeadline": 0,
+  		"stakeAmount": "100000000000000000",
+  		"totalBurnFee": "0",
+  		"totalRentFee": "0",
+  		"totalRentedDuration": 0,
+  		"totalRentedTimes": 0
+  	},
+  	"id": 1
+  }
   ```
 
 #### 查询按经纬度位置区分的GPU信息统计
@@ -124,8 +206,23 @@
 
 + 结果示例：
 
-  ```
-  
+  ```json
+  {
+      "jsonrpc": "2.0",
+      "result": [
+          [
+              1103,
+              1104,
+              {
+                  "offlineGpu": 0,
+                  "onlineGpu": 4,
+                  "onlineGpuCalcPoints": 6825,
+                  "rentedGpu": 0
+              }
+          ]
+      ],
+      "id": 1
+  }
   ```
 
 
@@ -136,76 +233,32 @@
      "jsonrpc":"2.0",
       "id":1,
       "method":"onlineProfile_getStakerListInfo",
-      "params": ["0xe83d6e9b7c27c10a280b6544a8a04c81db946dd2fdf9c8fdea499e464c6d8306", 0, 7]
+      "params": [0, 7]
 }
 ```
 
-+ 参数说明：当前高度Hash，cur_page, per_page
++ 参数说明：cur_page, per_page
 
 返回结果：
 
 ```json
 {
-   "jsonrpc": "2.0",
-   "result": [
-      {
-         "calcPoints": 0,
-         "gpuNum": 0,
-         "gpuRentRate": 0,
-         "stakerAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
-         "stakerName": [],
-         "totalReward": "0"
-      },
-      {
-         "calcPoints": 0,
-         "gpuNum": 0,
-         "gpuRentRate": 0,
-         "stakerAccount": "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",
-         "stakerName": [],
-         "totalReward": "0"
-      },
-      {
-         "calcPoints": 0,
-         "gpuNum": 0,
-         "gpuRentRate": 0,
-         "stakerAccount": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
-         "stakerName": [],
-         "totalReward": "0"
-      },
-      {
-         "calcPoints": 0,
-         "gpuNum": 0,
-         "gpuRentRate": 0,
-         "stakerAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
-         "stakerName": [],
-         "totalReward": "0"
-      },
-      {
-         "calcPoints": 0,
-         "gpuNum": 0,
-         "gpuRentRate": 0,
-         "stakerAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
-         "stakerName": [],
-         "totalReward": "0"
-      },
-      {
-         "calcPoints": 0,
-         "gpuNum": 0,
-         "gpuRentRate": 0,
-         "stakerAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
-         "stakerName": [],
-         "totalReward": "0"
-      },
-      {
-         "calcPoints": 0,
-         "gpuNum": 0,
-         "gpuRentRate": 0,
-         "stakerAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
-         "stakerName": [],
-         "totalReward": "0"
-      }
-   ],
-   "id": 1
+    "jsonrpc": "2.0",
+    "result": [
+        {
+            "calcPoints": 6825,
+            "index": 1,
+            "stakerAccount": "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",
+            "stakerName": [],
+            "totalBurnFee": "0",
+            "totalGpuNum": 4,
+            "totalRentFee": "0",
+            "totalRentedGpu": 0,
+            "totalReward": "0"
+        },
+        {}...
+    ],
+    "id": 1
 }
 ```
 
@@ -227,62 +280,52 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 + 返回信息：
 
 ```json
-{"jsonrpc":"2.0","result":{"bonding_machine":[],"booked_machine":[],"fulfilling_machine":[],"machine_confirmed":[],"online_machine":[]},"id":1}
+{
+    "jsonrpc": "2.0",
+    "result": {
+        "bondingMachine": [],
+        "bookedMachine": [],
+        "confirmedMachine": [],
+        "fulfillingMachine": [],
+        "onlineMachine": [
+            [102, 99, 53, 50, 56, 55, 54,4 9, 51, 54, 57,...]
+        ],
+        "refusedMachine": []
+    },
+    "id": 1
+}
 ```
 
-结果说明：
-
-### 查询机器信息
-
-```
-curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
-     "jsonrpc":"2.0",
-      "id":1,
-      "method":"onlineProfile_getMachineInfo",
-      "params": ["0x3267667070334d4142344171325a50455537326e655a5456635a6b627a447a5839366f7039643366766933"]
-    }'
-```
-
-注： machine_id应该转为hex
-
-```python
-a = "2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3"
->>> b = bytes(a, 'utf-8')
->>> for c in b:
-     print(c，end=',')
-
-[50,103,102,112,112,51,77,65,66,52,65,113,50,90,80,69,85,55,50,110,101,90,84,86,99,90,107,98,122,68,122,88,57,54,111,112,57,100,51,102,118,105,51]
-
->>> a = "2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3"
->>> b = str.encode(a)
->>> b
-b'2gfpp3MAB4Aq2ZPEU72neZTVcZkbzDzX96op9d3fvi3'
->>> b.hex()
-'3267667070334d4142344171325a50455537326e655a5456635a6b627a447a5839366f7039643366766933'
-
-返回结果：
-
-​```json
-{"jsonrpc":"2.0","result":{"bondingHeight":"139","machineInfoDetail":{"committee_upload_info":{"calc_point":0,"cpu_core_num":0,"cpu_rate":0,"cpu_type":[],"cuda_core":0,"gpu_mem":0,"gpu_num":0,"gpu_type":[],"hard_disk":0,"is_support":false,"machine_id":[],"mem_num":0,"rand_str":[]},"staker_customize_info":{"download_net":0,"images":[],"latitude":0,"left_change_time":3,"longitude":0,"upload_net":0}},"machineOwner":"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty","machinePrice":0,"machineStatus":"OcwConfirming","rewardDeadline":"0","stakeAmount":"0"},"id":1}
-```
+结果说明：TODO
 
 ### 查询委员会被分配的机器ID
+
 ```bash
  curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
      "jsonrpc":"2.0",
       "id":1,
       "method":"leaseCommittee_getCommitteeMachineList",
-      "params": ["0x2b7eca733ed4e538339c41cb454092261d722c0ee355ce1744daaee22388c044", "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]
+      "params": ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]
     }'
 ```
 
-参数说明： blockHash, committeeAccountId
+参数说明：committeeAccountId
 
 返回结果:
 
 ```json
-{"jsonrpc":"2.0","result":{"booked_machine":[],"confirmed_machine":[],"hashed_machine":[],"online_machine":[]},"id":1}
-
+{
+    "jsonrpc": "2.0",
+    "result": {
+        "bookedMachine": [],
+        "confirmedMachine": [],
+        "hashedMachine": [],
+        "onlineMachine": [
+            [102, 99, 53, 50, 56, 55, 54,4 9, 51, 54, 57,...]
+        ]
+    },
+    "id": 1
+}
 ```
 
 ### 查询委员会验证时间
@@ -291,11 +334,11 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
      "jsonrpc":"2.0",
       "id":1,
       "method":"leaseCommittee_getCommitteeOps",
-      "params": ["0x0fa478725b4dead40343a9a2b543ca6d3c1f52692493b99e6350be1b539d4e52", "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", [50,103,102,112,112,51,77,65,66,52,65,113,50,90,80,69,85,55,50,110,101,90,84,86,99,90,107,98,122,68,122,88,57,54,111,112,57,100,51,102,118,105,51]]
+      "params": ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"]
     }'
 ```
 
-参数说明： blockHash, committeeAccountId, machineId
+参数说明： committeeAccountId, machineId
 
 返回结果：
 
@@ -310,11 +353,11 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
      "jsonrpc":"2.0",
       "id":1,
       "method":"rentMachine_getRentOrder",
-      "params": ["0xe602f649549317c389f9f02dea97d552a026c193c0a2584bc1f668efd1134de1","5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", [50,103,102,112,112,51,77,65,66,52,65,113,50,90,80,69,85,55,50,110,101,90,84,86,99,90,107,98,122,68,122,88,57,54,111,112,57,100,51,102,118,105,51]]
+      "params": ["8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48", "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]
     }'
 ```
 
-参数说明： BlockHash, AccountId, MachineId
+参数说明： AccountId, MachineId
 
 返回结果：
 ```json
@@ -323,16 +366,16 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 
 ### 查询用户的租用列表
 
-```
+```json
 curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
      "jsonrpc":"2.0",
       "id":1,
       "method":"rentMachine_getRentList",
-      "params": ["0xe602f649549317c389f9f02dea97d552a026c193c0a2584bc1f668efd1134de1","5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]
+      "params": ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]
     }'
 ```
 
-参数说明：BlockHash, AccountId
+参数说明：AccountId
 
 返回结果： ["machine_id1", "machine_id2"]
 
@@ -348,11 +391,11 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
      "jsonrpc":"2.0",
       "id":1,
       "method":"onlineProfile_getStakerInfo",
-      "params": ["0x1a6cf8f12ea4d3ac5c4ac2d8a0e91a08fc1e416917e4f16a5328bd775a0f1919","5GjrZ4iQdxZhAKKjNooMruGqBwH5CwbJ6Un6Cinc7j45zToE"]
+      "params": ["5GjrZ4iQdxZhAKKjNooMruGqBwH5CwbJ6Un6Cinc7j45zToE"]
     }'
 ```
 
-+ "params"为：["Block_hash", "AccountId"]
++ "params"为： "AccountId"
 
 + 返回信息：
 
@@ -360,28 +403,14 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 {"jsonrpc":"2.0","result":{"calcPoints":0,"gpuNum":0,"totalReward":"0"},"id":1}
 ```
 
-### 分页查询矿工账户ID
-```bash
-curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
-     "jsonrpc":"2.0",
-      "id":1,
-      "method":"onlineProfile_getStakerList",
-      "params": ["0xbd7e44182d643e9da10402ceaa4bcb17c5995550da73bb9187f73081903cb567", 7, 7]
-    }'
-```
-
-+ 返回信息：
-```json
-{"jsonrpc":"2.0","result":["5DhR2dxiPZquPhFjfPzFg5jZENdr375hbX643kr9FBXMVa2z", "5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg", "5Ebn8seCXL3cj2PDpsgTpXAnuvH24RbSgpxnCmKGxcwANFQ8"],"id":1}
-```
-
 ### 查询地址对应的账户名称
+
 ```bash
 curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
      "jsonrpc":"2.0",
       "id":1,
       "method":"onlineProfile_getStakerIdentity",
-      "params": ["0xbc5d40d87d829a76eb987bb388d05e3d848eec7d91009f3efd30de67a229f116", "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"]
+      "params": ["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"]
     }'
 ```
 
