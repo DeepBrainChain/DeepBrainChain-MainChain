@@ -245,9 +245,6 @@ fn machine_online_works() {
 
         run_to_block(2880 * 3 + 2);
         // 线性释放
-        // 委员会查询奖励
-        // FIXME: 查找问题!
-        // assert_eq!(Committee::committee_reward(one).unwrap(), 5555*ONE_DBC); // 委员会奖励： (1100000 * 25% * 1% = 2750) * 2 +  (825000 * 1/150 * 0.01 = 55) = 5555 DBC
 
         assert_eq!(
             OnlineProfile::stash_machines(&stash),
@@ -258,7 +255,7 @@ fn machine_online_works() {
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
                 total_claimed_reward: 0,
-                can_claim_reward: 549945 * ONE_DBC, // // (1100000 * 25% * 99% = 272250 DBC) * 2 + (825000 * 1/150 * 0.99 = 544.5) = 545044.5
+                can_claim_reward: 549944999455500000000, // (1100000 * 25% * 99% = 272250 DBC) * 2 + (825000 * 1/150 * 0.99 = 825000 * 6666666/10**9 * 0.99 = 5444.9994555 * 10^15 ) = 549944.9994555 // 相差 0.0005444
 
                 linear_release_reward: vec![825_000*ONE_DBC, 825_000*ONE_DBC].into_iter().collect(),
                 total_rent_fee: 0,
@@ -267,6 +264,9 @@ fn machine_online_works() {
                 ..Default::default()
             }
         );
+
+        // 委员会查询奖励
+        assert_eq!(Committee::committee_reward(one).unwrap(), 5554999994500000000); // 委员会奖励： (1100000 * 25% * 1% = 2750) * 2 +  (825000 * 6666666/10**9 * 0.01 = 54.9999945) = 5554.9999945 DBC
 
         // 矿工领取奖励
         assert_ok!(OnlineProfile::claim_rewards(Origin::signed(controller)));
@@ -279,7 +279,7 @@ fn machine_online_works() {
                 total_calc_points: 6825,
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
-                total_claimed_reward: 549945 * ONE_DBC,
+                total_claimed_reward: 549944999455500000000,
                 can_claim_reward: 0,
 
                 linear_release_reward: vec![825_000*ONE_DBC, 825_000*ONE_DBC].into_iter().collect(),
@@ -294,7 +294,7 @@ fn machine_online_works() {
 
         // 委员会领取奖励
         assert_ok!(Committee::claim_reward(Origin::signed(one)));
-        // assert_eq!(Balances::free_balance(one), INIT_BALANCE + 22000*ONE_DBC);
+        assert_eq!(Balances::free_balance(one), INIT_BALANCE + 5554999994500000000);
 
         // TODO: Rent machine
 
