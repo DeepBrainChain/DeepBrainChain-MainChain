@@ -95,7 +95,7 @@ pub struct StakerCustomizeInfo {
 /// 记录每个Era的机器的总分
 /// NOTE: 这个账户应该是stash账户，而不是controller账户
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
-pub struct EraMachinePoints<AccountId: Ord> {
+pub struct EraStashPoints<AccountId: Ord> {
     /// 所有在线机器总得分(包括因在线/绑定多台获得的额外得分)
     pub total: u64,
     /// 某个Era，stash账户的得分系数快照
@@ -125,7 +125,7 @@ pub struct MachineGradeStatus {
     pub is_rented: bool,
 }
 
-impl<AccountId> EraMachinePoints<AccountId>
+impl<AccountId> EraStashPoints<AccountId>
 where
     AccountId: Ord + Clone,
 {

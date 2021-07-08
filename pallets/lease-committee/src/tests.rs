@@ -195,8 +195,8 @@ fn machine_online_works() {
 
         // 检查EraMachinePoints
         assert_eq!(
-            OnlineProfile::eras_machine_points(0).unwrap(),
-            online_profile::EraMachinePoints{..Default::default()}
+            OnlineProfile::eras_stash_points(0).unwrap(),
+            online_profile::EraStashPoints{..Default::default()}
         );
 
         // FIXME 验证Era1奖励数量

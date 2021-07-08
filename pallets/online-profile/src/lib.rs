@@ -350,9 +350,36 @@ pub mod pallet {
 
     /// 每个Era机器的得分快照
     #[pallet::storage]
-    #[pallet::getter(fn eras_machine_points)]
-    pub(super) type ErasMachinePoints<T: Config> =
-        StorageMap<_, Blake2_128Concat, EraIndex, EraMachinePoints<T::AccountId>>;
+    #[pallet::getter(fn eras_stash_points)]
+    pub(super) type ErasStashPoints<T: Config> =
+        StorageMap<_, Blake2_128Concat, EraIndex, EraStashPoints<T::AccountId>>;
+
+    // /// 每个Era机器的快照
+    // #[pallet::storage]
+    // #[pallet::getter(fn eras_machine_points)]
+
+    // // EraIndex, StashAccount ⇒ {Inflation}
+    // #[pallet::storage]
+    // #[pallet::getter(fn eras_stash_inflation)]
+    // pub(super) type ErasStashInflation<T: Config> =
+    //     StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, T::AccountId, ()>;
+
+    // /// 每个Era系统总分和奖励总量
+    // #[pallet::storage]
+    // #[pallet::getter(fn eras_points_rewards)]
+    // pub(super) type ErasPointsRewards<T: Config> =
+    //     StorageMap<_, Blake2_128, EraIndex, (u128, BalanceOf<T>)>;
+
+    // #[pallet::storage]
+    // #[pallet::getter(fn eras_machine_snap)]
+    // pub(super) type ErasMachineSnap<T: Config> = StorageDoubleMap<
+    //     _,
+    //     Blake2_128,
+    //     EraIndex,
+    //     Blake2_128,
+    //     MachineId,
+    //     (bool, bool, Vec<T::AccountId>),
+    // >;
 
     /// 在线奖励开始时间
     #[pallet::storage]
@@ -395,12 +422,12 @@ pub mod pallet {
                 CurrentEra::<T>::put(current_era);
 
                 if current_era == 0 {
-                    ErasMachinePoints::<T>::insert(0, EraMachinePoints { ..Default::default() });
-                    ErasMachinePoints::<T>::insert(1, EraMachinePoints { ..Default::default() });
+                    ErasStashPoints::<T>::insert(0, EraStashPoints { ..Default::default() });
+                    ErasStashPoints::<T>::insert(1, EraStashPoints { ..Default::default() });
                 } else {
                     // 用当前的Era快照初始化下一个Era的信息
-                    let current_era_snapshot = Self::eras_machine_points(current_era).unwrap();
-                    ErasMachinePoints::<T>::insert(current_era + 1, current_era_snapshot);
+                    let current_era_snapshot = Self::eras_stash_points(current_era).unwrap();
+                    ErasStashPoints::<T>::insert(current_era + 1, current_era_snapshot);
                 }
             }
             0
@@ -1099,12 +1126,12 @@ impl<T: Config> Pallet<T> {
         let machine_info = Self::machines_info(&machine_id);
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info;
 
-        let mut era_machine_point = Self::eras_machine_points(era_index).unwrap_or_default();
+        let mut era_stash_point = Self::eras_stash_points(era_index).unwrap_or_default();
         let mut stash_machine = Self::stash_machines(&stash_account);
         let mut sys_info = Self::sys_info();
 
         // 根据机器上线还是下线，更改得分
-        era_machine_point.change_machine_online_status(
+        era_stash_point.change_machine_online_status(
             stash_account.clone(),
             machine_base_info.gpu_num as u64,
             machine_base_info.calc_point,
@@ -1132,15 +1159,15 @@ impl<T: Config> Pallet<T> {
             sys_info.total_gpu_num -= machine_base_info.gpu_num as u64;
 
             // NOTE: 需要注意，如果是机器下线还需要更改Era+1的得分
-            let mut next_era_machine_point = Self::eras_machine_points(era_index + 1).unwrap();
-            next_era_machine_point.change_machine_online_status(
+            let mut next_era_stash_point = Self::eras_stash_points(era_index + 1).unwrap();
+            next_era_stash_point.change_machine_online_status(
                 stash_account.clone(),
                 machine_base_info.gpu_num as u64,
                 machine_base_info.calc_point,
                 machine_id.clone(),
                 is_online,
             );
-            ErasMachinePoints::<T>::insert(era_index + 1, next_era_machine_point);
+            ErasStashPoints::<T>::insert(era_index + 1, next_era_stash_point);
         }
 
         // NOTE: 5000张卡开启银河竞赛
@@ -1150,7 +1177,7 @@ impl<T: Config> Pallet<T> {
 
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&stash_account, stash_machine);
-        ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
+        ErasStashPoints::<T>::insert(&era_index, era_stash_point);
     }
 
     // end_era分发奖励
@@ -1158,7 +1185,7 @@ impl<T: Config> Pallet<T> {
         let current_era = Self::current_era();
         let current_reward_per_era = Self::current_era_reward().ok_or(())?;
 
-        let era_machine_point = Self::eras_machine_points(current_era).unwrap_or_default();
+        let era_stash_point = Self::eras_stash_points(current_era).unwrap_or_default();
         // let user_machines = Self::user_machines()
         // 遍历列表，获得奖励
         let all_stash = Self::get_all_stash();
@@ -1179,7 +1206,7 @@ impl<T: Config> Pallet<T> {
             }
 
             // 2. 发放当天新生成的奖励
-            match era_machine_point.staker_statistic.get(&a_stash) {
+            match era_stash_point.staker_statistic.get(&a_stash) {
                 None => {
                     stash_machines.left_reward.push_back(0u32.saturated_into());
                 }
@@ -1189,7 +1216,7 @@ impl<T: Config> Pallet<T> {
                     // stash当前Era获得的总奖励
                     let should_reward = Perbill::from_rational_approximation(
                         stash_actual_grade,
-                        era_machine_point.total,
+                        era_stash_point.total,
                     ) * current_reward_per_era;
 
                     // 当前Era获得的奖励，1%发放给委员会。剩余部分的25%立即发放，75%线性发放
@@ -1404,8 +1431,8 @@ impl<T: Config> RTOps for Pallet<T> {
 
         let machine_base_calc_point =
             machine_info.machine_info_detail.committee_upload_info.calc_point;
-        let mut era_machine_point = Self::eras_machine_points(era_index).unwrap();
-        let mut staker_statistic = era_machine_point
+        let mut era_stash_point = Self::eras_stash_points(era_index).unwrap();
+        let mut staker_statistic = era_stash_point
             .staker_statistic
             .entry(machine_info.controller.clone())
             .or_insert(StashMachineStatistics { ..Default::default() });
@@ -1428,7 +1455,7 @@ impl<T: Config> RTOps for Pallet<T> {
                     },
                 );
 
-                era_machine_point.total += grade_change;
+                era_stash_point.total += grade_change;
                 machine_info.total_rented_times += 1;
 
                 sys_info.total_rented_gpu +=
@@ -1454,7 +1481,7 @@ impl<T: Config> RTOps for Pallet<T> {
                         },
                     );
 
-                    era_machine_point.total -= grade_change;
+                    era_stash_point.total -= grade_change;
                     machine_info.total_rented_duration += rent_duration.unwrap();
 
                     sys_info.total_rented_gpu -=
@@ -1467,14 +1494,12 @@ impl<T: Config> RTOps for Pallet<T> {
         }
 
         let staker_statistic = (*staker_statistic).clone();
-        era_machine_point
-            .staker_statistic
-            .insert(machine_info.controller.clone(), staker_statistic);
+        era_stash_point.staker_statistic.insert(machine_info.controller.clone(), staker_statistic);
 
         // 改变租用时长或者租用次数
         SysInfo::<T>::put(sys_info);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
-        ErasMachinePoints::<T>::insert(&era_index, era_machine_point);
+        ErasStashPoints::<T>::insert(&era_index, era_stash_point);
     }
 
     fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {

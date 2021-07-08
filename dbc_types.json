@@ -116,7 +116,7 @@
     "providers": "u32",
     "data": "AccountData"
   },
-  "EraMachinePoints": {
+  "EraStashPoints": {
     "total": "u64",
     "staker_statistic": "BTreeMap<AccountId, StashMachineStatistics>"
   },
