@@ -580,7 +580,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn clean_book(machine_id: MachineId, committee: T::AccountId) {
+    fn _clean_book(machine_id: MachineId, committee: T::AccountId) {
         CommitteeOps::<T>::remove(&committee, &machine_id);
 
         let mut committee_machine = Self::committee_machine(&committee);

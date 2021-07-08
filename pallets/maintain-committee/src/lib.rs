@@ -819,9 +819,9 @@ impl<T: Config> Pallet<T> {
     // 处理用户没有发送加密信息的订单
     // 对用户进行惩罚，对委员会进行奖励
     fn encrypted_info_not_send(
-        reporter: T::AccountId,
+        _reporter: T::AccountId,
         report_id: ReportId,
-        reward_to: Vec<T::AccountId>,
+        _reward_to: Vec<T::AccountId>,
     ) {
         let report_info = Self::report_info(report_id);
 

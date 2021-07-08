@@ -34,7 +34,7 @@ use sp_runtime::{
     Perbill, SaturatedConversion,
 };
 use sp_std::{
-    collections::vec_deque::VecDeque,
+    collections::{btree_map::BTreeMap, vec_deque::VecDeque},
     convert::{TryFrom, TryInto},
     prelude::*,
     str,
@@ -354,32 +354,15 @@ pub mod pallet {
     pub(super) type ErasStashPoints<T: Config> =
         StorageMap<_, Blake2_128Concat, EraIndex, EraStashPoints<T::AccountId>>;
 
-    // /// 每个Era机器的快照
-    // #[pallet::storage]
-    // #[pallet::getter(fn eras_machine_points)]
-
-    // // EraIndex, StashAccount ⇒ {Inflation}
-    // #[pallet::storage]
-    // #[pallet::getter(fn eras_stash_inflation)]
-    // pub(super) type ErasStashInflation<T: Config> =
-    //     StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, T::AccountId, ()>;
-
-    // /// 每个Era系统总分和奖励总量
-    // #[pallet::storage]
-    // #[pallet::getter(fn eras_points_rewards)]
-    // pub(super) type ErasPointsRewards<T: Config> =
-    //     StorageMap<_, Blake2_128, EraIndex, (u128, BalanceOf<T>)>;
-
-    // #[pallet::storage]
-    // #[pallet::getter(fn eras_machine_snap)]
-    // pub(super) type ErasMachineSnap<T: Config> = StorageDoubleMap<
-    //     _,
-    //     Blake2_128,
-    //     EraIndex,
-    //     Blake2_128,
-    //     MachineId,
-    //     (bool, bool, Vec<T::AccountId>),
-    // >;
+    /// 每个Era机器的得分快照
+    #[pallet::storage]
+    #[pallet::getter(fn eras_machine_points)]
+    pub(super) type ErasMachinePoints<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EraIndex,
+        BTreeMap<MachineId, MachineGradeStatus<T::AccountId>>,
+    >;
 
     /// 在线奖励开始时间
     #[pallet::storage]
@@ -799,7 +782,6 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
 
             let mut machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
@@ -831,7 +813,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn rebond_online_machine(
             origin: OriginFor<T>,
-            machine_id: MachineId,
+            _machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let _controller = ensure_signed(origin)?;
             Ok(().into())
@@ -1099,7 +1081,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn reduce_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+    fn _reduce_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         T::ManageCommittee::change_stake(&who, amount, false)?;
 
         // 改变总质押
@@ -1137,6 +1119,7 @@ impl<T: Config> Pallet<T> {
             machine_base_info.calc_point,
             machine_id.clone(),
             is_online,
+            machine_info.reward_committee.clone(),
         );
 
         if is_online {
@@ -1166,6 +1149,7 @@ impl<T: Config> Pallet<T> {
                 machine_base_info.calc_point,
                 machine_id.clone(),
                 is_online,
+                machine_info.reward_committee,
             );
             ErasStashPoints::<T>::insert(era_index + 1, next_era_stash_point);
         }
@@ -1225,8 +1209,11 @@ impl<T: Config> Pallet<T> {
                     // TODO: 应该按照机器当前得分占该用户的总得分的比例，来分奖励
                     // for a_machine in staker_statistic.
                     // while let Some((machine_id, machine_status)) =
-                    let individual_machines = staker_statistic.individual_machine.clone();
-                    for (machine_id, machine_online_info) in individual_machines.into_iter() {
+
+                    let machine_era_snap = Self::eras_machine_points(current_era).unwrap();
+
+                    // let individual_machines = staker_statistic.individual_machine.clone();
+                    for (machine_id, machine_online_info) in machine_era_snap.into_iter() {
                         let machine_info = Self::machines_info(&machine_id);
                         if machine_info.reward_committee.len() == 0usize {
                             continue;
@@ -1330,7 +1317,7 @@ impl<T: Config> LCOps for Pallet<T> {
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
-        debug::warn!("##### CommitteeUploadInfo is: {:?}", committee_upload_info);
+        debug::warn!("CommitteeUploadInfo is: {:?}", committee_upload_info);
 
         let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
         let mut live_machines = Self::live_machines();
@@ -1440,11 +1427,14 @@ impl<T: Config> RTOps for Pallet<T> {
         let grade_change =
             Perbill::from_rational_approximation(30u64, 100u64) * machine_base_calc_point;
 
+        let mut machine_era_snap = Self::eras_machine_points(era_index).unwrap();
+
         match new_status {
             MachineStatus::Rented => {
                 // 机器创建成功
                 staker_statistic.rent_extra_grade += grade_change;
-                staker_statistic.individual_machine.insert(
+                //staker_statistic.individual_machine.insert(
+                machine_era_snap.insert(
                     machine_id.to_vec(),
                     MachineGradeStatus {
                         basic_grade: machine_info
@@ -1452,6 +1442,7 @@ impl<T: Config> RTOps for Pallet<T> {
                             .committee_upload_info
                             .calc_point,
                         is_rented: true,
+                        reward_account: machine_info.reward_committee.clone(),
                     },
                 );
 
@@ -1470,7 +1461,8 @@ impl<T: Config> RTOps for Pallet<T> {
                 if rent_duration.is_some() {
                     // 租用结束
                     staker_statistic.rent_extra_grade -= grade_change;
-                    staker_statistic.individual_machine.insert(
+                    //staker_statistic.individual_machine.insert(
+                    machine_era_snap.insert(
                         machine_id.to_vec(),
                         MachineGradeStatus {
                             basic_grade: machine_info
@@ -1478,6 +1470,7 @@ impl<T: Config> RTOps for Pallet<T> {
                                 .committee_upload_info
                                 .calc_point,
                             is_rented: false,
+                            reward_account: machine_info.reward_committee.clone(),
                         },
                     );
 
@@ -1495,6 +1488,8 @@ impl<T: Config> RTOps for Pallet<T> {
 
         let staker_statistic = (*staker_statistic).clone();
         era_stash_point.staker_statistic.insert(machine_info.controller.clone(), staker_statistic);
+
+        ErasMachinePoints::<T>::insert(&era_index, machine_era_snap);
 
         // 改变租用时长或者租用次数
         SysInfo::<T>::put(sys_info);
