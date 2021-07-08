@@ -162,7 +162,7 @@ pub mod pallet {
                 bs58::decode("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").into(&mut output);
 
             let account_id_32: [u8; 32] = output[1..33].try_into().unwrap();
-            debug::info!("########## decoded2 Alice: {:?}, {:?}", decoded, output);
+            debug::info!("Dcoded2 Alice: {:?}, {:?}", decoded, output);
 
             let b = T::AccountId::decode(&mut &account_id_32[..]).unwrap_or_default();
 

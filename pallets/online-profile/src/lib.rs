@@ -70,7 +70,7 @@ pub struct StashMachine<Balance> {
     /// 目前能够领取奖励的数量
     pub can_claim_reward: Balance,
     /// 每个Era剩余的99% * 75%奖励。存储最多150个Era的奖励(150天将全部释放)
-    pub left_reward: VecDeque<Balance>,
+    pub linear_release_reward: VecDeque<Balance>,
     /// 总租金收益(银河竞赛前获得)
     pub total_rent_fee: Balance,
     /// 总销毁数量(银河竞赛后销毁)
@@ -154,7 +154,7 @@ pub struct LiveMachine {
     /// 当机器已经全部分配了委员会。若lc确认机器失败(认可=不认可时)则返回上一状态，重新分派订单
     pub booked_machine: Vec<MachineId>,
     /// 委员会确认之后，机器上线
-    pub online_machine: Vec<MachineId>,
+    pub online_machine: Vec<MachineId>, // TODO: 是不是加一个offline的
     /// 委员会同意上线，但是由于stash账户质押不够，需要补充质押
     pub fulfilling_machine: Vec<MachineId>,
     /// 被委员会拒绝的机器（10天内还能重新申请上线）
@@ -197,6 +197,18 @@ impl LiveMachine {
         if let Ok(index) = a_field.binary_search(machine_id) {
             a_field.remove(index);
         }
+    }
+
+    /// 获取所有MachineId
+    fn all_machine_id(self) -> Vec<MachineId> {
+        let mut out = Vec::new();
+        out.extend(self.bonding_machine);
+        out.extend(self.confirmed_machine);
+        out.extend(self.booked_machine);
+        out.extend(self.online_machine);
+        out.extend(self.fulfilling_machine);
+        out.extend(self.refused_machine);
+        out
     }
 }
 
@@ -407,10 +419,17 @@ pub mod pallet {
                 if current_era == 0 {
                     ErasStashPoints::<T>::insert(0, EraStashPoints { ..Default::default() });
                     ErasStashPoints::<T>::insert(1, EraStashPoints { ..Default::default() });
+                    let init_value: BTreeMap<MachineId, MachineGradeStatus<T::AccountId>> =
+                        BTreeMap::new();
+                    ErasMachinePoints::<T>::insert(0, init_value.clone());
+                    ErasMachinePoints::<T>::insert(1, init_value);
                 } else {
                     // 用当前的Era快照初始化下一个Era的信息
-                    let current_era_snapshot = Self::eras_stash_points(current_era).unwrap();
-                    ErasStashPoints::<T>::insert(current_era + 1, current_era_snapshot);
+                    let current_era_stash_snapshot = Self::eras_stash_points(current_era).unwrap();
+                    ErasStashPoints::<T>::insert(current_era + 1, current_era_stash_snapshot);
+                    let current_era_machine_snapshot =
+                        Self::eras_machine_points(current_era).unwrap();
+                    ErasMachinePoints::<T>::insert(current_era + 1, current_era_machine_snapshot);
                 }
             }
             0
@@ -1101,26 +1120,13 @@ impl<T: Config> Pallet<T> {
         machine_id: MachineId,
         is_online: bool,
     ) {
-        // 机器上线影响下一Era得分，机器下线影响当前Era和下一Era得分
-        let current_era = Self::current_era();
-        let era_index = if is_online { current_era + 1 } else { current_era };
-
         let machine_info = Self::machines_info(&machine_id);
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info;
 
-        let mut era_stash_point = Self::eras_stash_points(era_index).unwrap_or_default();
         let mut stash_machine = Self::stash_machines(&stash_account);
         let mut sys_info = Self::sys_info();
 
-        // 根据机器上线还是下线，更改得分
-        era_stash_point.change_machine_online_status(
-            stash_account.clone(),
-            machine_base_info.gpu_num as u64,
-            machine_base_info.calc_point,
-            machine_id.clone(),
-            is_online,
-            machine_info.reward_committee.clone(),
-        );
+        Self::update_snap_by_online_status(machine_id.clone(), is_online);
 
         if is_online {
             if let Err(index) = stash_machine.online_machine.binary_search(&machine_id) {
@@ -1140,18 +1146,6 @@ impl<T: Config> Pallet<T> {
 
             sys_info.total_calc_points -= machine_base_info.calc_point;
             sys_info.total_gpu_num -= machine_base_info.gpu_num as u64;
-
-            // NOTE: 需要注意，如果是机器下线还需要更改Era+1的得分
-            let mut next_era_stash_point = Self::eras_stash_points(era_index + 1).unwrap();
-            next_era_stash_point.change_machine_online_status(
-                stash_account.clone(),
-                machine_base_info.gpu_num as u64,
-                machine_base_info.calc_point,
-                machine_id.clone(),
-                is_online,
-                machine_info.reward_committee,
-            );
-            ErasStashPoints::<T>::insert(era_index + 1, next_era_stash_point);
         }
 
         // NOTE: 5000张卡开启银河竞赛
@@ -1161,118 +1155,187 @@ impl<T: Config> Pallet<T> {
 
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&stash_account, stash_machine);
-        ErasStashPoints::<T>::insert(&era_index, era_stash_point);
     }
 
+    fn update_snap_by_online_status(machine_id: MachineId, is_online: bool) {
+        let machine_info = Self::machines_info(&machine_id);
+        let current_era = Self::current_era();
+        let mut current_era_stash_snap = Self::eras_stash_points(current_era).unwrap();
+        let mut next_era_stash_snap = Self::eras_stash_points(current_era + 1).unwrap();
+
+        let mut current_era_machine_snap = Self::eras_machine_points(current_era).unwrap(); // FIXME
+        let mut next_era_machine_snap = Self::eras_machine_points(current_era + 1).unwrap();
+
+        next_era_stash_snap.change_machine_online_status(
+            machine_info.machine_stash.clone(),
+            machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
+            machine_info.machine_info_detail.committee_upload_info.calc_point,
+            is_online,
+        );
+
+        if is_online {
+            next_era_machine_snap.insert(
+                machine_id.clone(),
+                MachineGradeStatus {
+                    basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
+                    is_rented: false,
+                    reward_account: machine_info.reward_committee,
+                },
+            );
+        } else {
+            current_era_stash_snap.change_machine_online_status(
+                machine_info.machine_stash.clone(),
+                machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
+                machine_info.machine_info_detail.committee_upload_info.calc_point,
+                is_online,
+            );
+            current_era_machine_snap.remove(&machine_id);
+            next_era_machine_snap.remove(&machine_id);
+        }
+
+        // 机器上线或者下线都会影响下一era得分，而只有下线才影响当前era得分
+        ErasStashPoints::<T>::insert(current_era + 1, next_era_stash_snap);
+        ErasMachinePoints::<T>::insert(current_era + 1, next_era_machine_snap);
+        if !is_online {
+            ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
+            ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
+        }
+    }
+
+    fn update_snap_by_rent_status(machine_id: MachineId, is_rented: bool) {
+        let machine_info = Self::machines_info(&machine_id);
+        let current_era = Self::current_era();
+        let mut current_era_stash_snap = Self::eras_stash_points(current_era).unwrap();
+        let mut next_era_stash_snap = Self::eras_stash_points(current_era + 1).unwrap();
+
+        let mut current_era_machine_snap = Self::eras_machine_points(current_era).unwrap();
+        let mut next_era_machine_snap = Self::eras_machine_points(current_era + 1).unwrap();
+
+        next_era_stash_snap.change_machine_rent_status(
+            machine_info.machine_stash.clone(),
+            machine_info.machine_info_detail.committee_upload_info.calc_point,
+            is_rented,
+        );
+        next_era_machine_snap.insert(
+            machine_id.clone(),
+            MachineGradeStatus {
+                basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
+                is_rented,
+                reward_account: machine_info.reward_committee.clone(),
+            },
+        );
+
+        if !is_rented {
+            current_era_stash_snap.change_machine_rent_status(
+                machine_info.machine_stash.clone(),
+                machine_info.machine_info_detail.committee_upload_info.calc_point,
+                is_rented,
+            );
+
+            current_era_machine_snap.insert(
+                machine_id.clone(),
+                MachineGradeStatus {
+                    basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
+                    is_rented,
+                    reward_account: machine_info.reward_committee.clone(),
+                },
+            );
+        }
+
+        // 被租用或者退租都影响下一Era记录，而退租直接影响当前得分
+        ErasStashPoints::<T>::insert(current_era + 1, next_era_stash_snap);
+        ErasMachinePoints::<T>::insert(current_era + 1, next_era_machine_snap);
+        if !is_rented {
+            ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
+            ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
+        }
+    }
+
+    // 根据机器得分快照，和委员会膨胀分数，计算应该奖励
     // end_era分发奖励
     fn distribute_reward() -> Result<(), ()> {
         let current_era = Self::current_era();
-        let current_reward_per_era = Self::current_era_reward().ok_or(())?;
+        let start_era = if current_era > 150 { current_era - 150 } else { 0u32 };
+        let live_machines = Self::live_machines();
+        let all_machine_id = live_machines.all_machine_id();
 
-        let era_stash_point = Self::eras_stash_points(current_era).unwrap_or_default();
-        // let user_machines = Self::user_machines()
-        // 遍历列表，获得奖励
-        let all_stash = Self::get_all_stash();
-        for a_stash in all_stash {
-            // 1. 发放前150天剩余奖励
-            let mut stash_machines = Self::stash_machines(&a_stash);
-
-            let mut left_reward: BalanceOf<T> = 0u32.saturated_into();
-            let left_reward_vec = stash_machines.left_reward.clone();
-            for a_left in left_reward_vec {
-                left_reward += a_left;
+        // 释放75%的奖励
+        for era_index in start_era..=current_era {
+            let era_machine_snap = Self::eras_machine_points(era_index).unwrap();
+            let era_stash_snap = Self::eras_stash_points(era_index).unwrap();
+            let era_reward = Self::current_era_reward();
+            if era_reward.is_none() {
+                continue;
             }
+            let era_reward = era_reward.unwrap();
 
-            let mut release_now = Perbill::from_rational_approximation(1u32, 150u32) * left_reward;
-            if stash_machines.left_reward.len() == 150 {
-                // 删除150天前存储的数据
-                stash_machines.left_reward.pop_front();
-            }
+            for machine_id in &all_machine_id {
+                let machine_info = Self::machines_info(&machine_id);
+                let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
 
-            // 2. 发放当天新生成的奖励
-            match era_stash_point.staker_statistic.get(&a_stash) {
-                None => {
-                    stash_machines.left_reward.push_back(0u32.saturated_into());
+                let machine_snap = era_machine_snap.get(machine_id);
+                if machine_snap.is_none() {
+                    continue;
                 }
-                Some(staker_statistic) => {
-                    let stash_actual_grade = staker_statistic.total_grades().unwrap();
+                let machine_snap = machine_snap.unwrap();
 
-                    // stash当前Era获得的总奖励
-                    let should_reward = Perbill::from_rational_approximation(
-                        stash_actual_grade,
-                        era_stash_point.total,
-                    ) * current_reward_per_era;
+                let stash_snap = era_stash_snap.staker_statistic.get(&machine_info.machine_stash);
+                if stash_snap.is_none() {
+                    continue;
+                }
+                let stash_snap = stash_snap.unwrap();
 
-                    // 当前Era获得的奖励，1%发放给委员会。剩余部分的25%立即发放，75%线性发放
-                    let reward_to_committee =
-                        Perbill::from_rational_approximation(1u64, 100u64) * should_reward;
-                    // TODO: 应该按照机器当前得分占该用户的总得分的比例，来分奖励
-                    // for a_machine in staker_statistic.
-                    // while let Some((machine_id, machine_status)) =
+                let machine_actual_grade = machine_snap.machine_actual_grade(stash_snap.inflation);
 
-                    let machine_era_snap = Self::eras_machine_points(current_era).unwrap();
+                // 该Era机器获得的总奖励
+                let machine_total_reward = Perbill::from_rational_approximation(
+                    machine_actual_grade as u64,
+                    era_stash_snap.total as u64,
+                ) * era_reward;
 
-                    // let individual_machines = staker_statistic.individual_machine.clone();
-                    for (machine_id, machine_online_info) in machine_era_snap.into_iter() {
-                        let machine_info = Self::machines_info(&machine_id);
-                        if machine_info.reward_committee.len() == 0usize {
-                            continue;
-                        }
+                let linear_reward_part =
+                    Perbill::from_rational_approximation(75u64, 100u64) * machine_total_reward;
 
-                        let machine_rent_extra_grade = if machine_online_info.is_rented {
-                            Perbill::from_rational_approximation(30u32, 100u32)
-                                * machine_online_info.basic_grade
-                        } else {
-                            0u64
-                        };
-
-                        let machine_inflation_extra_grade =
-                            staker_statistic.inflation * machine_online_info.basic_grade;
-                        let machine_actual_grade = machine_online_info.basic_grade
-                            + machine_rent_extra_grade
-                            + machine_inflation_extra_grade;
-
-                        let machine_committee_get = Perbill::from_rational_approximation(
-                            machine_actual_grade,
-                            stash_actual_grade,
-                        ) * reward_to_committee;
-
-                        let individual_committee_should_reward =
-                            Perbill::from_rational_approximation(
-                                1u32,
-                                machine_info.reward_committee.len() as u32,
-                            ) * machine_committee_get;
-                        for a_committee in machine_info.reward_committee {
-                            debug::warn!(
-                                "##### reward to committee: {:?}, {:?}",
-                                &a_committee,
-                                individual_committee_should_reward
-                            );
-                            T::ManageCommittee::add_reward(
-                                a_committee,
-                                individual_committee_should_reward,
-                            );
-                        }
+                let release_now = if era_index == current_era {
+                    // 记录剩余的75%奖励
+                    if stash_machine.linear_release_reward.len() == 150 {
+                        stash_machine.linear_release_reward.pop_front();
                     }
+                    stash_machine.linear_release_reward.push_back(linear_reward_part);
 
-                    let left_reward = should_reward - reward_to_committee; // 99%的部分
+                    machine_total_reward - linear_reward_part
+                } else {
+                    // 剩余75%的1/150
+                    Perbill::from_rational_approximation(1u32, 150u32) * linear_reward_part
+                    // linear_reward_part / 150u32.into()
+                };
 
-                    let staker_get_now =
-                        Perbill::from_rational_approximation(25u64, 100u64) * left_reward; // 用户立刻获得0.99 * 0.25的奖励
-                    let staker_left_reward = left_reward - staker_get_now; // 剩余0.99 * 75%的奖励留作线性释放
-                    release_now += staker_get_now;
+                if machine_snap.reward_account.len() == 0 {
+                    stash_machine.can_claim_reward += release_now;
+                    // 没有委员会来分，则全部奖励给stash账户
+                } else {
+                    // 99% 分给stash账户
+                    let release_to_stash =
+                        Perbill::from_rational_approximation(99u64, 100u64) * release_now;
+                    stash_machine.can_claim_reward += release_to_stash;
 
-                    stash_machines.left_reward.push_back(staker_left_reward);
+                    // 剩下分给committee
+                    let release_to_committee = release_now - release_to_stash;
+                    let committee_each_get = Perbill::from_rational_approximation(
+                        1u64,
+                        machine_snap.reward_account.len() as u64,
+                    ) * release_to_committee;
 
-                    // 计算当前Era应该释放的奖励
-                    stash_machines.can_claim_reward += release_now;
-
-                    StashMachines::<T>::insert(&a_stash, stash_machines);
+                    for a_committee in machine_snap.reward_account.clone() {
+                        T::ManageCommittee::add_reward(a_committee, committee_each_get);
+                    }
                 }
+
+                StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -1410,49 +1473,20 @@ impl<T: Config> RTOps for Pallet<T> {
         rent_duration: Option<u64>,
     ) {
         let mut machine_info = Self::machines_info(machine_id);
-        let era_index = Self::current_era() + 1;
         let mut sys_info = Self::sys_info();
 
         machine_info.machine_status = new_status.clone();
         machine_info.machine_renter = renter;
 
-        let machine_base_calc_point =
-            machine_info.machine_info_detail.committee_upload_info.calc_point;
-        let mut era_stash_point = Self::eras_stash_points(era_index).unwrap();
-        let mut staker_statistic = era_stash_point
-            .staker_statistic
-            .entry(machine_info.controller.clone())
-            .or_insert(StashMachineStatistics { ..Default::default() });
-        // 机器被租用，则该机器得分多30%; 被退租，得分少30%
-        let grade_change =
-            Perbill::from_rational_approximation(30u64, 100u64) * machine_base_calc_point;
-
-        let mut machine_era_snap = Self::eras_machine_points(era_index).unwrap();
-
         match new_status {
             MachineStatus::Rented => {
                 // 机器创建成功
-                staker_statistic.rent_extra_grade += grade_change;
-                //staker_statistic.individual_machine.insert(
-                machine_era_snap.insert(
-                    machine_id.to_vec(),
-                    MachineGradeStatus {
-                        basic_grade: machine_info
-                            .machine_info_detail
-                            .committee_upload_info
-                            .calc_point,
-                        is_rented: true,
-                        reward_account: machine_info.reward_committee.clone(),
-                    },
-                );
+                Self::update_snap_by_rent_status(machine_id.to_vec(), true);
 
-                era_stash_point.total += grade_change;
                 machine_info.total_rented_times += 1;
 
                 sys_info.total_rented_gpu +=
                     machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-                // TODO: 修改individual状态
-                // machine_info.
 
                 Self::change_pos_gpu_by_rent(machine_id, true);
             }
@@ -1460,21 +1494,7 @@ impl<T: Config> RTOps for Pallet<T> {
             MachineStatus::Online => {
                 if rent_duration.is_some() {
                     // 租用结束
-                    staker_statistic.rent_extra_grade -= grade_change;
-                    //staker_statistic.individual_machine.insert(
-                    machine_era_snap.insert(
-                        machine_id.to_vec(),
-                        MachineGradeStatus {
-                            basic_grade: machine_info
-                                .machine_info_detail
-                                .committee_upload_info
-                                .calc_point,
-                            is_rented: false,
-                            reward_account: machine_info.reward_committee.clone(),
-                        },
-                    );
-
-                    era_stash_point.total -= grade_change;
+                    Self::update_snap_by_rent_status(machine_id.to_vec(), false);
                     machine_info.total_rented_duration += rent_duration.unwrap();
 
                     sys_info.total_rented_gpu -=
@@ -1486,15 +1506,9 @@ impl<T: Config> RTOps for Pallet<T> {
             _ => {}
         }
 
-        let staker_statistic = (*staker_statistic).clone();
-        era_stash_point.staker_statistic.insert(machine_info.controller.clone(), staker_statistic);
-
-        ErasMachinePoints::<T>::insert(&era_index, machine_era_snap);
-
         // 改变租用时长或者租用次数
         SysInfo::<T>::put(sys_info);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
-        ErasStashPoints::<T>::insert(&era_index, era_stash_point);
     }
 
     fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {

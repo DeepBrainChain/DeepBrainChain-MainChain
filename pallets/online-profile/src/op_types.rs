@@ -113,10 +113,9 @@ pub struct StashMachineStatistics {
     pub machine_total_calc_point: u64,
     /// 用户机器因被租用获得的额外得分
     pub rent_extra_grade: u64,
-    // 每台机器的基础得分与租用情况
-    // pub individual_machine: BTreeMap<MachineId, MachineGradeStatus>,
 }
 
+// 每台机器的基础得分与租用情况
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
 pub struct MachineGradeStatus<AccountId> {
     /// 机器的基础得分
@@ -133,14 +132,13 @@ where
 {
     /// 增加一台在线的机器，gpu数量 + gpu的总得分
     /// NOTE: 只修改当前Era，调用下线逻辑前应检查机器存在
+    /// TODO: 还应该改变机器快照
     pub fn change_machine_online_status(
         &mut self,
         stash: AccountId,
         gpu_num: u64,
         basic_grade: u64,
-        _machine_id: MachineId,
         is_online: bool,
-        _reward_account: Vec<AccountId>,
     ) {
         let mut staker_statistic = self
             .staker_statistic
@@ -166,13 +164,8 @@ where
         // 根据在线情况更改stash的基础分
         if is_online {
             staker_statistic.machine_total_calc_point += basic_grade;
-            // staker_statistic.individual_machine.insert(
-            //     machine_id,
-            //     MachineGradeStatus { basic_grade, is_rented: false, reward_account },
-            // );
         } else {
             staker_statistic.machine_total_calc_point -= basic_grade;
-            //staker_statistic.individual_machine.remove(&machine_id);
         }
 
         // 更新系统分数记录
@@ -194,9 +187,7 @@ where
         &mut self,
         stash: AccountId,
         basic_grade: u64,
-        _machine_id: MachineId,
         is_rented: bool,
-        _reward_account: Vec<AccountId>,
     ) {
         let mut staker_statistic = self
             .staker_statistic
@@ -215,12 +206,6 @@ where
             staker_statistic.rent_extra_grade -= grade_by_rent;
         }
 
-        // // 更新该机器的租用状态
-        // staker_statistic.individual_machine.insert(
-        //     machine_id.clone(),
-        //     MachineGradeStatus { basic_grade, is_rented, reward_account },
-        // );
-
         let staker_statistic = (*staker_statistic).clone();
         self.staker_statistic.insert(stash, staker_statistic);
     }
@@ -233,5 +218,17 @@ impl StashMachineStatistics {
         (self.inflation * self.machine_total_calc_point)
             .checked_add(self.machine_total_calc_point)?
             .checked_add(self.rent_extra_grade)
+    }
+}
+
+impl<AccountId> MachineGradeStatus<AccountId> {
+    pub fn machine_actual_grade(&self, inflation: Perbill) -> u64 {
+        let rent_extra_grade = if self.is_rented {
+            Perbill::from_rational_approximation(30u32, 100u32) * self.basic_grade
+        } else {
+            0
+        };
+        let inflation_extra_grade = inflation * self.basic_grade;
+        self.basic_grade + rent_extra_grade + inflation_extra_grade
     }
 }
