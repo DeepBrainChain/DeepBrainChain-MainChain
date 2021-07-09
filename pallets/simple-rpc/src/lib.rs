@@ -104,6 +104,11 @@ impl<T: Config> Module<T> {
 
         stash_list_info.sort_by(|a, b| b.calc_points.cmp(&a.calc_points));
 
+        let item_len = stash_list_info.len();
+        for index in 0..item_len {
+            stash_list_info[index].index = index as u64;
+        }
+
         return stash_list_info[page_start..page_end].to_vec();
     }
 }
