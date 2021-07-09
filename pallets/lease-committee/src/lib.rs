@@ -476,6 +476,7 @@ impl<T: Config> Pallet<T> {
         for _ in 0..lucky_committee_num {
             let lucky_index =
                 <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+            println!("########## index: {}", lucky_index);
             lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
             committee.remove(lucky_index);
         }
@@ -494,8 +495,6 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
 
         for machine_id in booked_machine {
-            debug::warn!("##### Statistic... {:?}", machine_id);
-
             let machine_committee = Self::machine_committee(machine_id.clone());
             // 当不为Summary状态时查看是否到了48小时，如果不到则返回
             if machine_committee.status != LCVerifyStatus::Summarizing {
