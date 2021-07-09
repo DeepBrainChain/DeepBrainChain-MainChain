@@ -4,7 +4,9 @@ use codec::Codec;
 use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_profile::{LiveMachine, PosInfo, RPCMachineInfo, RpcSysInfo, StakerInfo};
+use online_profile::{
+    LiveMachine, PosInfo, RPCMachineInfo, RpcStakerInfo, RpcSysInfo, StashMachine,
+};
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -30,7 +32,7 @@ where
         &self,
         account: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<StakerInfo<RpcBalance<Balance>, BlockNumber>>;
+    ) -> Result<RpcStakerInfo<RpcBalance<Balance>, BlockNumber>>;
 
     #[rpc(name = "onlineProfile_getMachineList")]
     fn get_machine_list(&self, at: Option<BlockHash>) -> Result<LiveMachine>;
@@ -108,16 +110,33 @@ where
         &self,
         account: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<StakerInfo<RpcBalance<Balance>, BlockNumber>> {
+    ) -> Result<RpcStakerInfo<RpcBalance<Balance>, BlockNumber>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_staker_info(&at, account).map(|staker_info| StakerInfo {
-            calc_points: staker_info.calc_points,
-            gpu_num: staker_info.gpu_num,
-            total_reward: staker_info.total_reward.into(),
-            bonded_machines: staker_info.bonded_machines,
-        });
+        let runtime_api_result =
+            api.get_staker_info(&at, account).map(|staker_info| RpcStakerInfo {
+                stash_statistic: StashMachine {
+                    total_machine: staker_info.stash_statistic.total_machine,
+                    online_machine: staker_info.stash_statistic.online_machine,
+                    total_calc_points: staker_info.stash_statistic.total_calc_points,
+                    total_gpu_num: staker_info.stash_statistic.total_gpu_num,
+                    total_rented_gpu: staker_info.stash_statistic.total_rented_gpu,
+
+                    total_claimed_reward: staker_info.stash_statistic.total_claimed_reward.into(),
+                    can_claim_reward: staker_info.stash_statistic.can_claim_reward.into(),
+                    linear_release_reward: staker_info
+                        .stash_statistic
+                        .linear_release_reward
+                        .into_iter()
+                        .map(|locked| locked.into())
+                        .collect(),
+                    total_rent_fee: staker_info.stash_statistic.total_rent_fee.into(),
+                    total_burn_fee: staker_info.stash_statistic.total_burn_fee.into(),
+                },
+                bonded_machines: staker_info.bonded_machines,
+            });
+
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

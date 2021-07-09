@@ -150,5 +150,13 @@ fn should_works() {
 
         // dave续租成功
         assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 10));
+
+        // TODO: 检查机器得分
+
+        // TODO: 检查租金是否正确扣除
+
+        // TODO: 检查机器退租后，状态是否清理
+
+        // TODO: 检查机器没有租用成功，押金正常退回
     })
 }

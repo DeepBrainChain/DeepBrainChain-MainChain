@@ -296,8 +296,10 @@ fn machine_online_works() {
         assert_ok!(Committee::claim_reward(Origin::signed(one)));
         assert_eq!(Balances::free_balance(one), INIT_BALANCE + 5554999994500000000);
 
-        // TODO: Rent machine
+        // TODO: 检查惩罚逻辑
 
-        // TODO: report machine
+        // TODO: 检查没有成功上线
+
+        // TODO: 检查机器下线后，150天后存储清理
     });
 }

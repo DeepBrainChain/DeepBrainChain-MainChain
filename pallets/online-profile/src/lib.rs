@@ -54,6 +54,8 @@ pub const BLOCK_PER_ERA: u64 = 2880;
 
 /// stash账户总览自己当前状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct StashMachine<Balance> {
     /// stash账户绑定的所有机器，不与机器状态有关
     pub total_machine: Vec<MachineId>,
@@ -1567,27 +1569,22 @@ impl<T: Config> Module<T> {
 
     pub fn get_staker_info(
         account: impl EncodeLike<T::AccountId>,
-    ) -> StakerInfo<BalanceOf<T>, T::BlockNumber> {
+    ) -> RpcStakerInfo<BalanceOf<T>, T::BlockNumber> {
         let staker_info = Self::stash_machines(account);
 
         let mut staker_machines = Vec::new();
 
-        for a_machine in staker_info.total_machine {
-            let machine_info = Self::machines_info(&a_machine);
+        for a_machine in &staker_info.total_machine {
+            let machine_info = Self::machines_info(a_machine);
             staker_machines.push(rpc_types::MachineBriefInfo {
-                machine_id: a_machine,
+                machine_id: a_machine.to_vec(),
                 gpu_num: machine_info.machine_info_detail.committee_upload_info.gpu_num,
                 calc_point: machine_info.machine_info_detail.committee_upload_info.calc_point,
                 machine_status: machine_info.machine_status,
             })
         }
 
-        StakerInfo {
-            calc_points: staker_info.total_calc_points,
-            gpu_num: staker_info.total_gpu_num,
-            total_reward: staker_info.total_claimed_reward + staker_info.can_claim_reward,
-            bonded_machines: staker_machines,
-        }
+        RpcStakerInfo { stash_statistic: staker_info, bonded_machines: staker_machines }
     }
 
     /// 获取机器列表
