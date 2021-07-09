@@ -476,7 +476,6 @@ impl<T: Config> Pallet<T> {
         for _ in 0..lucky_committee_num {
             let lucky_index =
                 <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
-            println!("########## index: {}", lucky_index);
             lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
             committee.remove(lucky_index);
         }
