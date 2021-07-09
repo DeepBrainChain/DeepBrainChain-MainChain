@@ -6,6 +6,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
+    dispatch::DispatchResult,
     ensure,
     pallet_prelude::*,
     traits::{
@@ -226,7 +227,6 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
             let now = <frame_system::Module<T>>::block_number();
 
             let mut order_info =
@@ -248,37 +248,12 @@ pub mod pallet {
             Self::reduce_total_stake(&renter, order_info.stake_amount)
                 .map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
 
-            // NOTE: 银河竞赛开启，租金销毁
-            let galaxy_is_on = <online_profile::Module<T>>::galaxy_is_on();
-            if galaxy_is_on {
-                <T as pallet::Config>::Currency::transfer(
-                    &renter,
-                    &rent_fee_pot,
-                    order_info.stake_amount,
-                    KeepAlive,
-                )
-                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
-
-                T::RTOps::change_machine_rent_fee(
-                    order_info.stake_amount,
-                    machine_id.clone(),
-                    true,
-                );
-            } else {
-                <T as pallet::Config>::Currency::transfer(
-                    &renter,
-                    &machine_info.machine_stash,
-                    order_info.stake_amount,
-                    KeepAlive,
-                )
-                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
-
-                T::RTOps::change_machine_rent_fee(
-                    order_info.stake_amount,
-                    machine_id.clone(),
-                    false,
-                );
-            }
+            Self::pay_rent_fee(
+                &renter,
+                machine_id.clone(),
+                &machine_info.machine_stash,
+                order_info.stake_amount,
+            )?;
 
             order_info.confirm_rent = now;
             order_info.stake_amount = 0u64.saturated_into::<BalanceOf<T>>();
@@ -306,7 +281,6 @@ pub mod pallet {
             add_duration: EraIndex,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
 
             let mut order_info =
                 Self::rent_order(&renter, &machine_id).ok_or(Error::<T>::NoOrderExist)?;
@@ -326,9 +300,7 @@ pub mod pallet {
             let user_balance = <T as pallet::Config>::Currency::free_balance(&renter);
             ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
 
-            // TODO: 如果在银河竞赛开启前，这个租金也是直接发给矿工
-            <T as pallet::Config>::Currency::transfer(&renter, &rent_fee_pot, rent_fee, KeepAlive)
-                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
+            Self::pay_rent_fee(&renter, machine_id.clone(), &machine_info.machine_stash, rent_fee)?;
 
             order_info.rent_end += add_duration.saturated_into::<T::BlockNumber>();
             RentOrder::<T>::insert(&renter, &machine_id, order_info);
@@ -362,6 +334,29 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // NOTE: 银河竞赛开启前，租金付给stash账户；开启后租金转到销毁账户
+    fn pay_rent_fee(
+        renter: &T::AccountId,
+        machine_id: MachineId,
+        machine_stash: &T::AccountId,
+        fee_amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
+        let galaxy_is_on = <online_profile::Module<T>>::galaxy_is_on();
+        if galaxy_is_on {
+            <T as pallet::Config>::Currency::transfer(renter, &rent_fee_pot, fee_amount, KeepAlive)
+                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
+
+            T::RTOps::change_machine_rent_fee(fee_amount, machine_id.clone(), true);
+        } else {
+            <T as pallet::Config>::Currency::transfer(renter, machine_stash, fee_amount, KeepAlive)
+                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
+
+            T::RTOps::change_machine_rent_fee(fee_amount, machine_id, false);
+        }
+        Ok(())
+    }
+
     // 定时检查机器是否30分钟没有上线
     fn check_machine_starting_status() {
         let pending_confirming = Self::pending_confirming_order();
