@@ -53,6 +53,43 @@ default-features = false
 path = '../dbc-price-ocw'
 package = 'dbc-price-ocw'
 
+[dev-dependencies.pallet-balances]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.committee]
+path = '../committee'
+package = 'committee'
+
+[dev-dependencies.lease-committee]
+path = '../lease-committee'
+package = 'lease-committee'
+
+[dev-dependencies.pallet-treasury]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.sp-core]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.pallet-randomness-collective-flip]
+package = 'pallet-randomness-collective-flip'
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.sp-keyring]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.hex]
+version = '0.4'
+
 [features]
 default = ["std"]
 std = [

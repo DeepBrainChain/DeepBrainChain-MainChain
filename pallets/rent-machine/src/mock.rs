@@ -1,9 +1,9 @@
-use crate as lease_committee;
+use crate as rent_machine;
 use frame_support::{
     parameter_types,
     traits::{OnFinalize, OnInitialize},
 };
-pub use frame_system::RawOrigin;
+pub use frame_system::{self as system, RawOrigin};
 pub use sp_core::{
     sr25519::{self, Signature},
     H256,
@@ -72,40 +72,6 @@ impl pallet_balances::Config for TestRuntime {
     type WeightInfo = ();
 }
 
-impl dbc_price_ocw::Config for TestRuntime {
-    type Currency = Balances;
-    type Event = Event;
-    type RandomnessSource = RandomnessCollectiveFlip;
-}
-
-type TestExtrinsic = TestXt<Call, ()>;
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
-where
-    Call: From<LocalCall>,
-{
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: Call,
-        _public: <Signature as Verify>::Signer,
-        _account: <TestRuntime as frame_system::Config>::AccountId,
-        index: <TestRuntime as frame_system::Config>::Index,
-    ) -> Option<(Call, <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
-        Some((call, (index, ())))
-    }
-}
-
-impl frame_system::offchain::SigningTypes for TestRuntime {
-    type Public = <Signature as Verify>::Signer;
-    type Signature = Signature;
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
-where
-    Call: From<C>,
-{
-    type OverarchingCall = Call;
-    type Extrinsic = TestExtrinsic;
-}
-
 parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
 }
@@ -144,34 +110,16 @@ impl pallet_treasury::Config for TestRuntime {
     type SpendFunds = ();
 }
 
-// parameter_types! {
-//     pub const MinimumPeriod: u64 = 5;
-// }
-
-// impl pallet_timestamp::Config for TestRuntime {
-//     type Moment = u64;
-//     type OnTimestampSet = ();
-//     type MinimumPeriod = MinimumPeriod;
-//     type WeightInfo = ();
-// }
+parameter_types! {
+    pub const BondingDuration: u32 = 7;
+    pub const ProfitReleaseDuration: u64 = 150;
+}
 
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
     type DbcPrice = DBCPriceOCW;
-}
-
-impl lease_committee::Config for TestRuntime {
-    type Event = Event;
-    type Currency = Balances;
-    type LCOperations = OnlineProfile;
-    type ManageCommittee = Committee;
-}
-
-parameter_types! {
-    pub const BondingDuration: u32 = 7;
-    pub const ProfitReleaseDuration: u64 = 150;
 }
 
 impl online_profile::Config for TestRuntime {
@@ -183,21 +131,52 @@ impl online_profile::Config for TestRuntime {
     type ManageCommittee = Committee;
 }
 
-// TODO: 增加结构
-pub struct MachineBondInfo<AccountId> {
-    pub stash_account: AccountId,
-    pub machine_id: Vec<u8>,  // 公钥
-    pub machine_key: Vec<u8>, // 私钥
-    pub machine_sig: Vec<u8>, // sign_by_machine_key(machine_id + stash_account)
+impl dbc_price_ocw::Config for TestRuntime {
+    type Currency = Balances;
+    type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
 }
 
-pub struct CommitteeSubmit {
-    /// 委员会随机字符串
-    pub rand_str: Vec<u8>,
-    /// 委员会要提交的机器Hash
-    pub machine_hash: Vec<u8>,
-    /// 委员会要提交的机器信息
-    pub machine_info: Vec<u8>,
+impl lease_committee::Config for TestRuntime {
+    type Event = Event;
+    type Currency = Balances;
+    type LCOperations = OnlineProfile;
+    type ManageCommittee = Committee;
+}
+
+impl rent_machine::Config for TestRuntime {
+    type Currency = Balances;
+    type Event = Event;
+    type RTOps = OnlineProfile;
+    type DbcPrice = DBCPriceOCW;
+}
+
+type TestExtrinsic = TestXt<Call, ()>;
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
+where
+    Call: From<LocalCall>,
+{
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: Call,
+        _public: <Signature as Verify>::Signer,
+        _account: <TestRuntime as frame_system::Config>::AccountId,
+        index: <TestRuntime as frame_system::Config>::Index,
+    ) -> Option<(Call, <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
+        Some((call, (index, ())))
+    }
+}
+
+impl frame_system::offchain::SigningTypes for TestRuntime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = TestExtrinsic;
 }
 
 // Configure a mock runtime to test the pallet.
@@ -216,11 +195,11 @@ frame_support::construct_runtime!(
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
+        RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
         // Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
     }
 );
 
-// Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
@@ -249,6 +228,7 @@ pub fn run_to_block(n: BlockNumber) {
         OnlineProfile::on_finalize(b);
         LeaseCommittee::on_finalize(b);
         Committee::on_finalize(b);
+        RentMachine::on_finalize(b);
         System::on_finalize(b);
 
         System::set_block_number(b + 1);

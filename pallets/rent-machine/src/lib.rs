@@ -31,6 +31,13 @@ pub const CONFIRMING_DELAY: u64 = 60; // 租用之后60个块内确认机器租�
 pub const PALLET_LOCK_ID: LockIdentifier = *b"rentmach";
 
 pub use pallet::*;
+
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 mod rpc_types;
 pub use rpc_types::RpcRentOrderDetail;
 
@@ -121,23 +128,23 @@ pub mod pallet {
     // TODO: 统一在generic模块中设置
     // 租金支付目标地址
     #[pallet::storage]
-    #[pallet::getter(fn rent_pot)]
-    pub(super) type RentPot<T: Config> = StorageValue<_, T::AccountId>;
+    #[pallet::getter(fn rent_fee_pot)]
+    pub(super) type RentFeePot<T: Config> = StorageValue<_, T::AccountId>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置机器租金支付目标地址
         #[pallet::weight(0)]
-        pub fn set_rent_pot(
+        pub fn set_rent_fee_pot(
             origin: OriginFor<T>,
             pot_addr: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            RentPot::<T>::put(pot_addr);
+            RentFeePot::<T>::put(pot_addr);
             Ok(().into())
         }
 
-        // 用户租用机器
+        /// 用户租用机器
         #[pallet::weight(10000)]
         pub fn rent_machine(
             origin: OriginFor<T>,
@@ -212,13 +219,14 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// 用户在租用半小时(60个块)内确认机器租用成功
         #[pallet::weight(10000)]
         pub fn confirm_rent(
             origin: OriginFor<T>,
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            let rent_pot = Self::rent_pot().ok_or(Error::<T>::UndefinedRentPot)?;
+            let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
             let now = <frame_system::Module<T>>::block_number();
 
             let mut order_info =
@@ -245,7 +253,7 @@ pub mod pallet {
             if galaxy_is_on {
                 <T as pallet::Config>::Currency::transfer(
                     &renter,
-                    &rent_pot,
+                    &rent_fee_pot,
                     order_info.stake_amount,
                     KeepAlive,
                 )
@@ -290,14 +298,15 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// 用户续租
         #[pallet::weight(10000)]
-        pub fn add_rent(
+        pub fn relet_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
             add_duration: EraIndex,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            let rent_pot = Self::rent_pot().ok_or(Error::<T>::UndefinedRentPot)?;
+            let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
 
             let mut order_info =
                 Self::rent_order(&renter, &machine_id).ok_or(Error::<T>::NoOrderExist)?;
@@ -317,7 +326,8 @@ pub mod pallet {
             let user_balance = <T as pallet::Config>::Currency::free_balance(&renter);
             ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
 
-            <T as pallet::Config>::Currency::transfer(&renter, &rent_pot, rent_fee, KeepAlive)
+            // TODO: 如果在银河竞赛开启前，这个租金也是直接发给矿工
+            <T as pallet::Config>::Currency::transfer(&renter, &rent_fee_pot, rent_fee, KeepAlive)
                 .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
 
             order_info.rent_end += add_duration.saturated_into::<T::BlockNumber>();
@@ -441,8 +451,9 @@ impl<T: Config> Pallet<T> {
 
             for a_machine in user_rented {
                 let mut rent_info = Self::rent_order(&a_renter, &a_machine).ok_or(())?;
-                if rent_info.rent_end > now {
+                if now > rent_info.rent_end {
                     rent_info.rent_status = RentStatus::RentExpired;
+
                     T::RTOps::change_machine_status(
                         &a_machine,
                         MachineStatus::Online,

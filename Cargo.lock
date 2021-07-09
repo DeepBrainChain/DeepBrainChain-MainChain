@@ -6238,15 +6238,23 @@ dependencies = [
 name = "rent-machine"
 version = "0.1.0"
 dependencies = [
+ "committee",
  "dbc-price-ocw",
  "frame-support",
  "frame-system",
  "generic-func",
+ "hex",
+ "lease-committee",
  "online-profile",
  "online-profile-machine",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-treasury",
  "parity-scale-codec",
  "serde",
+ "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]

@@ -60,6 +60,8 @@ node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlinePro
 # 设置单卡质押价值上限 7700 USD ~~ 50000 RMB
 node tx_by_root.js --port $ws --type-file $tf --rpc-file $rpc --module onlineProfile --func setStakeUsdLimit 7700000000
 
+# TODO: 设置租金发向地址, set_rent_fee_pot
+
 # TODO: 传递一个结构体作为参数
 
 # 设置标准GPU的租金价格/算力点数 FIXME: 应该传第一个参数
