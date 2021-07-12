@@ -47,6 +47,12 @@ pub use node_runtime::GenesisConfig;
 type AccountPublic = <Signature as Verify>::Signer;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const DEFAULT_PROPS: &str = r#"
+    {
+        "tokenDecimals": 15,
+        "tokenSymbol": "DBC"
+    }
+"#;
 
 /// Node `ChainSpec` extensions.
 ///
@@ -74,12 +80,7 @@ fn session_keys(
     im_online: ImOnlineId,
     authority_discovery: AuthorityDiscoveryId,
 ) -> SessionKeys {
-    SessionKeys {
-        grandpa,
-        babe,
-        im_online,
-        authority_discovery,
-    }
+    SessionKeys { grandpa, babe, im_online, authority_discovery }
 }
 
 fn staging_testnet_config_genesis() -> GenesisConfig {
@@ -220,14 +221,7 @@ where
 /// Helper function to generate stash, controller and session key from seed
 pub fn authority_keys_from_seed(
     seed: &str,
-) -> (
-    AccountId,
-    AccountId,
-    GrandpaId,
-    BabeId,
-    ImOnlineId,
-    AuthorityDiscoveryId,
-) {
+) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId) {
     (
         get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
         get_account_id_from_seed::<sr25519::Public>(seed),
@@ -285,11 +279,7 @@ pub fn testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         pallet_balances: Some(BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .cloned()
-                .map(|x| (x, ENDOWMENT))
-                .collect(),
+            balances: endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect(),
         }),
         pallet_indices: Some(IndicesConfig { indices: vec![] }),
         pallet_session: Some(SessionConfig {
@@ -340,14 +330,10 @@ pub fn testnet_genesis(
             },
         }),
         pallet_sudo: Some(SudoConfig { key: root_key }),
-        pallet_babe: Some(BabeConfig {
-            authorities: vec![],
-        }),
+        pallet_babe: Some(BabeConfig { authorities: vec![] }),
         pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
         pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
-        pallet_grandpa: Some(GrandpaConfig {
-            authorities: vec![],
-        }),
+        pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
         pallet_membership_Instance1: Some(Default::default()),
         pallet_treasury: Some(Default::default()),
         pallet_society: Some(SocietyConfig {
@@ -382,17 +368,14 @@ pub fn development_config() -> ChainSpec {
         vec![],
         None,
         None,
-        None,
+        Some(serde_json::from_str(DEFAULT_PROPS).unwrap()),
         Default::default(),
     )
 }
 
 fn local_testnet_genesis() -> GenesisConfig {
     testnet_genesis(
-        vec![
-            authority_keys_from_seed("Alice"),
-            authority_keys_from_seed("Bob"),
-        ],
+        vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         None,
         false,
@@ -409,7 +392,7 @@ pub fn local_testnet_config() -> ChainSpec {
         vec![],
         None,
         None,
-        None,
+        Some(serde_json::from_str(DEFAULT_PROPS).unwrap()),
         Default::default(),
     )
 }
@@ -466,13 +449,8 @@ pub(crate) mod tests {
         sc_service_test::connectivity(
             integration_test_config_with_two_authorities(),
             |config| {
-                let NewFullBase {
-                    task_manager,
-                    client,
-                    network,
-                    transaction_pool,
-                    ..
-                } = new_full_base(config, |_, _| ())?;
+                let NewFullBase { task_manager, client, network, transaction_pool, .. } =
+                    new_full_base(config, |_, _| ())?;
                 Ok(sc_service_test::TestNetComponents::new(
                     task_manager,
                     client,
