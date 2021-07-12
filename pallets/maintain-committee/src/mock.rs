@@ -1,4 +1,4 @@
-use crate as lease_committee;
+use crate as maintain_committee;
 use dbc_price_ocw::MAX_LEN;
 use frame_support::{
     assert_ok, parameter_types,
@@ -6,7 +6,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 pub use frame_system::RawOrigin;
-use online_profile::{StakerCustomizeInfo, StandardGpuPointPrice};
+use online_profile::{CommitteeUploadInfo, StakerCustomizeInfo, StandardGpuPointPrice};
 pub use sp_core::{
     sr25519::{self, Signature},
     H256,
@@ -185,28 +185,11 @@ impl online_profile::Config for TestRuntime {
     type ManageCommittee = Committee;
 }
 
-/// 待绑定的机器信息
-pub struct MachineBondInfo<AccountId> {
-    /// 控制账户
-    pub controller_account: AccountId,
-    /// stash账户
-    pub stash_account: AccountId,
-    /// 公钥
-    pub machine_id: Vec<u8>,
-    /// 私钥
-    pub machine_key: Vec<u8>,
-    /// sign_by_machine_key(machine_id + stash_account)
-    pub machine_sig: Vec<u8>,
-}
-
-/// 委员会需要提交的机器信息
-pub struct CommitteeSubmit {
-    /// 委员会随机字符串
-    pub rand_str: Vec<u8>,
-    /// 委员会要提交的机器Hash
-    pub machine_hash: Vec<u8>,
-    /// 委员会要提交的机器信息
-    pub machine_info: Vec<u8>,
+impl maintain_committee::Config for TestRuntime {
+    type Currency = Balances;
+    type Event = Event;
+    type DbcPrice = DBCPriceOCW;
+    type ManageCommittee = Committee;
 }
 
 // Configure a mock runtime to test the pallet.
@@ -226,6 +209,7 @@ frame_support::construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
         // Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -235,6 +219,7 @@ pub fn run_to_block(n: BlockNumber) {
         OnlineProfile::on_finalize(b);
         LeaseCommittee::on_finalize(b);
         Committee::on_finalize(b);
+        MaintainCommittee::on_finalize(b);
         System::on_finalize(b);
 
         System::set_block_number(b + 1);
@@ -248,7 +233,7 @@ pub fn run_to_block(n: BlockNumber) {
     }
 }
 
-// 初始条件：只设置初始参数
+// 初始条件：设置参数，并成功上线用一台机器
 // Build genesis storage according to the mock runtime.
 pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     let mut storage =
@@ -308,69 +293,9 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         }
         DBCPriceOCW::add_avg_price();
         run_to_block(2);
-    });
 
-    // storage.into()
-    ext
-}
-
-// 初始条件：设置了初始参数，并且已经分配给了3个委员会
-// 测试惩罚机制
-pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
-    let mut ext = new_test_with_init_params_ext();
-    ext.execute_with(|| {
         let committee1: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
-
-        // 增加四个委员会
-        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
-        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
-        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee4));
-        let committee1_box_pubkey =
-            hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
-                .unwrap()
-                .try_into()
-                .unwrap();
-        let committee2_box_pubkey =
-            hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
-                .unwrap()
-                .try_into()
-                .unwrap();
-        let committee3_box_pubkey =
-            hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
-                .unwrap()
-                .try_into()
-                .unwrap();
-        let committee4_box_pubkey =
-            hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
-                .unwrap()
-                .try_into()
-                .unwrap();
-
-        assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee1),
-            committee1_box_pubkey
-        ));
-        assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee2),
-            committee2_box_pubkey
-        ));
-        assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee3),
-            committee3_box_pubkey
-        ));
-        assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee4),
-            committee4_box_pubkey
-        ));
-
+            sr25519::Public::from(Sr25519Keyring::One).into();
         let controller: sp_core::sr25519::Public =
             sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
@@ -391,8 +316,6 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
             hex::decode(sig).unwrap()
         ));
 
-        run_to_block(5);
-
         // 控制账户添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
             Origin::signed(controller),
@@ -401,13 +324,56 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
                 upload_net: 10000,
                 download_net: 10000,
                 longitude: 1157894,
-                latitude: 235674,
+                latitude: 235678,
                 telecom_operators: vec!["China Unicom".into()],
                 images: vec!["Ubuntu18.04 LTS".into()],
             }
         ));
 
+        run_to_block(3);
+        // 增加一个委员会
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
+        let one_box_pubkey =
+            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey));
+
+        run_to_block(5);
+
+        // 委员会提交机器Hash
+        let machine_info_hash = "d80b116fd318f19fd89da792aba5e875";
+        assert_ok!(LeaseCommittee::submit_confirm_hash(
+            Origin::signed(committee1),
+            machine_id.clone(),
+            hex::decode(machine_info_hash).unwrap().try_into().unwrap()
+        ));
+
+        // 委员会提交原始信息
+        assert_ok!(LeaseCommittee::submit_confirm_raw(
+            Origin::signed(committee1),
+            CommitteeUploadInfo {
+                machine_id: machine_id.clone(),
+                gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
+                gpu_num: 4,
+                cuda_core: 4352,
+                gpu_mem: 11283456,
+                calc_point: 6825,
+                sys_disk: 12345465,
+                data_disk: 324567733,
+                cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
+                cpu_core_num: 32,
+                cpu_rate: 26,
+                mem_num: 527988672,
+
+                rand_str: "abcdefg".as_bytes().to_vec(),
+                is_support: true,
+            }
+        ));
+
         run_to_block(10);
     });
+
     ext
 }

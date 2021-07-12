@@ -29,6 +29,12 @@ use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 pub type MachineId = Vec<u8>;
 pub type ReportId = u64; // 提交的单据ID
 pub type BoxPubkey = [u8; 32];
