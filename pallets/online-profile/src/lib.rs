@@ -649,7 +649,7 @@ pub mod pallet {
             let mut live_machines = Self::live_machines();
             if let Ok(index) = live_machines.bonding_machine.binary_search(&machine_id) {
                 live_machines.bonding_machine.remove(index);
-                if let Err(index) = live_machines.bonding_machine.binary_search(&machine_id) {
+                if let Err(index) = live_machines.confirmed_machine.binary_search(&machine_id) {
                     live_machines.confirmed_machine.insert(index, machine_id.clone());
                 }
                 LiveMachines::<T>::put(live_machines);
