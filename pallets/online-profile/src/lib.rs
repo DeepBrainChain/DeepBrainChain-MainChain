@@ -782,17 +782,37 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let mut machine_info = Self::machines_info(&machine_id);
+            let mut sys_info = Self::sys_info();
+            let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
-            // TODO: 检查机器状态，在online之后，还应该是这种状态
-            machine_info.machine_status =
-                MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status));
-
-            // TODO: 应该影响机器打分
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
+            if let MachineStatus::Rented = machine_info.machine_status {
+                sys_info.total_rented_gpu -=
+                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                Self::update_snap_by_rent_status(machine_id.clone(), false);
+                Self::change_pos_gpu_by_rent(&machine_id, false);
+                stash_machine.total_rented_gpu -=
+                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            }
 
             Self::change_pos_gpu_by_online(&machine_id, false);
 
+            if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
+                stash_machine.online_machine.remove(index);
+            }
+            stash_machine.total_gpu_num -=
+                machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            stash_machine.total_calc_points -=
+                machine_info.machine_info_detail.committee_upload_info.calc_point;
+
+            // After re-online, machine status is same as former
+            machine_info.machine_status =
+                MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status));
+
+            StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
+            SysInfo::<T>::put(sys_info);
             Ok(().into())
         }
 
