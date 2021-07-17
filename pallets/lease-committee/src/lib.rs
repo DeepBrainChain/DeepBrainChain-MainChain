@@ -498,7 +498,7 @@ impl<T: Config> Pallet<T> {
             // 当不为Summary状态时查看是否到了48小时，如果不到则返回
             if machine_committee.status != LCVerifyStatus::Summarizing {
                 if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
-                    return;
+                    continue;
                 }
             }
 
