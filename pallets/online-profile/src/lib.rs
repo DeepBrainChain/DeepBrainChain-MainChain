@@ -1496,6 +1496,7 @@ impl<T: Config> RTOps for Pallet<T> {
     ) {
         let mut machine_info = Self::machines_info(machine_id);
         let mut sys_info = Self::sys_info();
+        let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
 
         machine_info.machine_status = new_status.clone();
         machine_info.machine_renter = renter;
@@ -1508,6 +1509,8 @@ impl<T: Config> RTOps for Pallet<T> {
                 machine_info.total_rented_times += 1;
 
                 sys_info.total_rented_gpu +=
+                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                stash_machine.total_rented_gpu +=
                     machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
 
                 Self::change_pos_gpu_by_rent(machine_id, true);
@@ -1522,6 +1525,9 @@ impl<T: Config> RTOps for Pallet<T> {
                     sys_info.total_rented_gpu -=
                         machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
 
+                    stash_machine.total_rented_gpu -=
+                        machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+
                     Self::change_pos_gpu_by_rent(machine_id, false);
                 }
             }
@@ -1529,6 +1535,7 @@ impl<T: Config> RTOps for Pallet<T> {
         }
 
         // 改变租用时长或者租用次数
+        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
         SysInfo::<T>::put(sys_info);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
