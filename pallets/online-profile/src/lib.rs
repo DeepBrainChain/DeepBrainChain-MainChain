@@ -1501,6 +1501,8 @@ impl<T: Config> RTOps for Pallet<T> {
         machine_info.machine_status = new_status.clone();
         machine_info.machine_renter = renter;
 
+        let machine_gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+
         match new_status {
             MachineStatus::Rented => {
                 // 机器创建成功
@@ -1508,10 +1510,12 @@ impl<T: Config> RTOps for Pallet<T> {
 
                 machine_info.total_rented_times += 1;
 
-                sys_info.total_rented_gpu +=
-                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-                stash_machine.total_rented_gpu +=
-                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                if sys_info.total_rented_gpu.checked_add(machine_gpu_num).is_none() {
+                    debug::error!("Add sysInfo total rented gpu failed");
+                };
+                if stash_machine.total_rented_gpu.checked_add(machine_gpu_num).is_none() {
+                    debug::error!("Add stashMachine total rented gpu failed");
+                };
 
                 Self::change_pos_gpu_by_rent(machine_id, true);
             }
@@ -1522,11 +1526,12 @@ impl<T: Config> RTOps for Pallet<T> {
                     Self::update_snap_by_rent_status(machine_id.to_vec(), false);
                     machine_info.total_rented_duration += rent_duration.unwrap();
 
-                    sys_info.total_rented_gpu -=
-                        machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-
-                    stash_machine.total_rented_gpu -=
-                        machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                    if sys_info.total_rented_gpu.checked_sub(machine_gpu_num).is_none() {
+                        debug::error!("Sub sysInfo total rented gpu failed");
+                    };
+                    if stash_machine.total_rented_gpu.checked_sub(machine_gpu_num).is_none() {
+                        debug::error!("Sub stashMachine total rented gpu failed");
+                    };
 
                     Self::change_pos_gpu_by_rent(machine_id, false);
                 }
