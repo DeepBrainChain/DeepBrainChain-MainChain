@@ -26,7 +26,7 @@
     "total_rented_gpu": "u64",
     "total_claimed_reward": "Balance",
     "can_claim_reward": "Balance",
-    "left_reward": "Vec<Balance>",
+    "linear_release_reward": "Vec<Balance>",
     "total_rent_fee": "Balance",
     "total_burn_fee": "Balance"
   },
@@ -42,7 +42,7 @@
   },
   "MachineInfo": {
     "controller": "AccountId",
-    "machine_owner": "AccountId",
+    "machine_stash": "AccountId",
     "machine_renter": "Option<AccountId>",
     "bonding_height": "BlockNumber",
     "stake_amount": "Balance",
@@ -58,12 +58,13 @@
   "MachineStatus": {
     "_enum": [
       "AddingCustomizeInfo",
+      "DistributingOrder",
       "CommitteeVerifying",
-      "CommitteeRefused",
+      "CommitteeRefused(BlockNumber)",
       "WaitingFulfill",
       "Online",
-      "StakerReportOffline(BlockNumber)",
-      "ReporterReportOffline(BlockNumber",
+      "StakerReportOffline(BlockNumber, Box(MachineStatus))",
+      "ReporterReportOffline(BlockNumber)",
       "Creating",
       "Rented"
     ]
