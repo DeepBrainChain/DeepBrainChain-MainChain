@@ -667,9 +667,9 @@ pub mod pallet {
                     live_machines.confirmed_machine.insert(index, machine_id.clone());
                 }
                 LiveMachines::<T>::put(live_machines);
-            }
 
-            machine_info.machine_status = MachineStatus::DistributingOrder;
+                machine_info.machine_status = MachineStatus::DistributingOrder;
+            }
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Ok(().into())
@@ -701,7 +701,13 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
 
             let mut machine_info = Self::machines_info(&machine_id);
+            let mut sys_info = Self::sys_info();
+            let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+
+            let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
 
             let stake_need = Self::calc_stake_amount(
                 machine_info.machine_info_detail.committee_upload_info.gpu_num,
@@ -718,6 +724,23 @@ pub mod pallet {
             }
             machine_info.machine_status = MachineStatus::Online;
 
+            // 修改sys_info, stash_info
+            sys_info.total_gpu_num += gpu_num;
+            sys_info.total_calc_points += calc_point;
+
+            stash_machine.total_gpu_num += gpu_num;
+            stash_machine.total_calc_points += calc_point;
+
+            Self::change_pos_gpu_by_online(&machine_id, true);
+
+            Self::update_staker_grades_by_online_machine(
+                machine_info.machine_stash.clone(),
+                machine_id.clone(),
+                true,
+            );
+
+            StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+            SysInfo::<T>::put(sys_info);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
             Ok(().into())
         }
@@ -801,24 +824,35 @@ pub mod pallet {
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
-            if let MachineStatus::Rented = machine_info.machine_status {
-                sys_info.total_rented_gpu -=
-                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-                Self::update_snap_by_rent_status(machine_id.clone(), false);
-                Self::change_pos_gpu_by_rent(&machine_id, false);
-                stash_machine.total_rented_gpu -=
-                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            // 某些状态允许下线
+            match machine_info.machine_status {
+                MachineStatus::Online | MachineStatus::Rented => {}
+                _ => {
+                    return Err(Error::<T>::MachineStatusNotAllowed.into());
+                }
             }
 
+            let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
+
+            if let MachineStatus::Rented = machine_info.machine_status {
+                sys_info.total_rented_gpu -= gpu_num;
+                Self::update_snap_by_rent_status(machine_id.clone(), false);
+                Self::change_pos_gpu_by_rent(&machine_id, false);
+                stash_machine.total_rented_gpu -= gpu_num;
+            }
+
+            // When offline, pos_info will be removed
             Self::change_pos_gpu_by_online(&machine_id, false);
 
             if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
                 stash_machine.online_machine.remove(index);
             }
-            stash_machine.total_gpu_num -=
-                machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-            stash_machine.total_calc_points -=
-                machine_info.machine_info_detail.committee_upload_info.calc_point;
+            stash_machine.total_gpu_num -= gpu_num;
+            stash_machine.total_calc_points -= calc_point;
+
+            sys_info.total_gpu_num -= gpu_num;
+            sys_info.total_calc_points -= calc_point;
 
             // After re-online, machine status is same as former
             machine_info.machine_status =
@@ -837,17 +871,55 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
+            let _now = <frame_system::Module<T>>::block_number();
 
             let mut machine_info = Self::machines_info(&machine_id);
+            let mut sys_info = Self::sys_info();
+            let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
-            machine_info.machine_status = MachineStatus::Online;
+            // MachineStatus改为之前的状态
+            if let MachineStatus::StakerReportOffline(_offline_time, status) =
+                machine_info.machine_status
+            {
+                machine_info.machine_status = *status;
+                let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
 
-            // TODO: 根据机器掉线时间进行惩罚
+                match machine_info.machine_status {
+                    MachineStatus::Online | MachineStatus::Rented => {
+                        // Both status will change grades by online
+                        sys_info.total_gpu_num += gpu_num;
+                        sys_info.total_calc_points += calc_point;
 
+                        Self::change_pos_gpu_by_online(&machine_id, true);
+
+                        if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
+                            stash_machine.online_machine.insert(index, machine_id.clone());
+                        }
+                        stash_machine.total_gpu_num += gpu_num;
+                        stash_machine.total_calc_points += calc_point;
+                    }
+                    _ => {}
+                }
+                if let MachineStatus::Rented = machine_info.machine_status {
+                    sys_info.total_rented_gpu += gpu_num;
+                    // machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                    Self::update_snap_by_rent_status(machine_id.clone(), true);
+                    Self::change_pos_gpu_by_rent(&machine_id, true);
+                    stash_machine.total_rented_gpu += gpu_num;
+                }
+
+                // TODO: Slash depend on offline time
+            } else {
+                return Err(Error::<T>::MachineStatusNotAllowed.into());
+            }
+
+            StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
+            SysInfo::<T>::put(sys_info);
 
-            Self::change_pos_gpu_by_online(&machine_id, true);
             Ok(().into())
         }
 
@@ -902,6 +974,7 @@ pub mod pallet {
         NotRefusedMachine,
         SigMachineIdNotEqualBondedMachineId,
         TelecomAndImageIsNull,
+        MachineStatusNotAllowed,
     }
 }
 
@@ -1147,7 +1220,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // TODO: 完善unwarp
     /// 由于机器在线或者下线，更新矿工机器得分与总得分:
     ///     机器上线，则修改下一天的得分快照
     ///     机器掉线，则修改当天与下一天的快照，影响今后奖励
@@ -1444,6 +1516,14 @@ impl<T: Config> LCOps for Pallet<T> {
             );
             machine_info.machine_status = MachineStatus::Online;
             sys_info.total_stake += stake_need - machine_info.stake_amount;
+
+            Self::change_pos_gpu_by_online(&committee_upload_info.machine_id, true);
+
+            Self::update_staker_grades_by_online_machine(
+                machine_info.machine_stash.clone(),
+                committee_upload_info.machine_id.clone(),
+                true,
+            );
         } else {
             LiveMachine::add_machine_id(
                 &mut live_machines.fulfilling_machine,
@@ -1452,20 +1532,10 @@ impl<T: Config> LCOps for Pallet<T> {
             machine_info.machine_status = MachineStatus::WaitingFulfill;
         }
 
-        MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
+        MachinesInfo::<T>::insert(committee_upload_info.machine_id, machine_info);
         LiveMachines::<T>::put(live_machines);
         SysInfo::<T>::put(sys_info);
 
-        Self::change_pos_gpu_by_online(&committee_upload_info.machine_id, true);
-
-        // // TODO: 增加机器数量
-        // let pos_gpu_info = Self::pos_gpu_info(machine_info.);
-
-        Self::update_staker_grades_by_online_machine(
-            machine_info.machine_stash,
-            committee_upload_info.machine_id,
-            true,
-        );
         return Ok(());
     }
 

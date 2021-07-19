@@ -1,13 +1,11 @@
 use crate::mock::*;
 use dbc_price_ocw::MAX_LEN;
 use frame_support::assert_ok;
-use online_profile::{
-    CommitteeUploadInfo, LiveMachine, StakerCustomizeInfo, StandardGpuPointPrice,
-};
+use online_profile::{CommitteeUploadInfo, StakerCustomizeInfo, StandardGpuPointPrice};
 use std::convert::TryInto;
 
 #[test]
-fn should_works() {
+fn rent_machine_should_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
 
