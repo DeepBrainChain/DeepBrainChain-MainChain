@@ -23,7 +23,7 @@ use frame_support::{
     pallet_prelude::*,
     traits::{Currency, LockableCurrency},
 };
-use frame_system::{ensure_signed, pallet_prelude::*};
+use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use online_profile::CommitteeUploadInfo;
 use online_profile_machine::{LCOps, ManageCommittee};
 #[cfg(feature = "std")]
@@ -282,6 +282,21 @@ pub mod pallet {
 
             Self::deposit_event(Event::AddConfirmHash(who, hash));
 
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        pub fn change_machine_hash(
+            origin: OriginFor<T>,
+            committee: T::AccountId,
+            machine_id: MachineId,
+            new_hash: [u8; 16],
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let mut committee_ops = Self::committee_ops(&committee, &machine_id);
+            committee_ops.confirm_hash = new_hash;
+            CommitteeOps::<T>::insert(committee, machine_id, committee_ops);
             Ok(().into())
         }
 
