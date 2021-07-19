@@ -535,6 +535,20 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Root 设置stash rented machine
+        #[pallet::weight(10000)]
+        pub fn set_stash_rented_gpu_num(
+            origin: OriginFor<T>,
+            stash_account: T::AccountId,
+            rented_gpu_num: u64,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let mut stash_machine = Self::stash_machines(&stash_account);
+            stash_machine.total_rented_gpu = rented_gpu_num;
+            StashMachines::<T>::insert(&stash_account, stash_machine);
+            Ok(().into())
+        }
+
         /// 控制账户上线一个机器
         /// msg = d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
         ///     + 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
