@@ -1371,6 +1371,8 @@ impl<T: Config> Pallet<T> {
         for era_index in start_era..=current_era {
             let era_machine_snap = Self::eras_machine_points(era_index).unwrap();
             let era_stash_snap = Self::eras_stash_points(era_index).unwrap();
+
+            // FIXME: 如果当前eraReward isNone，则之前的奖励也不会发放
             let era_reward = Self::current_era_reward();
             if era_reward.is_none() {
                 continue;
@@ -1409,6 +1411,8 @@ impl<T: Config> Pallet<T> {
                     if stash_machine.linear_release_reward.len() == 150 {
                         stash_machine.linear_release_reward.pop_front();
                     }
+                    // FIXME:
+                    // 应该只增加最后一个数值
                     stash_machine.linear_release_reward.push_back(linear_reward_part);
 
                     machine_total_reward - linear_reward_part
