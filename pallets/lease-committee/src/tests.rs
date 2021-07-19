@@ -379,3 +379,8 @@ fn committee_not_wubmit_raw_slash_works() {
             "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
     })
 }
+
+#[test]
+fn fulfill_should_work() {
+    new_test_with_online_machine_online_ext().execute_with(|| {})
+}

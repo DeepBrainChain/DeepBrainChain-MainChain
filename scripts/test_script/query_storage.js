@@ -33,22 +33,27 @@ async function main() {
   funcMap["dbcPriceOcw"]["priceURL"] = api.query.dbcPriceOcw.priceURL;
 
   funcMap["committee"] = {};
-  funcMap["committee"]["committeeStakeDBCPerOrder"] = api.query.committee.committeeStakeDBCPerOrder;
+  funcMap["committee"]["committeeStakeDBCPerOrder"] =
+    api.query.committee.committeeStakeDBCPerOrder;
 
   funcMap["genericFunc"] = {};
   funcMap["genericFunc"]["fixedTxFee"] = api.query.genericFunc.fixedTxFee;
 
   funcMap["onlineProfile"] = {};
   funcMap["onlineProfile"]["stakePerGPU"] = api.query.onlineProfile.stakePerGPU;
+  funcMap["onlineProfile"]["stashMachines"] =
+    api.query.onlineProfile.stashMachines;
 
-  var callFunc = funcMap[args["module"]][args["func"]];
-  await do_query(callFunc, ...args._).catch((error) =>
+  let heightHash = await api.rpc.chain.getBlockHash(args["at-height"]);
+
+  var callFunc = funcMap[args["module"]][args["func"]].at;
+  await do_query(callFunc, heightHash, ...args._).catch((error) =>
     console.log(error.message)
   );
 }
 
-async function do_query(callFunc, ...args) {
-  const a = await callFunc(...args);
+async function do_query(callFunc, heightHash, ...args) {
+  const a = await callFunc(heightHash, ...args);
   // https://polkadot.js.org/docs/api/start/types.basics/
   // console.log(JSON.stringify(a.toHuman()));
   // console.log(a.toString());
