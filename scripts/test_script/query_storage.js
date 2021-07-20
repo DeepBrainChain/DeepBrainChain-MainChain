@@ -43,6 +43,9 @@ async function main() {
   funcMap["onlineProfile"]["stakePerGPU"] = api.query.onlineProfile.stakePerGPU;
   funcMap["onlineProfile"]["stashMachines"] =
     api.query.onlineProfile.stashMachines;
+  funcMap["onlineProfile"]["sysInfo"] = api.query.onlineProfile.sysInfo;
+  funcMap["onlineProfile"]["machinesInfo"] =
+    api.query.onlineProfile.machinesInfo;
 
   let heightHash = await api.rpc.chain.getBlockHash(args["at-height"]);
 
@@ -54,12 +57,8 @@ async function main() {
 
 async function do_query(callFunc, heightHash, ...args) {
   const a = await callFunc(heightHash, ...args);
-  // https://polkadot.js.org/docs/api/start/types.basics/
-  // console.log(JSON.stringify(a.toHuman()));
-  // console.log(a.toString());
   console.log(a.toJSON());
-  // console.log(a.data.free.toString());
-
+  // console.log(`${a.machine_info_detail.staker_customize_info}`);
   process.exit(0);
 }
 

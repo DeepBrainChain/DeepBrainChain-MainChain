@@ -94,8 +94,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub stake_amount: Balance,
     /// 机器的状态
     pub machine_status: MachineStatus<BlockNumber>,
-    /// 机器线性释放的奖励
-    pub linear_release_reward: VecDeque<Balance>,
+    // /// 机器线性释放的奖励
+    // pub linear_release_reward: VecDeque<Balance>,
     /// 总租用累计时长
     pub total_rented_duration: u64,
     /// 总租用次数
@@ -535,6 +535,27 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StashMachines::<T>::insert(stash, stash_machine);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_sys_info(
+            origin: OriginFor<T>,
+            sys_info: SysInfoDetail<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            SysInfo::<T>::put(sys_info);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_machine_info(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            MachinesInfo::<T>::insert(machine_id, machine_info);
             Ok(().into())
         }
 
@@ -1557,6 +1578,7 @@ impl<T: Config> LCOps for Pallet<T> {
                 &mut live_machines.online_machine,
                 committee_upload_info.machine_id.clone(),
             );
+            machine_info.stake_amount = stake_need;
             machine_info.machine_status = MachineStatus::Online;
             sys_info.total_stake += stake_need - machine_info.stake_amount;
         } else {
