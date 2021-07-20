@@ -589,7 +589,7 @@ pub mod pallet {
         }
 
         /// Root 设置stash rented machine
-        #[pallet::weight(10000)]
+        #[pallet::weight(0)]
         pub fn set_stash_rented_gpu_num(
             origin: OriginFor<T>,
             stash_account: T::AccountId,
@@ -599,6 +599,134 @@ pub mod pallet {
             let mut stash_machine = Self::stash_machines(&stash_account);
             stash_machine.total_rented_gpu = rented_gpu_num;
             StashMachines::<T>::insert(&stash_account, stash_machine);
+            Ok(().into())
+        }
+
+        // 修复waiting的一台机器
+        #[pallet::weight(0)]
+        pub fn change_fulfilling_machine(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            new_amount: BalanceOf<T>,
+            new_amount_in_machine_info: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let mut machine_info = Self::machines_info(&machine_id);
+            let mut live_machines = Self::live_machines();
+            let mut sys_info = Self::sys_info();
+
+            if !T::ManageCommittee::change_stake(&machine_info.machine_stash, new_amount, true)
+                .is_ok()
+            {
+                return Ok(().into());
+            }
+            machine_info.stake_amount = new_amount_in_machine_info;
+
+            LiveMachine::rm_machine_id(&mut live_machines.fulfilling_machine, &machine_id);
+            LiveMachine::add_machine_id(&mut live_machines.online_machine, machine_id.clone());
+            machine_info.machine_status = MachineStatus::Online;
+            sys_info.total_stake += new_amount;
+            //machine_info.;
+
+            MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
+            LiveMachines::<T>::put(live_machines);
+            SysInfo::<T>::put(sys_info);
+
+            Self::change_pos_gpu_by_online(&machine_id, true);
+
+            Self::update_staker_grades_by_online_machine(
+                machine_info.machine_stash.clone(),
+                machine_id.clone(),
+                true,
+            );
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn release_machine_reward(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
+
+            // 发放6, 7这两个Era的奖励
+            for era_index in 6..8 {
+                let era_machine_snap = Self::eras_machine_points(era_index).unwrap(); // 当时Era得分的快照
+                let era_stash_snap = Self::eras_stash_points(era_index).unwrap(); // 当时era的stash快照
+                let machine_info = Self::machines_info(&machine_id);
+                let era_reward = Self::era_reward(era_index); // 当时Era的奖励数量
+
+                let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+                let reward_linear_index = stash_machine.linear_release_reward.len() - 1;
+
+                // 计算当时机器实际获得的奖励
+                let machine_snap = era_machine_snap.get(&machine_id);
+                if machine_snap.is_none() {
+                    return Ok(().into());
+                }
+                let machine_snap = machine_snap.unwrap();
+
+                debug::error!("###### 1 {:?}", machine_snap);
+
+                let stash_snap = era_stash_snap.staker_statistic.get(&machine_info.machine_stash);
+                if stash_snap.is_none() {
+                    return Ok(().into());
+                }
+                let stash_snap = stash_snap.unwrap();
+
+                debug::error!("###### 2 {:?}", stash_snap);
+
+                let machine_actual_grade = machine_snap.machine_actual_grade(stash_snap.inflation);
+
+                // 该Era机器获得的总奖励
+                let machine_total_reward = Perbill::from_rational_approximation(
+                    machine_actual_grade as u64,
+                    era_stash_snap.total as u64,
+                ) * era_reward;
+
+                let linear_reward_part =
+                    Perbill::from_rational_approximation(75u64, 100u64) * machine_total_reward;
+
+                debug::error!("###### 3 {:?}, {:?}", machine_total_reward, machine_total_reward);
+
+                let release_now = if era_index == 7 {
+                    // 记录剩余的75%奖励
+                    stash_machine.linear_release_reward[reward_linear_index] += linear_reward_part;
+
+                    machine_total_reward - linear_reward_part
+                } else {
+                    // 剩余75%的1/150
+                    Perbill::from_rational_approximation(1u32, 150u32) * linear_reward_part
+                };
+
+                debug::error!("###### 4 {:?}, {:?}", release_now, stash_machine);
+
+                if machine_snap.reward_account.len() == 0 {
+                    // 没有委员会来分，则全部奖励给stash账户
+                    stash_machine.can_claim_reward += release_now;
+                } else {
+                    // 99% 分给stash账户
+                    let release_to_stash =
+                        Perbill::from_rational_approximation(99u64, 100u64) * release_now;
+                    stash_machine.can_claim_reward += release_to_stash;
+
+                    // 剩下分给committee
+                    let release_to_committee = release_now - release_to_stash;
+                    let committee_each_get = Perbill::from_rational_approximation(
+                        1u64,
+                        machine_snap.reward_account.len() as u64,
+                    ) * release_to_committee;
+
+                    for a_committee in machine_snap.reward_account.clone() {
+                        T::ManageCommittee::add_reward(a_committee, committee_each_get);
+                    }
+                }
+
+                StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+            }
+
+            // let machine_info = Self::
             Ok(().into())
         }
 
