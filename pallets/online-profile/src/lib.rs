@@ -538,6 +538,17 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        pub fn add_era_reward(
+            origin: OriginFor<T>,
+            era_index: EraIndex,
+            reward: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            EraReward::<T>::insert(era_index, reward);
+            Ok(().into())
+        }
+
         /// stash账户设置一个控制账户
         #[pallet::weight(10000)]
         pub fn set_controller(
@@ -1407,7 +1418,8 @@ impl<T: Config> Pallet<T> {
 
             for a_stash in &all_stash {
                 let mut stash_machine = Self::stash_machines(a_stash);
-                let reward_linear_index = stash_machine.linear_release_reward.len();
+                let reward_linear_index = stash_machine.linear_release_reward.len() - 1;
+
                 for machine_id in stash_machine.total_machine.clone() {
                     let machine_info = Self::machines_info(&machine_id);
 
