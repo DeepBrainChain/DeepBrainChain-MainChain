@@ -63,7 +63,7 @@
       "CommitteeRefused(BlockNumber)",
       "WaitingFulfill",
       "Online",
-      "StakerReportOffline(BlockNumber, Box(MachineStatus))",
+      "StakerReportOffline(BlockNumber, Box<MachineStatus>)",
       "ReporterReportOffline(BlockNumber)",
       "Creating",
       "Rented"
@@ -129,14 +129,14 @@
   },
   "MachineGradeStatus": {
     "basic_grade": "u64",
-    "is_online": "bool"
+    "is_rented": "bool",
+    "reward_account": "Vec<AccountId>"
   },
   "StashMachineStatistics": {
     "online_gpu_num": "u64",
     "inflation": "Perbill",
     "machine_total_calc_point": "u64",
-    "rent_extra_grade": "u64",
-    "individual_machine": "BTreeMap<MachineId, MachineGradeStatus>"
+    "rent_extra_grade": "u64"
   },
   "CommitteeMachine": {
     "machine_id": "Vec<MachineId>",
