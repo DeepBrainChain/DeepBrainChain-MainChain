@@ -63,7 +63,7 @@
       "CommitteeRefused(BlockNumber)",
       "WaitingFulfill",
       "Online",
-      "StakerReportOffline(BlockNumber, Box(MachineStatus))",
+      "StakerReportOffline(BlockNumber, Box<MachineStatus>)",
       "ReporterReportOffline(BlockNumber)",
       "Creating",
       "Rented"
