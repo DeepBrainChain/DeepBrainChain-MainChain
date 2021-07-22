@@ -116,7 +116,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 285,
+    spec_version: 286,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -1210,6 +1210,10 @@ impl_runtime_apis! {
 
         fn get_pos_gpu_info() -> Vec<(i64, i64, online_profile::PosInfo)> {
             OnlineProfile::get_pos_gpu_info()
+        }
+
+        fn get_machine_era_reward(machine_id: online_profile::MachineId, era_index: online_profile::EraIndex) -> Balance {
+            OnlineProfile::get_machine_era_reward(machine_id, era_index)
         }
     }
 

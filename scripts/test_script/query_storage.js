@@ -46,6 +46,8 @@ async function main() {
   funcMap["onlineProfile"]["sysInfo"] = api.query.onlineProfile.sysInfo;
   funcMap["onlineProfile"]["machinesInfo"] =
     api.query.onlineProfile.machinesInfo;
+  funcMap["onlineProfile"]["erasMachinePoints"] =
+    api.query.onlineProfile.erasMachinePoints;
 
   let heightHash = await api.rpc.chain.getBlockHash(args["at-height"]);
 

@@ -562,17 +562,6 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_machine_info(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            MachinesInfo::<T>::insert(machine_id, machine_info);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
         pub fn add_era_reward(
             origin: OriginFor<T>,
             era_index: EraIndex,
@@ -1889,5 +1878,10 @@ impl<T: Config> Module<T> {
         <PosGPUInfo<T> as IterableStorageDoubleMap<i64, i64, PosInfo>>::iter()
             .map(|(k1, k2, v)| (k1, k2, v))
             .collect()
+    }
+
+    /// 获得某个机器某个Era奖励数量
+    pub fn get_machine_era_reward(machine_id: MachineId, era_index: EraIndex) -> BalanceOf<T> {
+        Self::machine_era_reward(era_index, machine_id)
     }
 }

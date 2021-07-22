@@ -4,7 +4,7 @@
 
 use codec::Codec;
 pub use online_profile::{
-    LiveMachine, MachineId, PosInfo, RPCMachineInfo, RpcStakerInfo, RpcSysInfo,
+    LiveMachine, MachineId, PosInfo, RPCMachineInfo, RpcStakerInfo, RpcSysInfo, EraIndex,
 };
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
@@ -23,5 +23,6 @@ sp_api::decl_runtime_apis! {
         fn get_machine_list() -> LiveMachine;
         fn get_machine_info(machine_id: MachineId) -> RPCMachineInfo<AccountId, BlockNumber, Balance>;
         fn get_pos_gpu_info() -> Vec<(i64, i64, PosInfo)>;
+        fn get_machine_era_reward(machine_id: MachineId, era_index: EraIndex) -> Balance;
     }
 }
