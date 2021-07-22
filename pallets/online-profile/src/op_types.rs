@@ -96,9 +96,9 @@ pub struct StakerCustomizeInfo {
 /// NOTE: 这个账户应该是stash账户，而不是controller账户
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
 pub struct EraStashPoints<AccountId: Ord> {
-    /// 所有在线机器总得分(包括因在线/绑定多台获得的额外得分)
+    /// Total grade of the system (inflation grades from onlineStatus or multipGPU is counted)
     pub total: u64,
-    /// 某个Era，stash账户的得分系数快照
+    /// Some Era，grade snap of stash account
     pub staker_statistic: BTreeMap<AccountId, StashMachineStatistics>,
 }
 

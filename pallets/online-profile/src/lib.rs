@@ -25,7 +25,7 @@ use frame_support::{
     IterableStorageDoubleMap, IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{DbcPrice, LCOps, ManageCommittee, OPRPCQuery, RTOps};
+use online_profile_machine::{DbcPrice, LCOps, MTOps, ManageCommittee, OPRPCQuery, RTOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::crypto::Public;
@@ -134,6 +134,7 @@ pub enum MachineStatus<BlockNumber> {
     StakerReportOffline(BlockNumber, Box<Self>),
     /// 报告人报告机器下线
     ReporterReportOffline(BlockNumber),
+    // ReporterReportOffline(BlockNumber, Box<Self>), // TODO
     /// 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
     Creating,
     /// 已经被租用
@@ -167,7 +168,7 @@ pub struct LiveMachine {
 }
 
 impl LiveMachine {
-    /// 检查machine_id是否存
+    /// Check if machine_id exist
     fn machine_id_exist(&self, machine_id: &MachineId) -> bool {
         if let Ok(_) = self.bonding_machine.binary_search(machine_id) {
             return true;
@@ -190,22 +191,22 @@ impl LiveMachine {
         false
     }
 
-    /// 向LiveMachine某个字段添加machine_id
+    /// Add machine_id to one field of LiveMachine
     fn add_machine_id(a_field: &mut Vec<MachineId>, machine_id: MachineId) {
         if let Err(index) = a_field.binary_search(&machine_id) {
             a_field.insert(index, machine_id);
         }
     }
 
-    /// 从LiveMachine某个字段删除machine_id
+    /// Delete machine_id from one field of LiveMachine
     fn rm_machine_id(a_field: &mut Vec<MachineId>, machine_id: &MachineId) {
         if let Ok(index) = a_field.binary_search(machine_id) {
             a_field.remove(index);
         }
     }
 
-    /// 获取所有MachineId
-    fn all_machine_id(self) -> Vec<MachineId> {
+    /// Get all MachineId
+    fn _all_machine_id(self) -> Vec<MachineId> {
         let mut out = Vec::new();
         out.extend(self.bonding_machine);
         out.extend(self.confirmed_machine);
@@ -217,19 +218,19 @@ impl LiveMachine {
     }
 }
 
-/// 标准GPU租用价格
+/// Standard GPU rent price Per Era
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StandardGpuPointPrice {
-    /// 标准GPU算力点数
+    /// Standard GPU calc points
     pub gpu_point: u64,
-    /// 标准GPu价格
+    /// Standard GPU price
     pub gpu_price: u64,
 }
 
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// 在线奖励系统信息统计
+/// SysInfo of onlineProfile pallet
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct SysInfoDetail<Balance> {
     /// 在线机器的GPU的总数
@@ -889,7 +890,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 控制账户报告机器下线
+        /// Controller report to control machine offline
         #[pallet::weight(10000)]
         pub fn controller_report_offline(
             origin: OriginFor<T>,
@@ -1805,6 +1806,52 @@ impl<T: Config> OPRPCQuery for Pallet<T> {
 
     fn get_stash_machine(stash: T::AccountId) -> StashMachine<BalanceOf<T>> {
         Self::stash_machines(stash)
+    }
+}
+
+impl<T: Config> MTOps for Pallet<T> {
+    type MachineId = MachineId;
+    type AccountId = T::AccountId;
+
+    // TODO: 与本模块同名函数复用
+    fn machine_offline(
+        machine_id: MachineId,
+        _committee: Vec<T::AccountId>,
+        _reporter: T::AccountId,
+    ) {
+        let now = <frame_system::Module<T>>::block_number();
+
+        let mut machine_info = Self::machines_info(&machine_id);
+        let mut sys_info = Self::sys_info();
+        let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+
+        // FIXME
+        // machine_info.machine_status =
+        //     MachineStatus::ReporterReportOffline(now, Box::new(machine_info.machine_status));
+        machine_info.machine_status = MachineStatus::ReporterReportOffline(now);
+
+        if let MachineStatus::Rented = machine_info.machine_status {
+            sys_info.total_rented_gpu -=
+                machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            Self::update_snap_by_rent_status(machine_id.clone(), false);
+            Self::change_pos_gpu_by_rent(&machine_id, false);
+            stash_machine.total_rented_gpu -=
+                machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+        }
+
+        Self::change_pos_gpu_by_online(&machine_id, false);
+
+        if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
+            stash_machine.online_machine.remove(index);
+        }
+        stash_machine.total_gpu_num -=
+            machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+        stash_machine.total_calc_points -=
+            machine_info.machine_info_detail.committee_upload_info.calc_point;
+
+        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+        MachinesInfo::<T>::insert(&machine_id, machine_info);
+        SysInfo::<T>::put(sys_info);
     }
 }
 

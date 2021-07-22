@@ -56,10 +56,22 @@ pub trait ManageCommittee {
     ) -> Result<(), ()>;
     fn stake_per_order() -> Option<Self::BalanceOf>;
     fn add_reward(committee: Self::AccountId, reward: Self::BalanceOf);
+    fn add_slash(who: Self::AccountId, amount: Self::BalanceOf, reward_to: Vec<Self::AccountId>);
 }
 
 pub trait DbcPrice {
     type BalanceOf;
 
     fn get_dbc_amount_by_value(value: u64) -> Option<Self::BalanceOf>;
+}
+
+pub trait MTOps {
+    type AccountId;
+    type MachineId;
+
+    fn machine_offline(
+        machine_id: Self::MachineId,
+        committee: Vec<Self::AccountId>,
+        reporter: Self::AccountId,
+    );
 }

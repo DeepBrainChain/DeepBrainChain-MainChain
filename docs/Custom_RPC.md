@@ -1,6 +1,6 @@
-## 自定义RPC的查询
+## 自定义 RPC 的查询
 
-说明：可以连接区块链的`websocket接口`进行查询。测试网WS接口：`wss://innertest.dbcwallet.io`
+说明：可以连接区块链的`websocket接口`进行查询。测试网 WS 接口：`wss://innertest.dbcwallet.io`
 
 查询请求方式：
 
@@ -15,99 +15,106 @@
 
 其中，method_name 和 params_1, params_2... 根据需要替换成实际的方法名与参数。
 
-例如，利用Postman连接websocket查询机器信息：
+例如，利用 Postman 连接 websocket 查询机器信息：
 
 ![image-20210630233136723](Custom_RPC.assets/image-20210630233136723.png)
 
-
-
 #### 查询在线奖励模块资金账户数量
 
-+ 方法: `onlineProfile_getStakerNum`
+- 方法: `onlineProfile_getStakerNum`
 
-+ 参数: 无
+- 参数: 无
 
-+ 结果示例：
+- 结果示例：
 
   ```json
   {
-      "jsonrpc": "2.0",
-      "result": 1,
-      "id": 1
+    "jsonrpc": "2.0",
+    "result": 1,
+    "id": 1
   }
   ```
-  
-+ 结果说明：
+
+- 结果说明：
 
   `result` 字段为资金账户数量
 
 #### 查询在线奖励模块系统信息
 
-+ 方法: `onlineProfile_getOpInfo`
+- 方法: `onlineProfile_getOpInfo`
 
-+ 参数：无
+- 参数：无
 
-+ 结果示例：
+- 结果示例：
 
   ```json
   {
-      "jsonrpc": "2.0",
-      "result": {
-          "totalBurnFee": "0",
-          "totalCalcPoints": 3210,
-          "totalGpuNum": 4,
-          "totalRentFee": "0",
-          "totalRentedGpu": 0,
-          "totalStake": "200000000000000000",
-          "totalStaker": 1
-      },
-      "id": 1
+    "jsonrpc": "2.0",
+    "result": {
+      "totalBurnFee": "0",
+      "totalCalcPoints": 3210,
+      "totalGpuNum": 4,
+      "totalRentFee": "0",
+      "totalRentedGpu": 0,
+      "totalStake": "200000000000000000",
+      "totalStaker": 1
+    },
+    "id": 1
   }
   ```
-  
-+ 结果说明：
+
+- 结果说明：
 
   TODO
 
 #### 查询资金账户的信息
 
-+ 方法：`onlineProfile_getStakerInfo`
+- 方法：`onlineProfile_getStakerInfo`
 
-+ 参数：资金账户。例如 `5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc`
+- 参数：资金账户。例如 `5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc`
 
-+ 结果示例：
+- 结果示例：
 
   ```json
   {
-      "jsonrpc": "2.0",
-      "result": {
-          "calcPoints": 3310,
-          "gpuNum": 4,
-          "totalReward": "0"
-      },
-      "id": 1{
-      "jsonrpc": "2.0",
-      "result": {
-          "bondedMachines": [
+    "jsonrpc": "2.0",
+    "result": {
+          "bondedMachines": [ // 每个机器的算力点数
               {
-                  "calcPoint": 0,
-                  "gpuNum": 0,
-                  "machineId": [
-                      56, 101, 97, 102, 48, 52, 49, 53, 49, 54, 56, 55, 55, ...
-                  ],
-                  "machineStatus": "addingCustomizeInfo"
+                  "calcPoint": 6825, // 机器的算力点数
+                  "gpuNum": 4, // 机器的GPU数量
+                  "machineId": [56, 101, 97, 102, 48, 52, 49, 53, 49, 54, ...], // 机器的machine_id
+                  "machineStatus": "online" // 机器的状态
               }
           ],
-          "calcPoints": 0,
-          "gpuNum": 0,
-          "totalReward": "0"
+          "stashStatistic": {
+              "canClaimReward": "1415699994555000000000", // 可以领取的奖励
+              "linearReleaseReward": [ // 线性释放的奖励,即每天总奖励减去立即释放的25%奖励后，剩下的75%的奖励。
+                  "825000000000000000000",
+                  "825000000000000000000",
+                  "825000000000000000000", // 前3天的奖励
+                  "825000000000000000000", // 前2天的奖励
+                  "825000000000000000000" // 前1天的奖励
+              ],
+              "onlineMachine": [
+                  [56, 101, 97, 102, 48, 52, 49, 53, 49, 54, ...] // 该stash账户上线的机器ID
+              ],
+              "totalBurnFee": "0", // 银河竞赛开启后，总
+              "totalCalcPoints": 6825, // 该账户下，机器的总算力值
+              "totalClaimedReward": "0", // 该账户已经领取的奖励数量
+              "totalGpuNum": 4, // 该账户下机器的总CPU数量
+              "totalMachine": [
+                  [56, 101, 97, 102, 48, 52, 49, 53, 49, 54, ...] // 该账户下所有的机器ID
+              ],
+              "totalRentFee": "0", // 银河竞赛开启前，获得的租金数量
+              "totalRentedGpu": 0 // 该账户下机器被租用的GPU数量
+          }
       },
-      "id": 1
-  }
+    "id": 1
   }
   ```
-  
-+ 结果说明：
+
+- 结果说明：
 
   其中， `machineId`字段为`Vec<u8>`，需要转为`String`类型
 
@@ -115,11 +122,11 @@
 
 #### 查询系统中所有的机器
 
-+ 方法：`onlineProfile_getMachineList`
+- 方法：`onlineProfile_getMachineList`
 
-+ 参数：无
+- 参数：无
 
-+ 结果示例：
+- 结果示例：
 
   ```json
   {
@@ -141,103 +148,102 @@
 
 #### 查询机器的信息
 
-+ 方法：`onlineProfile_getMachineInfo`
+- 方法：`onlineProfile_getMachineInfo`
 
-+ 参数：`MachineId`. 如：`8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48`
+- 参数：`MachineId`. 如：`8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48`
 
-+ 结果示例：
-
-  ```json
-  {
-  	"jsonrpc": "2.0",
-  	"result": {
-  		"bondingHeight": 1505,
-  		"machineInfoDetail": {
-  			"committee_upload_info": {
-  				"calc_point": 0,
-  				"cpu_core_num": 0,
-  				"cpu_rate": 0,
-  				"cpu_type": [],
-  				"cuda_core": 0,
-  				"data_disk": 0,
-  				"gpu_mem": 0,
-  				"gpu_num": 0,
-  				"gpu_type": [],
-  				"is_support": false,
-  				"machine_id": [],
-  				"mem_num": 0,
-  				"rand_str": [],
-  				"sys_disk": 0
-  			},
-  			"staker_customize_info": {
-  				"download_net": 1102,
-  				"images": [
-  					[85,98,117,110,116,117,49,56,46,48,52,32,76,84,83],
-  					[67,101,110,116,79,83,32,56]
-  				],
-  				"latitude": 1104,
-  				"longitude": 1103,
-  				"telecom_operators": [
-  					[67,104,105,110,97,32,85,110,105,99,111,109],
-  					[67,104,105,110,97,32,77,111,98,105,108,101]
-  				],
-  				"upload_net": 1101
-  			}
-  		},
-  		"machineOwner": "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",
-  		"machineStatus": "committeeVerifying",
-  		"rewardCommittee": [],
-  		"rewardDeadline": 0,
-  		"stakeAmount": "100000000000000000",
-  		"totalBurnFee": "0",
-  		"totalRentFee": "0",
-  		"totalRentedDuration": 0,
-  		"totalRentedTimes": 0
-  	},
-  	"id": 1
-  }
-  ```
-
-#### 查询按经纬度位置区分的GPU信息统计
-
-+ 方法：`onlineProfile_getPosGpuInfo`
-
-+ 参数：无
-
-+ 结果示例：
+- 结果示例：
 
   ```json
   {
-      "jsonrpc": "2.0",
-      "result": [
-          [
-              1103,
-              1104,
-              {
-                  "offlineGpu": 0,
-                  "onlineGpu": 4,
-                  "onlineGpuCalcPoints": 6825,
-                  "rentedGpu": 0
-              }
-          ]
-      ],
-      "id": 1
+    "jsonrpc": "2.0",
+    "result": {
+      "bondingHeight": 1505,
+      "machineInfoDetail": {
+        "committee_upload_info": {
+          "calc_point": 0,
+          "cpu_core_num": 0,
+          "cpu_rate": 0,
+          "cpu_type": [],
+          "cuda_core": 0,
+          "data_disk": 0,
+          "gpu_mem": 0,
+          "gpu_num": 0,
+          "gpu_type": [],
+          "is_support": false,
+          "machine_id": [],
+          "mem_num": 0,
+          "rand_str": [],
+          "sys_disk": 0
+        },
+        "staker_customize_info": {
+          "download_net": 1102,
+          "images": [
+            [85, 98, 117, 110, 116, 117, 49, 56, 46, 48, 52, 32, 76, 84, 83],
+            [67, 101, 110, 116, 79, 83, 32, 56]
+          ],
+          "latitude": 1104,
+          "longitude": 1103,
+          "telecom_operators": [
+            [67, 104, 105, 110, 97, 32, 85, 110, 105, 99, 111, 109],
+            [67, 104, 105, 110, 97, 32, 77, 111, 98, 105, 108, 101]
+          ],
+          "upload_net": 1101
+        }
+      },
+      "machineOwner": "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",
+      "machineStatus": "committeeVerifying",
+      "rewardCommittee": [],
+      "rewardDeadline": 0,
+      "stakeAmount": "100000000000000000",
+      "totalBurnFee": "0",
+      "totalRentFee": "0",
+      "totalRentedDuration": 0,
+      "totalRentedTimes": 0
+    },
+    "id": 1
   }
   ```
 
+#### 查询按经纬度位置区分的 GPU 信息统计
 
-###  分页查询矿工质押详情
+- 方法：`onlineProfile_getPosGpuInfo`
+
+- 参数：无
+
+- 结果示例：
+
+  ```json
+  {
+    "jsonrpc": "2.0",
+    "result": [
+      [
+        1103,
+        1104,
+        {
+          "offlineGpu": 0,
+          "onlineGpu": 4,
+          "onlineGpuCalcPoints": 6825,
+          "rentedGpu": 0
+        }
+      ]
+    ],
+    "id": 1
+  }
+  ```
+
+### 分页查询矿工质押详情
 
 ```json
 {
-     "jsonrpc":"2.0",
-      "id":1,
-      "method":"onlineProfile_getStakerListInfo",
-      "params": [0, 7]
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getStakerListInfo",
+  "params": [0, 7]
 }
 ```
 
-+ 参数说明：cur_page, per_page
+- 参数说明：cur_page, per_page
 
 返回结果：
 
@@ -277,7 +283,7 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
     }'
 ```
 
-+ 返回信息：
+- 返回信息：
 
 ```json
 {
@@ -298,7 +304,7 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 
 结果说明：TODO
 
-### 查询委员会被分配的机器ID
+### 查询委员会被分配的机器 ID
 
 ```bash
  curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
@@ -329,6 +335,7 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 ```
 
 ### 查询委员会验证时间
+
 ```bash
 curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
      "jsonrpc":"2.0",
@@ -343,7 +350,33 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 返回结果：
 
 ```json
-{"jsonrpc":"2.0","result":{"bookedTime":"0","confirmHash":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"confirmTime":"0","hashTime":"0","machineInfo":{"calc_point":0,"cpu_core_num":0,"cpu_rate":0,"cpu_type":[],"cuda_core":0,"gpu_mem":0,"gpu_num":0,"gpu_type":[],"hard_disk":0,"is_support":false,"machine_id":[],"mem_num":0,"rand_str":[]},"machineStatus":"Booked","stakedDbc":"0"},"id":1}
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "bookedTime": "0",
+    "confirmHash": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "confirmTime": "0",
+    "hashTime": "0",
+    "machineInfo": {
+      "calc_point": 0,
+      "cpu_core_num": 0,
+      "cpu_rate": 0,
+      "cpu_type": [],
+      "cuda_core": 0,
+      "gpu_mem": 0,
+      "gpu_num": 0,
+      "gpu_type": [],
+      "hard_disk": 0,
+      "is_support": false,
+      "machine_id": [],
+      "mem_num": 0,
+      "rand_str": []
+    },
+    "machineStatus": "Booked",
+    "stakedDbc": "0"
+  },
+  "id": 1
+}
 ```
 
 ### 查询用户租用机器订单
@@ -360,8 +393,19 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 参数说明： AccountId, MachineId
 
 返回结果：
+
 ```json
-{"jsonrpc":"2.0","result":{"confirmRent":"0","rentEnd":"0","rentStart":"0","renter":"5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM","stakeAmount":"0"},"id":1}
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "confirmRent": "0",
+    "rentEnd": "0",
+    "rentStart": "0",
+    "renter": "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM",
+    "stakeAmount": "0"
+  },
+  "id": 1
+}
 ```
 
 ### 查询用户的租用列表
@@ -379,7 +423,6 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 
 返回结果： ["machine_id1", "machine_id2"]
 
-
 ---
 
 ---
@@ -395,12 +438,16 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
     }'
 ```
 
-+ "params"为： "AccountId"
+- "params"为： "AccountId"
 
-+ 返回信息：
+- 返回信息：
 
 ```json
-{"jsonrpc":"2.0","result":{"calcPoints":0,"gpuNum":0,"totalReward":"0"},"id":1}
+{
+  "jsonrpc": "2.0",
+  "result": { "calcPoints": 0, "gpuNum": 0, "totalReward": "0" },
+  "id": 1
+}
 ```
 
 ### 查询地址对应的账户名称
@@ -414,12 +461,14 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
     }'
 ```
 
-+ 返回信息：
+- 返回信息：
+
 ```json
-{"jsonrpc":"2.0","result":[98,111,98],"id":1}
+{ "jsonrpc": "2.0", "result": [98, 111, 98], "id": 1 }
 ```
 
-python 中decode得到账户名称：
+python 中 decode 得到账户名称：
+
 ```
 >>> bytes([98,111,98]).decode('utf-8')
 'bob'

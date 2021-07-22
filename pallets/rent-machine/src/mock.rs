@@ -201,7 +201,7 @@ frame_support::construct_runtime!(
     }
 );
 
-pub fn new_test_with_online_machine_online_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
     let mut storage =
         frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
@@ -355,7 +355,6 @@ pub fn new_test_with_online_machine_online_ext() -> sp_io::TestExternalities {
 
 pub fn run_to_block(n: BlockNumber) {
     for b in System::block_number()..=n {
-        // 当前块结束
         OnlineProfile::on_finalize(b);
         LeaseCommittee::on_finalize(b);
         Committee::on_finalize(b);
@@ -364,7 +363,6 @@ pub fn run_to_block(n: BlockNumber) {
 
         System::set_block_number(b + 1);
 
-        // 下一块初始化
         System::on_initialize(b + 1);
         LeaseCommittee::on_initialize(b + 1);
         Committee::on_initialize(b + 1);

@@ -146,17 +146,6 @@ impl pallet_treasury::Config for TestRuntime {
     type SpendFunds = ();
 }
 
-// parameter_types! {
-//     pub const MinimumPeriod: u64 = 5;
-// }
-
-// impl pallet_timestamp::Config for TestRuntime {
-//     type Moment = u64;
-//     type OnTimestampSet = ();
-//     type MinimumPeriod = MinimumPeriod;
-//     type WeightInfo = ();
-// }
-
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
@@ -180,7 +169,6 @@ impl online_profile::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type BondingDuration = BondingDuration;
-    // type ProfitReleaseDuration = ProfitReleaseDuration;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
 }
@@ -225,7 +213,6 @@ frame_support::construct_runtime!(
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
-        // Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
     }
 );
 
@@ -298,7 +285,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
         let _ = OnlineProfile::set_standard_gpu_point_price(
             RawOrigin::Root.into(),
-            StandardGpuPointPrice { gpu_point: 1000, gpu_price: 150_000_000 },
+            StandardGpuPointPrice { gpu_point: 1000, gpu_price: 5_000_000 },
         );
 
         // 初始化price_ocw (0.012$)

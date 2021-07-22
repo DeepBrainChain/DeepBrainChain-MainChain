@@ -36,7 +36,6 @@ pub use rpc_types::RpcLCCommitteeOps;
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
-pub type SlashId = u64;
 type BalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -136,17 +135,6 @@ struct Summary<AccountId> {
     pub unruly: Vec<AccountId>,          // 没有提交全部信息的委员会
     pub against: Vec<AccountId>,
     pub info: Option<CommitteeUploadInfo>,
-}
-
-// 即将被执行的罚款
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
-    pub slash_who: AccountId,
-    pub slash_time: BlockNumber,      // 惩罚被创建的时间
-    pub unlock_amount: Balance,       // 执行惩罚前解绑的金额
-    pub slash_amount: Balance,        // 执行惩罚的金额
-    pub slash_exec_time: BlockNumber, // 惩罚被执行的时间
-    pub reward_to: Vec<AccountId>,    // 奖励发放对象。如果为空，则惩罚到国库
 }
 
 #[frame_support::pallet]
@@ -521,11 +509,11 @@ impl<T: Config> Pallet<T> {
             let mut reward_committee = Vec::new(); // 当拒绝上线时，惩罚委员会的币奖励给拒绝的委员会
             let mut unstake_committee = Vec::new(); // 解除质押的委员会
 
-            debug::warn!("##### Summarying... {:?}", machine_id);
+            debug::warn!("Summarying... {:?}", machine_id);
 
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
-                    debug::warn!("##### Summarying result is... confirmed");
+                    debug::warn!("Summarying result is... confirmed");
                     slash_committee.extend(summary.unruly.clone());
                     slash_committee.extend(summary.against);
                     slash_committee.extend(summary.invalid_support);
@@ -556,39 +544,48 @@ impl<T: Config> Pallet<T> {
                     }
                 }
                 MachineConfirmStatus::Refuse(summary) => {
-                    debug::warn!("##### Summarying result is... refused");
+                    debug::warn!("Summarying result is... refused");
                     slash_committee.extend(summary.unruly.clone());
                     slash_committee.extend(summary.invalid_support);
                     reward_committee.extend(summary.against.clone());
                     unstake_committee.extend(summary.against.clone());
 
-                    // FIXME 修改逻辑
-                    let _ = T::LCOperations::lc_refuse_machine(machine_id.clone());
+                    if let Err(e) = T::LCOperations::lc_refuse_machine(machine_id.clone()) {
+                        debug::error!("Failed to exec lc refuse machine logic: {:?}", e);
+                    };
                 }
                 MachineConfirmStatus::NoConsensus(summary) => {
-                    debug::warn!("##### Summarying result is... NoConsensus");
+                    debug::warn!("Summarying result is... NoConsensus");
                     slash_committee.extend(summary.unruly.clone());
                     unstake_committee.extend(machine_committee.confirmed_committee.clone());
-                    let _ = Self::revert_book(machine_id.clone());
+                    if let Err(e) = Self::revert_book(machine_id.clone()) {
+                        debug::error!("Failed to revert book: {:?}", e);
+                    };
 
-                    // FIXME: 查询质押，并退还质押： 应该改成onlineProfile上一中状态
                     T::LCOperations::lc_revert_booked_machine(machine_id.clone());
                 }
             }
 
             // 惩罚没有提交信息的委员会
             for a_committee in slash_committee {
-                let _committee_ops = Self::committee_ops(&a_committee, &machine_id);
-                // TODO:  由committee模块提供
-                // TODO: add_slash应该能够传BalanceOf的参数
-                // Self::add_slash(a_committee, committee_ops.staked_dbc, reward_committee.clone());
+                let committee_ops = Self::committee_ops(&a_committee, &machine_id);
+                <T as pallet::Config>::ManageCommittee::add_slash(
+                    a_committee,
+                    committee_ops.staked_dbc,
+                    vec![],
+                );
                 // TODO: 应该从book的信息中移除
             }
 
             for a_committee in unstake_committee {
-                let _committee_ops = Self::committee_ops(&a_committee, &machine_id);
-                // TODO: 由committee模块提供
-                // Self::reduce_stake(&a_committee, committee_ops.staked_dbc);
+                let committee_ops = Self::committee_ops(&a_committee, &machine_id);
+                if let Err(e) = <T as pallet::Config>::ManageCommittee::change_stake(
+                    &a_committee,
+                    committee_ops.staked_dbc,
+                    false,
+                ) {
+                    debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
+                };
             }
         }
     }

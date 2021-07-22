@@ -1,9 +1,0 @@
-{
-  "name": "simple_event",
-  "version": "1.0.0",
-  "main": "index.js",
-  "license": "MIT",
-  "dependencies": {
-    "@polkadot/api": "^4.9.2"
-  }
-}
