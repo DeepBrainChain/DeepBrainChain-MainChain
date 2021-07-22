@@ -615,6 +615,19 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Root 设置posInfo
+        #[pallet::weight(0)]
+        pub fn set_pos_info(
+            origin: OriginFor<T>,
+            long: i64,
+            lati: i64,
+            pos_info: PosInfo,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            PosGPUInfo::<T>::insert(long, lati, pos_info);
+            Ok(().into())
+        }
+
         /// 控制账户上线一个机器
         /// msg = d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
         ///     + 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
@@ -898,10 +911,13 @@ pub mod pallet {
             let machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
+            debug::RuntimeLogger::init();
+
             // 某些状态允许下线
             match machine_info.machine_status {
                 MachineStatus::Online | MachineStatus::Rented => {}
                 _ => {
+                    debug::error!("#### Machine Status::{:?}", machine_info.machine_status);
                     return Err(Error::<T>::MachineStatusNotAllowed.into());
                 }
             }
@@ -922,6 +938,7 @@ pub mod pallet {
             let mut machine_info = Self::machines_info(&machine_id);
             let mut sys_info = Self::sys_info();
             let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+            let mut live_machine = Self::live_machines();
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
@@ -962,6 +979,10 @@ pub mod pallet {
                 return Err(Error::<T>::MachineStatusNotAllowed.into());
             }
 
+            LiveMachine::rm_machine_id(&mut live_machine.refused_machine, &machine_id);
+            LiveMachine::add_machine_id(&mut live_machine.online_machine, machine_id.clone());
+
+            LiveMachines::<T>::put(live_machine);
             StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
             SysInfo::<T>::put(sys_info);
@@ -1110,6 +1131,7 @@ impl<T: Config> Pallet<T> {
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
     }
 
+    // FIXME: 检查该逻辑
     // 检查fulfilling list，如果超过10天，则清除记录，退还质押
     fn clean_refused_machine() {
         let mut live_machines = Self::live_machines();
@@ -1614,25 +1636,30 @@ impl<T: Config> LCOps for Pallet<T> {
 
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
         let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
-        // if let Some(stake_need) = stake_need.checked_sub(&machine_info.stake_amount) {
-        if let Ok(_) = T::ManageCommittee::change_stake(
-            &machine_info.machine_stash,
-            stake_need - machine_info.stake_amount,
-            true,
-        ) {
+        if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
+            if let Ok(_) =
+                T::ManageCommittee::change_stake(&machine_info.machine_stash, extra_stake, true)
+            {
+                LiveMachine::add_machine_id(
+                    &mut live_machines.online_machine,
+                    committee_upload_info.machine_id.clone(),
+                );
+                machine_info.stake_amount = stake_need;
+                machine_info.machine_status = MachineStatus::Online;
+                sys_info.total_stake += extra_stake;
+            } else {
+                LiveMachine::add_machine_id(
+                    &mut live_machines.fulfilling_machine,
+                    committee_upload_info.machine_id.clone(),
+                );
+                machine_info.machine_status = MachineStatus::WaitingFulfill;
+            }
+        } else {
             LiveMachine::add_machine_id(
                 &mut live_machines.online_machine,
                 committee_upload_info.machine_id.clone(),
             );
-            machine_info.stake_amount = stake_need;
             machine_info.machine_status = MachineStatus::Online;
-            sys_info.total_stake += stake_need - machine_info.stake_amount;
-        } else {
-            LiveMachine::add_machine_id(
-                &mut live_machines.fulfilling_machine,
-                committee_upload_info.machine_id.clone(),
-            );
-            machine_info.machine_status = MachineStatus::WaitingFulfill;
         }
 
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
