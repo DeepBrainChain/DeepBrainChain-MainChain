@@ -668,6 +668,103 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Root run set_controller, for migration
+        #[pallet::weight(0)]
+        pub fn root_set_controller(
+            origin: OriginFor<T>,
+            controller: T::AccountId,
+            stash: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            StashController::<T>::insert(stash.clone(), controller.clone());
+            ControllerStash::<T>::insert(controller, stash);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn root_bond_machine(
+            origin: OriginFor<T>,
+            controller: T::AccountId,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
+            let mut live_machines = Self::live_machines();
+
+            // 用户绑定机器需要质押一张显卡的DBC
+            let stake_amount =
+                Self::calc_stake_amount(1).ok_or(Error::<T>::CalcStakeAmountFailed)?;
+
+            // 扣除10个Dbc作为交易手续费
+            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone())
+                .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+
+            let mut stash_machines = Self::stash_machines(&stash);
+            if let Err(index) = stash_machines.total_machine.binary_search(&machine_id) {
+                stash_machines.total_machine.insert(index, machine_id.clone());
+            }
+
+            let mut controller_machines = Self::controller_machines(&controller);
+            if let Err(index) = controller_machines.binary_search(&machine_id) {
+                controller_machines.insert(index, machine_id.clone());
+            }
+
+            // 添加到LiveMachine的bonding_machine字段
+            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
+
+            // 初始化MachineInfo, 并添加到MachinesInfo
+            let machine_info = MachineInfo {
+                controller: controller.clone(),
+                machine_stash: stash.clone(),
+                bonding_height: <frame_system::Module<T>>::block_number(),
+                stake_amount,
+                machine_status: MachineStatus::AddingCustomizeInfo,
+                ..Default::default()
+            };
+
+            Self::add_user_total_stake(&stash, stake_amount)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
+
+            ControllerMachines::<T>::insert(&controller, controller_machines);
+            StashMachines::<T>::insert(&stash, stash_machines);
+            LiveMachines::<T>::put(live_machines);
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn root_add_machine_info(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            customize_machine_info: StakerCustomizeInfo,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let mut machine_info = Self::machines_info(&machine_id);
+            if customize_machine_info.telecom_operators.len() == 0
+                || customize_machine_info.images.len() == 0
+            {
+                return Err(Error::<T>::TelecomAndImageIsNull.into());
+            }
+
+            let mut live_machines = Self::live_machines();
+            if let Ok(index) = live_machines.bonding_machine.binary_search(&machine_id) {
+                live_machines.bonding_machine.remove(index);
+                if let Err(index) = live_machines.confirmed_machine.binary_search(&machine_id) {
+                    live_machines.confirmed_machine.insert(index, machine_id.clone());
+                }
+                LiveMachines::<T>::put(live_machines);
+
+                machine_info.machine_status = MachineStatus::DistributingOrder;
+            }
+            machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
+
+            Ok(().into())
+        }
+
         /// Root 设置stash rented machine
         #[pallet::weight(0)]
         pub fn set_stash_rented_gpu_num(
