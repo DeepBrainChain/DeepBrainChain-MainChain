@@ -481,29 +481,29 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            let all_machine_id = Self::get_all_machine_id();
+            // let all_machine_id = Self::get_all_machine_id();
 
-            for machine_id in all_machine_id {
-                let machine_info = Self::machines_info(&machine_id);
-                let new_machine_info = MachineInfo2 {
-                    controller: machine_info.controller,
-                    machine_stash: machine_info.machine_stash,
-                    machine_renter: machine_info.machine_renter,
-                    bonding_height: machine_info.bonding_height,
-                    stake_amount: machine_info.stake_amount,
-                    machine_status: machine_info.machine_status,
-                    total_rented_duration: machine_info.total_rented_duration,
-                    total_rented_times: machine_info.total_rented_times,
-                    total_rent_fee: machine_info.total_rent_fee,
-                    total_burn_fee: machine_info.total_burn_fee,
-                    machine_info_detail: machine_info.machine_info_detail,
-                    reward_committee: machine_info.reward_committee,
-                    reward_deadline: machine_info.reward_deadline,
-                    ..Default::default()
-                };
+            // for machine_id in all_machine_id {
+            //     let machine_info = Self::machines_info(&machine_id);
+            //     let new_machine_info = MachineInfo2 {
+            //         controller: machine_info.controller,
+            //         machine_stash: machine_info.machine_stash,
+            //         machine_renter: machine_info.machine_renter,
+            //         bonding_height: machine_info.bonding_height,
+            //         stake_amount: machine_info.stake_amount,
+            //         machine_status: machine_info.machine_status,
+            //         total_rented_duration: machine_info.total_rented_duration,
+            //         total_rented_times: machine_info.total_rented_times,
+            //         total_rent_fee: machine_info.total_rent_fee,
+            //         total_burn_fee: machine_info.total_burn_fee,
+            //         machine_info_detail: machine_info.machine_info_detail,
+            //         reward_committee: machine_info.reward_committee,
+            //         reward_deadline: machine_info.reward_deadline,
+            //         ..Default::default()
+            //     };
 
-                MachinesInfo2::<T>::insert(&machine_id, new_machine_info);
-            }
+            //     MachinesInfo2::<T>::insert(&machine_id, new_machine_info);
+            // }
 
             0
         }
