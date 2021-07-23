@@ -113,6 +113,44 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub reward_deadline: BlockNumber,
 }
 
+/// 机器的信息: 更新之后的存储
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct MachineInfo2<AccountId: Ord, BlockNumber, Balance> {
+    /// 绑定机器的人
+    pub controller: AccountId,
+    /// 奖励发放账户(机器内置钱包地址)
+    pub machine_stash: AccountId,
+    /// 当前机器的租用者
+    pub machine_renter: Option<AccountId>,
+    /// 记录机器第一次绑定上线的时间
+    pub bonding_height: BlockNumber,
+    /// 机器被委员会确认之后，正式上线时间
+    pub online_height: BlockNumber, // TODO: 链升级新加字段
+    /// 最近一次机器上线时间，机器主动下线后再次上线更新该字段。用以限制机器一天内不能两次调用上线方法
+    /// 机器24一天内，最多下线--上线(更新该字段)--下线--等待24小时再上线
+    pub latest_online_height: BlockNumber, // TODO: 链升级新加字段
+    /// 该机器质押数量
+    pub stake_amount: Balance,
+    /// 机器的状态
+    pub machine_status: MachineStatus<BlockNumber>,
+    // /// 机器线性释放的奖励
+    // pub linear_release_reward: VecDeque<Balance>,
+    /// 总租用累计时长
+    pub total_rented_duration: u64,
+    /// 总租用次数
+    pub total_rented_times: u64,
+    /// 总租金收益(银河竞赛前获得)
+    pub total_rent_fee: Balance,
+    /// 总销毁数量
+    pub total_burn_fee: Balance,
+    /// 委员会提交的机器信息与用户自定义的信息
+    pub machine_info_detail: MachineInfoDetail,
+    /// 列表中的委员将分得用户每天奖励的1%
+    pub reward_committee: Vec<AccountId>,
+    /// 列表中委员分得奖励结束时间
+    pub reward_deadline: BlockNumber,
+}
+
 /// 机器状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -344,6 +382,17 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// 机器的详细信息
+    #[pallet::storage]
+    #[pallet::getter(fn machines_info2)]
+    pub type MachinesInfo2<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        MachineInfo2<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
+
     /// stash账户下所有机器统计
     #[pallet::storage]
     #[pallet::getter(fn stash_machines)]
@@ -431,6 +480,34 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            let all_machine_id = Self::get_all_machine_id();
+
+            for machine_id in all_machine_id {
+                let machine_info = Self::machines_info(&machine_id);
+                let new_machine_info = MachineInfo2 {
+                    controller: machine_info.controller,
+                    machine_stash: machine_info.machine_stash,
+                    machine_renter: machine_info.machine_renter,
+                    bonding_height: machine_info.bonding_height,
+                    stake_amount: machine_info.stake_amount,
+                    machine_status: machine_info.machine_status,
+                    total_rented_duration: machine_info.total_rented_duration,
+                    total_rented_times: machine_info.total_rented_times,
+                    total_rent_fee: machine_info.total_rent_fee,
+                    total_burn_fee: machine_info.total_burn_fee,
+                    machine_info_detail: machine_info.machine_info_detail,
+                    reward_committee: machine_info.reward_committee,
+                    reward_deadline: machine_info.reward_deadline,
+                    ..Default::default()
+                };
+
+                MachinesInfo2::<T>::insert(&machine_id, new_machine_info);
+            }
+
+            0
+        }
+
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
             // Era开始时，生成当前Era和下一个Era的快照
             // 每个Era(2880个块)执行一次
@@ -1036,6 +1113,13 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // For upgrade
+    fn get_all_machine_id() -> Vec<MachineId> {
+        <MachinesInfo<T> as IterableStorageMap<MachineId, _>>::iter()
+            .map(|(machine_id, _)| machine_id)
+            .collect::<Vec<_>>()
+    }
+
     /// 下架机器
     fn machine_offline(machine_id: MachineId) {
         let mut machine_info = Self::machines_info(&machine_id);
