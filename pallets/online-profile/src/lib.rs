@@ -51,7 +51,7 @@ pub use pallet::*;
 
 /// 每个Era有多少个Block
 pub const BLOCK_PER_ERA: u64 = 2880;
-pub const REWARD_DURATION: u64 = 2880 * 365 * 2;
+pub const REWARD_DURATION: u32 = 2880 * 365 * 2;
 
 /// stash账户总览自己当前状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -1662,8 +1662,8 @@ impl<T: Config> Pallet<T> {
 
         // 释放75%的奖励
         for era_index in start_era..=current_era {
-            let era_machine_snap = Self::eras_machine_points(era_index).unwrap();
-            let era_stash_snap = Self::eras_stash_points(era_index).unwrap();
+            let era_machine_points = Self::eras_machine_points(era_index).unwrap();
+            let era_stash_points = Self::eras_stash_points(era_index).unwrap();
 
             // update era_reward
             let era_reward = Self::era_reward(era_index);
@@ -1676,26 +1676,23 @@ impl<T: Config> Pallet<T> {
                     let machine_info = Self::machines_info(&machine_id);
 
                     // 计算当时机器实际获得的奖励
-                    let machine_snap = era_machine_snap.get(&machine_id);
-                    if machine_snap.is_none() {
-                        continue;
-                    }
-                    let machine_snap = machine_snap.unwrap();
+                    let machine_points = era_machine_points.get(&machine_id);
+                    let stash_points =
+                        era_stash_points.staker_statistic.get(&machine_info.machine_stash);
 
-                    let stash_snap =
-                        era_stash_snap.staker_statistic.get(&machine_info.machine_stash);
-                    if stash_snap.is_none() {
+                    if machine_points.is_none() || stash_points.is_none() {
                         continue;
                     }
-                    let stash_snap = stash_snap.unwrap();
+                    let machine_points = machine_points.unwrap();
+                    let stash_points = stash_points.unwrap();
 
                     let machine_actual_grade =
-                        machine_snap.machine_actual_grade(stash_snap.inflation);
+                        machine_points.machine_actual_grade(stash_points.inflation);
 
                     // 该Era机器获得的总奖励
                     let machine_total_reward = Perbill::from_rational_approximation(
                         machine_actual_grade as u64,
-                        era_stash_snap.total as u64,
+                        era_stash_points.total as u64,
                     ) * era_reward;
 
                     let linear_reward_part =
@@ -1718,7 +1715,7 @@ impl<T: Config> Pallet<T> {
                         Perbill::from_rational_approximation(1u32, 150u32) * linear_reward_part
                     };
 
-                    if machine_snap.reward_account.len() == 0 {
+                    if machine_points.reward_account.len() == 0 {
                         // 没有委员会来分，则全部奖励给stash账户
                         stash_machine.can_claim_reward += release_now;
                     } else {
@@ -1731,10 +1728,10 @@ impl<T: Config> Pallet<T> {
                         let release_to_committee = release_now - release_to_stash;
                         let committee_each_get = Perbill::from_rational_approximation(
                             1u64,
-                            machine_snap.reward_account.len() as u64,
+                            machine_points.reward_account.len() as u64,
                         ) * release_to_committee;
 
-                        for a_committee in machine_snap.reward_account.clone() {
+                        for a_committee in machine_points.reward_account.clone() {
                             T::ManageCommittee::add_reward(a_committee, committee_each_get);
                         }
                     }
@@ -1789,9 +1786,7 @@ impl<T: Config> LCOps for Pallet<T> {
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
-        debug::warn!("CommitteeUploadInfo is: {:?}", committee_upload_info);
-
-        // let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
 
         let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
         let mut live_machines = Self::live_machines();
@@ -1831,6 +1826,7 @@ impl<T: Config> LCOps for Pallet<T> {
                 committee_upload_info.machine_id.clone(),
             );
             machine_info.machine_status = MachineStatus::Online;
+            machine_info.reward_deadline = now + REWARD_DURATION.into();
         }
 
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
