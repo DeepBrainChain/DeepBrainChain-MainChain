@@ -337,12 +337,6 @@ pub mod pallet {
     #[pallet::getter(fn stake_usd_limit)]
     pub(super) type StakeUSDLimit<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-    /// 用户在本模块中的总质押量
-    #[pallet::storage]
-    #[pallet::getter(fn user_total_stake)]
-    pub(super) type UserTotalStake<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
-
     /// 银河竞赛是否开启。5000张卡自动开启
     #[pallet::storage]
     #[pallet::getter(fn galaxy_is_on)]
@@ -668,6 +662,17 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        pub fn root_set_stash_machine_info(
+            origin: OriginFor<T>,
+            stash: T::AccountId,
+            stash_machine_info: StashMachine<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            StashMachines::<T>::insert(&stash, stash_machine_info);
+            Ok(().into())
+        }
+
         /// Root run set_controller, for migration
         #[pallet::weight(0)]
         pub fn root_set_controller(
@@ -729,37 +734,6 @@ pub mod pallet {
             ControllerMachines::<T>::insert(&controller, controller_machines);
             StashMachines::<T>::insert(&stash, stash_machines);
             LiveMachines::<T>::put(live_machines);
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
-
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn root_add_machine_info(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            customize_machine_info: StakerCustomizeInfo,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            let mut machine_info = Self::machines_info(&machine_id);
-            if customize_machine_info.telecom_operators.len() == 0
-                || customize_machine_info.images.len() == 0
-            {
-                return Err(Error::<T>::TelecomAndImageIsNull.into());
-            }
-
-            let mut live_machines = Self::live_machines();
-            if let Ok(index) = live_machines.bonding_machine.binary_search(&machine_id) {
-                live_machines.bonding_machine.remove(index);
-                if let Err(index) = live_machines.confirmed_machine.binary_search(&machine_id) {
-                    live_machines.confirmed_machine.insert(index, machine_id.clone());
-                }
-                LiveMachines::<T>::put(live_machines);
-
-                machine_info.machine_status = MachineStatus::DistributingOrder;
-            }
-            machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Ok(().into())
@@ -935,6 +909,22 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        pub fn root_reset_machine_controller_stash(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            controller: T::AccountId,
+            stash: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let mut machine_info = Self::machines_info(&machine_id);
+            machine_info.controller = controller;
+            machine_info.machine_stash = stash;
+            MachinesInfo::<T>::insert(machine_id, machine_info);
+
+            Ok(().into())
+        }
+
         /// 机器处于补交质押状态时，需要补交质押才能上线
         #[pallet::weight(10000)]
         pub fn fulfill_machine(
@@ -946,6 +936,7 @@ pub mod pallet {
             let mut machine_info = Self::machines_info(&machine_id);
             let mut sys_info = Self::sys_info();
             let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+            let mut live_machine = Self::live_machines();
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
@@ -982,6 +973,10 @@ pub mod pallet {
                 true,
             );
 
+            LiveMachine::rm_machine_id(&mut live_machine.fulfilling_machine, &machine_id);
+            LiveMachine::add_machine_id(&mut live_machine.online_machine, machine_id.clone());
+
+            LiveMachines::<T>::put(live_machine);
             StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
             SysInfo::<T>::put(sys_info);
             MachinesInfo::<T>::insert(&machine_id, machine_info);

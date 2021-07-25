@@ -60,7 +60,7 @@ async function main() {
 async function do_query(callFunc, heightHash, ...args) {
   const a = await callFunc(heightHash, ...args);
   console.log(a.toJSON());
-  console.log(`${a.machine_info_detail.staker_customize_info}`);
+  // console.log(`${a.machine_info_detail.staker_customize_info}`);
   process.exit(0);
 }
 
