@@ -51,7 +51,7 @@ pub use pallet::*;
 
 /// 每个Era有多少个Block
 pub const BLOCK_PER_ERA: u64 = 2880;
-pub const REWARD_DURATION: u64 = 2880 * 365 * 2;
+pub const REWARD_DURATION: u32 = 2880 * 365 * 2;
 
 /// stash账户总览自己当前状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -337,12 +337,6 @@ pub mod pallet {
     #[pallet::getter(fn stake_usd_limit)]
     pub(super) type StakeUSDLimit<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-    /// 用户在本模块中的总质押量
-    #[pallet::storage]
-    #[pallet::getter(fn user_total_stake)]
-    pub(super) type UserTotalStake<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
-
     /// 银河竞赛是否开启。5000张卡自动开启
     #[pallet::storage]
     #[pallet::getter(fn galaxy_is_on)]
@@ -481,29 +475,29 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            let all_machine_id = Self::get_all_machine_id();
+            // let all_machine_id = Self::get_all_machine_id();
 
-            for machine_id in all_machine_id {
-                let machine_info = Self::machines_info(&machine_id);
-                let new_machine_info = MachineInfo2 {
-                    controller: machine_info.controller,
-                    machine_stash: machine_info.machine_stash,
-                    machine_renter: machine_info.machine_renter,
-                    bonding_height: machine_info.bonding_height,
-                    stake_amount: machine_info.stake_amount,
-                    machine_status: machine_info.machine_status,
-                    total_rented_duration: machine_info.total_rented_duration,
-                    total_rented_times: machine_info.total_rented_times,
-                    total_rent_fee: machine_info.total_rent_fee,
-                    total_burn_fee: machine_info.total_burn_fee,
-                    machine_info_detail: machine_info.machine_info_detail,
-                    reward_committee: machine_info.reward_committee,
-                    reward_deadline: machine_info.reward_deadline,
-                    ..Default::default()
-                };
+            // for machine_id in all_machine_id {
+            //     let machine_info = Self::machines_info(&machine_id);
+            //     let new_machine_info = MachineInfo2 {
+            //         controller: machine_info.controller,
+            //         machine_stash: machine_info.machine_stash,
+            //         machine_renter: machine_info.machine_renter,
+            //         bonding_height: machine_info.bonding_height,
+            //         stake_amount: machine_info.stake_amount,
+            //         machine_status: machine_info.machine_status,
+            //         total_rented_duration: machine_info.total_rented_duration,
+            //         total_rented_times: machine_info.total_rented_times,
+            //         total_rent_fee: machine_info.total_rent_fee,
+            //         total_burn_fee: machine_info.total_burn_fee,
+            //         machine_info_detail: machine_info.machine_info_detail,
+            //         reward_committee: machine_info.reward_committee,
+            //         reward_deadline: machine_info.reward_deadline,
+            //         ..Default::default()
+            //     };
 
-                MachinesInfo2::<T>::insert(&machine_id, new_machine_info);
-            }
+            //     MachinesInfo2::<T>::insert(&machine_id, new_machine_info);
+            // }
 
             0
         }
@@ -665,6 +659,83 @@ pub mod pallet {
 
             StashController::<T>::insert(stash.clone(), controller.clone());
             ControllerStash::<T>::insert(controller, stash);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn root_set_stash_machine_info(
+            origin: OriginFor<T>,
+            stash: T::AccountId,
+            stash_machine_info: StashMachine<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            StashMachines::<T>::insert(&stash, stash_machine_info);
+            Ok(().into())
+        }
+
+        /// Root run set_controller, for migration
+        #[pallet::weight(0)]
+        pub fn root_set_controller(
+            origin: OriginFor<T>,
+            controller: T::AccountId,
+            stash: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            StashController::<T>::insert(stash.clone(), controller.clone());
+            ControllerStash::<T>::insert(controller, stash);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn root_bond_machine(
+            origin: OriginFor<T>,
+            controller: T::AccountId,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
+            let mut live_machines = Self::live_machines();
+
+            // 用户绑定机器需要质押一张显卡的DBC
+            let stake_amount =
+                Self::calc_stake_amount(1).ok_or(Error::<T>::CalcStakeAmountFailed)?;
+
+            // 扣除10个Dbc作为交易手续费
+            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone())
+                .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+
+            let mut stash_machines = Self::stash_machines(&stash);
+            if let Err(index) = stash_machines.total_machine.binary_search(&machine_id) {
+                stash_machines.total_machine.insert(index, machine_id.clone());
+            }
+
+            let mut controller_machines = Self::controller_machines(&controller);
+            if let Err(index) = controller_machines.binary_search(&machine_id) {
+                controller_machines.insert(index, machine_id.clone());
+            }
+
+            // 添加到LiveMachine的bonding_machine字段
+            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
+
+            // 初始化MachineInfo, 并添加到MachinesInfo
+            let machine_info = MachineInfo {
+                controller: controller.clone(),
+                machine_stash: stash.clone(),
+                bonding_height: <frame_system::Module<T>>::block_number(),
+                stake_amount,
+                machine_status: MachineStatus::AddingCustomizeInfo,
+                ..Default::default()
+            };
+
+            Self::add_user_total_stake(&stash, stake_amount)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
+
+            ControllerMachines::<T>::insert(&controller, controller_machines);
+            StashMachines::<T>::insert(&stash, stash_machines);
+            LiveMachines::<T>::put(live_machines);
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
+
             Ok(().into())
         }
 
@@ -838,6 +909,22 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        pub fn root_reset_machine_controller_stash(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            controller: T::AccountId,
+            stash: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let mut machine_info = Self::machines_info(&machine_id);
+            machine_info.controller = controller;
+            machine_info.machine_stash = stash;
+            MachinesInfo::<T>::insert(machine_id, machine_info);
+
+            Ok(().into())
+        }
+
         /// 机器处于补交质押状态时，需要补交质押才能上线
         #[pallet::weight(10000)]
         pub fn fulfill_machine(
@@ -849,6 +936,7 @@ pub mod pallet {
             let mut machine_info = Self::machines_info(&machine_id);
             let mut sys_info = Self::sys_info();
             let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+            let mut live_machine = Self::live_machines();
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
@@ -885,6 +973,10 @@ pub mod pallet {
                 true,
             );
 
+            LiveMachine::rm_machine_id(&mut live_machine.fulfilling_machine, &machine_id);
+            LiveMachine::add_machine_id(&mut live_machine.online_machine, machine_id.clone());
+
+            LiveMachines::<T>::put(live_machine);
             StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
             SysInfo::<T>::put(sys_info);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -1077,6 +1169,33 @@ pub mod pallet {
             _machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let _controller = ensure_signed(origin)?;
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn root_add_linear_and_available_reward(
+            origin: OriginFor<T>,
+            stash: T::AccountId,
+            reward0: BalanceOf<T>,
+            reward1: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let mut stash_machine = Self::stash_machines(&stash);
+            stash_machine.can_claim_reward += reward0;
+            stash_machine.linear_release_reward[0] += reward1;
+            StashMachines::<T>::insert(stash, stash_machine);
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn root_set_sys_info(
+            origin: OriginFor<T>,
+            sys_info: SysInfoDetail<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            SysInfo::<T>::put(sys_info);
             Ok(().into())
         }
     }
@@ -1565,8 +1684,8 @@ impl<T: Config> Pallet<T> {
 
         // 释放75%的奖励
         for era_index in start_era..=current_era {
-            let era_machine_snap = Self::eras_machine_points(era_index).unwrap();
-            let era_stash_snap = Self::eras_stash_points(era_index).unwrap();
+            let era_machine_points = Self::eras_machine_points(era_index).unwrap();
+            let era_stash_points = Self::eras_stash_points(era_index).unwrap();
 
             // update era_reward
             let era_reward = Self::era_reward(era_index);
@@ -1579,26 +1698,23 @@ impl<T: Config> Pallet<T> {
                     let machine_info = Self::machines_info(&machine_id);
 
                     // 计算当时机器实际获得的奖励
-                    let machine_snap = era_machine_snap.get(&machine_id);
-                    if machine_snap.is_none() {
-                        continue;
-                    }
-                    let machine_snap = machine_snap.unwrap();
+                    let machine_points = era_machine_points.get(&machine_id);
+                    let stash_points =
+                        era_stash_points.staker_statistic.get(&machine_info.machine_stash);
 
-                    let stash_snap =
-                        era_stash_snap.staker_statistic.get(&machine_info.machine_stash);
-                    if stash_snap.is_none() {
+                    if machine_points.is_none() || stash_points.is_none() {
                         continue;
                     }
-                    let stash_snap = stash_snap.unwrap();
+                    let machine_points = machine_points.unwrap();
+                    let stash_points = stash_points.unwrap();
 
                     let machine_actual_grade =
-                        machine_snap.machine_actual_grade(stash_snap.inflation);
+                        machine_points.machine_actual_grade(stash_points.inflation);
 
                     // 该Era机器获得的总奖励
                     let machine_total_reward = Perbill::from_rational_approximation(
                         machine_actual_grade as u64,
-                        era_stash_snap.total as u64,
+                        era_stash_points.total as u64,
                     ) * era_reward;
 
                     let linear_reward_part =
@@ -1621,7 +1737,7 @@ impl<T: Config> Pallet<T> {
                         Perbill::from_rational_approximation(1u32, 150u32) * linear_reward_part
                     };
 
-                    if machine_snap.reward_account.len() == 0 {
+                    if machine_points.reward_account.len() == 0 {
                         // 没有委员会来分，则全部奖励给stash账户
                         stash_machine.can_claim_reward += release_now;
                     } else {
@@ -1634,10 +1750,10 @@ impl<T: Config> Pallet<T> {
                         let release_to_committee = release_now - release_to_stash;
                         let committee_each_get = Perbill::from_rational_approximation(
                             1u64,
-                            machine_snap.reward_account.len() as u64,
+                            machine_points.reward_account.len() as u64,
                         ) * release_to_committee;
 
-                        for a_committee in machine_snap.reward_account.clone() {
+                        for a_committee in machine_points.reward_account.clone() {
                             T::ManageCommittee::add_reward(a_committee, committee_each_get);
                         }
                     }
@@ -1692,9 +1808,7 @@ impl<T: Config> LCOps for Pallet<T> {
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
-        debug::warn!("CommitteeUploadInfo is: {:?}", committee_upload_info);
-
-        // let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
 
         let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
         let mut live_machines = Self::live_machines();
@@ -1734,6 +1848,7 @@ impl<T: Config> LCOps for Pallet<T> {
                 committee_upload_info.machine_id.clone(),
             );
             machine_info.machine_status = MachineStatus::Online;
+            machine_info.reward_deadline = now + REWARD_DURATION.into();
         }
 
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());

@@ -145,6 +145,135 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        pub fn root_rent_machine(
+            origin: OriginFor<T>,
+            renter: T::AccountId,
+            machine_id: MachineId,
+            duration: EraIndex,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let now = <frame_system::Module<T>>::block_number();
+            let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
+
+            // 用户提交订单，需要扣除10个DBC
+            <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone())
+                .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+            // 检查machine_id状态是否可以租用
+            ensure!(
+                machine_info.machine_status == MachineStatus::Online,
+                Error::<T>::MachineNotRentable,
+            );
+            // 获得machine_price
+            let machine_price = <online_profile::Module<T>>::calc_machine_price(
+                machine_info.machine_info_detail.committee_upload_info.calc_point,
+            )
+            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let rent_fee_value =
+                machine_price.checked_mul(duration as u64).ok_or(Error::<T>::Overflow)?;
+            let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
+                .ok_or(Error::<T>::Overflow)?;
+
+            // 检查用户是否有足够的资金，来租用机器
+            let user_balance = <T as pallet::Config>::Currency::free_balance(&renter);
+            ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
+
+            // 获取用户租用的结束时间
+            let rent_end = BLOCK_PER_DAY
+                .checked_mul(duration as u64)
+                .ok_or(Error::<T>::Overflow)?
+                .saturated_into::<T::BlockNumber>()
+                .checked_add(&now)
+                .ok_or(Error::<T>::Overflow)?;
+
+            // 质押用户的资金，并修改机器状态
+            Self::add_user_total_stake(&renter, rent_fee)
+                .map_err(|_| Error::<T>::InsufficientValue)?;
+
+            RentOrder::<T>::insert(
+                &renter,
+                &machine_id,
+                RentOrderDetail {
+                    renter: renter.clone(),
+                    rent_start: now,
+                    rent_end,
+                    stake_amount: rent_fee,
+                    ..Default::default()
+                },
+            );
+
+            let mut user_rented = Self::user_rented(&renter);
+            if let Err(index) = user_rented.binary_search(&machine_id) {
+                user_rented.insert(index, machine_id.clone());
+            }
+            UserRented::<T>::insert(&renter, user_rented);
+
+            // 改变online_profile状态，影响机器佣金
+            T::RTOps::change_machine_status(
+                &machine_id,
+                MachineStatus::Creating,
+                Some(renter.clone()),
+                None,
+            );
+            PendingConfirming::<T>::insert(machine_id, renter);
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn root_confirm_rent(
+            origin: OriginFor<T>,
+            renter: T::AccountId,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+
+            let mut order_info =
+                Self::rent_order(&renter, &machine_id).ok_or(Error::<T>::NoOrderExist)?;
+
+            // 不能超过30分钟
+            let machine_start_duration =
+                now.checked_sub(&order_info.rent_start).ok_or(Error::<T>::Overflow)?;
+            if machine_start_duration.saturated_into::<u64>() > CONFIRMING_DELAY {
+                return Err(Error::<T>::ExpiredConfirm.into());
+            }
+
+            let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
+            if machine_info.machine_status != MachineStatus::Creating {
+                return Err(Error::<T>::StatusNotAllowed.into());
+            }
+
+            // 质押转到特定账户
+            Self::reduce_total_stake(&renter, order_info.stake_amount)
+                .map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
+
+            Self::pay_rent_fee(
+                &renter,
+                machine_id.clone(),
+                &machine_info.machine_stash,
+                order_info.stake_amount,
+            )?;
+
+            order_info.confirm_rent = now;
+            order_info.stake_amount = 0u64.saturated_into::<BalanceOf<T>>();
+            order_info.rent_status = RentStatus::Renting;
+            RentOrder::<T>::insert(&renter, &machine_id, order_info);
+
+            // 改变online_profile状态
+            T::RTOps::change_machine_status(
+                &machine_id,
+                MachineStatus::Rented,
+                Some(renter.clone()),
+                None,
+            );
+            PendingConfirming::<T>::remove(&machine_id);
+
+            Self::deposit_event(Event::ConfirmRent(renter, machine_id));
+            Ok(().into())
+        }
+
         /// 用户租用机器
         #[pallet::weight(10000)]
         pub fn rent_machine(
