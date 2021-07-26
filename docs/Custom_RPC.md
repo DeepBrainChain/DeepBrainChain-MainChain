@@ -120,6 +120,38 @@
 
   TODO
 
+#### 查询某个 Era（某一天）单台机器获得的奖励数量
+
+- 方法： `onlineProfile_getMachineEraReward`
+
+- 参数： 参数 1：MachineId; 参数 2：EraIndex
+
+- 请求示例(查询某机器在第二天的奖励)：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getMachineEraReward",
+  "params": [
+    "2641bc74c63156aa6880a66ad77fe9fdd0da214b7f0fade6fa9138b52e1d065c",
+    1
+  ]
+}
+```
+
+- 结果示例：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": "0",
+  "id": 1
+}
+```
+
+- 结果说明：result 字段即为当天机器获得的收益数量
+
 #### 查询系统中所有的机器
 
 - 方法：`onlineProfile_getMachineList`

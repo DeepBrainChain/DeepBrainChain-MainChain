@@ -1171,6 +1171,33 @@ pub mod pallet {
             let _controller = ensure_signed(origin)?;
             Ok(().into())
         }
+
+        #[pallet::weight(0)]
+        pub fn root_add_linear_and_available_reward(
+            origin: OriginFor<T>,
+            stash: T::AccountId,
+            reward0: BalanceOf<T>,
+            reward1: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let mut stash_machine = Self::stash_machines(&stash);
+            stash_machine.can_claim_reward += reward0;
+            stash_machine.linear_release_reward[0] += reward1;
+            StashMachines::<T>::insert(stash, stash_machine);
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn root_set_sys_info(
+            origin: OriginFor<T>,
+            sys_info: SysInfoDetail<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            SysInfo::<T>::put(sys_info);
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
