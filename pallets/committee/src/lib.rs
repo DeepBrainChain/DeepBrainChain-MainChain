@@ -374,6 +374,7 @@ impl<T: Config> Pallet<T> {
                                 left_reward,
                                 KeepAlive,
                             );
+                            return;
                         } else {
                             <T as pallet::Config>::Currency::transfer(
                                 &a_slash_info.slash_who,

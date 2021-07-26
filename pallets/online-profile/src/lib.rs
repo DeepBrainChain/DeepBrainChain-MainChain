@@ -641,6 +641,26 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        pub fn root_set_stash_machine(
+            origin: OriginFor<T>,
+            stash: T::AccountId,
+            new_stash_machine: StashMachine<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let mut stash_machine = Self::stash_machines(&stash);
+
+            stash_machine = StashMachine {
+                total_machine: stash_machine.total_machine.clone(),
+                online_machine: stash_machine.online_machine.clone(),
+                ..new_stash_machine
+            };
+
+            StashMachines::<T>::insert(stash, stash_machine);
+
+            Ok(().into())
+        }
+
         /// 控制账户上线一个机器
         /// msg = d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
         ///     + 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
@@ -918,7 +938,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Controller report to control machine offline
+        /// 控制账户报告机器下线:Online/Rented时允许
         #[pallet::weight(10000)]
         pub fn controller_report_offline(
             origin: OriginFor<T>,
@@ -935,7 +955,7 @@ pub mod pallet {
             match machine_info.machine_status {
                 MachineStatus::Online | MachineStatus::Rented => {}
                 _ => {
-                    debug::error!("#### Machine Status::{:?}", machine_info.machine_status);
+                    debug::error!("Machine Status::{:?}", machine_info.machine_status);
                     return Err(Error::<T>::MachineStatusNotAllowed.into());
                 }
             }
