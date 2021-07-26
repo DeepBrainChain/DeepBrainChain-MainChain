@@ -613,27 +613,6 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_stash_machine(
-            origin: OriginFor<T>,
-            stash: T::AccountId,
-            stash_machine: StashMachine<BalanceOf<T>>,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            StashMachines::<T>::insert(stash, stash_machine);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn set_sys_info(
-            origin: OriginFor<T>,
-            sys_info: SysInfoDetail<BalanceOf<T>>,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            SysInfo::<T>::put(sys_info);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
         pub fn add_era_reward(
             origin: OriginFor<T>,
             era_index: EraIndex,
@@ -659,110 +638,6 @@ pub mod pallet {
 
             StashController::<T>::insert(stash.clone(), controller.clone());
             ControllerStash::<T>::insert(controller, stash);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn root_set_stash_machine_info(
-            origin: OriginFor<T>,
-            stash: T::AccountId,
-            stash_machine_info: StashMachine<BalanceOf<T>>,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            StashMachines::<T>::insert(&stash, stash_machine_info);
-            Ok(().into())
-        }
-
-        /// Root run set_controller, for migration
-        #[pallet::weight(0)]
-        pub fn root_set_controller(
-            origin: OriginFor<T>,
-            controller: T::AccountId,
-            stash: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            StashController::<T>::insert(stash.clone(), controller.clone());
-            ControllerStash::<T>::insert(controller, stash);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn root_bond_machine(
-            origin: OriginFor<T>,
-            controller: T::AccountId,
-            machine_id: MachineId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
-            let mut live_machines = Self::live_machines();
-
-            // 用户绑定机器需要质押一张显卡的DBC
-            let stake_amount =
-                Self::calc_stake_amount(1).ok_or(Error::<T>::CalcStakeAmountFailed)?;
-
-            // 扣除10个Dbc作为交易手续费
-            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone())
-                .map_err(|_| Error::<T>::PayTxFeeFailed)?;
-
-            let mut stash_machines = Self::stash_machines(&stash);
-            if let Err(index) = stash_machines.total_machine.binary_search(&machine_id) {
-                stash_machines.total_machine.insert(index, machine_id.clone());
-            }
-
-            let mut controller_machines = Self::controller_machines(&controller);
-            if let Err(index) = controller_machines.binary_search(&machine_id) {
-                controller_machines.insert(index, machine_id.clone());
-            }
-
-            // 添加到LiveMachine的bonding_machine字段
-            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
-
-            // 初始化MachineInfo, 并添加到MachinesInfo
-            let machine_info = MachineInfo {
-                controller: controller.clone(),
-                machine_stash: stash.clone(),
-                bonding_height: <frame_system::Module<T>>::block_number(),
-                stake_amount,
-                machine_status: MachineStatus::AddingCustomizeInfo,
-                ..Default::default()
-            };
-
-            Self::add_user_total_stake(&stash, stake_amount)
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
-
-            ControllerMachines::<T>::insert(&controller, controller_machines);
-            StashMachines::<T>::insert(&stash, stash_machines);
-            LiveMachines::<T>::put(live_machines);
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
-
-            Ok(().into())
-        }
-
-        /// Root 设置stash rented machine
-        #[pallet::weight(0)]
-        pub fn set_stash_rented_gpu_num(
-            origin: OriginFor<T>,
-            stash_account: T::AccountId,
-            rented_gpu_num: u64,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            let mut stash_machine = Self::stash_machines(&stash_account);
-            stash_machine.total_rented_gpu = rented_gpu_num;
-            StashMachines::<T>::insert(&stash_account, stash_machine);
-            Ok(().into())
-        }
-
-        /// Root 设置posInfo
-        #[pallet::weight(0)]
-        pub fn set_pos_info(
-            origin: OriginFor<T>,
-            long: i64,
-            lati: i64,
-            pos_info: PosInfo,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            PosGPUInfo::<T>::insert(long, lati, pos_info);
             Ok(().into())
         }
 
@@ -906,22 +781,6 @@ pub mod pallet {
 
             machine_info.machine_info_detail.staker_customize_info.images = new_images;
             MachinesInfo::<T>::insert(machine_id, machine_info);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn root_reset_machine_controller_stash(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            controller: T::AccountId,
-            stash: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            let mut machine_info = Self::machines_info(&machine_id);
-            machine_info.controller = controller;
-            machine_info.machine_stash = stash;
-            MachinesInfo::<T>::insert(machine_id, machine_info);
-
             Ok(().into())
         }
 
@@ -1169,33 +1028,6 @@ pub mod pallet {
             _machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let _controller = ensure_signed(origin)?;
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn root_add_linear_and_available_reward(
-            origin: OriginFor<T>,
-            stash: T::AccountId,
-            reward0: BalanceOf<T>,
-            reward1: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            let mut stash_machine = Self::stash_machines(&stash);
-            stash_machine.can_claim_reward += reward0;
-            stash_machine.linear_release_reward[0] += reward1;
-            StashMachines::<T>::insert(stash, stash_machine);
-
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn root_set_sys_info(
-            origin: OriginFor<T>,
-            sys_info: SysInfoDetail<BalanceOf<T>>,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            SysInfo::<T>::put(sys_info);
             Ok(().into())
         }
     }
