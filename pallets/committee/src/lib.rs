@@ -5,7 +5,10 @@ use codec::{Decode, Encode};
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::{Currency, LockIdentifier, LockableCurrency, OnUnbalanced, WithdrawReasons},
+    traits::{
+        Currency, ExistenceRequirement::KeepAlive, LockIdentifier, LockableCurrency, OnUnbalanced,
+        WithdrawReasons,
+    },
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
@@ -14,7 +17,7 @@ use online_profile_machine::{DbcPrice, ManageCommittee};
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
     traits::{CheckedAdd, CheckedSub, SaturatedConversion},
-    RuntimeDebug,
+    Perbill, RuntimeDebug,
 };
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
@@ -337,7 +340,8 @@ impl<T: Config> Pallet<T> {
                     Self::change_stake(&a_slash_info.slash_who, a_slash_info.unlock_amount, false);
 
                 // 如果reward_to为0，则将币转到国库
-                if a_slash_info.reward_to.len() == 0 {
+                let reward_to_num = a_slash_info.reward_to.len() as u32;
+                if reward_to_num == 0 {
                     if <T as pallet::Config>::Currency::can_slash(
                         &a_slash_info.slash_who,
                         a_slash_info.slash_amount,
@@ -357,7 +361,29 @@ impl<T: Config> Pallet<T> {
                         <T as pallet::Config>::Slash::on_unbalanced(imbalance);
                     }
                 } else {
-                    // TODO: reward_to将获得slash的奖励
+                    let reward_each_get = Perbill::from_rational_approximation(1u32, reward_to_num)
+                        * a_slash_info.slash_amount;
+
+                    let mut left_reward = a_slash_info.slash_amount;
+
+                    for a_committee in a_slash_info.reward_to {
+                        if left_reward < reward_each_get {
+                            <T as pallet::Config>::Currency::transfer(
+                                &a_slash_info.slash_who,
+                                &a_committee,
+                                left_reward,
+                                KeepAlive,
+                            );
+                        } else {
+                            <T as pallet::Config>::Currency::transfer(
+                                &a_slash_info.slash_who,
+                                &a_committee,
+                                reward_each_get,
+                                KeepAlive,
+                            );
+                            left_reward -= reward_each_get;
+                        }
+                    }
                 }
             }
         }

@@ -23,7 +23,7 @@ use frame_support::{
     pallet_prelude::*,
     traits::{Currency, LockableCurrency},
 };
-use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+use frame_system::{ensure_signed, pallet_prelude::*};
 use online_profile::CommitteeUploadInfo;
 use online_profile_machine::{LCOps, ManageCommittee};
 #[cfg(feature = "std")]
@@ -273,21 +273,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(10000)]
-        pub fn change_machine_hash(
-            origin: OriginFor<T>,
-            committee: T::AccountId,
-            machine_id: MachineId,
-            new_hash: [u8; 16],
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            let mut committee_ops = Self::committee_ops(&committee, &machine_id);
-            committee_ops.confirm_hash = new_hash;
-            CommitteeOps::<T>::insert(committee, machine_id, committee_ops);
-            Ok(().into())
-        }
-
         /// 委员会提交的原始信息
         #[pallet::weight(10000)]
         pub fn submit_confirm_raw(
@@ -354,7 +339,7 @@ pub mod pallet {
 
             // 如果全部都提交完了原始信息，则允许进入summary
             if machine_committee.confirmed_committee.len()
-                == machine_committee.booked_committee.len()
+                == machine_committee.hashed_committee.len()
             {
                 machine_committee.status = LCVerifyStatus::Summarizing;
             }
@@ -405,7 +390,9 @@ impl<T: Config> Pallet<T> {
         let confirm_start = now + SUBMIT_RAW_START.into(); // 添加确认信息时间为分发之后的36小时
 
         for a_book in lucky_committee {
-            let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, a_book);
+            if let Err(_) = Self::book_one(machine_id.to_vec(), confirm_start, now, a_book) {
+                debug::warn!("Book one machine failed: {:?}", machine_id);
+            }
         }
 
         // 将机器状态从ocw_confirmed_machine改为booked_machine
@@ -574,7 +561,6 @@ impl<T: Config> Pallet<T> {
                     committee_ops.staked_dbc,
                     vec![],
                 );
-                // TODO: 应该从book的信息中移除
             }
 
             for a_committee in unstake_committee {

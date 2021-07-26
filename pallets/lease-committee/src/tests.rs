@@ -360,6 +360,95 @@ fn committee_not_submit_hash_slash_works() {
 
         let machine_id =
             "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+
+        // 三个委员会提交Hash
+        let machine_base_info = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
+            gpu_num: 4,
+            cuda_core: 4352,
+            gpu_mem: 11283456,
+            calc_point: 6825,
+            sys_disk: 12345465,
+            data_disk: 324567733,
+            cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
+            cpu_core_num: 32,
+            cpu_rate: 26,
+            mem_num: 527988672,
+
+            rand_str: "".as_bytes().to_vec(),
+            is_support: true,
+        };
+
+        let rand_str3 = "abcdefg1".as_bytes().to_vec();
+        let rand_str2 = "abcdefg2".as_bytes().to_vec();
+
+        // 委员会提交机器Hash
+        let machine_info_hash3 =
+            hex::decode("f813d5478a1c6cfb04a203a0643ad67e").unwrap().try_into().unwrap();
+        let machine_info_hash2 =
+            hex::decode("8beab87415978daf436f31a292f9bdbb").unwrap().try_into().unwrap();
+
+        assert_ok!(LeaseCommittee::submit_confirm_hash(
+            Origin::signed(committee3),
+            machine_id.clone(),
+            machine_info_hash3,
+        ));
+        assert_ok!(LeaseCommittee::submit_confirm_hash(
+            Origin::signed(committee2),
+            machine_id.clone(),
+            machine_info_hash2,
+        ));
+
+        let machine_committee = crate::LCMachineCommitteeList {
+            book_time: 6,
+            booked_committee: vec![committee3, committee2, committee4],
+            hashed_committee: vec![committee3, committee2],
+            confirm_start_time: 4326,
+            confirmed_committee: vec![],
+            onlined_committee: vec![],
+            status: crate::LCVerifyStatus::default(),
+        };
+
+        assert_eq!(machine_committee, LeaseCommittee::machine_committee(&machine_id),);
+
+        // 等到36个小时之后，提交确认信息
+        run_to_block(4326); // 6 + 36 * 120 = 4326
+
+        // 委员会提交原始信息
+        assert_ok!(LeaseCommittee::submit_confirm_raw(
+            Origin::signed(committee3),
+            CommitteeUploadInfo { rand_str: rand_str3, ..machine_base_info.clone() }
+        ));
+        assert_ok!(LeaseCommittee::submit_confirm_raw(
+            Origin::signed(committee2),
+            CommitteeUploadInfo { rand_str: rand_str2, ..machine_base_info.clone() }
+        ));
+
+        run_to_block(4327);
+
+        assert_eq!(
+            OnlineProfile::live_machines(),
+            online_profile::LiveMachine {
+                online_machine: vec![machine_id.clone()],
+                ..Default::default()
+            }
+        );
+
+        // Committee 记录到了惩罚信息
+        assert_eq!(
+            Committee::pending_slash(0),
+            committee::PendingSlashInfo {
+                slash_who: committee4,
+                slash_time: 4327,
+                unlock_amount: 1250 * ONE_DBC,
+                slash_amount: 1250 * ONE_DBC,
+                slash_exec_time: 4327 + 2880 * 2, // 2day
+                reward_to: vec![]
+            }
+        );
+        // 惩罚
+        run_to_block(4327 + 2880 * 2 + 1);
     })
 }
 
