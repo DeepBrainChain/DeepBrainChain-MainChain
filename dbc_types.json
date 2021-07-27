@@ -16,7 +16,9 @@
     "booked_machine": "Vec<MachineId>",
     "online_machine": "Vec<MachineId>",
     "fulfilling_machine": "Vec<MachineId>",
-    "refused_machine": "Vec<MachineId>"
+    "refused_machine": "Vec<MachineId>",
+    "rented_machine": "Vec<MachineId>",
+    "offline_machine": "Vec<MachineId>"
   },
   "StashMachine": {
     "total_machine": "Vec<MachineId>",
@@ -45,6 +47,8 @@
     "machine_stash": "AccountId",
     "machine_renter": "Option<AccountId>",
     "bonding_height": "BlockNumber",
+    "online_height": "BlockNumber",
+    "last_online_height": "BlockNumber",
     "stake_amount": "Balance",
     "machine_status": "MachineStatus",
     "total_rented_duration": "u64",
@@ -92,10 +96,16 @@
   "StakerCustomizeInfo": {
     "upload_net": "u64",
     "download_net": "u64",
-    "longitude": "i64",
-    "latitude": "i64",
+    "longitude": "Longitude",
+    "latitude": "Latitude",
     "telecom_operators": "Vec<TelecomName>",
     "images": "Vec<ImageName>"
+  },
+  "Longitude": {
+    "_enum": ["East(u64)", "West(u64)"]
+  },
+  "Latitude": {
+    "_enum": ["South(u64)", "North(u64)"]
   },
   "ImageName": "Text",
   "TelecomName": "Text",
@@ -215,13 +225,6 @@
     "fulfill_list": "Vec<AccountId>",
     "chill_list": "Vec<AccountId>",
     "black_list": "Vec<AccountId>"
-  },
-  "TestMachineInfo": {
-    "machine_owner": "AccountId",
-    "bonding_height": "BlockNumber",
-    "machine_grade": "u64",
-    "machine_price": "u64",
-    "reward_deadline": "BlockNumber"
   },
   "MTCommitteeOpsDetail": {
     "booked_time": "BlockNumber",

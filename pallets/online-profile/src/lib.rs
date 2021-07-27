@@ -91,50 +91,14 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub machine_renter: Option<AccountId>,
     /// 记录机器第一次绑定上线的时间
     pub bonding_height: BlockNumber,
+    /// 机器第一次Online时间
+    pub online_height: BlockNumber,
+    /// 机器最近一次上线时间
+    pub last_online_height: BlockNumber,
     /// 该机器质押数量
     pub stake_amount: Balance,
     /// 机器的状态
     pub machine_status: MachineStatus<BlockNumber>,
-    // /// 机器线性释放的奖励
-    // pub linear_release_reward: VecDeque<Balance>,
-    /// 总租用累计时长
-    pub total_rented_duration: u64,
-    /// 总租用次数
-    pub total_rented_times: u64,
-    /// 总租金收益(银河竞赛前获得)
-    pub total_rent_fee: Balance,
-    /// 总销毁数量
-    pub total_burn_fee: Balance,
-    /// 委员会提交的机器信息与用户自定义的信息
-    pub machine_info_detail: MachineInfoDetail,
-    /// 列表中的委员将分得用户每天奖励的1%
-    pub reward_committee: Vec<AccountId>,
-    /// 列表中委员分得奖励结束时间
-    pub reward_deadline: BlockNumber,
-}
-
-/// 机器的信息: 更新之后的存储
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct MachineInfo2<AccountId: Ord, BlockNumber, Balance> {
-    /// 绑定机器的人
-    pub controller: AccountId,
-    /// 奖励发放账户(机器内置钱包地址)
-    pub machine_stash: AccountId,
-    /// 当前机器的租用者
-    pub machine_renter: Option<AccountId>,
-    /// 记录机器第一次绑定上线的时间
-    pub bonding_height: BlockNumber,
-    /// 机器被委员会确认之后，正式上线时间
-    pub online_height: BlockNumber, // TODO: 链升级新加字段
-    /// 最近一次机器上线时间，机器主动下线后再次上线更新该字段。用以限制机器一天内不能两次调用上线方法
-    /// 机器24一天内，最多下线--上线(更新该字段)--下线--等待24小时再上线
-    pub latest_online_height: BlockNumber, // TODO: 链升级新加字段
-    /// 该机器质押数量
-    pub stake_amount: Balance,
-    /// 机器的状态
-    pub machine_status: MachineStatus<BlockNumber>,
-    // /// 机器线性释放的奖励
-    // pub linear_release_reward: VecDeque<Balance>,
     /// 总租用累计时长
     pub total_rented_duration: u64,
     /// 总租用次数
@@ -171,7 +135,7 @@ pub enum MachineStatus<BlockNumber> {
     /// 机器管理者报告机器已下线
     StakerReportOffline(BlockNumber, Box<Self>),
     /// 报告人报告机器下线
-    ReporterReportOffline(BlockNumber),
+    ReporterReportOffline(BlockNumber, Box<Self>),
     // ReporterReportOffline(BlockNumber, Box<Self>), // TODO
     /// 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
     Creating,
@@ -198,11 +162,15 @@ pub struct LiveMachine {
     /// 当机器已经全部分配了委员会。若lc确认机器失败(认可=不认可时)则返回上一状态，重新分派订单
     pub booked_machine: Vec<MachineId>,
     /// 委员会确认之后，机器上线
-    pub online_machine: Vec<MachineId>, // TODO: 是不是加一个offline的
+    pub online_machine: Vec<MachineId>,
     /// 委员会同意上线，但是由于stash账户质押不够，需要补充质押
     pub fulfilling_machine: Vec<MachineId>,
     /// 被委员会拒绝的机器（10天内还能重新申请上线）
     pub refused_machine: Vec<MachineId>,
+    /// 被用户租用的机器，当机器被租用时，从online_machine中移除
+    pub rented_machine: Vec<MachineId>,
+    /// 下线的机器
+    pub offline_machine: Vec<MachineId>,
 }
 
 impl LiveMachine {
@@ -350,8 +318,15 @@ pub mod pallet {
     /// 不同经纬度GPU信息统计
     #[pallet::storage]
     #[pallet::getter(fn pos_gpu_info)]
-    pub(super) type PosGPUInfo<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, i64, Blake2_128Concat, i64, PosInfo, ValueQuery>;
+    pub(super) type PosGPUInfo<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        Longitude,
+        Blake2_128Concat,
+        Latitude,
+        PosInfo,
+        ValueQuery,
+    >;
 
     /// stash 对应的 controller
     #[pallet::storage]
@@ -373,17 +348,6 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ValueQuery,
-    >;
-
-    /// 机器的详细信息
-    #[pallet::storage]
-    #[pallet::getter(fn machines_info2)]
-    pub type MachinesInfo2<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        MachineId,
-        MachineInfo2<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -1140,12 +1104,12 @@ impl<T: Config> Pallet<T> {
     fn change_pos_gpu_by_online(machine_id: &MachineId, is_online: bool) {
         let machine_info = Self::machines_info(machine_id);
 
-        let longitude = machine_info.machine_info_detail.staker_customize_info.longitude;
-        let latitude = machine_info.machine_info_detail.staker_customize_info.latitude;
+        let longitude = machine_info.machine_info_detail.staker_customize_info.longitude.clone();
+        let latitude = machine_info.machine_info_detail.staker_customize_info.latitude.clone();
         let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
         let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
 
-        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
+        let mut pos_gpu_info = Self::pos_gpu_info(longitude.clone(), latitude.clone());
 
         if is_online {
             pos_gpu_info.online_gpu += gpu_num as u64;
@@ -1162,11 +1126,11 @@ impl<T: Config> Pallet<T> {
     fn change_pos_gpu_by_rent(machine_id: &MachineId, is_rented: bool) {
         let machine_info = Self::machines_info(machine_id);
 
-        let longitude = machine_info.machine_info_detail.staker_customize_info.longitude;
-        let latitude = machine_info.machine_info_detail.staker_customize_info.latitude;
+        let longitude = machine_info.machine_info_detail.staker_customize_info.longitude.clone();
+        let latitude = machine_info.machine_info_detail.staker_customize_info.latitude.clone();
         let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
 
-        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
+        let mut pos_gpu_info = Self::pos_gpu_info(longitude.clone(), latitude.clone());
         if is_rented {
             pos_gpu_info.rented_gpu += gpu_num as u64;
         } else {
@@ -1876,10 +1840,8 @@ impl<T: Config> MTOps for Pallet<T> {
         let mut sys_info = Self::sys_info();
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
 
-        // FIXME
-        // machine_info.machine_status =
-        //     MachineStatus::ReporterReportOffline(now, Box::new(machine_info.machine_status));
-        machine_info.machine_status = MachineStatus::ReporterReportOffline(now);
+        machine_info.machine_status =
+            MachineStatus::ReporterReportOffline(now, Box::new(machine_info.machine_status));
 
         if let MachineStatus::Rented = machine_info.machine_status {
             sys_info.total_rented_gpu -=
@@ -1972,8 +1934,8 @@ impl<T: Config> Module<T> {
     }
 
     /// 获得系统中所有位置列表
-    pub fn get_pos_gpu_info() -> Vec<(i64, i64, PosInfo)> {
-        <PosGPUInfo<T> as IterableStorageDoubleMap<i64, i64, PosInfo>>::iter()
+    pub fn get_pos_gpu_info() -> Vec<(Longitude, Latitude, PosInfo)> {
+        <PosGPUInfo<T> as IterableStorageDoubleMap<Longitude, Latitude, PosInfo>>::iter()
             .map(|(k1, k2, v)| (k1, k2, v))
             .collect()
     }

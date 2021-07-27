@@ -5,7 +5,8 @@ use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use online_profile::{
-    EraIndex, LiveMachine, PosInfo, RPCMachineInfo, RpcStakerInfo, RpcSysInfo, StashMachine,
+    EraIndex, Latitude, LiveMachine, Longitude, PosInfo, RPCMachineInfo, RpcStakerInfo, RpcSysInfo,
+    StashMachine,
 };
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
@@ -45,7 +46,10 @@ where
     ) -> Result<RPCMachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>>;
 
     #[rpc(name = "onlineProfile_getPosGpuInfo")]
-    fn get_pos_gpu_info(&self, at: Option<BlockHash>) -> Result<Vec<(i64, i64, PosInfo)>>;
+    fn get_pos_gpu_info(
+        &self,
+        at: Option<BlockHash>,
+    ) -> Result<Vec<(Longitude, Latitude, PosInfo)>>;
 
     #[rpc(name = "onlineProfile_getMachineEraReward")]
     fn get_machine_era_reward(
@@ -197,7 +201,7 @@ where
     fn get_pos_gpu_info(
         &self,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<(i64, i64, PosInfo)>> {
+    ) -> Result<Vec<(Longitude, Latitude, PosInfo)>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

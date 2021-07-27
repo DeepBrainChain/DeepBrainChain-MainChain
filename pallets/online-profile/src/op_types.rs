@@ -78,18 +78,45 @@ impl CommitteeUploadInfo {
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct StakerCustomizeInfo {
+    pub server_room_num: u64,
     /// 上行带宽
     pub upload_net: u64,
     /// 下行带宽
     pub download_net: u64,
     /// 经度(+东经; -西经)
-    pub longitude: i64,
+    pub longitude: Longitude,
     /// 纬度(+北纬； -南纬)
-    pub latitude: i64,
+    pub latitude: Latitude,
     /// 网络运营商
     pub telecom_operators: Vec<Vec<u8>>,
     /// 镜像名称
     pub images: Vec<ImageName>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum Longitude {
+    East(u64),
+    West(u64),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum Latitude {
+    South(u64),
+    North(u64),
+}
+
+impl Default for Longitude {
+    fn default() -> Self {
+        Longitude::East(0)
+    }
+}
+
+impl Default for Latitude {
+    fn default() -> Self {
+        Latitude::North(0)
+    }
 }
 
 /// 记录每个Era的机器的总分
