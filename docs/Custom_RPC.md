@@ -63,34 +63,6 @@
 }
 ```
 
-#### 查询在线奖励模块系统信息
-
-- 方法: `onlineProfile_getOpInfo`
-
-- 参数：无
-
-- 结果示例：
-
-  ```json
-  {
-    "jsonrpc": "2.0",
-    "result": {
-      "totalBurnFee": "0",
-      "totalCalcPoints": 3210,
-      "totalGpuNum": 4,
-      "totalRentFee": "0",
-      "totalRentedGpu": 0,
-      "totalStake": "200000000000000000",
-      "totalStaker": 1
-    },
-    "id": 1
-  }
-  ```
-
-- 结果说明：
-
-  TODO
-
 #### 查询资金账户的信息
 
 - 方法：`onlineProfile_getStakerInfo`
