@@ -39,6 +39,30 @@
 
   `result` 字段为资金账户数量
 
+#### 查询在线奖励模块统计数据
+
+- 方法: `onlineProfile_getOpInfo`
+
+- 参数： 无
+
+- 结果示例：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "totalBurnFee": "0", // 银河竞赛开启后，租金将被burn
+    "totalCalcPoints": 1966150, // 系统中总算力点数
+    "totalGpuNum": 218, // 系统中在线GPU数量
+    "totalRentFee": "3928735309068010075566", // 银河竞赛开启前，产生的租金数
+    "totalRentedGpu": 171, // 被租用的GPU数量
+    "totalStake": "22000000000000000000000", // 在线奖励模块质押总数
+    "totalStaker": 12 // 算工总数
+  },
+  "id": 1
+}
+```
+
 #### 查询在线奖励模块系统信息
 
 - 方法: `onlineProfile_getOpInfo`
