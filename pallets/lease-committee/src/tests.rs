@@ -23,6 +23,13 @@ fn machine_online_works() {
         let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e025\
                    4f4a9b010e2d8a5cce9d262e9193b76be87b46f6bef4219517cf939520bfff84";
 
+        let account: sp_core::sr25519::Public = sr25519::Public::from_raw(
+            hex::decode("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee")
+                .unwrap()
+                .try_into()
+                .unwrap(),
+        );
+
         // 查询状态
         assert_eq!(Balances::free_balance(committee1), INIT_BALANCE);
         assert_eq!(DBCPriceOCW::avg_price(), Some(12_000u64));
