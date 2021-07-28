@@ -1,5 +1,6 @@
 use crate::mock::*;
 use frame_support::assert_ok;
+use sp_runtime::Perbill;
 
 #[test]
 fn rent_machine_should_works() {
@@ -74,14 +75,15 @@ fn rent_machine_should_works() {
 
 #[test]
 fn controller_report_offline_when_online_should_work() {
-    new_test_after_machine_online().execute_with(|| {
+    new_test_ext_after_machine_online().execute_with(|| {
         let controller: sp_core::sr25519::Public =
             sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let machine_id =
             "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
-        run_to_block(50);
+        // NOTE: 注意，一天内不能下线两次
+        run_to_block(2880 + 50);
 
         assert_ok!(OnlineProfile::controller_report_offline(
             Origin::signed(controller),

@@ -167,7 +167,7 @@ fn machine_online_works() {
             online_profile::StashMachine {
                 total_machine: vec![machine_id.clone()],
                 online_machine: vec![machine_id.clone()],
-                total_calc_points: 6825,
+                total_calc_points: 6828, // 6825 + 6825 * 4/10000 = 6828
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
                 total_claimed_reward: 0,
@@ -177,6 +177,17 @@ fn machine_online_works() {
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
+                ..Default::default()
+            }
+        );
+
+        assert_eq!(
+            OnlineProfile::sys_info(),
+            online_profile::SysInfoDetail {
+                total_gpu_num: 4,
+                total_staker: 1,
+                total_calc_points: 6828,
+                total_stake: 400000 * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -192,7 +203,7 @@ fn machine_online_works() {
             online_profile::StashMachine {
                 total_machine: vec![machine_id.clone()],
                 online_machine: vec![machine_id.clone()],
-                total_calc_points: 6825,
+                total_calc_points: 6828,
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
                 total_claimed_reward: 0,
@@ -219,7 +230,7 @@ fn machine_online_works() {
             online_profile::StashMachine {
                 total_machine: vec![machine_id.clone()],
                 online_machine: vec![machine_id.clone()],
-                total_calc_points: 6825,
+                total_calc_points: 6828,
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
                 total_claimed_reward: 549944999455500000000,
