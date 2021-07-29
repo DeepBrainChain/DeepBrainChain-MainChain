@@ -1216,6 +1216,10 @@ impl_runtime_apis! {
         fn get_machine_era_reward(machine_id: online_profile::MachineId, era_index: online_profile::EraIndex) -> Balance {
             OnlineProfile::get_machine_era_reward(machine_id, era_index)
         }
+
+        fn get_machine_era_released_reward(machine_id: online_profile::MachineId, era_index: online_profile::EraIndex) -> Balance {
+            OnlineProfile::get_machine_era_released_reward(machine_id, era_index)
+        }
     }
 
     impl simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance> for Runtime {

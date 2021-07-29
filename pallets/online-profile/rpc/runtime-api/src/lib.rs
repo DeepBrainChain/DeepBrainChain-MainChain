@@ -25,5 +25,6 @@ sp_api::decl_runtime_apis! {
         fn get_machine_info(machine_id: MachineId) -> RPCMachineInfo<AccountId, BlockNumber, Balance>;
         fn get_pos_gpu_info() -> Vec<(Longitude, Latitude, PosInfo)>;
         fn get_machine_era_reward(machine_id: MachineId, era_index: EraIndex) -> Balance;
+        fn get_machine_era_released_reward(machine_id: MachineId, era_index: EraIndex) -> Balance;
     }
 }

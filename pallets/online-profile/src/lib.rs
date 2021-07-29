@@ -389,9 +389,23 @@ pub mod pallet {
     pub(super) type EraReward<T: Config> =
         StorageMap<_, Blake2_128Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
+    /// 某个Era机器获得的总奖励
     #[pallet::storage]
-    #[pallet::getter(fn machine_era_reward)]
-    pub(super) type MachineEraReward<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn eras_machine_reward)]
+    pub(super) type ErasMachineReward<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        EraIndex,
+        Blake2_128Concat,
+        MachineId,
+        BalanceOf<T>,
+        ValueQuery,
+    >;
+
+    /// 某个Era机器释放的总奖励
+    #[pallet::storage]
+    #[pallet::getter(fn eras_machine_released_reward)]
+    pub(super) type ErasMachineReleasedReward<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         EraIndex,
@@ -1524,7 +1538,7 @@ impl<T: Config> Pallet<T> {
                         stash_machine.linear_release_reward[reward_linear_index] +=
                             linear_reward_part;
 
-                        MachineEraReward::<T>::insert(
+                        ErasMachineReward::<T>::insert(
                             current_era,
                             &machine_id,
                             machine_total_reward,
@@ -1539,11 +1553,24 @@ impl<T: Config> Pallet<T> {
                     if machine_points.reward_account.len() == 0 {
                         // 没有委员会来分，则全部奖励给stash账户
                         stash_machine.can_claim_reward += release_now;
+
+                        // TODO: 记录到该机器实际收到的奖励
+                        ErasMachineReleasedReward::<T>::mutate(
+                            &current_era,
+                            &machine_id,
+                            |old_value| *old_value + release_now,
+                        );
                     } else {
                         // 99% 分给stash账户
                         let release_to_stash =
                             Perbill::from_rational_approximation(99u64, 100u64) * release_now;
                         stash_machine.can_claim_reward += release_to_stash;
+
+                        ErasMachineReleasedReward::<T>::mutate(
+                            &current_era,
+                            &machine_id,
+                            |old_value| *old_value + release_to_stash,
+                        );
 
                         // 剩下分给committee
                         let release_to_committee = release_now - release_to_stash;
@@ -1920,6 +1947,14 @@ impl<T: Config> Module<T> {
 
     /// 获得某个机器某个Era奖励数量
     pub fn get_machine_era_reward(machine_id: MachineId, era_index: EraIndex) -> BalanceOf<T> {
-        Self::machine_era_reward(era_index, machine_id)
+        Self::eras_machine_reward(era_index, machine_id)
+    }
+
+    /// 获得某个机器某个Era实际奖励数量
+    pub fn get_machine_era_released_reward(
+        machine_id: MachineId,
+        era_index: EraIndex,
+    ) -> BalanceOf<T> {
+        Self::eras_machine_released_reward(era_index, machine_id)
     }
 }

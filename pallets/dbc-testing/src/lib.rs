@@ -1,7 +1,7 @@
 #![recursion_limit = "128"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::Decode;
 use frame_support::debug;
 use frame_support::traits::{Currency, ExistenceRequirement::KeepAlive, Imbalance, OnUnbalanced};
 use frame_system::{self as system, ensure_root, ensure_signed};
