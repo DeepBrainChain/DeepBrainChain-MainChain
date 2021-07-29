@@ -467,6 +467,11 @@ fn committee_not_submit_hash_slash_works() {
         );
         // 惩罚
         run_to_block(4327 + 2880 * 2 + 1);
+
+        assert_eq!(
+            Committee::pending_slash(0),
+            committee::PendingSlashInfo { ..Default::default() }
+        )
     })
 }
 

@@ -386,8 +386,9 @@ impl<T: Config> Pallet<T> {
                         }
                     }
                 }
+
+                PendingSlash::<T>::remove(a_slash_id);
             }
-            PendingSlash::<T>::remove(a_slash_id);
         }
     }
 

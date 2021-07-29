@@ -291,10 +291,11 @@ pub fn gen_machine_online_info(
         machine_id: machine1_id.as_bytes().to_vec(),
         machine_key: machine1_key.as_bytes().to_vec(),
         machine_sig: machine1_sig.as_bytes().to_vec(),
-        committee_submit: vec![CommitteeSubmit {
-            committee_account: account1,
-            ..Default::default()
-        }],
+        committee_submit: vec![],
+        // committee_submit: vec![CommitteeSubmit {
+        //     committee_account: account1,
+        //     ..Default::default()
+        // }],
     };
 
     let out = Vec::new();
