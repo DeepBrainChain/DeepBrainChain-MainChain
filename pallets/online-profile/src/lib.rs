@@ -968,7 +968,7 @@ pub mod pallet {
 
                         let current_era = Self::current_era();
                         let old_stash_grade =
-                            Self::get_stash_grades(current_era, &machine_info.machine_stash);
+                            Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
                         Self::update_snap_by_online_status(machine_id.clone(), true);
                         Self::change_pos_gpu_by_online(&machine_id, true);
@@ -1081,19 +1081,13 @@ impl<T: Config> Pallet<T> {
     /// 下架机器
     fn machine_offline(machine_id: MachineId) {
         let mut machine_info = Self::machines_info(&machine_id);
-        let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
-        let mut sys_info = Self::sys_info();
         let mut live_machine = Self::live_machines();
 
         let now = <frame_system::Module<T>>::block_number();
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-        let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
 
         if let MachineStatus::Rented = machine_info.machine_status {
-            sys_info.total_rented_gpu -= gpu_num;
             Self::update_snap_by_rent_status(machine_id.clone(), false);
             Self::change_pos_gpu_by_rent(&machine_id, false);
-            stash_machine.total_rented_gpu -= gpu_num;
         }
 
         // When offline, pos_info will be removed
@@ -1104,23 +1098,12 @@ impl<T: Config> Pallet<T> {
         LiveMachine::rm_machine_id(&mut live_machine.online_machine, &machine_id);
         LiveMachine::add_machine_id(&mut live_machine.refused_machine, machine_id.clone());
 
-        if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
-            stash_machine.online_machine.remove(index);
-        }
-        stash_machine.total_gpu_num -= gpu_num;
-        stash_machine.total_calc_points -= calc_point;
-
-        sys_info.total_gpu_num -= gpu_num;
-        sys_info.total_calc_points -= calc_point;
-
         // After re-online, machine status is same as former
         machine_info.machine_status =
             MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status));
 
         LiveMachines::<T>::put(live_machine);
-        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
-        SysInfo::<T>::put(sys_info);
     }
 
     /// 特定机房机器上线/下线
@@ -1415,7 +1398,7 @@ impl<T: Config> Pallet<T> {
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
 
-        let old_stash_grade = Self::get_stash_grades(current_era, &machine_info.machine_stash);
+        let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
         next_era_stash_snapshot.change_machine_online_status(
             machine_info.machine_stash.clone(),
@@ -1499,7 +1482,7 @@ impl<T: Config> Pallet<T> {
 
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
-        let old_stash_grade = Self::get_stash_grades(current_era, &machine_info.machine_stash);
+        let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
         next_era_stash_snap.change_machine_rent_status(
             machine_info.machine_stash.clone(),
