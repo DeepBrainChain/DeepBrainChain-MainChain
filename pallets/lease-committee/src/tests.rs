@@ -23,6 +23,13 @@ fn machine_online_works() {
         let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e025\
                    4f4a9b010e2d8a5cce9d262e9193b76be87b46f6bef4219517cf939520bfff84";
 
+        let account: sp_core::sr25519::Public = sr25519::Public::from_raw(
+            hex::decode("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee")
+                .unwrap()
+                .try_into()
+                .unwrap(),
+        );
+
         // 查询状态
         assert_eq!(Balances::free_balance(committee1), INIT_BALANCE);
         assert_eq!(DBCPriceOCW::avg_price(), Some(12_000u64));
@@ -167,7 +174,7 @@ fn machine_online_works() {
             online_profile::StashMachine {
                 total_machine: vec![machine_id.clone()],
                 online_machine: vec![machine_id.clone()],
-                total_calc_points: 6825,
+                total_calc_points: 6828, // 6825 + 6825 * 4/10000 = 6828
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
                 total_claimed_reward: 0,
@@ -177,6 +184,17 @@ fn machine_online_works() {
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
+                ..Default::default()
+            }
+        );
+
+        assert_eq!(
+            OnlineProfile::sys_info(),
+            online_profile::SysInfoDetail {
+                total_gpu_num: 4,
+                total_staker: 1,
+                total_calc_points: 6828,
+                total_stake: 400000 * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -192,7 +210,7 @@ fn machine_online_works() {
             online_profile::StashMachine {
                 total_machine: vec![machine_id.clone()],
                 online_machine: vec![machine_id.clone()],
-                total_calc_points: 6825,
+                total_calc_points: 6828,
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
                 total_claimed_reward: 0,
@@ -219,7 +237,7 @@ fn machine_online_works() {
             online_profile::StashMachine {
                 total_machine: vec![machine_id.clone()],
                 online_machine: vec![machine_id.clone()],
-                total_calc_points: 6825,
+                total_calc_points: 6828,
                 total_gpu_num: 4,
                 total_rented_gpu: 0,
                 total_claimed_reward: 549944999455500000000,

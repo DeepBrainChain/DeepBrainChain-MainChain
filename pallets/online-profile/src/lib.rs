@@ -62,7 +62,8 @@ pub struct StashMachine<Balance> {
     pub total_machine: Vec<MachineId>,
     /// stash账户绑定的处于在线状态的机器
     pub online_machine: Vec<MachineId>,
-    /// 在线机器总得分，不给算集群膨胀系数与在线奖励
+    // FIXME
+    /// 在线机器总得分，集群膨胀系数与在线奖励需要计算在内
     pub total_calc_points: u64,
     /// 在线机器的总GPU个数
     pub total_gpu_num: u64,
@@ -210,18 +211,6 @@ impl LiveMachine {
             a_field.remove(index);
         }
     }
-
-    /// Get all MachineId
-    fn _all_machine_id(self) -> Vec<MachineId> {
-        let mut out = Vec::new();
-        out.extend(self.bonding_machine);
-        out.extend(self.confirmed_machine);
-        out.extend(self.booked_machine);
-        out.extend(self.online_machine);
-        out.extend(self.fulfilling_machine);
-        out.extend(self.refused_machine);
-        out
-    }
 }
 
 /// Standard GPU rent price Per Era
@@ -245,7 +234,7 @@ pub struct SysInfoDetail<Balance> {
     pub total_rented_gpu: u64,
     /// 系统中总stash账户数量(有机器成功上线)
     pub total_staker: u64,
-    /// 系统中上线的总算力点数
+    /// 系统中上线的总算力点数, 考虑额外得分
     pub total_calc_points: u64,
     /// 系统中DBC质押总数
     pub total_stake: Balance,
@@ -266,6 +255,7 @@ pub struct PosInfo {
     pub offline_gpu: u64,
     /// 被租用机器GPU数量
     pub rented_gpu: u64,
+    // FIXME: 膨胀得分考虑在内
     /// 在线机器算力点数
     pub online_gpu_calc_points: u64,
 }
@@ -439,30 +429,6 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            // let all_machine_id = Self::get_all_machine_id();
-
-            // for machine_id in all_machine_id {
-            //     let machine_info = Self::machines_info(&machine_id);
-            //     let new_machine_info = MachineInfo2 {
-            //         controller: machine_info.controller,
-            //         machine_stash: machine_info.machine_stash,
-            //         machine_renter: machine_info.machine_renter,
-            //         bonding_height: machine_info.bonding_height,
-            //         stake_amount: machine_info.stake_amount,
-            //         machine_status: machine_info.machine_status,
-            //         total_rented_duration: machine_info.total_rented_duration,
-            //         total_rented_times: machine_info.total_rented_times,
-            //         total_rent_fee: machine_info.total_rent_fee,
-            //         total_burn_fee: machine_info.total_burn_fee,
-            //         machine_info_detail: machine_info.machine_info_detail,
-            //         reward_committee: machine_info.reward_committee,
-            //         reward_deadline: machine_info.reward_deadline,
-            //         ..Default::default()
-            //     };
-
-            //     MachinesInfo2::<T>::insert(&machine_id, new_machine_info);
-            // }
-
             0
         }
 
@@ -777,14 +743,9 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
 
             let mut machine_info = Self::machines_info(&machine_id);
-            let mut sys_info = Self::sys_info();
-            let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
             let mut live_machine = Self::live_machines();
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-
-            let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-            let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
 
             let stake_need = Self::calc_stake_amount(
                 machine_info.machine_info_detail.committee_upload_info.gpu_num,
@@ -801,27 +762,14 @@ pub mod pallet {
             }
             machine_info.machine_status = MachineStatus::Online;
 
-            // 修改sys_info, stash_info
-            sys_info.total_gpu_num += gpu_num;
-            sys_info.total_calc_points += calc_point;
-
-            stash_machine.total_gpu_num += gpu_num;
-            stash_machine.total_calc_points += calc_point;
-
+            // TODO: 将这个改到update_snap_by_online_status中
             Self::change_pos_gpu_by_online(&machine_id, true);
-
-            Self::update_staker_grades_by_online_machine(
-                machine_info.machine_stash.clone(),
-                machine_id.clone(),
-                true,
-            );
+            Self::update_snap_by_online_status(machine_id.clone(), true);
 
             LiveMachine::rm_machine_id(&mut live_machine.fulfilling_machine, &machine_id);
             LiveMachine::add_machine_id(&mut live_machine.online_machine, machine_id.clone());
 
             LiveMachines::<T>::put(live_machine);
-            StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
-            SysInfo::<T>::put(sys_info);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
             Ok(().into())
         }
@@ -950,21 +898,30 @@ pub mod pallet {
             {
                 machine_info.machine_status = *status;
                 let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-                let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
 
                 match machine_info.machine_status {
                     MachineStatus::Online | MachineStatus::Rented => {
                         // Both status will change grades by online
                         sys_info.total_gpu_num += gpu_num;
-                        sys_info.total_calc_points += calc_point;
 
+                        let current_era = Self::current_era();
+                        let old_stash_grade =
+                            Self::get_stash_grades(current_era, &machine_info.machine_stash);
+
+                        Self::update_snap_by_online_status(machine_id.clone(), true);
                         Self::change_pos_gpu_by_online(&machine_id, true);
+
+                        let new_stash_grade =
+                            Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
+                        stash_machine.total_calc_points =
+                            stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
+                        sys_info.total_calc_points =
+                            sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
                         if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
                             stash_machine.online_machine.insert(index, machine_id.clone());
                         }
                         stash_machine.total_gpu_num += gpu_num;
-                        stash_machine.total_calc_points += calc_point;
                     }
                     _ => {}
                 }
@@ -1273,7 +1230,7 @@ impl<T: Config> Pallet<T> {
         return base_stake.min(stake_limit).checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>());
     }
 
-    /// 根据GPU数量和该机器算力点数，计算该机器相比标准配置的价格
+    /// 根据GPU数量和该机器算力点数，计算该机器相比标准配置的租用价格
     pub fn calc_machine_price(machine_point: u64) -> Option<u64> {
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
         standard_gpu_point_price
@@ -1342,61 +1299,40 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// 由于机器在线或者下线，更新矿工机器得分与总得分:
-    ///     机器上线，则修改下一天的得分快照
-    ///     机器掉线，则修改当天与下一天的快照，影响今后奖励
-    fn update_staker_grades_by_online_machine(
-        stash_account: T::AccountId,
-        machine_id: MachineId,
-        is_online: bool,
-    ) {
-        let machine_info = Self::machines_info(&machine_id);
-        let machine_base_info = machine_info.machine_info_detail.committee_upload_info;
+    // 获取下一Era stash grade即为当前Era stash grade
+    fn get_stash_grades(era_index: EraIndex, stash: &T::AccountId) -> u64 {
+        let next_era_stash_snapshot = Self::eras_stash_points(era_index).unwrap_or_default();
 
-        let mut stash_machine = Self::stash_machines(&stash_account);
-        let mut sys_info = Self::sys_info();
-
-        Self::update_snap_by_online_status(machine_id.clone(), is_online);
-
-        if is_online {
-            if let Err(index) = stash_machine.online_machine.binary_search(&machine_id) {
-                stash_machine.online_machine.insert(index, machine_id.clone());
-            }
-            stash_machine.total_calc_points += machine_base_info.calc_point;
-            stash_machine.total_gpu_num += machine_base_info.gpu_num as u64;
-
-            sys_info.total_calc_points += machine_base_info.calc_point;
-            sys_info.total_gpu_num += machine_base_info.gpu_num as u64;
-        } else {
-            if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
-                stash_machine.online_machine.remove(index);
-            }
-            stash_machine.total_calc_points -= machine_base_info.calc_point;
-            stash_machine.total_gpu_num -= machine_base_info.gpu_num as u64;
-
-            sys_info.total_calc_points -= machine_base_info.calc_point;
-            sys_info.total_gpu_num -= machine_base_info.gpu_num as u64;
+        if let Some(stash_snapshot) = next_era_stash_snapshot.staker_statistic.get(stash) {
+            return stash_snapshot.total_grades().unwrap();
         }
-
-        // NOTE: 5000张卡开启银河竞赛
-        if !Self::galaxy_is_on() && sys_info.total_gpu_num > 5000 {
-            GalaxyIsOn::<T>::put(true);
-        }
-
-        SysInfo::<T>::put(sys_info);
-        StashMachines::<T>::insert(&stash_account, stash_machine);
+        0
     }
 
+    // 当机器Online状态变化时，更改系统存储
+    // Online:
+    // - Reads:
+    // - Writes:
+    // Offline:
+    // - Reads:
+    // - Writes:
     fn update_snap_by_online_status(machine_id: MachineId, is_online: bool) {
         let machine_info = Self::machines_info(&machine_id);
+        let machine_base_info = machine_info.machine_info_detail.committee_upload_info.clone();
+
         let current_era = Self::current_era();
-        let mut current_era_stash_snap = Self::eras_stash_points(current_era).unwrap();
-        let mut next_era_stash_snap = Self::eras_stash_points(current_era + 1).unwrap();
 
-        let mut current_era_machine_snap = Self::eras_machine_points(current_era).unwrap(); // FIXME
-        let mut next_era_machine_snap = Self::eras_machine_points(current_era + 1).unwrap();
+        let mut current_era_stash_snapshot = Self::eras_stash_points(current_era).unwrap();
+        let mut next_era_stash_snapshot = Self::eras_stash_points(current_era + 1).unwrap();
+        let mut current_era_machine_snapshot = Self::eras_machine_points(current_era).unwrap();
+        let mut next_era_machine_snapshot = Self::eras_machine_points(current_era + 1).unwrap();
 
-        next_era_stash_snap.change_machine_online_status(
+        let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+        let mut sys_info = Self::sys_info();
+
+        let old_stash_grade = Self::get_stash_grades(current_era, &machine_info.machine_stash);
+
+        next_era_stash_snapshot.change_machine_online_status(
             machine_info.machine_stash.clone(),
             machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
             machine_info.machine_info_detail.committee_upload_info.calc_point,
@@ -1404,7 +1340,7 @@ impl<T: Config> Pallet<T> {
         );
 
         if is_online {
-            next_era_machine_snap.insert(
+            next_era_machine_snapshot.insert(
                 machine_id.clone(),
                 MachineGradeStatus {
                     basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
@@ -1412,34 +1348,73 @@ impl<T: Config> Pallet<T> {
                     reward_account: machine_info.reward_committee,
                 },
             );
+
+            if let Err(index) = stash_machine.online_machine.binary_search(&machine_id) {
+                stash_machine.online_machine.insert(index, machine_id.clone());
+            }
+            stash_machine.total_gpu_num += machine_base_info.gpu_num as u64;
+            sys_info.total_gpu_num += machine_base_info.gpu_num as u64;
         } else {
-            current_era_stash_snap.change_machine_online_status(
+            // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
+            // 一天内再次下线会造成再次清空
+            current_era_stash_snapshot.change_machine_online_status(
                 machine_info.machine_stash.clone(),
                 machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
                 machine_info.machine_info_detail.committee_upload_info.calc_point,
                 is_online,
             );
-            current_era_machine_snap.remove(&machine_id);
-            next_era_machine_snap.remove(&machine_id);
+            current_era_machine_snapshot.remove(&machine_id);
+            next_era_machine_snapshot.remove(&machine_id);
+
+            if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
+                stash_machine.online_machine.remove(index);
+            }
+
+            stash_machine.total_gpu_num -= machine_base_info.gpu_num as u64;
+            sys_info.total_gpu_num -= machine_base_info.gpu_num as u64;
         }
 
         // 机器上线或者下线都会影响下一era得分，而只有下线才影响当前era得分
-        ErasStashPoints::<T>::insert(current_era + 1, next_era_stash_snap);
-        ErasMachinePoints::<T>::insert(current_era + 1, next_era_machine_snap);
+        ErasStashPoints::<T>::insert(current_era + 1, next_era_stash_snapshot);
+        ErasMachinePoints::<T>::insert(current_era + 1, next_era_machine_snapshot);
         if !is_online {
-            ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
-            ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
+            ErasStashPoints::<T>::insert(current_era, current_era_stash_snapshot);
+            ErasMachinePoints::<T>::insert(current_era, current_era_machine_snapshot);
         }
+
+        let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
+        stash_machine.total_calc_points =
+            stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
+        sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
+
+        // NOTE: 5000张卡开启银河竞赛
+        if !Self::galaxy_is_on() && sys_info.total_gpu_num > 5000 {
+            GalaxyIsOn::<T>::put(true);
+        }
+
+        if is_online && stash_machine.online_machine.len() == 1 {
+            sys_info.total_staker += 1;
+        }
+        if !is_online && stash_machine.online_machine.len() == 0 {
+            sys_info.total_staker -= 1;
+        }
+
+        SysInfo::<T>::put(sys_info);
+        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
     }
 
     fn update_snap_by_rent_status(machine_id: MachineId, is_rented: bool) {
         let machine_info = Self::machines_info(&machine_id);
         let current_era = Self::current_era();
+
         let mut current_era_stash_snap = Self::eras_stash_points(current_era).unwrap();
         let mut next_era_stash_snap = Self::eras_stash_points(current_era + 1).unwrap();
-
         let mut current_era_machine_snap = Self::eras_machine_points(current_era).unwrap();
         let mut next_era_machine_snap = Self::eras_machine_points(current_era + 1).unwrap();
+
+        let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+        let mut sys_info = Self::sys_info();
+        let old_stash_grade = Self::get_stash_grades(current_era, &machine_info.machine_stash);
 
         next_era_stash_snap.change_machine_rent_status(
             machine_info.machine_stash.clone(),
@@ -1479,6 +1454,14 @@ impl<T: Config> Pallet<T> {
             ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
             ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
         }
+
+        let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
+        stash_machine.total_calc_points =
+            stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
+        sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
+
+        SysInfo::<T>::put(sys_info);
+        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
     }
 
     // 根据机器得分快照，和委员会膨胀分数，计算应该奖励
@@ -1674,12 +1657,7 @@ impl<T: Config> LCOps for Pallet<T> {
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if let MachineStatus::Online = machine_info.machine_status {
             Self::change_pos_gpu_by_online(&committee_upload_info.machine_id, true);
-
-            Self::update_staker_grades_by_online_machine(
-                machine_info.machine_stash.clone(),
-                committee_upload_info.machine_id.clone(),
-                true,
-            );
+            Self::update_snap_by_online_status(committee_upload_info.machine_id, true);
         }
 
         return Ok(());

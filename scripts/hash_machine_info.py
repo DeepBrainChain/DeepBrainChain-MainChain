@@ -6,18 +6,18 @@ import json
 raw_info = json.loads(
     """
 {
-  "machine_id": "e6a2afe3a00838c7f26e735fdd5fa7e6e9ecb4152dca7ab63fafd082bfaaa262",
+  "machine_id": "f04b405e336a9a2aa7d2bf8c2f73e838b10d5021db0888642093fe90bbe31659",
   "gpu_type": "GeForceRTX2080Ti",
   "gpu_num": 2,
   "cuda_core": 4352,
   "gpu_mem": 11,
   "calc_point": 13650,
-  "sys_disk": 500,
-  "data_disk": 72,
-  "cpu_type": "AMD EPYC 7302 16-Core Processor",
+  "sys_disk": 480,
+  "data_disk": 18,
+  "cpu_type": "Intel(R) Xeon(R) CPU E5-2697",
   "cpu_core_num": 64,
-  "cpu_rate": 300,
-  "mem_num": 193299,
+  "cpu_rate": 260,
+  "mem_num": 512000,
   "rand_str": "0x61",
   "is_support": true
 }
