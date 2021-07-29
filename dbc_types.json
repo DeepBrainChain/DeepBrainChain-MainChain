@@ -60,18 +60,18 @@
     "reward_deadline": "BlockNumber"
   },
   "MachineStatus": {
-    "_enum": [
-      "AddingCustomizeInfo",
-      "DistributingOrder",
-      "CommitteeVerifying",
-      "CommitteeRefused(BlockNumber)",
-      "WaitingFulfill",
-      "Online",
-      "StakerReportOffline(BlockNumber, Box<MachineStatus>)",
-      "ReporterReportOffline(BlockNumber)",
-      "Creating",
-      "Rented"
-    ]
+    "_enum": {
+      "AddingCustomizeInfo": null,
+      "DistributingOrder": null,
+      "CommitteeVerifying": null,
+      "CommitteeRefused": "BlockNumber",
+      "WaitingFulfill": null,
+      "Online": null,
+      "StakerReportOffline": "(BlockNumber, Box<MachineStatus>)",
+      "ReporterReportOffline": "(BlockNumber, Box<MachineStatus>)",
+      "Creating": null,
+      "Rented": null
+    }
   },
   "MachineInfoDetail": {
     "committee_upload_info": "CommitteeUploadInfo",
@@ -102,10 +102,16 @@
     "images": "Vec<ImageName>"
   },
   "Longitude": {
-    "_enum": ["East(u64)", "West(u64)"]
+    "_enum": {
+      "East": "u64",
+      "West": "u64"
+    }
   },
   "Latitude": {
-    "_enum": ["South(u64)", "North(u64)"]
+    "_enum": {
+      "South": "u64",
+      "North": "u64"
+    }
   },
   "ImageName": "Text",
   "TelecomName": "Text",
