@@ -69,9 +69,5 @@ pub trait MTOps {
     type AccountId;
     type MachineId;
 
-    fn machine_offline(
-        machine_id: Self::MachineId,
-        committee: Vec<Self::AccountId>,
-        reporter: Self::AccountId,
-    );
+    fn mt_machine_offline(machine_id: Self::MachineId);
 }

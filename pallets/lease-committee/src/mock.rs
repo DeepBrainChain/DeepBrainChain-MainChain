@@ -285,17 +285,17 @@ pub fn gen_machine_online_info(
 
     // let machine_info1 = MachineBondInfo { controller_account: controller1 };
 
-    let machine_bond_info1 = MachineBondInfo {
-        controller_account: key_to_pair(controller1),
-        stash_account: key_to_pair(stash1_key),
-        machine_id: machine1_id.as_bytes().to_vec(),
-        machine_key: machine1_key.as_bytes().to_vec(),
-        machine_sig: machine1_sig.as_bytes().to_vec(),
-        committee_submit: vec![CommitteeSubmit {
-            committee_account: account1,
-            ..Default::default()
-        }],
-    };
+    // let machine_bond_info1 = MachineBondInfo {
+    //     controller_account: key_to_pair(controller1),
+    //     stash_account: key_to_pair(stash1_key),
+    //     machine_id: machine1_id.as_bytes().to_vec(),
+    //     machine_key: machine1_key.as_bytes().to_vec(),
+    //     machine_sig: machine1_sig.as_bytes().to_vec(),
+    //     committee_submit: vec![CommitteeSubmit {
+    //         // committee_account: account1,
+    //         ..Default::default()
+    //     }],
+    // };
 
     let out = Vec::new();
 
@@ -328,6 +328,7 @@ pub fn run_to_block(n: BlockNumber) {
         LeaseCommittee::on_finalize(b);
         Committee::on_finalize(b);
         System::on_finalize(b);
+        RandomnessCollectiveFlip::on_finalize(b);
 
         System::set_block_number(b + 1);
 
@@ -337,6 +338,7 @@ pub fn run_to_block(n: BlockNumber) {
         LeaseCommittee::on_initialize(b + 1);
         Committee::on_initialize(b + 1);
         OnlineProfile::on_initialize(b + 1);
+        RandomnessCollectiveFlip::on_initialize(b + 1);
     }
 }
 
@@ -476,6 +478,13 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
+
+        // controller 生成server_name
+        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
+        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
+
+        let server_room = OnlineProfile::stash_server_rooms(&stash);
+
         assert_ok!(OnlineProfile::bond_machine(
             Origin::signed(controller),
             machine_id.clone(),
@@ -490,10 +499,11 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
             Origin::signed(controller),
             machine_id.clone(),
             StakerCustomizeInfo {
+                server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: 1157894,
-                latitude: 235674,
+                longitude: online_profile::Longitude::East(1157894),
+                latitude: online_profile::Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
                 images: vec!["Ubuntu18.04 LTS".into()],
             }

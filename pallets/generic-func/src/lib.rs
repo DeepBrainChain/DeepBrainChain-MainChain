@@ -135,6 +135,12 @@ impl<T: Config> Pallet<T> {
         rng.pick_u32(max)
     }
 
+    /// 产生随机的ServerRoomId
+    pub fn random_server_room() -> H256 {
+        let subject = Self::update_nonce();
+        T::RandomnessSource::random(&subject)
+    }
+
     // 每次交易消耗一些交易费: 10DBC
     // 交易费直接转给国库
     pub fn pay_fixed_tx_fee(who: T::AccountId) -> Result<(), ()> {

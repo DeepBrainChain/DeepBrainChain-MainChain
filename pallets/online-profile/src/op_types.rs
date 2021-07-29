@@ -1,6 +1,7 @@
 use codec::{alloc::string::ToString, Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_core::H256;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -78,7 +79,7 @@ impl CommitteeUploadInfo {
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct StakerCustomizeInfo {
-    pub server_room_num: u64,
+    pub server_room: H256,
     /// 上行带宽
     pub upload_net: u64,
     /// 下行带宽
@@ -177,7 +178,9 @@ where
         if is_online {
             staker_statistic.online_gpu_num += gpu_num;
         } else {
-            staker_statistic.online_gpu_num -= gpu_num;
+            // 避免上线24小时即下线时，当前Era还没有初始化该值
+            staker_statistic.online_gpu_num =
+                staker_statistic.online_gpu_num.checked_sub(gpu_num).unwrap_or_default();
         }
 
         // 根据显卡数量n更新inflation系数: inflation = min(10%, n/10000)
@@ -192,7 +195,10 @@ where
         if is_online {
             staker_statistic.machine_total_calc_point += basic_grade;
         } else {
-            staker_statistic.machine_total_calc_point -= basic_grade;
+            staker_statistic.machine_total_calc_point = staker_statistic
+                .machine_total_calc_point
+                .checked_sub(basic_grade)
+                .unwrap_or_default();
         }
 
         // 更新系统分数记录

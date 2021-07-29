@@ -38,6 +38,13 @@ fn machine_online_works() {
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
+
+        // controller 生成server_name
+        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
+        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
+
+        let server_room = OnlineProfile::stash_server_rooms(&stash);
+
         assert_ok!(OnlineProfile::bond_machine(
             Origin::signed(controller),
             machine_id.clone(),
@@ -51,8 +58,8 @@ fn machine_online_works() {
             OnlineProfile::live_machines(),
             LiveMachine { bonding_machine: vec!(machine_id.clone()), ..Default::default() }
         );
-        // 2. 查询Controller支付10 DBC手续费
-        assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 10 * ONE_DBC);
+        // 2. 查询Controller支付30 DBC手续费: 绑定机器/添加机房信息各花费10DBC
+        assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 30 * ONE_DBC);
         // 3. 查询Stash质押数量: 10wDBC
         assert_eq!(Committee::user_total_stake(stash).unwrap(), 100_000 * ONE_DBC);
         // 4. 查询stash_machine的信息
@@ -75,10 +82,11 @@ fn machine_online_works() {
             Origin::signed(controller),
             machine_id.clone(),
             StakerCustomizeInfo {
+                server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: 1157894,
-                latitude: 235678,
+                longitude: online_profile::Longitude::East(1157894),
+                latitude: online_profile::Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
                 images: vec!["Ubuntu18.04 LTS".into()],
             }
@@ -271,7 +279,7 @@ fn machine_online_works() {
 #[test]
 fn all_committee_submit_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let _committee1: sp_core::sr25519::Public =
+        let committee1: sp_core::sr25519::Public =
             sr25519::Public::from(Sr25519Keyring::Alice).into();
         let committee2: sp_core::sr25519::Public =
             sr25519::Public::from(Sr25519Keyring::Charlie).into();
@@ -288,7 +296,7 @@ fn all_committee_submit_works() {
             LeaseCommittee::machine_committee(machine_id.clone()),
             LCMachineCommitteeList {
                 book_time: 6,
-                booked_committee: vec![committee3, committee2, committee4], // Test中非真随机
+                booked_committee: vec![committee2, committee1, committee4],
                 confirm_start_time: 6 + 4320,
                 status: LCVerifyStatus::SubmittingHash,
                 ..Default::default()
@@ -314,12 +322,12 @@ fn all_committee_submit_works() {
             is_support: true,
         };
 
-        let rand_str3 = "abcdefg1".as_bytes().to_vec();
+        let rand_str1 = "abcdefg1".as_bytes().to_vec();
         let rand_str2 = "abcdefg2".as_bytes().to_vec();
         let rand_str4 = "abcdefg3".as_bytes().to_vec();
 
         // 委员会提交机器Hash
-        let machine_info_hash3 =
+        let machine_info_hash1 =
             hex::decode("f813d5478a1c6cfb04a203a0643ad67e").unwrap().try_into().unwrap();
         let machine_info_hash2 =
             hex::decode("8beab87415978daf436f31a292f9bdbb").unwrap().try_into().unwrap();
@@ -327,10 +335,11 @@ fn all_committee_submit_works() {
             hex::decode("b76f264dbfeba1c25fb0518ed156ab40").unwrap().try_into().unwrap();
 
         assert_ok!(LeaseCommittee::submit_confirm_hash(
-            Origin::signed(committee3),
+            Origin::signed(committee1),
             machine_id.clone(),
-            machine_info_hash3,
+            machine_info_hash1,
         ));
+
         assert_ok!(LeaseCommittee::submit_confirm_hash(
             Origin::signed(committee2),
             machine_id.clone(),
@@ -344,8 +353,8 @@ fn all_committee_submit_works() {
 
         // 委员会提交原始信息
         assert_ok!(LeaseCommittee::submit_confirm_raw(
-            Origin::signed(committee3),
-            CommitteeUploadInfo { rand_str: rand_str3, ..machine_base_info.clone() }
+            Origin::signed(committee1),
+            CommitteeUploadInfo { rand_str: rand_str1, ..machine_base_info.clone() }
         ));
         assert_ok!(LeaseCommittee::submit_confirm_raw(
             Origin::signed(committee2),
@@ -367,7 +376,7 @@ fn all_committee_submit_works() {
 #[test]
 fn committee_not_submit_hash_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let _committee1: sp_core::sr25519::Public =
+        let committee1: sp_core::sr25519::Public =
             sr25519::Public::from(Sr25519Keyring::Alice).into();
         let committee2: sp_core::sr25519::Public =
             sr25519::Public::from(Sr25519Keyring::Charlie).into();
@@ -398,19 +407,19 @@ fn committee_not_submit_hash_slash_works() {
             is_support: true,
         };
 
-        let rand_str3 = "abcdefg1".as_bytes().to_vec();
+        let rand_str1 = "abcdefg1".as_bytes().to_vec();
         let rand_str2 = "abcdefg2".as_bytes().to_vec();
 
         // 委员会提交机器Hash
-        let machine_info_hash3 =
+        let machine_info_hash1 =
             hex::decode("f813d5478a1c6cfb04a203a0643ad67e").unwrap().try_into().unwrap();
         let machine_info_hash2 =
             hex::decode("8beab87415978daf436f31a292f9bdbb").unwrap().try_into().unwrap();
 
         assert_ok!(LeaseCommittee::submit_confirm_hash(
-            Origin::signed(committee3),
+            Origin::signed(committee1),
             machine_id.clone(),
-            machine_info_hash3,
+            machine_info_hash1,
         ));
         assert_ok!(LeaseCommittee::submit_confirm_hash(
             Origin::signed(committee2),
@@ -420,8 +429,8 @@ fn committee_not_submit_hash_slash_works() {
 
         let machine_committee = crate::LCMachineCommitteeList {
             book_time: 6,
-            booked_committee: vec![committee3, committee2, committee4],
-            hashed_committee: vec![committee3, committee2],
+            booked_committee: vec![committee2, committee1, committee4],
+            hashed_committee: vec![committee2, committee1],
             confirm_start_time: 4326,
             confirmed_committee: vec![],
             onlined_committee: vec![],
@@ -435,8 +444,8 @@ fn committee_not_submit_hash_slash_works() {
 
         // 委员会提交原始信息
         assert_ok!(LeaseCommittee::submit_confirm_raw(
-            Origin::signed(committee3),
-            CommitteeUploadInfo { rand_str: rand_str3, ..machine_base_info.clone() }
+            Origin::signed(committee1),
+            CommitteeUploadInfo { rand_str: rand_str1, ..machine_base_info.clone() }
         ));
         assert_ok!(LeaseCommittee::submit_confirm_raw(
             Origin::signed(committee2),

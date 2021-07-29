@@ -83,7 +83,7 @@ fn controller_report_offline_when_online_should_work() {
             "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         // NOTE: 注意，一天内不能下线两次
-        run_to_block(2880 + 50);
+        // run_to_block(2880 + 50);
 
         assert_ok!(OnlineProfile::controller_report_offline(
             Origin::signed(controller),

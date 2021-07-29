@@ -28,7 +28,7 @@ use frame_system::pallet_prelude::*;
 use online_profile_machine::{DbcPrice, LCOps, MTOps, ManageCommittee, OPRPCQuery, RTOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_core::crypto::Public;
+use sp_core::{crypto::Public, H256};
 use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, Verify},
     Perbill, SaturatedConversion,
@@ -346,6 +346,18 @@ pub mod pallet {
     #[pallet::getter(fn stash_machines)]
     pub(super) type StashMachines<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, StashMachine<BalanceOf<T>>, ValueQuery>;
+
+    /// stash账户下的所有机房信息
+    #[pallet::storage]
+    #[pallet::getter(fn stash_server_rooms)]
+    pub(super) type StashServerRooms<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<H256>, ValueQuery>;
+
+    /// 某机房下的所有机器
+    #[pallet::storage]
+    #[pallet::getter(fn server_room_machines)]
+    pub(super) type ServerRoomMachines<T: Config> =
+        StorageMap<_, Blake2_128Concat, H256, Vec<MachineId>>;
 
     /// controller账户下的所有机器
     #[pallet::storage]
@@ -683,6 +695,27 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// 控制账户生成机房信息,该机房记录到stash账户下
+        #[pallet::weight(10000)]
+        pub fn gen_server_room(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+            let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
+
+            // 扣除10个Dbc作为交易手续费
+            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone())
+                .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+
+            let new_server_room = <generic_func::Module<T>>::random_server_room();
+
+            let mut stash_server_rooms = Self::stash_server_rooms(&stash);
+            if let Err(index) = stash_server_rooms.binary_search(&new_server_room) {
+                stash_server_rooms.insert(index, new_server_room);
+            }
+
+            StashServerRooms::<T>::insert(&stash, stash_server_rooms);
+            Ok(().into())
+        }
+
         /// 控制账户添加机器信息: 经纬度*10^4取整
         /// 符号：东经+,西经-；北纬+,南纬-,
         #[pallet::weight(10000)]
@@ -702,6 +735,11 @@ pub mod pallet {
             // 查询机器Id是否在该账户的控制下
             let mut machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+
+            let stash_server_rooms = Self::stash_server_rooms(&machine_info.machine_stash);
+            if stash_server_rooms.binary_search(&customize_machine_info.server_room).is_err() {
+                return Err(Error::<T>::ServerRoomNotFound.into());
+            }
 
             match machine_info.machine_status {
                 MachineStatus::AddingCustomizeInfo
@@ -755,6 +793,7 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
 
             let mut machine_info = Self::machines_info(&machine_id);
             let mut live_machine = Self::live_machines();
@@ -775,6 +814,9 @@ pub mod pallet {
                 machine_info.stake_amount = stake_need;
             }
             machine_info.machine_status = MachineStatus::Online;
+            machine_info.online_height = now;
+            machine_info.last_online_height = now;
+            machine_info.reward_deadline = now + REWARD_DURATION.into();
 
             // TODO: 将这个改到update_snap_by_online_status中
             Self::change_pos_gpu_by_online(&machine_id, true);
@@ -897,7 +939,7 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let _now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Module<T>>::block_number();
 
             let mut machine_info = Self::machines_info(&machine_id);
             let mut sys_info = Self::sys_info();
@@ -905,6 +947,10 @@ pub mod pallet {
             let mut live_machine = Self::live_machines();
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+            ensure!(
+                machine_info.last_online_height.saturated_into::<u64>() > BLOCK_PER_ERA,
+                Error::<T>::CannotOnlineTwiceOneDay
+            );
 
             // MachineStatus改为之前的状态
             if let MachineStatus::StakerReportOffline(_offline_time, status) =
@@ -951,6 +997,8 @@ pub mod pallet {
             } else {
                 return Err(Error::<T>::MachineStatusNotAllowed.into());
             }
+
+            machine_info.last_online_height = now;
 
             LiveMachine::rm_machine_id(&mut live_machine.refused_machine, &machine_id);
             LiveMachine::add_machine_id(&mut live_machine.online_machine, machine_id.clone());
@@ -1015,6 +1063,8 @@ pub mod pallet {
         SigMachineIdNotEqualBondedMachineId,
         TelecomAndImageIsNull,
         MachineStatusNotAllowed,
+        CannotOnlineTwiceOneDay,
+        ServerRoomNotFound,
     }
 }
 
@@ -1045,8 +1095,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // When offline, pos_info will be removed
+        Self::change_server_room_gpu(&machine_id, false);
         Self::change_pos_gpu_by_online(&machine_id, false);
-
         Self::update_snap_by_online_status(machine_id.clone(), false);
 
         LiveMachine::rm_machine_id(&mut live_machine.online_machine, &machine_id);
@@ -1071,9 +1121,28 @@ impl<T: Config> Pallet<T> {
         SysInfo::<T>::put(sys_info);
     }
 
+    /// 特定机房机器上线/下线
+    fn change_server_room_gpu(machine_id: &MachineId, is_online: bool) {
+        let machine_info = Self::machines_info(machine_id);
+        let server_room = machine_info.machine_info_detail.staker_customize_info.server_room;
+        let mut server_room_machines = Self::server_room_machines(server_room).unwrap_or_default();
+
+        if is_online {
+            if let Err(index) = server_room_machines.binary_search(machine_id) {
+                server_room_machines.insert(index, machine_id.to_vec());
+            }
+        } else {
+            if let Ok(index) = server_room_machines.binary_search(machine_id) {
+                server_room_machines.remove(index);
+            }
+        }
+
+        ServerRoomMachines::<T>::insert(server_room, server_room_machines);
+    }
+
     /// 特定位置GPU上线/下线
     fn change_pos_gpu_by_online(machine_id: &MachineId, is_online: bool) {
-        let machine_info = Self::machines_info(machine_id);
+        let machine_info = Self::machines_info(&machine_id);
 
         let longitude = machine_info.machine_info_detail.staker_customize_info.longitude.clone();
         let latitude = machine_info.machine_info_detail.staker_customize_info.latitude.clone();
@@ -1481,6 +1550,7 @@ impl<T: Config> Pallet<T> {
     // 根据机器得分快照，和委员会膨胀分数，计算应该奖励
     // end_era分发奖励
     fn distribute_reward() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
         let current_era = Self::current_era();
         let start_era = if current_era > 150 { current_era - 150 } else { 0u32 };
         let all_stash = Self::get_all_stash();
@@ -1550,11 +1620,12 @@ impl<T: Config> Pallet<T> {
                         Perbill::from_rational_approximation(1u32, 150u32) * linear_reward_part
                     };
 
-                    if machine_points.reward_account.len() == 0 {
+                    if machine_points.reward_account.len() == 0
+                        || now >= machine_info.reward_deadline
+                    {
                         // 没有委员会来分，则全部奖励给stash账户
                         stash_machine.can_claim_reward += release_now;
 
-                        // TODO: 记录到该机器实际收到的奖励
                         ErasMachineReleasedReward::<T>::mutate(
                             &current_era,
                             &machine_id,
@@ -1660,6 +1731,10 @@ impl<T: Config> LCOps for Pallet<T> {
                 );
                 machine_info.stake_amount = stake_need;
                 machine_info.machine_status = MachineStatus::Online;
+                machine_info.online_height = now;
+                machine_info.last_online_height = now;
+                machine_info.reward_deadline = now + REWARD_DURATION.into();
+
                 sys_info.total_stake += extra_stake;
             } else {
                 LiveMachine::add_machine_id(
@@ -1683,6 +1758,7 @@ impl<T: Config> LCOps for Pallet<T> {
 
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if let MachineStatus::Online = machine_info.machine_status {
+            Self::change_server_room_gpu(&committee_upload_info.machine_id, true);
             Self::change_pos_gpu_by_online(&committee_upload_info.machine_id, true);
             Self::update_snap_by_online_status(committee_upload_info.machine_id, true);
         }
@@ -1833,43 +1909,8 @@ impl<T: Config> MTOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
 
-    // TODO: 与本模块同名函数复用
-    fn machine_offline(
-        machine_id: MachineId,
-        _committee: Vec<T::AccountId>,
-        _reporter: T::AccountId,
-    ) {
-        let now = <frame_system::Module<T>>::block_number();
-
-        let mut machine_info = Self::machines_info(&machine_id);
-        let mut sys_info = Self::sys_info();
-        let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
-
-        machine_info.machine_status =
-            MachineStatus::ReporterReportOffline(now, Box::new(machine_info.machine_status));
-
-        if let MachineStatus::Rented = machine_info.machine_status {
-            sys_info.total_rented_gpu -=
-                machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-            Self::update_snap_by_rent_status(machine_id.clone(), false);
-            Self::change_pos_gpu_by_rent(&machine_id, false);
-            stash_machine.total_rented_gpu -=
-                machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-        }
-
-        Self::change_pos_gpu_by_online(&machine_id, false);
-
-        if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
-            stash_machine.online_machine.remove(index);
-        }
-        stash_machine.total_gpu_num -=
-            machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-        stash_machine.total_calc_points -=
-            machine_info.machine_info_detail.committee_upload_info.calc_point;
-
-        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
-        MachinesInfo::<T>::insert(&machine_id, machine_info);
-        SysInfo::<T>::put(sys_info);
+    fn mt_machine_offline(machine_id: MachineId) {
+        Self::machine_offline(machine_id);
     }
 }
 

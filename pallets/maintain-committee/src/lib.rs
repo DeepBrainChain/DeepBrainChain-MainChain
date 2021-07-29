@@ -1094,11 +1094,7 @@ impl<T: Config> Pallet<T> {
                         }
                     }
 
-                    T::MTOps::machine_offline(
-                        report_info.machine_id.clone(),
-                        report_info.support_committee.clone(),
-                        report_info.reporter.clone(),
-                    );
+                    T::MTOps::mt_machine_offline(report_info.machine_id.clone());
                 }
                 ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                     for a_committee in support_committee {

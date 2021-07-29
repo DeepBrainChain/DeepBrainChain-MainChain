@@ -221,6 +221,7 @@ pub fn run_to_block(n: BlockNumber) {
         Committee::on_finalize(b);
         MaintainCommittee::on_finalize(b);
         System::on_finalize(b);
+        RandomnessCollectiveFlip::on_finalize(b);
 
         System::set_block_number(b + 1);
 
@@ -230,6 +231,7 @@ pub fn run_to_block(n: BlockNumber) {
         LeaseCommittee::on_initialize(b + 1);
         Committee::on_initialize(b + 1);
         OnlineProfile::on_initialize(b + 1);
+        RandomnessCollectiveFlip::on_initialize(b + 1);
     }
 }
 

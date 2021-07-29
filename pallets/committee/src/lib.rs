@@ -368,20 +368,30 @@ impl<T: Config> Pallet<T> {
 
                     for a_committee in a_slash_info.reward_to {
                         if left_reward < reward_each_get {
-                            <T as pallet::Config>::Currency::transfer(
+                            if <T as pallet::Config>::Currency::transfer(
                                 &a_slash_info.slash_who,
                                 &a_committee,
                                 left_reward,
                                 KeepAlive,
-                            );
+                            )
+                            .is_err()
+                            {
+                                debug::error!("Left reward is less than reward each get");
+                            }
+
+                            {}
                             return;
                         } else {
-                            <T as pallet::Config>::Currency::transfer(
+                            if <T as pallet::Config>::Currency::transfer(
                                 &a_slash_info.slash_who,
                                 &a_committee,
                                 reward_each_get,
                                 KeepAlive,
-                            );
+                            )
+                            .is_err()
+                            {
+                                debug::error!("Transfer slash to reward_to failed");
+                            }
                             left_reward -= reward_each_get;
                         }
                     }
