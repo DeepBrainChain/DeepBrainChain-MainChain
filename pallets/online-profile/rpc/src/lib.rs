@@ -143,6 +143,7 @@ where
                     total_gpu_num: staker_info.stash_statistic.total_gpu_num,
                     total_rented_gpu: staker_info.stash_statistic.total_rented_gpu,
 
+                    total_earned_reward: staker_info.stash_statistic.total_earned_reward.into(),
                     total_claimed_reward: staker_info.stash_statistic.total_claimed_reward.into(),
                     can_claim_reward: staker_info.stash_statistic.can_claim_reward.into(),
                     linear_release_reward: staker_info

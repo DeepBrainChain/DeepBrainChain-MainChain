@@ -6,7 +6,7 @@ import json
 raw_info = json.loads(
     """
 {
-  "machine_id": "f04b405e336a9a2aa7d2bf8c2f73e838b10d5021db0888642093fe90bbe31659",
+  "machine_id": "b8c0a70999933471402335641fe3c809417e459465abc0c0d62aafb8e8f35476",
   "gpu_type": "GeForceRTX2080Ti",
   "gpu_num": 2,
   "cuda_core": 4352,
@@ -15,7 +15,7 @@ raw_info = json.loads(
   "sys_disk": 480,
   "data_disk": 18,
   "cpu_type": "Intel(R) Xeon(R) CPU E5-2697",
-  "cpu_core_num": 64,
+  "cpu_core_num": 56,
   "cpu_rate": 260,
   "mem_num": 512000,
   "rand_str": "0x61",

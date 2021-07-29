@@ -51,7 +51,7 @@ pub use pallet::*;
 
 /// 每个Era有多少个Block
 pub const BLOCK_PER_ERA: u64 = 2880;
-pub const REWARD_DURATION: u32 = 2880 * 365 * 2;
+pub const REWARD_DURATION: u32 = 365 * 2;
 
 /// stash账户总览自己当前状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -62,13 +62,14 @@ pub struct StashMachine<Balance> {
     pub total_machine: Vec<MachineId>,
     /// stash账户绑定的处于在线状态的机器
     pub online_machine: Vec<MachineId>,
-    // FIXME
-    /// 在线机器总得分，集群膨胀系数与在线奖励需要计算在内
+    /// 在线机器总得分，集群膨胀系数与在线奖励需要**计算在内**
     pub total_calc_points: u64,
     /// 在线机器的总GPU个数
     pub total_gpu_num: u64,
     /// 被租用的GPU个数
     pub total_rented_gpu: u64,
+    /// 总计获取的奖励,包含锁定的奖励
+    pub total_earned_reward: Balance,
     /// 总计领取奖励数量
     pub total_claimed_reward: Balance,
     /// 目前能够领取奖励的数量
@@ -113,7 +114,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     /// 列表中的委员将分得用户每天奖励的1%
     pub reward_committee: Vec<AccountId>,
     /// 列表中委员分得奖励结束时间
-    pub reward_deadline: BlockNumber,
+    pub reward_deadline: EraIndex,
 }
 
 /// 机器状态
@@ -794,6 +795,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
+            let current_era = Self::current_era();
 
             let mut machine_info = Self::machines_info(&machine_id);
             let mut live_machine = Self::live_machines();
@@ -816,7 +818,7 @@ pub mod pallet {
             machine_info.machine_status = MachineStatus::Online;
             machine_info.online_height = now;
             machine_info.last_online_height = now;
-            machine_info.reward_deadline = now + REWARD_DURATION.into();
+            machine_info.reward_deadline = current_era + REWARD_DURATION;
 
             // TODO: 将这个改到update_snap_by_online_status中
             Self::change_pos_gpu_by_online(&machine_id, true);
@@ -1550,7 +1552,6 @@ impl<T: Config> Pallet<T> {
     // 根据机器得分快照，和委员会膨胀分数，计算应该奖励
     // end_era分发奖励
     fn distribute_reward() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
         let current_era = Self::current_era();
         let start_era = if current_era > 150 { current_era - 150 } else { 0u32 };
         let all_stash = Self::get_all_stash();
@@ -1621,10 +1622,13 @@ impl<T: Config> Pallet<T> {
                     };
 
                     if machine_points.reward_account.len() == 0
-                        || now >= machine_info.reward_deadline
+                        || current_era >= machine_info.reward_deadline
                     {
                         // 没有委员会来分，则全部奖励给stash账户
                         stash_machine.can_claim_reward += release_now;
+                        if era_index == current_era {
+                            stash_machine.total_earned_reward += machine_total_reward;
+                        }
 
                         ErasMachineReleasedReward::<T>::mutate(
                             &current_era,
@@ -1632,6 +1636,13 @@ impl<T: Config> Pallet<T> {
                             |old_value| *old_value + release_now,
                         );
                     } else {
+                        if era_index == current_era {
+                            // FIXME:
+                            // stash_machine.total_earned_reward = stash_machine.total_earned_reward
+                            //     + Perbill::from_rational_approximation(99u64, 100u64)
+                            //         * machine_total_reward;
+                        }
+
                         // 99% 分给stash账户
                         let release_to_stash =
                             Perbill::from_rational_approximation(99u64, 100u64) * release_now;
@@ -1706,6 +1717,7 @@ impl<T: Config> LCOps for Pallet<T> {
         committee_upload_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
+        let current_era = Self::current_era();
 
         let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
         let mut live_machines = Self::live_machines();
@@ -1733,7 +1745,7 @@ impl<T: Config> LCOps for Pallet<T> {
                 machine_info.machine_status = MachineStatus::Online;
                 machine_info.online_height = now;
                 machine_info.last_online_height = now;
-                machine_info.reward_deadline = now + REWARD_DURATION.into();
+                machine_info.reward_deadline = current_era + REWARD_DURATION;
 
                 sys_info.total_stake += extra_stake;
             } else {
@@ -1749,7 +1761,7 @@ impl<T: Config> LCOps for Pallet<T> {
                 committee_upload_info.machine_id.clone(),
             );
             machine_info.machine_status = MachineStatus::Online;
-            machine_info.reward_deadline = now + REWARD_DURATION.into();
+            machine_info.reward_deadline = current_era + REWARD_DURATION;
         }
 
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());

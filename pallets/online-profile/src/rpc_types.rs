@@ -1,5 +1,5 @@
 use super::MachineId;
-use crate::{MachineInfoDetail, MachineStatus, StashMachine};
+use crate::{EraIndex, MachineInfoDetail, MachineStatus, StashMachine};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -51,5 +51,5 @@ pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
     pub total_burn_fee: Balance,
     pub machine_info_detail: MachineInfoDetail,
     pub reward_committee: Vec<AccountId>,
-    pub reward_deadline: BlockNumber,
+    pub reward_deadline: EraIndex,
 }
