@@ -36,8 +36,7 @@ pub use rpc_types::RpcLCCommitteeOps;
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
-type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub const DISTRIBUTION: u32 = 9; // 分成9个区间进行验证
 
@@ -58,10 +57,10 @@ mod tests;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LCCommitteeMachineList {
-    pub booked_machine: Vec<MachineId>, // 记录分配给用户的机器ID及开始验证时间
-    pub hashed_machine: Vec<MachineId>, // 存储已经提交了Hash信息的机器
+    pub booked_machine: Vec<MachineId>,    // 记录分配给用户的机器ID及开始验证时间
+    pub hashed_machine: Vec<MachineId>,    // 存储已经提交了Hash信息的机器
     pub confirmed_machine: Vec<MachineId>, // 存储已经提交了原始确认数据的机器
-    pub online_machine: Vec<MachineId>, // 存储已经成功上线的机器
+    pub online_machine: Vec<MachineId>,    // 存储已经成功上线的机器
 }
 
 // 机器对应的验证委员会
@@ -142,9 +141,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config + online_profile::Config + generic_func::Config + committee::Config
-    {
+    pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config + committee::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type LCOperations: LCOps<
@@ -152,10 +149,7 @@ pub mod pallet {
             MachineId = MachineId,
             CommitteeUploadInfo = CommitteeUploadInfo,
         >;
-        type ManageCommittee: ManageCommittee<
-            AccountId = Self::AccountId,
-            BalanceOf = BalanceOf<Self>,
-        >;
+        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -178,13 +172,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn machine_committee)]
-    pub(super) type MachineCommittee<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        MachineId,
-        LCMachineCommitteeList<T::AccountId, T::BlockNumber>,
-        ValueQuery,
-    >;
+    pub(super) type MachineCommittee<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, LCMachineCommitteeList<T::AccountId, T::BlockNumber>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn committee_ops)]
@@ -215,10 +204,7 @@ pub mod pallet {
             let mut machine_committee = Self::machine_committee(&machine_id);
 
             // 从机器信息列表中有该委员会
-            machine_committee
-                .booked_committee
-                .binary_search(&who)
-                .map_err(|_| Error::<T>::NotInBookList)?;
+            machine_committee.booked_committee.binary_search(&who).map_err(|_| Error::<T>::NotInBookList)?;
 
             // 该委员会没有提交过Hash
             if machine_committee.hashed_committee.binary_search(&who).is_ok() {
@@ -258,8 +244,7 @@ pub mod pallet {
             committee_ops.hash_time = now;
 
             // 如果委员会都提交了Hash,则直接进入提交原始信息的阶段
-            if machine_committee.booked_committee.len() == machine_committee.hashed_committee.len()
-            {
+            if machine_committee.booked_committee.len() == machine_committee.hashed_committee.len() {
                 machine_committee.status = LCVerifyStatus::SubmittingRaw;
             }
 
@@ -292,27 +277,18 @@ pub mod pallet {
             if machine_committee.status != LCVerifyStatus::SubmittingRaw {
                 // 查询是否已经到了提交hash的时间 必须在36 ~ 48小时之间
                 ensure!(now >= machine_committee.confirm_start_time, Error::<T>::TimeNotAllow);
-                ensure!(
-                    now <= machine_committee.book_time + SUBMIT_RAW_END.into(),
-                    Error::<T>::TimeNotAllow
-                );
+                ensure!(now <= machine_committee.book_time + SUBMIT_RAW_END.into(), Error::<T>::TimeNotAllow);
             }
 
             // 该用户已经给机器提交过Hash
-            machine_committee
-                .hashed_committee
-                .binary_search(&who)
-                .map_err(|_| Error::<T>::NotSubmitHash)?;
+            machine_committee.hashed_committee.binary_search(&who).map_err(|_| Error::<T>::NotSubmitHash)?;
 
             // 机器ID存在于用户已经Hash的机器里
-            committee_machine
-                .hashed_machine
-                .binary_search(&machine_id)
-                .map_err(|_| Error::<T>::NotSubmitHash)?;
+            committee_machine.hashed_machine.binary_search(&machine_id).map_err(|_| Error::<T>::NotSubmitHash)?;
 
             // 检查提交的raw与已提交的Hash一致
             let info_hash = machine_info_detail.hash();
-            ensure!(info_hash == machine_ops.confirm_hash, Error::<T>::NotAllHashSubmited);
+            ensure!(info_hash == machine_ops.confirm_hash, Error::<T>::InfoNotFeatHash);
 
             // 用户还未提交过原始信息
             if committee_machine.confirmed_machine.binary_search(&machine_id).is_ok() {
@@ -338,9 +314,7 @@ pub mod pallet {
             machine_ops.machine_info.rand_str = Vec::new();
 
             // 如果全部都提交完了原始信息，则允许进入summary
-            if machine_committee.confirmed_committee.len()
-                == machine_committee.hashed_committee.len()
-            {
+            if machine_committee.confirmed_committee.len() == machine_committee.hashed_committee.len() {
                 machine_committee.status = LCVerifyStatus::Summarizing;
             }
 
@@ -367,6 +341,7 @@ pub mod pallet {
         TimeNotAllow,
         NotSubmitHash,
         AlreadySubmitRaw,
+        InfoNotFeatHash,
     }
 }
 
@@ -375,6 +350,10 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         for a_machine_id in live_machines.confirmed_machine {
+            if MachineCommittee::<T>::contains_key(&a_machine_id) {
+                MachineCommittee::<T>::remove(&a_machine_id);
+            }
+
             debug::warn!("Distribute machine: {:?}", &a_machine_id);
             let _ = Self::distribute_one_machine(&a_machine_id);
         }
@@ -415,7 +394,9 @@ impl<T: Config> Pallet<T> {
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
+        // FIXME: 必须清空该状态，才能重新分配
         machine_committee.book_time = now;
+
         if let Err(index) = machine_committee.booked_committee.binary_search(&order_time.0) {
             machine_committee.booked_committee.insert(index, order_time.0.clone());
         }
@@ -464,8 +445,7 @@ impl<T: Config> Pallet<T> {
         let mut lucky_committee = Vec::new();
 
         for _ in 0..lucky_committee_num {
-            let lucky_index =
-                <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+            let lucky_index = <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
             lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
             committee.remove(lucky_index);
         }
@@ -505,21 +485,16 @@ impl<T: Config> Pallet<T> {
                     slash_committee.extend(summary.against);
                     slash_committee.extend(summary.invalid_support);
                     unstake_committee.extend(summary.valid_support.clone());
-                    if let Ok(_) = T::LCOperations::lc_confirm_machine(
-                        summary.valid_support.clone(),
-                        summary.info.unwrap(),
-                    ) {
+                    if let Ok(_) =
+                        T::LCOperations::lc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap())
+                    {
                         let valid_support = summary.valid_support.clone();
                         for a_committee in valid_support {
                             let mut committee_machine = Self::committee_machine(&a_committee);
-                            if let Ok(index) =
-                                committee_machine.confirmed_machine.binary_search(&machine_id)
-                            {
+                            if let Ok(index) = committee_machine.confirmed_machine.binary_search(&machine_id) {
                                 committee_machine.confirmed_machine.remove(index);
                             }
-                            if let Err(index) =
-                                committee_machine.online_machine.binary_search(&machine_id)
-                            {
+                            if let Err(index) = committee_machine.online_machine.binary_search(&machine_id) {
                                 committee_machine.online_machine.insert(index, machine_id.clone());
                             }
                             CommitteeMachine::<T>::insert(&a_committee, committee_machine);
@@ -556,20 +531,14 @@ impl<T: Config> Pallet<T> {
             // 惩罚没有提交信息的委员会
             for a_committee in slash_committee {
                 let committee_ops = Self::committee_ops(&a_committee, &machine_id);
-                <T as pallet::Config>::ManageCommittee::add_slash(
-                    a_committee,
-                    committee_ops.staked_dbc,
-                    vec![],
-                );
+                <T as pallet::Config>::ManageCommittee::add_slash(a_committee, committee_ops.staked_dbc, vec![]);
             }
 
             for a_committee in unstake_committee {
                 let committee_ops = Self::committee_ops(&a_committee, &machine_id);
-                if let Err(e) = <T as pallet::Config>::ManageCommittee::change_stake(
-                    &a_committee,
-                    committee_ops.staked_dbc,
-                    false,
-                ) {
+                if let Err(e) =
+                    <T as pallet::Config>::ManageCommittee::change_stake(&a_committee, committee_ops.staked_dbc, false)
+                {
                     debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
                 };
             }
@@ -668,8 +637,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 统计committee_for_machine_info中有多少委员会站队最多
-        let support_committee_num: Vec<usize> =
-            committee_for_machine_info.iter().map(|item| item.len()).collect();
+        let support_committee_num: Vec<usize> = committee_for_machine_info.iter().map(|item| item.len()).collect();
         let max_support = support_committee_num.iter().max(); // 最多多少个委员会达成一致意见
 
         match max_support {
@@ -683,8 +651,7 @@ impl<T: Config> Pallet<T> {
             }
             Some(max_support_num) => {
                 // 多少个机器信息的支持等于最大的支持
-                let max_support_group =
-                    support_committee_num.iter().filter(|n| n == &max_support_num).count();
+                let max_support_group = support_committee_num.iter().filter(|n| n == &max_support_num).count();
 
                 if max_support_group == 1 {
                     let committee_group_index =
@@ -698,8 +665,7 @@ impl<T: Config> Pallet<T> {
                         summary.invalid_support.extend(committee_for_machine_info[index].clone());
                     }
                     // 记录上所有的有效支持
-                    summary.valid_support =
-                        committee_for_machine_info[committee_group_index].clone();
+                    summary.valid_support = committee_for_machine_info[committee_group_index].clone();
 
                     if summary.against.len() > max_support_group {
                         // 反对多于支持
@@ -731,9 +697,7 @@ impl<T: Config> Pallet<T> {
 
 // RPC
 impl<T: Config> Module<T> {
-    pub fn get_machine_committee_list(
-        machine_id: MachineId,
-    ) -> LCMachineCommitteeList<T::AccountId, T::BlockNumber> {
+    pub fn get_machine_committee_list(machine_id: MachineId) -> LCMachineCommitteeList<T::AccountId, T::BlockNumber> {
         Self::machine_committee(machine_id)
     }
 

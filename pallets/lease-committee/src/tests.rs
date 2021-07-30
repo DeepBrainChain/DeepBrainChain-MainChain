@@ -9,15 +9,12 @@ use std::convert::TryInto;
 #[test]
 fn machine_online_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
 
-        let controller: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         // Bob pubkey
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
         let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e025\
@@ -101,18 +98,14 @@ fn machine_online_works() {
 
         // 增加一个委员会
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        let one_box_pubkey =
-            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
-                .unwrap()
-                .try_into()
-                .unwrap();
+        let one_box_pubkey = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+            .unwrap()
+            .try_into()
+            .unwrap();
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey));
 
         // 委员会处于正常状态(排序后的列表)
-        assert_eq!(
-            Committee::committee(),
-            CommitteeList { normal: vec![committee1], ..Default::default() }
-        );
+        assert_eq!(Committee::committee(), CommitteeList { normal: vec![committee1], ..Default::default() });
         // 获取可派单的委员会正常
         assert_ok!(LeaseCommittee::lucky_committee().ok_or(()));
 
@@ -224,9 +217,7 @@ fn machine_online_works() {
                 total_claimed_reward: 0,
                 can_claim_reward: 549944999455500000000, // (1100000 * 25% * 99% = 272250 DBC) * 2 + (825000 * 1/150 * 0.99 = 825000 * 6666666/10**9 * 0.99 = 5444.9994555 * 10^15 ) = 549944.9994555 // 相差 0.0005444
 
-                linear_release_reward: vec![0, 825_000 * ONE_DBC, 825_000 * ONE_DBC]
-                    .into_iter()
-                    .collect(),
+                linear_release_reward: vec![0, 825_000 * ONE_DBC, 825_000 * ONE_DBC].into_iter().collect(),
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
@@ -251,9 +242,7 @@ fn machine_online_works() {
                 total_claimed_reward: 549944999455500000000,
                 can_claim_reward: 0,
 
-                linear_release_reward: vec![0, 825_000 * ONE_DBC, 825_000 * ONE_DBC]
-                    .into_iter()
-                    .collect(),
+                linear_release_reward: vec![0, 825_000 * ONE_DBC, 825_000 * ONE_DBC].into_iter().collect(),
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
@@ -272,6 +261,91 @@ fn machine_online_works() {
         // TODO: 检查没有成功上线
 
         // TODO: 检查机器下线后，150天后存储清理
+
+        // 设置重新上线的质押: 47美元
+        assert_ok!(OnlineProfile::set_reonline_stake(RawOrigin::Root.into(), 47));
+
+        // 控制账户重新上线机器
+        assert_ok!(OnlineProfile::reonline_machine(Origin::signed(controller), machine_id.clone()));
+
+        // 控制账户重新添加机器信息
+        assert_ok!(OnlineProfile::add_machine_info(
+            Origin::signed(controller),
+            machine_id.clone(),
+            StakerCustomizeInfo {
+                server_room: server_room[0],
+                upload_net: 10000,
+                download_net: 10000,
+                longitude: online_profile::Longitude::East(1157894),
+                latitude: online_profile::Latitude::North(235678),
+                telecom_operators: vec!["China Unicom".into()],
+                images: vec!["Ubuntu18.04 LTS".into()],
+            }
+        ));
+
+        run_to_block(2880 * 3 + 3);
+
+        // TODO: 检查状态
+
+        // 委员会重新上链
+
+        // 查询机器中有订阅的委员会
+        assert_eq!(
+            LeaseCommittee::machine_committee(machine_id.clone()),
+            LCMachineCommitteeList {
+                book_time: 8643,
+                confirm_start_time: 8643 + 4320,
+                booked_committee: vec![committee1],
+                ..Default::default()
+            }
+        );
+
+        // 委员会提交机器Hash
+        let machine_info_hash = "142facd4738cdf47bae49edef5171ebf";
+        assert_ok!(LeaseCommittee::submit_confirm_hash(
+            Origin::signed(committee1),
+            machine_id.clone(),
+            hex::decode(machine_info_hash).unwrap().try_into().unwrap()
+        ));
+
+        // 委员会提交原始信息
+        assert_ok!(LeaseCommittee::submit_confirm_raw(
+            Origin::signed(committee1),
+            CommitteeUploadInfo {
+                machine_id: machine_id.clone(),
+                gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
+                gpu_num: 8,
+                cuda_core: 4352,
+                gpu_mem: 11,
+                calc_point: 6825 * 8,
+                sys_disk: 480,
+                data_disk: 18,
+                cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
+                cpu_core_num: 32,
+                cpu_rate: 260,
+                mem_num: 512000,
+
+                rand_str: "abcdefg".as_bytes().to_vec(),
+                is_support: true,
+            }
+        ));
+
+        run_to_block(8644);
+
+        assert_eq!(
+            OnlineProfile::live_machines(),
+            LiveMachine { online_machine: vec!(machine_id.clone()), ..Default::default() }
+        );
+        assert_eq!(
+            OnlineProfile::sys_info(),
+            online_profile::SysInfoDetail {
+                total_gpu_num: 8,
+                total_staker: 1,
+                total_calc_points: 54644,
+                total_stake: 800000 * ONE_DBC,
+                ..Default::default()
+            }
+        );
     });
 }
 
@@ -279,17 +353,12 @@ fn machine_online_works() {
 #[test]
 fn all_committee_submit_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         // 查询机器中对应的委员会列表
         assert_eq!(
@@ -327,12 +396,9 @@ fn all_committee_submit_works() {
         let rand_str4 = "abcdefg3".as_bytes().to_vec();
 
         // 委员会提交机器Hash
-        let machine_info_hash1 =
-            hex::decode("f813d5478a1c6cfb04a203a0643ad67e").unwrap().try_into().unwrap();
-        let machine_info_hash2 =
-            hex::decode("8beab87415978daf436f31a292f9bdbb").unwrap().try_into().unwrap();
-        let machine_info_hash4 =
-            hex::decode("b76f264dbfeba1c25fb0518ed156ab40").unwrap().try_into().unwrap();
+        let machine_info_hash1 = hex::decode("f813d5478a1c6cfb04a203a0643ad67e").unwrap().try_into().unwrap();
+        let machine_info_hash2 = hex::decode("8beab87415978daf436f31a292f9bdbb").unwrap().try_into().unwrap();
+        let machine_info_hash4 = hex::decode("b76f264dbfeba1c25fb0518ed156ab40").unwrap().try_into().unwrap();
 
         assert_ok!(LeaseCommittee::submit_confirm_hash(
             Origin::signed(committee1),
@@ -376,17 +442,12 @@ fn all_committee_submit_works() {
 #[test]
 fn committee_not_submit_hash_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         // 三个委员会提交Hash
         let machine_base_info = CommitteeUploadInfo {
@@ -411,10 +472,8 @@ fn committee_not_submit_hash_slash_works() {
         let rand_str2 = "abcdefg2".as_bytes().to_vec();
 
         // 委员会提交机器Hash
-        let machine_info_hash1 =
-            hex::decode("f813d5478a1c6cfb04a203a0643ad67e").unwrap().try_into().unwrap();
-        let machine_info_hash2 =
-            hex::decode("8beab87415978daf436f31a292f9bdbb").unwrap().try_into().unwrap();
+        let machine_info_hash1 = hex::decode("f813d5478a1c6cfb04a203a0643ad67e").unwrap().try_into().unwrap();
+        let machine_info_hash2 = hex::decode("8beab87415978daf436f31a292f9bdbb").unwrap().try_into().unwrap();
 
         assert_ok!(LeaseCommittee::submit_confirm_hash(
             Origin::signed(committee1),
@@ -456,10 +515,7 @@ fn committee_not_submit_hash_slash_works() {
 
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine {
-                online_machine: vec![machine_id.clone()],
-                ..Default::default()
-            }
+            online_profile::LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
         // Committee 记录到了惩罚信息
@@ -482,17 +538,12 @@ fn committee_not_submit_hash_slash_works() {
 // TODO: 三个委员会两个正常工作，一个提交Hash之后，没有提交原始值，检查惩罚机制
 fn committee_not_wubmit_raw_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let _committee1: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let _committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
     })
 }
 
