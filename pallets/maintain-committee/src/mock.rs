@@ -11,9 +11,7 @@ pub use sp_core::{
     sr25519::{self, Signature},
     H256,
 };
-pub use sp_keyring::{
-    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
-};
+pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
@@ -238,8 +236,7 @@ pub fn run_to_block(n: BlockNumber) {
 // 初始条件：设置参数，并成功上线用一台机器
 // Build genesis storage according to the mock runtime.
 pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
-    let mut storage =
-        frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    let mut storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {
@@ -270,16 +267,8 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         // 设置奖励发放开始时间
         let _ = OnlineProfile::set_reward_start_era(RawOrigin::Root.into(), 0);
         // 设置每个Era奖励数量: 1,100,000
-        let _ = OnlineProfile::set_phase_n_reward_per_era(
-            RawOrigin::Root.into(),
-            0,
-            1_100_000 * ONE_DBC,
-        );
-        let _ = OnlineProfile::set_phase_n_reward_per_era(
-            RawOrigin::Root.into(),
-            1,
-            1_100_000 * ONE_DBC,
-        );
+        let _ = OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 0, 1_100_000 * ONE_DBC);
+        let _ = OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 1, 1_100_000 * ONE_DBC);
         // 设置单卡质押上限： 7700_000_000
         let _ = OnlineProfile::set_stake_usd_limit(RawOrigin::Root.into(), 7700_000_000);
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
@@ -296,14 +285,11 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         DBCPriceOCW::add_avg_price();
         run_to_block(2);
 
-        let committee1: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::One).into();
-        let controller: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         // Bob pubkey
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
         let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e025\
@@ -335,11 +321,10 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         run_to_block(3);
         // 增加一个委员会
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        let one_box_pubkey =
-            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
-                .unwrap()
-                .try_into()
-                .unwrap();
+        let one_box_pubkey = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+            .unwrap()
+            .try_into()
+            .unwrap();
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey));
 
         run_to_block(5);

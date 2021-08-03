@@ -56,8 +56,7 @@ mod tests;
 pub type MachineId = Vec<u8>;
 pub type ReportId = u64; // 提交的单据ID
 pub type BoxPubkey = [u8; 32];
-type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// 机器故障的报告
 /// 记录该模块中所有活跃的报告, 根据ReportStatus来区分
@@ -239,10 +238,7 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
-        type ManageCommittee: ManageCommittee<
-            AccountId = Self::AccountId,
-            BalanceOf = BalanceOf<Self>,
-        >;
+        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
         type MTOps: MTOps<AccountId = Self::AccountId, MachineId = MachineId>;
     }
 
@@ -269,14 +265,12 @@ pub mod pallet {
     // 最多多少个委员会能够抢单
     #[pallet::storage]
     #[pallet::getter(fn committee_limit)]
-    pub(super) type CommitteeLimit<T: Config> =
-        StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
+    pub(super) type CommitteeLimit<T: Config> = StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
 
     // 存储报告人在该模块中的总质押量
     #[pallet::storage]
     #[pallet::getter(fn user_total_stake)]
-    pub(super) type UserTotalStake<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+    pub(super) type UserTotalStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
     // 查询报告人报告的机器
     #[pallet::storage]
@@ -336,13 +330,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
-            Self::report_handler(
-                reporter,
-                MachineFaultType::HardwareFault,
-                Some(hash),
-                Some(box_pubkey),
-                None,
-            )
+            Self::report_handler(reporter, MachineFaultType::HardwareFault, Some(hash), Some(box_pubkey), None)
         }
 
         /// 用户报告机器无法租用
@@ -354,45 +342,24 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
-            Self::report_handler(
-                reporter,
-                MachineFaultType::MachineUnrentable,
-                Some(hash),
-                Some(box_pubkey),
-                None,
-            )
+            Self::report_handler(reporter, MachineFaultType::MachineUnrentable, Some(hash), Some(box_pubkey), None)
         }
 
         /// 用户报告机器掉线
         #[pallet::weight(10000)]
-        pub fn report_machine_offline(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-        ) -> DispatchResultWithPostInfo {
+        pub fn report_machine_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
-            Self::report_handler(
-                reporter,
-                MachineFaultType::MachineOffline,
-                None,
-                None,
-                Some(machine_id),
-            )
+            Self::report_handler(reporter, MachineFaultType::MachineOffline, None, None, Some(machine_id))
         }
 
         // 报告人可以在抢单之前取消该报告
         #[pallet::weight(10000)]
-        pub fn reporter_cancle_report(
-            origin: OriginFor<T>,
-            report_id: ReportId,
-        ) -> DispatchResultWithPostInfo {
+        pub fn reporter_cancle_report(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
             let report_info = Self::report_info(&report_id);
-            ensure!(
-                report_info.report_status == ReportStatus::Reported,
-                Error::<T>::OrderNotAllowCancle
-            );
+            ensure!(report_info.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancle);
 
             // 清理存储
             let mut live_report = Self::live_report();
@@ -407,12 +374,8 @@ pub mod pallet {
             }
             ReporterReport::<T>::insert(&reporter, reporter_report);
 
-            <T as pallet::Config>::ManageCommittee::change_stake(
-                &reporter,
-                report_info.reporter_stake,
-                false,
-            )
-            .map_err(|_| Error::<T>::ReduceTotalStakeFailed)?;
+            <T as pallet::Config>::ManageCommittee::change_stake(&reporter, report_info.reporter_stake, false)
+                .map_err(|_| Error::<T>::ReduceTotalStakeFailed)?;
 
             ReportInfo::<T>::remove(&report_id);
 
@@ -424,16 +387,13 @@ pub mod pallet {
         // 报告状态变为Verifying
         // 订单状态变为WaitingEncrypt
         #[pallet::weight(10000)]
-        pub fn book_fault_order(
-            origin: OriginFor<T>,
-            report_id: ReportId,
-        ) -> DispatchResultWithPostInfo {
+        pub fn book_fault_order(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
             // 判断发起请求者是状态正常的委员会
             if !T::ManageCommittee::is_valid_committee(&committee) {
-                return Err(Error::<T>::NotCommittee.into());
+                return Err(Error::<T>::NotCommittee.into())
             }
 
             ensure!(<ReportInfo<T>>::contains_key(report_id), Error::<T>::OrderNotAllowBook);
@@ -445,36 +405,32 @@ pub mod pallet {
 
             // 检查订单是否可以抢定
             ensure!(
-                report_info.report_status == ReportStatus::Reported
-                    || report_info.report_status == ReportStatus::WaitingBook,
+                report_info.report_status == ReportStatus::Reported ||
+                    report_info.report_status == ReportStatus::WaitingBook,
                 Error::<T>::OrderNotAllowBook
             );
 
             // 当有三个委员会已经抢单时，禁止抢单
             if report_info.booked_committee.len() == 3 {
-                return Err(Error::<T>::OrderNotAllowBook.into());
+                return Err(Error::<T>::OrderNotAllowBook.into())
             }
 
             // 记录预订订单的委员会
             if let Err(index) = report_info.booked_committee.binary_search(&committee) {
                 report_info.booked_committee.insert(index, committee.clone());
             } else {
-                return Err(Error::<T>::AlreadyBooked.into());
+                return Err(Error::<T>::AlreadyBooked.into())
             }
 
             // 支付手续费或押金
             match report_info.machine_fault_type {
                 MachineFaultType::HardwareFault | MachineFaultType::MachineUnrentable => {
                     // 此两种情况，需要质押100RMB等值DBC
-                    let committee_order_stake = T::ManageCommittee::stake_per_order()
-                        .ok_or(Error::<T>::GetStakeAmountFailed)?;
+                    let committee_order_stake =
+                        T::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
-                    <T as pallet::Config>::ManageCommittee::change_stake(
-                        &committee,
-                        committee_order_stake,
-                        true,
-                    )
-                    .map_err(|_| Error::<T>::StakeFailed)?;
+                    <T as pallet::Config>::ManageCommittee::change_stake(&committee, committee_order_stake, true)
+                        .map_err(|_| Error::<T>::StakeFailed)?;
                     ops_detail.staked_balance = committee_order_stake;
 
                     // 改变report状态为正在验证中，此时禁止其他委员会预订
@@ -494,7 +450,7 @@ pub mod pallet {
                         live_report.verifying_report.insert(index, report_id);
                     }
                     LiveReport::<T>::put(live_report);
-                }
+                },
                 MachineFaultType::MachineOffline => {
                     // 付10个DBC的手续费
                     <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone())
@@ -508,7 +464,7 @@ pub mod pallet {
                         report_info.first_book_time = now;
                         report_info.confirm_start = now + 10u32.saturated_into::<T::BlockNumber>();
                     }
-                }
+                },
             }
 
             // 记录当前哪个委员会正在验证，方便状态控制
@@ -544,26 +500,17 @@ pub mod pallet {
 
             // 检查该reporter拥有这个订单
             let reporter_report = Self::reporter_report(&reporter);
-            reporter_report
-                .reported_id
-                .binary_search(&report_id)
-                .map_err(|_| Error::<T>::NotOrderReporter)?;
+            reporter_report.reported_id.binary_search(&report_id).map_err(|_| Error::<T>::NotOrderReporter)?;
 
             // 该orde处于验证中, 且还没有提交过加密信息
             let mut report_info = Self::report_info(&report_id);
             if let MachineFaultType::MachineOffline = report_info.machine_fault_type {
-                return Err(Error::<T>::NotNeedEncryptedInfo.into());
+                return Err(Error::<T>::NotNeedEncryptedInfo.into())
             }
 
             let mut committee_ops = Self::committee_ops(&to_committee, &report_id);
-            ensure!(
-                report_info.report_status == ReportStatus::Verifying,
-                Error::<T>::OrderStatusNotFeat
-            );
-            ensure!(
-                committee_ops.order_status == MTOrderStatus::WaitingEncrypt,
-                Error::<T>::OrderStatusNotFeat
-            );
+            ensure!(report_info.report_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
+            ensure!(committee_ops.order_status == MTOrderStatus::WaitingEncrypt, Error::<T>::OrderStatusNotFeat);
             // 检查该委员会为预订了该订单的委员会
             report_info
                 .booked_committee
@@ -571,9 +518,7 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::NotOrderCommittee)?;
 
             // report_info中插入已经收到了加密信息的委员会
-            if let Err(index) =
-                report_info.get_encrypted_info_committee.binary_search(&to_committee)
-            {
+            if let Err(index) = report_info.get_encrypted_info_committee.binary_search(&to_committee) {
                 report_info.get_encrypted_info_committee.insert(index, to_committee.clone());
             }
 
@@ -601,24 +546,15 @@ pub mod pallet {
 
             // 判断是否为委员会其列表是否有该report_id
             let mut committee_order = Self::committee_order(&committee);
-            committee_order
-                .booked_report
-                .binary_search(&report_id)
-                .map_err(|_| Error::<T>::NotInBookedList)?;
+            committee_order.booked_report.binary_search(&report_id).map_err(|_| Error::<T>::NotInBookedList)?;
 
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
             // 判断该委员会的状态是验证中
-            ensure!(
-                committee_ops.order_status == MTOrderStatus::Verifying,
-                Error::<T>::OrderStatusNotFeat
-            );
+            ensure!(committee_ops.order_status == MTOrderStatus::Verifying, Error::<T>::OrderStatusNotFeat);
 
             // 判断该report_id是否可以提交信息
             let mut report_info = Self::report_info(&report_id);
-            ensure!(
-                report_info.report_status == ReportStatus::Verifying,
-                Error::<T>::OrderStatusNotFeat
-            );
+            ensure!(report_info.report_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
 
             // 添加到report的已提交Hash的委员会列表
             if let Err(index) = report_info.hashed_committee.binary_search(&committee) {
@@ -681,17 +617,14 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let mut report_info = Self::report_info(report_id);
-            ensure!(
-                report_info.report_status == ReportStatus::SubmittingRaw,
-                Error::<T>::OrderStatusNotFeat
-            );
+            ensure!(report_info.report_status == ReportStatus::SubmittingRaw, Error::<T>::OrderStatusNotFeat);
 
             if let MachineFaultType::MachineOffline = report_info.machine_fault_type {
-                return Err(Error::<T>::OrderStatusNotFeat.into());
+                return Err(Error::<T>::OrderStatusNotFeat.into())
             }
 
             if let MachineFaultType::MachineOffline = report_info.machine_fault_type {
-                return Err(Error::<T>::OrderStatusNotFeat.into());
+                return Err(Error::<T>::OrderStatusNotFeat.into())
             }
 
             // let fault_info_hash = match report_info.machine_fault_type {
@@ -703,10 +636,7 @@ pub mod pallet {
             // };
 
             // 检查是否提交了该订单的hash
-            report_info
-                .hashed_committee
-                .binary_search(&committee)
-                .map_err(|_| Error::<T>::NotProperCommittee)?;
+            report_info.hashed_committee.binary_search(&committee).map_err(|_| Error::<T>::NotProperCommittee)?;
 
             // 添加到Report的已提交Raw的列表
             if let Ok(index) = report_info.confirmed_committee.binary_search(&committee) {
@@ -722,7 +652,7 @@ pub mod pallet {
             reporter_info_raw.extend(err_reason.clone());
             let reporter_report_hash = Self::get_hash(&reporter_info_raw);
             if reporter_report_hash != report_info.reporter_hash {
-                return Err(Error::<T>::NotEqualReporterSubmit.into());
+                return Err(Error::<T>::NotEqualReporterSubmit.into())
             }
 
             // 检查委员会提交是否与第一次Hash一致
@@ -735,7 +665,7 @@ pub mod pallet {
             committee_report_raw.extend(err_reason.clone());
             let committee_report_hash = Self::get_hash(&committee_report_raw);
             if committee_report_hash != committee_ops.confirm_hash {
-                return Err(Error::<T>::NotEqualCommitteeSubmit.into());
+                return Err(Error::<T>::NotEqualCommitteeSubmit.into())
             }
 
             // 将委员会插入到是否支持的委员会列表
@@ -805,8 +735,8 @@ impl<T: Config> Pallet<T> {
         let report_time = <frame_system::Module<T>>::block_number();
         let report_id = Self::get_new_report_id();
 
-        let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order()
-            .ok_or(Error::<T>::GetStakeAmountFailed)?;
+        let stake_need =
+            <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
         <T as pallet::Config>::ManageCommittee::change_stake(&reporter, stake_need, true)
             .map_err(|_| Error::<T>::StakeFailed)?;
 
@@ -833,7 +763,7 @@ impl<T: Config> Pallet<T> {
                         ..Default::default()
                     },
                 );
-            }
+            },
             // 当是offline时，记录下MachineId，还需要10个DBC作为手续费
             MachineFaultType::MachineOffline => {
                 <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
@@ -851,7 +781,7 @@ impl<T: Config> Pallet<T> {
                         ..Default::default()
                     },
                 );
-            }
+            },
         }
 
         // 记录到报告人的存储中
@@ -874,11 +804,11 @@ impl<T: Config> Pallet<T> {
             NextReportId::<T>::put(report_id + 1);
         };
 
-        return report_id;
+        return report_id
     }
 
     fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
-        return blake2_128(raw_str);
+        return blake2_128(raw_str)
     }
 
     // 处理用户没有发送加密信息的订单
@@ -890,12 +820,8 @@ impl<T: Config> Pallet<T> {
         for a_committee in report_info.booked_committee {
             let committee_ops = Self::committee_ops(&a_committee, &report_id);
 
-            if <T as pallet::Config>::ManageCommittee::change_stake(
-                &a_committee,
-                committee_ops.staked_balance,
-                false,
-            )
-            .is_err()
+            if <T as pallet::Config>::ManageCommittee::change_stake(&a_committee, committee_ops.staked_balance, false)
+                .is_err()
             {
                 debug::error!("Reduce committee stake failed");
             };
@@ -949,7 +875,7 @@ impl<T: Config> Pallet<T> {
         let report_info = Self::report_info(&report_id);
         // 如果没有委员会提交Raw信息，则无共识
         if report_info.confirmed_committee.len() == 0 {
-            return ReportConfirmStatus::NoConsensus;
+            return ReportConfirmStatus::NoConsensus
         }
 
         if report_info.support_committee.len() >= report_info.against_committee.len() {
@@ -957,13 +883,10 @@ impl<T: Config> Pallet<T> {
                 report_info.support_committee,
                 report_info.against_committee,
                 report_info.err_info.clone(),
-            );
+            )
         }
 
-        return ReportConfirmStatus::Refuse(
-            report_info.support_committee,
-            report_info.against_committee,
-        );
+        return ReportConfirmStatus::Refuse(report_info.support_committee, report_info.against_committee)
     }
 
     fn heart_beat() {
@@ -983,16 +906,14 @@ impl<T: Config> Pallet<T> {
             // 不足3小时
             if now - report_info.report_time <= three_hour {
                 if let ReportStatus::WaitingBook = report_info.report_status {
-                    continue;
+                    continue
                 }
 
                 let verifying_committee = report_info.verifying_committee.as_ref().unwrap().clone();
                 let committee_ops = Self::committee_ops(&verifying_committee, &a_report);
 
                 // 报告人没有提交给原始信息，则惩罚报告人到国库，不进行奖励
-                if committee_ops.encrypted_err_info.is_none()
-                    && now - committee_ops.booked_time >= half_hour
-                {
+                if committee_ops.encrypted_err_info.is_none() && now - committee_ops.booked_time >= half_hour {
                     <T as pallet::Config>::ManageCommittee::add_slash(
                         report_info.reporter,
                         report_info.reporter_stake,
@@ -1001,7 +922,7 @@ impl<T: Config> Pallet<T> {
 
                     Self::refund_committee_clean_report(a_report);
 
-                    continue;
+                    continue
                 }
 
                 // 不足3小时，且委员会没有提交Hash，删除该委员会，并惩罚
@@ -1023,7 +944,7 @@ impl<T: Config> Pallet<T> {
                     ReportInfo::<T>::insert(a_report, report_info);
                     CommitteeOps::<T>::remove(&verifying_committee, &a_report);
 
-                    continue;
+                    continue
                 }
             }
 
@@ -1036,7 +957,7 @@ impl<T: Config> Pallet<T> {
                     MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
 
                     ReportInfo::<T>::insert(a_report, report_info);
-                    continue;
+                    continue
                 }
 
                 // 但是最后一个委员会订阅时间小于1个小时
@@ -1053,7 +974,7 @@ impl<T: Config> Pallet<T> {
                     MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
 
                     ReportInfo::<T>::insert(a_report, report_info);
-                    continue;
+                    continue
                 }
             }
         }
@@ -1062,18 +983,14 @@ impl<T: Config> Pallet<T> {
         for a_report in submitting_raw_report {
             let mut report_info = Self::report_info(&a_report);
             // 未全部提交了原始信息且未达到了四个小时
-            if now - report_info.report_time < four_hour
-                && report_info.hashed_committee.len() != report_info.confirmed_committee.len()
+            if now - report_info.report_time < four_hour &&
+                report_info.hashed_committee.len() != report_info.confirmed_committee.len()
             {
-                continue;
+                continue
             }
 
             match Self::summary_report(a_report) {
-                ReportConfirmStatus::Confirmed(
-                    support_committees,
-                    against_committee,
-                    _err_info,
-                ) => {
+                ReportConfirmStatus::Confirmed(support_committees, against_committee, _err_info) => {
                     for a_committee in against_committee.clone() {
                         let committee_ops = Self::committee_ops(&a_committee, a_report);
                         T::ManageCommittee::add_slash(
@@ -1085,17 +1002,15 @@ impl<T: Config> Pallet<T> {
 
                     for a_committee in support_committees.clone() {
                         let committee_ops = Self::committee_ops(&a_committee, a_report);
-                        if let Err(e) = T::ManageCommittee::change_stake(
-                            &a_committee,
-                            committee_ops.staked_balance,
-                            false,
-                        ) {
+                        if let Err(e) =
+                            T::ManageCommittee::change_stake(&a_committee, committee_ops.staked_balance, false)
+                        {
                             debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
                         }
                     }
 
                     T::MTOps::mt_machine_offline(report_info.machine_id.clone());
-                }
+                },
                 ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                     for a_committee in support_committee {
                         let committee_ops = Self::committee_ops(a_committee.clone(), a_report);
@@ -1108,11 +1023,9 @@ impl<T: Config> Pallet<T> {
 
                     for a_committee in against_committee.clone() {
                         let committee_ops = Self::committee_ops(&a_committee, a_report);
-                        if let Err(e) = T::ManageCommittee::change_stake(
-                            &a_committee,
-                            committee_ops.staked_balance,
-                            false,
-                        ) {
+                        if let Err(e) =
+                            T::ManageCommittee::change_stake(&a_committee, committee_ops.staked_balance, false)
+                        {
                             debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
                         };
                     }
@@ -1122,7 +1035,7 @@ impl<T: Config> Pallet<T> {
                         report_info.reporter_stake,
                         against_committee.clone(),
                     );
-                }
+                },
                 // No consensus, will clean record & as new report to handle
                 // In this case, no raw info is submitted, so committee record should be None
                 ReportConfirmStatus::NoConsensus => {
@@ -1130,7 +1043,7 @@ impl<T: Config> Pallet<T> {
                     MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
                     MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
-                }
+                },
             }
             ReportInfo::<T>::insert(a_report, report_info);
         }

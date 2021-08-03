@@ -11,9 +11,7 @@ pub use sp_core::{
     sr25519::{self, Signature},
     H256,
 };
-pub use sp_keyring::{
-    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
-};
+pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
@@ -203,8 +201,7 @@ fn key_to_pair(key: &str) -> sp_core::sr25519::Public {
     sr25519::Public::from_raw(hex::decode(key).unwrap().try_into().unwrap())
 }
 
-pub fn gen_machine_online_info(
-) -> Vec<MachineBondInfo<<TestRuntime as frame_system::Config>::AccountId>> {
+pub fn gen_machine_online_info() -> Vec<MachineBondInfo<<TestRuntime as frame_system::Config>::AccountId>> {
     let machine_3080 = online_profile::CommitteeUploadInfo {
         gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
         gpu_num: 4,
@@ -345,8 +342,7 @@ pub fn run_to_block(n: BlockNumber) {
 // 初始条件：只设置初始参数
 // Build genesis storage according to the mock runtime.
 pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
-    let mut storage =
-        frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    let mut storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {
@@ -377,16 +373,8 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         // 设置奖励发放开始时间
         let _ = OnlineProfile::set_reward_start_era(RawOrigin::Root.into(), 0);
         // 设置每个Era奖励数量: 1,100,000
-        let _ = OnlineProfile::set_phase_n_reward_per_era(
-            RawOrigin::Root.into(),
-            0,
-            1_100_000 * ONE_DBC,
-        );
-        let _ = OnlineProfile::set_phase_n_reward_per_era(
-            RawOrigin::Root.into(),
-            1,
-            1_100_000 * ONE_DBC,
-        );
+        let _ = OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 0, 1_100_000 * ONE_DBC);
+        let _ = OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 1, 1_100_000 * ONE_DBC);
         // 设置单卡质押上限： 7700_000_000
         let _ = OnlineProfile::set_stake_usd_limit(RawOrigin::Root.into(), 7700_000_000);
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
@@ -413,64 +401,42 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
 pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
     let mut ext = new_test_with_init_params_ext();
     ext.execute_with(|| {
-        let committee1: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
         // 增加四个委员会
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee4));
-        let committee1_box_pubkey =
-            hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
-                .unwrap()
-                .try_into()
-                .unwrap();
-        let committee2_box_pubkey =
-            hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
-                .unwrap()
-                .try_into()
-                .unwrap();
-        let committee3_box_pubkey =
-            hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
-                .unwrap()
-                .try_into()
-                .unwrap();
-        let committee4_box_pubkey =
-            hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
-                .unwrap()
-                .try_into()
-                .unwrap();
+        let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let committee2_box_pubkey = hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let committee3_box_pubkey = hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let committee4_box_pubkey = hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
+            .unwrap()
+            .try_into()
+            .unwrap();
 
-        assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee1),
-            committee1_box_pubkey
-        ));
-        assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee2),
-            committee2_box_pubkey
-        ));
-        assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee3),
-            committee3_box_pubkey
-        ));
-        assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee4),
-            committee4_box_pubkey
-        ));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), committee2_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee4), committee4_box_pubkey));
 
-        let controller: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         // Bob pubkey
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
         let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e025\

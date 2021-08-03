@@ -15,11 +15,8 @@ where
     Balance: Display + FromStr,
 {
     #[rpc(name = "leaseCommittee_getCommitteeMachineList")]
-    fn get_committee_machine_list(
-        &self,
-        committee: AccountId,
-        at: Option<BlockHash>,
-    ) -> Result<LCCommitteeMachineList>;
+    fn get_committee_machine_list(&self, committee: AccountId, at: Option<BlockHash>)
+        -> Result<LCCommitteeMachineList>;
 
     #[rpc(name = "leaseCommittee_getCommitteeOps")]
     fn get_committee_ops(
@@ -48,8 +45,8 @@ impl<C, M> LcStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, BlockNumber, Balance>
-    LcRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance> for LcStorage<C, Block>
+impl<C, Block, AccountId, BlockNumber, Balance> LcRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance>
+    for LcStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
@@ -86,17 +83,16 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result =
-            api.get_committee_ops(&at, committee, machine_id).map(|ops| RpcLCCommitteeOps {
-                booked_time: ops.booked_time,
-                staked_dbc: ops.staked_dbc.into(),
-                verify_time: ops.verify_time,
-                confirm_hash: ops.confirm_hash,
-                hash_time: ops.hash_time,
-                confirm_time: ops.confirm_time,
-                machine_status: ops.machine_status,
-                machine_info: ops.machine_info,
-            });
+        let runtime_api_result = api.get_committee_ops(&at, committee, machine_id).map(|ops| RpcLCCommitteeOps {
+            booked_time: ops.booked_time,
+            staked_dbc: ops.staked_dbc.into(),
+            verify_time: ops.verify_time,
+            confirm_hash: ops.confirm_hash,
+            hash_time: ops.hash_time,
+            confirm_time: ops.confirm_time,
+            machine_status: ops.machine_status,
+            machine_info: ops.machine_info,
+        });
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

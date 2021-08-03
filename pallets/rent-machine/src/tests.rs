@@ -5,18 +5,14 @@ use sp_runtime::Perbill;
 #[test]
 fn rent_machine_should_works() {
     new_test_ext_after_machine_online().execute_with(|| {
-        let renter_dave: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let renter_dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
 
-        let _one_committee: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::One).into();
+        let _one_committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
         let _pot_two: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
 
-        let _controller: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         // Dave rent machine for 10 days
         assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 10));
@@ -50,10 +46,7 @@ fn rent_machine_should_works() {
         // Balance of stash account will increase
         assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 284375 * ONE_DBC / 10);
         // Balance of renter will decrease
-        assert_eq!(
-            Balances::free_balance(renter_dave),
-            INIT_BALANCE - 284375 * ONE_DBC / 10 - 10 * ONE_DBC
-        );
+        assert_eq!(Balances::free_balance(renter_dave), INIT_BALANCE - 284375 * ONE_DBC / 10 - 10 * ONE_DBC);
 
         // Dave relet machine
         assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 10));
@@ -61,10 +54,7 @@ fn rent_machine_should_works() {
         let stash_machines = OnlineProfile::stash_machines(&stash);
         assert_eq!(stash_machines.total_rent_fee, 284375 * ONE_DBC / 10 * 2); // FIXME
         assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 284375 * ONE_DBC / 10 * 2);
-        assert_eq!(
-            Balances::free_balance(renter_dave),
-            INIT_BALANCE - 284375 * ONE_DBC / 10 * 2 - 10 * ONE_DBC
-        );
+        assert_eq!(Balances::free_balance(renter_dave), INIT_BALANCE - 284375 * ONE_DBC / 10 * 2 - 10 * ONE_DBC);
 
         // 21 days later
         run_to_block(60530);
@@ -76,19 +66,14 @@ fn rent_machine_should_works() {
 #[test]
 fn controller_report_offline_when_online_should_work() {
     new_test_ext_after_machine_online().execute_with(|| {
-        let controller: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         // NOTE: 注意，一天内不能下线两次
         // run_to_block(2880 + 50);
 
-        assert_ok!(OnlineProfile::controller_report_offline(
-            Origin::signed(controller),
-            machine_id.clone()
-        ));
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
     })
 }
 
@@ -96,11 +81,9 @@ fn controller_report_offline_when_online_should_work() {
 #[test]
 fn controller_report_offline_when_rented_should_work1() {
     new_test_ext_after_machine_online().execute_with(|| {
-        let controller: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         run_to_block(50);
 
@@ -114,11 +97,9 @@ fn controller_report_offline_when_rented_should_work1() {
 #[test]
 fn controller_report_offline_when_rented_should_work2() {
     new_test_ext_after_machine_online().execute_with(|| {
-        let controller: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         run_to_block(50);
     })

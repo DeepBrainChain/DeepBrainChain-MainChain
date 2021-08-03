@@ -8,27 +8,19 @@ fn report_machine_fault_works() {
         let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
         let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
 
-        let report_hash: [u8; 16] =
-            hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
 
-        let machine_id =
-            "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let reporter_rand_str = "abcdef".as_bytes().to_vec();
         let committee_rand_str = "fedcba".as_bytes().to_vec();
         let err_reason = "它坏了".as_bytes().to_vec();
-        let committee_hash =
-            hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
+        let committee_hash = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
 
-        let reporter_boxpubkey =
-            hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
-                .unwrap()
-                .try_into()
-                .unwrap();
-        assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
-            report_hash,
-            reporter_boxpubkey
-        ));
+        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        assert_ok!(MaintainCommittee::report_machine_fault(Origin::signed(reporter), report_hash, reporter_boxpubkey));
 
         let mut report_status = crate::MTReportInfoDetail {
             reporter,
@@ -62,11 +54,7 @@ fn report_machine_fault_works() {
         assert_eq!(&MaintainCommittee::report_info(0), &report_status);
 
         // 提交验证Hash
-        assert_ok!(MaintainCommittee::submit_confirm_hash(
-            Origin::signed(committee),
-            0,
-            committee_hash
-        ));
+        assert_ok!(MaintainCommittee::submit_confirm_hash(Origin::signed(committee), 0, committee_hash));
 
         report_status.verifying_committee = None;
         report_status.hashed_committee.push(committee);

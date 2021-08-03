@@ -4,8 +4,7 @@
 
 use codec::Codec;
 pub use online_profile::{
-    EraIndex, Latitude, LiveMachine, Longitude, MachineId, PosInfo, RPCMachineInfo, RpcStakerInfo,
-    RpcSysInfo,
+    EraIndex, Latitude, LiveMachine, Longitude, MachineId, PosInfo, RPCMachineInfo, RpcStakerInfo, RpcSysInfo,
 };
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
