@@ -105,6 +105,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub total_rented_duration: u64,
     /// 总租用次数
     pub total_rented_times: u64,
+    /// 未执行的惩罚
+    pub unapplied_slash: u32,
     /// 总租金收益(银河竞赛前获得)
     pub total_rent_fee: Balance,
     /// 总销毁数量
@@ -540,6 +542,14 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// 上线被拒绝后，重新上线需要质押
+        #[pallet::weight(0)]
+        pub fn set_reonline_stake(origin: OriginFor<T>, reonline_stake: u64) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ReonlineStake::<T>::put(reonline_stake);
+            Ok(().into())
+        }
+
         /// stash账户设置一个控制账户
         #[pallet::weight(10000)]
         pub fn set_controller(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResultWithPostInfo {
@@ -549,33 +559,6 @@ pub mod pallet {
 
             StashController::<T>::insert(stash.clone(), controller.clone());
             ControllerStash::<T>::insert(controller, stash);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn root_set_stash_machine(
-            origin: OriginFor<T>,
-            stash: T::AccountId,
-            new_stash_machine: StashMachine<BalanceOf<T>>,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            let mut stash_machine = Self::stash_machines(&stash);
-
-            stash_machine = StashMachine {
-                total_machine: stash_machine.total_machine.clone(),
-                online_machine: stash_machine.online_machine.clone(),
-                ..new_stash_machine
-            };
-
-            StashMachines::<T>::insert(stash, stash_machine);
-
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn set_reonline_stake(origin: OriginFor<T>, reonline_stake: u64) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            ReonlineStake::<T>::put(reonline_stake);
             Ok(().into())
         }
 
@@ -873,15 +856,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Root控制机器下线
-        #[pallet::weight(0)]
-        pub fn root_report_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-
-            Self::machine_offline(machine_id);
-            Ok(().into())
-        }
-
         /// 控制账户报告机器下线:Online/Rented时允许
         #[pallet::weight(10000)]
         pub fn controller_report_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
@@ -910,6 +884,7 @@ pub mod pallet {
         pub fn controller_report_online(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
+            let current_era = Self::current_era();
 
             let mut machine_info = Self::machines_info(&machine_id);
             let mut sys_info = Self::sys_info();
@@ -922,8 +897,12 @@ pub mod pallet {
                 Error::<T>::CannotOnlineTwiceOneDay
             );
 
+            let mut offline_duration = 0u32.into();
+
             // MachineStatus改为之前的状态
-            if let MachineStatus::StakerReportOffline(_offline_time, status) = machine_info.machine_status {
+            if let MachineStatus::StakerReportOffline(offline_time, status) = machine_info.machine_status {
+                offline_duration = now - offline_time;
+
                 machine_info.machine_status = *status;
                 let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
 
@@ -932,7 +911,6 @@ pub mod pallet {
                         // Both status will change grades by online
                         sys_info.total_gpu_num += gpu_num;
 
-                        let current_era = Self::current_era();
                         let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
                         Self::update_snap_by_online_status(machine_id.clone(), true);
@@ -950,23 +928,81 @@ pub mod pallet {
                     },
                     _ => {},
                 }
-                if let MachineStatus::Rented = machine_info.machine_status {
-                    sys_info.total_rented_gpu += gpu_num;
-                    // machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-                    Self::update_snap_by_rent_status(machine_id.clone(), true);
-                    Self::change_pos_gpu_by_rent(&machine_id, true);
-                    stash_machine.total_rented_gpu += gpu_num;
-                }
+                match machine_info.machine_status {
+                    MachineStatus::Rented => {
+                        sys_info.total_rented_gpu += gpu_num;
+                        // machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                        Self::update_snap_by_rent_status(machine_id.clone(), true);
+                        Self::change_pos_gpu_by_rent(&machine_id, true);
+                        stash_machine.total_rented_gpu += gpu_num;
 
-                // TODO: Slash depend on offline time
+                        // 计算机器有多少剩余奖励
+                        let left_all_slash = if offline_duration > 5760u32.into() {
+                            let mut count = 0;
+                            let start_era = if current_era > 150 { current_era - 150 } else { 0 };
+                            for i in start_era..current_era {
+                                if Self::eras_machine_reward(current_era, &machine_id) > 0u32.into() {
+                                    count += 1;
+                                }
+                            }
+                            count
+                        } else {
+                            0
+                        };
+
+                        // 机器在被租用状态下线，会被惩罚
+                        if offline_duration > 14400u32.into() {
+                            // 离线超过120h，扣除剩余所有奖励和扣除50%押金。奖励50%给到用户，50%进入国库，押金全部进入国库。
+                            machine_info.unapplied_slash += left_all_slash;
+                            // TODO: 先扣除押金和添加奖励，如果剩余押金还够，则不用补交押金，否则补交
+
+                            // 惩罚掉一半的押金
+                            let unbond_amount = machine_info.stake_amount / 2u32.into();
+                            // 改变总质押
+                            sys_info.total_stake = sys_info.total_stake.checked_sub(&unbond_amount).unwrap_or_default();
+                            <T as pallet::Config>::ManageCommittee::add_slash(
+                                machine_info.machine_stash.clone(),
+                                unbond_amount,
+                                vec![],
+                            );
+
+                            let stake_need =
+                                Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num)
+                                    .unwrap_or_default();
+
+                            machine_info.stake_amount -= unbond_amount;
+                            if machine_info.stake_amount < stake_need {
+                                machine_info.machine_status = MachineStatus::WaitingFulfill;
+                            }
+                        } else if offline_duration > 5760u32.into() {
+                            // 离线超过48h，扣除所有剩余奖励。奖励50%给到用户，50%进入国库
+                            machine_info.unapplied_slash += left_all_slash;
+                        } else if offline_duration > 14u32.into() {
+                            // 离线超过7分钟，扣除4天剩余奖励。奖励50%给到用户，50%进入国库
+                            machine_info.unapplied_slash += 4;
+                        } else if offline_duration > 6u32.into() {
+                            // 离线超过3分钟，扣除2天剩余奖励。奖励50%给到用户，50%进入国库
+                            machine_info.unapplied_slash += 2;
+                        }
+                    },
+                    MachineStatus::Online => {},
+                    _ => {},
+                }
             } else {
                 return Err(Error::<T>::MachineStatusNotAllowed.into())
             }
 
             machine_info.last_online_height = now;
 
-            LiveMachine::rm_machine_id(&mut live_machine.refused_machine, &machine_id);
-            LiveMachine::add_machine_id(&mut live_machine.online_machine, machine_id.clone());
+            LiveMachine::rm_machine_id(&mut live_machine.offline_machine, &machine_id);
+            match machine_info.machine_status {
+                MachineStatus::WaitingFulfill => {
+                    LiveMachine::add_machine_id(&mut live_machine.fulfilling_machine, machine_id.clone());
+                },
+                _ => {
+                    LiveMachine::add_machine_id(&mut live_machine.online_machine, machine_id.clone());
+                },
+            }
 
             LiveMachines::<T>::put(live_machine);
             StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
@@ -1365,7 +1401,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _reduce_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+    fn reduce_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         T::ManageCommittee::change_stake(&who, amount, false)?;
 
         // 改变总质押
