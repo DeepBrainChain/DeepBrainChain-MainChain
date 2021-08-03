@@ -45,7 +45,7 @@
   "MachineInfo": {
     "controller": "AccountId",
     "machine_stash": "AccountId",
-    "machine_renter": "Option<AccountId>",
+    "last_machine_renter": "Option<AccountId>",
     "bonding_height": "BlockNumber",
     "online_height": "BlockNumber",
     "last_online_height": "BlockNumber",
@@ -53,11 +53,12 @@
     "machine_status": "MachineStatus",
     "total_rented_duration": "u64",
     "total_rented_times": "u64",
+    "unapplied_slash": "Vec<(AccountId, u32)>",
     "total_rent_fee": "Balance",
     "total_burn_fee": "Balance",
     "machine_info_detail": "MachineInfoDetail",
     "reward_committee": "Vec<AccountId>",
-    "reward_deadline": "BlockNumber"
+    "reward_deadline": "EraIndex"
   },
   "MachineStatus": {
     "_enum": {
