@@ -594,9 +594,7 @@ pub mod pallet {
             // 只允许在线状态的机器修改信息
             match machine_info.machine_status {
                 MachineStatus::Online => {},
-                _ => {
-                    return Err(Error::<T>::MachineStatusNotAllowed.into())
-                },
+                _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
             // 重新上链需要交一定的手续费
@@ -742,9 +740,7 @@ pub mod pallet {
                 MachineStatus::StakerReportOffline(_, _) => {
                     machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
                 },
-                _ => {
-                    return Err(Error::<T>::NotAllowedChangeMachineInfo.into())
-                },
+                _ => return Err(Error::<T>::NotAllowedChangeMachineInfo.into()),
             }
 
             let mut live_machines = Self::live_machines();
@@ -947,7 +943,7 @@ pub mod pallet {
                             stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
                         sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
-                        if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
+                        if let Err(index) = stash_machine.online_machine.binary_search(&machine_id) {
                             stash_machine.online_machine.insert(index, machine_id.clone());
                         }
                         stash_machine.total_gpu_num += gpu_num;
