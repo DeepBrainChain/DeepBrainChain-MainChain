@@ -30,7 +30,7 @@ use online_profile_machine::{DbcPrice, LCOps, MTOps, ManageCommittee, OPRPCQuery
 use serde::{Deserialize, Serialize};
 use sp_core::{crypto::Public, H256};
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify},
+    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify, Zero},
     Perbill, SaturatedConversion,
 };
 use sp_std::{
@@ -1602,7 +1602,7 @@ impl<T: Config> Pallet<T> {
                 let reward_linear_index = stash_machine.linear_release_reward.len() - 1;
 
                 for machine_id in stash_machine.total_machine.clone() {
-                    let machine_info = Self::machines_info(&machine_id);
+                    let mut machine_info = Self::machines_info(&machine_id);
 
                     // 计算当时机器实际获得的奖励
                     let machine_points = era_machine_points.get(&machine_id);
@@ -1637,12 +1637,13 @@ impl<T: Config> Pallet<T> {
                             machine_total_reward - linear_reward_part
                         } else {
                             // 当有需要交罚金给用户时，当前机器奖励为0
-                            ErasMachineReward::<T>::insert(current_era, &machine_id, 0u32.into());
+                            let zero_balance: BalanceOf<T> = Zero::zero();
+                            ErasMachineReward::<T>::insert(current_era, &machine_id, zero_balance);
 
                             // TODO: 是否给委员会发放奖励
 
                             let mut left_slash = vec![];
-                            let to_treasury = Perbill::from_rational_approximation(1, 2) * machine_total_reward;
+                            let to_treasury = Perbill::from_rational_approximation(1u32, 2u32) * machine_total_reward;
                             let left_reward = machine_total_reward - to_treasury;
 
                             let each_renter_get =
@@ -1652,9 +1653,9 @@ impl<T: Config> Pallet<T> {
                             // TODO: 这里将要改变machine_info
                             for a_renter in machine_info.unapplied_slash.clone() {
                                 <T as pallet::Config>::Currency::deposit_into_existing(&a_renter.0, each_renter_get)
-                                    .map_err(|_| Error::<T>::ClaimRewardFailed)?;
+                                    .map_err(|_| ())?;
 
-                                if a_renter.2 > 1 {
+                                if a_renter.1 > 1 {
                                     left_slash.push((a_renter.0, a_renter.1 - 1));
                                 }
                                 // TODO: 更改错误类型
@@ -1701,7 +1702,7 @@ impl<T: Config> Pallet<T> {
                                 let total_reward_after_deadline = machine_total_reward - total_reward_before_deadline;
 
                                 let reward_to_stash_before_deadline =
-                                    Perbill::from_rational_approximation(99, 100) * total_reward_before_deadline;
+                                    Perbill::from_rational_approximation(99u32, 100u32) * total_reward_before_deadline;
 
                                 stash_machine.total_earned_reward = stash_machine.total_earned_reward +
                                     total_reward_after_deadline +
