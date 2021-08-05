@@ -30,7 +30,7 @@ use online_profile_machine::{DbcPrice, LCOps, MTOps, ManageCommittee, OPRPCQuery
 use serde::{Deserialize, Serialize};
 use sp_core::{crypto::Public, H256};
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify, Zero},
+    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify},
     Perbill, SaturatedConversion,
 };
 use sp_std::{
@@ -910,11 +910,9 @@ pub mod pallet {
                 Error::<T>::CannotOnlineTwiceOneDay
             );
 
-            let mut offline_duration = 0u32.into();
-
             // MachineStatus改为之前的状态
             if let MachineStatus::StakerReportOffline(offline_time, status) = machine_info.machine_status {
-                offline_duration = now - offline_time;
+                let offline_duration = now - offline_time;
 
                 machine_info.machine_status = *status;
                 let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
@@ -949,32 +947,14 @@ pub mod pallet {
                         Self::change_pos_gpu_by_rent(&machine_id, true);
                         stash_machine.total_rented_gpu += gpu_num;
 
-                        // 计算机器有多少剩余奖励
-                        let left_all_slash = if offline_duration > 5760u32.into() {
-                            let mut count = 0;
-                            let start_era = if current_era > 150 { current_era - 150 } else { 0 };
-                            for i in start_era..current_era {
-                                if Self::eras_machine_reward(current_era, &machine_id) > 0u32.into() {
-                                    count += 1;
-                                }
-                            }
-                            count
-                        } else {
-                            0
-                        };
-
-                        let machine_last_renter = machine_info.last_machine_renter.as_ref().unwrap();
                         // 机器在被租用状态下线，会被惩罚
-
                         Self::slash_when_report_offline(
-                            true,
                             machine_id.clone(),
-                            StashSlashReason::OnlineReportOffline(offline_duration),
+                            StashSlashReason::RentedReportOffline(offline_duration),
                         );
                     },
                     MachineStatus::Online => {
                         Self::slash_when_report_offline(
-                            false,
                             machine_id.clone(),
                             StashSlashReason::OnlineReportOffline(offline_duration),
                         );
@@ -1058,16 +1038,8 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     // Slash n days
-    fn slash_when_report_offline(
-        is_rented: bool,
-        machine_id: MachineId,
-        slash_reason: StashSlashReason<T::BlockNumber>,
-    ) {
-        let current_era = Self::current_era();
+    fn slash_when_report_offline(machine_id: MachineId, slash_reason: StashSlashReason<T::BlockNumber>) {
         let machine_info = Self::machines_info(&machine_id);
-
-        let mut era_stash_points = Self::eras_stash_points(current_era).unwrap();
-        let mut era_machine_points = Self::eras_machine_points(current_era).unwrap();
 
         // 想完全惩罚某个Era，将那个Era机器得分变成0，而系统总得分不能改变
 
@@ -1135,11 +1107,10 @@ impl<T: Config> Pallet<T> {
 
         // 如果n_days 是None，则惩罚掉所有的
         let n_days = if let None = n_days { 150 } else { n_days.unwrap() };
-
         let mut left_slash = n_days;
 
         // 往前遍历，最多到online_era
-        while slashing_era >= 0 && slashing_era >= online_era {
+        while slashing_era >= online_era && left_slash > 0 {
             let mut era_machine_points = Self::eras_machine_points(slashing_era as u32).unwrap_or_default();
             let mut machine_grade_status = era_machine_points.get(&machine_id).cloned().unwrap_or_default();
 
@@ -1259,12 +1230,16 @@ impl<T: Config> Pallet<T> {
         let reward_each_get = Perbill::from_rational_approximation(1, reported_committee.len() as u64) * reonline_stake;
         if T::ManageCommittee::change_stake(&machine_info.machine_stash, reonline_stake, false).is_ok() {
             for a_committee in reported_committee {
-                <T as pallet::Config>::Currency::transfer(
+                if <T as pallet::Config>::Currency::transfer(
                     &machine_info.machine_stash,
                     &a_committee,
                     reward_each_get,
                     KeepAlive,
-                );
+                )
+                .is_err()
+                {
+                    // TODO: handler error here
+                };
             }
 
             UserReonlineStake::<T>::remove(&machine_info.machine_stash, &committee_upload_info.machine_id);
@@ -1748,7 +1723,7 @@ impl<T: Config> Pallet<T> {
                 let reward_linear_index = stash_machine.linear_release_reward.len() - 1;
 
                 for machine_id in stash_machine.total_machine.clone() {
-                    let mut machine_info = Self::machines_info(&machine_id);
+                    let machine_info = Self::machines_info(&machine_id);
 
                     // 计算当时机器实际获得的奖励
                     let machine_points = era_machine_points.get(&machine_id);
@@ -1806,7 +1781,6 @@ impl<T: Config> Pallet<T> {
                             } else {
                                 // reward_to_committee:
                                 let reward_to_committee = machine_info.reward_deadline - current_era;
-                                let left_era = 150 - reward_to_committee;
 
                                 let total_reward_before_deadline =
                                     Perbill::from_rational_approximation(reward_to_committee, 150) *
