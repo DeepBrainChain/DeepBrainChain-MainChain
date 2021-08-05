@@ -410,14 +410,10 @@ impl<T: Config> Pallet<T> {
         let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
         let galaxy_is_on = <online_profile::Module<T>>::galaxy_is_on();
         if galaxy_is_on {
-            <T as pallet::Config>::Currency::transfer(renter, &rent_fee_pot, fee_amount, KeepAlive)
-                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
-
+            <T as pallet::Config>::Currency::transfer(renter, &rent_fee_pot, fee_amount, KeepAlive)?;
             T::RTOps::change_machine_rent_fee(fee_amount, machine_id.clone(), true);
         } else {
-            <T as pallet::Config>::Currency::transfer(renter, machine_stash, fee_amount, KeepAlive)
-                .map_err(|_| DispatchError::Other("Can't make tx payment"))?;
-
+            <T as pallet::Config>::Currency::transfer(renter, machine_stash, fee_amount, KeepAlive)?;
             T::RTOps::change_machine_rent_fee(fee_amount, machine_id, false);
         }
         Ok(())
