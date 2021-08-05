@@ -25,6 +25,9 @@ async function main() {
   funcMap["staking"] = {};
   funcMap["staking"]["ledger"] = api.query.staking.ledger;
 
+  funcMap["balances"] = {};
+  funcMap["balances"]["locks"] = api.query.balances.locks;
+
   funcMap["system"] = {};
   funcMap["system"]["account"] = api.query.system.account;
 
@@ -50,6 +53,10 @@ async function main() {
     api.query.onlineProfile.erasMachinePoints;
   funcMap["onlineProfile"]["erasStashPoints"] =
     api.query.onlineProfile.erasStashPoints;
+
+  funcMap["rentMachine"] = {};
+  funcMap["rentMachine"]["userTotalStake"] =
+    api.query.rentMachine.userTotalStake;
 
   let heightHash = await api.rpc.chain.getBlockHash(args["at-height"]);
 
