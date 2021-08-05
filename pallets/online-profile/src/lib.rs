@@ -105,8 +105,6 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub total_rented_duration: u64,
     /// 总租用次数
     pub total_rented_times: u64,
-    /// 未执行的惩罚
-    pub unapplied_slash: Vec<(AccountId, u32)>, // 当奖励对象为空，则表示online状态时被惩罚,否则表示租用状态被惩罚
     /// 总租金收益(银河竞赛前获得)
     pub total_rent_fee: Balance,
     /// 总销毁数量
@@ -152,6 +150,21 @@ impl<BlockNumber> Default for MachineStatus<BlockNumber> {
         MachineStatus::AddingCustomizeInfo
     }
 }
+
+/// 算工被惩罚的原因
+pub enum StashSlashReason<BlockNumber> {
+    /// 主动报告被租用的机器下线
+    RentedReportOffline(BlockNumber),
+    /// 主动报告在线的机器下线
+    OnlineReportOffline(BlockNumber),
+}
+
+// FIXME: bug
+// impl<BlockNumber> Default for StashSlashReason<BlockNumber> {
+//     fn default() -> Self {
+//         StashSlashReason::OnlineReportOffline(0u32.saturated_into::<BlockNumber>())
+//     }
+// }
 
 // 只保存正常声明周期的Machine,删除掉的/绑定失败的不保存在该变量中
 /// 系统中存在的机器列表
@@ -952,42 +965,20 @@ pub mod pallet {
 
                         let machine_last_renter = machine_info.last_machine_renter.as_ref().unwrap();
                         // 机器在被租用状态下线，会被惩罚
-                        if offline_duration > 14400u32.into() {
-                            // 离线超过120h，扣除剩余所有奖励和扣除50%押金。奖励50%给到用户，50%进入国库，押金全部进入国库。
-                            machine_info.unapplied_slash.push((machine_last_renter.clone(), left_all_slash));
 
-                            // 先扣除押金和添加奖励，如果剩余押金还够，则不用补交押金，否则补交
-
-                            // 惩罚掉一半的押金
-                            let unbond_amount = machine_info.stake_amount / 2u32.into();
-                            // 改变总质押
-                            sys_info.total_stake = sys_info.total_stake.checked_sub(&unbond_amount).unwrap_or_default();
-                            <T as pallet::Config>::ManageCommittee::add_slash(
-                                machine_info.machine_stash.clone(),
-                                unbond_amount,
-                                vec![],
-                            );
-
-                            let stake_need =
-                                Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num)
-                                    .unwrap_or_default();
-
-                            machine_info.stake_amount -= unbond_amount;
-                            if machine_info.stake_amount < stake_need {
-                                machine_info.machine_status = MachineStatus::WaitingFulfill;
-                            }
-                        } else if offline_duration > 5760u32.into() {
-                            // 离线超过48h，扣除所有剩余奖励。奖励50%给到用户，50%进入国库
-                            machine_info.unapplied_slash.push((machine_last_renter.clone(), left_all_slash));
-                        } else if offline_duration > 14u32.into() {
-                            // 离线超过7分钟，扣除4天剩余奖励。奖励50%给到用户，50%进入国库
-                            machine_info.unapplied_slash.push((machine_last_renter.clone(), 4));
-                        } else if offline_duration > 6u32.into() {
-                            // 离线超过3分钟，扣除2天剩余奖励。奖励50%给到用户，50%进入国库
-                            machine_info.unapplied_slash.push((machine_last_renter.clone(), 2));
-                        }
+                        Self::slash_when_report_offline(
+                            true,
+                            machine_id.clone(),
+                            StashSlashReason::OnlineReportOffline(offline_duration),
+                        );
                     },
-                    MachineStatus::Online => {},
+                    MachineStatus::Online => {
+                        Self::slash_when_report_offline(
+                            false,
+                            machine_id.clone(),
+                            StashSlashReason::OnlineReportOffline(offline_duration),
+                        );
+                    },
                     _ => {},
                 }
             } else {
@@ -1066,6 +1057,161 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // Slash n days
+    fn slash_when_report_offline(
+        is_rented: bool,
+        machine_id: MachineId,
+        slash_reason: StashSlashReason<T::BlockNumber>,
+    ) {
+        let current_era = Self::current_era();
+        let machine_info = Self::machines_info(&machine_id);
+
+        let mut era_stash_points = Self::eras_stash_points(current_era).unwrap();
+        let mut era_machine_points = Self::eras_machine_points(current_era).unwrap();
+
+        // 想完全惩罚某个Era，将那个Era机器得分变成0，而系统总得分不能改变
+
+        match slash_reason {
+            // 算工报告被租用的机器，主动下线
+            StashSlashReason::RentedReportOffline(duration) => {
+                // 根据duration计算
+                let duration = duration.saturated_into::<u64>();
+                match duration {
+                    0 => return,
+                    1..=14 => {
+                        // 不超过7分钟，扣除2天奖励，100%进入国库
+                        Self::do_n_days_slash(machine_id.clone(), Some(2), None);
+                    },
+                    15..=5760 => {
+                        // 不超过48小时，扣除4天剩余奖励。100%进入国库
+                        Self::do_n_days_slash(machine_id.clone(), Some(4), None);
+                    },
+                    5761..=14400 => {
+                        // 不超过120小时，扣除所有剩余奖励。奖励50%给到用户，50%进入国库
+                        Self::do_n_days_slash(machine_id.clone(), None, machine_info.last_machine_renter.clone());
+                    },
+                    _ => {
+                        // 扣除剩余所有奖励和扣除50%押金。奖励50%给到用户，50%进入国库，押金全部进入国库
+                        Self::do_n_days_slash(machine_id.clone(), None, machine_info.last_machine_renter.clone());
+                        // TODO: 扣除50%押金
+                    },
+                }
+            },
+            StashSlashReason::OnlineReportOffline(duration) => {
+                let duration = duration.saturated_into::<u64>();
+                match duration {
+                    0 => return,
+                    1..=14 => {
+                        // 不超过7分钟，扣除2天剩余奖励。奖励全部进入国库。
+                        Self::do_n_days_slash(machine_id.clone(), Some(2), None);
+                    },
+                    15..=5760 => {
+                        // 不超过48小时，扣除4天剩余奖励。100%进入国库。
+                        Self::do_n_days_slash(machine_id.clone(), Some(4), None);
+                    },
+                    5761..=28800 => {
+                        // 不超过240小时，扣除所有剩余奖励。100%进入国库。
+                        Self::do_n_days_slash(machine_id.clone(), None, None);
+                    },
+                    _ => {
+                        // 扣除剩余所有奖励和扣除50%押金。奖励全部进入国库，押金全部进入国库。
+                        Self::do_n_days_slash(machine_id.clone(), None, None);
+                        // TODO: 扣除50%押金
+                    },
+                }
+            },
+        }
+    }
+
+    // 如果reward_to 为None，则全部给到国库
+    // 如果n_days 为 None，则惩罚150天
+    fn do_n_days_slash(machine_id: MachineId, n_days: Option<u32>, reward_to: Option<T::AccountId>) {
+        let current_era = Self::current_era() as u64;
+        let mut slashing_era = current_era;
+
+        // 计算机器上线EraIndex
+        let machine_info = Self::machines_info(&machine_id);
+        let online_era = machine_info.bonding_height.saturated_into::<u64>() / 2880u64;
+
+        // 如果n_days 是None，则惩罚掉所有的
+        let n_days = if let None = n_days { 150 } else { n_days.unwrap() };
+
+        let mut left_slash = n_days;
+
+        // 往前遍历，最多到online_era
+        while slashing_era >= 0 && slashing_era >= online_era {
+            let mut era_machine_points = Self::eras_machine_points(slashing_era as u32).unwrap_or_default();
+            let mut machine_grade_status = era_machine_points.get(&machine_id).cloned().unwrap_or_default();
+
+            let era_stash_points = Self::eras_stash_points(slashing_era as u32).unwrap_or_default();
+            let stash_grade_status =
+                era_stash_points.staker_statistic.get(&machine_info.machine_stash).cloned().unwrap_or_default();
+            let era_reward = Self::era_reward(slashing_era as u32);
+
+            if machine_grade_status.basic_grade > 0 {
+                // TODO: 计算slashing_era还剩下的奖励，1%给到委员会
+                // let actual_grade =
+                let machine_actual_grade = machine_grade_status.machine_actual_grade(stash_grade_status.inflation);
+
+                // 该Era机器获得的总奖励
+                let machine_total_reward =
+                    Perbill::from_rational_approximation(machine_actual_grade as u64, era_stash_points.total as u64) *
+                        era_reward;
+                let linear_reward_part = Perbill::from_rational_approximation(75u64, 100u64) * machine_total_reward;
+
+                // TODO: check if is n-1
+                // 每天释放掉剩余75%的1%，则现在一共释放掉剩余 75% * 150% * (current_era - slashing_era)
+                let mut left_reward = linear_reward_part -
+                    Perbill::from_rational_approximation(1u32, 150u32) *
+                        linear_reward_part *
+                        (current_era - slashing_era).saturated_into::<BalanceOf<T>>();
+
+                let committee_num = machine_grade_status.reward_account.len() as u32;
+
+                if slashing_era <= machine_info.reward_deadline as u64 && committee_num > 0 {
+                    // 1%给到委员会
+                    let reward_to_committee = Perbill::from_rational_approximation(1u32, 100u32) * left_reward;
+                    let reward_each_get =
+                        Perbill::from_rational_approximation(1u32, committee_num) * reward_to_committee;
+
+                    for a_committee in machine_grade_status.reward_account.clone() {
+                        // TODO: issue 并将币转给委员会
+                        if <T as pallet::Config>::Currency::deposit_into_existing(&a_committee, reward_each_get)
+                            .is_err()
+                        {
+                            debug::error!("");
+                        }
+                    }
+
+                    left_reward -= reward_to_committee;
+                } else {
+                    if let Some(reward_to_whom) = reward_to.clone() {
+                        left_reward = Perbill::from_rational_approximation(1u32, 2u32) * left_reward;
+                        if <T as pallet::Config>::Currency::deposit_into_existing(&reward_to_whom, left_reward).is_err()
+                        {
+                            debug::error!("");
+                        }
+                        // 50%的奖励给到国库
+                        // TODO: 币需要先mint出来，然后再发给国库
+                    } else {
+                        // 所有的惩罚都给到国库
+                        // TODO: 币需要先mint出来，然后再发给国库
+                    }
+                }
+
+                machine_grade_status.basic_grade = 0;
+            } else {
+                continue
+            }
+
+            era_machine_points.insert(machine_id.clone(), machine_grade_status);
+            ErasMachinePoints::<T>::insert(slashing_era as u32, era_machine_points);
+
+            slashing_era -= 1;
+            left_slash -= 1;
+        }
+    }
+
     // For upgrade
     fn get_all_machine_id() -> Vec<MachineId> {
         <MachinesInfo<T> as IterableStorageMap<MachineId, _>>::iter()
@@ -1625,46 +1771,12 @@ impl<T: Config> Pallet<T> {
                     let linear_reward_part = Perbill::from_rational_approximation(75u64, 100u64) * machine_total_reward;
 
                     let release_now = if era_index == current_era {
-                        // TODO: 别的奖励该释放还释放，只有当前奖励，一半给国库，一半给用户，还有1%给委员会
+                        // 记录剩余的75%奖励
+                        stash_machine.linear_release_reward[reward_linear_index] += linear_reward_part;
 
-                        let slash_and_reward_num = machine_info.unapplied_slash.len();
-                        if slash_and_reward_num == 0 {
-                            // 记录剩余的75%奖励
-                            stash_machine.linear_release_reward[reward_linear_index] += linear_reward_part;
+                        ErasMachineReward::<T>::insert(current_era, &machine_id, machine_total_reward);
 
-                            ErasMachineReward::<T>::insert(current_era, &machine_id, machine_total_reward);
-
-                            machine_total_reward - linear_reward_part
-                        } else {
-                            // 当有需要交罚金给用户时，当前机器奖励为0
-                            let zero_balance: BalanceOf<T> = Zero::zero();
-                            ErasMachineReward::<T>::insert(current_era, &machine_id, zero_balance);
-
-                            // TODO: 是否给委员会发放奖励
-
-                            let mut left_slash = vec![];
-                            let to_treasury = Perbill::from_rational_approximation(1u32, 2u32) * machine_total_reward;
-                            let left_reward = machine_total_reward - to_treasury;
-
-                            let each_renter_get =
-                                Perbill::from_rational_approximation(1u32, slash_and_reward_num as u32) * left_reward;
-
-                            // issue and reward to treasury and to committee
-                            // TODO: 这里将要改变machine_info
-                            for a_renter in machine_info.unapplied_slash.clone() {
-                                <T as pallet::Config>::Currency::deposit_into_existing(&a_renter.0, each_renter_get)
-                                    .map_err(|_| ())?;
-
-                                if a_renter.1 > 1 {
-                                    left_slash.push((a_renter.0, a_renter.1 - 1));
-                                }
-                                // TODO: 更改错误类型
-                            }
-                            machine_info.unapplied_slash = left_slash;
-                            MachinesInfo::<T>::insert(machine_id, machine_info);
-
-                            continue
-                        }
+                        machine_total_reward - linear_reward_part
                     } else {
                         // 剩余75%的1/150
                         Perbill::from_rational_approximation(1u32, 150u32) * linear_reward_part
