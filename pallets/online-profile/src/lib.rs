@@ -157,6 +157,14 @@ pub enum StashSlashReason<BlockNumber> {
     RentedReportOffline(BlockNumber),
     /// 主动报告在线的机器下线
     OnlineReportOffline(BlockNumber),
+    /// 机器被租用，但被举报有无法访问的故障
+    RentedInaccessible(BlockNumber),
+    /// 机器被租用，但被举报有硬件故障
+    RentedHardwareMalfunction(BlockNumber),
+    /// 机器被租用，但被举报硬件参数造假
+    RentedHardwareCounterfeit(BlockNumber),
+    /// 机器是在线状态，但无法租用
+    OnlineRentFailed(BlockNumber),
 }
 
 // FIXME: bug
@@ -1105,6 +1113,7 @@ impl<T: Config> Pallet<T> {
             },
             StashSlashReason::OnlineReportOffline(duration) => {
                 let duration = duration.saturated_into::<u64>();
+                // TODO: 空闲超过10天，机器下线， 此时下线机器，没有新的在线奖励，旧的奖励仍然线性释放。
                 match duration {
                     0 => return,
                     1..=14 => {
@@ -1123,6 +1132,92 @@ impl<T: Config> Pallet<T> {
                         // 扣除剩余所有奖励和扣除50%押金。奖励全部进入国库，押金全部进入国库。
                         Self::do_n_days_slash(machine_id.clone(), None, None);
                         // TODO: 扣除50%押金
+                    },
+                }
+            },
+            StashSlashReason::RentedInaccessible(duration) => {
+                let duration = duration.saturated_into::<u64>();
+                match duration {
+                    0 => return,
+                    1..=14 => {
+                        // 不超过7分钟，扣除4天剩余奖励。100%进入国库
+                        Self::do_n_days_slash(machine_id.clone(), Some(4), None);
+                    },
+                    15..=5760 => {
+                        // 不超过48小时，扣除8天剩余奖励。100%进入国库。
+                        Self::do_n_days_slash(machine_id.clone(), Some(8), None)
+                    },
+                    5761..=28800 => {
+                        // 奖励30%给到用户，奖励20%给到验证人，50%进入国库
+                        // TODO: 增加惩罚函数
+                    },
+                    _ => {
+                        // 扣除所有剩余奖励。奖励30%给到用户，奖励20%给到验证人，50%进入国库
+                        // TODO: 如果机器从首次上线时间起超过365天，剩下50%押金可以申请退回。
+                    },
+                }
+            },
+            StashSlashReason::RentedHardwareMalfunction(duration) => {
+                let duration = duration.saturated_into::<u64>();
+                match duration {
+                    0 => return,
+                    1..=480 => {
+                        // 下线不超过4小时，则扣除8天剩余奖励。奖励30%给到用户，奖励20%给到验证人，50%进入国库。
+                    },
+                    481..=2880 => {
+                        // 扣除12天剩余奖励，奖励30%给到用户，奖励20%给到验证人，50%进入国库。
+                    },
+                    2881..=14400 => {
+                        // 则扣除16天剩余奖励。奖励30%给到用户，奖励20%给到验证人，50%进入国库
+                    },
+                    _ => {
+                        // 则扣除剩余所有奖励和扣除50%押金，奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                        // 如果机器从首次上线时间起超过365天，剩下50%押金可以申请退回
+                    },
+                }
+            },
+            StashSlashReason::RentedHardwareCounterfeit(duration) => {
+                let duration = duration.saturated_into::<u64>();
+                match duration {
+                    0 => return,
+                    1..=480 => {
+                        // 不超过4个小时
+                        // 扣除8天剩余奖励和扣除1%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库
+                    },
+                    481..=2880 => {
+                        // 除12天剩余奖励和扣除1%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库
+                    },
+                    2881..=5760 => {
+                        // 扣除16天剩余奖励和扣除2%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                    },
+                    5761..=14400 => {
+                        // 扣除剩余所有奖励和扣除2%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                    },
+                    _ => {
+                        // 扣除剩余所有奖励和扣除50%押金，奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                        // 如果机器从首次上线时间起超过365天，剩下50%押金可以申请退回。
+                    },
+                }
+            },
+            StashSlashReason::OnlineRentFailed(duration) => {
+                let duration = duration.saturated_into::<u64>();
+                match duration {
+                    0 => return,
+                    1..=480 => {
+                        // 不超过4小时，没有新的在线奖励，则扣除8天剩余奖励和扣除1%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库
+                    },
+                    481..=2880 => {
+                        // 扣除12天剩余奖励和扣除1%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库
+                    },
+                    2881..=5760 => {
+                        // 扣除16天剩余奖励和扣除2%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                    },
+                    5761..=14400 => {
+                        // 扣除剩余所有奖励和扣除2%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                    },
+                    _ => {
+                        //扣除剩余所有奖励和扣除50%押金，奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                        // 如果机器从首次上线时间起超过365天，剩下50%押金可以申请退回。
                     },
                 }
             },
