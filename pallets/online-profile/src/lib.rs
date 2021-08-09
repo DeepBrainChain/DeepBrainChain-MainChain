@@ -91,11 +91,13 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub machine_stash: AccountId,
     /// 最近的机器的租用者
     pub last_machine_renter: Option<AccountId>,
+    /// 最后一次重新质押时间(每365天允许重新质押一次)
+    pub last_machine_restake: BlockNumber,
     /// 记录机器第一次绑定上线的时间
     pub bonding_height: BlockNumber,
     /// 机器第一次Online时间
     pub online_height: BlockNumber,
-    /// 机器最近一次上线时间
+    /// 机器最近一次上线时间，当从Rented变为Online，也许要改变该变量
     pub last_online_height: BlockNumber,
     /// 该机器质押数量
     pub stake_amount: Balance,
@@ -843,6 +845,7 @@ pub mod pallet {
             machine_info.online_height = now;
             machine_info.last_online_height = now;
             machine_info.reward_deadline = current_era + REWARD_DURATION;
+            machine_info.last_machine_restake = now;
 
             // TODO: 将这个改到update_snap_by_online_status中
             Self::change_pos_gpu_by_online(&machine_id, true);
@@ -1034,12 +1037,32 @@ pub mod pallet {
         }
 
         /// 满足365天可以申请重新质押，退回质押币
-        ///
         /// 在系统中上线满365天之后，可以按当时机器需要的质押数量，重新入网。多余的币解绑
         /// 在重新上线之后，下次再执行本操作，需要等待365天
         #[pallet::weight(10000)]
-        pub fn rebond_online_machine(origin: OriginFor<T>, _machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let _controller = ensure_signed(origin)?;
+        pub fn rebond_online_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+            let one_year = 1051200u32; // 365 * 2880
+            let mut machine_info = Self::machines_info(&machine_id);
+
+            ensure!(controller == machine_info.controller, Error::<T>::NotMachineController);
+            ensure!(now - machine_info.last_machine_restake >= one_year.into(), Error::<T>::TooFastToReStake);
+
+            // 计算现在需要多少质押
+            let stake_need = Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num)
+                .ok_or(Error::<T>::CalcStakeAmountFailed)?;
+            ensure!(machine_info.stake_amount > stake_need, Error::<T>::NoStakeToReduce);
+
+            if let Some(extra_stake) = machine_info.stake_amount.checked_sub(&stake_need) {
+                machine_info.stake_amount = stake_need;
+                machine_info.last_machine_restake = now;
+                if Self::reduce_user_total_stake(&machine_info.machine_stash, extra_stake).is_err() {
+                    return Err(Error::<T>::ReduceStakeFailed.into())
+                }
+                MachinesInfo::<T>::insert(&machine_id, machine_info);
+            }
+
             Ok(().into())
         }
     }
@@ -1075,6 +1098,9 @@ pub mod pallet {
         CannotOnlineTwiceOneDay,
         ServerRoomNotFound,
         NotMachineStash,
+        TooFastToReStake,
+        NoStakeToReduce,
+        ReduceStakeFailed,
     }
 }
 
@@ -1327,6 +1353,7 @@ impl<T: Config> Pallet<T> {
         let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
         let mut live_machines = Self::live_machines();
         let mut sys_info = Self::sys_info();
+        let now = <frame_system::Module<T>>::block_number();
 
         LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &committee_upload_info.machine_id);
 
@@ -1342,6 +1369,8 @@ impl<T: Config> Pallet<T> {
                 machine_info.stake_amount = stake_need;
                 machine_info.machine_status = MachineStatus::Online;
                 sys_info.total_stake += extra_stake;
+                machine_info.last_machine_restake = now;
+                machine_info.last_online_height = now;
             } else {
                 LiveMachine::add_machine_id(
                     &mut live_machines.fulfilling_machine,
@@ -2024,6 +2053,7 @@ impl<T: Config> LCOps for Pallet<T> {
                 machine_info.online_height = now;
                 machine_info.last_online_height = now;
                 machine_info.reward_deadline = current_era + REWARD_DURATION;
+                machine_info.last_machine_restake = now;
 
                 sys_info.total_stake += extra_stake;
             } else {

@@ -46,6 +46,7 @@
     "controller": "AccountId",
     "machine_stash": "AccountId",
     "last_machine_renter": "Option<AccountId>",
+    "last_machine_restake": "BlockNumber",
     "bonding_height": "BlockNumber",
     "online_height": "BlockNumber",
     "last_online_height": "BlockNumber",
