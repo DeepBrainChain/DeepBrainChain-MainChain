@@ -12,7 +12,6 @@ members = [
     'testing',
     'pallets/dbc-staking',
     'pallets/generic-func',
-    'pallets/dbc-testing',
     'pallets/dbc-price-ocw',
     'pallets/online-profile',
     'pallets/online-profile/rpc',

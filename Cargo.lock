@@ -1350,31 +1350,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dbc-testing"
-version = "0.1.0"
-dependencies = [
- "bs58",
- "dbc-staking",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "pallet-session",
- "pallet-staking-reward-curve 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
- "pallet-timestamp",
- "pallet-treasury",
- "parity-scale-codec",
- "phase-reward",
- "serde",
- "sp-arithmetic",
- "sp-consensus-babe",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-std",
-]
-
-[[package]]
 name = "derive_more"
 version = "0.99.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4185,7 +4160,6 @@ dependencies = [
  "committee-runtime-api",
  "dbc-price-ocw",
  "dbc-staking",
- "dbc-testing",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",

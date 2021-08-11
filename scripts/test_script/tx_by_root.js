@@ -8,6 +8,10 @@ async function main() {
   // 读取参数
   const args = minimist(process.argv.slice(2), { string: ["strinfo", "key"] });
 
+  if (args.hasOwnProperty("strinfo")) {
+    args._.push(args["strinfo"]);
+  }
+
   // 构建连接
   const wsProvider = new WsProvider(args["port"]);
   const type_path = fs.readFileSync(args["type-file"]);
@@ -28,9 +32,7 @@ async function main() {
   // 读取密钥 type: sr25519, ssFormat: 42 (defaults)
   const keyring = new Keyring({ type: "sr25519" });
   // const accountFromKeyring = keyring.createFromUri(args["key"]); // 从助记词生成账户
-  const adminPair = keyring.addFromUri(
-    "0xe995d90490db0dde3a97000053f6d7fcb10ab454d3e31b17ead030cbdd8313cc"
-  ); // 从私钥生成账户对
+  const adminPair = keyring.addFromUri(args["key"]); // 从私钥生成账户对
 
   // 创建方法map
   var funcMap = {};
@@ -56,6 +58,9 @@ async function main() {
     api.tx.onlineProfile.setStakeUsdLimit;
   funcMap["onlineProfile"]["setStandardGpuPointPrice"] =
     api.tx.onlineProfile.setStandardGpuPointPrice;
+
+  funcMap["onlineProfile"]["rootAddSysInfo"] =
+    api.tx.onlineProfile.rootAddSysInfo;
 
   funcMap["rentMachine"] = {};
   funcMap["rentMachine"]["setRentPot"] = api.tx.rentMachine.setRentPot;
