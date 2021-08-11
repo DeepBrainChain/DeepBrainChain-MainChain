@@ -6,7 +6,7 @@ import { createTestKeyring } from "@polkadot/keyring/testing";
 
 async function main() {
   // 读取参数
-  const args = minimist(process.argv.slice(2));
+  const args = minimist(process.argv.slice(2), { string: ["strinfo", "key"] });
 
   // 构建连接
   const wsProvider = new WsProvider(args["port"]);
@@ -22,8 +22,15 @@ async function main() {
     rpc: rpc_json,
   });
 
-  const keyring = createTestKeyring();
-  const adminPair = keyring.getPairs()[0];
+  // const keyring = createTestKeyring();
+  // const adminPair = keyring.getPairs()[0];
+
+  // 读取密钥 type: sr25519, ssFormat: 42 (defaults)
+  const keyring = new Keyring({ type: "sr25519" });
+  // const accountFromKeyring = keyring.createFromUri(args["key"]); // 从助记词生成账户
+  const adminPair = keyring.addFromUri(
+    "0xe995d90490db0dde3a97000053f6d7fcb10ab454d3e31b17ead030cbdd8313cc"
+  ); // 从私钥生成账户对
 
   // 创建方法map
   var funcMap = {};
@@ -31,7 +38,8 @@ async function main() {
   funcMap["dbcPriceOcw"]["addPriceUrl"] = api.tx.dbcPriceOcw.addPriceUrl;
 
   funcMap["committee"] = {};
-  funcMap["committee"]["setStakedUsdPerOrder"] = api.tx.committee.setStakedUsdPerOrder;
+  funcMap["committee"]["setStakedUsdPerOrder"] =
+    api.tx.committee.setStakedUsdPerOrder;
   funcMap["committee"]["addCommittee"] = api.tx.committee.addCommittee;
 
   funcMap["leaseCommittee"] = {};
@@ -40,10 +48,14 @@ async function main() {
 
   funcMap["onlineProfile"] = {};
   funcMap["onlineProfile"]["setGpuStake"] = api.tx.onlineProfile.setGpuStake;
-  funcMap["onlineProfile"]["setRewardStartEra"] = api.tx.onlineProfile.setRewardStartEra;
-  funcMap["onlineProfile"]["setPhaseNRewardPerEra"] = api.tx.onlineProfile.setPhaseNRewardPerEra;
-  funcMap["onlineProfile"]["setStakeUsdLimit"] = api.tx.onlineProfile.setStakeUsdLimit;
-  funcMap["onlineProfile"]["setStandardGpuPointPrice"] = api.tx.onlineProfile.setStandardGpuPointPrice;
+  funcMap["onlineProfile"]["setRewardStartEra"] =
+    api.tx.onlineProfile.setRewardStartEra;
+  funcMap["onlineProfile"]["setPhaseNRewardPerEra"] =
+    api.tx.onlineProfile.setPhaseNRewardPerEra;
+  funcMap["onlineProfile"]["setStakeUsdLimit"] =
+    api.tx.onlineProfile.setStakeUsdLimit;
+  funcMap["onlineProfile"]["setStandardGpuPointPrice"] =
+    api.tx.onlineProfile.setStandardGpuPointPrice;
 
   funcMap["rentMachine"] = {};
   funcMap["rentMachine"]["setRentPot"] = api.tx.rentMachine.setRentPot;

@@ -306,6 +306,10 @@
     "rent_start": "BlockNumber",
     "confirm_rent": "BlockNumber",
     "rent_end": "BlockNumber",
-    "stake_amount": "Balance"
+    "stake_amount": "Balance",
+    "rent_status": "RentStatus"
+  },
+  "RentStatus": {
+    "_enum": ["WaitingVerifying", "Renting", "RentExpired"]
   }
 }
