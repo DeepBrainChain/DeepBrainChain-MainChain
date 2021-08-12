@@ -198,9 +198,10 @@ pub struct MTCommitteeOpsDetail<BlockNumber, Balance> {
     /// reporter 提交的加密后的信息
     pub encrypted_err_info: Option<Vec<u8>>,
     pub encrypted_time: BlockNumber,
-    pub confirm_hash: [u8; 16],
+    pub confirm_hash: ReportHash,
     pub hash_time: BlockNumber,
-    pub confirm_raw: Vec<u8>,
+    /// 委员会可以补充额外的信息
+    pub extra_err_info: Vec<u8>,
     /// 委员会提交raw信息的时间
     pub confirm_time: BlockNumber,
     pub confirm_result: bool,
@@ -570,6 +571,7 @@ pub mod pallet {
             reporter_rand_str: Vec<u8>,
             committee_rand_str: Vec<u8>,
             err_reason: Vec<u8>,
+            extra_err_info: Vec<u8>,
             support_report: bool,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
@@ -614,6 +616,7 @@ pub mod pallet {
             let is_support: Vec<u8> = if support_report { "1".into() } else { "0".into() };
             committee_report_raw.extend(is_support);
             committee_report_raw.extend(err_reason.clone());
+            committee_report_raw.extend(extra_err_info.clone());
             let committee_report_hash = Self::get_hash(&committee_report_raw);
             ensure!(committee_report_hash == committee_ops.confirm_hash, Error::<T>::NotEqualCommitteeSubmit);
 
@@ -632,6 +635,7 @@ pub mod pallet {
             report_info.err_info = err_reason;
             committee_ops.confirm_time = now;
             committee_ops.confirm_result = support_report;
+            committee_ops.extra_err_info = extra_err_info;
 
             // 判断是否订阅的用户全部提交了Raw，如果是则进入下一阶段
             if report_info.hashed_committee.len() == report_info.confirmed_committee.len() {
