@@ -250,6 +250,7 @@ pub mod pallet {
             // 每个块检查状态是否需要变化。
             // 抢单逻辑不能在finalize中处理，防止一个块有多个抢单请求
             Self::heart_beat();
+            Self::summary_offline_case();
             // Self::check_and_exec_slash();
         }
     }
@@ -642,6 +643,50 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        /// 委员会对offline machine提交信息
+        #[pallet::weight(10000)]
+        pub fn submit_offline_report_confirmation(
+            origin: OriginFor<T>,
+            report_id: ReportId,
+            is_support: bool,
+        ) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+            let mut report_info = Self::report_info(report_id);
+            let mut committee_ops = Self::committee_ops(&committee, report_id);
+
+            if report_info.booked_committee.binary_search(&committee).is_err() {
+                return Err(Error::<T>::NotOrderCommittee.into())
+            }
+
+            // 应该还没提交过
+            ensure!(committee_ops.confirm_time == 0u32.into(), Error::<T>::AlreadySubmitConfirmation);
+            committee_ops.confirm_time = now;
+            committee_ops.confirm_result = is_support;
+            committee_ops.order_status = MTOrderStatus::Finished;
+
+            // 必须在第一个人报告后5分钟内完成提交
+            ensure!(now - report_info.first_book_time <= 10u32.into(), Error::<T>::ExpiredReport);
+
+            if let Err(index) = report_info.confirmed_committee.binary_search(&committee) {
+                report_info.confirmed_committee.insert(index, committee.clone());
+                if is_support {
+                    if let Err(index) = report_info.support_committee.binary_search(&committee) {
+                        report_info.support_committee.insert(index, committee.clone());
+                    }
+                } else {
+                    if let Err(index) = report_info.against_committee.binary_search(&committee) {
+                        report_info.against_committee.insert(index, committee.clone());
+                    }
+                }
+            }
+
+            CommitteeOps::<T>::insert(&committee, report_id, committee_ops);
+            ReportInfo::<T>::insert(&report_id, report_info);
+
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -669,6 +714,8 @@ pub mod pallet {
         ReduceTotalStakeFailed,
         PayTxFeeFailed,
         NotNeedEncryptedInfo,
+        ExpiredReport,
+        AlreadySubmitConfirmation,
     }
 }
 
@@ -808,6 +855,28 @@ impl<T: Config> Pallet<T> {
         }
 
         return ReportConfirmStatus::Refuse(report_info.support_committee, report_info.against_committee)
+    }
+
+    fn summary_offline_case() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+        let mut live_report = Self::live_report();
+
+        for report_id in live_report.bookable_report {
+            let report_info = Self::report_info(&report_id);
+            match report_info.machine_fault_type {
+                // 仅处理Offline的情况
+                MachineFaultType::MachineOffline(..) => {},
+                _ => continue,
+            }
+
+            if now - report_info.first_book_time < 10u32.into() && report_info.confirmed_committee.len() < 3 {
+                continue
+            }
+
+            // TODO: 根据情况记录总结情况，并调用惩罚函数
+        }
+
+        Ok(())
     }
 
     fn heart_beat() -> Result<(), ()> {
