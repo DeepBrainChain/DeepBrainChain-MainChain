@@ -24,11 +24,8 @@ raw_info = json.loads(
     """
 )
 
-is_support = "1"  # 支持传1，不支持传0
-
-rand_str1 = "abcdefg1"
-rand_str2 = "abcdefg2"
-rand_str3 = "abcdefg3"
+# NOTE: 支持传1，不支持传0
+is_support = "1"
 
 raw_input0 = (
     raw_info["machine_id"]
@@ -45,19 +42,12 @@ raw_input0 = (
     + str(raw_info["mem_num"])
 )
 
-print("############################\t", raw_info["machine_id"])
+print("########## MachineId: \t", raw_info["machine_id"])
 
-raw_input1 = raw_input0 + rand_str1 + is_support
-h = blake2b(digest_size=16)
-h.update(raw_input1.encode())
-print("0x" + h.hexdigest())
-
-raw_input2 = raw_input0 + rand_str2 + is_support
-h = blake2b(digest_size=16)
-h.update(raw_input2.encode())
-print("0x" + h.hexdigest())
-
-raw_input3 = raw_input0 + rand_str3 + is_support
-h = blake2b(digest_size=16)
-h.update(raw_input3.encode())
-print("0x" + h.hexdigest())
+for i in [1, 2, 3]:
+    # NOTE: 如果想更改随机字符串，修改rand_str即可
+    rand_str = "abcdefg" + str(i)
+    raw_input1 = raw_input0 + rand_str + is_support
+    h = blake2b(digest_size=16)
+    h.update(raw_input1.encode())
+    print("Committee" + str(i) + "\t0x" + h.hexdigest())
