@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 300,
+    spec_version: 311,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -1182,6 +1182,15 @@ impl_runtime_apis! {
         fn get_machine_era_released_reward(machine_id: online_profile::MachineId, era_index: online_profile::EraIndex) -> Balance {
             OnlineProfile::get_machine_era_released_reward(machine_id, era_index)
         }
+
+        fn get_stash_era_reward(stash: AccountId, era_index: online_profile::EraIndex) -> Balance {
+            OnlineProfile::get_stash_era_reward(stash, era_index)
+        }
+
+        fn get_stash_era_released_reward(stash: AccountId, era_index: online_profile::EraIndex) -> Balance {
+            OnlineProfile::get_stash_era_released_reward(stash, era_index)
+        }
+
     }
 
     impl simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance> for Runtime {

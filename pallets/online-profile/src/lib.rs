@@ -425,6 +425,18 @@ pub mod pallet {
     pub(super) type ErasMachineReleasedReward<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, MachineId, BalanceOf<T>, ValueQuery>;
 
+    /// 某个Era Stash获得的总奖励
+    #[pallet::storage]
+    #[pallet::getter(fn eras_stash_reward)]
+    pub(super) type ErasStashReward<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+
+    /// 某个Era Stash解锁的总奖励
+    #[pallet::storage]
+    #[pallet::getter(fn eras_stash_released_reward)]
+    pub(super) type ErasStashReleasedReward<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+
     /// 第一阶段每Era奖励DBC数量
     #[pallet::storage]
     #[pallet::getter(fn phase_0_reward_per_era)]
@@ -995,12 +1007,16 @@ pub mod pallet {
                         Self::slash_when_report_offline(
                             machine_id.clone(),
                             StashSlashReason::RentedReportOffline(offline_duration),
+                            None,
+                            None,
                         );
                     },
                     MachineStatus::Online => {
                         Self::slash_when_report_offline(
                             machine_id.clone(),
                             StashSlashReason::OnlineReportOffline(offline_duration),
+                            None,
+                            None,
                         );
                     },
                     _ => {},
@@ -1106,7 +1122,12 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     // Slash n days
-    fn slash_when_report_offline(machine_id: MachineId, slash_reason: StashSlashReason<T::BlockNumber>) {
+    fn slash_when_report_offline(
+        machine_id: MachineId,
+        slash_reason: StashSlashReason<T::BlockNumber>,
+        reporter: Option<T::AccountId>,
+        committee: Option<Vec<T::AccountId>>,
+    ) {
         let machine_info = Self::machines_info(&machine_id);
 
         // 想完全惩罚某个Era，将那个Era机器得分变成0，而系统总得分不能改变
@@ -1120,19 +1141,19 @@ impl<T: Config> Pallet<T> {
                     0 => return,
                     1..=14 => {
                         // 不超过7分钟，扣除2天奖励，100%进入国库
-                        Self::do_n_days_slash(machine_id.clone(), Some(2), None);
+                        Self::do_n_days_slash(machine_id.clone(), Some(2), None, None);
                     },
                     15..=5760 => {
                         // 不超过48小时，扣除4天剩余奖励。100%进入国库
-                        Self::do_n_days_slash(machine_id.clone(), Some(4), None);
+                        Self::do_n_days_slash(machine_id.clone(), Some(4), None, None);
                     },
                     5761..=14400 => {
                         // 不超过120小时，扣除所有剩余奖励。奖励50%给到用户，50%进入国库
-                        Self::do_n_days_slash(machine_id.clone(), None, machine_info.last_machine_renter.clone());
+                        Self::do_n_days_slash(machine_id.clone(), None, machine_info.last_machine_renter.clone(), None);
                     },
                     _ => {
                         // 扣除剩余所有奖励和扣除50%押金。奖励50%给到用户，50%进入国库，押金全部进入国库
-                        Self::do_n_days_slash(machine_id.clone(), None, machine_info.last_machine_renter.clone());
+                        Self::do_n_days_slash(machine_id.clone(), None, machine_info.last_machine_renter.clone(), None);
                         // TODO: 扣除50%押金
                     },
                 }
@@ -1144,54 +1165,60 @@ impl<T: Config> Pallet<T> {
                     0 => return,
                     1..=14 => {
                         // 不超过7分钟，扣除2天剩余奖励。奖励全部进入国库。
-                        Self::do_n_days_slash(machine_id.clone(), Some(2), None);
+                        Self::do_n_days_slash(machine_id.clone(), Some(2), None, None);
                     },
                     15..=5760 => {
                         // 不超过48小时，扣除4天剩余奖励。100%进入国库。
-                        Self::do_n_days_slash(machine_id.clone(), Some(4), None);
+                        Self::do_n_days_slash(machine_id.clone(), Some(4), None, None);
                     },
                     5761..=28800 => {
                         // 不超过240小时，扣除所有剩余奖励。100%进入国库。
-                        Self::do_n_days_slash(machine_id.clone(), None, None);
+                        Self::do_n_days_slash(machine_id.clone(), None, None, None);
                     },
                     _ => {
                         // 扣除剩余所有奖励和扣除50%押金。奖励全部进入国库，押金全部进入国库。
-                        Self::do_n_days_slash(machine_id.clone(), None, None);
+                        Self::do_n_days_slash(machine_id.clone(), None, None, None);
                         // TODO: 扣除50%押金
                     },
                 }
             },
+            // 机器处于租用状态，无法访问
             StashSlashReason::RentedInaccessible(duration) => {
                 let duration = duration.saturated_into::<u64>();
                 match duration {
                     0 => return,
                     1..=14 => {
                         // 不超过7分钟，扣除4天剩余奖励。100%进入国库
-                        Self::do_n_days_slash(machine_id.clone(), Some(4), None);
+                        Self::do_n_days_slash(machine_id.clone(), Some(4), None, None);
                     },
                     15..=5760 => {
                         // 不超过48小时，扣除8天剩余奖励。100%进入国库。
-                        Self::do_n_days_slash(machine_id.clone(), Some(8), None)
+                        Self::do_n_days_slash(machine_id.clone(), Some(8), None, None)
                     },
                     5761..=28800 => {
-                        // 奖励30%给到用户，奖励20%给到验证人，50%进入国库
+                        // [48,120]，扣除所有剩余奖励。奖励30%给到用户，奖励20%给到验证人，50%进入国库
                         // TODO: 增加惩罚函数
+                        Self::do_n_days_slash(machine_id.clone(), None, reporter, committee)
                     },
                     _ => {
-                        // 扣除所有剩余奖励。奖励30%给到用户，奖励20%给到验证人，50%进入国库
+                        // 扣除所有剩余奖励和扣除50%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库
                         // TODO: 如果机器从首次上线时间起超过365天，剩下50%押金可以申请退回。
+                        Self::do_n_days_slash(machine_id.clone(), None, reporter, committee)
                     },
                 }
             },
+            // 机器处于租用状态，机器出现故障
             StashSlashReason::RentedHardwareMalfunction(duration) => {
                 let duration = duration.saturated_into::<u64>();
                 match duration {
                     0 => return,
                     1..=480 => {
                         // 下线不超过4小时，则扣除8天剩余奖励。奖励30%给到用户，奖励20%给到验证人，50%进入国库。
+                        Self::do_n_days_slash(machine_id.clone(), Some(8), reporter, committee)
                     },
                     481..=2880 => {
                         // 扣除12天剩余奖励，奖励30%给到用户，奖励20%给到验证人，50%进入国库。
+                        Self::do_n_days_slash(machine_id.clone(), Some(8), reporter, committee)
                     },
                     2881..=14400 => {
                         // 则扣除16天剩余奖励。奖励30%给到用户，奖励20%给到验证人，50%进入国库
@@ -1215,13 +1242,19 @@ impl<T: Config> Pallet<T> {
                     },
                     2881..=5760 => {
                         // 扣除16天剩余奖励和扣除2%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                        Self::do_slash_deposit(Perbill::from_rational_approximation(2u32, 100), machine_id.clone());
+                        Self::do_n_days_slash(machine_id, Some(16), reporter, committee);
                     },
                     5761..=14400 => {
                         // 扣除剩余所有奖励和扣除2%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                        Self::do_slash_deposit(Perbill::from_rational_approximation(2u32, 100), machine_id.clone());
+                        Self::do_n_days_slash(machine_id, None, reporter, committee);
                     },
                     _ => {
                         // 扣除剩余所有奖励和扣除50%押金，奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
                         // 如果机器从首次上线时间起超过365天，剩下50%押金可以申请退回。
+                        Self::do_slash_deposit(Perbill::from_rational_approximation(50u32, 100), machine_id.clone());
+                        Self::do_n_days_slash(machine_id, None, reporter, committee);
                     },
                 }
             },
@@ -1231,19 +1264,28 @@ impl<T: Config> Pallet<T> {
                     0 => return,
                     1..=480 => {
                         // 不超过4小时，没有新的在线奖励，则扣除8天剩余奖励和扣除1%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库
+                        Self::do_n_days_slash(machine_id, Some(8), reporter, committee);
                     },
                     481..=2880 => {
                         // 扣除12天剩余奖励和扣除1%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库
+                        Self::do_slash_deposit(Perbill::from_rational_approximation(1u32, 100), machine_id.clone());
+                        Self::do_n_days_slash(machine_id, Some(12), reporter, committee);
                     },
                     2881..=5760 => {
                         // 扣除16天剩余奖励和扣除2%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                        Self::do_slash_deposit(Perbill::from_rational_approximation(2u32, 100), machine_id.clone());
+                        Self::do_n_days_slash(machine_id, Some(16), reporter, committee);
                     },
                     5761..=14400 => {
                         // 扣除剩余所有奖励和扣除2%押金。奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
+                        Self::do_slash_deposit(Perbill::from_rational_approximation(2u32, 100), machine_id.clone());
+                        Self::do_n_days_slash(machine_id, None, reporter, committee);
                     },
                     _ => {
                         //扣除剩余所有奖励和扣除50%押金，奖励30%给到用户，奖励20%给到验证人，50%进入国库，押金全部进入国库。
                         // 如果机器从首次上线时间起超过365天，剩下50%押金可以申请退回。
+                        Self::do_slash_deposit(Perbill::from_rational_approximation(50u32, 100), machine_id.clone());
+                        Self::do_n_days_slash(machine_id, None, reporter, committee);
                     },
                 }
             },
@@ -1252,7 +1294,12 @@ impl<T: Config> Pallet<T> {
 
     // 如果reward_to 为None，则全部给到国库
     // 如果n_days 为 None，则惩罚150天
-    fn do_n_days_slash(machine_id: MachineId, n_days: Option<u32>, reward_to: Option<T::AccountId>) {
+    fn do_n_days_slash(
+        machine_id: MachineId,
+        n_days: Option<u32>,
+        reward_reporter: Option<T::AccountId>,
+        reward_committee: Option<Vec<T::AccountId>>,
+    ) {
         let current_era = Self::current_era() as u64;
         let mut slashing_era = current_era;
 
@@ -1311,7 +1358,7 @@ impl<T: Config> Pallet<T> {
 
                     left_reward -= reward_to_committee;
                 } else {
-                    if let Some(reward_to_whom) = reward_to.clone() {
+                    if let Some(reward_to_whom) = reward_reporter.clone() {
                         left_reward = Perbill::from_rational_approximation(1u32, 2u32) * left_reward;
                         if <T as pallet::Config>::Currency::deposit_into_existing(&reward_to_whom, left_reward).is_err()
                         {
@@ -1335,6 +1382,31 @@ impl<T: Config> Pallet<T> {
 
             slashing_era -= 1;
             left_slash -= 1;
+        }
+    }
+
+    // 惩罚掉机器押金，如果执行惩罚后机器押金不够，则状态变为补充质押
+    fn do_slash_deposit(percent: Perbill, machine_id: MachineId) {
+        let machine_info = Self::machines_info(&machine_id);
+        // 当前机器需要的质押数量
+        let stake_need =
+            Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num).unwrap(); // TODO: handle error
+
+        // 惩罚的质押数量
+        let slash_amount = percent * machine_info.stake_amount;
+
+        // 添加惩罚
+        <T as pallet::Config>::ManageCommittee::add_slash(machine_info.machine_stash.clone(), slash_amount, vec![]);
+
+        // 机器质押不够时，将机器下线，并需要补充质押
+        if stake_need > machine_info.stake_amount {
+            // 将机器下线，执行下线逻辑
+            Self::machine_offline(machine_id.clone());
+
+            let mut machine_info = Self::machines_info(&machine_id);
+            machine_info.stake_amount -= slash_amount;
+            machine_info.machine_status = MachineStatus::WaitingFulfill;
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
         }
     }
 
@@ -1437,7 +1509,7 @@ impl<T: Config> Pallet<T> {
         Self::update_snap_by_online_status(machine_id.clone(), false);
 
         LiveMachine::rm_machine_id(&mut live_machine.online_machine, &machine_id);
-        LiveMachine::add_machine_id(&mut live_machine.refused_machine, machine_id.clone());
+        LiveMachine::add_machine_id(&mut live_machine.offline_machine, machine_id.clone());
 
         // After re-online, machine status is same as former
         machine_info.machine_status = MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status));
@@ -1907,7 +1979,11 @@ impl<T: Config> Pallet<T> {
                         // 记录剩余的75%奖励
                         stash_machine.linear_release_reward[reward_linear_index] += linear_reward_part;
 
+                        // FIXME: 考虑1%给委员会的部分
                         ErasMachineReward::<T>::insert(current_era, &machine_id, machine_total_reward);
+                        ErasStashReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
+                            *old_value + machine_total_reward
+                        });
 
                         machine_total_reward - linear_reward_part
                     } else {
@@ -1923,6 +1999,9 @@ impl<T: Config> Pallet<T> {
                         }
 
                         ErasMachineReleasedReward::<T>::mutate(&current_era, &machine_id, |old_value| {
+                            *old_value + release_now
+                        });
+                        ErasStashReleasedReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
                             *old_value + release_now
                         });
                     } else {
@@ -1960,6 +2039,9 @@ impl<T: Config> Pallet<T> {
 
                         ErasMachineReleasedReward::<T>::mutate(&current_era, &machine_id, |old_value| {
                             *old_value + release_to_stash
+                        });
+                        ErasStashReleasedReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
+                            *old_value + release_now
                         });
 
                         // 剩下分给committee
@@ -2301,5 +2383,15 @@ impl<T: Config> Module<T> {
     /// 获得某个机器某个Era实际奖励数量
     pub fn get_machine_era_released_reward(machine_id: MachineId, era_index: EraIndex) -> BalanceOf<T> {
         Self::eras_machine_released_reward(era_index, machine_id)
+    }
+
+    /// 获得某个Stash账户某个Era获得的奖励数量
+    pub fn get_stash_era_reward(stash: T::AccountId, era_index: EraIndex) -> BalanceOf<T> {
+        Self::eras_stash_reward(era_index, stash)
+    }
+
+    /// 获得某个Stash账户某个Era实际解锁的奖励数量
+    pub fn get_stash_era_released_reward(stash: T::AccountId, era_index: EraIndex) -> BalanceOf<T> {
+        Self::eras_stash_released_reward(era_index, stash)
     }
 }

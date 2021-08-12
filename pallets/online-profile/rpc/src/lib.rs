@@ -62,6 +62,22 @@ where
         era_index: EraIndex,
         at: Option<BlockHash>,
     ) -> Result<RpcBalance<Balance>>;
+
+    #[rpc(name = "onlineProfile_getStashEraReward")]
+    fn get_stash_era_reward(
+        &self,
+        stash: AccountId,
+        era_index: EraIndex,
+        at: Option<BlockHash>,
+    ) -> Result<RpcBalance<Balance>>;
+
+    #[rpc(name = "onlineProfile_getStashEraReleasedReward")]
+    fn get_stash_era_released_reward(
+        &self,
+        stash: AccountId,
+        era_index: EraIndex,
+        at: Option<BlockHash>,
+    ) -> Result<RpcBalance<Balance>>;
 }
 
 pub struct OpStorage<C, M> {
@@ -242,6 +258,40 @@ where
 
         let runtime_api_result =
             api.get_machine_era_released_reward(&at, machine_id, era_index).map(|balance| balance.into());
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_stash_era_reward(
+        &self,
+        stash: AccountId,
+        era_index: EraIndex,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<RpcBalance<Balance>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_stash_era_reward(&at, stash, era_index).map(|balance| balance.into());
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_stash_era_released_reward(
+        &self,
+        stash: AccountId,
+        era_index: EraIndex,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<RpcBalance<Balance>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_stash_era_released_reward(&at, stash, era_index).map(|balance| balance.into());
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),
