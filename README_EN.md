@@ -35,7 +35,7 @@ If you have some DBC and want to get more, you can choose to **become a `validat
 
 #### How to be a `norminator`
 
-[How to nominate on DBC](docs/staking_dbc_and_voting.md) -- stake DBC，be a Nominator to get rewards
+[How to nominate on DBC](docs/staking_dbc_and_voting_EN.md) -- stake DBC，be a Nominator to get rewards
 
 
 #### How to be a `validator`
