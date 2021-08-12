@@ -3,6 +3,7 @@
   "ReportId": "u64",
   "SlashId": "u64",
   "BoxPubkey": "[u8; 32]",
+  "ReportHash": "[u8; 16]",
   "StandardGpuPointPrice": {
     "gpu_point": "u64",
     "gpu_price": "u64"
@@ -277,9 +278,7 @@
     "support_committee": "Vec<AccountId>",
     "against_committee": "Vec<AccountId>",
     "report_status": "ReportStatus",
-    "machine_fault_type": "MachineFaultType",
-    "reporter_boxpubkey": "BoxPubkey",
-    "reporter_hash": "[u8; 16]"
+    "machine_fault_type": "MachineFaultType"
   },
   "ReportStatus": {
     "_enum": [
@@ -291,7 +290,11 @@
     ]
   },
   "MachineFaultType": {
-    "_enum": ["HardwareFault", "MachineOffline", "MachineUnrentable"]
+    "_enum": {
+      "HardwareFault": "(ReportHash, BoxPubkey)",
+      "MachineOffline": "(ReportHash, BoxPubkey)",
+      "MachineUnrentable": "MachineId"
+    }
   },
   "PendingSlashInfo": {
     "slash_who": "AccountId",

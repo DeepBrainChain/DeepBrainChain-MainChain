@@ -26,4 +26,4 @@ async function main() {
   // console.log(`${u8aToHex(signature)} is ${isValid ? "valid" : "invalid"}`);
 }
 
-main().catch(error => console.log(error.message));
+main().catch((error) => console.log(error.message));
