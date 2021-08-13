@@ -40,8 +40,8 @@ impl<C, M> RmStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, BlockNumber, Balance>
-    RmRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance> for RmStorage<C, Block>
+impl<C, Block, AccountId, BlockNumber, Balance> RmRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance>
+    for RmStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
@@ -62,14 +62,13 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result =
-            api.get_rent_order(&at, renter, machine_id).map(|order_detail| RpcRentOrderDetail {
-                renter: order_detail.renter,
-                rent_start: order_detail.rent_start,
-                confirm_rent: order_detail.confirm_rent,
-                rent_end: order_detail.rent_end,
-                stake_amount: order_detail.stake_amount.into(),
-            });
+        let runtime_api_result = api.get_rent_order(&at, renter, machine_id).map(|order_detail| RpcRentOrderDetail {
+            renter: order_detail.renter,
+            rent_start: order_detail.rent_start,
+            confirm_rent: order_detail.confirm_rent,
+            rent_end: order_detail.rent_end,
+            stake_amount: order_detail.stake_amount.into(),
+        });
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),
@@ -77,11 +76,7 @@ where
         })
     }
 
-    fn get_rent_list(
-        &self,
-        renter: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<MachineId>> {
+    fn get_rent_list(&self, renter: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<MachineId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

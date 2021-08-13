@@ -11,10 +11,7 @@ pub trait LCOps {
     fn lc_booked_machine(id: Self::MachineId);
     fn lc_revert_booked_machine(id: Self::MachineId);
 
-    fn lc_confirm_machine(
-        who: Vec<Self::AccountId>,
-        machine_info: Self::CommitteeUploadInfo,
-    ) -> Result<(), ()>;
+    fn lc_confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo) -> Result<(), ()>;
     fn lc_refuse_machine(machien_id: Self::MachineId) -> Result<(), ()>;
 }
 
@@ -49,11 +46,7 @@ pub trait ManageCommittee {
     fn is_valid_committee(who: &Self::AccountId) -> bool;
 
     fn available_committee() -> Result<Vec<Self::AccountId>, ()>;
-    fn change_stake(
-        controller: &Self::AccountId,
-        amount: Self::BalanceOf,
-        is_add: bool,
-    ) -> Result<(), ()>;
+    fn change_stake(controller: &Self::AccountId, amount: Self::BalanceOf, is_add: bool) -> Result<(), ()>;
     fn stake_per_order() -> Option<Self::BalanceOf>;
     fn add_reward(committee: Self::AccountId, reward: Self::BalanceOf);
     fn add_slash(who: Self::AccountId, amount: Self::BalanceOf, reward_to: Vec<Self::AccountId>);

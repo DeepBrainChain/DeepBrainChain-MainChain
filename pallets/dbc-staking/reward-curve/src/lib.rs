@@ -85,7 +85,7 @@ pub fn build(input: TokenStream) -> TokenStream {
         Ok(sp_runtime) => {
             let ident = syn::Ident::new(&sp_runtime, Span::call_site());
             quote!( extern crate #ident as _sp_runtime; )
-        }
+        },
         Err(e) => syn::Error::new(Span::call_site(), &e).to_compile_error(),
     };
 
@@ -134,10 +134,10 @@ struct Bounds {
 
 impl Bounds {
     fn check(&self, value: u32) -> bool {
-        let wrong = (self.min_strict && value <= self.min)
-            || (!self.min_strict && value < self.min)
-            || (self.max_strict && value >= self.max)
-            || (!self.max_strict && value > self.max);
+        let wrong = (self.min_strict && value <= self.min) ||
+            (!self.min_strict && value < self.min) ||
+            (self.max_strict && value >= self.max) ||
+            (!self.max_strict && value > self.max);
 
         !wrong
     }
@@ -156,10 +156,7 @@ impl core::fmt::Display for Bounds {
     }
 }
 
-fn parse_field<Token: Parse + Default + ToTokens>(
-    input: ParseStream,
-    bounds: Bounds,
-) -> syn::Result<u32> {
+fn parse_field<Token: Parse + Default + ToTokens>(input: ParseStream, bounds: Bounds) -> syn::Result<u32> {
     <Token>::parse(&input)?;
     <syn::Token![:]>::parse(&input)?;
     let value_lit = syn::LitInt::parse(&input)?;
@@ -167,13 +164,8 @@ fn parse_field<Token: Parse + Default + ToTokens>(
     if !bounds.check(value) {
         return Err(syn::Error::new(
             value_lit.span(),
-            format!(
-                "Invalid {}: {},  must be in {}",
-                Token::default().to_token_stream(),
-                value,
-                bounds,
-            ),
-        ));
+            format!("Invalid {}: {},  must be in {}", Token::default().to_token_stream(), value, bounds,),
+        ))
     }
 
     Ok(value)
@@ -194,84 +186,45 @@ impl Parse for INposInput {
         <syn::Token![;]>::parse(&input)?;
 
         if !input.is_empty() {
-            return Err(input.error("expected end of input stream, no token expected"));
+            return Err(input.error("expected end of input stream, no token expected"))
         }
 
         let min_inflation = parse_field::<keyword::min_inflation>(
             &args_input,
-            Bounds {
-                min: 0,
-                min_strict: true,
-                max: 1_000_000,
-                max_strict: false,
-            },
+            Bounds { min: 0, min_strict: true, max: 1_000_000, max_strict: false },
         )?;
         <syn::Token![,]>::parse(&args_input)?;
         let max_inflation = parse_field::<keyword::max_inflation>(
             &args_input,
-            Bounds {
-                min: min_inflation,
-                min_strict: true,
-                max: 1_000_000,
-                max_strict: false,
-            },
+            Bounds { min: min_inflation, min_strict: true, max: 1_000_000, max_strict: false },
         )?;
         <syn::Token![,]>::parse(&args_input)?;
         let ideal_stake = parse_field::<keyword::ideal_stake>(
             &args_input,
-            Bounds {
-                min: 0_100_000,
-                min_strict: false,
-                max: 0_900_000,
-                max_strict: false,
-            },
+            Bounds { min: 0_100_000, min_strict: false, max: 0_900_000, max_strict: false },
         )?;
         <syn::Token![,]>::parse(&args_input)?;
         let falloff = parse_field::<keyword::falloff>(
             &args_input,
-            Bounds {
-                min: 0_010_000,
-                min_strict: false,
-                max: 1_000_000,
-                max_strict: false,
-            },
+            Bounds { min: 0_010_000, min_strict: false, max: 1_000_000, max_strict: false },
         )?;
         <syn::Token![,]>::parse(&args_input)?;
         let max_piece_count = parse_field::<keyword::max_piece_count>(
             &args_input,
-            Bounds {
-                min: 2,
-                min_strict: false,
-                max: 1_000,
-                max_strict: false,
-            },
+            Bounds { min: 2, min_strict: false, max: 1_000, max_strict: false },
         )?;
         <syn::Token![,]>::parse(&args_input)?;
         let test_precision = parse_field::<keyword::test_precision>(
             &args_input,
-            Bounds {
-                min: 0,
-                min_strict: false,
-                max: 1_000_000,
-                max_strict: false,
-            },
+            Bounds { min: 0, min_strict: false, max: 1_000_000, max_strict: false },
         )?;
         <Option<syn::Token![,]>>::parse(&args_input)?;
 
         if !args_input.is_empty() {
-            return Err(args_input.error("expected end of input stream, no token expected"));
+            return Err(args_input.error("expected end of input stream, no token expected"))
         }
 
-        Ok(Self {
-            ident,
-            typ,
-            min_inflation,
-            ideal_stake,
-            max_inflation,
-            falloff,
-            max_piece_count,
-            test_precision,
-        })
+        Ok(Self { ident, typ, min_inflation, ideal_stake, max_inflation, falloff, max_piece_count, test_precision })
     }
 }
 
@@ -287,9 +240,7 @@ impl INPoS {
     fn from_input(input: &INposInput) -> Self {
         INPoS {
             i_0: input.min_inflation,
-            i_ideal: (input.max_inflation as u64 * MILLION as u64 / input.ideal_stake as u64)
-                .try_into()
-                .unwrap(),
+            i_ideal: (input.max_inflation as u64 * MILLION as u64 / input.ideal_stake as u64).try_into().unwrap(),
             i_ideal_times_x_ideal: input.max_inflation,
             x_ideal: input.ideal_stake,
             d: input.falloff,
@@ -301,14 +252,12 @@ impl INPoS {
     // See web3 docs for the details
     fn compute_opposite_after_x_ideal(&self, y: u32) -> u32 {
         if y == self.i_0 {
-            return u32::max_value();
+            return u32::max_value()
         }
         // Note: the log term calculated here represents a per_million value
         let log = log2(self.i_ideal_times_x_ideal - self.i_0, y - self.i_0);
 
-        let term: u32 = ((self.d as u64 * log as u64) / 1_000_000)
-            .try_into()
-            .unwrap();
+        let term: u32 = ((self.d as u64 * log as u64) / 1_000_000).try_into().unwrap();
 
         self.x_ideal + term
     }
@@ -323,8 +272,8 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 
     // For each point p: (next_p.0 - p.0) < segment_length && (next_p.1 - p.1) < segment_length.
     // This ensures that the total number of segment doesn't overflow max_piece_count.
-    let max_length = (input.max_inflation - input.min_inflation + 1_000_000 - inpos.x_ideal)
-        / (input.max_piece_count - 1);
+    let max_length =
+        (input.max_inflation - input.min_inflation + 1_000_000 - inpos.x_ideal) / (input.max_piece_count - 1);
 
     let mut delta_y = max_length;
     let mut y = input.max_inflation;
@@ -336,29 +285,28 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 
         if next_y <= input.min_inflation {
             delta_y = delta_y.saturating_sub(1);
-            continue;
+            continue
         }
 
         let next_x = inpos.compute_opposite_after_x_ideal(next_y);
 
         if (next_x - points.last().unwrap().0) > max_length {
             delta_y = delta_y.saturating_sub(1);
-            continue;
+            continue
         }
 
         if next_x >= 1_000_000 {
             let prev = points.last().unwrap();
             // Compute the y corresponding to x=1_000_000 using the this point and the previous one.
 
-            let delta_y: u32 = ((next_x - 1_000_000) as u64 * (prev.1 - next_y) as u64
-                / (next_x - prev.0) as u64)
+            let delta_y: u32 = ((next_x - 1_000_000) as u64 * (prev.1 - next_y) as u64 / (next_x - prev.0) as u64)
                 .try_into()
                 .unwrap();
 
             let y = next_y + delta_y;
 
             points.push((1_000_000, y));
-            return points;
+            return points
         }
         points.push((next_x, next_y));
         y = next_y;
@@ -424,54 +372,55 @@ fn generate_test_module(input: &INposInput) -> TokenStream2 {
     let max_piece_count = input.max_piece_count;
 
     quote!(
-		#[cfg(test)]
-		mod __pallet_staking_reward_curve_test_module {
-			fn i_npos(x: f64) -> f64 {
-				if x <= #x_ideal {
-					#i_0 + x * (#i_ideal - #i_0 / #x_ideal)
-				} else {
-					#i_0 + (#i_ideal_times_x_ideal - #i_0) * 2_f64.powf((#x_ideal - x) / #d)
-				}
-			}
+        #[cfg(test)]
+        mod __pallet_staking_reward_curve_test_module {
+            fn i_npos(x: f64) -> f64 {
+                if x <= #x_ideal {
+                    #i_0 + x * (#i_ideal - #i_0 / #x_ideal)
+                } else {
+                    #i_0 + (#i_ideal_times_x_ideal - #i_0) * 2_f64.powf((#x_ideal - x) / #d)
+                }
+            }
 
-			const MILLION: u32 = 1_000_000;
+            const MILLION: u32 = 1_000_000;
 
-			#[test]
-			fn reward_curve_precision() {
-				for &base in [MILLION, u32::max_value()].iter() {
-					let number_of_check = 100_000.min(base);
-					for check_index in 0..=number_of_check {
-						let i = (check_index as u64 * base as u64 / number_of_check as u64) as u32;
-						let x = i as f64 / base as f64;
-						let float_res = (i_npos(x) * base as f64).round() as u32;
-						let int_res = super::#ident.calculate_for_fraction_times_denominator(i, base);
-						let err = (
-							(float_res.max(int_res) - float_res.min(int_res)) as u64
-							* MILLION as u64
-							/ float_res as u64
-						) as u32;
-						if err > #precision {
-							panic!(format!("\n\
-								Generated reward curve approximation differ from real one:\n\t\
-								for i = {} and base = {}, f(i/base) * base = {},\n\t\
-								but approximation = {},\n\t\
-								err = {:07} millionth,\n\t\
-								try increase the number of segment: {} or the test_error: {}.\n",
-								i, base, float_res, int_res, err, #max_piece_count, #precision
-							));
-						}
-					}
-				}
-			}
+            #[test]
+            fn reward_curve_precision() {
+                for &base in [MILLION, u32::max_value()].iter() {
+                    let number_of_check = 100_000.min(base);
+                    for check_index in 0..=number_of_check {
+                        let i = (check_index as u64 * base as u64 / number_of_check as u64) as u32;
+                        let x = i as f64 / base as f64;
+                        let float_res = (i_npos(x) * base as f64).round() as u32;
+                        let int_res = super::#ident.calculate_for_fraction_times_denominator(i, base);
+                        let err = (
+                            (float_res.max(int_res) - float_res.min(int_res)) as u64
+                            * MILLION as u64
+                            / float_res as u64
+                        ) as u32;
+                        if err > #precision {
+                            panic!(format!("\n\
+                                Generated reward curve approximation differ from real one:\n\t\
+                                for i = {} and base = {}, f(i/base) * base = {},\n\t\
+                                but approximation = {},\n\t\
+                                err = {:07} millionth,\n\t\
+                                try increase the number of segment: {} or the test_error: {}.\n",
+                                i, base, float_res, int_res, err, #max_piece_count, #precision
+                            ));
+                        }
+                    }
+                }
+            }
 
-			#[test]
-			fn reward_curve_piece_count() {
-				assert!(
-					super::#ident.points.len() as u32 - 1 <= #max_piece_count,
-					"Generated reward curve approximation is invalid: \
-					has more points than specified, please fill an issue."
-				);
-			}
-		}
-	).into()
+            #[test]
+            fn reward_curve_piece_count() {
+                assert!(
+                    super::#ident.points.len() as u32 - 1 <= #max_piece_count,
+                    "Generated reward curve approximation is invalid: \
+                    has more points than specified, please fill an issue."
+                );
+            }
+        }
+    )
+    .into()
 }

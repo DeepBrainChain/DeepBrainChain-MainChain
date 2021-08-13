@@ -122,10 +122,7 @@ impl core::BenchmarkDescription for TrieReadBenchmarkDescription {
         let mut query_keys = KeyValues::new();
         let every_x_key = self.database_size.keys() / SAMPLE_SIZE;
         for idx in 0..self.database_size.keys() {
-            let kv = (
-                KUSAMA_STATE_DISTRIBUTION.key(&mut rng).to_vec(),
-                KUSAMA_STATE_DISTRIBUTION.value(&mut rng),
-            );
+            let kv = (KUSAMA_STATE_DISTRIBUTION.key(&mut rng).to_vec(), KUSAMA_STATE_DISTRIBUTION.value(&mut rng));
             if idx % every_x_key == 0 {
                 // warmup keys go to separate tree with high prob
                 let mut actual_warmup_key = warmup_prefix.clone();
@@ -144,13 +141,7 @@ impl core::BenchmarkDescription for TrieReadBenchmarkDescription {
 
         let root = generate_trie(database.open(self.database_type), key_values);
 
-        Box::new(TrieReadBenchmark {
-            database,
-            root,
-            warmup_keys,
-            query_keys,
-            database_type: self.database_type,
-        })
+        Box::new(TrieReadBenchmark { database, root, warmup_keys, query_keys, database_type: self.database_type })
     }
 
     fn name(&self) -> Cow<'static, str> {
@@ -169,9 +160,7 @@ struct Storage(Arc<dyn KeyValueDB>);
 impl sp_state_machine::Storage<sp_core::Blake2Hasher> for Storage {
     fn get(&self, key: &Hash, prefix: Prefix) -> Result<Option<Vec<u8>>, String> {
         let key = sp_trie::prefixed_key::<sp_core::Blake2Hasher>(key, prefix);
-        self.0
-            .get(0, &key)
-            .map_err(|e| format!("Database backend error: {:?}", e))
+        self.0.get(0, &key).map_err(|e| format!("Database backend error: {:?}", e))
     }
 }
 
@@ -233,10 +222,7 @@ impl core::BenchmarkDescription for TrieWriteBenchmarkDescription {
         let mut warmup_keys = KeyValues::new();
         let every_x_key = self.database_size.keys() / SAMPLE_SIZE;
         for idx in 0..self.database_size.keys() {
-            let kv = (
-                KUSAMA_STATE_DISTRIBUTION.key(&mut rng).to_vec(),
-                KUSAMA_STATE_DISTRIBUTION.value(&mut rng),
-            );
+            let kv = (KUSAMA_STATE_DISTRIBUTION.key(&mut rng).to_vec(), KUSAMA_STATE_DISTRIBUTION.value(&mut rng));
             if idx % every_x_key == 0 {
                 // warmup keys go to separate tree with high prob
                 let mut actual_warmup_key = warmup_prefix.clone();
@@ -252,12 +238,7 @@ impl core::BenchmarkDescription for TrieWriteBenchmarkDescription {
 
         let root = generate_trie(database.open(self.database_type), key_values);
 
-        Box::new(TrieWriteBenchmark {
-            database,
-            root,
-            warmup_keys,
-            database_type: self.database_type,
-        })
+        Box::new(TrieWriteBenchmark { database, root, warmup_keys, database_type: self.database_type })
     }
 
     fn name(&self) -> Cow<'static, str> {
@@ -287,12 +268,8 @@ impl core::Benchmark for TrieWriteBenchmark {
         let mut new_root = self.root.clone();
 
         let mut overlay = HashMap::new();
-        let mut trie = SimpleTrie {
-            db: kvdb.clone(),
-            overlay: &mut overlay,
-        };
-        let mut trie_db_mut =
-            TrieDBMut::from_existing(&mut trie, &mut new_root).expect("Failed to create TrieDBMut");
+        let mut trie = SimpleTrie { db: kvdb.clone(), overlay: &mut overlay };
+        let mut trie_db_mut = TrieDBMut::from_existing(&mut trie, &mut new_root).expect("Failed to create TrieDBMut");
 
         for (warmup_key, warmup_value) in self.warmup_keys.iter() {
             let value = trie_db_mut
@@ -313,9 +290,7 @@ impl core::Benchmark for TrieWriteBenchmark {
 
         let started = std::time::Instant::now();
 
-        trie_db_mut
-            .insert(&test_key, &test_val)
-            .expect("Should be inserted ok");
+        trie_db_mut.insert(&test_key, &test_val).expect("Should be inserted ok");
         trie_db_mut.commit();
         drop(trie_db_mut);
 
@@ -326,8 +301,7 @@ impl core::Benchmark for TrieWriteBenchmark {
                 None => transaction.delete(0, &key[..]),
             }
         }
-        kvdb.write(transaction)
-            .expect("Failed to write transaction");
+        kvdb.write(transaction).expect("Failed to write transaction");
 
         let elapsed = started.elapsed();
 
@@ -361,17 +335,12 @@ impl SizePool {
             total += count;
             distribution.insert(total, *size);
         }
-        SizePool {
-            distribution,
-            total,
-        }
+        SizePool { distribution, total }
     }
 
     fn value<R: Rng>(&self, rng: &mut R) -> Vec<u8> {
         let sr = (rng.next_u64() % self.total as u64) as u32;
-        let mut range = self
-            .distribution
-            .range((std::ops::Bound::Included(sr), std::ops::Bound::Unbounded));
+        let mut range = self.distribution.range((std::ops::Bound::Included(sr), std::ops::Bound::Unbounded));
         let size = *range.next().unwrap().1 as usize;
         random_vec(rng, size)
     }

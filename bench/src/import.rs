@@ -92,12 +92,7 @@ impl core::BenchmarkDescription for ImportBenchmarkDescription {
         let profile = self.profile;
         let mut bench_db = BenchDb::with_key_types(self.database_type, 50_000, self.key_types);
         let block = bench_db.generate_block(self.block_type.to_content(self.size.transactions()));
-        Box::new(ImportBenchmark {
-            database: bench_db,
-            block_type: self.block_type,
-            block,
-            profile,
-        })
+        Box::new(ImportBenchmark { database: bench_db, block_type: self.block_type, block, profile })
     }
 
     fn name(&self) -> Cow<'static, str> {
@@ -143,11 +138,8 @@ impl core::Benchmark for ImportBenchmark {
                         //    - successful transfer (RawEvent::Transfer) for this transfer operation
                         //    - deposit event for charging transaction fee
                         //    - extrinsic success
-                        assert_eq!(
-                            node_runtime::System::events().len(),
-                            (self.block.extrinsics.len() - 1) * 5 + 1,
-                        );
-                    }
+                        assert_eq!(node_runtime::System::events().len(), (self.block.extrinsics.len() - 1) * 5 + 1,);
+                    },
                     BlockType::Noop => {
                         assert_eq!(
                             node_runtime::System::events().len(),
@@ -158,8 +150,8 @@ impl core::Benchmark for ImportBenchmark {
                             //    - extrinsic success
                             (self.block.extrinsics.len() - 1) * 2 + 1,
                         );
-                    }
-                    _ => {}
+                    },
+                    _ => {},
                 }
             });
 

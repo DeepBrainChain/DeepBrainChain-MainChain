@@ -6,8 +6,7 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{
-        Currency, ExistenceRequirement::KeepAlive, LockIdentifier, LockableCurrency, OnUnbalanced,
-        WithdrawReasons,
+        Currency, ExistenceRequirement::KeepAlive, LockIdentifier, LockableCurrency, OnUnbalanced, WithdrawReasons,
     },
     IterableStorageMap,
 };
@@ -22,11 +21,9 @@ use sp_runtime::{
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
 pub type SlashId = u64;
-type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as pallet::Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"committe";
 
@@ -46,21 +43,21 @@ pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct CommitteeList<AccountId: Ord> {
-    pub normal: Vec<AccountId>,     // 质押并通过社区选举的委员会，正常状态
-    pub chill_list: Vec<AccountId>, // 委员会，但不想被派单
+    pub normal: Vec<AccountId>,             // 质押并通过社区选举的委员会，正常状态
+    pub chill_list: Vec<AccountId>,         // 委员会，但不想被派单
     pub waiting_box_pubkey: Vec<AccountId>, // 等待提交box pubkey的委员会
 }
 
 impl<AccountId: Ord> CommitteeList<AccountId> {
     fn exist_in_committee(&self, who: &AccountId) -> bool {
         if let Ok(_) = self.normal.binary_search(who) {
-            return true;
+            return true
         }
         if let Ok(_) = self.chill_list.binary_search(who) {
-            return true;
+            return true
         }
         if let Ok(_) = self.waiting_box_pubkey.binary_search(who) {
-            return true;
+            return true
         }
         false
     }
@@ -100,9 +97,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
             if let Some(stake_dbc_value) = Self::committee_stake_usd_per_order() {
-                if let Some(stake_dbc_amount) =
-                    T::DbcPrice::get_dbc_amount_by_value(stake_dbc_value)
-                {
+                if let Some(stake_dbc_amount) = T::DbcPrice::get_dbc_amount_by_value(stake_dbc_value) {
                     CommitteeStakeDBCPerOrder::<T>::put(stake_dbc_amount);
                 }
             };
@@ -132,8 +127,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn box_pubkey)]
-    pub(super) type BoxPubkey<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, [u8; 32], ValueQuery>;
+    pub(super) type BoxPubkey<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, [u8; 32], ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn committee)]
@@ -141,8 +135,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn user_total_stake)]
-    pub(super) type UserTotalStake<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
+    pub(super) type UserTotalStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
 
     // 每次订单默认质押等价的DBC数量，每个块更新一次
     #[pallet::storage]
@@ -151,17 +144,13 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn committee_reward)]
-    pub(super) type CommitteeReward<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
+    pub(super) type CommitteeReward<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置committee每次操作需要质押数量, 单位为usd * 10^6
         #[pallet::weight(0)]
-        pub fn set_staked_usd_per_order(
-            origin: OriginFor<T>,
-            value: u64,
-        ) -> DispatchResultWithPostInfo {
+        pub fn set_staked_usd_per_order(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             CommitteeStakeUSDPerOrder::<T>::put(value);
             Ok(().into())
@@ -170,10 +159,7 @@ pub mod pallet {
         // 该操作由社区决定
         // 添加到委员会，直接添加到fulfill列表中。每次finalize将会读取委员会币数量，币足则放到committee中
         #[pallet::weight(0)]
-        pub fn add_committee(
-            origin: OriginFor<T>,
-            member: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
+        pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut committee = Self::committee();
             // 确保用户还未加入到本模块
@@ -188,10 +174,7 @@ pub mod pallet {
 
         // 委员会需要手动添加自己的加密公钥信息
         #[pallet::weight(0)]
-        pub fn committee_set_box_pubkey(
-            origin: OriginFor<T>,
-            box_pubkey: [u8; 32],
-        ) -> DispatchResultWithPostInfo {
+        pub fn committee_set_box_pubkey(origin: OriginFor<T>, box_pubkey: [u8; 32]) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let mut committee_list = Self::committee();
 
@@ -212,8 +195,7 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let can_claim_reward =
-                Self::committee_reward(&committee).ok_or(Error::<T>::NoRewardCanClaim)?;
+            let can_claim_reward = Self::committee_reward(&committee).ok_or(Error::<T>::NoRewardCanClaim)?;
 
             <T as pallet::Config>::Currency::deposit_into_existing(&committee, can_claim_reward)
                 .map_err(|_| Error::<T>::ClaimRewardFailed)?;
@@ -233,7 +215,7 @@ pub mod pallet {
 
             // waiting_box_pubkey不能执行该操作
             if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
-                return Err(Error::<T>::PubkeyNotSet.into());
+                return Err(Error::<T>::PubkeyNotSet.into())
             }
 
             CommitteeList::rm_one(&mut committee_list.normal, &committee);
@@ -251,10 +233,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             let mut committee_list = Self::committee();
-            committee_list
-                .chill_list
-                .binary_search(&who)
-                .map_err(|_| Error::<T>::NotInChillList)?;
+            committee_list.chill_list.binary_search(&who).map_err(|_| Error::<T>::NotInChillList)?;
 
             CommitteeList::rm_one(&mut committee_list.chill_list, &who);
             Committee::<T>::put(committee_list);
@@ -273,10 +252,7 @@ pub mod pallet {
             ensure!(committee_list.exist_in_committee(&committee), Error::<T>::NotCommittee);
 
             if let Some(committee_stake) = Self::user_total_stake(&committee) {
-                ensure!(
-                    committee_stake == 0u64.saturated_into::<BalanceOf<T>>(),
-                    Error::<T>::JobNotDone
-                );
+                ensure!(committee_stake == 0u64.saturated_into::<BalanceOf<T>>(), Error::<T>::JobNotDone);
             }
 
             CommitteeList::rm_one(&mut committee_list.normal, &committee);
@@ -287,7 +263,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::ExitFromCandidacy(committee));
 
-            return Ok(().into());
+            return Ok(().into())
         }
 
         // 取消一个惩罚
@@ -336,33 +312,21 @@ impl<T: Config> Pallet<T> {
         for a_slash_id in pending_slash_id {
             let a_slash_info = Self::pending_slash(&a_slash_id);
             if now >= a_slash_info.slash_exec_time {
-                let _ =
-                    Self::change_stake(&a_slash_info.slash_who, a_slash_info.unlock_amount, false);
+                let _ = Self::change_stake(&a_slash_info.slash_who, a_slash_info.unlock_amount, false);
 
                 // 如果reward_to为0，则将币转到国库
                 let reward_to_num = a_slash_info.reward_to.len() as u32;
                 if reward_to_num == 0 {
-                    if <T as pallet::Config>::Currency::can_slash(
-                        &a_slash_info.slash_who,
-                        a_slash_info.slash_amount,
-                    ) {
-                        let (imbalance, missing) = <T as pallet::Config>::Currency::slash(
-                            &a_slash_info.slash_who,
-                            a_slash_info.slash_amount,
-                        );
-                        Self::deposit_event(Event::Slash(
-                            a_slash_info.slash_who.clone(),
-                            a_slash_info.slash_amount,
-                        ));
-                        Self::deposit_event(Event::MissedSlash(
-                            a_slash_info.slash_who,
-                            missing.clone(),
-                        ));
+                    if <T as pallet::Config>::Currency::can_slash(&a_slash_info.slash_who, a_slash_info.slash_amount) {
+                        let (imbalance, missing) =
+                            <T as pallet::Config>::Currency::slash(&a_slash_info.slash_who, a_slash_info.slash_amount);
+                        Self::deposit_event(Event::Slash(a_slash_info.slash_who.clone(), a_slash_info.slash_amount));
+                        Self::deposit_event(Event::MissedSlash(a_slash_info.slash_who, missing.clone()));
                         <T as pallet::Config>::Slash::on_unbalanced(imbalance);
                     }
                 } else {
-                    let reward_each_get = Perbill::from_rational_approximation(1u32, reward_to_num)
-                        * a_slash_info.slash_amount;
+                    let reward_each_get =
+                        Perbill::from_rational_approximation(1u32, reward_to_num) * a_slash_info.slash_amount;
 
                     let mut left_reward = a_slash_info.slash_amount;
 
@@ -380,7 +344,7 @@ impl<T: Config> Pallet<T> {
                             }
 
                             {}
-                            return;
+                            return
                         } else {
                             if <T as pallet::Config>::Currency::transfer(
                                 &a_slash_info.slash_who,
@@ -410,7 +374,7 @@ impl<T: Config> Pallet<T> {
     fn get_new_slash_id() -> SlashId {
         let slash_id = Self::next_slash_id();
         NextSlashId::<T>::put(slash_id + 1);
-        return slash_id;
+        return slash_id
     }
 }
 
@@ -422,9 +386,9 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     fn is_valid_committee(who: &T::AccountId) -> bool {
         let committee_list = Self::committee();
         if let Ok(_) = committee_list.normal.binary_search(&who) {
-            return true;
+            return true
         }
-        return false;
+        return false
     }
 
     // 检查委员会是否有足够的质押,返回有可以抢单的机器列表
@@ -446,20 +410,16 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         }
 
         if out.len() > 0 {
-            return Ok(out);
+            return Ok(out)
         }
-        return Err(());
+        return Err(())
     }
 
-    fn change_stake(
-        controller: &T::AccountId,
-        amount: BalanceOf<T>,
-        is_add: bool,
-    ) -> Result<(), ()> {
+    fn change_stake(controller: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let total_stake = Self::user_total_stake(&controller).unwrap_or(0u32.into());
 
         if is_add && <T as Config>::Currency::free_balance(&controller) <= amount {
-            return Err(());
+            return Err(())
         }
 
         let new_stake = if is_add {
@@ -468,12 +428,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
             total_stake.checked_sub(&amount).ok_or(())?
         };
 
-        <T as Config>::Currency::set_lock(
-            PALLET_LOCK_ID,
-            controller,
-            new_stake,
-            WithdrawReasons::all(),
-        );
+        <T as Config>::Currency::set_lock(PALLET_LOCK_ID, controller, new_stake, WithdrawReasons::all());
         UserTotalStake::<T>::insert(controller, new_stake);
 
         Ok(())
@@ -484,8 +439,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     }
 
     fn add_reward(committee: T::AccountId, reward: BalanceOf<T>) {
-        let raw_reward =
-            Self::committee_reward(&committee).unwrap_or(0u32.saturated_into::<BalanceOf<T>>());
+        let raw_reward = Self::committee_reward(&committee).unwrap_or(0u32.saturated_into::<BalanceOf<T>>());
         CommitteeReward::<T>::insert(&committee, raw_reward + reward);
     }
 

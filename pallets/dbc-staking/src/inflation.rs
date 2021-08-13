@@ -29,11 +29,7 @@ use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 /// `maximum-payout = max_yearly_inflation * total_tokens / era_per_year`
 ///
 /// `era_duration` is expressed in millisecond.
-pub fn compute_total_payout<N>(
-    milliseconds_per_year: u64,
-    yearly_inflation_amount: N,
-    era_duration: u64,
-) -> (N, N)
+pub fn compute_total_payout<N>(milliseconds_per_year: u64, yearly_inflation_amount: N, era_duration: u64) -> (N, N)
 where
     N: AtLeast32BitUnsigned + Clone,
 {
@@ -74,7 +70,7 @@ mod test {
         assert_eq!(super::compute_total_payout(YEAR, 25_000u64, era_duration).0, 24_983);
         assert_eq!(super::compute_total_payout(YEAR, 40_000u64, era_duration).0, 39_973);
         assert_eq!(super::compute_total_payout(YEAR, 50_000u64, era_duration).0, 49_966);
-        assert_eq!(super::compute_total_payout(YEAR, 60_000u64, era_duration ).0, 59_959);
+        assert_eq!(super::compute_total_payout(YEAR, 60_000u64, era_duration).0, 59_959);
         assert_eq!(super::compute_total_payout(YEAR, 75_000u64, era_duration).0, 74_949);
         assert_eq!(super::compute_total_payout(YEAR, 95_000u64, era_duration).0, 94_935);
         assert_eq!(super::compute_total_payout(YEAR, 100_000u64, era_duration).0, 99_932);
@@ -90,8 +86,6 @@ mod test {
         assert_eq!(super::compute_total_payout(DAY, 75_000u64, SIX_HOURS).0, 18_750);
 
         const HOUR: u64 = 60 * 60 * 1000;
-        assert_eq!(super::compute_total_payout(SIX_HOURS, 2_500_000_000_000u64, HOUR).0,
-                   416_666_665_000
-        );
+        assert_eq!(super::compute_total_payout(SIX_HOURS, 2_500_000_000_000u64, HOUR).0, 416_666_665_000);
     }
 }

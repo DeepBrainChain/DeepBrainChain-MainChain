@@ -55,10 +55,7 @@ pub fn ferdie() -> AccountId {
 }
 
 /// Convert keyrings into `SessionKeys`.
-pub fn to_session_keys(
-    ed25519_keyring: &Ed25519Keyring,
-    sr25519_keyring: &Sr25519Keyring,
-) -> SessionKeys {
+pub fn to_session_keys(ed25519_keyring: &Ed25519Keyring, sr25519_keyring: &Sr25519Keyring) -> SessionKeys {
     SessionKeys {
         grandpa: ed25519_keyring.to_owned().public().into(),
         babe: sr25519_keyring.to_owned().public().into(),
@@ -81,40 +78,19 @@ pub fn signed_extra(nonce: Index, extra_fee: Balance) -> SignedExtra {
 }
 
 /// Sign given `CheckedExtrinsic`.
-pub fn sign(
-    xt: CheckedExtrinsic,
-    spec_version: u32,
-    tx_version: u32,
-    genesis_hash: [u8; 32],
-) -> UncheckedExtrinsic {
+pub fn sign(xt: CheckedExtrinsic, spec_version: u32, tx_version: u32, genesis_hash: [u8; 32]) -> UncheckedExtrinsic {
     match xt.signed {
         Some((signed, extra)) => {
-            let payload = (
-                xt.function,
-                extra.clone(),
-                spec_version,
-                tx_version,
-                genesis_hash,
-                genesis_hash,
-            );
+            let payload = (xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
             let key = AccountKeyring::from_account_id(&signed).unwrap();
             let signature = payload
-                .using_encoded(|b| {
-                    if b.len() > 256 {
-                        key.sign(&sp_io::hashing::blake2_256(b))
-                    } else {
-                        key.sign(b)
-                    }
-                })
+                .using_encoded(|b| if b.len() > 256 { key.sign(&sp_io::hashing::blake2_256(b)) } else { key.sign(b) })
                 .into();
             UncheckedExtrinsic {
                 signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
                 function: payload.0,
             }
-        }
-        None => UncheckedExtrinsic {
-            signature: None,
-            function: xt.function,
         },
+        None => UncheckedExtrinsic { signature: None, function: xt.function },
     }
 }

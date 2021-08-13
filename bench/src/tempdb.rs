@@ -34,10 +34,7 @@ parity_util_mem::malloc_size_of_is_0!(ParityDbWrapper);
 impl KeyValueDB for ParityDbWrapper {
     /// Get a value by key.
     fn get(&self, col: u32, key: &[u8]) -> io::Result<Option<Vec<u8>>> {
-        Ok(self
-            .0
-            .get(col as u8, &key[key.len() - 32..])
-            .expect("db error"))
+        Ok(self.0.get(col as u8, &key[key.len() - 32..]).expect("db error"))
     }
 
     /// Get a value by partial key. Only works for flushed data.
@@ -49,9 +46,7 @@ impl KeyValueDB for ParityDbWrapper {
     fn write(&self, transaction: DBTransaction) -> io::Result<()> {
         self.0
             .commit(transaction.ops.iter().map(|op| match op {
-                kvdb::DBOp::Insert { col, key, value } => {
-                    (*col as u8, &key[key.len() - 32..], Some(value.to_vec()))
-                }
+                kvdb::DBOp::Insert { col, key, value } => (*col as u8, &key[key.len() - 32..], Some(value.to_vec())),
                 kvdb::DBOp::Delete { col, key } => (*col as u8, &key[key.len() - 32..], None),
                 kvdb::DBOp::DeletePrefix { col: _, prefix: _ } => unimplemented!(),
             }))
@@ -95,10 +90,9 @@ impl TempDatabase {
         match db_type {
             DatabaseType::RocksDb => {
                 let db_cfg = DatabaseConfig::with_columns(1);
-                let db = Database::open(&db_cfg, &self.0.path().to_string_lossy())
-                    .expect("Database backend error");
+                let db = Database::open(&db_cfg, &self.0.path().to_string_lossy()).expect("Database backend error");
                 Arc::new(db)
-            }
+            },
             DatabaseType::ParityDb => Arc::new(ParityDbWrapper({
                 let mut options = parity_db::Options::with_columns(self.0.path(), 1);
                 let mut column_options = &mut options.columns[0];
@@ -126,12 +120,8 @@ impl Clone for TempDatabase {
             .expect("failed to list file in seed dir")
             .map(|f_result| f_result.expect("failed to read file in seed db").path())
             .collect::<Vec<PathBuf>>();
-        fs_extra::copy_items(
-            &self_db_files,
-            new_dir.path(),
-            &fs_extra::dir::CopyOptions::new(),
-        )
-        .expect("Copy of seed database is ok");
+        fs_extra::copy_items(&self_db_files, new_dir.path(), &fs_extra::dir::CopyOptions::new())
+            .expect("Copy of seed database is ok");
 
         TempDatabase(new_dir)
     }

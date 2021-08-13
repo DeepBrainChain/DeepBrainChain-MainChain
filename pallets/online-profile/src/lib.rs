@@ -34,7 +34,7 @@ use sp_runtime::{
     Perbill, SaturatedConversion,
 };
 use sp_std::{
-    collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+    collections::btree_map::BTreeMap,
     convert::{TryFrom, TryInto},
     prelude::*,
     str,

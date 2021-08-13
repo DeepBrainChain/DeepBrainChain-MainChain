@@ -74,19 +74,19 @@ impl fmt::Display for NsFormatter {
         let v = self.0;
 
         if v < 100 {
-            return write!(f, "{} ns", v);
+            return write!(f, "{} ns", v)
         }
 
         if self.0 < 100_000 {
-            return write!(f, "{:.1} µs", v as f64 / 1000.0);
+            return write!(f, "{:.1} µs", v as f64 / 1000.0)
         }
 
         if self.0 < 1_000_000 {
-            return write!(f, "{:.4} ms", v as f64 / 1_000_000.0);
+            return write!(f, "{:.4} ms", v as f64 / 1_000_000.0)
         }
 
         if self.0 < 100_000_000 {
-            return write!(f, "{:.1} ms", v as f64 / 1_000_000.0);
+            return write!(f, "{:.1} ms", v as f64 / 1_000_000.0)
         }
 
         write!(f, "{:.4} s", v as f64 / 1_000_000_000.0)
@@ -112,13 +112,7 @@ impl std::str::FromStr for Mode {
 
 impl fmt::Display for BenchmarkOutput {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}: avg {}, w_avg {}",
-            self.name,
-            NsFormatter(self.raw_average),
-            NsFormatter(self.average),
-        )
+        write!(f, "{}: avg {}, w_avg {}", self.name, NsFormatter(self.raw_average), NsFormatter(self.average),)
     }
 }
 
@@ -137,11 +131,7 @@ pub fn run_benchmark(benchmark: Box<dyn BenchmarkDescription>, mode: Mode) -> Be
     let raw_average = (durations.iter().sum::<u128>() / (durations.len() as u128)) as u64;
     let average = (durations.iter().skip(10).take(30).sum::<u128>() / 30) as u64;
 
-    BenchmarkOutput {
-        name: name.into(),
-        raw_average,
-        average,
-    }
+    BenchmarkOutput { name: name.into(), raw_average, average }
 }
 
 macro_rules! matrix(

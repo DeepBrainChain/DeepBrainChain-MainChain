@@ -96,22 +96,11 @@ fn main() {
         ]
         .iter()
         {
-            for block_type in [
-                BlockType::RandomTransfersKeepAlive,
-                BlockType::RandomTransfersReaping,
-                BlockType::Noop,
-            ]
-            .iter()
+            for block_type in
+                [BlockType::RandomTransfersKeepAlive, BlockType::RandomTransfersReaping, BlockType::Noop].iter()
             {
-                for database_type in
-                    [BenchDataBaseType::RocksDb, BenchDataBaseType::ParityDb].iter()
-                {
-                    import_benchmarks.push((
-                        profile,
-                        size.clone(),
-                        block_type.clone(),
-                        database_type,
-                    ));
+                for database_type in [BenchDataBaseType::RocksDb, BenchDataBaseType::ParityDb].iter() {
+                    import_benchmarks.push((profile, size.clone(), block_type.clone(), database_type));
                 }
             }
         }
@@ -171,26 +160,16 @@ fn main() {
             println!("\t(filtered by \"{}\")", filter);
         }
         for benchmark in benchmarks.iter() {
-            if opt
-                .filter
-                .as_ref()
-                .map(|f| benchmark.path().has(f))
-                .unwrap_or(true)
-            {
+            if opt.filter.as_ref().map(|f| benchmark.path().has(f)).unwrap_or(true) {
                 println!("{}: {}", benchmark.name(), benchmark.path().full())
             }
         }
-        return;
+        return
     }
 
     let mut results = Vec::new();
     for benchmark in benchmarks {
-        if opt
-            .filter
-            .as_ref()
-            .map(|f| benchmark.path().has(f))
-            .unwrap_or(true)
-        {
+        if opt.filter.as_ref().map(|f| benchmark.path().has(f)).unwrap_or(true) {
             log::info!("Starting {}", benchmark.name());
             let result = run_benchmark(benchmark, opt.mode);
             log::info!("{}", result);
@@ -205,8 +184,7 @@ fn main() {
     }
 
     if opt.json {
-        let json_result: String =
-            serde_json::to_string(&results).expect("Failed to construct json");
+        let json_result: String = serde_json::to_string(&results).expect("Failed to construct json");
         println!("{}", json_result);
     }
 }
