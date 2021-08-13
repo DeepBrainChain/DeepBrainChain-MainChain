@@ -1,5 +1,4 @@
-use super::MachineId;
-use crate::{EraIndex, MachineInfoDetail, MachineStatus, StashMachine};
+use crate::{EraIndex, MachineId, MachineInfoDetail, MachineStatus, StashMachine};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

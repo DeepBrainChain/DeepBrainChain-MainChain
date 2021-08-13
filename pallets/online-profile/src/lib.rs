@@ -74,8 +74,6 @@ pub struct StashMachine<Balance> {
     pub total_claimed_reward: Balance,
     /// 目前能够领取奖励的数量
     pub can_claim_reward: Balance,
-    /// 每个Era剩余的99% * 75%奖励。存储最多150个Era的奖励(150天将全部释放)
-    pub linear_release_reward: VecDeque<Balance>,
     /// 总租金收益(银河竞赛前获得)
     pub total_rent_fee: Balance,
     /// 总销毁数量(银河竞赛后销毁)
@@ -1913,16 +1911,6 @@ impl<T: Config> Pallet<T> {
         let start_era = if current_era > 150 { current_era - 150 } else { 0u32 };
         let all_stash = Self::get_all_stash();
 
-        for a_stash in &all_stash {
-            let mut stash_machine = Self::stash_machines(a_stash);
-
-            if stash_machine.linear_release_reward.len() == 150 {
-                stash_machine.linear_release_reward.pop_front();
-            }
-            stash_machine.linear_release_reward.push_back(0u32.into());
-            StashMachines::<T>::insert(a_stash, stash_machine);
-        }
-
         // 释放75%的奖励
         for era_index in start_era..=current_era {
             let era_machine_points = Self::eras_machine_points(era_index).unwrap();
@@ -1933,7 +1921,6 @@ impl<T: Config> Pallet<T> {
 
             for a_stash in &all_stash {
                 let mut stash_machine = Self::stash_machines(a_stash);
-                let reward_linear_index = stash_machine.linear_release_reward.len() - 1;
 
                 for machine_id in stash_machine.total_machine.clone() {
                     let machine_info = Self::machines_info(&machine_id);
@@ -1959,9 +1946,6 @@ impl<T: Config> Pallet<T> {
                     let linear_reward_part = Perbill::from_rational_approximation(75u64, 100u64) * machine_total_reward;
 
                     let release_now = if era_index == current_era {
-                        // 记录剩余的75%奖励
-                        stash_machine.linear_release_reward[reward_linear_index] += linear_reward_part;
-
                         // FIXME: 考虑1%给委员会的部分
                         ErasMachineReward::<T>::insert(current_era, &machine_id, machine_total_reward);
                         ErasStashReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {

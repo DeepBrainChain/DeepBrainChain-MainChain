@@ -29,7 +29,6 @@
     "total_rented_gpu": "u64",
     "total_claimed_reward": "Balance",
     "can_claim_reward": "Balance",
-    "linear_release_reward": "Vec<Balance>",
     "total_rent_fee": "Balance",
     "total_burn_fee": "Balance"
   },

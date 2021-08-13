@@ -154,12 +154,6 @@ where
                 total_earned_reward: staker_info.stash_statistic.total_earned_reward.into(),
                 total_claimed_reward: staker_info.stash_statistic.total_claimed_reward.into(),
                 can_claim_reward: staker_info.stash_statistic.can_claim_reward.into(),
-                linear_release_reward: staker_info
-                    .stash_statistic
-                    .linear_release_reward
-                    .into_iter()
-                    .map(|locked| locked.into())
-                    .collect(),
                 total_rent_fee: staker_info.stash_statistic.total_rent_fee.into(),
                 total_burn_fee: staker_info.stash_statistic.total_burn_fee.into(),
             },
