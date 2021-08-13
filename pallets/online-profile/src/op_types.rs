@@ -8,7 +8,6 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
-pub type ImageName = Vec<u8>;
 pub type TelecomName = Vec<u8>;
 
 pub const LOCK_BLOCK_EXPIRATION: u32 = 3; // in block number
@@ -71,7 +70,7 @@ impl CommitteeUploadInfo {
         raw_info.extend(self.rand_str.clone());
         raw_info.extend(is_support);
 
-        return blake2_128(&raw_info);
+        return blake2_128(&raw_info)
     }
 }
 
@@ -90,8 +89,6 @@ pub struct StakerCustomizeInfo {
     pub latitude: Latitude,
     /// 网络运营商
     pub telecom_operators: Vec<Vec<u8>>,
-    /// 镜像名称
-    pub images: Vec<ImageName>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
@@ -161,13 +158,7 @@ where
     /// 增加一台在线的机器，gpu数量 + gpu的总得分
     /// NOTE: 只修改当前Era，调用下线逻辑前应检查机器存在
     /// TODO: 还应该改变机器快照
-    pub fn change_machine_online_status(
-        &mut self,
-        stash: AccountId,
-        gpu_num: u64,
-        basic_grade: u64,
-        is_online: bool,
-    ) {
+    pub fn change_machine_online_status(&mut self, stash: AccountId, gpu_num: u64, basic_grade: u64, is_online: bool) {
         let mut staker_statistic = self
             .staker_statistic
             .entry(stash.clone())
@@ -179,8 +170,7 @@ where
             staker_statistic.online_gpu_num += gpu_num;
         } else {
             // 避免上线24小时即下线时，当前Era还没有初始化该值
-            staker_statistic.online_gpu_num =
-                staker_statistic.online_gpu_num.checked_sub(gpu_num).unwrap_or_default();
+            staker_statistic.online_gpu_num = staker_statistic.online_gpu_num.checked_sub(gpu_num).unwrap_or_default();
         }
 
         // 根据显卡数量n更新inflation系数: inflation = min(10%, n/10000)
@@ -195,10 +185,8 @@ where
         if is_online {
             staker_statistic.machine_total_calc_point += basic_grade;
         } else {
-            staker_statistic.machine_total_calc_point = staker_statistic
-                .machine_total_calc_point
-                .checked_sub(basic_grade)
-                .unwrap_or_default();
+            staker_statistic.machine_total_calc_point =
+                staker_statistic.machine_total_calc_point.checked_sub(basic_grade).unwrap_or_default();
         }
 
         // 更新系统分数记录
@@ -216,12 +204,7 @@ where
     }
 
     /// 因机器租用状态改变，而影响得分
-    pub fn change_machine_rent_status(
-        &mut self,
-        stash: AccountId,
-        basic_grade: u64,
-        is_rented: bool,
-    ) {
+    pub fn change_machine_rent_status(&mut self, stash: AccountId, basic_grade: u64, is_rented: bool) {
         let mut staker_statistic = self
             .staker_statistic
             .entry(stash.clone())
@@ -256,11 +239,8 @@ impl StashMachineStatistics {
 
 impl<AccountId> MachineGradeStatus<AccountId> {
     pub fn machine_actual_grade(&self, inflation: Perbill) -> u64 {
-        let rent_extra_grade = if self.is_rented {
-            Perbill::from_rational_approximation(30u32, 100u32) * self.basic_grade
-        } else {
-            0
-        };
+        let rent_extra_grade =
+            if self.is_rented { Perbill::from_rational_approximation(30u32, 100u32) * self.basic_grade } else { 0 };
         let inflation_extra_grade = inflation * self.basic_grade;
         self.basic_grade + rent_extra_grade + inflation_extra_grade
     }

@@ -101,8 +101,7 @@
     "download_net": "u64",
     "longitude": "Longitude",
     "latitude": "Latitude",
-    "telecom_operators": "Vec<TelecomName>",
-    "images": "Vec<ImageName>"
+    "telecom_operators": "Vec<TelecomName>"
   },
   "Longitude": {
     "_enum": {
@@ -116,7 +115,6 @@
       "North": "u64"
     }
   },
-  "ImageName": "Text",
   "TelecomName": "Text",
   "AccountInfo": {
     "nonce": "u32",

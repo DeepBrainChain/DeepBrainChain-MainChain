@@ -770,8 +770,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            if customize_machine_info.telecom_operators.len() == 0 || customize_machine_info.images.len() == 0 {
-                return Err(Error::<T>::TelecomAndImageIsNull.into())
+            if customize_machine_info.telecom_operators.len() == 0 {
+                return Err(Error::<T>::TelecomIsNull.into())
             }
 
             // 查询机器Id是否在该账户的控制下
@@ -810,23 +810,6 @@ pub mod pallet {
             }
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
-            Ok(().into())
-        }
-
-        /// 控制账户可以修改机器镜像信息，修改不限次数
-        #[pallet::weight(10000)]
-        pub fn change_images_name(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            new_images: Vec<ImageName>,
-        ) -> DispatchResultWithPostInfo {
-            let controller = ensure_signed(origin)?;
-
-            let mut machine_info = Self::machines_info(&machine_id);
-            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-
-            machine_info.machine_info_detail.staker_customize_info.images = new_images;
-            MachinesInfo::<T>::insert(machine_id, machine_info);
             Ok(().into())
         }
 
@@ -1109,7 +1092,7 @@ pub mod pallet {
         CalcStakeAmountFailed,
         NotRefusedMachine,
         SigMachineIdNotEqualBondedMachineId,
-        TelecomAndImageIsNull,
+        TelecomIsNull,
         MachineStatusNotAllowed,
         CannotOnlineTwiceOneDay,
         ServerRoomNotFound,
