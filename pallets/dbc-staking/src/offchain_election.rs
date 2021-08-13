@@ -181,9 +181,7 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(winners_len: u32, size: Electio
                 voters = next;
             },
             // we are out of bounds, break out of the loop.
-            Err(()) => {
-                break
-            },
+            Err(()) => break,
             // we found the right value - early exit the function.
             Ok(next) => return next,
         }

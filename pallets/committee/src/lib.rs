@@ -11,7 +11,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{DbcPrice, ManageCommittee};
+use online_profile_machine::ManageCommittee;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
@@ -30,12 +30,18 @@ pub const PALLET_LOCK_ID: LockIdentifier = *b"committe";
 // 即将被执行的罚款
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
+    /// 被惩罚人
     pub slash_who: AccountId,
-    pub slash_time: BlockNumber,      // 惩罚被创建的时间
-    pub unlock_amount: Balance,       // 执行惩罚前解绑的金额
-    pub slash_amount: Balance,        // 执行惩罚的金额
-    pub slash_exec_time: BlockNumber, // 惩罚被执行的时间
-    pub reward_to: Vec<AccountId>,    // 奖励发放对象。如果为空，则惩罚到国库
+    /// 惩罚被创建的时间
+    pub slash_time: BlockNumber,
+    /// 执行惩罚前解绑的金额
+    pub unlock_amount: Balance,
+    /// 执行惩罚的金额
+    pub slash_amount: Balance,
+    /// 惩罚被执行的时间
+    pub slash_exec_time: BlockNumber,
+    /// 奖励发放对象。如果为空，则惩罚到国库
+    pub reward_to: Vec<AccountId>,
 }
 
 // 处于不同状态的委员会的列表
@@ -43,13 +49,39 @@ pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct CommitteeList<AccountId: Ord> {
-    pub normal: Vec<AccountId>,             // 质押并通过社区选举的委员会，正常状态
-    pub chill_list: Vec<AccountId>,         // 委员会，但不想被派单
-    pub waiting_box_pubkey: Vec<AccountId>, // 等待提交box pubkey的委员会
+    /// 质押并通过社区选举的委员会，正常状态
+    pub normal: Vec<AccountId>,
+    /// 委员会，但不想被派单
+    pub chill_list: Vec<AccountId>,
+    /// 等待提交box pubkey的委员会
+    pub waiting_box_pubkey: Vec<AccountId>,
+    /// 等待补充质押的委员会
+    pub fulfilling_list: Vec<AccountId>,
+}
+
+/// 与委员会质押基本参数
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct CommitteeStakeParamsInfo<Balance> {
+    /// 第一次委员会质押的基准数值
+    stake_baseline: Balance,
+    /// 每次订单使用的质押数量
+    stake_per_order: Balance,
+    /// 当使用的质押数量到阈值时，需要补质押
+    fulfilling_thresholid: Balance,
+}
+
+/// 委员会质押的状况
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct CommitteeStakeInfo<Balance> {
+    box_pubkey: [u8; 32],
+    staked_amount: Balance,
+    used_stake: Balance,
+    can_claim_reward: Balance,
+    claimed_reward: Balance,
 }
 
 impl<AccountId: Ord> CommitteeList<AccountId> {
-    fn exist_in_committee(&self, who: &AccountId) -> bool {
+    fn is_in_committee(&self, who: &AccountId) -> bool {
         if let Ok(_) = self.normal.binary_search(who) {
             return true
         }
@@ -86,7 +118,6 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
-        type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -96,20 +127,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-            if let Some(stake_dbc_value) = Self::committee_stake_usd_per_order() {
-                if let Some(stake_dbc_amount) = T::DbcPrice::get_dbc_amount_by_value(stake_dbc_value) {
-                    CommitteeStakeDBCPerOrder::<T>::put(stake_dbc_amount);
-                }
-            };
-
             Self::check_and_exec_slash();
         }
     }
-
-    // 每次订单质押默认100RMB等价DBC
-    #[pallet::storage]
-    #[pallet::getter(fn committee_stake_usd_per_order)]
-    pub(super) type CommitteeStakeUSDPerOrder<T: Config> = StorageValue<_, u64>;
 
     #[pallet::storage]
     #[pallet::getter(fn next_slash_id)]
@@ -126,33 +146,30 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    #[pallet::getter(fn box_pubkey)]
-    pub(super) type BoxPubkey<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, [u8; 32], ValueQuery>;
-
-    #[pallet::storage]
     #[pallet::getter(fn committee)]
     pub(super) type Committee<T: Config> = StorageValue<_, CommitteeList<T::AccountId>, ValueQuery>;
 
+    /// 委员会质押模块基本参数
     #[pallet::storage]
-    #[pallet::getter(fn user_total_stake)]
-    pub(super) type UserTotalStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
+    #[pallet::getter(fn committee_stake_params)]
+    pub(super) type CommitteeStakeParams<T: Config> = StorageValue<_, CommitteeStakeParamsInfo<BalanceOf<T>>>;
 
-    // 每次订单默认质押等价的DBC数量，每个块更新一次
+    /// 委员会质押与收益情况
     #[pallet::storage]
-    #[pallet::getter(fn committee_stake_dbc_per_order)]
-    pub(super) type CommitteeStakeDBCPerOrder<T: Config> = StorageValue<_, BalanceOf<T>>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn committee_reward)]
-    pub(super) type CommitteeReward<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>>;
+    #[pallet::getter(fn committee_stake)]
+    pub(super) type CommitteeStake<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeStakeInfo<BalanceOf<T>>, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置committee每次操作需要质押数量, 单位为usd * 10^6
         #[pallet::weight(0)]
-        pub fn set_staked_usd_per_order(origin: OriginFor<T>, value: u64) -> DispatchResultWithPostInfo {
+        pub fn set_staked_per_params(
+            origin: OriginFor<T>,
+            stake_params: CommitteeStakeParamsInfo<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            CommitteeStakeUSDPerOrder::<T>::put(value);
+            CommitteeStakeParams::<T>::put(stake_params);
             Ok(().into())
         }
 
@@ -172,22 +189,30 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 委员会需要手动添加自己的加密公钥信息
+        /// 委员会添用于非对称加密的公钥信息
         #[pallet::weight(0)]
         pub fn committee_set_box_pubkey(origin: OriginFor<T>, box_pubkey: [u8; 32]) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let mut committee_list = Self::committee();
+            let mut committee_stake = Self::committee_stake(&committee);
 
             // 确保是委员会才能执行该操作
-            ensure!(committee_list.exist_in_committee(&committee), Error::<T>::NotCommittee);
+            ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
 
-            BoxPubkey::<T>::insert(&committee, box_pubkey);
+            // TODO: 需要质押一定的金额，否则不给过
+            let committee_stake_params =
+                Self::committee_stake_params.ok_or(Err(Error::<T>::GetStakeParamsFailed.into()))?;
+            let Self::change_stake(&committee);
+
+            committee_stake.box_pubkey = box_pubkey;
 
             if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
                 CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
                 CommitteeList::add_one(&mut committee_list.normal, committee);
                 Committee::<T>::put(committee_list);
             }
+
+            CommitteeStake::<T>::insert(&committee, committee_stake);
 
             Ok(().into())
         }
@@ -289,6 +314,7 @@ pub mod pallet {
         Slash(T::AccountId, BalanceOf<T>),
         MissedSlash(T::AccountId, BalanceOf<T>),
         ExitFromCandidacy(T::AccountId),
+        GetStakeParamsFailed,
     }
 
     #[pallet::error]
@@ -395,7 +421,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     // 在每个区块以及每次分配一个机器之后，都需要检查
     fn available_committee() -> Result<Vec<T::AccountId>, ()> {
         let committee_list = Self::committee();
-        let stake_per_gpu = Self::committee_stake_dbc_per_order().ok_or(())?;
+        let stake_per_order = Self::committee_stake_per_order().ok_or(())?;
 
         let normal_committee = committee_list.normal.clone();
 
@@ -404,7 +430,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         // 如果free_balance足够，则复制到out列表中
         for a_committee in normal_committee {
             // 当委员会质押不够时，将委员会移动到fulfill_list中
-            if <T as Config>::Currency::free_balance(&a_committee) > stake_per_gpu {
+            if <T as Config>::Currency::free_balance(&a_committee) > stake_per_order {
                 out.push(a_committee.clone());
             }
         }
@@ -435,7 +461,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     }
 
     fn stake_per_order() -> Option<BalanceOf<T>> {
-        Self::committee_stake_dbc_per_order()
+        Self::committee_stake_per_order()
     }
 
     fn add_reward(committee: T::AccountId, reward: BalanceOf<T>) {

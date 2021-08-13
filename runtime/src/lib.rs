@@ -1026,7 +1026,6 @@ impl committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
-    type DbcPrice = DBCPriceOCW;
 }
 
 impl lease_committee::Config for Runtime {
