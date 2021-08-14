@@ -346,7 +346,7 @@ pub mod pallet {
                 reporter_report.reported_id.remove(index);
             }
 
-            <T as pallet::Config>::ManageCommittee::change_stake(&reporter, report_info.reporter_stake, false)
+            <T as pallet::Config>::ManageCommittee::change_used_stake(&reporter, report_info.reporter_stake, false)
                 .map_err(|_| Error::<T>::ReduceTotalStakeFailed)?;
 
             ReporterReport::<T>::insert(&reporter, reporter_report);
@@ -405,7 +405,7 @@ pub mod pallet {
                     // 支付质押
                     let committee_order_stake =
                         T::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
-                    <T as pallet::Config>::ManageCommittee::change_stake(&committee, committee_order_stake, true)
+                    <T as pallet::Config>::ManageCommittee::change_used_stake(&committee, committee_order_stake, true)
                         .map_err(|_| Error::<T>::StakeFailed)?;
                     ops_detail.staked_balance = committee_order_stake;
 
@@ -744,7 +744,7 @@ impl<T: Config> Pallet<T> {
         // 3种报告类型，都需要质押100RMB等值DBC
         let stake_need =
             <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
-        <T as pallet::Config>::ManageCommittee::change_stake(&reporter, stake_need, true)
+        <T as pallet::Config>::ManageCommittee::change_used_stake(&reporter, stake_need, true)
             .map_err(|_| Error::<T>::StakeFailed)?;
         report_info.reporter_stake = stake_need;
 
@@ -792,8 +792,12 @@ impl<T: Config> Pallet<T> {
         for a_committee in report_info.booked_committee {
             let committee_ops = Self::committee_ops(&a_committee, &report_id);
 
-            if <T as pallet::Config>::ManageCommittee::change_stake(&a_committee, committee_ops.staked_balance, false)
-                .is_err()
+            if <T as pallet::Config>::ManageCommittee::change_used_stake(
+                &a_committee,
+                committee_ops.staked_balance,
+                false,
+            )
+            .is_err()
             {
                 debug::error!("Reduce committee stake failed");
             };
@@ -997,7 +1001,7 @@ impl<T: Config> Pallet<T> {
                     for a_committee in support_committees.clone() {
                         let committee_ops = Self::committee_ops(&a_committee, a_report);
                         if let Err(e) =
-                            T::ManageCommittee::change_stake(&a_committee, committee_ops.staked_balance, false)
+                            T::ManageCommittee::change_used_stake(&a_committee, committee_ops.staked_balance, false)
                         {
                             debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
                         }
@@ -1018,7 +1022,7 @@ impl<T: Config> Pallet<T> {
                     for a_committee in against_committee.clone() {
                         let committee_ops = Self::committee_ops(&a_committee, a_report);
                         if let Err(e) =
-                            T::ManageCommittee::change_stake(&a_committee, committee_ops.staked_balance, false)
+                            T::ManageCommittee::change_used_stake(&a_committee, committee_ops.staked_balance, false)
                         {
                             debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
                         };

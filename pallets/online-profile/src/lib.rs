@@ -648,7 +648,8 @@ pub mod pallet {
 
             // 重新上链需要交一定的手续费
             let stake_amount = T::DbcPrice::get_dbc_amount_by_value(Self::reonline_stake()).unwrap_or_default();
-            if T::ManageCommittee::change_stake(&machine_info.machine_stash, stake_amount, true).is_err() {
+            // FIXME, 普通用户质押不走这个
+            if T::ManageCommittee::change_used_stake(&machine_info.machine_stash, stake_amount, true).is_err() {
                 return Err(Error::<T>::PayTxFeeFailed.into())
             }
             UserReonlineStake::<T>::insert(&machine_info.machine_stash, &machine_id, stake_amount);
@@ -1414,7 +1415,8 @@ impl<T: Config> Pallet<T> {
 
         let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
-            if let Ok(_) = T::ManageCommittee::change_stake(&machine_info.machine_stash, extra_stake, true) {
+            // TODO: fixme
+            if let Ok(_) = T::ManageCommittee::change_used_stake(&machine_info.machine_stash, extra_stake, true) {
                 LiveMachine::add_machine_id(
                     &mut live_machines.online_machine,
                     committee_upload_info.machine_id.clone(),
@@ -1439,7 +1441,8 @@ impl<T: Config> Pallet<T> {
         // 根据质押，奖励给这些委员会
         let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
         let reward_each_get = Perbill::from_rational_approximation(1, reported_committee.len() as u64) * reonline_stake;
-        if T::ManageCommittee::change_stake(&machine_info.machine_stash, reonline_stake, false).is_ok() {
+        // FIXME
+        if T::ManageCommittee::change_used_stake(&machine_info.machine_stash, reonline_stake, false).is_ok() {
             for a_committee in reported_committee {
                 if <T as pallet::Config>::Currency::transfer(
                     &machine_info.machine_stash,
@@ -1582,7 +1585,7 @@ impl<T: Config> Pallet<T> {
 
                         live_machines_is_changed = true;
 
-                        if let Err(_) = T::ManageCommittee::change_stake(
+                        if let Err(_) = T::ManageCommittee::change_used_stake(
                             &machine_info.machine_stash,
                             machine_info.stake_amount,
                             false,
@@ -1721,7 +1724,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn add_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        T::ManageCommittee::change_stake(&who, amount, true)?;
+        T::ManageCommittee::change_used_stake(&who, amount, true)?;
 
         // 改变总质押
         let mut sys_info = Self::sys_info();
@@ -1731,7 +1734,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn reduce_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        T::ManageCommittee::change_stake(&who, amount, false)?;
+        T::ManageCommittee::change_used_stake(&who, amount, false)?;
 
         // 改变总质押
         let mut sys_info = Self::sys_info();
@@ -2092,7 +2095,7 @@ impl<T: Config> LCOps for Pallet<T> {
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
         let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
-            if let Ok(_) = T::ManageCommittee::change_stake(&machine_info.machine_stash, extra_stake, true) {
+            if let Ok(_) = T::ManageCommittee::change_used_stake(&machine_info.machine_stash, extra_stake, true) {
                 LiveMachine::add_machine_id(
                     &mut live_machines.online_machine,
                     committee_upload_info.machine_id.clone(),

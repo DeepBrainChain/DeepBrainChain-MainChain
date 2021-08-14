@@ -15,7 +15,7 @@ use online_profile_machine::ManageCommittee;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedSub, SaturatedConversion},
+    traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero},
     Perbill, RuntimeDebug,
 };
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
@@ -66,8 +66,8 @@ pub struct CommitteeStakeParamsInfo<Balance> {
     stake_baseline: Balance,
     /// 每次订单使用的质押数量
     stake_per_order: Balance,
-    /// 当使用的质押数量到阈值时，需要补质押
-    fulfilling_thresholid: Balance,
+    /// 当剩余的质押数量到阈值时，需要补质押
+    min_free_stake: Balance,
 }
 
 /// 委员会质押的状况
@@ -180,7 +180,7 @@ pub mod pallet {
             ensure_root(origin)?;
             let mut committee = Self::committee();
             // 确保用户还未加入到本模块
-            ensure!(!committee.exist_in_committee(&member), Error::<T>::AccountAlreadyExist);
+            ensure!(!committee.is_in_committee(&member), Error::<T>::AccountAlreadyExist);
             // 将用户添加到waiting_box_pubkey列表中
             CommitteeList::add_one(&mut committee.waiting_box_pubkey, member.clone());
 
@@ -200,19 +200,19 @@ pub mod pallet {
             ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
 
             // TODO: 需要质押一定的金额，否则不给过
-            let committee_stake_params =
-                Self::committee_stake_params.ok_or(Err(Error::<T>::GetStakeParamsFailed.into()))?;
-            let Self::change_stake(&committee);
+            let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
+            Self::change_total_stake(&committee, committee_stake_params.stake_baseline, true)
+                .map_err(|_| Error::<T>::StakeForCommitteeFailed)?;
 
             committee_stake.box_pubkey = box_pubkey;
 
             if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
                 CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
-                CommitteeList::add_one(&mut committee_list.normal, committee);
+                CommitteeList::add_one(&mut committee_list.normal, committee.clone());
                 Committee::<T>::put(committee_list);
             }
 
-            CommitteeStake::<T>::insert(&committee, committee_stake);
+            CommitteeStake::<T>::insert(committee, committee_stake);
 
             Ok(().into())
         }
@@ -220,12 +220,17 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let can_claim_reward = Self::committee_reward(&committee).ok_or(Error::<T>::NoRewardCanClaim)?;
 
-            <T as pallet::Config>::Currency::deposit_into_existing(&committee, can_claim_reward)
+            let mut committee_stake = Self::committee_stake(&committee);
+            ensure!(committee_stake.can_claim_reward != Zero::zero(), Error::<T>::NothingToClaim);
+
+            <T as pallet::Config>::Currency::deposit_into_existing(&committee, committee_stake.can_claim_reward)
                 .map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
-            CommitteeReward::<T>::insert(committee, 0u32.saturated_into::<BalanceOf<T>>());
+            committee_stake.claimed_reward += committee_stake.can_claim_reward;
+            committee_stake.can_claim_reward = Zero::zero();
+
+            CommitteeStake::<T>::insert(&committee, committee_stake);
 
             Ok(().into())
         }
@@ -236,7 +241,7 @@ pub mod pallet {
             let committee = ensure_signed(origin)?;
 
             let mut committee_list = Self::committee();
-            ensure!(committee_list.exist_in_committee(&committee), Error::<T>::NotCommittee);
+            ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
 
             // waiting_box_pubkey不能执行该操作
             if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
@@ -272,14 +277,13 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn exit_staker(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
+            let mut committee_stake = Self::committee_stake(&committee);
 
             let mut committee_list = Self::committee();
-            ensure!(committee_list.exist_in_committee(&committee), Error::<T>::NotCommittee);
+            ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
+            ensure!(committee_stake.used_stake == Zero::zero(), Error::<T>::JobNotDone);
 
-            if let Some(committee_stake) = Self::user_total_stake(&committee) {
-                ensure!(committee_stake == 0u64.saturated_into::<BalanceOf<T>>(), Error::<T>::JobNotDone);
-            }
-
+            // TODO: change stake
             CommitteeList::rm_one(&mut committee_list.normal, &committee);
             CommitteeList::rm_one(&mut committee_list.chill_list, &committee);
             CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
@@ -314,7 +318,6 @@ pub mod pallet {
         Slash(T::AccountId, BalanceOf<T>),
         MissedSlash(T::AccountId, BalanceOf<T>),
         ExitFromCandidacy(T::AccountId),
-        GetStakeParamsFailed,
     }
 
     #[pallet::error]
@@ -326,6 +329,9 @@ pub mod pallet {
         JobNotDone,
         NoRewardCanClaim,
         ClaimRewardFailed,
+        GetStakeParamsFailed,
+        NothingToClaim,
+        StakeForCommitteeFailed,
     }
 }
 
@@ -338,7 +344,7 @@ impl<T: Config> Pallet<T> {
         for a_slash_id in pending_slash_id {
             let a_slash_info = Self::pending_slash(&a_slash_id);
             if now >= a_slash_info.slash_exec_time {
-                let _ = Self::change_stake(&a_slash_info.slash_who, a_slash_info.unlock_amount, false);
+                let _ = Self::change_total_stake(&a_slash_info.slash_who, a_slash_info.unlock_amount, false);
 
                 // 如果reward_to为0，则将币转到国库
                 let reward_to_num = a_slash_info.reward_to.len() as u32;
@@ -402,6 +408,48 @@ impl<T: Config> Pallet<T> {
         NextSlashId::<T>::put(slash_id + 1);
         return slash_id
     }
+
+    // 改变委员会的总质押,当减少总质押时，不能少于min_free_stake。除非调用其他逻辑退出委员会
+    fn change_total_stake(committee: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+        let mut committee_stake = Self::committee_stake(&committee);
+        let stake_params = Self::committee_stake_params().ok_or(())?;
+        let mut all_committee = Self::committee();
+        let mut all_committee_changed = false;
+
+        // 还未被使用的质押数量
+        let free_stake = committee_stake.staked_amount.checked_sub(&committee_stake.used_stake).ok_or(())?;
+
+        if is_add {
+            committee_stake.staked_amount += amount;
+            let new_free_stake = free_stake + amount;
+
+            if new_free_stake >= stake_params.min_free_stake {
+                // TODO: 如果需要，则移动到
+                if let Ok(index) = all_committee.fulfilling_list.binary_search(&committee) {
+                    all_committee.fulfilling_list.remove(index);
+                    if let Err(index) = all_committee.normal.binary_search(&committee) {
+                        all_committee_changed = true;
+                        all_committee.normal.insert(index, committee.clone());
+                    }
+                }
+            }
+        } else {
+            // TODO: 不能减少到最小剩余质押
+            committee_stake.staked_amount -= amount;
+            let new_free_stake = free_stake.checked_sub(&amount).ok_or(())?;
+            if new_free_stake < stake_params.min_free_stake {
+                return Err(())
+            }
+            committee_stake.staked_amount = committee_stake.staked_amount.checked_sub(&amount).ok_or(())?;
+        }
+
+        if all_committee_changed {
+            Committee::<T>::put(all_committee);
+        }
+        CommitteeStake::<T>::insert(&committee, committee_stake);
+
+        Ok(())
+    }
 }
 
 impl<T: Config> ManageCommittee for Pallet<T> {
@@ -421,7 +469,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     // 在每个区块以及每次分配一个机器之后，都需要检查
     fn available_committee() -> Result<Vec<T::AccountId>, ()> {
         let committee_list = Self::committee();
-        let stake_per_order = Self::committee_stake_per_order().ok_or(())?;
+        let stake_params = Self::committee_stake_params().ok_or(())?;
 
         let normal_committee = committee_list.normal.clone();
 
@@ -430,7 +478,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         // 如果free_balance足够，则复制到out列表中
         for a_committee in normal_committee {
             // 当委员会质押不够时，将委员会移动到fulfill_list中
-            if <T as Config>::Currency::free_balance(&a_committee) > stake_per_order {
+            if <T as Config>::Currency::free_balance(&a_committee) > stake_params.stake_per_order {
                 out.push(a_committee.clone());
             }
         }
@@ -441,32 +489,63 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         return Err(())
     }
 
-    fn change_stake(controller: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
-        let total_stake = Self::user_total_stake(&controller).unwrap_or(0u32.into());
+    // 改变委员会使用的质押数量
+    fn change_used_stake(committee: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+        let mut committee_stake = Self::committee_stake(&committee);
+        let stake_params = Self::committee_stake_params().ok_or(())?;
+        let mut all_committee = Self::committee();
+        let mut all_committee_changed = false;
 
-        if is_add && <T as Config>::Currency::free_balance(&controller) <= amount {
-            return Err(())
-        }
+        // 还未被使用的质押数量
+        let free_stake = committee_stake.staked_amount.checked_sub(&committee_stake.used_stake).ok_or(())?;
 
+        // 计算下一阶段需要的质押数量
         let new_stake = if is_add {
-            total_stake.checked_add(&amount).ok_or(())?
+            // 如果是增加质押,未被使用的质押必须大于最小质押限制
+            let new_free_stake = free_stake.checked_sub(&stake_params.stake_per_order).ok_or(())?;
+            if new_free_stake <= stake_params.min_free_stake {
+                // 判断是不是需要补充质押了
+                all_committee_changed = true;
+                CommitteeList::rm_one(&mut all_committee.normal, &committee);
+                CommitteeList::add_one(&mut all_committee.fulfilling_list, committee.clone());
+            }
+            committee_stake.staked_amount.checked_add(&stake_params.stake_per_order).ok_or(())?
         } else {
-            total_stake.checked_sub(&amount).ok_or(())?
+            // 是减少质押
+            // 判断是不是够，如果够了，则可能需要改变委员会状态
+            let new_free_stake = free_stake.checked_add(&stake_params.stake_per_order).ok_or(())?;
+
+            if new_free_stake > stake_params.min_free_stake {
+                if let Ok(index) = all_committee.fulfilling_list.binary_search(&committee) {
+                    all_committee.fulfilling_list.remove(index);
+                    if let Err(index) = all_committee.normal.binary_search(&committee) {
+                        all_committee_changed = true;
+                        all_committee.normal.insert(index, committee.clone())
+                    }
+                }
+            }
+            committee_stake.staked_amount.checked_sub(&stake_params.stake_per_order).ok_or(())?
         };
 
-        <T as Config>::Currency::set_lock(PALLET_LOCK_ID, controller, new_stake, WithdrawReasons::all());
-        UserTotalStake::<T>::insert(controller, new_stake);
+        <T as Config>::Currency::set_lock(PALLET_LOCK_ID, committee, new_stake, WithdrawReasons::all());
+        if all_committee_changed {
+            Committee::<T>::put(all_committee);
+        }
+        CommitteeStake::<T>::insert(&committee, committee_stake);
 
         Ok(())
     }
 
     fn stake_per_order() -> Option<BalanceOf<T>> {
-        Self::committee_stake_per_order()
+        let committee_stake_params = Self::committee_stake_params()?;
+        Some(committee_stake_params.stake_per_order)
+        // Self::committee_stake_per_order()
     }
 
     fn add_reward(committee: T::AccountId, reward: BalanceOf<T>) {
-        let raw_reward = Self::committee_reward(&committee).unwrap_or(0u32.saturated_into::<BalanceOf<T>>());
-        CommitteeReward::<T>::insert(&committee, raw_reward + reward);
+        let mut committee_stake = Self::committee_stake(&committee);
+        committee_stake.can_claim_reward += reward;
+        CommitteeStake::<T>::insert(&committee, committee_stake);
     }
 
     fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {

@@ -388,7 +388,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         // 增加质押：由committee执行
         let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
-        <T as pallet::Config>::ManageCommittee::change_stake(&order_time.0, stake_need, true)?;
+        <T as pallet::Config>::ManageCommittee::change_used_stake(&order_time.0, stake_need, true)?;
 
         debug::warn!("Will change following status");
 
@@ -536,9 +536,11 @@ impl<T: Config> Pallet<T> {
 
             for a_committee in unstake_committee {
                 let committee_ops = Self::committee_ops(&a_committee, &machine_id);
-                if let Err(e) =
-                    <T as pallet::Config>::ManageCommittee::change_stake(&a_committee, committee_ops.staked_dbc, false)
-                {
+                if let Err(e) = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                    &a_committee,
+                    committee_ops.staked_dbc,
+                    false,
+                ) {
                     debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
                 };
             }
