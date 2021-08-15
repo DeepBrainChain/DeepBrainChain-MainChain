@@ -82,13 +82,10 @@ pub struct CommitteeStakeInfo<Balance> {
 
 impl<AccountId: Ord> CommitteeList<AccountId> {
     fn is_in_committee(&self, who: &AccountId) -> bool {
-        if let Ok(_) = self.normal.binary_search(who) {
-            return true
-        }
-        if let Ok(_) = self.chill_list.binary_search(who) {
-            return true
-        }
-        if let Ok(_) = self.waiting_box_pubkey.binary_search(who) {
+        if self.normal.binary_search(who).is_ok() ||
+            self.chill_list.binary_search(who).is_ok() ||
+            self.waiting_box_pubkey.binary_search(who)
+        {
             return true
         }
         false
@@ -468,10 +465,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     // 检查是否为状态正常的委员会
     fn is_valid_committee(who: &T::AccountId) -> bool {
         let committee_list = Self::committee();
-        if let Ok(_) = committee_list.normal.binary_search(&who) {
-            return true
-        }
-        return false
+        committee_list.normal.binary_search(&who).is_ok()
     }
 
     // 检查委员会是否有足够的质押,返回有可以抢单的机器列表

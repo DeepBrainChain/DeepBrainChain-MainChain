@@ -369,7 +369,7 @@ impl<T: Config> Pallet<T> {
         let confirm_start = now + SUBMIT_RAW_START.into(); // 添加确认信息时间为分发之后的36小时
 
         for a_book in lucky_committee {
-            if let Err(_) = Self::book_one(machine_id.to_vec(), confirm_start, now, a_book) {
+            if Self::book_one(machine_id.to_vec(), confirm_start, now, a_book).is_err() {
                 debug::warn!("Book one machine failed: {:?}", machine_id);
             }
         }
@@ -485,8 +485,7 @@ impl<T: Config> Pallet<T> {
                     slash_committee.extend(summary.against);
                     slash_committee.extend(summary.invalid_support);
                     unstake_committee.extend(summary.valid_support.clone());
-                    if let Ok(_) =
-                        T::LCOperations::lc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap())
+                    if T::LCOperations::lc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap()).is_ok()
                     {
                         let valid_support = summary.valid_support.clone();
                         for a_committee in valid_support {

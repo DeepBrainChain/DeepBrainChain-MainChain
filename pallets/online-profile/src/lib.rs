@@ -209,22 +209,13 @@ pub struct LiveMachine {
 impl LiveMachine {
     /// Check if machine_id exist
     fn machine_id_exist(&self, machine_id: &MachineId) -> bool {
-        if let Ok(_) = self.bonding_machine.binary_search(machine_id) {
-            return true
-        }
-        if let Ok(_) = self.confirmed_machine.binary_search(machine_id) {
-            return true
-        }
-        if let Ok(_) = self.booked_machine.binary_search(machine_id) {
-            return true
-        }
-        if let Ok(_) = self.online_machine.binary_search(machine_id) {
-            return true
-        }
-        if let Ok(_) = self.fulfilling_machine.binary_search(machine_id) {
-            return true
-        }
-        if let Ok(_) = self.refused_machine.binary_search(machine_id) {
+        if self.bonding_machine.binary_search(machine_id).is_ok() ||
+            self.confirmed_machine.binary_search(machine_id).is_ok() ||
+            self.booked_machine.binary_search(machine_id).is_ok() ||
+            self.online_machine.binary_search(machine_id).is_ok() ||
+            self.fulfilling_machine.binary_search(machine_id).is_ok() ||
+            self.refused_machine.binary_search(machine_id).is_ok()
+        {
             return true
         }
         false
@@ -505,7 +496,7 @@ pub mod pallet {
             // 在每个Era结束时执行奖励，发放到用户的Machine
             // 计算奖励，直接根据当前得分即可
             if current_height > 0 && current_height % BLOCK_PER_ERA == 0 {
-                if let Err(_) = Self::distribute_reward() {
+                if Self::distribute_reward().is_err() {
                     debug::error!("Failed to distribute reward");
                 }
             }
@@ -648,12 +639,18 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
-            // 重新上链需要交一定的手续费
+            // 重新上链需要质押一定的手续费
             let stake_amount = T::DbcPrice::get_dbc_amount_by_value(Self::reonline_stake()).unwrap_or_default(); // FIXME
-                                                                                                                 // FIXME, 普通用户质押不走这个
-            if T::ManageCommittee::change_used_stake(&machine_info.machine_stash, stake_amount, true).is_err() {
-                return Err(Error::<T>::PayTxFeeFailed.into())
-            }
+
+            let stash_stake = Self::stash_stake(&machine_info.machine_stash);
+            let new_stash_stake = stash_stake.checked_add(&stake_amount).ok_or(Error::<T>::CalcStakeAmountFailed)?;
+            <T as Config>::Currency::set_lock(
+                PALLET_LOCK_ID,
+                &machine_info.machine_stash,
+                new_stash_stake,
+                WithdrawReasons::all(),
+            );
+
             UserReonlineStake::<T>::insert(&machine_info.machine_stash, &machine_id, stake_amount);
 
             Self::change_pos_gpu_by_online(&machine_id, false);
@@ -1339,7 +1336,6 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
         let mut live_machines = Self::live_machines();
-        let mut sys_info = Self::sys_info();
         let now = <frame_system::Module<T>>::block_number();
 
         LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &committee_upload_info.machine_id);
@@ -1348,15 +1344,13 @@ impl<T: Config> Pallet<T> {
 
         let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
-            // TODO: fixme
-            if let Ok(_) = T::ManageCommittee::change_used_stake(&machine_info.machine_stash, extra_stake, true) {
+            if Self::add_user_total_stake(&machine_info.machine_stash, extra_stake).is_ok() {
                 LiveMachine::add_machine_id(
                     &mut live_machines.online_machine,
                     committee_upload_info.machine_id.clone(),
                 );
                 machine_info.stake_amount = stake_need;
                 machine_info.machine_status = MachineStatus::Online;
-                sys_info.total_stake += extra_stake;
                 machine_info.last_machine_restake = now;
                 machine_info.last_online_height = now;
             } else {
@@ -1374,8 +1368,7 @@ impl<T: Config> Pallet<T> {
         // 根据质押，奖励给这些委员会
         let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
         let reward_each_get = Perbill::from_rational_approximation(1, reported_committee.len() as u64) * reonline_stake;
-        // FIXME
-        if T::ManageCommittee::change_used_stake(&machine_info.machine_stash, reonline_stake, false).is_ok() {
+        if Self::reduce_user_total_stake(&machine_info.machine_stash, reonline_stake).is_ok() {
             for a_committee in reported_committee {
                 if <T as pallet::Config>::Currency::transfer(
                     &machine_info.machine_stash,
@@ -1394,7 +1387,6 @@ impl<T: Config> Pallet<T> {
 
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
         LiveMachines::<T>::put(live_machines);
-        SysInfo::<T>::put(sys_info);
 
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if let MachineStatus::Online = machine_info.machine_status {
@@ -1518,7 +1510,7 @@ impl<T: Config> Pallet<T> {
 
                         live_machines_is_changed = true;
 
-                        if let Err(_) = T::ManageCommittee::change_used_stake(
+                        if T::ManageCommittee::change_used_stake.is_err(
                             &machine_info.machine_stash,
                             machine_info.stake_amount,
                             false,
@@ -2022,7 +2014,6 @@ impl<T: Config> LCOps for Pallet<T> {
 
         let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
         let mut live_machines = Self::live_machines();
-        let mut sys_info = Self::sys_info();
 
         if let MachineStatus::StakerReportOffline(..) = machine_info.machine_status {
             Self::lc_confirm_machine_reonline(reported_committee, committee_upload_info)?;
@@ -2037,7 +2028,7 @@ impl<T: Config> LCOps for Pallet<T> {
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
         let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
-            if let Ok(_) = T::ManageCommittee::change_used_stake(&machine_info.machine_stash, extra_stake, true) {
+            if Self::add_user_total_stake(&machine_info.machine_stash, extra_stake).is_ok() {
                 LiveMachine::add_machine_id(
                     &mut live_machines.online_machine,
                     committee_upload_info.machine_id.clone(),
@@ -2048,8 +2039,6 @@ impl<T: Config> LCOps for Pallet<T> {
                 machine_info.last_online_height = now;
                 machine_info.reward_deadline = current_era + REWARD_DURATION;
                 machine_info.last_machine_restake = now;
-
-                sys_info.total_stake += extra_stake;
             } else {
                 LiveMachine::add_machine_id(
                     &mut live_machines.fulfilling_machine,
@@ -2065,7 +2054,6 @@ impl<T: Config> LCOps for Pallet<T> {
 
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
         LiveMachines::<T>::put(live_machines);
-        SysInfo::<T>::put(sys_info);
 
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if let MachineStatus::Online = machine_info.machine_status {
