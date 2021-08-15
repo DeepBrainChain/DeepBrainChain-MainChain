@@ -190,7 +190,7 @@ pub mod pallet {
         }
 
         /// 委员会添用于非对称加密的公钥信息
-        #[pallet::weight(0)]
+        #[pallet::weight(10000)]
         pub fn committee_set_box_pubkey(origin: OriginFor<T>, box_pubkey: [u8; 32]) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let mut committee_list = Self::committee();
@@ -217,7 +217,16 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
+        /// 委员会增加质押
+
+        #[pallet::weight(10000)]
+        pub fn committee_add_stake(origin: OriginFor<T>, box_pubkey: [u8; 32]) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+            // TODO: 完成该逻辑
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
         pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
 
