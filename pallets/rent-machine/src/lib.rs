@@ -1,7 +1,3 @@
-// 用户租用逻辑
-// 为了简化，该模块只提供最简单的租用情况： 整租，不能退租，
-// 确认租用成功之后，将币转到一个特定地址，这个地址在后期稳定运行后burn掉自己的币
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};

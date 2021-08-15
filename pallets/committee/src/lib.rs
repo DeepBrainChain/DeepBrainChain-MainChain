@@ -84,7 +84,7 @@ impl<AccountId: Ord> CommitteeList<AccountId> {
     fn is_in_committee(&self, who: &AccountId) -> bool {
         if self.normal.binary_search(who).is_ok() ||
             self.chill_list.binary_search(who).is_ok() ||
-            self.waiting_box_pubkey.binary_search(who)
+            self.waiting_box_pubkey.binary_search(who).is_ok()
         {
             return true
         }

@@ -1,19 +1,3 @@
-//! 机器单卡质押数量：
-//!   n = min(n1, n2)
-//!   n1 = 5w RMB 等值DBC
-//!   n2 = 100000 DBC (卡数 <= 10000)
-//!   n2 = 100000 * (10000/卡数) (卡数>10000)
-//! 在线奖励数量:
-//!   1th month:     10^8;                   Phase0  30 day
-//!   Next 2 year:   4 * 10^8;               Phase1  730 day
-//!   Next 9 month:  4 * 10^8 * (9 / 12);    Phase2  270 day
-//!   Next 5 year:   5 * 10^7;               Phase3  1825 day
-//!   Next 5 years:  2.5 * 10^7;             Phase4  1825 day
-//! 机器得分如何计算：
-//!   机器相对标准配置得到算力点数。机器实际得分 = 算力点数 + 算力点数 * 集群膨胀系数 + 算力点数 * 30%
-//!   因此，机器被租用时，机器实际得分 = 算力点数 * (1 + 集群膨胀系数 + 30%租用膨胀系数)
-//!  在线奖励释放：25%立即释放,剩余75%线性释放时间长度
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::EncodeLike;
@@ -107,6 +91,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub last_online_height: BlockNumber,
     /// 该机器质押数量
     pub stake_amount: Balance,
+    /// 该机器使用的质押数量
+    pub used_stake_amount: Balance,
     /// 机器的状态
     pub machine_status: MachineStatus<BlockNumber>,
     /// 总租用累计时长
@@ -481,9 +467,9 @@ pub mod pallet {
                     ErasMachinePoints::<T>::insert(1, init_value);
                 } else {
                     // 用当前的Era快照初始化下一个Era的信息
-                    let current_era_stash_snapshot = Self::eras_stash_points(current_era).unwrap();
+                    let current_era_stash_snapshot = Self::eras_stash_points(current_era).unwrap_or_default();
                     ErasStashPoints::<T>::insert(current_era + 1, current_era_stash_snapshot);
-                    let current_era_machine_snapshot = Self::eras_machine_points(current_era).unwrap();
+                    let current_era_machine_snapshot = Self::eras_machine_points(current_era).unwrap_or_default();
                     ErasMachinePoints::<T>::insert(current_era + 1, current_era_machine_snapshot);
                 }
             }
@@ -496,9 +482,7 @@ pub mod pallet {
             // 在每个Era结束时执行奖励，发放到用户的Machine
             // 计算奖励，直接根据当前得分即可
             if current_height > 0 && current_height % BLOCK_PER_ERA == 0 {
-                if Self::distribute_reward().is_err() {
-                    debug::error!("Failed to distribute reward");
-                }
+                Self::distribute_reward();
             }
 
             Self::clean_refused_machine();
@@ -1299,13 +1283,31 @@ impl<T: Config> Pallet<T> {
         committee: Option<Vec<T::AccountId>>,
     ) {
         let slash_percent = Perbill::from_rational_approximation(slash_deposit_percent, 100);
-        let machine_info = Self::machines_info(&machine_id);
+        let mut machine_info = Self::machines_info(&machine_id);
+        let mut live_machine = Self::live_machines();
         // 当前机器需要的质押数量
         let stake_need =
-            Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num).unwrap(); // TODO: handle error
+            Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num).unwrap_or_default();
 
-        // 惩罚的质押数量
-        let slash_amount = slash_percent * machine_info.stake_amount;
+        // 惩罚的质押数量:
+        // 如果机器当前质押大于等于stake_need
+        // 则slash_amount 按照stake_need来计算，否则按照机器当前质押来计算
+        let slash_amount = if machine_info.stake_amount >= stake_need {
+            slash_percent * stake_need
+        } else {
+            slash_percent * machine_info.stake_amount
+        };
+
+        // 计算是否需要补充质押
+        machine_info.stake_amount = machine_info.stake_amount.checked_sub(&slash_amount).unwrap();
+        if machine_info.stake_amount < stake_need {
+            machine_info.used_stake_amount = machine_info.stake_amount;
+            machine_info.machine_status = MachineStatus::WaitingFulfill;
+            // TODO: 从哪个列表中删除呢？
+            if let Err(index) = live_machine.fulfilling_machine.binary_search(&machine_id) {
+                live_machine.fulfilling_machine.insert(index, machine_id.clone())
+            }
+        }
 
         // 添加惩罚
         <T as pallet::Config>::ManageCommittee::add_slash(machine_info.machine_stash.clone(), slash_amount, vec![]);
@@ -1510,11 +1512,13 @@ impl<T: Config> Pallet<T> {
 
                         live_machines_is_changed = true;
 
-                        if T::ManageCommittee::change_used_stake.is_err(
+                        if T::ManageCommittee::change_used_stake(
                             &machine_info.machine_stash,
                             machine_info.stake_amount,
                             false,
-                        ) {
+                        )
+                        .is_err()
+                        {
                             debug::error!("Reduce user stake failed");
                             continue
                         }
@@ -1621,7 +1625,6 @@ impl<T: Config> Pallet<T> {
             .checked_div(10_000)
     }
 
-    // TODO: 正式网将修改奖励时间
     /// 计算当前Era在线奖励数量
     fn current_era_reward() -> Option<BalanceOf<T>> {
         let current_era = Self::current_era() as u64;
@@ -1683,7 +1686,7 @@ impl<T: Config> Pallet<T> {
         let next_era_stash_snapshot = Self::eras_stash_points(era_index).unwrap_or_default();
 
         if let Some(stash_snapshot) = next_era_stash_snapshot.staker_statistic.get(stash) {
-            return stash_snapshot.total_grades().unwrap()
+            return stash_snapshot.total_grades().unwrap_or_default()
         }
         0
     }
@@ -1785,10 +1788,10 @@ impl<T: Config> Pallet<T> {
         let machine_info = Self::machines_info(&machine_id);
         let current_era = Self::current_era();
 
-        let mut current_era_stash_snap = Self::eras_stash_points(current_era).unwrap();
-        let mut next_era_stash_snap = Self::eras_stash_points(current_era + 1).unwrap();
-        let mut current_era_machine_snap = Self::eras_machine_points(current_era).unwrap();
-        let mut next_era_machine_snap = Self::eras_machine_points(current_era + 1).unwrap();
+        let mut current_era_stash_snap = Self::eras_stash_points(current_era).unwrap_or_default();
+        let mut next_era_stash_snap = Self::eras_stash_points(current_era + 1).unwrap_or_default();
+        let mut current_era_machine_snap = Self::eras_machine_points(current_era).unwrap_or_default();
+        let mut next_era_machine_snap = Self::eras_machine_points(current_era + 1).unwrap_or_default();
 
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
@@ -1843,15 +1846,15 @@ impl<T: Config> Pallet<T> {
 
     // 根据机器得分快照，和委员会膨胀分数，计算应该奖励
     // end_era分发奖励
-    fn distribute_reward() -> Result<(), ()> {
+    fn distribute_reward() {
         let current_era = Self::current_era();
         let start_era = if current_era > 150 { current_era - 150 } else { 0u32 };
         let all_stash = Self::get_all_stash();
 
         // 释放75%的奖励
         for era_index in start_era..=current_era {
-            let era_machine_points = Self::eras_machine_points(era_index).unwrap();
-            let era_stash_points = Self::eras_stash_points(era_index).unwrap();
+            let era_machine_points = Self::eras_machine_points(era_index).unwrap_or_default();
+            let era_stash_points = Self::eras_stash_points(era_index).unwrap_or_default();
 
             // update era_reward
             let era_reward = Self::era_reward(era_index);
@@ -1963,8 +1966,6 @@ impl<T: Config> Pallet<T> {
                 StashMachines::<T>::insert(a_stash, stash_machine);
             }
         }
-
-        Ok(())
     }
 }
 
@@ -2076,7 +2077,7 @@ impl<T: Config> LCOps for Pallet<T> {
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
         machine_info.stake_amount = machine_info.stake_amount - slash;
 
-        sys_info.total_stake = sys_info.total_stake.checked_sub(&slash).unwrap();
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&slash).unwrap_or_default();
 
         machine_info.machine_status = MachineStatus::CommitteeRefused(now);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -2139,7 +2140,7 @@ impl<T: Config> RTOps for Pallet<T> {
                 if rent_duration.is_some() {
                     // 租用结束
                     Self::update_snap_by_rent_status(machine_id.to_vec(), false);
-                    machine_info.total_rented_duration += rent_duration.unwrap();
+                    machine_info.total_rented_duration += rent_duration.unwrap_or_default();
 
                     if let Some(new_gpu_num) = sys_info.total_rented_gpu.checked_sub(machine_gpu_num) {
                         sys_info.total_rented_gpu = new_gpu_num;
