@@ -380,8 +380,6 @@ impl<T: Config> Pallet<T> {
                             {
                                 debug::error!("Left reward is less than reward each get");
                             }
-
-                            {}
                             return
                         } else {
                             if <T as pallet::Config>::Currency::transfer(

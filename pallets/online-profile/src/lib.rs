@@ -4,7 +4,9 @@ use codec::EncodeLike;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
-    traits::{Currency, ExistenceRequirement::KeepAlive, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
+    traits::{
+        Currency, ExistenceRequirement::KeepAlive, Get, LockIdentifier, LockableCurrency, OnUnbalanced, WithdrawReasons,
+    },
     weights::Weight,
     IterableStorageDoubleMap, IterableStorageMap,
 };
@@ -14,7 +16,7 @@ use online_profile_machine::{DbcPrice, LCOps, MTOps, ManageCommittee, OPRPCQuery
 use serde::{Deserialize, Serialize};
 use sp_core::{crypto::Public, H256};
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify},
+    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify, Zero},
     Perbill, SaturatedConversion,
 };
 use sp_std::{
@@ -38,12 +40,6 @@ pub const BLOCK_PER_ERA: u64 = 2880;
 pub const REWARD_DURATION: u32 = 365 * 2;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"olprofil";
-
-// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-// pub struct MachineStakeParams<Balance> {}
-
-// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-// pub struct MachineStake<Balance> {}
 
 /// stash账户总览自己当前状态
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -232,6 +228,8 @@ pub struct StandardGpuPointPrice {
 }
 
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 /// SysInfo of onlineProfile pallet
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -286,6 +284,7 @@ pub mod pallet {
         type BondingDuration: Get<EraIndex>;
         type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
         type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -1086,12 +1085,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    /// 更改委员会质押状态
-    // fn change_stash_used_stake(&stash_account: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
-    //     let mut stash_stake = Self::stash_machine_stake(&stash_account);
-    //     Ok(())
-    // }
-
     fn slash_when_report_offline(
         machine_id: MachineId,
         slash_reason: StashSlashReason<T::BlockNumber>,
@@ -1285,6 +1278,7 @@ impl<T: Config> Pallet<T> {
         let slash_percent = Perbill::from_rational_approximation(slash_deposit_percent, 100);
         let mut machine_info = Self::machines_info(&machine_id);
         let mut live_machine = Self::live_machines();
+
         // 当前机器需要的质押数量
         let stake_need =
             Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num).unwrap_or_default();
@@ -1303,24 +1297,73 @@ impl<T: Config> Pallet<T> {
         if machine_info.stake_amount < stake_need {
             machine_info.used_stake_amount = machine_info.stake_amount;
             machine_info.machine_status = MachineStatus::WaitingFulfill;
-            // TODO: 从哪个列表中删除呢？
-            if let Err(index) = live_machine.fulfilling_machine.binary_search(&machine_id) {
-                live_machine.fulfilling_machine.insert(index, machine_id.clone())
+            // 从offline_machine中删除，并添加到fulfilling_machine中
+            if let Ok(index) = live_machine.offline_machine.binary_search(&machine_id) {
+                live_machine.offline_machine.remove(index);
+                if let Err(index) = live_machine.fulfilling_machine.binary_search(&machine_id) {
+                    live_machine.fulfilling_machine.insert(index, machine_id.clone())
+                }
             }
         }
 
-        // 添加惩罚
-        <T as pallet::Config>::ManageCommittee::add_slash(machine_info.machine_stash.clone(), slash_amount, vec![]);
+        <T as Config>::Currency::set_lock(
+            PALLET_LOCK_ID,
+            &machine_info.machine_stash.clone(),
+            machine_info.stake_amount,
+            WithdrawReasons::all(),
+        );
 
-        // 机器质押不够时，将机器下线，并需要补充质押
-        if stake_need > machine_info.stake_amount {
-            // 将机器下线，执行下线逻辑
-            Self::machine_offline(machine_id.clone());
+        // 根据比例，分配slash_amoun
+        let (slash_to_treasury, reward_to_reporter, reward_to_committee) = {
+            let percent_10 = Perbill::from_rational_approximation(10u32, 100u32);
+            let percent_20 = Perbill::from_rational_approximation(20u32, 100u32);
 
-            let mut machine_info = Self::machines_info(&machine_id);
-            machine_info.stake_amount -= slash_amount;
-            machine_info.machine_status = MachineStatus::WaitingFulfill;
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
+            if reporter.is_some() && committee.is_none() {
+                let reward_to_reporter = percent_10 * slash_amount;
+                let slash_to_treasury = slash_amount - reward_to_reporter;
+                (slash_to_treasury, reward_to_reporter, Zero::zero())
+            } else if reporter.is_some() && committee.is_some() {
+                let reward_to_reporter = percent_10 * slash_amount;
+                let reward_to_committee = percent_20 * slash_amount;
+                let slash_to_treasury = slash_amount - reward_to_reporter - reward_to_committee;
+                (slash_to_treasury, reward_to_reporter, reward_to_committee)
+            } else {
+                (slash_amount, Zero::zero(), Zero::zero())
+            }
+        };
+
+        // 奖励给委员会的立即给委员会
+        if !reward_to_reporter.is_zero() && reporter.is_some() {
+            <T as pallet::Config>::Currency::transfer(
+                &machine_info.machine_stash,
+                &reporter.unwrap(),
+                reward_to_reporter,
+                KeepAlive,
+            );
+        }
+
+        // 奖励给报告人的立即给报告人
+        if !reward_to_committee.is_zero() && committee.is_some() {
+            let committees = committee.unwrap();
+            let reward_each_committee_get =
+                Perbill::from_rational_approximation(1u32, committees.len() as u32) * reward_to_committee;
+            for a_committee in committees {
+                <T as pallet::Config>::Currency::transfer(
+                    &machine_info.machine_stash,
+                    &a_committee,
+                    reward_each_committee_get,
+                    KeepAlive,
+                );
+            }
+        }
+
+        // 执行惩罚
+        if <T as pallet::Config>::Currency::can_slash(&machine_info.machine_stash, slash_to_treasury) {
+            let (imbalance, missing) =
+                <T as pallet::Config>::Currency::slash(&machine_info.machine_stash, slash_to_treasury);
+            // Self::deposit_event(Event::Slash(machine_info.machine_stash.clone(), slash_amount));
+            // Self::deposit_event(Event::MissedSlash(machine_info.machine_stash.clone(), missing.clone()));
+            <T as pallet::Config>::Slash::on_unbalanced(imbalance);
         }
     }
 

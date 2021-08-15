@@ -1015,6 +1015,7 @@ impl online_profile::Config for Runtime {
     type BondingDuration = BondingDuration;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
+    type Slash = Treasury;
 }
 
 impl simple_rpc::Config for Runtime {
