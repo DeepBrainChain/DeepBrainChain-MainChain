@@ -450,30 +450,10 @@ pub mod pallet {
     pub(super) type ErasStashReleasedReward<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
-    /// 第一阶段每Era奖励DBC数量
+    /// 不同阶段不同奖励
     #[pallet::storage]
-    #[pallet::getter(fn phase_0_reward_per_era)]
-    pub(super) type Phase0RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
-
-    /// 第二阶段每Era奖励DBC数量
-    #[pallet::storage]
-    #[pallet::getter(fn phase_1_reward_per_era)]
-    pub(super) type Phase1RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
-
-    /// 第三阶段每Era奖励DBC数量
-    #[pallet::storage]
-    #[pallet::getter(fn phase_2_reward_per_era)]
-    pub(super) type Phase2RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
-
-    /// 第四阶段每Era奖励DBC数量
-    #[pallet::storage]
-    #[pallet::getter(fn phase_3_reward_per_era)]
-    pub(super) type Phase3RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
-
-    /// 第五阶段每Era奖励DBC数量
-    #[pallet::storage]
-    #[pallet::getter(fn phase_4_reward_per_era)]
-    pub(super) type Phase4RewardPerEra<T: Config> = StorageValue<_, BalanceOf<T>>;
+    #[pallet::getter(fn phase_n_reward_per_era)]
+    pub(super) type PhaseNRewardPerEra<T: Config> = StorageMap<_, Blake2_128Concat, u32, BalanceOf<T>>;
 
     /// 资金账户对每台机器的质押状况
     #[pallet::storage]
@@ -553,11 +533,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             match phase {
-                0 => Phase0RewardPerEra::<T>::put(reward_per_era),
-                1 => Phase1RewardPerEra::<T>::put(reward_per_era),
-                2 => Phase2RewardPerEra::<T>::put(reward_per_era),
-                3 => Phase3RewardPerEra::<T>::put(reward_per_era),
-                4 => Phase4RewardPerEra::<T>::put(reward_per_era),
+                0..=5 => PhaseNRewardPerEra::<T>::insert(phase, reward_per_era),
                 _ => return Err(Error::<T>::RewardPhaseOutOfRange.into()),
             }
             Ok(().into())
@@ -1665,19 +1641,19 @@ impl<T: Config> Pallet<T> {
 
         let era_duration = current_era - reward_start_era;
 
-        let reward_per_era = if era_duration < 30 {
-            Self::phase_0_reward_per_era()
+        let phase_index = if era_duration < 30 {
+            0
         } else if era_duration < 30 + 730 {
-            Self::phase_1_reward_per_era()
+            1
         } else if era_duration < 30 + 730 + 270 {
-            Self::phase_2_reward_per_era()
+            2
         } else if era_duration < 30 + 730 + 270 + 1825 {
-            Self::phase_3_reward_per_era()
+            3
         } else {
-            Self::phase_4_reward_per_era()
+            4
         };
 
-        return reward_per_era
+        Self::phase_n_reward_per_era(phase_index)
     }
 
     fn add_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
