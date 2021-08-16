@@ -159,7 +159,6 @@ impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
-    type DbcPrice = DBCPriceOCW;
 }
 
 impl lease_committee::Config for TestRuntime {
@@ -178,9 +177,9 @@ impl online_profile::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type BondingDuration = BondingDuration;
-    // type ProfitReleaseDuration = ProfitReleaseDuration;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
+    type Slash = Treasury;
 }
 
 impl maintain_committee::Config for TestRuntime {
@@ -188,6 +187,7 @@ impl maintain_committee::Config for TestRuntime {
     type Event = Event;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
+    type MTOps = OnlineProfile;
 }
 
 // Configure a mock runtime to test the pallet.
@@ -259,7 +259,14 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     ext.execute_with(|| {
         // 初始化设置参数
         // 委员会每次抢单质押数量 (15$)
-        let _ = Committee::set_staked_usd_per_order(RawOrigin::Root.into(), 15_000_000);
+        let _ = Committee::set_committee_stake_params(
+            RawOrigin::Root.into(),
+            committee::CommitteeStakeParamsInfo {
+                stake_baseline: 20000 * ONE_DBC,
+                stake_per_order: 1000 * ONE_DBC,
+                min_free_stake: 8000 * ONE_DBC,
+            },
+        );
         // 操作时的固定费率: 10 DBC
         let _ = GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10 * ONE_DBC);
         // 每张GPU质押数量: 100,000 DBC
@@ -297,6 +304,13 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
+
+        // controller 生成server_name
+        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
+        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
+
+        let server_room = OnlineProfile::stash_server_rooms(&stash);
+
         assert_ok!(OnlineProfile::bond_machine(
             Origin::signed(controller),
             machine_id.clone(),
@@ -309,10 +323,11 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             Origin::signed(controller),
             machine_id.clone(),
             StakerCustomizeInfo {
+                server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: 1157894,
-                latitude: 235678,
+                longitude: online_profile::Longitude::East(1157894),
+                latitude: online_profile::Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));

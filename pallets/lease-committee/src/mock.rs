@@ -367,7 +367,11 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         // 委员会每次抢单质押数量 (15$)
         let _ = Committee::set_committee_stake_params(
             RawOrigin::Root.into(),
-            committee::CommitteeStakeParamsInfo { stake_baseline: 5, stake_per_order: 2, min_free_stake: 2 },
+            committee::CommitteeStakeParamsInfo {
+                stake_baseline: 20000 * ONE_DBC,
+                stake_per_order: 1000 * ONE_DBC,
+                min_free_stake: 8000 * ONE_DBC,
+            },
         );
         // 操作时的固定费率: 10 DBC
         let _ = GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10 * ONE_DBC);

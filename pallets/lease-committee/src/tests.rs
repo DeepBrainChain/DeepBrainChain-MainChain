@@ -121,8 +121,8 @@ fn machine_online_works() {
             Committee::committee_stake(committee1),
             committee::CommitteeStakeInfo {
                 box_pubkey: one_box_pubkey,
-                staked_amount: 5,
-                used_stake: 2,
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 1000 * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -532,8 +532,8 @@ fn committee_not_submit_hash_slash_works() {
             committee::PendingSlashInfo {
                 slash_who: committee4,
                 slash_time: 4327,
-                unlock_amount: 1250 * ONE_DBC,
-                slash_amount: 1250 * ONE_DBC,
+                unlock_amount: 1000 * ONE_DBC,
+                slash_amount: 1000 * ONE_DBC,
                 slash_exec_time: 4327 + 2880 * 2, // 2day
                 reward_to: vec![]
             }

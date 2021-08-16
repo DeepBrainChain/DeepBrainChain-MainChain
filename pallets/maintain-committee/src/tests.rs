@@ -20,15 +20,16 @@ fn report_machine_fault_works() {
             .unwrap()
             .try_into()
             .unwrap();
-        assert_ok!(MaintainCommittee::report_machine_fault(Origin::signed(reporter), report_hash, reporter_boxpubkey));
+        assert_ok!(MaintainCommittee::report_machine_fault(
+            Origin::signed(reporter),
+            crate::MachineFaultType::HardwareFault(report_hash, reporter_boxpubkey)
+        ));
 
         let mut report_status = crate::MTReportInfoDetail {
             reporter,
             report_time: 11,
             reporter_stake: 1250 * ONE_DBC, // 15,000,000 / 12,000
-            machine_fault_type: crate::MachineFaultType::HardwareFault,
-            reporter_boxpubkey,
-            reporter_hash: report_hash,
+            machine_fault_type: crate::MachineFaultType::HardwareFault(report_hash, reporter_boxpubkey),
             ..Default::default()
         };
 
@@ -69,6 +70,7 @@ fn report_machine_fault_works() {
 
         assert_eq!(&MaintainCommittee::report_info(0), &report_status);
 
+        let extra_err_info = Vec::new();
         assert_ok!(MaintainCommittee::submit_confirm_raw(
             Origin::signed(committee),
             0,
@@ -76,6 +78,7 @@ fn report_machine_fault_works() {
             reporter_rand_str,
             committee_rand_str,
             err_reason,
+            extra_err_info,
             true
         ));
     })
@@ -90,5 +93,5 @@ fn report_machine_unrentable_works() {}
 // 控制账户报告机器下线
 #[test]
 fn controller_report_online_machine_offline_should_work() {
-    new_test_with_online_machine_online_ext().execute_with(|| {})
+    new_test_with_init_params_ext().execute_with(|| {})
 }

@@ -119,7 +119,6 @@ impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
-    type DbcPrice = DBCPriceOCW;
 }
 
 impl online_profile::Config for TestRuntime {
@@ -129,6 +128,7 @@ impl online_profile::Config for TestRuntime {
     // type ProfitReleaseDuration = ProfitReleaseDuration;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
+    type Slash = Treasury;
 }
 
 impl dbc_price_ocw::Config for TestRuntime {
@@ -242,7 +242,16 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
 
         // 初始化设置参数
         // 委员会每次抢单质押数量 (15$)
-        assert_ok!(Committee::set_staked_usd_per_order(RawOrigin::Root.into(), 15_000_000));
+        // 委员会每次抢单质押数量 (15$)
+        Committee::set_committee_stake_params(
+            RawOrigin::Root.into(),
+            committee::CommitteeStakeParamsInfo {
+                stake_baseline: 20000 * ONE_DBC,
+                stake_per_order: 1000 * ONE_DBC,
+                min_free_stake: 8000 * ONE_DBC,
+            },
+        );
+        // assert_ok!(Committee::set_staked_usd_per_order(RawOrigin::Root.into(), 15_000_000));
         // 操作时的固定费率: 10 DBC
         assert_ok!(GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10 * ONE_DBC));
         // 每张GPU质押数量: 100,000 DBC
