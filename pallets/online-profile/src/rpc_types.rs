@@ -42,7 +42,8 @@ pub struct MachineBriefInfo<BlockNumber> {
 pub struct RPCMachineInfo<AccountId, BlockNumber, Balance> {
     pub machine_owner: AccountId,
     pub bonding_height: BlockNumber,
-    pub stake_amount: Balance,
+    pub init_stake_amount: Balance,
+    pub current_stake_amount: Balance,
     pub machine_status: MachineStatus<BlockNumber>,
     pub total_rented_duration: u64,
     pub total_rented_times: u64,

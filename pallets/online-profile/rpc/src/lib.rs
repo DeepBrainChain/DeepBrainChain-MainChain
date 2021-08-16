@@ -191,7 +191,8 @@ where
         let runtime_api_result = api.get_machine_info(&at, machine_id).map(|machine_info| RPCMachineInfo {
             machine_owner: machine_info.machine_owner,
             bonding_height: machine_info.bonding_height,
-            stake_amount: machine_info.stake_amount.into(),
+            init_stake_amount: machine_info.init_stake_amount.into(),
+            current_stake_amount: machine_info.current_stake_amount.into(),
             machine_status: machine_info.machine_status,
             total_rented_duration: machine_info.total_rented_duration,
             total_rented_times: machine_info.total_rented_times,
