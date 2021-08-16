@@ -35,7 +35,7 @@ pub use rpc_types::*;
 
 pub use pallet::*;
 
-/// 每个Era有多少个Block
+/// 每2880个Era有多少个Block
 pub const BLOCK_PER_ERA: u64 = 2880;
 pub const REWARD_DURATION: u32 = 365 * 2;
 

@@ -4,12 +4,15 @@
 use codec::{Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
-    traits::{Currency, LockableCurrency},
+    traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{DbcPrice, MTOps, ManageCommittee};
+use online_profile_machine::{MTOps, ManageCommittee};
 use sp_io::hashing::blake2_128;
-use sp_runtime::{traits::SaturatedConversion, RuntimeDebug};
+use sp_runtime::{
+    traits::{SaturatedConversion, Zero},
+    Perbill, RuntimeDebug,
+};
 use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;
@@ -25,6 +28,8 @@ pub type ReportId = u64; // 提交的单据ID
 pub type BoxPubkey = [u8; 32];
 pub type ReportHash = [u8; 16];
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub const PALLET_LOCK_ID: LockIdentifier = *b"mtcomite";
 
 /// 机器故障的报告
 /// 记录该模块中所有活跃的报告, 根据ReportStatus来区分
@@ -195,6 +200,26 @@ impl Default for MTOrderStatus {
     }
 }
 
+/// Reporter stake params
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct ReporterStakeParamsInfo<Balance> {
+    /// First time when report
+    pub stake_baseline: Balance,
+    /// How much stake will be used each report
+    pub stake_per_report: Balance,
+    /// 当剩余的质押数量到阈值时，需要补质押
+    pub min_free_stake_percent: Perbill,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct ReporterStakeInfo<Balance> {
+    pub box_pubkey: [u8; 32],
+    pub staked_amount: Balance,
+    pub used_stake: Balance,
+    pub can_claim_reward: Balance,
+    pub claimed_reward: Balance,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -203,7 +228,6 @@ pub mod pallet {
     pub trait Config: frame_system::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
         type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
         type MTOps: MTOps<AccountId = Self::AccountId, MachineId = MachineId>;
     }
@@ -223,18 +247,17 @@ pub mod pallet {
         }
     }
 
-    // 默认抢单委员会的个数
     #[pallet::type_value]
     pub fn CommitteeLimitDefault<T: Config>() -> u32 {
         3
     }
 
-    // 最多多少个委员会能够抢单
+    /// Number of available committees for maintain module
     #[pallet::storage]
     #[pallet::getter(fn committee_limit)]
     pub(super) type CommitteeLimit<T: Config> = StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
 
-    // 查询报告人报告的机器
+    /// 查询报告人报告的机器
     #[pallet::storage]
     #[pallet::getter(fn reporter_report)]
     pub(super) type ReporterReport<T: Config> =
@@ -250,6 +273,15 @@ pub mod pallet {
         MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn reporter_stake_params)]
+    pub(super) type ReporterStakeParams<T: Config> = StorageValue<_, ReporterStakeParamsInfo<BalanceOf<T>>>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn reporter_stake)]
+    pub(super) type ReporterStake<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, ReporterStakeInfo<BalanceOf<T>>, ValueQuery>;
 
     // 委员会查询自己的抢单信息
     #[pallet::storage]
@@ -281,17 +313,55 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // /// 用户报告机器有故障：无法租用或者硬件故障或者离线
-        // /// 报告无法租用提交Hash:机器ID+随机数+报告内容
-        // /// 报告硬件故障提交Hash:机器ID+随机数+报告内容+租用机器的Session信息
-        // /// 用户报告机器硬件故障
+        #[pallet::weight(0)]
+        pub fn set_reporter_stake_params(
+            origin: OriginFor<T>,
+            stake_params: ReporterStakeParamsInfo<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ReporterStakeParams::<T>::put(stake_params);
+            Ok(().into())
+        }
+
+        /// 用户报告机器有故障：无法租用或者硬件故障或者离线
+        /// 报告无法租用提交Hash:机器ID+随机数+报告内容
+        /// 报告硬件故障提交Hash:机器ID+随机数+报告内容+租用机器的Session信息
+        /// 用户报告机器硬件故障
         #[pallet::weight(10000)]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
             report_reason: MachineFaultType,
+            box_pubkey: Option<BoxPubkey>,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            Self::report_handler(reporter, report_reason)
+            Self::report_handler(reporter, report_reason, box_pubkey)
+        }
+
+        #[pallet::weight(10000)]
+        pub fn report_add_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            let mut reporter_stake = Self::reporter_stake(&reporter);
+
+            // 确保free_balance足够
+            let user_free_balance = <T as Config>::Currency::free_balance(&reporter);
+            ensure!(user_free_balance > amount, Error::<T>::BalanceNotEnough);
+
+            reporter_stake.staked_amount += amount;
+            if reporter_stake.used_stake > stake_params.min_free_stake_percent * reporter_stake.staked_amount {
+                return Err(Error::<T>::StakeNotEnough.into())
+            }
+
+            <T as Config>::Currency::set_lock(
+                PALLET_LOCK_ID,
+                &reporter,
+                reporter_stake.staked_amount,
+                WithdrawReasons::all(),
+            );
+
+            ReporterStake::<T>::insert(&reporter, reporter_stake);
+
+            Ok(().into())
         }
 
         // 报告人可以在抢单之前取消该报告
@@ -687,13 +757,23 @@ pub mod pallet {
         NotNeedEncryptedInfo,
         ExpiredReport,
         AlreadySubmitConfirmation,
+        BalanceNotEnough,
+        StakeNotEnough,
+        BoxPubkeyIsNoneInFirstReport,
     }
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn report_handler(reporter: T::AccountId, machine_fault_type: MachineFaultType) -> DispatchResultWithPostInfo {
+    pub fn report_handler(
+        reporter: T::AccountId,
+        machine_fault_type: MachineFaultType,
+        box_pubkey: Option<BoxPubkey>,
+    ) -> DispatchResultWithPostInfo {
         let report_time = <frame_system::Module<T>>::block_number();
         let report_id = Self::get_new_report_id();
+
+        let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+        let mut reporter_stake = Self::reporter_stake(&reporter);
 
         let mut report_info = MTReportInfoDetail {
             reporter: reporter.clone(),
@@ -709,11 +789,30 @@ impl<T: Config> Pallet<T> {
         }
 
         // 3种报告类型，都需要质押100RMB等值DBC
-        let stake_need =
-            <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
-        <T as pallet::Config>::ManageCommittee::change_used_stake(&reporter, stake_need, true)
-            .map_err(|_| Error::<T>::StakeFailed)?;
-        report_info.reporter_stake = stake_need;
+        // 如果是第一次绑定，则需要质押2wDBC，其他情况，TODO: 则给一个补充质押的接口
+        if reporter_stake.staked_amount == Zero::zero() {
+            if box_pubkey.is_none() {
+                return Err(Error::<T>::BoxPubkeyIsNoneInFirstReport.into())
+            }
+            // 此时为第一次质押，检查free_balance是否足够
+            let user_free_balance = <T as Config>::Currency::free_balance(&reporter);
+            ensure!(user_free_balance > stake_params.stake_baseline, Error::<T>::BalanceNotEnough);
+            <T as Config>::Currency::set_lock(
+                PALLET_LOCK_ID,
+                &reporter,
+                stake_params.stake_per_report,
+                WithdrawReasons::all(),
+            );
+            reporter_stake.staked_amount = stake_params.stake_per_report;
+            reporter_stake.used_stake = stake_params.stake_per_report;
+        } else {
+            reporter_stake.used_stake += stake_params.stake_per_report;
+            if reporter_stake.used_stake > stake_params.min_free_stake_percent * reporter_stake.staked_amount {
+                return Err(Error::<T>::StakeNotEnough.into())
+            }
+        }
+
+        report_info.reporter_stake = stake_params.stake_per_report;
 
         let mut live_report = Self::live_report();
         if let Err(index) = live_report.bookable_report.binary_search(&report_id) {

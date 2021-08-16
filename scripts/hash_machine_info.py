@@ -3,6 +3,7 @@
 from hashlib import blake2b
 import json
 
+# NOTE: cpu_rate: 单位Mhz; sys_disk/data_disk单位: G， mem_num: g
 raw_info = json.loads(
     """
 {
@@ -13,12 +14,12 @@ raw_info = json.loads(
   "gpu_mem": 11,
   "calc_point": 34125,
   "sys_disk": 450,
-  "data_disk": 55,
+  "data_disk": 5500,
   "cpu_type": "Intel(R) Xeon(R) CPU E5-2697",
   "cpu_core_num": 56,
-  "cpu_rate": 260,
-  "mem_num": 566000,
-  "rand_str": "abcdefg",
+  "cpu_rate": 2600,
+  "mem_num": 566,
+  "rand_str": "abcdefg1",
   "is_support": true
 }
     """

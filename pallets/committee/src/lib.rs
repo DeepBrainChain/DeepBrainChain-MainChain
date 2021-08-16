@@ -67,7 +67,7 @@ pub struct CommitteeStakeParamsInfo<Balance> {
     /// 每次订单使用的质押数量
     pub stake_per_order: Balance,
     /// 当剩余的质押数量到阈值时，需要补质押
-    pub min_free_stake: Balance,
+    pub min_free_stake_percent: Perbill,
 }
 
 /// 委员会质押的状况
@@ -159,7 +159,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // 设置committee每次操作需要质押数量, 单位为usd * 10^6
+        // 设置committee每次操作需要质押数量
         #[pallet::weight(0)]
         pub fn set_committee_stake_params(
             origin: OriginFor<T>,
@@ -238,7 +238,8 @@ pub mod pallet {
             // 保证新增加质押之后，用户质押量需要大于基本质押
             ensure!(committee_stake.staked_amount < committee_stake_params.stake_baseline, Error::<T>::StakeNotEnough);
             ensure!(
-                committee_stake.staked_amount - committee_stake.used_stake > committee_stake_params.min_free_stake,
+                committee_stake.staked_amount - committee_stake.used_stake >
+                    committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
                 Error::<T>::StakeNotEnough
             );
 
@@ -523,22 +524,21 @@ impl<T: Config> ManageCommittee for Pallet<T> {
 
         // 计算下一阶段需要的质押数量
         if is_add {
-            // 如果是增加质押,未被使用的质押必须大于最小质押限制
-            let new_free_stake = free_stake.checked_sub(&stake_params.stake_per_order).ok_or(())?;
+            committee_stake.used_stake = committee_stake.used_stake.checked_add(&amount).ok_or(())?;
 
-            if new_free_stake <= stake_params.min_free_stake {
-                // 判断是不是需要补充质押了
+            // 检查是否不够最低质押
+            if committee_stake.used_stake >= stake_params.min_free_stake_percent * committee_stake.staked_amount {
+                // 判断是不是需要补充质押, 如果够了，则可能需要改变委员会状态
                 all_committee_changed = true;
                 CommitteeList::rm_one(&mut all_committee.normal, &committee);
                 CommitteeList::add_one(&mut all_committee.fulfilling_list, committee.clone());
             }
-            committee_stake.used_stake = committee_stake.used_stake.checked_add(&amount).ok_or(())?;
-        } else {
-            // 是减少质押
-            // 判断是不是够，如果够了，则可能需要改变委员会状态
-            let new_free_stake = free_stake.checked_add(&stake_params.stake_per_order).ok_or(())?;
 
-            if new_free_stake > stake_params.min_free_stake {
+            // if new_free_stake <= stake_params.min_free_stake_percent {}
+        } else {
+            committee_stake.used_stake = committee_stake.used_stake.checked_sub(&amount).ok_or(())?;
+            // 判断是不是够，如果够了，则可能需要改变委员会状态
+            if committee_stake.used_stake < stake_params.min_free_stake_percent * committee_stake.staked_amount {
                 if let Ok(index) = all_committee.fulfilling_list.binary_search(&committee) {
                     all_committee.fulfilling_list.remove(index);
                     if let Err(index) = all_committee.normal.binary_search(&committee) {
@@ -547,7 +547,6 @@ impl<T: Config> ManageCommittee for Pallet<T> {
                     }
                 }
             }
-            committee_stake.used_stake = committee_stake.used_stake.checked_sub(&amount).ok_or(())?;
         };
 
         if all_committee_changed {

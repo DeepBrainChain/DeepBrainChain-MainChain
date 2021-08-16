@@ -1039,7 +1039,6 @@ impl lease_committee::Config for Runtime {
 impl maintain_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
 }
