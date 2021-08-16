@@ -30,8 +30,8 @@ fn machine_online_works() {
         // 查询状态
         assert_eq!(Balances::free_balance(committee1), INIT_BALANCE);
         assert_eq!(DBCPriceOCW::avg_price(), Some(12_000u64));
-        assert_eq!(Committee::committee_stake_usd_per_order(), Some(15_000_000));
-        assert_eq!(Committee::committee_stake_dbc_per_order(), Some(1250 * ONE_DBC)); // 15_000_000 / 12_000 * 10*15 = 1250 DBC
+        // assert_eq!(Committee::committee_stake_usd_per_order(), Some(15_000_000));
+        // assert_eq!(Committee::committee_stake_dbc_per_order(), Some(1250 * ONE_DBC)); // 15_000_000 / 12_000 * 10*15 = 1250 DBC
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
@@ -58,7 +58,8 @@ fn machine_online_works() {
         // 2. 查询Controller支付30 DBC手续费: 绑定机器/添加机房信息各花费10DBC
         assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 30 * ONE_DBC);
         // 3. 查询Stash质押数量: 10wDBC
-        assert_eq!(Committee::user_total_stake(stash).unwrap(), 100_000 * ONE_DBC);
+        // TOD: 检查stash stake，在online profile模块中
+        // assert_eq!(Committee::user_total_stake(stash).unwrap(), 100_000 * ONE_DBC);
         // 4. 查询stash_machine的信息
         // 5. 查询controller_machine信息
         // 6. 查询MachineInfo
@@ -85,7 +86,6 @@ fn machine_online_works() {
                 longitude: online_profile::Longitude::East(1157894),
                 latitude: online_profile::Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
-                images: vec!["Ubuntu18.04 LTS".into()],
             }
         ));
 
@@ -115,6 +115,16 @@ fn machine_online_works() {
         assert_eq!(
             OnlineProfile::live_machines(),
             LiveMachine { booked_machine: vec!(machine_id.clone()), ..Default::default() }
+        );
+
+        assert_eq!(
+            Committee::committee_stake(committee1),
+            committee::CommitteeStakeInfo {
+                box_pubkey: one_box_pubkey,
+                staked_amount: 5,
+                used_stake: 2,
+                ..Default::default()
+            }
         );
 
         // 查询机器中有订阅的委员会
@@ -181,7 +191,6 @@ fn machine_online_works() {
                 total_claimed_reward: 0,
                 can_claim_reward: 272250 * ONE_DBC, // (1100000 * 25% * 99% = 272250 DBC) * 2 + (825000 * 1/150 * 0.99 = 544.5) = 545044.5
 
-                linear_release_reward: vec![0, 825_000 * ONE_DBC].into_iter().collect(), // 1100000 * 75% = 8250000 DBC
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
@@ -201,7 +210,8 @@ fn machine_online_works() {
         );
 
         // 委员会查询奖励
-        assert_eq!(Committee::committee_reward(committee1).unwrap(), 2750 * ONE_DBC); // 110_0000 * 25% * 0.1 = 27500
+        // TODO: 通过CommitteeStakeInfo查询奖励
+        // assert_eq!(Committee::committee_reward(committee1).unwrap(), 2750 * ONE_DBC); // 110_0000 * 25% * 0.1 = 27500
 
         run_to_block(2880 * 3 + 2);
 
@@ -217,7 +227,6 @@ fn machine_online_works() {
                 total_claimed_reward: 0,
                 can_claim_reward: 549944999455500000000, // (1100000 * 25% * 99% = 272250 DBC) * 2 + (825000 * 1/150 * 0.99 = 825000 * 6666666/10**9 * 0.99 = 5444.9994555 * 10^15 ) = 549944.9994555 // 相差 0.0005444
 
-                linear_release_reward: vec![0, 825_000 * ONE_DBC, 825_000 * ONE_DBC].into_iter().collect(),
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
@@ -226,7 +235,8 @@ fn machine_online_works() {
         );
 
         // 委员会查询奖励
-        assert_eq!(Committee::committee_reward(committee1).unwrap(), 5554999994500000000); // 委员会奖励： (1100000 * 25% * 1% = 2750) * 2 +  (825000 * 6666666/10**9 * 0.01 = 54.9999945) = 5554.9999945 DBC
+        // TODO: 通过CommitteeStakeInfo查询奖励
+        // assert_eq!(Committee::committee_reward(committee1).unwrap(), 5554999994500000000); // 委员会奖励： (1100000 * 25% * 1% = 2750) * 2 +  (825000 * 6666666/10**9 * 0.01 = 54.9999945) = 5554.9999945 DBC
 
         // 矿工领取奖励
         assert_ok!(OnlineProfile::claim_rewards(Origin::signed(controller)));
@@ -242,7 +252,6 @@ fn machine_online_works() {
                 total_claimed_reward: 549944999455500000000,
                 can_claim_reward: 0,
 
-                linear_release_reward: vec![0, 825_000 * ONE_DBC, 825_000 * ONE_DBC].into_iter().collect(),
                 total_rent_fee: 0,
                 total_burn_fee: 0,
 
@@ -279,7 +288,6 @@ fn machine_online_works() {
                 longitude: online_profile::Longitude::East(1157894),
                 latitude: online_profile::Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
-                images: vec!["Ubuntu18.04 LTS".into()],
             }
         ));
 

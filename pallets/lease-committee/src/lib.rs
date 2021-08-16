@@ -345,8 +345,6 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_one_machine(machine_id: &MachineId) -> Result<(), ()> {
         let lucky_committee = Self::lucky_committee().ok_or(())?;
 
-        debug::warn!("Lucky committee: {:?} for machine: {:?}", &lucky_committee, machine_id);
-
         // 每个添加4个小时
         let now = <frame_system::Module<T>>::block_number();
         let confirm_start = now + SUBMIT_RAW_START.into(); // 添加确认信息时间为分发之后的36小时

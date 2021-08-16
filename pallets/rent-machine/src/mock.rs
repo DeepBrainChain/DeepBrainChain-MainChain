@@ -293,7 +293,6 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
                 longitude: online_profile::Longitude::East(1157894),
                 latitude: online_profile::Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
-                images: vec!["Ubuntu18.04 LTS".into()],
             }
         ));
 

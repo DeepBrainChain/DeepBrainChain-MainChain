@@ -148,7 +148,6 @@ impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
-    type DbcPrice = DBCPriceOCW;
 }
 
 impl lease_committee::Config for TestRuntime {
@@ -169,6 +168,7 @@ impl online_profile::Config for TestRuntime {
     type BondingDuration = BondingDuration;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
+    type Slash = Treasury;
 }
 
 /// 待绑定的机器信息
@@ -365,7 +365,10 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     ext.execute_with(|| {
         // 初始化设置参数
         // 委员会每次抢单质押数量 (15$)
-        let _ = Committee::set_staked_usd_per_order(RawOrigin::Root.into(), 15_000_000);
+        let _ = Committee::set_committee_stake_params(
+            RawOrigin::Root.into(),
+            committee::CommitteeStakeParamsInfo { stake_baseline: 5, stake_per_order: 2, min_free_stake: 2 },
+        );
         // 操作时的固定费率: 10 DBC
         let _ = GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10 * ONE_DBC);
         // 每张GPU质押数量: 100,000 DBC
@@ -471,7 +474,6 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
                 longitude: online_profile::Longitude::East(1157894),
                 latitude: online_profile::Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
-                images: vec!["Ubuntu18.04 LTS".into()],
             }
         ));
 

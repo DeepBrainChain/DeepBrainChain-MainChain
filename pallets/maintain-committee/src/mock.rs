@@ -314,7 +314,6 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
                 longitude: 1157894,
                 latitude: 235678,
                 telecom_operators: vec!["China Unicom".into()],
-                images: vec!["Ubuntu18.04 LTS".into()],
             }
         ));
 
