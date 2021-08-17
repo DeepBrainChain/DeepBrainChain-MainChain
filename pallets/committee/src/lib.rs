@@ -205,7 +205,7 @@ pub mod pallet {
             <T as Config>::Currency::set_lock(
                 PALLET_LOCK_ID,
                 &committee,
-                committee_stake_params.stake_per_order,
+                committee_stake_params.stake_baseline,
                 WithdrawReasons::all(),
             );
 
@@ -236,7 +236,7 @@ pub mod pallet {
             committee_stake.staked_amount =
                 committee_stake.staked_amount.checked_add(&amount).ok_or(Error::<T>::StakeNotEnough)?;
             // 保证新增加质押之后，用户质押量需要大于基本质押
-            ensure!(committee_stake.staked_amount < committee_stake_params.stake_baseline, Error::<T>::StakeNotEnough);
+            ensure!(committee_stake.staked_amount > committee_stake_params.stake_baseline, Error::<T>::StakeNotEnough);
             ensure!(
                 committee_stake.staked_amount - committee_stake.used_stake >
                     committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
@@ -256,7 +256,6 @@ pub mod pallet {
                 WithdrawReasons::all(),
             );
 
-            // if committee_list.binary_sea
             if let Ok(index) = committee_list.fulfilling_list.binary_search(&committee) {
                 committee_list.fulfilling_list.remove(index);
                 if let Err(index) = committee_list.normal.binary_search(&committee) {
