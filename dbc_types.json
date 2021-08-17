@@ -312,5 +312,29 @@
   },
   "RentStatus": {
     "_enum": ["WaitingVerifying", "Renting", "RentExpired"]
+  },
+  "CommitteeStakeParamsInfo": {
+    "stake_baseline": "Balance",
+    "stake_per_order": "Balance",
+    "min_free_stake_percent": "Perbill"
+  },
+  "CommitteeStakeInfo": {
+    "box_pubkey": "[u8; 32]",
+    "staked_amount": "Balance",
+    "used_stake": "Balance",
+    "can_claim_reward": "Balance",
+    "claimed_reward": "Balance"
+  },
+  "ReporterStakeParamsInfo": {
+    "stake_baseline": "Balance",
+    "stake_per_report": "Balance",
+    "min_free_stake_percent": "Perbill"
+  },
+  "ReporterStakeInfo": {
+    "box_pubkey": "[u8; 32]",
+    "staked_amount": "Balance",
+    "used_stake": "Balance",
+    "can_claim_reward": "Balance",
+    "claimed_reward": "Balance"
   }
 }

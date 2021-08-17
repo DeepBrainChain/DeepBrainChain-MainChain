@@ -370,7 +370,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             committee::CommitteeStakeParamsInfo {
                 stake_baseline: 20000 * ONE_DBC,
                 stake_per_order: 1000 * ONE_DBC,
-                min_free_stake: 8000 * ONE_DBC,
+                min_free_stake_percent: 800000000, // 800000000 / 10**9 = 0.8
             },
         );
         // 操作时的固定费率: 10 DBC
@@ -390,6 +390,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             StandardGpuPointPrice { gpu_point: 1000, gpu_price: 5_000_000 },
         );
 
+        // Set: Price URL: https://dbchaininfo.congtu.cloud/query/dbc_info?language=CN
         // 初始化price_ocw (0.012$)
         assert_eq!(DBCPriceOCW::avg_price(), None);
         for _ in 0..MAX_LEN {
