@@ -55,7 +55,6 @@
     "machine_status": "MachineStatus",
     "total_rented_duration": "u64",
     "total_rented_times": "u64",
-    "unapplied_slash": "Vec<(AccountId, u32)>",
     "total_rent_fee": "Balance",
     "total_burn_fee": "Balance",
     "machine_info_detail": "MachineInfoDetail",
@@ -97,6 +96,7 @@
     "is_support": "bool"
   },
   "StakerCustomizeInfo": {
+    "server_room": "H256",
     "upload_net": "u64",
     "download_net": "u64",
     "longitude": "Longitude",
