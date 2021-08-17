@@ -7,18 +7,18 @@ import json
 raw_info = json.loads(
     """
 {
-  "machine_id": "48146a72486067bdea5dd82f16397e8ca7bc837514067436c03b325b980f5c05",
-  "gpu_type": "GeForceRTX2080Ti",
-  "gpu_num": 5,
-  "cuda_core": 4352,
-  "gpu_mem": 11,
-  "calc_point": 34125,
-  "sys_disk": 450,
-  "data_disk": 5500,
-  "cpu_type": "Intel(R) Xeon(R) CPU E5-2697",
-  "cpu_core_num": 56,
-  "cpu_rate": 2600,
-  "mem_num": 566,
+  "machine_id": "0a0855fafc62a8985cd2689e18ef885b2d94db9bf5f96d1bc082cb67d010e57a",
+  "gpu_type": "GeForceRTX3080",
+  "gpu_num": 4,
+  "cuda_core": 8704,
+  "gpu_mem": 10,
+  "calc_point": 59890,
+  "sys_disk": 500,
+  "data_disk": 3905,
+  "cpu_type": "Intel(R) Xeon(R) Silver 4214R",
+  "cpu_core_num": 48,
+  "cpu_rate": 2400,
+  "mem_num": 440,
   "rand_str": "abcdefg1",
   "is_support": true
 }
