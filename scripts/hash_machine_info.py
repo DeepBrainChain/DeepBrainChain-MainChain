@@ -4,6 +4,9 @@ from hashlib import blake2b
 import json
 
 # NOTE: cpu_rate: 单位Mhz; sys_disk/data_disk单位: G， mem_num: g
+# NOTE: 支持传1，不支持传0
+# NOTE: 请先修改自己的随机字符串: rand_str
+
 raw_info = json.loads(
     """
 {
@@ -20,13 +23,10 @@ raw_info = json.loads(
   "cpu_rate": 2400,
   "mem_num": 440,
   "rand_str": "abcdefg1",
-  "is_support": true
+  "is_support": 1
 }
     """
 )
-
-# NOTE: 支持传1，不支持传0
-is_support = "1"
 
 raw_input0 = (
     raw_info["machine_id"]
@@ -41,14 +41,11 @@ raw_input0 = (
     + str(raw_info["cpu_core_num"])
     + str(raw_info["cpu_rate"])
     + str(raw_info["mem_num"])
+    + str(raw_info["rand_str"])
+    + str(raw_info["is_support"])
 )
 
-print("########## MachineId: \t", raw_info["machine_id"])
-
-for i in [1, 2, 3]:
-    # NOTE: 如果想更改随机字符串，修改rand_str即可
-    rand_str = "abcdefg" + str(i)
-    raw_input1 = raw_input0 + rand_str + is_support
-    h = blake2b(digest_size=16)
-    h.update(raw_input1.encode())
-    print("Committee" + str(i) + "\t0x" + h.hexdigest())
+print("MachineId:\t", raw_info["machine_id"])
+h = blake2b(digest_size=16)
+h.update(raw_input0.encode())
+print("Hash:" + "\t0x" + h.hexdigest())
