@@ -111,8 +111,8 @@
   },
   "Latitude": {
     "_enum": {
-      "South": "u64",
-      "North": "u64"
+      "North": "u64",
+      "South": "u64"
     }
   },
   "TelecomName": "Text",
