@@ -152,7 +152,8 @@
   "CommitteeList": {
     "normal": "Vec<AccountId>",
     "chill_list": "Vec<AccountId>",
-    "waiting_box_pubkey": "Vec<AccountId>"
+    "waiting_box_pubkey": "Vec<AccountId>",
+    "fulfilling_list": "Vec<AccountId>"
   },
   "LCCommitteeMachineList": {
     "booked_machine": "Vec<MachineId>",
