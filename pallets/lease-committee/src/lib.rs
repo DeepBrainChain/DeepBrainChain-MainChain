@@ -159,6 +159,10 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, MachineId, LCMachineCommitteeList<T::AccountId, T::BlockNumber>, ValueQuery>;
 
     #[pallet::storage]
+    #[pallet::getter(fn machine_submited_hash)]
+    pub(super) type MachineSubmitedHash<T> = StorageMap<_, Blake2_128Concat, MachineId, Vec<[u8; 16]>, ValueQuery>;
+
+    #[pallet::storage]
     #[pallet::getter(fn committee_ops)]
     pub(super) type CommitteeOps<T: Config> = StorageDoubleMap<
         _,
@@ -182,9 +186,8 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            debug::error!("####### Hash is: {:?}", hash);
-
             let mut machine_committee = Self::machine_committee(&machine_id);
+            let mut machine_submited_hash = Self::machine_submited_hash(&machine_id);
 
             // 从机器信息列表中有该委员会
             machine_committee.booked_committee.binary_search(&who).map_err(|_| Error::<T>::NotInBookList)?;
@@ -194,14 +197,11 @@ pub mod pallet {
                 return Err(Error::<T>::AlreadySubmitHash.into())
             }
 
-            // 检查该Hash未出现过
-            for a_committee in machine_committee.hashed_committee.clone() {
-                let machine_ops = Self::committee_ops(&a_committee, &machine_id);
-                if machine_ops.confirm_hash == hash {
-                    // 与其中一个委员会提交的Hash一致
-                    // FIXME: 注意，提交Hash需要检查，不与其他人的/已存在的Hash相同, 否则将被认为是作弊行为
-                    // Self::revert_book(machine_id)
-                }
+            // 检查该Hash应该未出现过
+            if let Err(index) = machine_submited_hash.binary_search(&hash) {
+                machine_submited_hash.insert(index, hash.clone());
+            } else {
+                return Err(Error::<T>::DuplicateHash.into())
             }
 
             // 在该机器信息中，记录上委员的Hash
@@ -232,6 +232,7 @@ pub mod pallet {
             }
 
             // 更新存储
+            MachineSubmitedHash::<T>::insert(&machine_id, machine_submited_hash);
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
             CommitteeMachine::<T>::insert(&who, committee_machine);
             CommitteeOps::<T>::insert(&who, &machine_id, committee_ops);
@@ -325,6 +326,7 @@ pub mod pallet {
         NotSubmitHash,
         AlreadySubmitRaw,
         InfoNotFeatHash,
+        DuplicateHash,
     }
 }
 
@@ -361,6 +363,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // 一个委员会进行操作
+    // - Writes: MachineCommittee, CommitteeMachine, CommitteeOps
     fn book_one(
         machine_id: MachineId,
         confirm_start: T::BlockNumber,

@@ -15,7 +15,7 @@ pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr2
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
-    ModuleId, Permill,
+    ModuleId, Perbill, Permill,
 };
 use std::convert::TryInto;
 
@@ -370,7 +370,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             committee::CommitteeStakeParamsInfo {
                 stake_baseline: 20000 * ONE_DBC,
                 stake_per_order: 1000 * ONE_DBC,
-                min_free_stake_percent: 400000000, // 800000000 / 10**9 = 0.8
+                min_free_stake_percent: Perbill::from_rational_approximation(40u32, 100u32),
             },
         );
         // 操作时的固定费率: 10 DBC
@@ -456,7 +456,6 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
         // controller 生成server_name
         assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
         assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
-
         let server_room = OnlineProfile::stash_server_rooms(&stash);
 
         assert_ok!(OnlineProfile::bond_machine(

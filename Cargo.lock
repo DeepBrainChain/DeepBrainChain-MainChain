@@ -841,6 +841,7 @@ dependencies = [
  "frame-system",
  "generic-func",
  "online-profile-machine",
+ "pallet-collective",
  "parity-scale-codec",
  "serde",
  "sp-io",

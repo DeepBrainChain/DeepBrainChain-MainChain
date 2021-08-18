@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 313,
+    spec_version: 315,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -1027,6 +1027,7 @@ impl committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
+    type CalcneSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
 }
 
 impl lease_committee::Config for Runtime {

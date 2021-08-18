@@ -3,7 +3,7 @@
 use crate::{mock::*, LCMachineCommitteeList, LCVerifyStatus};
 use committee::CommitteeList;
 use frame_support::assert_ok;
-use online_profile::{CommitteeUploadInfo, LiveMachine, StakerCustomizeInfo};
+use online_profile::{CommitteeUploadInfo, LiveMachine, MachineInfo, StakerCustomizeInfo};
 use std::convert::TryInto;
 
 #[test]
@@ -30,8 +30,6 @@ fn machine_online_works() {
         // 查询状态
         assert_eq!(Balances::free_balance(committee1), INIT_BALANCE);
         assert_eq!(DBCPriceOCW::avg_price(), Some(12_000u64));
-        // assert_eq!(Committee::committee_stake_usd_per_order(), Some(15_000_000));
-        // assert_eq!(Committee::committee_stake_dbc_per_order(), Some(1250 * ONE_DBC)); // 15_000_000 / 12_000 * 10*15 = 1250 DBC
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
@@ -49,48 +47,60 @@ fn machine_online_works() {
             hex::decode(sig).unwrap()
         ));
 
-        // 查询bond_machine之后的各种状态
-        // 1. LiveMachine
+        let mut machine_info = online_profile::MachineInfo {
+            controller: controller.clone(),
+            machine_stash: stash.clone(),
+            bonding_height: 3,
+            init_stake_amount: 100000 * ONE_DBC,
+            current_stake_amount: 100000 * ONE_DBC,
+            machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
+            ..Default::default()
+        };
+
+        // bond_machine:
+        // - Writes: ControllerMachines, StashMachines, LiveMachines, MachinesInfo, SysInfo, StashStake
+        assert_eq!(OnlineProfile::controller_machines(&controller), vec!(machine_id.clone()));
+        assert_eq!(
+            OnlineProfile::stash_machines(&stash),
+            online_profile::StashMachine { total_machine: vec!(machine_id.clone()), ..Default::default() }
+        );
         assert_eq!(
             OnlineProfile::live_machines(),
             LiveMachine { bonding_machine: vec!(machine_id.clone()), ..Default::default() }
         );
-        // 2. 查询Controller支付30 DBC手续费: 绑定机器/添加机房信息各花费10DBC
-        assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 30 * ONE_DBC);
-        // 3. 查询Stash质押数量: 10wDBC
-        // TOD: 检查stash stake，在online profile模块中
-        // assert_eq!(Committee::user_total_stake(stash).unwrap(), 100_000 * ONE_DBC);
-        // 4. 查询stash_machine的信息
-        // 5. 查询controller_machine信息
-        // 6. 查询MachineInfo
-        // 7. 查询系统总质押SysInfo
+        assert_eq!(OnlineProfile::machines_info(&machine_id), machine_info.clone());
         assert_eq!(
             OnlineProfile::sys_info(),
-            online_profile::SysInfoDetail {
-                total_gpu_num: 0,
-                total_staker: 0,
-                total_calc_points: 0,
-                total_stake: 100000 * ONE_DBC,
-                ..Default::default()
-            }
+            online_profile::SysInfoDetail { total_staker: 0, total_stake: 100000 * ONE_DBC, ..Default::default() }
         );
+        assert_eq!(OnlineProfile::stash_stake(&stash), 100000 * ONE_DBC);
+        // 查询Controller支付30 DBC手续费: 绑定机器/添加机房信息各花费10DBC
+        assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 30 * ONE_DBC);
 
+        let customize_info = StakerCustomizeInfo {
+            server_room: server_room[0],
+            upload_net: 100,
+            download_net: 100,
+            longitude: online_profile::Longitude::East(1157894),
+            latitude: online_profile::Latitude::North(235678),
+            telecom_operators: vec!["China Unicom".into()],
+        };
         // 控制账户添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
             Origin::signed(controller),
             machine_id.clone(),
-            StakerCustomizeInfo {
-                server_room: server_room[0],
-                upload_net: 10000,
-                download_net: 10000,
-                longitude: online_profile::Longitude::East(1157894),
-                latitude: online_profile::Latitude::North(235678),
-                telecom_operators: vec!["China Unicom".into()],
-            }
+            customize_info.clone()
         ));
 
+        machine_info.machine_info_detail.staker_customize_info = customize_info.clone();
+        machine_info.machine_status = online_profile::MachineStatus::DistributingOrder;
+
         run_to_block(3);
-        // 订单处于正常状态
+
+        // 添加了信息之后，将会在LeaseCommittee中被派单
+        // add_machine_info
+        // - Writes: MachinesInfo, LiveMachines, committee::CommitteeStake
+        assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
         assert_eq!(
             OnlineProfile::live_machines(),
             LiveMachine { confirmed_machine: vec!(machine_id.clone()), ..Default::default() }
@@ -98,11 +108,11 @@ fn machine_online_works() {
 
         // 增加一个委员会
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        let one_box_pubkey = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+        let one_box_pubkey: [u8; 32] = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
             .unwrap()
             .try_into()
             .unwrap();
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey.clone()));
 
         // 委员会处于正常状态(排序后的列表)
         assert_eq!(Committee::committee(), CommitteeList { normal: vec![committee1], ..Default::default() });
@@ -111,23 +121,25 @@ fn machine_online_works() {
 
         run_to_block(5);
 
-        // 订单处于正常状态: 已经被委员会预订
+        let mut committee_stake_info = committee::CommitteeStakeInfo {
+            box_pubkey: one_box_pubkey,
+            staked_amount: 20000 * ONE_DBC,
+            used_stake: 1000 * ONE_DBC,
+            ..Default::default()
+        };
+
+        machine_info.machine_status = online_profile::MachineStatus::CommitteeVerifying;
+
+        // distribute_machines:
+        // - Writes: op::MachinesInfo, op::LiveMachines, committee::CommitteeStake,
+        // lc::MachineCommittee, lc::CommitteeMachine, lc::CommitteeOps
+        assert_eq!(Committee::committee_stake(&committee1), committee_stake_info);
         assert_eq!(
             OnlineProfile::live_machines(),
-            LiveMachine { booked_machine: vec!(machine_id.clone()), ..Default::default() }
+            online_profile::LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
+        assert_eq!(OnlineProfile::machines_info(&machine_id), machine_info);
 
-        assert_eq!(
-            Committee::committee_stake(committee1),
-            committee::CommitteeStakeInfo {
-                box_pubkey: one_box_pubkey,
-                staked_amount: 20000 * ONE_DBC,
-                used_stake: 1000 * ONE_DBC,
-                ..Default::default()
-            }
-        );
-
-        // 查询机器中有订阅的委员会
         assert_eq!(
             LeaseCommittee::machine_committee(machine_id.clone()),
             LCMachineCommitteeList {
@@ -137,38 +149,84 @@ fn machine_online_works() {
                 ..Default::default()
             }
         );
+        assert_eq!(
+            LeaseCommittee::committee_machine(&committee1),
+            crate::LCCommitteeMachineList { booked_machine: vec![machine_id.clone()], ..Default::default() }
+        );
+        assert_eq!(
+            LeaseCommittee::committee_ops(&committee1, &machine_id),
+            crate::LCCommitteeOps {
+                staked_dbc: 1000 * ONE_DBC,
+                verify_time: vec![4, 484, 964, 1444, 1924, 2404, 2884, 3364, 3844],
+                ..Default::default()
+            }
+        );
 
         // 委员会提交机器Hash
-        let machine_info_hash = "d80b116fd318f19fd89da792aba5e875";
+        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         assert_ok!(LeaseCommittee::submit_confirm_hash(
             Origin::signed(committee1),
             machine_id.clone(),
-            hex::decode(machine_info_hash).unwrap().try_into().unwrap()
+            machine_info_hash
         ));
+
+        let mut customize_info = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
+            gpu_num: 4,
+            cuda_core: 4352,
+            gpu_mem: 11283456,
+            calc_point: 6825,
+            sys_disk: 12345465,
+            data_disk: 324567733,
+            cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
+            cpu_core_num: 32,
+            cpu_rate: 26,
+            mem_num: 527988672,
+
+            rand_str: "abcdefg".as_bytes().to_vec(),
+            is_support: true,
+        };
 
         // 委员会提交原始信息
-        assert_ok!(LeaseCommittee::submit_confirm_raw(
-            Origin::signed(committee1),
-            CommitteeUploadInfo {
-                machine_id: machine_id.clone(),
-                gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 4352,
-                gpu_mem: 11283456,
-                calc_point: 6825,
-                sys_disk: 12345465,
-                data_disk: 324567733,
-                cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
-                cpu_core_num: 32,
-                cpu_rate: 26,
-                mem_num: 527988672,
+        assert_ok!(LeaseCommittee::submit_confirm_raw(Origin::signed(committee1), customize_info.clone()));
 
-                rand_str: "abcdefg".as_bytes().to_vec(),
-                is_support: true,
+        // submit_confirm_raw:
+        // - Writes: MachineSubmitedHash, MachineCommittee, CommitteeMachine, CommitteeOps
+        assert_eq!(LeaseCommittee::machine_submited_hash(&machine_id), vec![machine_info_hash.clone()]);
+        assert_eq!(
+            LeaseCommittee::machine_committee(&machine_id),
+            crate::LCMachineCommitteeList {
+                book_time: 4,
+                confirm_start_time: 4324,
+                booked_committee: vec![committee1],
+                hashed_committee: vec![committee1],
+                confirmed_committee: vec![committee1],
+                status: crate::LCVerifyStatus::Summarizing,
+                ..Default::default()
             }
-        ));
+        );
+        assert_eq!(
+            LeaseCommittee::committee_machine(&committee1),
+            crate::LCCommitteeMachineList { confirmed_machine: vec![machine_id.clone()], ..Default::default() }
+        );
+        customize_info.rand_str = vec![];
+        assert_eq!(
+            LeaseCommittee::committee_ops(&committee1, machine_id.clone()),
+            crate::LCCommitteeOps {
+                staked_dbc: 1000 * ONE_DBC,
+                verify_time: vec![4, 484, 964, 1444, 1924, 2404, 2884, 3364, 3844],
+                confirm_hash: machine_info_hash,
+                hash_time: 6,
+                confirm_time: 6,
+                machine_status: crate::LCMachineStatus::Confirmed,
+                machine_info: customize_info,
+            }
+        );
 
         run_to_block(10);
+        // Online:
+        // - Writes:
 
         // 检查机器状态
         assert_eq!(

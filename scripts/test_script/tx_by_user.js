@@ -16,14 +16,16 @@ import minimist from "minimist";
 
 async function main() {
   // 读取参数
-  var args = minimist(process.argv.slice(2), { string: ["key", "sig", "hash"] });
+  var args = minimist(process.argv.slice(2), {
+    string: ["key", "sig", "hash"],
+  });
 
-  if (args.hasOwnProperty("sig"))  {
+  if (args.hasOwnProperty("sig")) {
     args._.push(args["sig"]);
   }
 
   if (args.hasOwnProperty("hash")) {
-    args._.push(args["hash"])
+    args._.push(args["hash"]);
   }
 
   // 构建连接
@@ -51,19 +53,22 @@ async function main() {
   // 创建方法map
   var funcMap = {};
   funcMap["onlineProfile"] = {};
-  funcMap["onlineProfile"]["setController"] = api.tx.onlineProfile.setController;
-  funcMap["onlineProfile"]["machineSetStash"] = api.tx.onlineProfile.machineSetStash;
+  funcMap["onlineProfile"]["setController"] =
+    api.tx.onlineProfile.setController;
+  funcMap["onlineProfile"]["machineSetStash"] =
+    api.tx.onlineProfile.machineSetStash;
 
-  funcMap["dbcTesting"] = {};
   funcMap["onlineProfile"]["bondMachine"] = api.tx.onlineProfile.bondMachine;
-  funcMap["dbcTesting"]["sayHello"] = api.tx.dbcTesting.sayHello;
 
   funcMap["committee"] = {};
-  funcMap["committee"]["committeeSetBoxPubkey"] = api.tx.committee.committeeSetBoxPubkey;
+  funcMap["committee"]["committeeSetBoxPubkey"] =
+    api.tx.committee.committeeSetBoxPubkey;
 
   funcMap["leaseCommittee"] = {};
-  funcMap["leaseCommittee"]["submitConfirmHash"] = api.tx.leaseCommittee.submitConfirmHash;
-  funcMap["leaseCommittee"]["submitConfirmRaw"] = api.tx.leaseCommittee.submitConfirmRaw;
+  funcMap["leaseCommittee"]["submitConfirmHash"] =
+    api.tx.leaseCommittee.submitConfirmHash;
+  funcMap["leaseCommittee"]["submitConfirmRaw"] =
+    api.tx.leaseCommittee.submitConfirmRaw;
 
   funcMap["rentMachine"] = {};
   funcMap["rentMachine"]["rentMachine"] = api.tx.rentMachine.rentMachine;

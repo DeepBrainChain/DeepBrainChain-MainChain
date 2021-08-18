@@ -651,10 +651,9 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // - Reads:
+        // - Writes: ControllerMachines, StashMachines, LiveMachines, MachinesInfo, SysInfo, StashStake
         /// 控制账户上线一个机器
-        /// msg = d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
-        ///     + 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
-        /// sig 为machine_id对应的私钥对msg进行签名
         #[pallet::weight(10000)]
         pub fn bond_machine(
             origin: OriginFor<T>,
@@ -2083,6 +2082,7 @@ impl<T: Config> LCOps for Pallet<T> {
 
     // 委员会订阅了一个机器ID
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
+    // - Writes: LiveMachine, MachinesInfo
     fn lc_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 

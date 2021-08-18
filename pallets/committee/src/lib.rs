@@ -6,7 +6,8 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{
-        Currency, ExistenceRequirement::KeepAlive, LockIdentifier, LockableCurrency, OnUnbalanced, WithdrawReasons,
+        Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, LockIdentifier, LockableCurrency, OnUnbalanced,
+        WithdrawReasons,
     },
     IterableStorageMap,
 };
@@ -24,6 +25,7 @@ pub type SlashId = u64;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type TechnicalCollective = pallet_collective::Instance2;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"committe";
 
@@ -116,6 +118,7 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        type CalcneSlashOrigin: EnsureOrigin<Self::Origin>;
     }
 
     #[pallet::pallet]
@@ -366,7 +369,7 @@ pub mod pallet {
         // FIXME: 应该将锁定的币直接返还
         #[pallet::weight(0)]
         pub fn cancle_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
+            T::CalcneSlashOrigin::ensure_origin(origin)?;
             PendingSlash::<T>::remove(slash_id);
             Ok(().into())
         }
@@ -476,6 +479,11 @@ impl<T: Config> Pallet<T> {
         NextSlashId::<T>::put(slash_id + 1);
         return slash_id
     }
+
+    // fn is_technical_member(who: T::AccountId) -> bool {
+    //     let members = <pallet_collective::Module<T>>::members();
+    //     members.binary_search(&who).is_ok()
+    // }
 }
 
 impl<T: Config> ManageCommittee for Pallet<T> {
@@ -513,6 +521,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     }
 
     // 改变委员会使用的质押数量
+    // - Writes: CommitteeStake, Committee
     fn change_used_stake(committee: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let mut committee_stake = Self::committee_stake(&committee);
         let stake_params = Self::committee_stake_params().ok_or(())?;
