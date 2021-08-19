@@ -9,6 +9,7 @@ pub use frame_system::RawOrigin;
 use online_profile::{StakerCustomizeInfo, StandardGpuPointPrice};
 pub use sp_core::{
     sr25519::{self, Signature},
+    u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
 pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
@@ -144,10 +145,29 @@ impl pallet_treasury::Config for TestRuntime {
     type SpendFunds = ();
 }
 
+parameter_types! {
+    pub const CouncilMotionDuration: u32 = 5 * 2880;
+    pub const CouncilMaxProposals: u32 = 100;
+    pub const CouncilMaxMembers: u32 = 100;
+}
+
+type TechnicalCollective = pallet_collective::Instance2;
+impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
+    type MotionDuration = CouncilMotionDuration;
+    type MaxProposals = CouncilMaxProposals;
+    type MaxMembers = CouncilMaxMembers;
+    type DefaultVote = pallet_collective::PrimeDefaultVote;
+    type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
+}
+
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
+    type CalcneSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
 }
 
 impl lease_committee::Config for TestRuntime {
@@ -315,6 +335,7 @@ frame_support::construct_runtime!(
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
+        TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
     }
 );
 

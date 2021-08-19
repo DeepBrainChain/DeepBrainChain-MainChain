@@ -370,7 +370,10 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn cancle_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
             T::CalcneSlashOrigin::ensure_origin(origin)?;
-            PendingSlash::<T>::remove(slash_id);
+            let now = <frame_system::Module<T>>::block_number();
+
+            PendingSlash::<T>::insert(111u64, PendingSlashInfo { slash_time: now, ..Default::default() });
+
             Ok(().into())
         }
     }

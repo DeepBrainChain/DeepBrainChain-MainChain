@@ -2941,6 +2941,7 @@ dependencies = [
  "online-profile",
  "online-profile-machine",
  "pallet-balances",
+ "pallet-collective",
  "pallet-identity",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
