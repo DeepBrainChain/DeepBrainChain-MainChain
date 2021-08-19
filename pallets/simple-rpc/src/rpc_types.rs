@@ -16,4 +16,5 @@ pub struct StakerListInfo<Balance, AccountId> {
     pub total_rent_fee: Balance, // 总租金收益(银河竞赛前获得)
     pub total_burn_fee: Balance, // 总销毁数量
     pub total_reward: Balance,
+    pub total_released_reward: Balance,
 }

@@ -83,6 +83,7 @@ where
                     total_rent_fee: staker_info.total_rent_fee.into(),
                     total_burn_fee: staker_info.total_burn_fee.into(),
                     total_reward: staker_info.total_reward.into(),
+                    total_released_reward: staker_info.total_released_reward.into(),
                 })
             }
             .collect::<Vec<_>>()
