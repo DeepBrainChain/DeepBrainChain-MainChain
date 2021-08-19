@@ -460,11 +460,8 @@ impl<T: Config> Pallet<T> {
             let mut reward_committee = Vec::new(); // 当拒绝上线时，惩罚委员会的币奖励给拒绝的委员会
             let mut unstake_committee = Vec::new(); // 解除质押的委员会
 
-            debug::warn!("Summarying... {:?}", machine_id);
-
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
-                    debug::warn!("Summarying result is... confirmed");
                     slash_committee.extend(summary.unruly.clone());
                     slash_committee.extend(summary.against);
                     slash_committee.extend(summary.invalid_support);
@@ -489,7 +486,6 @@ impl<T: Config> Pallet<T> {
                     }
                 },
                 MachineConfirmStatus::Refuse(summary) => {
-                    debug::warn!("Summarying result is... refused");
                     slash_committee.extend(summary.unruly.clone());
                     slash_committee.extend(summary.invalid_support);
                     reward_committee.extend(summary.against.clone());

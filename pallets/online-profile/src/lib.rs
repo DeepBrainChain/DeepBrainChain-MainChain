@@ -5,7 +5,8 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
     traits::{
-        Currency, ExistenceRequirement::KeepAlive, Get, LockIdentifier, LockableCurrency, OnUnbalanced, WithdrawReasons,
+        Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, LockIdentifier, LockableCurrency, OnUnbalanced,
+        WithdrawReasons,
     },
     weights::Weight,
     IterableStorageDoubleMap, IterableStorageMap,
@@ -266,11 +267,32 @@ pub struct PosInfo {
     pub online_gpu_calc_points: u64,
 }
 
-/// 资金账户对每台机器的质押情况
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum SlashReason {
+    CommitteeRefusedOnline,
+}
+impl Default for SlashReason {
+    fn default() -> Self {
+        SlashReason::CommitteeRefusedOnline
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct StashMachineStakeInfo<Balance> {
-    staked_amount: Balance,
-    used_stake: Balance,
+pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
+    /// 被惩罚人
+    pub slash_who: AccountId,
+    /// 惩罚被创建的时间
+    pub slash_time: BlockNumber,
+    /// 执行惩罚前解绑的金额
+    pub unlock_amount: Balance,
+    /// 执行惩罚的金额
+    pub slash_amount: Balance,
+    /// 惩罚被执行的时间
+    pub slash_exec_time: BlockNumber,
+    /// 奖励发放对象。如果为空，则惩罚到国库
+    pub reward_to: Vec<AccountId>,
+    /// 被惩罚原因
+    pub slash_reason: SlashReason,
 }
 
 #[frame_support::pallet]
@@ -285,6 +307,7 @@ pub mod pallet {
         type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
         type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
     }
 
     #[pallet::pallet]
@@ -431,20 +454,47 @@ pub mod pallet {
     #[pallet::getter(fn phase_n_reward_per_era)]
     pub(super) type PhaseNRewardPerEra<T: Config> = StorageMap<_, Blake2_128Concat, u32, BalanceOf<T>>;
 
-    /// 资金账户对每台机器的质押状况
-    #[pallet::storage]
-    #[pallet::getter(fn stash_machine_stake)]
-    pub(super) type StashMachineStake<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, MachineId, BalanceOf<T>, ValueQuery>;
-
     /// 资金账户的质押总计
     #[pallet::storage]
     #[pallet::getter(fn stash_stake)]
     pub(super) type StashStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn next_slash_id)]
+    pub(super) type NextSlashId<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash)]
+    pub(super) type PendingSlash<T: Config> =
+        StorageMap<_, Blake2_128Concat, u64, PendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
+            let mut live_machines = Self::live_machines();
+
+            let mut online_machine = Vec::new();
+            let mut rented_machine = Vec::new();
+
+            for machine_id in live_machines.online_machine {
+                let machine_info = Self::machines_info(&machine_id);
+                match machine_info.machine_status {
+                    MachineStatus::Online =>
+                        if let Err(index) = online_machine.binary_search(&machine_id) {
+                            online_machine.insert(index, machine_id.clone());
+                        },
+                    MachineStatus::Rented =>
+                        if let Err(index) = rented_machine.binary_search(&machine_id) {
+                            rented_machine.insert(index, machine_id.clone());
+                        },
+                    _ => {},
+                }
+            }
+
+            live_machines.online_machine = online_machine;
+            live_machines.rented_machine = rented_machine;
+            LiveMachines::<T>::put(live_machines);
+
             0
         }
 
@@ -484,7 +534,7 @@ pub mod pallet {
                 Self::distribute_reward();
             }
 
-            Self::clean_refused_machine();
+            Self::do_pending_slash();
         }
     }
 
@@ -902,43 +952,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 如果绑定失败，会扣除5%的DBC（5000），要在10天内手动执行rebond并补充质押
-        #[pallet::weight(10000)]
-        pub fn rebond_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
-            let controller = ensure_signed(origin)?;
-            // let now = <frame_system::Module<T>>::block_number();
-            let mut machine_info = Self::machines_info(&machine_id);
-
-            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-            match machine_info.machine_status {
-                MachineStatus::CommitteeRefused(_) => {},
-                _ => return Err(Error::<T>::NotRefusedMachine.into()),
-            }
-
-            // 补充质押
-            let stake_need = Self::stake_per_gpu();
-            if stake_need > machine_info.init_stake_amount {
-                let extra_stake = stake_need - machine_info.init_stake_amount;
-
-                Self::add_user_total_stake(&machine_info.machine_stash, extra_stake)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
-
-                machine_info.init_stake_amount = stake_need;
-                machine_info.current_stake_amount = stake_need;
-            }
-
-            let mut live_machines = Self::live_machines();
-            LiveMachine::rm_machine_id(&mut live_machines.refused_machine, &machine_id);
-            LiveMachine::add_machine_id(&mut live_machines.confirmed_machine, machine_id.clone());
-
-            machine_info.machine_status = MachineStatus::DistributingOrder;
-
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
-            LiveMachines::<T>::put(live_machines);
-
-            Ok(().into())
-        }
-
         /// 控制账户进行领取收益到stash账户
         #[pallet::weight(10000)]
         pub fn claim_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -1114,6 +1127,13 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        #[pallet::weight(0)]
+        pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
+            T::CancelSlashOrigin::ensure_origin(origin)?;
+            PendingSlash::<T>::remove(slash_id);
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1121,6 +1141,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         BondMachine(T::AccountId, MachineId, BalanceOf<T>),
+        Slash(T::AccountId, BalanceOf<T>, SlashReason),
     }
 
     #[pallet::error]
@@ -1428,6 +1449,92 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    fn get_new_slash_id() -> u64 {
+        let slash_id = Self::next_slash_id();
+
+        if slash_id == u64::MAX {
+            NextSlashId::<T>::put(0);
+        } else {
+            NextSlashId::<T>::put(slash_id + 1);
+        };
+
+        return slash_id
+    }
+
+    fn do_pending_slash() -> Result<(), ()> {
+        // 获得所有slashID
+        let all_slash_id = <PendingSlash<T> as IterableStorageMap<u64, _>>::iter()
+            .map(|(slash_id, _)| slash_id)
+            .collect::<Vec<_>>();
+
+        let now = <frame_system::Module<T>>::block_number();
+
+        // 判断是否已经超过2天，如果超过，则执行惩罚
+        for a_slash_id in all_slash_id {
+            let slash_info = Self::pending_slash(a_slash_id);
+            if now < slash_info.slash_exec_time {
+                continue
+            }
+
+            let stash_stake = Self::stash_stake(&slash_info.slash_who);
+            let stake_after_slash = stash_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
+
+            <T as Config>::Currency::set_lock(
+                PALLET_LOCK_ID,
+                &slash_info.slash_who,
+                stake_after_slash,
+                WithdrawReasons::all(),
+            );
+
+            let reward_to_num = slash_info.reward_to.len() as u32;
+
+            if reward_to_num == 0 {
+                if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
+                    let (imbalance, _) =
+                        <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
+                    <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+                    Self::deposit_event(Event::Slash(
+                        slash_info.slash_who.clone(),
+                        slash_info.slash_amount,
+                        slash_info.slash_reason,
+                    ));
+                }
+            } else {
+                let reward_each_get =
+                    Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
+
+                let mut left_reward = slash_info.slash_amount;
+
+                for a_committee in slash_info.reward_to {
+                    if left_reward < reward_each_get {
+                        <T as pallet::Config>::Currency::transfer(
+                            &slash_info.slash_who,
+                            &a_committee,
+                            left_reward,
+                            KeepAlive,
+                        )
+                        .map_err(|_| ())?;
+                        return Ok(())
+                    } else {
+                        <T as pallet::Config>::Currency::transfer(
+                            &slash_info.slash_who,
+                            &a_committee,
+                            reward_each_get,
+                            KeepAlive,
+                        )
+                        .map_err(|_| ())?;
+
+                        left_reward -= reward_each_get;
+                    }
+                }
+            }
+
+            PendingSlash::<T>::remove(a_slash_id);
+        }
+
+        Ok(())
+    }
+
     // For upgrade
     fn get_all_machine_id() -> Vec<MachineId> {
         <MachinesInfo<T> as IterableStorageMap<MachineId, _>>::iter()
@@ -1503,9 +1610,6 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
-
-    // TODO
-    fn lc_refuse_machine_reonline(_machine_id: MachineId) {}
 
     /// 下架机器
     fn machine_offline(machine_id: MachineId) {
@@ -1591,71 +1695,6 @@ impl<T: Config> Pallet<T> {
         }
 
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
-    }
-
-    // FIXME: 检查该逻辑
-    // 检查fulfilling list，如果超过10天，则清除记录，退还质押
-    fn clean_refused_machine() {
-        let mut live_machines = Self::live_machines();
-        if live_machines.refused_machine.len() == 0 {
-            return
-        }
-
-        let mut sys_info = Self::sys_info();
-
-        let mut live_machines_is_changed = false;
-        let now = <frame_system::Module<T>>::block_number();
-
-        let refused_machine = live_machines.refused_machine.clone();
-
-        for a_machine in refused_machine {
-            let machine_info = Self::machines_info(&a_machine);
-            match machine_info.machine_status {
-                MachineStatus::CommitteeRefused(refuse_time) => {
-                    if now - refuse_time > (10 * 2880u32).saturated_into::<T::BlockNumber>() {
-                        LiveMachine::rm_machine_id(&mut live_machines.refused_machine, &a_machine);
-
-                        live_machines_is_changed = true;
-
-                        if T::ManageCommittee::change_used_stake(
-                            &machine_info.machine_stash,
-                            machine_info.current_stake_amount,
-                            false,
-                        )
-                        .is_err()
-                        {
-                            debug::error!("Reduce user stake failed");
-                            continue
-                        }
-                        if let Some(value) = sys_info.total_stake.checked_sub(&machine_info.current_stake_amount) {
-                            sys_info.total_stake = value;
-                        } else {
-                            debug::error!("Reduce total stake failed");
-                            continue
-                        }
-
-                        let mut controller_machines = Self::controller_machines(&machine_info.controller);
-                        if let Ok(index) = controller_machines.binary_search(&a_machine) {
-                            controller_machines.remove(index);
-                        }
-
-                        let mut stash_machines = Self::stash_machines(&machine_info.machine_stash);
-                        if let Ok(index) = stash_machines.total_machine.binary_search(&a_machine) {
-                            stash_machines.total_machine.remove(index);
-                        }
-
-                        ControllerMachines::<T>::insert(&machine_info.controller, controller_machines);
-                        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machines);
-                        MachinesInfo::<T>::remove(a_machine);
-                    }
-                },
-                _ => {},
-            }
-        }
-        if live_machines_is_changed {
-            LiveMachines::<T>::put(live_machines);
-            SysInfo::<T>::put(sys_info);
-        }
     }
 
     // 接收到[u8; 64] -> str -> [u8; 32] -> pubkey
@@ -2176,27 +2215,56 @@ impl<T: Config> LCOps for Pallet<T> {
     // 当委员会达成统一意见，拒绝机器时，机器状态改为委员会拒绝。并记录拒绝时间。
     fn lc_refuse_machine(machine_id: MachineId) -> Result<(), ()> {
         // 拒绝用户绑定，需要清除存储
-        let mut machine_info = Self::machines_info(&machine_id);
+        let machine_info = Self::machines_info(&machine_id);
         let now = <frame_system::Module<T>>::block_number();
         let mut sys_info = Self::sys_info();
+        let mut stash_stake = Self::stash_stake(&machine_info.machine_stash);
+        let mut stash_machines = Self::stash_machines(&machine_info.machine_stash);
+        let mut controller_machines = Self::controller_machines(&machine_info.controller);
+
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&machine_info.init_stake_amount).ok_or(())?;
 
         // 惩罚5%，并将机器ID移动到LiveMachine的补充质押中。
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.init_stake_amount;
-        machine_info.init_stake_amount = machine_info.init_stake_amount - slash;
-        machine_info.current_stake_amount = machine_info.init_stake_amount;
 
-        // TODO: update LOCK，并惩罚到国库
+        stash_stake =
+            stash_stake.checked_sub(&machine_info.init_stake_amount).ok_or(())?.checked_add(&slash).ok_or(())?;
 
-        sys_info.total_stake = sys_info.total_stake.checked_sub(&slash).unwrap_or_default();
+        // 退还95%押金
+        <T as Config>::Currency::set_lock(
+            PALLET_LOCK_ID,
+            &machine_info.machine_stash,
+            stash_stake,
+            WithdrawReasons::all(),
+        );
 
-        machine_info.machine_status = MachineStatus::CommitteeRefused(now);
-        MachinesInfo::<T>::insert(&machine_id, machine_info);
+        // 添加一个slash
+        let slash_id = Self::get_new_slash_id();
+        let slash_info = PendingSlashInfo {
+            slash_who: machine_info.machine_stash.clone(),
+            slash_time: now,
+            unlock_amount: slash,
+            slash_amount: slash,
+            slash_exec_time: now + (2880u32 * 2).saturated_into::<T::BlockNumber>(),
+            reward_to: vec![],
+            slash_reason: SlashReason::CommitteeRefusedOnline,
+        };
+        if let Ok(index) = controller_machines.binary_search(&machine_id) {
+            controller_machines.remove(index);
+        }
+        if let Ok(index) = stash_machines.total_machine.binary_search(&machine_id) {
+            stash_machines.total_machine.remove(index);
+        }
 
         let mut live_machines = Self::live_machines();
         LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &machine_id);
-        LiveMachine::add_machine_id(&mut live_machines.refused_machine, machine_id);
-        LiveMachines::<T>::put(live_machines);
+        LiveMachine::add_machine_id(&mut live_machines.refused_machine, machine_id.clone());
 
+        LiveMachines::<T>::put(live_machines);
+        PendingSlash::<T>::insert(slash_id, slash_info);
+        MachinesInfo::<T>::remove(&machine_id);
+        ControllerMachines::<T>::insert(&machine_info.controller, controller_machines);
+        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machines);
         SysInfo::<T>::put(sys_info);
 
         Ok(())
@@ -2218,6 +2286,7 @@ impl<T: Config> RTOps for Pallet<T> {
         let mut machine_info = Self::machines_info(machine_id);
         let mut sys_info = Self::sys_info();
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+        let mut live_machines = Self::live_machines();
 
         machine_info.machine_status = new_status.clone();
         machine_info.last_machine_renter = renter;
@@ -2243,6 +2312,14 @@ impl<T: Config> RTOps for Pallet<T> {
                     debug::error!("Add stashMachine total rented gpu failed");
                 }
 
+                if let Err(index) = live_machines.online_machine.binary_search(&machine_id) {
+                    live_machines.online_machine.remove(index);
+                    if let Ok(index) = live_machines.rented_machine.binary_search(&machine_id) {
+                        live_machines.rented_machine.insert(index, machine_id.clone());
+                        LiveMachines::<T>::put(live_machines);
+                    }
+                }
+
                 Self::change_pos_gpu_by_rent(machine_id, true);
             },
             // 租用结束 或 租用失败(半小时无确认)
@@ -2262,6 +2339,14 @@ impl<T: Config> RTOps for Pallet<T> {
                     } else {
                         debug::error!("Sub stashMachine total rented gpu failed");
                     };
+
+                    if let Err(index) = live_machines.rented_machine.binary_search(&machine_id) {
+                        live_machines.rented_machine.remove(index);
+                        if let Ok(index) = live_machines.online_machine.binary_search(&machine_id) {
+                            live_machines.online_machine.insert(index, machine_id.clone());
+                            LiveMachines::<T>::put(live_machines);
+                        }
+                    }
 
                     Self::change_pos_gpu_by_rent(machine_id, false);
                 }

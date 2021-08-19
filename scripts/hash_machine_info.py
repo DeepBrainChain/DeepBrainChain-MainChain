@@ -3,8 +3,8 @@
 from hashlib import blake2b
 import json
 
-# NOTE: cpu_rate: 单位Mhz; sys_disk/data_disk单位: G， mem_num: g
-# NOTE: 支持传1，不支持传0
+# NOTE: cpu_rate: 单位Mhz; sys_disk/data_disk单位: G， mem_num: G
+# NOTE: is_support: 支持传1，不支持传0
 # NOTE: 请先修改自己的随机字符串: rand_str
 
 raw_info = json.loads(

@@ -366,11 +366,11 @@ pub mod pallet {
 
         // 报告人可以在抢单之前取消该报告
         #[pallet::weight(10000)]
-        pub fn reporter_cancle_report(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
+        pub fn reporter_cancel_report(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
             let report_info = Self::report_info(&report_id);
-            ensure!(report_info.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancle);
+            ensure!(report_info.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancel);
 
             // 清理存储
             let mut live_report = Self::live_report();
@@ -747,7 +747,7 @@ pub mod pallet {
         NotOrderCommittee,
         GetStakeAmountFailed,
         StakeFailed,
-        OrderNotAllowCancle,
+        OrderNotAllowCancel,
         OrderNotAllowBook,
         NotProperCommittee,
         NotEqualReporterSubmit,

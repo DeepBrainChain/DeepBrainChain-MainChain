@@ -3,7 +3,7 @@
 use crate::{mock::*, LCMachineCommitteeList, LCVerifyStatus};
 use committee::CommitteeList;
 use frame_support::assert_ok;
-use online_profile::{CommitteeUploadInfo, LiveMachine, MachineInfo, StakerCustomizeInfo};
+use online_profile::{CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineInfo, StakerCustomizeInfo};
 use std::convert::TryInto;
 
 #[test]
@@ -78,7 +78,7 @@ fn machine_online_works() {
         assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 30 * ONE_DBC);
 
         let customize_info = StakerCustomizeInfo {
-            server_room: server_room[0],
+            server_room: server_room[0].clone(),
             upload_net: 100,
             download_net: 100,
             longitude: online_profile::Longitude::East(1157894),
@@ -130,7 +130,7 @@ fn machine_online_works() {
 
         machine_info.machine_status = online_profile::MachineStatus::CommitteeVerifying;
 
-        // distribute_machines:
+        // Do distribute_machines:
         // - Writes: op::MachinesInfo, op::LiveMachines, committee::CommitteeStake,
         // lc::MachineCommittee, lc::CommitteeMachine, lc::CommitteeOps
         assert_eq!(Committee::committee_stake(&committee1), committee_stake_info);
@@ -170,7 +170,7 @@ fn machine_online_works() {
             machine_info_hash
         ));
 
-        let mut customize_info = CommitteeUploadInfo {
+        let mut committee_upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
             gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
             gpu_num: 4,
@@ -189,7 +189,7 @@ fn machine_online_works() {
         };
 
         // 委员会提交原始信息
-        assert_ok!(LeaseCommittee::submit_confirm_raw(Origin::signed(committee1), customize_info.clone()));
+        assert_ok!(LeaseCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
 
         // submit_confirm_raw:
         // - Writes: MachineSubmitedHash, MachineCommittee, CommitteeMachine, CommitteeOps
@@ -210,7 +210,7 @@ fn machine_online_works() {
             LeaseCommittee::committee_machine(&committee1),
             crate::LCCommitteeMachineList { confirmed_machine: vec![machine_id.clone()], ..Default::default() }
         );
-        customize_info.rand_str = vec![];
+        committee_upload_info.rand_str = vec![];
         assert_eq!(
             LeaseCommittee::committee_ops(&committee1, machine_id.clone()),
             crate::LCCommitteeOps {
@@ -220,19 +220,57 @@ fn machine_online_works() {
                 hash_time: 6,
                 confirm_time: 6,
                 machine_status: crate::LCMachineStatus::Confirmed,
-                machine_info: customize_info,
+                machine_info: committee_upload_info.clone(),
             }
         );
 
         run_to_block(10);
-        // Online:
-        // - Writes:
+
+        // Statistic_result & Online:
+        // - Writes: CommitteeMachine, StashMachineStaske
+        // LiveMachines, MachinesInfo, PosGPU, ServerRoomGPU, SysInfo, StashMachines, ErasStashPoints, ErasMachinePoints,
 
         // 检查机器状态
         assert_eq!(
             OnlineProfile::live_machines(),
             LiveMachine { online_machine: vec!(machine_id.clone()), ..Default::default() }
         );
+
+        let mut machine_info = online_profile::MachineInfo {
+            machine_status: online_profile::MachineStatus::Online,
+            last_machine_restake: 6,
+            online_height: 6,
+            last_online_height: 6,
+            init_stake_amount: 400000 * ONE_DBC,
+            current_stake_amount: 400000 * ONE_DBC,
+            reward_deadline: 365 * 2,
+            reward_committee: vec![committee1],
+            machine_info_detail: online_profile::MachineInfoDetail {
+                committee_upload_info,
+                staker_customize_info: machine_info.machine_info_detail.staker_customize_info,
+            },
+            ..machine_info
+        };
+
+        let mut sys_info = online_profile::SysInfoDetail {
+            total_gpu_num: 4,
+            total_staker: 1,
+            total_calc_points: 6828,
+            total_stake: 400000 * ONE_DBC,
+            ..Default::default()
+        };
+
+        assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
+        // TODO:
+        assert_eq!(
+            OnlineProfile::pos_gpu_info(online_profile::Longitude::East(1), online_profile::Latitude::North(1)),
+            online_profile::PosInfo { ..Default::default() }
+        );
+        assert_eq!(OnlineProfile::server_room_machines(server_room[0]), Some(vec![machine_id.clone()]));
+        assert_eq!(&OnlineProfile::sys_info(), &sys_info);
+        assert_eq!(OnlineProfile::eras_stash_points(0), Some(EraStashPoints { ..Default::default() }));
+        assert_eq!(OnlineProfile::eras_stash_points(1), Some(EraStashPoints { ..Default::default() }));
+        // assert_eq!(OnlineProfile::eras_machine_points(0), ) // TODO: BTreeMap
 
         // 过一个Era: 一天是2880个块
         run_to_block(2880 * 2 + 2);

@@ -1016,6 +1016,7 @@ impl online_profile::Config for Runtime {
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
 }
 
 impl simple_rpc::Config for Runtime {
@@ -1027,7 +1028,7 @@ impl committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
-    type CalcneSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
 }
 
 impl lease_committee::Config for Runtime {
