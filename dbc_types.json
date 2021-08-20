@@ -42,6 +42,11 @@
     "total_rent_fee": "Balance",
     "total_burn_fee": "Balance"
   },
+  "UserReonlineStakeInfo": {
+    "stake_amount": "Balance",
+    "offline_time": "BlockNumber",
+    "committee": "Vec<AccountId>"
+  },
   "MachineInfo": {
     "controller": "AccountId",
     "machine_stash": "AccountId",

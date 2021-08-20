@@ -440,10 +440,7 @@ fn machine_online_works() {
 
         run_to_block(2880 * 3 + 3);
 
-        // TODO: 检查状态
-
         // 委员会重新上链
-
         // 查询机器中有订阅的委员会
         assert_eq!(
             LeaseCommittee::machine_committee(machine_id.clone()),
@@ -485,7 +482,7 @@ fn machine_online_works() {
             }
         ));
 
-        run_to_block(8644);
+        run_to_block(2880 * 3 + 4);
 
         assert_eq!(
             OnlineProfile::live_machines(),
@@ -497,7 +494,7 @@ fn machine_online_works() {
                 total_gpu_num: 8,
                 total_staker: 1,
                 total_calc_points: 54644,
-                total_stake: 800000 * ONE_DBC, // FIXME
+                total_stake: 800000 * ONE_DBC,
                 ..Default::default()
             }
         );

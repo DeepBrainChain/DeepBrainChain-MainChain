@@ -228,6 +228,13 @@ pub struct StandardGpuPointPrice {
     pub gpu_price: u64,
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct UserReonlineStakeInfo<AccountId, Balance, BlockNumber> {
+    pub stake_amount: Balance,
+    pub offline_time: BlockNumber,
+    pub committee: Vec<AccountId>,
+}
+
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
@@ -343,7 +350,7 @@ pub mod pallet {
         T::AccountId,
         Blake2_128Concat,
         MachineId,
-        (BalanceOf<T>, MachineStatus<T::BlockNumber>),
+        UserReonlineStakeInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
         ValueQuery,
     >;
 
@@ -703,7 +710,7 @@ pub mod pallet {
             UserReonlineStake::<T>::insert(
                 &machine_info.machine_stash,
                 &machine_id,
-                (stake_amount, machine_info.machine_status.clone()),
+                UserReonlineStakeInfo { stake_amount, offline_time: now, committee: vec![] },
             );
 
             Self::change_pos_gpu_by_online(&machine_id, false);
@@ -948,6 +955,27 @@ pub mod pallet {
                 machine_info.current_stake_amount = stake_need;
             }
             machine_info.machine_status = MachineStatus::Online;
+
+            if UserReonlineStake::<T>::contains_key(&machine_info.machine_stash, &machine_id) {
+                // 根据质押，奖励给这些委员会
+                let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
+                let _ = Self::reward_reonline_committee(
+                    &machine_info.machine_stash,
+                    reonline_stake.stake_amount,
+                    reonline_stake.committee,
+                );
+                UserReonlineStake::<T>::remove(&machine_info.machine_stash, &machine_id);
+
+                // 根据下线时间，惩罚stash
+                let offline_duration = now - reonline_stake.offline_time;
+                Self::slash_when_report_offline(
+                    machine_id.clone(),
+                    StashSlashReason::OnlineReportOffline(offline_duration),
+                    None,
+                    None,
+                );
+            }
+
             machine_info.online_height = now;
             machine_info.last_online_height = now;
             machine_info.reward_deadline = current_era + REWARD_DURATION;
@@ -2175,17 +2203,36 @@ impl<T: Config> LCOps for Pallet<T> {
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if let MachineStatus::Online = machine_info.machine_status {
             Self::change_pos_gpu_by_online(&committee_upload_info.machine_id, true);
-            Self::update_snap_by_online_status(committee_upload_info.machine_id, true);
+            Self::update_snap_by_online_status(committee_upload_info.machine_id.clone(), true);
 
             if is_reonline {
                 // 根据质押，奖励给这些委员会
                 let reonline_stake =
                     Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
-                let _ =
-                    Self::reward_reonline_committee(&machine_info.machine_stash, reonline_stake.0, reported_committee);
+                let _ = Self::reward_reonline_committee(
+                    &machine_info.machine_stash,
+                    reonline_stake.stake_amount,
+                    reported_committee,
+                );
                 UserReonlineStake::<T>::remove(&machine_info.machine_stash, &committee_upload_info.machine_id);
-                // TODO: 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
+
+                // 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
+                let offline_duration = now - reonline_stake.offline_time;
+                Self::slash_when_report_offline(
+                    committee_upload_info.machine_id.clone(),
+                    StashSlashReason::OnlineReportOffline(offline_duration),
+                    None,
+                    None,
+                );
             }
+        } else {
+            let reonline_stake =
+                Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
+            UserReonlineStake::<T>::insert(
+                &machine_info.machine_stash,
+                &committee_upload_info.machine_id,
+                UserReonlineStakeInfo { committee: reported_committee, ..reonline_stake },
+            )
         }
 
         return Ok(())
