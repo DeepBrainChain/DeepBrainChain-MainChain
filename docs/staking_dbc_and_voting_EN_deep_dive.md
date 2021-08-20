@@ -1,37 +1,35 @@
 # A Guide to Staking and Managing DBC Nominations
 
-Please take the time to carefully evaluate the UI and manage actions. This is not a complete guide to everything but intends to help answer common questions. This documentation is specific to the test phase and will be updated later.
+Please take the time to carefully evaluate the UI and manage actions. This is not a complete guide to everything but intends to help answer common questions. This documentation has been updated from testnet to the mainnet. Make sure you are using mainnet tokens before sending to a mainnet wallet.
 
 ## Setup
 
-Follow these basic steps to get up and running. Some of these steps are very specific to the test phase with assumptions that you hold NEO-based DBC and require DOT-based DBC to participate.
+Follow these basic steps to get up and running.
 
 1. Generate stash account （If you already have stash account, you can skip this）
 
   + Option 1: Install `polkadot{.js}` adds-on
 
     + Chrome, install via [Chrome web store](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd)
+      + [https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd](https://chrome.google.com/webstore/detail/polkadot{js}-extension/mopnmbcafieddcagagdcbnhejhlodfdd)
     + Firefox, install via [Firefox add-ons](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/)
+      + [https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/](https://addons.mozilla.org/en-US/firefox/addon/polkadot-js-extension/)
 
     Then generate by `polkadot{.js}`
 
-  + Option 2: Generate account from `Accounts > Accounts` [https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts)，click `Add account`.
+  + Option 2: Generate account from `Accounts > Accounts` [https://www.dbcwallet.io/#/accounts](https://www.dbcwallet.io/#/accounts)，click `Add account`.
 
   + Option 3: Generate by command line:
 
     ```bash
       curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-      cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.0 --locked
+      cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.1 --locked
     ```
 
-2. Move DBC to a wallet that you own the private key. SafePal (backed by Binance) is recommended.
-  + The balance must remain in the wallet for the duration of the test phase.
-
-3. Email service@deepbrainchain.org to request test DBC in your wallet on https://test.dbcwallet.io/.
-  + Include the public address of your wallet holding NEO-based DBC.
-  + Include the public address of your wallet on https://test.dbcwallet.io/.
-  + **Never** share your private addresses, mnemonic phrase, or passwords.
-  + **Do not** send your NEO-based DBC to your wallet on https://test.dbcwallet.io/.
+2. Get some DBC.
+  + Go to `Accounts > Accounts` [https://www.dbcwallet.io/#/accounts](https://www.dbcwallet.io/#/accounts).
+  + Send DBC to your account.
+  + Be sure you are sending mainnet tokens and not pre-swap NEO-based DBC.
 
 ## Managing DBC in the User Interface (UI)
 
@@ -52,7 +50,7 @@ Click the small down arrow next to the balance.
 
 ### Bonding and Unbonding
 
-When DBC is added to the test wallet it is unbonded. Bonding the DBC makes it available for staking to a validator. Always be sure to leave a few DBC unbonded (transferrable) to pay for fees when nominating or making other changes.
+When DBC is added to the wallet it is unbonded. Bonding the DBC makes it available for staking to a validator. Always be sure to leave a few DBC unbonded (transferrable) to pay for fees when nominating or making other changes.
 
 #### Bonding
 
@@ -91,11 +89,11 @@ Always maintain a small balance of DBC as transferrable to pay fees. Fees are ve
 As an example, changing nominated validators may cost 0.0003 DBC, leaving 4.9997 DBC for future transactions.
 
 ### Backup Wallet
-Be sure to create a backup wallet for the https://test.dbcwallet.io/ account. This backup file will be used to add the account back to the interface if disconnected or add to the interface on a new browser or device.
+Be sure to create a backup wallet for the https://www.dbcwallet.io/ account. This backup file will be used to add the account back to the interface if disconnected or add to the interface on a new browser or device.
 
 ## Nominating a Validator
 
-1. Go to `Accounts > Accounts` [https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts) and ensure fund are bonded for staking:
+1. Go to `Accounts > Accounts` [https://www.dbcwallet.io/#/accounts](https://www.dbcwallet.io/#/accounts) and ensure fund are bonded for staking:
 
   ![image-20210122210826588](staking_dbc_and_voting.assets/image-20210122210826588.png)
 
@@ -146,7 +144,7 @@ If an insufficient funds error occurs, check the "Managing DBC in the User Inter
 
 If multiple validators are nominated the system will choose the most profitable validator(s) from the nominated group.
 
-Coming Soon: The `Stop` button and what it does.
+Note: The `Stop` button will stop all nominations for that account. This action will activate at the end of the current era.
 
 ## Considerations When Choosing a Validator to Nominate
 
