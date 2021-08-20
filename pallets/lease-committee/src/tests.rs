@@ -3,8 +3,12 @@
 use crate::{mock::*, LCMachineCommitteeList, LCVerifyStatus};
 use committee::CommitteeList;
 use frame_support::assert_ok;
-use online_profile::{CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineInfo, StakerCustomizeInfo};
-use std::convert::TryInto;
+use online_profile::{
+    CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineGradeStatus, MachineInfo, MachineStatus,
+    StakerCustomizeInfo,
+};
+use sp_runtime::Perbill;
+use std::{collections::BTreeMap, convert::TryInto};
 
 #[test]
 fn machine_online_works() {
@@ -59,11 +63,11 @@ fn machine_online_works() {
 
         // bond_machine:
         // - Writes: ControllerMachines, StashMachines, LiveMachines, MachinesInfo, SysInfo, StashStake
+
+        let mut stash_machine_info =
+            online_profile::StashMachine { total_machine: vec![machine_id.clone()], ..Default::default() };
         assert_eq!(OnlineProfile::controller_machines(&controller), vec!(machine_id.clone()));
-        assert_eq!(
-            OnlineProfile::stash_machines(&stash),
-            online_profile::StashMachine { total_machine: vec!(machine_id.clone()), ..Default::default() }
-        );
+        assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
         assert_eq!(
             OnlineProfile::live_machines(),
             LiveMachine { bonding_machine: vec!(machine_id.clone()), ..Default::default() }
@@ -133,7 +137,7 @@ fn machine_online_works() {
         // Do distribute_machines:
         // - Writes: op::MachinesInfo, op::LiveMachines, committee::CommitteeStake,
         // lc::MachineCommittee, lc::CommitteeMachine, lc::CommitteeOps
-        assert_eq!(Committee::committee_stake(&committee1), committee_stake_info);
+        assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
         assert_eq!(
             OnlineProfile::live_machines(),
             online_profile::LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
@@ -268,110 +272,157 @@ fn machine_online_works() {
         );
         assert_eq!(OnlineProfile::server_room_machines(server_room[0]), Some(vec![machine_id.clone()]));
         assert_eq!(&OnlineProfile::sys_info(), &sys_info);
+
+        let mut staker_statistic = BTreeMap::new();
+        staker_statistic.insert(
+            stash,
+            online_profile::StashMachineStatistics {
+                online_gpu_num: 4,
+                inflation: Perbill::from_rational_approximation(4u32, 10000),
+                machine_total_calc_point: 6825,
+                rent_extra_grade: 0,
+            },
+        );
         assert_eq!(OnlineProfile::eras_stash_points(0), Some(EraStashPoints { ..Default::default() }));
-        assert_eq!(OnlineProfile::eras_stash_points(1), Some(EraStashPoints { ..Default::default() }));
-        // assert_eq!(OnlineProfile::eras_machine_points(0), ) // TODO: BTreeMap
+        assert_eq!(OnlineProfile::eras_stash_points(1), Some(EraStashPoints { total: 6828, staker_statistic }));
+
+        let mut era_machine_points = BTreeMap::new();
+        assert_eq!(OnlineProfile::eras_machine_points(0), Some(BTreeMap::new()));
+        era_machine_points.insert(
+            machine_id.clone(),
+            MachineGradeStatus { basic_grade: 6825, is_rented: false, reward_account: vec![committee1] },
+        );
+        assert_eq!(OnlineProfile::eras_machine_points(1), Some(era_machine_points));
 
         // 过一个Era: 一天是2880个块
         run_to_block(2880 * 2 + 2);
 
-        // 第二个Era矿工查询奖励
-        assert_eq!(
-            OnlineProfile::stash_machines(&stash),
-            online_profile::StashMachine {
-                total_machine: vec![machine_id.clone()],
-                online_machine: vec![machine_id.clone()],
-                total_calc_points: 6828, // 6825 + 6825 * 4/10000 = 6828
-                total_gpu_num: 4,
-                total_rented_gpu: 0,
-                total_claimed_reward: 0,
-                can_claim_reward: 272250 * ONE_DBC, // (1100000 * 25% * 99% = 272250 DBC) * 2 + (825000 * 1/150 * 0.99 = 544.5) = 545044.5
+        // do distribute_reward
+        // - Writes:
+        // ErasMachineReleasedReward, ErasMachineReward
+        // ErasStashReleasedReward, ErasStashReward, StashMachines, committee reward
 
-                total_rent_fee: 0,
-                total_burn_fee: 0,
+        assert_eq!(OnlineProfile::eras_machine_reward(0, &machine_id), 0);
+        assert_eq!(OnlineProfile::eras_machine_reward(1, &machine_id), 1089000 * ONE_DBC); // 1100000 * 0.99
+        assert_eq!(OnlineProfile::eras_machine_released_reward(0, &machine_id), 0);
+        assert_eq!(OnlineProfile::eras_machine_released_reward(1, &machine_id), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
 
-                ..Default::default()
-            }
-        );
+        assert_eq!(OnlineProfile::eras_stash_reward(0, &stash), 0);
+        assert_eq!(OnlineProfile::eras_stash_reward(1, &stash), 1089000 * ONE_DBC);
+        assert_eq!(OnlineProfile::eras_stash_released_reward(0, &stash), 0);
+        assert_eq!(OnlineProfile::eras_stash_released_reward(1, &stash), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
 
-        assert_eq!(
-            OnlineProfile::sys_info(),
-            online_profile::SysInfoDetail {
-                total_gpu_num: 4,
-                total_staker: 1,
-                total_calc_points: 6828,
-                total_stake: 400000 * ONE_DBC,
-                ..Default::default()
-            }
-        );
+        let mut stash_machine_info = online_profile::StashMachine {
+            can_claim_reward: 272250 * ONE_DBC, // 1100000 * 0.99 * 0.25
+            online_machine: vec![machine_id.clone()],
+            total_earned_reward: 1089000 * ONE_DBC,
+            total_calc_points: 6828,
+            total_gpu_num: 4,
+            ..stash_machine_info
+        };
 
-        // 委员会查询奖励
-        // TODO: 通过CommitteeStakeInfo查询奖励
-        // assert_eq!(Committee::committee_reward(committee1).unwrap(), 2750 * ONE_DBC); // 110_0000 * 25% * 0.1 = 27500
+        assert_eq!(&OnlineProfile::stash_machines(stash), &stash_machine_info);
 
+        committee_stake_info.can_claim_reward = 2750 * ONE_DBC; // 1100000 * 0.25 * 0.01
+        committee_stake_info.used_stake = 0;
+        assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
+
+        // 再次释放
         run_to_block(2880 * 3 + 2);
 
         // 线性释放
+        // do distribute_reward
+        // - Writes:
+        // ErasMachineReleasedReward, ErasMachineReward
+        // ErasStashReleasedReward, ErasStashReward, StashMachines, committee reward
+
+        assert_eq!(OnlineProfile::eras_machine_reward(0, &machine_id), 0);
+        assert_eq!(OnlineProfile::eras_machine_reward(1, &machine_id), 1089000 * ONE_DBC); // 1100000 * 0.99
+        assert_eq!(OnlineProfile::eras_machine_reward(2, &machine_id), 1089000 * ONE_DBC); // 1100000 * 0.99
+        assert_eq!(OnlineProfile::eras_machine_released_reward(0, &machine_id), 0);
+        assert_eq!(OnlineProfile::eras_machine_released_reward(1, &machine_id), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
+
+        // 释放剩余奖励的1/150: 1100000 * 0.75 / 150 * 0.99 = 5445;
+        // NOTE: 实际上，= 1100000 * 0.75 * 6666666 / 10**9 * 0.99 =  5444.9994555 DBC
+        // 第一天奖励，在第二天线性释放，委员会获得的部分:
+        let first_day_linear_release = 5444 * ONE_DBC + 9994555 * ONE_DBC / 10000000;
         assert_eq!(
-            OnlineProfile::stash_machines(&stash),
-            online_profile::StashMachine {
-                total_machine: vec![machine_id.clone()],
-                online_machine: vec![machine_id.clone()],
-                total_calc_points: 6828,
-                total_gpu_num: 4,
-                total_rented_gpu: 0,
-                total_claimed_reward: 0,
-                can_claim_reward: 549944999455500000000, // (1100000 * 25% * 99% = 272250 DBC) * 2 + (825000 * 1/150 * 0.99 = 825000 * 6666666/10**9 * 0.99 = 5444.9994555 * 10^15 ) = 549944.9994555 // 相差 0.0005444
+            OnlineProfile::eras_machine_released_reward(2, &machine_id),
+            272250 * ONE_DBC + first_day_linear_release
+        ); // 1100000 * 0.99 * 0.25 + 1100000 * 0.75 * 0.99 / 150
 
-                total_rent_fee: 0,
-                total_burn_fee: 0,
+        let mut stash_machine_info = online_profile::StashMachine {
+            can_claim_reward: 272250 * 2 * ONE_DBC + first_day_linear_release, // 1100000 * 0.99 * 0.25
+            online_machine: vec![machine_id.clone()],
+            total_earned_reward: 1089000 * ONE_DBC * 2,
+            total_calc_points: 6828,
+            total_gpu_num: 4,
+            ..stash_machine_info
+        };
 
-                ..Default::default()
-            }
-        );
+        assert_eq!(OnlineProfile::eras_stash_reward(0, &stash), 0);
+        assert_eq!(OnlineProfile::eras_stash_reward(1, &stash), 1089000 * ONE_DBC);
+        assert_eq!(OnlineProfile::eras_stash_reward(2, &stash), 1089000 * ONE_DBC);
+        assert_eq!(OnlineProfile::eras_stash_released_reward(0, &stash), 0);
+        assert_eq!(OnlineProfile::eras_stash_released_reward(1, &stash), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
+        assert_eq!(OnlineProfile::eras_stash_released_reward(2, &stash), 272250 * ONE_DBC + first_day_linear_release); // 1100000 * 0.99 * 0.25
 
-        // 委员会查询奖励
-        // TODO: 通过CommitteeStakeInfo查询奖励
-        // assert_eq!(Committee::committee_reward(committee1).unwrap(), 5554999994500000000); // 委员会奖励： (1100000 * 25% * 1% = 2750) * 2 +  (825000 * 6666666/10**9 * 0.01 = 54.9999945) = 5554.9999945 DBC
+        assert_eq!(&OnlineProfile::stash_machines(stash), &stash_machine_info);
+
+        // 第二天释放的获得的第一天的将奖励： 1100000 * 0.75 * 6666666 / 10**9 * 0.01 = 54.9999945
+        committee_stake_info.can_claim_reward = 2750 * ONE_DBC * 2 + 54 * ONE_DBC + 9999945 * ONE_DBC / 10000000; // 1100000 * 0.25 * 0.01; 1100000 * 0.75 / 150 * 0.01
+        committee_stake_info.used_stake = 0;
+        assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
+
+        stash_machine_info.total_earned_reward = 2178000 * ONE_DBC; // 1100000 * 0.99 * 2
+        assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
 
         // 矿工领取奖励
+        // - Writes:
+        // StashMachines, User Balances
         assert_ok!(OnlineProfile::claim_rewards(Origin::signed(controller)));
         // 领取奖励后，查询剩余奖励
-        assert_eq!(
-            OnlineProfile::stash_machines(&stash),
-            online_profile::StashMachine {
-                total_machine: vec![machine_id.clone()],
-                online_machine: vec![machine_id.clone()],
-                total_calc_points: 6828,
-                total_gpu_num: 4,
-                total_rented_gpu: 0,
-                total_claimed_reward: 549944999455500000000,
-                can_claim_reward: 0,
+        stash_machine_info.total_claimed_reward = stash_machine_info.can_claim_reward;
+        stash_machine_info.can_claim_reward = 0;
+        assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
 
-                total_rent_fee: 0,
-                total_burn_fee: 0,
-
-                ..Default::default()
-            }
-        );
         // 领取奖励后，查询账户余额
         assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 549944999455500000000);
 
         // 委员会领取奖励
+        // - Writes:
+        // CommitteeStake, Committee Balance
         assert_ok!(Committee::claim_reward(Origin::signed(committee1)));
+        committee_stake_info.claimed_reward = committee_stake_info.can_claim_reward;
+        committee_stake_info.can_claim_reward = 0;
+        assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
         assert_eq!(Balances::free_balance(committee1), INIT_BALANCE + 5554999994500000000);
 
-        // TODO: 检查惩罚逻辑
+        // NOTE: 测试 控制账户重新上线机器
+        assert_ok!(OnlineProfile::offline_machine_change_hardware_info(Origin::signed(controller), machine_id.clone()));
 
-        // TODO: 检查没有成功上线
+        // - Writes:
+        // LiveMachines, MachineInfo, UserReonlineStake, PosGPUInfo,
+        // CurrentEraStashPoints, NextEraStashPoints, CurrentEraMachinePoints, NextEraMachinePoints, SysInfo, StashMachine
+        assert_eq!(
+            OnlineProfile::live_machines(),
+            LiveMachine { bonding_machine: vec![machine_id.clone()], ..Default::default() }
+        );
 
-        // TODO: 检查机器下线后，150天后存储清理
+        machine_info.machine_status = MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
+        assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
+        let user_reonline_stake = (1, machine_info.machine_status.clone());
+        // assert_eq!(OnlineProfile::user_reonline_stake, user_reonline_stake); // FIXME: 添加判断
+        // Skip POsGPUInfo
 
-        // 设置重新上线的质押: 47美元
-        assert_ok!(OnlineProfile::set_reonline_stake(RawOrigin::Root.into(), 47));
-
-        // 控制账户重新上线机器
-        assert_ok!(OnlineProfile::reonline_machine(Origin::signed(controller), machine_id.clone()));
+        assert_eq!(
+            OnlineProfile::sys_info(),
+            online_profile::SysInfoDetail { total_stake: 400000 * ONE_DBC, ..Default::default() }
+        );
+        stash_machine_info.online_machine = vec![];
+        stash_machine_info.total_gpu_num = 0;
+        stash_machine_info.total_calc_points = 0;
+        assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
 
         // 控制账户重新添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
@@ -446,7 +497,7 @@ fn machine_online_works() {
                 total_gpu_num: 8,
                 total_staker: 1,
                 total_calc_points: 54644,
-                total_stake: 800000 * ONE_DBC,
+                total_stake: 800000 * ONE_DBC, // FIXME
                 ..Default::default()
             }
         );

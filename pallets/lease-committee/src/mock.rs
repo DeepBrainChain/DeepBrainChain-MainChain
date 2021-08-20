@@ -412,6 +412,9 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             StandardGpuPointPrice { gpu_point: 100, gpu_price: 28229 },
         );
 
+        // 设置重新上线绑定的金额: 47美元；这里为了方便计算，设置为24美元
+        OnlineProfile::set_reonline_stake(RawOrigin::Root.into(), 24000000);
+
         // Set: Price URL: https://dbchaininfo.congtu.cloud/query/dbc_info?language=CN
         // 初始化price_ocw (0.012$)
         assert_eq!(DBCPriceOCW::avg_price(), None);
