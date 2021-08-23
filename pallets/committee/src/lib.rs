@@ -25,7 +25,6 @@ pub type SlashId = u64;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
-type TechnicalCollective = pallet_collective::Instance2;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"committe";
 
@@ -128,7 +127,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-            Self::check_and_exec_slash();
+            let _ = Self::check_and_exec_slash();
         }
     }
 
@@ -277,7 +276,7 @@ pub mod pallet {
         pub fn committee_reduce_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let mut committee_stake = Self::committee_stake(&committee);
-            let mut committee_list = Self::committee();
+            let committee_list = Self::committee();
             let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
 
             // ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
@@ -387,7 +386,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn exit_staker(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let mut committee_stake = Self::committee_stake(&committee);
+            let committee_stake = Self::committee_stake(&committee);
 
             let mut committee_list = Self::committee();
             ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
@@ -612,9 +611,6 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         let stake_params = Self::committee_stake_params().ok_or(())?;
         let mut all_committee = Self::committee();
         let mut all_committee_changed = false;
-
-        // 还未被使用的质押数量
-        let free_stake = committee_stake.staked_amount.checked_sub(&committee_stake.used_stake).ok_or(())?;
 
         // 计算下一阶段需要的质押数量
         if is_add {

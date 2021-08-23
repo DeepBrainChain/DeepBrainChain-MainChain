@@ -241,8 +241,8 @@ pub mod pallet {
         fn on_finalize(_block_number: T::BlockNumber) {
             // 每个块检查状态是否需要变化。
             // 抢单逻辑不能在finalize中处理，防止一个块有多个抢单请求
-            Self::heart_beat();
-            Self::summary_offline_case();
+            let _ = Self::heart_beat();
+            let _ = Self::summary_offline_case();
             // Self::check_and_exec_slash();
         }
     }
@@ -933,7 +933,7 @@ impl<T: Config> Pallet<T> {
 
     fn summary_offline_case() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
-        let mut live_report = Self::live_report();
+        let live_report = Self::live_report();
 
         for report_id in live_report.bookable_report {
             let report_info = Self::report_info(&report_id);

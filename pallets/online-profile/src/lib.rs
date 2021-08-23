@@ -548,7 +548,7 @@ pub mod pallet {
                 Self::distribute_reward();
             }
 
-            Self::do_pending_slash();
+            let _ = Self::do_pending_slash();
         }
     }
 
@@ -1454,7 +1454,7 @@ impl<T: Config> Pallet<T> {
 
         // 奖励给委员会的立即给委员会
         if !reward_to_reporter.is_zero() && reporter.is_some() {
-            <T as pallet::Config>::Currency::transfer(
+            let _ = <T as pallet::Config>::Currency::transfer(
                 &machine_info.machine_stash,
                 &reporter.unwrap(),
                 reward_to_reporter,
@@ -1468,7 +1468,7 @@ impl<T: Config> Pallet<T> {
             let reward_each_committee_get =
                 Perbill::from_rational_approximation(1u32, committees.len() as u32) * reward_to_committee;
             for a_committee in committees {
-                <T as pallet::Config>::Currency::transfer(
+                let _ = <T as pallet::Config>::Currency::transfer(
                     &machine_info.machine_stash,
                     &a_committee,
                     reward_each_committee_get,
@@ -1479,10 +1479,9 @@ impl<T: Config> Pallet<T> {
 
         // 执行惩罚
         if <T as pallet::Config>::Currency::can_slash(&machine_info.machine_stash, slash_to_treasury) {
-            let (imbalance, missing) =
+            let (imbalance, _missing) =
                 <T as pallet::Config>::Currency::slash(&machine_info.machine_stash, slash_to_treasury);
-            // Self::deposit_event(Event::Slash(machine_info.machine_stash.clone(), slash_amount));
-            // Self::deposit_event(Event::MissedSlash(machine_info.machine_stash.clone(), missing.clone()));
+            // Self::deposit_event(Event::Slash(machine_info.machine_stash.clone(), slash_amount, SlashReason::));
             <T as pallet::Config>::Slash::on_unbalanced(imbalance);
         }
     }
@@ -1574,7 +1573,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // For upgrade
-    fn get_all_machine_id() -> Vec<MachineId> {
+    pub fn get_all_machine_id() -> Vec<MachineId> {
         <MachinesInfo<T> as IterableStorageMap<MachineId, _>>::iter()
             .map(|(machine_id, _)| machine_id)
             .collect::<Vec<_>>()

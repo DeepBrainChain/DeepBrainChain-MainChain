@@ -4,8 +4,7 @@ use crate::{mock::*, LCMachineCommitteeList, LCVerifyStatus};
 use committee::CommitteeList;
 use frame_support::assert_ok;
 use online_profile::{
-    CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineGradeStatus, MachineInfo, MachineStatus,
-    StakerCustomizeInfo,
+    CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineGradeStatus, MachineStatus, StakerCustomizeInfo,
 };
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
@@ -24,12 +23,12 @@ fn machine_online_works() {
         let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e025\
                    4f4a9b010e2d8a5cce9d262e9193b76be87b46f6bef4219517cf939520bfff84";
 
-        let account: sp_core::sr25519::Public = sr25519::Public::from_raw(
-            hex::decode("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee")
-                .unwrap()
-                .try_into()
-                .unwrap(),
-        );
+        // let _account: sp_core::sr25519::Public = sr25519::Public::from_raw(
+        //     hex::decode("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee")
+        //         .unwrap()
+        //         .try_into()
+        //         .unwrap(),
+        // );
 
         // 查询状态
         assert_eq!(Balances::free_balance(committee1), INIT_BALANCE);
@@ -64,7 +63,7 @@ fn machine_online_works() {
         // bond_machine:
         // - Writes: ControllerMachines, StashMachines, LiveMachines, MachinesInfo, SysInfo, StashStake
 
-        let mut stash_machine_info =
+        let stash_machine_info =
             online_profile::StashMachine { total_machine: vec![machine_id.clone()], ..Default::default() };
         assert_eq!(OnlineProfile::controller_machines(&controller), vec!(machine_id.clone()));
         assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
@@ -256,7 +255,7 @@ fn machine_online_works() {
             ..machine_info
         };
 
-        let mut sys_info = online_profile::SysInfoDetail {
+        let sys_info = online_profile::SysInfoDetail {
             total_gpu_num: 4,
             total_staker: 1,
             total_calc_points: 6828,
@@ -312,7 +311,7 @@ fn machine_online_works() {
         assert_eq!(OnlineProfile::eras_stash_released_reward(0, &stash), 0);
         assert_eq!(OnlineProfile::eras_stash_released_reward(1, &stash), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
 
-        let mut stash_machine_info = online_profile::StashMachine {
+        let stash_machine_info = online_profile::StashMachine {
             can_claim_reward: 272250 * ONE_DBC, // 1100000 * 0.99 * 0.25
             online_machine: vec![machine_id.clone()],
             total_earned_reward: 1089000 * ONE_DBC,
@@ -411,7 +410,7 @@ fn machine_online_works() {
 
         machine_info.machine_status = MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
         assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
-        let user_reonline_stake = (1, machine_info.machine_status.clone());
+        let _user_reonline_stake = (1, machine_info.machine_status.clone());
         // assert_eq!(OnlineProfile::user_reonline_stake, user_reonline_stake); // FIXME: 添加判断
         // Skip POsGPUInfo
 
@@ -498,6 +497,8 @@ fn machine_online_works() {
                 ..Default::default()
             }
         );
+
+        // TODO: 检查执行的惩罚
     });
 }
 
@@ -691,11 +692,11 @@ fn committee_not_submit_hash_slash_works() {
 fn committee_not_wubmit_raw_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let _committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let _committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let _committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let _machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
     })
 }
 
