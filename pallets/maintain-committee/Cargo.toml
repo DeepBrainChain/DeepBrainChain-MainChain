@@ -49,6 +49,11 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dependencies.online-profile]
+default-features = false
+path = '../online-profile'
+package = 'online-profile'
+
 [dev-dependencies.lease-committee]
 path = '../lease-committee'
 package = 'lease-committee'
@@ -105,6 +110,11 @@ version = '3.0.0'
 version = '0.4'
 
 [dev-dependencies.pallet-timestamp]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies.pallet-collective]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'

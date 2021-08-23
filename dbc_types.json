@@ -44,8 +44,7 @@
   },
   "UserReonlineStakeInfo": {
     "stake_amount": "Balance",
-    "offline_time": "BlockNumber",
-    "committee": "Vec<AccountId>"
+    "offline_time": "BlockNumber"
   },
   "MachineInfo": {
     "controller": "AccountId",
@@ -75,7 +74,7 @@
       "WaitingFulfill": null,
       "Online": null,
       "StakerReportOffline": "(BlockNumber, Box<MachineStatus>)",
-      "ReporterReportOffline": "(BlockNumber, Box<MachineStatus>)",
+      "ReporterReportOffline": "(BlockNumber, Box<MachineStatus>, Vec<AccountId>)",
       "Creating": null,
       "Rented": null
     }

@@ -213,7 +213,6 @@ pub struct ReporterStakeParamsInfo<Balance> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct ReporterStakeInfo<Balance> {
-    pub box_pubkey: [u8; 32],
     pub staked_amount: Balance,
     pub used_stake: Balance,
     pub can_claim_reward: Balance,
@@ -229,7 +228,11 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
-        type MTOps: MTOps<AccountId = Self::AccountId, MachineId = MachineId>;
+        type MTOps: MTOps<
+            AccountId = Self::AccountId,
+            MachineId = MachineId,
+            FaultType = online_profile::StashSlashReason<Self::BlockNumber>,
+        >;
     }
 
     #[pallet::pallet]
@@ -331,10 +334,9 @@ pub mod pallet {
         pub fn report_machine_fault(
             origin: OriginFor<T>,
             report_reason: MachineFaultType,
-            box_pubkey: Option<BoxPubkey>,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            Self::report_handler(reporter, report_reason, box_pubkey)
+            Self::report_handler(reporter, report_reason)
         }
 
         #[pallet::weight(10000)]
@@ -572,6 +574,12 @@ pub mod pallet {
 
                 report_info.report_status = ReportStatus::SubmittingRaw;
             } else {
+                if let Ok(index) = live_report.verifying_report.binary_search(&report_id) {
+                    live_report.verifying_report.remove(index);
+                }
+                if let Err(index) = live_report.bookable_report.binary_search(&report_id) {
+                    live_report.bookable_report.insert(index, report_id);
+                }
                 report_info.report_status = ReportStatus::WaitingBook;
             }
 
@@ -590,9 +598,7 @@ pub mod pallet {
                 committee_order.hashed_report.insert(index, report_id);
             }
 
-            if let ReportStatus::SubmittingRaw = report_info.report_status {
-                LiveReport::<T>::put(live_report);
-            }
+            LiveReport::<T>::put(live_report);
             CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
             CommitteeOrder::<T>::insert(&committee, committee_order);
             ReportInfo::<T>::insert(&report_id, report_info);
@@ -631,7 +637,7 @@ pub mod pallet {
             report_info.hashed_committee.binary_search(&committee).map_err(|_| Error::<T>::NotProperCommittee)?;
 
             // 添加到Report的已提交Raw的列表
-            if let Ok(index) = report_info.confirmed_committee.binary_search(&committee) {
+            if let Err(index) = report_info.confirmed_committee.binary_search(&committee) {
                 report_info.confirmed_committee.insert(index, committee.clone());
             }
 
@@ -673,6 +679,7 @@ pub mod pallet {
             committee_ops.confirm_time = now;
             committee_ops.confirm_result = support_report;
             committee_ops.extra_err_info = extra_err_info;
+            committee_ops.order_status = MTOrderStatus::Finished;
 
             // 判断是否订阅的用户全部提交了Raw，如果是则进入下一阶段
             if report_info.hashed_committee.len() == report_info.confirmed_committee.len() {
@@ -764,17 +771,12 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn report_handler(
-        reporter: T::AccountId,
-        machine_fault_type: MachineFaultType,
-        box_pubkey: Option<BoxPubkey>,
-    ) -> DispatchResultWithPostInfo {
+    pub fn report_handler(reporter: T::AccountId, machine_fault_type: MachineFaultType) -> DispatchResultWithPostInfo {
         let report_time = <frame_system::Module<T>>::block_number();
         let report_id = Self::get_new_report_id();
-
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
-        let mut reporter_stake = Self::reporter_stake(&reporter);
 
+        let mut reporter_stake = Self::reporter_stake(&reporter);
         let mut report_info = MTReportInfoDetail {
             reporter: reporter.clone(),
             report_time,
@@ -791,19 +793,16 @@ impl<T: Config> Pallet<T> {
         // 3种报告类型，都需要质押100RMB等值DBC
         // 如果是第一次绑定，则需要质押2wDBC，其他情况，TODO: 则给一个补充质押的接口
         if reporter_stake.staked_amount == Zero::zero() {
-            if box_pubkey.is_none() {
-                return Err(Error::<T>::BoxPubkeyIsNoneInFirstReport.into())
-            }
             // 此时为第一次质押，检查free_balance是否足够
             let user_free_balance = <T as Config>::Currency::free_balance(&reporter);
             ensure!(user_free_balance > stake_params.stake_baseline, Error::<T>::BalanceNotEnough);
             <T as Config>::Currency::set_lock(
                 PALLET_LOCK_ID,
                 &reporter,
-                stake_params.stake_per_report,
+                stake_params.stake_baseline,
                 WithdrawReasons::all(),
             );
-            reporter_stake.staked_amount = stake_params.stake_per_report;
+            reporter_stake.staked_amount = stake_params.stake_baseline;
             reporter_stake.used_stake = stake_params.stake_per_report;
         } else {
             reporter_stake.used_stake += stake_params.stake_per_report;
@@ -825,6 +824,7 @@ impl<T: Config> Pallet<T> {
             reporter_report.reported_id.insert(index, report_id);
         }
 
+        ReporterStake::<T>::insert(&reporter, reporter_stake);
         ReportInfo::<T>::insert(&report_id, report_info);
         LiveReport::<T>::put(live_report);
         ReporterReport::<T>::insert(&reporter, reporter_report);
@@ -956,7 +956,8 @@ impl<T: Config> Pallet<T> {
     fn heart_beat() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let mut live_report = Self::live_report();
-        let verifying_report = live_report.verifying_report.clone();
+        let mut verifying_report = live_report.verifying_report.clone();
+        verifying_report.extend(live_report.bookable_report.clone());
         let submitting_raw_report = live_report.waiting_raw_report.clone();
 
         let half_hour = 60u64.saturated_into::<T::BlockNumber>();
@@ -1018,6 +1019,7 @@ impl<T: Config> Pallet<T> {
                     report_info.report_status = ReportStatus::SubmittingRaw;
 
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
+                    MTLiveReportList::rm_report_id(&mut live_report.bookable_report, a_report);
                     MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
 
                     ReportInfo::<T>::insert(a_report, report_info);
@@ -1035,6 +1037,7 @@ impl<T: Config> Pallet<T> {
                     report_info.report_status = ReportStatus::SubmittingRaw;
 
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
+                    MTLiveReportList::rm_report_id(&mut live_report.bookable_report, a_report);
                     MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
 
                     ReportInfo::<T>::insert(a_report, report_info);
@@ -1052,7 +1055,6 @@ impl<T: Config> Pallet<T> {
             {
                 continue
             }
-
             match Self::summary_report(a_report) {
                 ReportConfirmStatus::Confirmed(support_committees, against_committee, _err_info) => {
                     for a_committee in against_committee.clone() {
@@ -1073,7 +1075,21 @@ impl<T: Config> Pallet<T> {
                         }
                     }
 
-                    T::MTOps::mt_machine_offline(report_info.machine_id.clone());
+                    MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
+                    MTLiveReportList::add_report_id(&mut live_report.waiting_rechecked_report, a_report);
+
+                    // 根据错误类型，调用不同的处理函数
+                    match report_info.machine_fault_type {
+                        MachineFaultType::HardwareFault(..) => {
+                            T::MTOps::mt_machine_offline(
+                                support_committees,
+                                report_info.machine_id.clone(),
+                                online_profile::StashSlashReason::RentedHardwareMalfunction(report_info.report_time),
+                            );
+                        },
+                        MachineFaultType::MachineUnrentable(..) => {},
+                        MachineFaultType::MachineOffline(..) => {},
+                    }
                 },
                 ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                     for a_committee in support_committee {
@@ -1104,9 +1120,9 @@ impl<T: Config> Pallet<T> {
                 // In this case, no raw info is submitted, so committee record should be None
                 ReportConfirmStatus::NoConsensus => {
                     report_info.report_status = ReportStatus::Reported;
-                    MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
                     MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
+                    MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
                 },
             }
             ReportInfo::<T>::insert(a_report, report_info);

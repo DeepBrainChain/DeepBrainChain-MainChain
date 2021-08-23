@@ -5,6 +5,7 @@ use committee::CommitteeList;
 use frame_support::assert_ok;
 use online_profile::{
     CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineGradeStatus, MachineStatus, StakerCustomizeInfo,
+    UserReonlineStakeInfo,
 };
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
@@ -460,29 +461,47 @@ fn machine_online_works() {
         ));
 
         // 委员会提交原始信息
-        assert_ok!(LeaseCommittee::submit_confirm_raw(
-            Origin::signed(committee1),
-            CommitteeUploadInfo {
-                machine_id: machine_id.clone(),
-                gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
-                gpu_num: 8,
-                cuda_core: 4352,
-                gpu_mem: 11,
-                calc_point: 6825 * 8,
-                sys_disk: 480,
-                data_disk: 18,
-                cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
-                cpu_core_num: 32,
-                cpu_rate: 260,
-                mem_num: 512000,
+        let mut committee_upload_info = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
+            gpu_num: 8,
+            cuda_core: 4352,
+            gpu_mem: 11,
+            calc_point: 6825 * 8,
+            sys_disk: 480,
+            data_disk: 18,
+            cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
+            cpu_core_num: 32,
+            cpu_rate: 260,
+            mem_num: 512000,
 
-                rand_str: "abcdefg".as_bytes().to_vec(),
-                is_support: true,
-            }
-        ));
+            rand_str: "abcdefg".as_bytes().to_vec(),
+            is_support: true,
+        };
+        assert_ok!(&LeaseCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
 
         run_to_block(2880 * 3 + 4);
 
+        // Will do lc_confirm_machine
+        // - Writes:
+        // machine_info, live_machines, SysInfo, StashStake, ServerRoomMachines, PosGPUInfo, NextEraMachineSnap, NextEraStashSnap
+        // committeeReward(get reward immediately), UserReonlineStake, do Slash
+
+        committee_upload_info.rand_str = vec![];
+        machine_info.machine_info_detail.committee_upload_info = committee_upload_info;
+        machine_info.machine_info_detail.staker_customize_info.upload_net = 10000;
+        machine_info.machine_info_detail.staker_customize_info.download_net = 10000;
+
+        let mut machine_info = online_profile::MachineInfo {
+            last_machine_restake: 8644,
+            last_online_height: 8644,
+            init_stake_amount: 800000 * ONE_DBC,
+            current_stake_amount: 784000 * ONE_DBC, // 扣除2%的machine_stake质押
+            machine_status: online_profile::MachineStatus::Online,
+            ..machine_info
+        };
+
+        assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
         assert_eq!(
             OnlineProfile::live_machines(),
             LiveMachine { online_machine: vec!(machine_id.clone()), ..Default::default() }
@@ -497,8 +516,15 @@ fn machine_online_works() {
                 ..Default::default()
             }
         );
-
-        // TODO: 检查执行的惩罚
+        assert_eq!(
+            OnlineProfile::user_reonline_stake(&stash, &machine_id),
+            UserReonlineStakeInfo { ..Default::default() }
+        );
+        assert_eq!(OnlineProfile::stash_stake(&stash), 800000 * ONE_DBC);
+        // TODO：检查分数
+        // assert_eq!(OnlineProfile::eras_stash_released_reward(2, &stash), 272250 * ONE_DBC + first_day_linear_release); // 1100000 * 0.99 * 0.25
+        // assert_eq!(OnlineProfile::eras_machine_released_reward(2, &machine_id), 272250 * ONE_DBC);
+        // 1100000 * 0.99 * 0.25
     });
 }
 
@@ -508,7 +534,7 @@ fn all_committee_submit_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
         let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
         let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
@@ -597,7 +623,7 @@ fn committee_not_submit_hash_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
         let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
         let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();

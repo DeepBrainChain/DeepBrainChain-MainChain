@@ -9,13 +9,14 @@ pub use frame_system::RawOrigin;
 use online_profile::{CommitteeUploadInfo, StakerCustomizeInfo, StandardGpuPointPrice};
 pub use sp_core::{
     sr25519::{self, Signature},
+    u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
 pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
-    ModuleId, Permill,
+    ModuleId, Perbill, Permill,
 };
 use std::convert::TryInto;
 
@@ -155,10 +156,29 @@ impl pallet_treasury::Config for TestRuntime {
 //     type WeightInfo = ();
 // }
 
+parameter_types! {
+    pub const CouncilMotionDuration: u32 = 5 * 2880;
+    pub const CouncilMaxProposals: u32 = 100;
+    pub const CouncilMaxMembers: u32 = 100;
+}
+
+type TechnicalCollective = pallet_collective::Instance2;
+impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
+    type MotionDuration = CouncilMotionDuration;
+    type MaxProposals = CouncilMaxProposals;
+    type MaxMembers = CouncilMaxMembers;
+    type DefaultVote = pallet_collective::PrimeDefaultVote;
+    type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
+}
+
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
 }
 
 impl lease_committee::Config for TestRuntime {
@@ -180,12 +200,12 @@ impl online_profile::Config for TestRuntime {
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
 }
 
 impl maintain_committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
-    type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
 }
@@ -208,6 +228,7 @@ frame_support::construct_runtime!(
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
         // Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
+        TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
     }
 );
 
@@ -264,9 +285,19 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             committee::CommitteeStakeParamsInfo {
                 stake_baseline: 20000 * ONE_DBC,
                 stake_per_order: 1000 * ONE_DBC,
-                min_free_stake: 8000 * ONE_DBC,
+                min_free_stake_percent: Perbill::from_rational_approximation(40u32, 100u32),
             },
         );
+
+        let _ = MaintainCommittee::set_reporter_stake_params(
+            RawOrigin::Root.into(),
+            super::ReporterStakeParamsInfo {
+                stake_baseline: 20000 * ONE_DBC,
+                stake_per_report: 1000 * ONE_DBC,
+                min_free_stake_percent: Perbill::from_rational_approximation(40u32, 100u32),
+            },
+        );
+
         // 操作时的固定费率: 10 DBC
         let _ = GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10 * ONE_DBC);
         // 每张GPU质押数量: 100,000 DBC

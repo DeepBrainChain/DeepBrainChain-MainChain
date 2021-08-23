@@ -91,7 +91,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     /// 该机器当前质押数量，可以增加质押或者从中被惩罚
     pub current_stake_amount: Balance,
     /// 机器的状态
-    pub machine_status: MachineStatus<BlockNumber>,
+    pub machine_status: MachineStatus<BlockNumber, AccountId>,
     /// 总租用累计时长
     pub total_rented_duration: u64,
     /// 总租用次数
@@ -112,7 +112,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum MachineStatus<BlockNumber> {
+pub enum MachineStatus<BlockNumber, AccountId> {
     /// 执行bond操作后，等待提交自定义信息
     AddingCustomizeInfo,
     /// 正在等待派单
@@ -128,7 +128,7 @@ pub enum MachineStatus<BlockNumber> {
     /// 机器管理者报告机器已下线
     StakerReportOffline(BlockNumber, Box<Self>),
     /// 报告人报告机器下线
-    ReporterReportOffline(BlockNumber, Box<Self>),
+    ReporterReportOffline(BlockNumber, Box<Self>, Vec<AccountId>),
     // ReporterReportOffline(BlockNumber, Box<Self>), // TODO
     /// 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
     Creating,
@@ -136,7 +136,7 @@ pub enum MachineStatus<BlockNumber> {
     Rented,
 }
 
-impl<BlockNumber> Default for MachineStatus<BlockNumber> {
+impl<BlockNumber, AccountId> Default for MachineStatus<BlockNumber, AccountId> {
     fn default() -> Self {
         MachineStatus::AddingCustomizeInfo
     }
@@ -229,10 +229,9 @@ pub struct StandardGpuPointPrice {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct UserReonlineStakeInfo<AccountId, Balance, BlockNumber> {
+pub struct UserReonlineStakeInfo<Balance, BlockNumber> {
     pub stake_amount: Balance,
     pub offline_time: BlockNumber,
-    pub committee: Vec<AccountId>,
 }
 
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -350,7 +349,7 @@ pub mod pallet {
         T::AccountId,
         Blake2_128Concat,
         MachineId,
-        UserReonlineStakeInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
+        UserReonlineStakeInfo<BalanceOf<T>, T::BlockNumber>,
         ValueQuery,
     >;
 
@@ -710,12 +709,13 @@ pub mod pallet {
             UserReonlineStake::<T>::insert(
                 &machine_info.machine_stash,
                 &machine_id,
-                UserReonlineStakeInfo { stake_amount, offline_time: now, committee: vec![] },
+                UserReonlineStakeInfo { stake_amount, offline_time: now },
             );
 
             Self::change_pos_gpu_by_online(&machine_id, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
 
+            StashStake::<T>::insert(&machine_info.machine_stash, new_stash_stake);
             LiveMachine::rm_machine_id(&mut live_machines.online_machine, &machine_id);
             LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone()); // 放入bonding_machine中
 
@@ -957,14 +957,8 @@ pub mod pallet {
             machine_info.machine_status = MachineStatus::Online;
 
             if UserReonlineStake::<T>::contains_key(&machine_info.machine_stash, &machine_id) {
-                // 根据质押，奖励给这些委员会
+                // // 根据质押，奖励给这些委员会
                 let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
-                let _ = Self::reward_reonline_committee(
-                    &machine_info.machine_stash,
-                    reonline_stake.stake_amount,
-                    reonline_stake.committee,
-                );
-                UserReonlineStake::<T>::remove(&machine_info.machine_stash, &machine_id);
 
                 // 根据下线时间，惩罚stash
                 let offline_duration = now - reonline_stake.offline_time;
@@ -974,6 +968,7 @@ pub mod pallet {
                     None,
                     None,
                 );
+                UserReonlineStake::<T>::remove(&machine_info.machine_stash, &machine_id);
             }
 
             machine_info.online_height = now;
@@ -1014,6 +1009,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn controller_report_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
 
             let machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
@@ -1024,7 +1020,10 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
-            Self::machine_offline(machine_id);
+            Self::machine_offline(
+                machine_id,
+                MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status)),
+            );
             Ok(().into())
         }
 
@@ -1103,6 +1102,10 @@ pub mod pallet {
                 }
             } else {
                 return Err(Error::<T>::MachineStatusNotAllowed.into())
+            }
+
+            if let MachineStatus::ReporterReportOffline(..) = machine_info.machine_status {
+                // TODO: add slash
             }
 
             machine_info.last_online_height = now;
@@ -1411,6 +1414,7 @@ impl<T: Config> Pallet<T> {
 
         // 计算是否需要补充质押
         machine_info.current_stake_amount = machine_info.current_stake_amount.checked_sub(&slash_amount).unwrap();
+
         // 如果机器当前质押不足80%，机器将会被下线
         if machine_info.current_stake_amount <
             Perbill::from_rational_approximation(80u32, 100u32) * machine_info.init_stake_amount
@@ -1484,6 +1488,9 @@ impl<T: Config> Pallet<T> {
             // Self::deposit_event(Event::Slash(machine_info.machine_stash.clone(), slash_amount, SlashReason::));
             <T as pallet::Config>::Slash::on_unbalanced(imbalance);
         }
+
+        MachinesInfo::<T>::insert(machine_id, machine_info);
+        LiveMachines::<T>::put(live_machine);
     }
 
     fn get_new_slash_id() -> u64 {
@@ -1580,11 +1587,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// 下架机器
-    fn machine_offline(machine_id: MachineId) {
+    fn machine_offline(machine_id: MachineId, machine_status: MachineStatus<T::BlockNumber, T::AccountId>) {
         let mut machine_info = Self::machines_info(&machine_id);
         let mut live_machine = Self::live_machines();
-
-        let now = <frame_system::Module<T>>::block_number();
 
         if let MachineStatus::Rented = machine_info.machine_status {
             Self::update_snap_by_rent_status(machine_id.clone(), false);
@@ -1599,7 +1604,7 @@ impl<T: Config> Pallet<T> {
         LiveMachine::add_machine_id(&mut live_machine.offline_machine, machine_id.clone());
 
         // After re-online, machine status is same as former
-        machine_info.machine_status = MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status));
+        machine_info.machine_status = machine_status;
 
         LiveMachines::<T>::put(live_machine);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -1796,7 +1801,7 @@ impl<T: Config> Pallet<T> {
         committee: Vec<T::AccountId>,
     ) -> Result<(), ()> {
         let stash_stake = Self::stash_stake(who);
-        let new_stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
+        let new_stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
 
         <T as Config>::Currency::set_lock(PALLET_LOCK_ID, who, new_stash_stake, WithdrawReasons::all());
 
@@ -2199,6 +2204,17 @@ impl<T: Config> LCOps for Pallet<T> {
         MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
         LiveMachines::<T>::put(live_machines);
 
+        if is_reonline {
+            // 根据质押，奖励给这些委员会
+            let reonline_stake =
+                Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
+            let _ = Self::reward_reonline_committee(
+                &machine_info.machine_stash,
+                reonline_stake.stake_amount,
+                reported_committee,
+            );
+        }
+
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if let MachineStatus::Online = machine_info.machine_status {
             Self::change_pos_gpu_by_online(&committee_upload_info.machine_id, true);
@@ -2208,11 +2224,7 @@ impl<T: Config> LCOps for Pallet<T> {
                 // 根据质押，奖励给这些委员会
                 let reonline_stake =
                     Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
-                let _ = Self::reward_reonline_committee(
-                    &machine_info.machine_stash,
-                    reonline_stake.stake_amount,
-                    reported_committee,
-                );
+
                 UserReonlineStake::<T>::remove(&machine_info.machine_stash, &committee_upload_info.machine_id);
 
                 // 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
@@ -2224,14 +2236,6 @@ impl<T: Config> LCOps for Pallet<T> {
                     None,
                 );
             }
-        } else {
-            let reonline_stake =
-                Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
-            UserReonlineStake::<T>::insert(
-                &machine_info.machine_stash,
-                &committee_upload_info.machine_id,
-                UserReonlineStakeInfo { committee: reported_committee, ..reonline_stake },
-            )
         }
 
         return Ok(())
@@ -2241,6 +2245,20 @@ impl<T: Config> LCOps for Pallet<T> {
     fn lc_refuse_machine(machine_id: MachineId) -> Result<(), ()> {
         // 拒绝用户绑定，需要清除存储
         let machine_info = Self::machines_info(&machine_id);
+
+        // // FIXME: bugs: 当机器修改硬件信息后重新上线，拒绝机器上线时，同样发放奖励，机器信息不能被移除
+        // let is_reonline = UserReonlineStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
+        // if is_reonline {
+        //     // 惩罚质押的Reonline的金额，并将机器重新放到提交信息的状态
+        //     let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash);
+
+        //     // 将机器的初始质押减少reonline_stake等量DBC，惩罚到国库
+        //     // 重新质押 5%
+        //     Self::do_slash_deposit(5, machine_id, None, None);
+
+        //     return Ok(())
+        // }
+
         let now = <frame_system::Module<T>>::block_number();
         let mut sys_info = Self::sys_info();
         let mut stash_stake = Self::stash_stake(&machine_info.machine_stash);
@@ -2298,13 +2316,13 @@ impl<T: Config> LCOps for Pallet<T> {
 
 impl<T: Config> RTOps for Pallet<T> {
     type MachineId = MachineId;
-    type MachineStatus = MachineStatus<T::BlockNumber>;
+    type MachineStatus = MachineStatus<T::BlockNumber, T::AccountId>;
     type AccountId = T::AccountId;
     type BalanceOf = BalanceOf<T>;
 
     fn change_machine_status(
         machine_id: &MachineId,
-        new_status: MachineStatus<T::BlockNumber>,
+        new_status: MachineStatus<T::BlockNumber, T::AccountId>,
         renter: Option<Self::AccountId>,
         rent_duration: Option<u64>,
     ) {
@@ -2422,9 +2440,27 @@ impl<T: Config> OPRPCQuery for Pallet<T> {
 impl<T: Config> MTOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
+    type FaultType = StashSlashReason<T::BlockNumber>;
 
-    fn mt_machine_offline(machine_id: MachineId) {
-        Self::machine_offline(machine_id);
+    fn mt_machine_offline(
+        committee: Vec<T::AccountId>,
+        machine_id: MachineId,
+        fault_type: StashSlashReason<T::BlockNumber>,
+    ) {
+        let machine_info = Self::machines_info(&machine_id);
+
+        let report_time = match fault_type {
+            StashSlashReason::RentedInaccessible(time) |
+            StashSlashReason::RentedHardwareMalfunction(time) |
+            StashSlashReason::OnlineRentFailed(time) |
+            StashSlashReason::RentedHardwareCounterfeit(time) => time,
+            _ => 0u32.saturated_into::<T::BlockNumber>(),
+        };
+
+        Self::machine_offline(
+            machine_id,
+            MachineStatus::ReporterReportOffline(report_time, Box::new(machine_info.machine_status), committee),
+        );
     }
 }
 
@@ -2448,7 +2484,9 @@ impl<T: Config> Module<T> {
         }
     }
 
-    pub fn get_staker_info(account: impl EncodeLike<T::AccountId>) -> RpcStakerInfo<BalanceOf<T>, T::BlockNumber> {
+    pub fn get_staker_info(
+        account: impl EncodeLike<T::AccountId>,
+    ) -> RpcStakerInfo<BalanceOf<T>, T::BlockNumber, T::AccountId> {
         let staker_info = Self::stash_machines(account);
 
         let mut staker_machines = Vec::new();

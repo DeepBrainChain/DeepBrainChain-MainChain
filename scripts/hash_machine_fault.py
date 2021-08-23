@@ -12,8 +12,8 @@ committee_msg = machine_id + reporter_rand_str + committee_rand_str + "1" + err_
 
 h = blake2b(digest_size=16)
 h.update(reporter_msg.encode())
-print("0x" + h.hexdigest())
+print("ReporterHash: 0x" + h.hexdigest())
 
 h2 = blake2b(digest_size=16)
 h2.update(committee_msg.encode())
-print("0x" + h2.hexdigest())
+print("CommitteeHash: 0x" + h2.hexdigest())

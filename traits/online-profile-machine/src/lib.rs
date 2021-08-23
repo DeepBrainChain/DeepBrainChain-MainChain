@@ -61,6 +61,7 @@ pub trait DbcPrice {
 pub trait MTOps {
     type AccountId;
     type MachineId;
+    type FaultType;
 
-    fn mt_machine_offline(machine_id: Self::MachineId);
+    fn mt_machine_offline(committee: Vec<Self::AccountId>, machine_id: Self::MachineId, fault_type: Self::FaultType);
 }

@@ -32,7 +32,7 @@ where
         &self,
         account: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<RpcStakerInfo<RpcBalance<Balance>, BlockNumber>>;
+    ) -> Result<RpcStakerInfo<RpcBalance<Balance>, BlockNumber, AccountId>>;
 
     #[rpc(name = "onlineProfile_getMachineList")]
     fn get_machine_list(&self, at: Option<BlockHash>) -> Result<LiveMachine>;
@@ -139,7 +139,7 @@ where
         &self,
         account: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RpcStakerInfo<RpcBalance<Balance>, BlockNumber>> {
+    ) -> Result<RpcStakerInfo<RpcBalance<Balance>, BlockNumber, AccountId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

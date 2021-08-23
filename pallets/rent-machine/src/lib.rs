@@ -67,7 +67,7 @@ pub mod pallet {
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
         type RTOps: RTOps<
             MachineId = MachineId,
-            MachineStatus = MachineStatus<Self::BlockNumber>,
+            MachineStatus = MachineStatus<Self::BlockNumber, Self::AccountId>,
             AccountId = Self::AccountId,
             BalanceOf = BalanceOf<Self>,
         >;

@@ -1,4 +1,4 @@
-use crate::mock::*;
+use crate::{mock::*, ReporterStakeInfo};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -7,6 +7,10 @@ fn report_machine_fault_works() {
     new_test_with_init_params_ext().execute_with(|| {
         let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
         let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+            .unwrap()
+            .try_into()
+            .unwrap();
 
         let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
 
@@ -14,73 +18,177 @@ fn report_machine_fault_works() {
         let reporter_rand_str = "abcdef".as_bytes().to_vec();
         let committee_rand_str = "fedcba".as_bytes().to_vec();
         let err_reason = "它坏了".as_bytes().to_vec();
-        let committee_hash = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
+        let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
 
-        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
-            .unwrap()
-            .try_into()
-            .unwrap();
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
-            crate::MachineFaultType::HardwareFault(report_hash, reporter_boxpubkey)
+            crate::MachineFaultType::HardwareFault(report_hash, reporter_boxpubkey),
         ));
 
-        let mut report_status = crate::MTReportInfoDetail {
+        // report_machine hardware fault:
+        // - Writes:
+        // ReporterStake, ReportInfo, LiveReport, ReporterReport
+
+        let report_status = crate::MTReportInfoDetail {
             reporter,
             report_time: 11,
-            reporter_stake: 1250 * ONE_DBC, // 15,000,000 / 12,000
+            reporter_stake: 1000 * ONE_DBC, // 15,000,000 / 12,000
             machine_fault_type: crate::MachineFaultType::HardwareFault(report_hash, reporter_boxpubkey),
             ..Default::default()
         };
-
         assert_eq!(&MaintainCommittee::report_info(0), &report_status);
+        assert_eq!(
+            &MaintainCommittee::reporter_stake(&reporter),
+            &ReporterStakeInfo {
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 1000 * ONE_DBC,
+                can_claim_reward: 0,
+                claimed_reward: 0,
+            }
+        );
+        assert_eq!(
+            &MaintainCommittee::live_report(),
+            &super::MTLiveReportList { bookable_report: vec![0], ..Default::default() }
+        );
+        assert_eq!(&MaintainCommittee::reporter_report(&reporter), &super::ReporterRecord { reported_id: vec![0] });
 
+        // 委员会订阅机器故障报告
         assert_ok!(MaintainCommittee::book_fault_order(Origin::signed(committee), 0));
 
-        // TODO: 提交加密信息
-        let encrypted_err_info = hex::decode("").unwrap().try_into().unwrap();
+        // book_fault_order:
+        // - Writes:
+        // LiveReport, ReportInfo, CommitteeOps, CommitteeOrder
+
+        assert_eq!(
+            &MaintainCommittee::live_report(),
+            &super::MTLiveReportList { verifying_report: vec![0], ..Default::default() }
+        );
+        let mut report_info = super::MTReportInfoDetail {
+            first_book_time: 11,
+            verifying_committee: Some(committee.clone()),
+            booked_committee: vec![committee.clone()],
+            confirm_start: 11 + 360,
+            report_status: super::ReportStatus::Verifying,
+            ..report_status
+        };
+        assert_eq!(&MaintainCommittee::report_info(0), &report_info);
+        let mut committee_ops = super::MTCommitteeOpsDetail {
+            booked_time: 11,
+            staked_balance: 1000 * ONE_DBC,
+            order_status: super::MTOrderStatus::WaitingEncrypt,
+            ..Default::default()
+        };
+        assert_eq!(&MaintainCommittee::committee_ops(&committee, 0), &committee_ops);
+        assert_eq!(
+            &MaintainCommittee::committee_order(&committee),
+            &super::MTCommitteeReportList { booked_report: vec![0], ..Default::default() }
+        );
+
+        // 提交加密信息
+        let encrypted_err_info: Vec<u8> = hex::decode("01405deeef2a8b0f4a09380d14431dd10fde1ad62b3c27b3fbea4701311d")
+            .unwrap()
+            .try_into()
+            .unwrap();
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
             Origin::signed(reporter),
             0,
             committee,
-            encrypted_err_info
+            encrypted_err_info.clone()
         ));
 
-        report_status.first_book_time = 11;
-        report_status.verifying_committee = Some(committee);
-        report_status.booked_committee.push(committee);
-        report_status.get_encrypted_info_committee.push(committee);
-        report_status.report_status = crate::ReportStatus::Verifying;
-        report_status.confirm_start = 11 + 360;
-        assert_eq!(&MaintainCommittee::report_info(0), &report_status);
+        // add_encrypted_err_info:
+        // - Writes:
+        // CommitteeOps, ReportInfo
+
+        report_info.get_encrypted_info_committee.push(committee);
+        assert_eq!(&MaintainCommittee::report_info(0), &report_info);
+        committee_ops.encrypted_err_info = Some(encrypted_err_info.clone());
+        committee_ops.encrypted_time = 11;
+        committee_ops.order_status = super::MTOrderStatus::Verifying;
+
+        assert_eq!(&MaintainCommittee::committee_ops(&committee, 0), &committee_ops);
 
         // 提交验证Hash
-        assert_ok!(MaintainCommittee::submit_confirm_hash(Origin::signed(committee), 0, committee_hash));
+        assert_ok!(MaintainCommittee::submit_confirm_hash(Origin::signed(committee), 0, committee_hash.clone()));
 
-        report_status.verifying_committee = None;
-        report_status.hashed_committee.push(committee);
-        report_status.report_status = crate::ReportStatus::WaitingBook;
-        assert_eq!(&MaintainCommittee::report_info(0), &report_status);
+        // submit_confirm_hash:
+        // - Writes:
+        // CommitteeOrder, CommitteeOps, ReportInfo, LiveReport
+
+        report_info.verifying_committee = None;
+        report_info.hashed_committee.push(committee);
+        report_info.report_status = crate::ReportStatus::WaitingBook;
+        assert_eq!(&MaintainCommittee::report_info(0), &report_info);
+        assert_eq!(
+            &MaintainCommittee::live_report(),
+            &super::MTLiveReportList { bookable_report: vec![0], ..Default::default() }
+        );
+        committee_ops.confirm_hash = committee_hash;
+        committee_ops.order_status = super::MTOrderStatus::WaitingRaw;
+        committee_ops.hash_time = 11;
+        assert_eq!(&MaintainCommittee::committee_ops(&committee, 0), &committee_ops);
+        assert_eq!(
+            &MaintainCommittee::committee_order(&committee),
+            &super::MTCommitteeReportList { hashed_report: vec![0], ..Default::default() }
+        );
 
         // 3个小时之后才能提交：
         run_to_block(360 + 13);
 
-        report_status.report_status = crate::ReportStatus::SubmittingRaw;
-        assert_eq!(&MaintainCommittee::report_info(0), &report_status);
-
-        assert_eq!(&MaintainCommittee::report_info(0), &report_status);
+        report_info.report_status = crate::ReportStatus::SubmittingRaw;
+        assert_eq!(&MaintainCommittee::report_info(0), &report_info);
+        assert_eq!(
+            &MaintainCommittee::live_report(),
+            &super::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
+        );
 
         let extra_err_info = Vec::new();
         assert_ok!(MaintainCommittee::submit_confirm_raw(
             Origin::signed(committee),
             0,
-            machine_id,
+            machine_id.clone(),
             reporter_rand_str,
             committee_rand_str,
-            err_reason,
+            err_reason.clone(),
             extra_err_info,
             true
         ));
+
+        // submit_confirm_raw:
+        // - Writes:
+        // ReportInfo, CommitteeOps
+
+        report_info.confirmed_committee = vec![committee.clone()];
+        report_info.support_committee = vec![committee.clone()];
+        report_info.machine_id = machine_id;
+        report_info.err_info = err_reason;
+        assert_eq!(&MaintainCommittee::report_info(0), &report_info);
+
+        committee_ops.order_status = super::MTOrderStatus::WaitingEncrypt;
+        committee_ops.confirm_time = 374;
+        committee_ops.confirm_result = true;
+        committee_ops.order_status = super::MTOrderStatus::Finished;
+
+        assert_eq!(&MaintainCommittee::committee_ops(&committee, 0), &committee_ops);
+
+        run_to_block(360 + 14);
+
+        // heart_beat will change LiveReport,
+        report_info.report_status = super::ReportStatus::CommitteeConfirmed;
+        assert_eq!(&MaintainCommittee::report_info(0), &report_info);
+
+        // mt_machine_offline:
+        // - Writes:
+        //
+
+        assert_eq!(
+            &MaintainCommittee::live_report(),
+            &super::MTLiveReportList { waiting_rechecked_report: vec![0], ..Default::default() }
+        );
+
+        // TODO: Report Reonline
+
+        // TODO: Slash
     })
 }
 
