@@ -36,13 +36,13 @@ pub use rpc_types::*;
 
 pub use pallet::*;
 
-/// 每2880个Era有多少个Block
+/// 2880 blocks per era
 pub const BLOCK_PER_ERA: u64 = 2880;
 pub const REWARD_DURATION: u32 = 365 * 2;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"olprofil";
 
-/// stash账户总览自己当前状态
+/// stash account overview self-status
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -69,7 +69,7 @@ pub struct StashMachine<Balance> {
     pub total_burn_fee: Balance,
 }
 
-/// 机器的信息
+/// All details of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     /// 绑定机器的人
@@ -108,7 +108,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub reward_deadline: EraIndex,
 }
 
-/// 机器状态
+/// All kind of status of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -142,7 +142,7 @@ impl<BlockNumber, AccountId> Default for MachineStatus<BlockNumber, AccountId> {
     }
 }
 
-/// 算工被惩罚的原因
+/// The reason why a stash account is punished
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -183,12 +183,14 @@ pub struct LiveMachine {
     pub online_machine: Vec<MachineId>,
     /// 委员会同意上线，但是由于stash账户质押不够，需要补充质押
     pub fulfilling_machine: Vec<MachineId>,
-    /// 被委员会拒绝的机器（10天内还能重新申请上线）
+    /// 被委员会拒绝的机器
     pub refused_machine: Vec<MachineId>,
     /// 被用户租用的机器，当机器被租用时，从online_machine中移除
     pub rented_machine: Vec<MachineId>,
     /// 下线的机器
     pub offline_machine: Vec<MachineId>,
+    /// 修改硬件信息被拒绝的机器
+    pub refused_mut_hardware_machine: Vec<MachineId>,
 }
 
 impl LiveMachine {
@@ -199,7 +201,10 @@ impl LiveMachine {
             self.booked_machine.binary_search(machine_id).is_ok() ||
             self.online_machine.binary_search(machine_id).is_ok() ||
             self.fulfilling_machine.binary_search(machine_id).is_ok() ||
-            self.refused_machine.binary_search(machine_id).is_ok()
+            self.refused_machine.binary_search(machine_id).is_ok() ||
+            self.rented_machine.binary_search(machine_id).is_ok() ||
+            self.offline_machine.binary_search(machine_id).is_ok() ||
+            self.refused_mut_hardware_machine.binary_search(machine_id).is_ok()
         {
             return true
         }
@@ -259,7 +264,7 @@ pub struct SysInfoDetail<Balance> {
     pub total_burn_fee: Balance,
 }
 
-/// 不同经纬度GPU信息统计
+/// Statistics of gpus based on position(latitude and longitude)
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -270,7 +275,7 @@ pub struct PosInfo {
     pub offline_gpu: u64,
     /// 被租用机器GPU数量
     pub rented_gpu: u64,
-    // FIXME: 膨胀得分考虑在内
+    // 膨胀得分不考虑在内
     /// 在线机器算力点数
     pub online_gpu_calc_points: u64,
 }
@@ -322,7 +327,7 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
-    /// 机器单卡质押数量，单位DBC。如100_000DBC
+    /// How much a GPU should stake(DBC).eg. 100_000 DBC
     #[pallet::storage]
     #[pallet::getter(fn stake_per_gpu)]
     pub(super) type StakePerGPU<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
@@ -355,7 +360,7 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// 银河竞赛是否开启。5000张卡自动开启
+    /// If galaxy competition is begin: switch 5000 gpu
     #[pallet::storage]
     #[pallet::getter(fn galaxy_is_on)]
     pub(super) type GalaxyIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
@@ -393,7 +398,7 @@ pub mod pallet {
     pub(super) type StashMachines<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, StashMachine<BalanceOf<T>>, ValueQuery>;
 
-    /// stash账户下的所有机房信息
+    /// Server rooms in stash account
     #[pallet::storage]
     #[pallet::getter(fn stash_server_rooms)]
     pub(super) type StashServerRooms<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<H256>, ValueQuery>;

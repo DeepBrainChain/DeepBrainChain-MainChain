@@ -75,6 +75,9 @@ async function main() {
   funcMap["rentMachine"]["confirmRent"] = api.tx.rentMachine.confirmRent;
   funcMap["rentMachine"]["addRent"] = api.tx.rentMachine.addRent;
 
+  funcMap["balances"] = {};
+  funcMap["balances"]["transfer"] = api.tx.balances.transfer;
+
   var callFunc = funcMap[args["module"]][args["func"]];
   await do_sign_tx(callFunc, accountFromKeyring, nonce, ...args._).catch(
     (error) => console.log(error.message)
