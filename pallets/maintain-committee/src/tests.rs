@@ -5,6 +5,7 @@ use std::convert::TryInto;
 #[test]
 fn report_machine_fault_works() {
     new_test_with_init_params_ext().execute_with(|| {
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
         let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
@@ -22,7 +23,7 @@ fn report_machine_fault_works() {
 
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
-            crate::MachineFaultType::HardwareFault(report_hash, reporter_boxpubkey),
+            crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
         ));
 
         // report_machine hardware fault:
@@ -33,7 +34,7 @@ fn report_machine_fault_works() {
             reporter,
             report_time: 11,
             reporter_stake: 1000 * ONE_DBC, // 15,000,000 / 12,000
-            machine_fault_type: crate::MachineFaultType::HardwareFault(report_hash, reporter_boxpubkey),
+            machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
             ..Default::default()
         };
         assert_eq!(&MaintainCommittee::report_info(0), &report_status);
@@ -142,6 +143,10 @@ fn report_machine_fault_works() {
             &super::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
         );
 
+        // submit_confirm_raw:
+        // - Writes:
+        // ReportInfo, CommitteeOps
+
         let extra_err_info = Vec::new();
         assert_ok!(MaintainCommittee::submit_confirm_raw(
             Origin::signed(committee),
@@ -154,17 +159,12 @@ fn report_machine_fault_works() {
             true
         ));
 
-        // submit_confirm_raw:
-        // - Writes:
-        // ReportInfo, CommitteeOps
-
         report_info.confirmed_committee = vec![committee.clone()];
         report_info.support_committee = vec![committee.clone()];
-        report_info.machine_id = machine_id;
+        report_info.machine_id = machine_id.clone();
         report_info.err_info = err_reason;
         assert_eq!(&MaintainCommittee::report_info(0), &report_info);
 
-        committee_ops.order_status = super::MTOrderStatus::WaitingEncrypt;
         committee_ops.confirm_time = 374;
         committee_ops.confirm_result = true;
         committee_ops.order_status = super::MTOrderStatus::Finished;
@@ -174,26 +174,92 @@ fn report_machine_fault_works() {
         run_to_block(360 + 14);
 
         // heart_beat will change LiveReport,
-        report_info.report_status = super::ReportStatus::CommitteeConfirmed;
+        // report_info.report_status = super::ReportStatus::CommitteeConfirmed; // TODO: should be cleaned
         assert_eq!(&MaintainCommittee::report_info(0), &report_info);
+        assert_eq!(
+            &MaintainCommittee::live_report(),
+            &super::MTLiveReportList { waiting_rechecked_report: vec![0], ..Default::default() }
+        );
 
-        // mt_machine_offline:
+        // mt_machine_offline -> machine_offline
         // - Writes:
-        //
+        // MachineInfo, LiveMachine, current_era_stash_snap, next_era_stash_snap, current_era_machine_snap, next_era_machine_snap
+        // SysInfo, SatshMachine, PosGPUInfo
+
+        // TODO: check status
 
         assert_eq!(
             &MaintainCommittee::live_report(),
             &super::MTLiveReportList { waiting_rechecked_report: vec![0], ..Default::default() }
         );
 
-        // TODO: Report Reonline
+        run_to_block(2880 + 400);
+
+        // 报告人上线机器
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
 
         // TODO: Slash
     })
 }
 
 #[test]
-fn report_machine_offline_works() {}
+fn report_machine_offline_works() {
+    new_test_with_init_params_ext().execute_with(|| {
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        // let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+        //     .unwrap()
+        //     .try_into()
+        //     .unwrap();
+
+        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let reporter_rand_str = "abcdef".as_bytes().to_vec();
+        let committee_rand_str = "fedcba".as_bytes().to_vec();
+        let err_reason = "它坏了".as_bytes().to_vec();
+        let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
+
+        assert_ok!(MaintainCommittee::report_machine_fault(
+            Origin::signed(reporter),
+            crate::MachineFaultType::OnlineRentFailed(machine_id),
+        ));
+
+        // book_fault_order:
+        // - Writes:
+        // LiveReport, ReportInfo, CommitteeOps, CommitteeOrder
+
+        // 委员会订阅机器故障报告
+        assert_ok!(MaintainCommittee::book_fault_order(Origin::signed(committee), 0));
+
+        assert_eq!(
+            &MaintainCommittee::live_report(),
+            &super::MTLiveReportList { bookable_report: vec![0], ..Default::default() }
+        );
+
+        // 首先提交Hash: 内容为 订单ID + 验证人自己的随机数 + 机器是否有问题
+        // 提交验证Hash: TODO: 更改Hash的内容
+        // hash(0abcd1) => 0x73124a023f585b4018b9ed3593c7470a
+        let offline_committee_hash: [u8; 16] =
+            hex::decode("73124a023f585b4018b9ed3593c7470a").unwrap().try_into().unwrap();
+        assert_ok!(MaintainCommittee::submit_confirm_hash(
+            Origin::signed(committee),
+            0,
+            offline_committee_hash.clone()
+        ));
+
+        run_to_block(12);
+        assert_ok!(MaintainCommittee::submit_offline_raw(
+            Origin::signed(committee),
+            0,
+            "abcd".as_bytes().to_vec(),
+            true
+        ));
+
+        // TODO: 5分钟后，开始summary，提交原始信息
+    })
+}
 
 #[test]
 fn report_machine_unrentable_works() {}

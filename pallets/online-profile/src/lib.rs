@@ -17,12 +17,12 @@ use online_profile_machine::{DbcPrice, LCOps, MTOps, ManageCommittee, OPRPCQuery
 use serde::{Deserialize, Serialize};
 use sp_core::{crypto::Public, H256};
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify, Zero},
+    traits::{Bounded, CheckedAdd, CheckedMul, CheckedSub, Verify, Zero},
     Perbill, SaturatedConversion,
 };
 use sp_std::{
     collections::btree_map::BTreeMap,
-    convert::{TryFrom, TryInto},
+    convert::{From, TryFrom, TryInto},
     prelude::*,
     str,
     vec::Vec,
@@ -127,8 +127,8 @@ pub enum MachineStatus<BlockNumber, AccountId> {
     Online,
     /// 机器管理者报告机器已下线
     StakerReportOffline(BlockNumber, Box<Self>),
-    /// 报告人报告机器下线
-    ReporterReportOffline(BlockNumber, Box<Self>, Vec<AccountId>),
+    /// 报告人报告机器下线 (SlashReason, StatusBeforeOffline, Reporter, Committee)
+    ReporterReportOffline(StashSlashReason<BlockNumber>, Box<Self>, AccountId, Vec<AccountId>),
     // ReporterReportOffline(BlockNumber, Box<Self>), // TODO
     /// 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
     Creating,
@@ -143,6 +143,9 @@ impl<BlockNumber, AccountId> Default for MachineStatus<BlockNumber, AccountId> {
 }
 
 /// 算工被惩罚的原因
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum StashSlashReason<BlockNumber> {
     /// 主动报告被租用的机器下线
     RentedReportOffline(BlockNumber),
@@ -158,12 +161,11 @@ pub enum StashSlashReason<BlockNumber> {
     OnlineRentFailed(BlockNumber),
 }
 
-// FIXME: bug
-// impl<BlockNumber> Default for StashSlashReason<BlockNumber> {
-//     fn default() -> Self {
-//         StashSlashReason::OnlineReportOffline(0u32.saturated_into::<BlockNumber>())
-//     }
-// }
+impl<BlockNumber: Bounded + From<u32>> Default for StashSlashReason<BlockNumber> {
+    fn default() -> Self {
+        StashSlashReason::OnlineReportOffline(0u32.saturated_into::<BlockNumber>())
+    }
+}
 
 // 只保存正常声明周期的Machine,删除掉的/绑定失败的不保存在该变量中
 /// 系统中存在的机器列表
@@ -1041,71 +1043,73 @@ pub mod pallet {
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
             ensure!(
-                machine_info.last_online_height.saturated_into::<u64>() > BLOCK_PER_ERA,
+                now - machine_info.last_online_height > (BLOCK_PER_ERA as u32).saturated_into::<T::BlockNumber>(),
                 Error::<T>::CannotOnlineTwiceOneDay
             );
 
             // MachineStatus改为之前的状态
-            if let MachineStatus::StakerReportOffline(offline_time, status) = machine_info.machine_status {
-                let offline_duration = now - offline_time;
 
-                machine_info.machine_status = *status;
-                let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            match machine_info.machine_status.clone() {
+                MachineStatus::StakerReportOffline(offline_time, status) => {
+                    let offline_duration = now - offline_time;
 
-                match machine_info.machine_status {
-                    MachineStatus::Online | MachineStatus::Rented => {
-                        // Both status will change grades by online
-                        sys_info.total_gpu_num += gpu_num;
+                    machine_info.machine_status = *status;
+                    let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
 
-                        let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
+                    match machine_info.machine_status {
+                        MachineStatus::Online | MachineStatus::Rented => {
+                            // Both status will change grades by online
+                            sys_info.total_gpu_num += gpu_num;
 
-                        Self::update_snap_by_online_status(machine_id.clone(), true);
-                        Self::change_pos_gpu_by_online(&machine_id, true);
+                            let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
-                        let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
-                        stash_machine.total_calc_points =
-                            stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
-                        sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
+                            Self::update_snap_by_online_status(machine_id.clone(), true);
+                            Self::change_pos_gpu_by_online(&machine_id, true);
 
-                        if let Err(index) = stash_machine.online_machine.binary_search(&machine_id) {
-                            stash_machine.online_machine.insert(index, machine_id.clone());
-                        }
-                        stash_machine.total_gpu_num += gpu_num;
-                    },
-                    _ => {},
-                }
-                match machine_info.machine_status {
-                    MachineStatus::Rented => {
-                        sys_info.total_rented_gpu += gpu_num;
-                        // machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-                        Self::update_snap_by_rent_status(machine_id.clone(), true);
-                        Self::change_pos_gpu_by_rent(&machine_id, true);
-                        stash_machine.total_rented_gpu += gpu_num;
+                            let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
+                            stash_machine.total_calc_points =
+                                stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
+                            sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
-                        // 机器在被租用状态下线，会被惩罚
-                        Self::slash_when_report_offline(
-                            machine_id.clone(),
-                            StashSlashReason::RentedReportOffline(offline_duration),
-                            None,
-                            None,
-                        );
-                    },
-                    MachineStatus::Online => {
-                        Self::slash_when_report_offline(
-                            machine_id.clone(),
-                            StashSlashReason::OnlineReportOffline(offline_duration),
-                            None,
-                            None,
-                        );
-                    },
-                    _ => {},
-                }
-            } else {
-                return Err(Error::<T>::MachineStatusNotAllowed.into())
-            }
+                            if let Err(index) = stash_machine.online_machine.binary_search(&machine_id) {
+                                stash_machine.online_machine.insert(index, machine_id.clone());
+                            }
+                            stash_machine.total_gpu_num += gpu_num;
+                        },
+                        _ => {},
+                    }
+                    match machine_info.machine_status {
+                        MachineStatus::Online => {
+                            Self::slash_when_report_offline(
+                                machine_id.clone(),
+                                StashSlashReason::OnlineReportOffline(offline_duration),
+                                None,
+                                None,
+                            );
+                        },
+                        MachineStatus::Rented => {
+                            sys_info.total_rented_gpu += gpu_num;
+                            // machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                            Self::update_snap_by_rent_status(machine_id.clone(), true);
+                            Self::change_pos_gpu_by_rent(&machine_id, true);
+                            stash_machine.total_rented_gpu += gpu_num;
 
-            if let MachineStatus::ReporterReportOffline(..) = machine_info.machine_status {
-                // TODO: add slash
+                            // 机器在被租用状态下线，会被惩罚
+                            Self::slash_when_report_offline(
+                                machine_id.clone(),
+                                StashSlashReason::RentedReportOffline(offline_duration),
+                                None,
+                                None,
+                            );
+                        },
+                        _ => {},
+                    }
+                },
+                MachineStatus::ReporterReportOffline(slash_reason, _status, reporter, committee) => {
+                    Self::slash_when_report_offline(machine_id.clone(), slash_reason, Some(reporter), Some(committee));
+                },
+
+                _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
             machine_info.last_online_height = now;
@@ -1768,6 +1772,11 @@ impl<T: Config> Pallet<T> {
     fn add_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let stash_stake = Self::stash_stake(who);
         let new_stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
+
+        let user_free_balance = <T as Config>::Currency::free_balance(who);
+        if user_free_balance < amount {
+            return Err(())
+        }
 
         // 改变总质押
         let mut sys_info = Self::sys_info();
@@ -2443,23 +2452,21 @@ impl<T: Config> MTOps for Pallet<T> {
     type FaultType = StashSlashReason<T::BlockNumber>;
 
     fn mt_machine_offline(
+        reporter: T::AccountId,
         committee: Vec<T::AccountId>,
         machine_id: MachineId,
         fault_type: StashSlashReason<T::BlockNumber>,
     ) {
         let machine_info = Self::machines_info(&machine_id);
 
-        let report_time = match fault_type {
-            StashSlashReason::RentedInaccessible(time) |
-            StashSlashReason::RentedHardwareMalfunction(time) |
-            StashSlashReason::OnlineRentFailed(time) |
-            StashSlashReason::RentedHardwareCounterfeit(time) => time,
-            _ => 0u32.saturated_into::<T::BlockNumber>(),
-        };
-
         Self::machine_offline(
             machine_id,
-            MachineStatus::ReporterReportOffline(report_time, Box::new(machine_info.machine_status), committee),
+            MachineStatus::ReporterReportOffline(
+                fault_type,
+                Box::new(machine_info.machine_status),
+                reporter,
+                committee,
+            ),
         );
     }
 }

@@ -63,5 +63,10 @@ pub trait MTOps {
     type MachineId;
     type FaultType;
 
-    fn mt_machine_offline(committee: Vec<Self::AccountId>, machine_id: Self::MachineId, fault_type: Self::FaultType);
+    fn mt_machine_offline(
+        reporter: Self::AccountId,
+        committee: Vec<Self::AccountId>,
+        machine_id: Self::MachineId,
+        fault_type: Self::FaultType,
+    );
 }
