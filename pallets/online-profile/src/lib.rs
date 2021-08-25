@@ -2256,26 +2256,50 @@ impl<T: Config> LCOps for Pallet<T> {
     }
 
     // 当委员会达成统一意见，拒绝机器时，机器状态改为委员会拒绝。并记录拒绝时间。
-    fn lc_refuse_machine(machine_id: MachineId) -> Result<(), ()> {
+    fn lc_refuse_machine(machine_id: MachineId, committee: Vec<T::AccountId>) -> Result<(), ()> {
         // 拒绝用户绑定，需要清除存储
         let machine_info = Self::machines_info(&machine_id);
+        let mut live_machines = Self::live_machines();
+        let mut stash_stake = Self::stash_stake(&machine_info.machine_stash);
 
-        // // FIXME: bugs: 当机器修改硬件信息后重新上线，拒绝机器上线时，同样发放奖励，机器信息不能被移除
-        // let is_reonline = UserReonlineStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
-        // if is_reonline {
-        //     // 惩罚质押的Reonline的金额，并将机器重新放到提交信息的状态
-        //     let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash);
+        // 当机器修改硬件信息后重新上线，拒绝机器上线时，同样发放奖励，机器信息不能被移除
+        let is_mut_hardware = live_machines.refused_mut_hardware_machine.binary_search(&machine_id).is_ok();
+        if is_mut_hardware {
+            // 机器为修改硬件信息后的重新上线
+            let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
 
-        //     // 将机器的初始质押减少reonline_stake等量DBC，惩罚到国库
-        //     // 重新质押 5%
-        //     Self::do_slash_deposit(5, machine_id, None, None);
+            // let stash_stake = Self::stash_stake(&machine_info.machine_stash);
+            let new_stash_stake = stash_stake.checked_add(&reonline_stake.stake_amount).ok_or(())?;
+            <T as Config>::Currency::set_lock(
+                PALLET_LOCK_ID,
+                &machine_info.machine_stash,
+                new_stash_stake,
+                WithdrawReasons::all(),
+            );
 
-        //     return Ok(())
-        // }
+            let reward_each_get = Perbill::from_rational_approximation(1u32, committee.len() as u32) * new_stash_stake;
+
+            for a_committee in committee {
+                let _ = <T as pallet::Config>::Currency::transfer(
+                    &machine_info.machine_stash,
+                    &a_committee,
+                    reward_each_get,
+                    KeepAlive,
+                );
+            }
+
+            // 改变stash_stake
+            StashStake::<T>::insert(&machine_info.machine_stash, new_stash_stake);
+            // 改live_machine:
+            LiveMachine::rm_machine_id(&mut live_machines.refused_mut_hardware_machine, &machine_id);
+            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
+
+            LiveMachines::<T>::put(live_machines);
+            return Ok(())
+        }
 
         let now = <frame_system::Module<T>>::block_number();
         let mut sys_info = Self::sys_info();
-        let mut stash_stake = Self::stash_stake(&machine_info.machine_stash);
         let mut stash_machines = Self::stash_machines(&machine_info.machine_stash);
         let mut controller_machines = Self::controller_machines(&machine_info.controller);
 

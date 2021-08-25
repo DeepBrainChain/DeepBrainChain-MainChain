@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
                     reward_committee.extend(summary.against.clone());
                     unstake_committee.extend(summary.against.clone());
 
-                    if let Err(e) = T::LCOperations::lc_refuse_machine(machine_id.clone()) {
+                    if let Err(e) = T::LCOperations::lc_refuse_machine(machine_id.clone(), reward_committee) {
                         debug::error!("Failed to exec lc refuse machine logic: {:?}", e);
                     };
                 },
