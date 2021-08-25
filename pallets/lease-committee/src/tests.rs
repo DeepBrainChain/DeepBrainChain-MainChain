@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{mock::*, LCMachineCommitteeList, LCVerifyStatus};
+use crate::{mock::*, LCCommitteeMachineList, LCMachineCommitteeList, LCVerifyStatus};
 use committee::CommitteeList;
 use frame_support::assert_ok;
 use online_profile::{
@@ -265,7 +265,6 @@ fn machine_online_works() {
         };
 
         assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
-        // TODO:
         assert_eq!(
             OnlineProfile::pos_gpu_info(online_profile::Longitude::East(1), online_profile::Latitude::North(1)),
             online_profile::PosInfo { ..Default::default() }
@@ -412,7 +411,10 @@ fn machine_online_works() {
         machine_info.machine_status = MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
         assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
         let _user_reonline_stake = (1, machine_info.machine_status.clone());
-        // assert_eq!(OnlineProfile::user_reonline_stake, user_reonline_stake); // FIXME: 添加判断
+        assert_eq!(
+            OnlineProfile::user_reonline_stake(&stash, &machine_id),
+            online_profile::UserReonlineStakeInfo { stake_amount: 2000 * ONE_DBC, offline_time: 2880 * 3 + 3 }
+        );
         // Skip POsGPUInfo
 
         assert_eq!(
@@ -492,7 +494,7 @@ fn machine_online_works() {
         machine_info.machine_info_detail.staker_customize_info.upload_net = 10000;
         machine_info.machine_info_detail.staker_customize_info.download_net = 10000;
 
-        let mut machine_info = online_profile::MachineInfo {
+        let machine_info = online_profile::MachineInfo {
             last_machine_restake: 8644,
             last_online_height: 8644,
             init_stake_amount: 800000 * ONE_DBC,
@@ -715,6 +717,7 @@ fn committee_not_submit_hash_slash_works() {
 }
 
 // TODO: 三个委员会两个正常工作，一个提交Hash之后，没有提交原始值，检查惩罚机制
+#[test]
 fn committee_not_wubmit_raw_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let _committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
@@ -727,6 +730,182 @@ fn committee_not_wubmit_raw_slash_works() {
 }
 
 #[test]
-fn fulfill_should_work() {
+fn fulfill_should_works() {
     new_test_with_online_machine_distribution().execute_with(|| {})
+}
+
+// 三个委员会提交信息不一致，导致重新分派
+#[test]
+fn committee_not_equal_then_redistribute_works() {
+    // new_test_with_online_machine_distribution().execute_with(|| {
+    new_test_with_init_params_ext().execute_with(|| {
+        // 委员会需要提交的信息
+        let mut machine_3080 = online_profile::CommitteeUploadInfo {
+            gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
+            gpu_num: 4,
+            cuda_core: 8704,
+            gpu_mem: 10,
+            calc_point: 59890,
+            sys_disk: 500,
+            data_disk: 3905,
+            cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
+            cpu_core_num: 64,
+            cpu_rate: 2400,
+            mem_num: 440,
+
+            is_support: true,
+
+            ..Default::default()
+        };
+
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+
+        let committee1_box_pubkey: [u8; 32] =
+            hex::decode("f660309770b2bd379e2514d88c146a7ddc3759533cf06d9fb4b41159e560325e")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee2_box_pubkey: [u8; 32] =
+            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee3_box_pubkey: [u8; 32] =
+            hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+                .unwrap()
+                .try_into()
+                .unwrap();
+
+        let machine_info_hash1: [u8; 16] = hex::decode("6b561dfad171810dfb69924dd68733ec").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] = hex::decode("5b4499c4b6e9f080673f9573410a103a").unwrap().try_into().unwrap();
+        let machine_info_hash3: [u8; 16] = hex::decode("3ac5b3416d1743b58a4c9af58c7002d7").unwrap().try_into().unwrap();
+
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Bob).into();
+
+        // Machine account Info:
+        // ❯ subkey generate --scheme sr25519
+        //   Secret seed:       0x16f2e4b3ad50aab4f5c7ab56d793738a893080d578976040a5be284da12437b6
+        //   Public key (hex):  0xdc763e931919cceee0c35392d124c753fc4e4ab6e494bc67722fdd31989d660f
+
+        let machine_id = "dc763e931919cceee0c35392d124c753fc4e4ab6e494bc67722fdd31989d660f".as_bytes().to_vec();
+        let msg = "dc763e931919cceee0c35392d124c753fc4e4ab6e494bc67722fdd31989d660f\
+                   5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
+        let sig = "d43429622b5754557bc0ccc39e29d717d6d103633777082bd0c5deffbade94\
+           224804c95ca06bcd5f99f5c9302c14ed26cef32d474163ec9a201afd0fcee0d189";
+
+        machine_3080.machine_id = machine_id.clone();
+
+        // stash 账户设置控制账户
+        assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
+        // controller 生成server_name
+        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
+        let server_room = OnlineProfile::stash_server_rooms(&stash);
+        assert_ok!(OnlineProfile::bond_machine(
+            Origin::signed(controller),
+            machine_id.clone(),
+            msg.as_bytes().to_vec(),
+            hex::decode(sig).unwrap()
+        ));
+
+        let mut machine_info = online_profile::MachineInfo {
+            controller: controller.clone(),
+            machine_stash: stash.clone(),
+            bonding_height: 3,
+            init_stake_amount: 100000 * ONE_DBC,
+            current_stake_amount: 100000 * ONE_DBC,
+            machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
+            ..Default::default()
+        };
+
+        let customize_info = StakerCustomizeInfo {
+            server_room: server_room[0].clone(),
+            upload_net: 100,
+            download_net: 100,
+            longitude: online_profile::Longitude::East(1157894),
+            latitude: online_profile::Latitude::North(235678),
+            telecom_operators: vec!["China Unicom".into()],
+        };
+        assert_ok!(OnlineProfile::add_machine_info(
+            Origin::signed(controller),
+            machine_id.clone(),
+            customize_info.clone()
+        ));
+
+        machine_info.machine_info_detail.staker_customize_info = customize_info.clone();
+        machine_info.machine_status = online_profile::MachineStatus::DistributingOrder;
+
+        run_to_block(15);
+
+        // 添加三个委员会
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
+
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), committee2_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey.clone()));
+
+        run_to_block(16);
+
+        machine_info.machine_status = online_profile::MachineStatus::CommitteeVerifying;
+
+        // 正常Hash: 0x6b561dfad171810dfb69924dd68733ec
+        // cpu_core_num: 48: 0x5b4499c4b6e9f080673f9573410a103a
+        // cpu_core_num: 96: 0x3ac5b3416d1743b58a4c9af58c7002d7
+
+        // 三个委员会分别提交机器Hash
+        assert_ok!(LeaseCommittee::submit_confirm_hash(
+            Origin::signed(committee1),
+            machine_id.clone(),
+            machine_info_hash1
+        ));
+        assert_ok!(LeaseCommittee::submit_confirm_hash(
+            Origin::signed(committee2),
+            machine_id.clone(),
+            machine_info_hash2
+        ));
+        assert_ok!(LeaseCommittee::submit_confirm_hash(
+            Origin::signed(committee3),
+            machine_id.clone(),
+            machine_info_hash3
+        ));
+
+        machine_3080.rand_str = "abcdefg1".as_bytes().to_vec();
+        // 委员会提交原始信息
+        assert_ok!(LeaseCommittee::submit_confirm_raw(Origin::signed(committee1), machine_3080.clone()));
+        machine_3080.cpu_core_num = 48;
+        assert_ok!(LeaseCommittee::submit_confirm_raw(Origin::signed(committee2), machine_3080.clone()));
+        machine_3080.cpu_core_num = 96;
+        assert_ok!(LeaseCommittee::submit_confirm_raw(Origin::signed(committee3), machine_3080.clone()));
+
+        assert_eq!(
+            LeaseCommittee::machine_committee(&machine_id),
+            super::LCMachineCommitteeList { ..Default::default() }
+        );
+
+        run_to_block(17);
+
+        // 机器直接删掉信息即可
+        assert_eq!(LeaseCommittee::committee_machine(&committee1), LCCommitteeMachineList { ..Default::default() });
+        assert_eq!(LeaseCommittee::committee_machine(&committee2), LCCommitteeMachineList { ..Default::default() });
+        assert_eq!(LeaseCommittee::committee_machine(&committee3), LCCommitteeMachineList { ..Default::default() });
+
+        // 如果on_finalize先执行lease_committee 再z执行online_profile则没有内容，否则被重新分配了
+        assert_eq!(
+            LeaseCommittee::machine_committee(&machine_id),
+            super::LCMachineCommitteeList { ..Default::default() }
+        );
+
+        let machine_submit_hash: Vec<[u8; 16]> = vec![];
+        assert_eq!(LeaseCommittee::machine_submited_hash(&machine_id), machine_submit_hash);
+        assert_eq!(
+            LeaseCommittee::committee_ops(&committee1, &machine_id),
+            super::LCCommitteeOps { ..Default::default() }
+        );
+
+        // TODO: 测试清理信息
+    })
 }

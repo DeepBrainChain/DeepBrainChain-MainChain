@@ -193,6 +193,7 @@ impl online_profile::Config for TestRuntime {
 }
 
 /// 待绑定的机器信息
+#[allow(dead_code)]
 pub struct MachineBondInfo<AccountId> {
     /// 控制账户
     pub controller_account: AccountId,
@@ -209,6 +210,7 @@ pub struct MachineBondInfo<AccountId> {
 }
 
 /// 委员会需要提交的机器信息
+#[allow(dead_code)]
 pub struct CommitteeSubmit<AccountId> {
     /// committee
     pub committee_account: AccountId,
@@ -218,6 +220,7 @@ pub struct CommitteeSubmit<AccountId> {
     pub machine_info: online_profile::CommitteeUploadInfo,
 }
 
+#[allow(dead_code)]
 fn key_to_pair(key: &str) -> sp_core::sr25519::Public {
     sr25519::Public::from_raw(hex::decode(key).unwrap().try_into().unwrap())
 }
@@ -344,8 +347,8 @@ frame_support::construct_runtime!(
 pub fn run_to_block(n: BlockNumber) {
     for b in System::block_number()..=n {
         // 当前块结束
-        OnlineProfile::on_finalize(b);
         LeaseCommittee::on_finalize(b);
+        OnlineProfile::on_finalize(b);
         Committee::on_finalize(b);
         System::on_finalize(b);
         RandomnessCollectiveFlip::on_finalize(b);

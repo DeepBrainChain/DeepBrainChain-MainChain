@@ -861,8 +861,8 @@ impl<T: Config> Pallet<T> {
             report_info.machine_id = machine_id;
         }
 
-        // 3种报告类型，都需要质押100RMB等值DBC
-        // 如果是第一次绑定，则需要质押2wDBC，其他情况，TODO: 则给一个补充质押的接口
+        // 3种报告类型，都需要质押 1000 DBC
+        // 如果是第一次绑定，则需要质押2w DBC，其他情况: TODO: 则给一个补充质押的接口
         if reporter_stake.staked_amount == Zero::zero() {
             // 此时为第一次质押，检查free_balance是否足够
             let user_free_balance = <T as Config>::Currency::free_balance(&reporter);

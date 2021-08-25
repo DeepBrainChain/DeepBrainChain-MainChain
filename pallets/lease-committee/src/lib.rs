@@ -479,6 +479,7 @@ impl<T: Config> Pallet<T> {
                             CommitteeMachine::<T>::insert(&a_committee, committee_machine);
                         }
 
+                        // TODO: refa
                         let mut machine_committee = Self::machine_committee(&machine_id);
                         machine_committee.status = LCVerifyStatus::Finished;
                         machine_committee.onlined_committee = summary.valid_support;
@@ -522,6 +523,9 @@ impl<T: Config> Pallet<T> {
                     debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
                 };
             }
+
+            // Do cleaning
+            MachineSubmitedHash::<T>::remove(&machine_id);
         }
     }
 
