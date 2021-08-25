@@ -339,7 +339,6 @@ impl<T: Config> Pallet<T> {
                 MachineCommittee::<T>::remove(&a_machine_id);
             }
 
-            debug::warn!("Distribute machine: {:?}", &a_machine_id);
             let _ = Self::distribute_one_machine(&a_machine_id);
         }
     }
@@ -352,9 +351,7 @@ impl<T: Config> Pallet<T> {
         let confirm_start = now + SUBMIT_RAW_START.into(); // 添加确认信息时间为分发之后的36小时
 
         for a_book in lucky_committee {
-            if Self::book_one(machine_id.to_vec(), confirm_start, now, a_book).is_err() {
-                debug::warn!("Book one machine failed: {:?}", machine_id);
-            }
+            let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, a_book);
         }
 
         // 将机器状态从ocw_confirmed_machine改为booked_machine
@@ -373,8 +370,6 @@ impl<T: Config> Pallet<T> {
         // 增加质押：由committee执行
         let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
         <T as pallet::Config>::ManageCommittee::change_used_stake(&order_time.0, stake_need, true)?;
-
-        debug::warn!("Will change following status");
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
@@ -491,17 +486,12 @@ impl<T: Config> Pallet<T> {
                     reward_committee.extend(summary.against.clone());
                     unstake_committee.extend(summary.against.clone());
 
-                    if let Err(e) = T::LCOperations::lc_refuse_machine(machine_id.clone(), reward_committee) {
-                        debug::error!("Failed to exec lc refuse machine logic: {:?}", e);
-                    };
+                    let _ = T::LCOperations::lc_refuse_machine(machine_id.clone(), reward_committee);
                 },
                 MachineConfirmStatus::NoConsensus(summary) => {
-                    debug::warn!("Summarying result is... NoConsensus");
                     slash_committee.extend(summary.unruly.clone());
                     unstake_committee.extend(machine_committee.confirmed_committee.clone());
-                    if let Err(e) = Self::revert_book(machine_id.clone()) {
-                        debug::error!("Failed to revert book: {:?}", e);
-                    };
+                    let _ = Self::revert_book(machine_id.clone());
 
                     T::LCOperations::lc_revert_booked_machine(machine_id.clone());
                 },
@@ -515,13 +505,11 @@ impl<T: Config> Pallet<T> {
 
             for a_committee in unstake_committee {
                 let committee_ops = Self::committee_ops(&a_committee, &machine_id);
-                if let Err(e) = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
                     &a_committee,
                     committee_ops.staked_dbc,
                     false,
-                ) {
-                    debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
-                };
+                );
             }
 
             // Do cleaning

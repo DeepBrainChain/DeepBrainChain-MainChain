@@ -1,10 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // use alt_serde::{Deserialize, Deserializer};
-use frame_support::{
-    debug,
-    traits::{Currency, LockableCurrency, Randomness},
-};
+use frame_support::traits::{Currency, LockableCurrency, Randomness};
 use frame_system::offchain::SubmitTransaction;
 use online_profile_machine::DbcPrice;
 use sp_core::H256;
@@ -76,18 +73,12 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn offchain_worker(block_number: T::BlockNumber) {
+        fn offchain_worker(_block_number: T::BlockNumber) {
             if let None = Self::price_url() {
                 return
             }
 
-            debug::native::info!("Hello world from offchain worker at height: {:#?}!", block_number);
-
-            let result = Self::fetch_price_and_send_unsigned_tx();
-            if let Err(e) = result {
-                debug::error!("offchain_worker error: {:?}", e);
-                return
-            }
+            let _ = Self::fetch_price_and_send_unsigned_tx();
         }
     }
 
@@ -175,10 +166,8 @@ impl<T: Config> Pallet<T> {
         let price = Self::fetch_price().map_err(|_| <Error<T>>::FetchPriceFailed)?;
 
         let call = Call::submit_price_unsigned(price);
-        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()).map_err(|_| {
-            debug::error!("Failed in offchain_unsigned_tx"); // TODO: error here
-            <Error<T>>::OffchainUnsignedTxError
-        })
+        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+            .map_err(|_| <Error<T>>::OffchainUnsignedTxError)
     }
 
     // 获取并返回当前价格
@@ -198,36 +187,23 @@ impl<T: Config> Pallet<T> {
         let response = pending.try_wait(timeout).map_err(|_| http::Error::DeadlineReached)??;
         // Let's check the status code before we proceed to reading the response.
         if response.code != 200 {
-            debug::warn!("Unexpected status code: {}", response.code);
             return Err(http::Error::Unknown)
         }
         let body = response.body().collect::<Vec<u8>>();
 
         // Create a str slice from the body.
-        let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
-            debug::warn!("No UTF8 body");
-            http::Error::Unknown
-        })?;
+        let body_str = sp_std::str::from_utf8(&body).map_err(|_| http::Error::Unknown)?;
 
         let price = match parse_price::parse_price(body_str) {
-            Some(price) => {
-                debug::warn!("Get dbc price: {:?}", price);
-                Ok(price)
-            },
-            None => {
-                debug::error!("Unable to extract price from the response: {:?}", body_str);
-                Err(http::Error::Unknown)
-            },
+            Some(price) => Ok(price),
+            None => Err(http::Error::Unknown),
         }?;
-
-        debug::warn!("Got price: {} cents", price);
 
         Ok(price)
     }
 
     // 存储获取到的价格
     pub fn add_price(price: u64) {
-        debug::info!("Adding to the average: {}", price);
         let mut prices = Prices::<T>::get();
         if prices.len() < MAX_LEN {
             prices.push(price);
@@ -246,8 +222,6 @@ impl<T: Config> Pallet<T> {
             return
         }
         let avg_price = prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64;
-
-        debug::info!("Current average price: {:?}", avg_price);
 
         AvgPrice::<T>::put(avg_price);
         Self::deposit_event(Event::AddAvgPrice(avg_price));

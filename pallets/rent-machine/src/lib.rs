@@ -82,9 +82,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
             Self::check_machine_starting_status();
-            if Self::check_if_rent_finished().is_err() {
-                debug::error!("Check if rent is finished failed");
-            }
+            let _ = Self::check_if_rent_finished();
         }
     }
 

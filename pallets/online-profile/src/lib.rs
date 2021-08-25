@@ -2383,15 +2383,11 @@ impl<T: Config> RTOps for Pallet<T> {
 
                 if let Some(new_gpu_num) = sys_info.total_rented_gpu.checked_add(machine_gpu_num) {
                     sys_info.total_rented_gpu = new_gpu_num;
-                } else {
-                    debug::error!("Add sysInfo total rented gpu failed");
-                }
+                };
 
                 if let Some(new_gpu_num) = stash_machine.total_rented_gpu.checked_add(machine_gpu_num) {
                     stash_machine.total_rented_gpu = new_gpu_num;
-                } else {
-                    debug::error!("Add stashMachine total rented gpu failed");
-                }
+                };
 
                 if let Err(index) = live_machines.online_machine.binary_search(&machine_id) {
                     live_machines.online_machine.remove(index);
@@ -2412,13 +2408,9 @@ impl<T: Config> RTOps for Pallet<T> {
 
                     if let Some(new_gpu_num) = sys_info.total_rented_gpu.checked_sub(machine_gpu_num) {
                         sys_info.total_rented_gpu = new_gpu_num;
-                    } else {
-                        debug::error!("Sub sysInfo total rented gpu failed");
                     };
                     if let Some(new_gpu_num) = stash_machine.total_rented_gpu.checked_sub(machine_gpu_num) {
                         stash_machine.total_rented_gpu = new_gpu_num;
-                    } else {
-                        debug::error!("Sub stashMachine total rented gpu failed");
                     };
 
                     if let Err(index) = live_machines.rented_machine.binary_search(&machine_id) {

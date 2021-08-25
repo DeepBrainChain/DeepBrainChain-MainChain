@@ -929,15 +929,11 @@ impl<T: Config> Pallet<T> {
         for a_committee in report_info.booked_committee {
             let committee_ops = Self::committee_ops(&a_committee, &report_id);
 
-            if <T as pallet::Config>::ManageCommittee::change_used_stake(
+            let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
                 &a_committee,
                 committee_ops.staked_balance,
                 false,
-            )
-            .is_err()
-            {
-                debug::error!("Reduce committee stake failed");
-            };
+            );
 
             CommitteeOps::<T>::remove(&a_committee, &report_id);
 
@@ -1152,11 +1148,8 @@ impl<T: Config> Pallet<T> {
 
                     for a_committee in support_committees.clone() {
                         let committee_ops = Self::committee_ops(&a_committee, a_report);
-                        if let Err(e) =
-                            T::ManageCommittee::change_used_stake(&a_committee, committee_ops.staked_balance, false)
-                        {
-                            debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
-                        }
+                        let _ =
+                            T::ManageCommittee::change_used_stake(&a_committee, committee_ops.staked_balance, false);
                     }
 
                     MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
@@ -1212,11 +1205,8 @@ impl<T: Config> Pallet<T> {
 
                     for a_committee in against_committee.clone() {
                         let committee_ops = Self::committee_ops(&a_committee, a_report);
-                        if let Err(e) =
-                            T::ManageCommittee::change_used_stake(&a_committee, committee_ops.staked_balance, false)
-                        {
-                            debug::error!("Change stake of {:?} failed: {:?}", &a_committee, e);
-                        };
+                        let _ =
+                            T::ManageCommittee::change_used_stake(&a_committee, committee_ops.staked_balance, false);
                     }
 
                     T::ManageCommittee::add_slash(
