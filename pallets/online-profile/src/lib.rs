@@ -705,7 +705,10 @@ pub mod pallet {
 
             let stash_stake = Self::stash_stake(&machine_info.machine_stash);
 
+            let user_free_balance = <T as Config>::Currency::free_balance(&machine_info.machine_stash);
             let new_stash_stake = stash_stake.checked_add(&stake_amount).ok_or(Error::<T>::CalcStakeAmountFailed)?;
+            ensure!(user_free_balance > new_stash_stake, Error::<T>::BalanceNotEnough);
+
             <T as Config>::Currency::set_lock(
                 PALLET_LOCK_ID,
                 &machine_info.machine_stash,
@@ -830,9 +833,9 @@ pub mod pallet {
 
             // 先把钱收了，再判断机器状态
             let user_free_balance = <T as Config>::Currency::free_balance(&machine_info.machine_stash);
-            ensure!(user_free_balance > extra_stake_amount, Error::<T>::BalanceNotEnough);
-
             let new_stash_stake = stash_stake + extra_stake_amount;
+            ensure!(user_free_balance > new_stash_stake, Error::<T>::BalanceNotEnough);
+
             <T as Config>::Currency::set_lock(
                 PALLET_LOCK_ID,
                 &machine_info.machine_stash,
@@ -1780,7 +1783,7 @@ impl<T: Config> Pallet<T> {
         let new_stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
 
         let user_free_balance = <T as Config>::Currency::free_balance(who);
-        if user_free_balance < amount {
+        if user_free_balance < new_stash_stake {
             return Err(())
         }
 
@@ -2269,8 +2272,7 @@ impl<T: Config> LCOps for Pallet<T> {
             // 机器为修改硬件信息后的重新上线
             let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
 
-            // let stash_stake = Self::stash_stake(&machine_info.machine_stash);
-            let new_stash_stake = stash_stake.checked_add(&reonline_stake.stake_amount).ok_or(())?;
+            let new_stash_stake = stash_stake.checked_sub(&reonline_stake.stake_amount).ok_or(())?;
             <T as Config>::Currency::set_lock(
                 PALLET_LOCK_ID,
                 &machine_info.machine_stash,
@@ -2278,7 +2280,8 @@ impl<T: Config> LCOps for Pallet<T> {
                 WithdrawReasons::all(),
             );
 
-            let reward_each_get = Perbill::from_rational_approximation(1u32, committee.len() as u32) * new_stash_stake;
+            let reward_each_get =
+                Perbill::from_rational_approximation(1u32, committee.len() as u32) * reonline_stake.stake_amount;
 
             for a_committee in committee {
                 let _ = <T as pallet::Config>::Currency::transfer(

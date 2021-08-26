@@ -89,8 +89,6 @@ pub mod pallet {
             T::FixedTxFee::on_unbalanced(imbalance);
             Ok(().into())
         }
-
-        // TODO: 销毁某个账户的DBC
     }
 
     #[pallet::event]

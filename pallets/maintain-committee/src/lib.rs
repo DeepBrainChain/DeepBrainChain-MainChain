@@ -347,14 +347,14 @@ pub mod pallet {
             let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
             let mut reporter_stake = Self::reporter_stake(&reporter);
 
-            // 确保free_balance足够
-            let user_free_balance = <T as Config>::Currency::free_balance(&reporter);
-            ensure!(user_free_balance > amount, Error::<T>::BalanceNotEnough);
-
             reporter_stake.staked_amount += amount;
             if reporter_stake.used_stake > stake_params.min_free_stake_percent * reporter_stake.staked_amount {
                 return Err(Error::<T>::StakeNotEnough.into())
             }
+
+            // 确保free_balance足够
+            let user_free_balance = <T as Config>::Currency::free_balance(&reporter);
+            ensure!(user_free_balance > reporter_stake.staked_amount, Error::<T>::BalanceNotEnough);
 
             <T as Config>::Currency::set_lock(
                 PALLET_LOCK_ID,

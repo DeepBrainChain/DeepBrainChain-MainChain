@@ -197,11 +197,14 @@ pub mod pallet {
             let mut committee_stake = Self::committee_stake(&committee);
             let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
 
-            // 确保是委员会才能执行该操作
-            ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
+            // 只允许委员会第一次操作
+            if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
+                return Err(Error::<T>::NotCommittee.into())
+            }
+
             // 检查free_balance
             ensure!(
-                <T as Config>::Currency::free_balance(&committee) > committee_stake_params.stake_per_order,
+                <T as Config>::Currency::free_balance(&committee) > committee_stake_params.stake_baseline,
                 Error::<T>::BalanceNotEnough
             );
 
@@ -248,7 +251,7 @@ pub mod pallet {
 
             // 检查free_balance
             ensure!(
-                <T as Config>::Currency::free_balance(&committee) > committee_stake_params.stake_per_order,
+                <T as Config>::Currency::free_balance(&committee) > committee_stake.staked_amount,
                 Error::<T>::BalanceNotEnough
             );
 
