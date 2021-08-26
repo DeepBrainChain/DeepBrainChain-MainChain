@@ -16,10 +16,14 @@ use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub const WAITING_CONFIRMING: u64 = 60; // 等待60个块，用户确认是否租用成功
-pub const BLOCK_PER_DAY: u64 = 2880; // 1天按照2880个块
-pub const DAY_PER_MONTH: u64 = 30; // 每个月30天计算租金
-pub const CONFIRMING_DELAY: u64 = 60; // 租用之后60个块内确认机器租用成功
+/// 等待60个块，用户确认是否租用成功
+pub const WAITING_CONFIRMING: u64 = 60;
+/// 1天按照2880个块
+pub const BLOCK_PER_DAY: u64 = 2880;
+/// 每个月30天计算租金
+pub const DAY_PER_MONTH: u64 = 30;
+/// 租用之后60个块内确认机器租用成功
+pub const CONFIRMING_DELAY: u64 = 60;
 
 pub const PALLET_LOCK_ID: LockIdentifier = *b"rentmach";
 

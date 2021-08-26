@@ -1099,6 +1099,7 @@ pub mod pallet {
                         MachineStatus::Rented => {
                             sys_info.total_rented_gpu += gpu_num;
                             // machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                            // FIXME: bugs
                             Self::update_snap_by_rent_status(machine_id.clone(), true);
                             Self::change_pos_gpu_by_rent(&machine_id, true);
                             stash_machine.total_rented_gpu += gpu_num;
@@ -1935,6 +1936,8 @@ impl<T: Config> Pallet<T> {
         StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
     }
 
+    // - Writes:
+    // ErasStashPoints, ErasMachinePoints, StashMachine, SysInfo
     fn update_snap_by_rent_status(machine_id: MachineId, is_rented: bool) {
         let machine_info = Self::machines_info(&machine_id);
         let current_era = Self::current_era();
@@ -2368,6 +2371,18 @@ impl<T: Config> RTOps for Pallet<T> {
         renter: Option<Self::AccountId>,
         rent_duration: Option<u64>,
     ) {
+        match new_status {
+            MachineStatus::Rented => {
+                // 机器创建成功
+                Self::update_snap_by_rent_status(machine_id.to_vec(), true);
+            },
+            MachineStatus::Online => {
+                // 租用结束
+                Self::update_snap_by_rent_status(machine_id.to_vec(), false);
+            },
+            _ => return,
+        }
+
         let mut machine_info = Self::machines_info(machine_id);
         let mut sys_info = Self::sys_info();
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
@@ -2380,9 +2395,6 @@ impl<T: Config> RTOps for Pallet<T> {
 
         match new_status {
             MachineStatus::Rented => {
-                // 机器创建成功
-                Self::update_snap_by_rent_status(machine_id.to_vec(), true);
-
                 machine_info.total_rented_times += 1;
 
                 if let Some(new_gpu_num) = sys_info.total_rented_gpu.checked_add(machine_gpu_num) {
@@ -2404,10 +2416,8 @@ impl<T: Config> RTOps for Pallet<T> {
                 Self::change_pos_gpu_by_rent(machine_id, true);
             },
             // 租用结束 或 租用失败(半小时无确认)
-            MachineStatus::Online => {
+            MachineStatus::Online =>
                 if rent_duration.is_some() {
-                    // 租用结束
-                    Self::update_snap_by_rent_status(machine_id.to_vec(), false);
                     machine_info.total_rented_duration += rent_duration.unwrap_or_default();
 
                     if let Some(new_gpu_num) = sys_info.total_rented_gpu.checked_sub(machine_gpu_num) {
@@ -2426,8 +2436,7 @@ impl<T: Config> RTOps for Pallet<T> {
                     }
 
                     Self::change_pos_gpu_by_rent(machine_id, false);
-                }
-            },
+                },
             _ => {},
         }
 
