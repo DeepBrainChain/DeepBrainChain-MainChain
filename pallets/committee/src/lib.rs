@@ -198,7 +198,7 @@ pub mod pallet {
             let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
 
             // 只允许委员会第一次操作
-            if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
+            if committee_list.waiting_box_pubkey.binary_search(&committee).is_err() {
                 return Err(Error::<T>::NotCommittee.into())
             }
 

@@ -1227,6 +1227,10 @@ impl_runtime_apis! {
         fn get_rent_list(renter: AccountId) -> Vec<online_profile::MachineId> {
             RentMachine::get_rent_list(renter)
         }
+
+        fn get_machine_renter(machine_id: online_profile::MachineId) -> AccountId {
+            RentMachine::get_machine_renter(machine_id)
+        }
     }
 
     impl committee_runtime_api::CmRpcApi<Block, AccountId> for Runtime {

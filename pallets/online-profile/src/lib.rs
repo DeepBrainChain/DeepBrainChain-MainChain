@@ -123,7 +123,7 @@ pub enum MachineStatus<BlockNumber, AccountId> {
     CommitteeRefused(BlockNumber),
     /// 补交质押
     WaitingFulfill,
-    /// 正在上线，且未被租用
+    /// 已经上线，且未被租用
     Online,
     /// 机器管理者报告机器已下线
     StakerReportOffline(BlockNumber, Box<Self>),

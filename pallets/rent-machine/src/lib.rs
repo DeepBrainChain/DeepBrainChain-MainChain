@@ -91,6 +91,11 @@ pub mod pallet {
     #[pallet::getter(fn user_rented)]
     pub(super) type UserRented<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
 
+    // 当前机器租用者
+    #[pallet::storage]
+    #[pallet::getter(fn machine_renter)]
+    pub(super) type MachineRenter<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
+
     // 用户当前租用的某个机器的详情
     #[pallet::storage]
     #[pallet::getter(fn rent_order)]
@@ -436,5 +441,9 @@ impl<T: Config> Module<T> {
 
     pub fn get_rent_list(renter: T::AccountId) -> Vec<MachineId> {
         Self::user_rented(&renter)
+    }
+
+    pub fn get_machine_renter(machine_id: MachineId) -> T::AccountId {
+        Self::machine_renter(machine_id)
     }
 }
