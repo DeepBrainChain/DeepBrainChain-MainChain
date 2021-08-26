@@ -21,11 +21,14 @@ pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub const DISTRIBUTION: u32 = 9; // 分成9个区间进行验证
-
-pub const DURATIONPERCOMMITTEE: u32 = 480; // 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
-pub const SUBMIT_RAW_START: u32 = 4320; // 在分派之后的36个小时后允许提交原始信息
-pub const SUBMIT_RAW_END: u32 = 5760; // 在分派之后的48小时总结
+/// 分成9个区间进行验证
+pub const DISTRIBUTION: u32 = 9;
+/// 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
+pub const DURATIONPERCOMMITTEE: u32 = 480;
+/// 在分派之后的36个小时后允许提交原始信息
+pub const SUBMIT_RAW_START: u32 = 4320;
+/// 在分派之后的48小时总结
+pub const SUBMIT_RAW_END: u32 = 5760;
 
 pub use pallet::*;
 
@@ -35,28 +38,38 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-// 从用户地址查询绑定的机器列表
+/// 从用户地址查询绑定的机器列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LCCommitteeMachineList {
-    pub booked_machine: Vec<MachineId>,    // 记录分配给用户的机器ID及开始验证时间
-    pub hashed_machine: Vec<MachineId>,    // 存储已经提交了Hash信息的机器
-    pub confirmed_machine: Vec<MachineId>, // 存储已经提交了原始确认数据的机器
-    pub online_machine: Vec<MachineId>,    // 存储已经成功上线的机器
+    /// 记录分配给用户的机器ID及开始验证时间
+    pub booked_machine: Vec<MachineId>,
+    /// 存储已经提交了Hash信息的机器
+    pub hashed_machine: Vec<MachineId>,
+    /// 存储已经提交了原始确认数据的机器
+    pub confirmed_machine: Vec<MachineId>,
+    /// 存储已经成功上线的机器
+    pub online_machine: Vec<MachineId>,
 }
 
-// 机器对应的验证委员会
+/// 机器对应的验证委员会
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
-    pub book_time: BlockNumber,              // 系统分派订单的时间
-    pub booked_committee: Vec<AccountId>,    // 订单分配的委员会
-    pub hashed_committee: Vec<AccountId>,    // 提交了Hash的委员会列表
-    pub confirm_start_time: BlockNumber,     // 系统设定的开始提交raw信息的委员会
-    pub confirmed_committee: Vec<AccountId>, // 已经提交了原始信息的委员会
-    pub onlined_committee: Vec<AccountId>,   // 若机器成功上线，可以获得该机器在线奖励的委员会
+    /// 系统分派订单的时间
+    pub book_time: BlockNumber,
+    /// 订单分配的委员会
+    pub booked_committee: Vec<AccountId>,
+    /// 提交了Hash的委员会列表
+    pub hashed_committee: Vec<AccountId>,
+    /// 系统设定的开始提交raw信息的委员会
+    pub confirm_start_time: BlockNumber,
+    /// 已经提交了原始信息的委员会
+    pub confirmed_committee: Vec<AccountId>,
+    /// 若机器成功上线，可以获得该机器在线奖励的委员会
+    pub onlined_committee: Vec<AccountId>,
     pub status: LCVerifyStatus,
 }
 
@@ -103,19 +116,27 @@ impl Default for LCMachineStatus {
     }
 }
 
-// 委员会完成提交信息后，可能会出现的情况
+/// 委员会完成提交信息后，可能会出现的情况
 enum MachineConfirmStatus<AccountId> {
-    Confirmed(Summary<AccountId>),   // 支持的委员会，反对的委员会，机器信息
-    Refuse(Summary<AccountId>),      // 支持的委员会，反对的委员会，机器信息
-    NoConsensus(Summary<AccountId>), // 如果由于没有委员会提交信息而无共识，则委员会将受到惩罚
+    /// 支持的委员会，反对的委员会，机器信息
+    Confirmed(Summary<AccountId>),
+    /// 支持的委员会，反对的委员会，机器信息
+    Refuse(Summary<AccountId>),
+    /// 如果由于没有委员会提交信息而无共识，则委员会将受到惩罚
+    NoConsensus(Summary<AccountId>),
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 struct Summary<AccountId> {
-    pub valid_support: Vec<AccountId>,   // 有效的支持者
-    pub invalid_support: Vec<AccountId>, // 无效的支持者
-    pub unruly: Vec<AccountId>,          // 没有提交全部信息的委员会
+    /// 有效的支持者
+    pub valid_support: Vec<AccountId>,
+    /// 无效的支持者
+    pub invalid_support: Vec<AccountId>,
+    /// 没有提交全部信息的委员会
+    pub unruly: Vec<AccountId>,
+    /// 反对的委员会
     pub against: Vec<AccountId>,
+    /// 达成共识的机器信息
     pub info: Option<CommitteeUploadInfo>,
 }
 
@@ -335,6 +356,7 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         for a_machine_id in live_machines.confirmed_machine {
+            // 重新分配: 必须清空该状态
             if MachineCommittee::<T>::contains_key(&a_machine_id) {
                 MachineCommittee::<T>::remove(&a_machine_id);
             }
@@ -373,7 +395,6 @@ impl<T: Config> Pallet<T> {
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
-        // FIXME: 必须清空该状态，才能重新分配
         machine_committee.book_time = now;
 
         if let Err(index) = machine_committee.booked_committee.binary_search(&order_time.0) {
@@ -388,7 +409,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 修改委员会的操作
-        let mut committee_ops = Self::committee_ops(&order_time.0, &machine_id);
+        let mut committee_ops = LCCommitteeOps { ..Default::default() };
         committee_ops.staked_dbc = stake_need;
         let start_time: Vec<_> = order_time
             .1
@@ -436,7 +457,7 @@ impl<T: Config> Pallet<T> {
         Some(lucky_committee)
     }
 
-    pub fn statistic_result() {
+    fn statistic_result() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         let booked_machine = live_machines.booked_machine;
         let now = <frame_system::Module<T>>::block_number();
@@ -576,9 +597,10 @@ impl<T: Config> Pallet<T> {
         let machine_committee = Self::machine_committee(machine_id);
 
         let mut summary = Summary { ..Default::default() };
-
-        let mut uniq_machine_info: Vec<CommitteeUploadInfo> = Vec::new(); // 支持的委员会可能提交不同的机器信息
-        let mut committee_for_machine_info = Vec::new(); // 不同机器信息对应的委员会
+        // 支持的委员会可能提交不同的机器信息
+        let mut uniq_machine_info: Vec<CommitteeUploadInfo> = Vec::new();
+        // 不同机器信息对应的委员会
+        let mut committee_for_machine_info = Vec::new();
 
         for a_committee in machine_committee.booked_committee {
             // 记录没有提交原始信息的委员会

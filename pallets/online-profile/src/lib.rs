@@ -674,8 +674,11 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 控制账户重新上架机器，允许修改机器配置，委员会重新审核
-        /// NOTE: 用户需要重新添加机器信息，添加机器信息时，检查机器状态，根据掉线时长扣钱
+        /// Controller account reonline machine, allow change hardware info
+        /// Committee will verify it later
+        ///
+        /// NOTE: User need to add machine basic info(pos & net speed), after
+        /// committee verify finished, will be slashed for `OnlineReportOffline`
         #[pallet::weight(10000)]
         pub fn offline_machine_change_hardware_info(
             origin: OriginFor<T>,
@@ -713,19 +716,17 @@ pub mod pallet {
             // NOTE: 记录下机器下线时间，用以在机器重新分派时惩罚用户
             machine_info.machine_status = MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
+            LiveMachine::rm_machine_id(&mut live_machines.online_machine, &machine_id);
+            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone()); // 放入bonding_machine中
+
             UserReonlineStake::<T>::insert(
                 &machine_info.machine_stash,
                 &machine_id,
                 UserReonlineStakeInfo { stake_amount, offline_time: now },
             );
-
             Self::change_pos_gpu_by_online(&machine_id, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
-
             StashStake::<T>::insert(&machine_info.machine_stash, new_stash_stake);
-            LiveMachine::rm_machine_id(&mut live_machines.online_machine, &machine_id);
-            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone()); // 放入bonding_machine中
-
             LiveMachines::<T>::put(live_machines);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
@@ -2235,7 +2236,7 @@ impl<T: Config> LCOps for Pallet<T> {
             Self::update_snap_by_online_status(committee_upload_info.machine_id.clone(), true);
 
             if is_reonline {
-                // 根据质押，奖励给这些委员会
+                // 仅在Oline成功时删掉reonline_stake记录，以便补充质押时惩罚时检查状态
                 let reonline_stake =
                     Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
 
