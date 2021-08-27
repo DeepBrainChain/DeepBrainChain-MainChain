@@ -1097,12 +1097,8 @@ pub mod pallet {
                             );
                         },
                         MachineStatus::Rented => {
-                            sys_info.total_rented_gpu += gpu_num;
-                            // machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-                            // FIXME: bugs
                             Self::update_snap_by_rent_status(machine_id.clone(), true);
                             Self::change_pos_gpu_by_rent(&machine_id, true);
-                            stash_machine.total_rented_gpu += gpu_num;
 
                             // 机器在被租用状态下线，会被惩罚
                             Self::slash_when_report_offline(
@@ -1844,16 +1840,15 @@ impl<T: Config> Pallet<T> {
         0
     }
 
-    // 当机器Online状态变化时，更改系统存储
-    // is Online:
-    // - Writes: next_era_stash_points, next_era_machine_points, sys_info, stash_machine
-    // is Offline:
-    // - Writes: current_era_stash_points, current_era_machine_points, next_era_stash_points, next_era_machine_points
-    // sys_info, stash_machine
+    // When Online:
+    // - Writes:(currentEra) ErasStashPoints, ErasMachinePoints,
+    //   SysInfo, StashMachines
+    // When Offline:
+    // - Writes: (currentEra) ErasStashPoints, ErasMachinePoints, (nextEra) ErasStashPoints, ErasMachinePoints
+    //   SysInfo, StashMachines
     fn update_snap_by_online_status(machine_id: MachineId, is_online: bool) {
         let machine_info = Self::machines_info(&machine_id);
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info.clone();
-
         let current_era = Self::current_era();
 
         let mut current_era_stash_snapshot = Self::eras_stash_points(current_era).unwrap();
@@ -1937,7 +1932,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // - Writes:
-    // ErasStashPoints, ErasMachinePoints, StashMachine, SysInfo
+    // ErasStashPoints, ErasMachinePoints, SysInfo, StashMachines
     fn update_snap_by_rent_status(machine_id: MachineId, is_rented: bool) {
         let machine_info = Self::machines_info(&machine_id);
         let current_era = Self::current_era();
@@ -1949,6 +1944,7 @@ impl<T: Config> Pallet<T> {
 
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
+
         let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
         next_era_stash_snap.change_machine_rent_status(
@@ -1988,6 +1984,11 @@ impl<T: Config> Pallet<T> {
         if !is_rented {
             ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
             ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
+            sys_info.total_rented_gpu -= machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            stash_machine.total_rented_gpu -= machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+        } else {
+            sys_info.total_rented_gpu += machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            stash_machine.total_rented_gpu += machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
         }
 
         let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
@@ -2371,39 +2372,17 @@ impl<T: Config> RTOps for Pallet<T> {
         renter: Option<Self::AccountId>,
         rent_duration: Option<u64>,
     ) {
-        match new_status {
-            MachineStatus::Rented => {
-                // 机器创建成功
-                Self::update_snap_by_rent_status(machine_id.to_vec(), true);
-            },
-            MachineStatus::Online => {
-                // 租用结束
-                Self::update_snap_by_rent_status(machine_id.to_vec(), false);
-            },
-            _ => return,
-        }
-
         let mut machine_info = Self::machines_info(machine_id);
-        let mut sys_info = Self::sys_info();
-        let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut live_machines = Self::live_machines();
 
         machine_info.machine_status = new_status.clone();
         machine_info.last_machine_renter = renter;
 
-        let machine_gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-
         match new_status {
             MachineStatus::Rented => {
                 machine_info.total_rented_times += 1;
-
-                if let Some(new_gpu_num) = sys_info.total_rented_gpu.checked_add(machine_gpu_num) {
-                    sys_info.total_rented_gpu = new_gpu_num;
-                };
-
-                if let Some(new_gpu_num) = stash_machine.total_rented_gpu.checked_add(machine_gpu_num) {
-                    stash_machine.total_rented_gpu = new_gpu_num;
-                };
+                // 机器创建成功
+                Self::update_snap_by_rent_status(machine_id.to_vec(), true);
 
                 if let Err(index) = live_machines.online_machine.binary_search(&machine_id) {
                     live_machines.online_machine.remove(index);
@@ -2419,13 +2398,8 @@ impl<T: Config> RTOps for Pallet<T> {
             MachineStatus::Online =>
                 if rent_duration.is_some() {
                     machine_info.total_rented_duration += rent_duration.unwrap_or_default();
-
-                    if let Some(new_gpu_num) = sys_info.total_rented_gpu.checked_sub(machine_gpu_num) {
-                        sys_info.total_rented_gpu = new_gpu_num;
-                    };
-                    if let Some(new_gpu_num) = stash_machine.total_rented_gpu.checked_sub(machine_gpu_num) {
-                        stash_machine.total_rented_gpu = new_gpu_num;
-                    };
+                    // 租用结束
+                    Self::update_snap_by_rent_status(machine_id.to_vec(), false);
 
                     if let Err(index) = live_machines.rented_machine.binary_search(&machine_id) {
                         live_machines.rented_machine.remove(index);
@@ -2440,9 +2414,6 @@ impl<T: Config> RTOps for Pallet<T> {
             _ => {},
         }
 
-        // 改变租用时长或者租用次数
-        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
-        SysInfo::<T>::put(sys_info);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 
