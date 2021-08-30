@@ -278,17 +278,18 @@ pub struct PosInfo {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum SlashReason {
+pub enum OPSlashReason {
     CommitteeRefusedOnline,
 }
-impl Default for SlashReason {
+
+impl Default for OPSlashReason {
     fn default() -> Self {
-        SlashReason::CommitteeRefusedOnline
+        OPSlashReason::CommitteeRefusedOnline
     }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
+pub struct OPPendingSlashInfo<AccountId, BlockNumber, Balance> {
     /// 被惩罚人
     pub slash_who: AccountId,
     /// 惩罚被创建的时间
@@ -302,7 +303,7 @@ pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
     /// 奖励发放对象。如果为空，则惩罚到国库
     pub reward_to: Vec<AccountId>,
     /// 被惩罚原因
-    pub slash_reason: SlashReason,
+    pub slash_reason: OPSlashReason,
 }
 
 #[frame_support::pallet]
@@ -482,8 +483,13 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn pending_slash)]
-    pub(super) type PendingSlash<T: Config> =
-        StorageMap<_, Blake2_128Concat, u64, PendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+    pub(super) type PendingSlash<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        u64,
+        OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -1187,7 +1193,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         BondMachine(T::AccountId, MachineId, BalanceOf<T>),
-        Slash(T::AccountId, BalanceOf<T>, SlashReason),
+        Slash(T::AccountId, BalanceOf<T>, OPSlashReason),
     }
 
     #[pallet::error]
@@ -2328,14 +2334,14 @@ impl<T: Config> LCOps for Pallet<T> {
 
         // 添加一个slash
         let slash_id = Self::get_new_slash_id();
-        let slash_info = PendingSlashInfo {
+        let slash_info = OPPendingSlashInfo {
             slash_who: machine_info.machine_stash.clone(),
             slash_time: now,
             unlock_amount: slash,
             slash_amount: slash,
             slash_exec_time: now + (2880u32 * 2).saturated_into::<T::BlockNumber>(),
             reward_to: vec![],
-            slash_reason: SlashReason::CommitteeRefusedOnline,
+            slash_reason: OPSlashReason::CommitteeRefusedOnline,
         };
         if let Ok(index) = controller_machines.binary_search(&machine_id) {
             controller_machines.remove(index);

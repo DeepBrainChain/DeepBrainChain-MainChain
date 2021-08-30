@@ -818,7 +818,7 @@ fn committee_not_submit_hash_slash_works() {
         // Committee 记录到了惩罚信息
         assert_eq!(
             Committee::pending_slash(0),
-            committee::PendingSlashInfo {
+            committee::CMPendingSlashInfo {
                 slash_who: committee4,
                 slash_time: 4327,
                 unlock_amount: 1000 * ONE_DBC,

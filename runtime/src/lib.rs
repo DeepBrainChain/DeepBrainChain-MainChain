@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 315,
+    spec_version: 320,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -1228,7 +1228,8 @@ impl_runtime_apis! {
             RentMachine::get_rent_list(renter)
         }
 
-        fn get_machine_renter(machine_id: online_profile::MachineId) -> AccountId {
+        fn get_machine_renter(machine_id: online_profile::MachineId) -> Option<AccountId>
+        {
             RentMachine::get_machine_renter(machine_id)
         }
     }

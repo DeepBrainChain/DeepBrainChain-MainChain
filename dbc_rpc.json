@@ -1,4 +1,11 @@
 {
+  "committee": {
+    "getCommitteeList": {
+      "description": "Get committee list",
+      "params": [],
+      "type": "CommitteeList<AccountId>"
+    }
+  },
   "onlineProfile": {
     "getOpInfo": {
       "description": "Get system info of onlineProfile pallet",
@@ -96,6 +103,87 @@
         }
       ],
       "type": "StakerInfo<Balance>"
+    },
+    "getMachineEraReleasedReward": {
+      "description": "Get machine released reward of one Era",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "era_index",
+          "type": "EraIndex"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Balance"
+    },
+    "getMachineEraReward": {
+      "description": "Get machine reward of one Era",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "era_index",
+          "type": "EraIndex"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Balance"
+    },
+    "getPosGpuInfo": {
+      "description": "Get machine reward of one Era",
+      "params": [],
+      "type": "Vec<(Longitude, Latitude, PosInfo)>"
+    },
+    "getStashEraReleasedReward": {
+      "description": "Get stash account released reward of one Era",
+      "params": [
+        {
+          "name": "stash",
+          "type": "AccountId"
+        },
+        {
+          "name": "era_index",
+          "type": "EraIndex"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Balance"
+    },
+    "getStashEraReward": {
+      "description": "Get stash account reward of one Era",
+      "params": [
+        {
+          "name": "stash",
+          "type": "AccountId"
+        },
+        {
+          "name": "era_index",
+          "type": "EraIndex"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Balance"
     }
   },
   "leaseCommittee": {
@@ -183,6 +271,21 @@
         }
       ],
       "type": "RpcRentOrderDetail<AccountId, BlockNumber, Balance>"
+    },
+    "getMachineRenter": {
+      "description": "get current machine renter",
+      "params": [
+        {
+          "name": "renter",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Option<AccountId>"
     }
   }
 }

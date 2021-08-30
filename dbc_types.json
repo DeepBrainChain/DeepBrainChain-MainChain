@@ -1,16 +1,23 @@
 {
-  "PriceURL": "Text",
+  "Pubkey": "Vec<u8>",
   "ReportId": "u64",
   "SlashId": "u64",
   "BoxPubkey": "[u8; 32]",
   "ReportHash": "[u8; 16]",
+  "URL": "Text",
+  "MachineId": "Text",
+  "OrderId": "u64",
+  "TelecomName": "Text",
+  "AccountInfo": {
+    "nonce": "u32",
+    "consumers": "u32",
+    "providers": "u32",
+    "data": "AccountData"
+  },
   "StandardGpuPointPrice": {
     "gpu_point": "u64",
     "gpu_price": "u64"
   },
-  "URL": "Text",
-  "MachineId": "Text",
-  "OrderId": "u64",
   "LiveMachine": {
     "bonding_machine": "Vec<MachineId>",
     "confirmed_machine": "Vec<MachineId>",
@@ -19,7 +26,8 @@
     "fulfilling_machine": "Vec<MachineId>",
     "refused_machine": "Vec<MachineId>",
     "rented_machine": "Vec<MachineId>",
-    "offline_machine": "Vec<MachineId>"
+    "offline_machine": "Vec<MachineId>",
+    "refused_mut_hardware_machine": "Vec<MachineId>"
   },
   "StashMachine": {
     "total_machine": "Vec<MachineId>",
@@ -27,12 +35,12 @@
     "total_calc_points": "u64",
     "total_gpu_num": "u64",
     "total_rented_gpu": "u64",
+    "total_earned_reward": "Balance",
     "total_claimed_reward": "Balance",
     "can_claim_reward": "Balance",
     "total_rent_fee": "Balance",
     "total_burn_fee": "Balance"
   },
-  "BlockNumber": "u32",
   "SysInfoDetail": {
     "total_gpu_num": "u64",
     "total_rented_gpu": "u64",
@@ -74,9 +82,19 @@
       "WaitingFulfill": null,
       "Online": null,
       "StakerReportOffline": "(BlockNumber, Box<MachineStatus>)",
-      "ReporterReportOffline": "(BlockNumber, Box<MachineStatus>, Vec<AccountId>)",
+      "ReporterReportOffline": "(StashSlashReason, Box<MachineStatus>, AccountId, Vec<AccountId>)",
       "Creating": null,
       "Rented": null
+    }
+  },
+  "StashSlashReason": {
+    "_enum": {
+      "RentedReportOffline": "BlockNumber",
+      "OnlineReportOffline": "BlockNumber",
+      "RentedInaccessible": "BlockNumber",
+      "RentedHardwareMalfunction": "BlockNumber",
+      "RentedHardwareCounterfeit": "BlockNumber",
+      "OnlineRentFailed": "BlockNumber"
     }
   },
   "MachineInfoDetail": {
@@ -119,16 +137,15 @@
       "North": "u64"
     }
   },
-  "TelecomName": "Text",
-  "AccountInfo": {
-    "nonce": "u32",
-    "consumers": "u32",
-    "providers": "u32",
-    "data": "AccountData"
-  },
   "EraStashPoints": {
     "total": "u64",
     "staker_statistic": "BTreeMap<AccountId, StashMachineStatistics>"
+  },
+  "StashMachineStatistics": {
+    "online_gpu_num": "u64",
+    "inflation": "Perbill",
+    "machine_total_calc_point": "u64",
+    "rent_extra_grade": "u64"
   },
   "PosInfo": {
     "online_gpu": "u64",
@@ -140,18 +157,6 @@
     "basic_grade": "u64",
     "is_rented": "bool",
     "reward_account": "Vec<AccountId>"
-  },
-  "StashMachineStatistics": {
-    "online_gpu_num": "u64",
-    "inflation": "Perbill",
-    "machine_total_calc_point": "u64",
-    "rent_extra_grade": "u64"
-  },
-  "CommitteeMachine": {
-    "machine_id": "Vec<MachineId>",
-    "total_calc_points": "u64",
-    "total_gpu_num": "u64",
-    "total_reward": "Balance"
   },
   "CommitteeList": {
     "normal": "Vec<AccountId>",
@@ -189,54 +194,8 @@
   "LCVerifyStatus": {
     "_enum": ["SubmittingHash", "SubmittingRaw", "Summarizing", "Finished"]
   },
-  "CommitteeMachineList": {
-    "booked_order": "Vec<OrderId>",
-    "hashed_order": "Vec<OrderId>",
-    "confirmed_order": "Vec<Order>",
-    "online_machine": "Vec<MachineId>"
-  },
-  "CommitteeMachineOps": {
-    "booked_time": "BlockNumber",
-    "encrypted_err_info": "Option<Vec<u8>>",
-    "encrypted_login_info": "Option<Vec<u8>>",
-    "encrypted_time": "BlockNumber",
-    "confirm_hash": "[u8; 16]",
-    "hash_time": "BlockNumber",
-    "confirm_raw": "Vec<u8>",
-    "confirm_time": "BlockNumber",
-    "confirm_result": "bool",
-    "machine_status": "MachineStatus"
-  },
-  "EraRewardBalance": {
-    "total": "Balance",
-    "individual": "BTreeMap<AccountId, Balance>"
-  },
-  "LiveOrderList": {
-    "reported_order": "Vec<OrderId>",
-    "fully_order": "Vec<OrderId>",
-    "fully_reporter_hashed": "Vec<OrderId>",
-    "fully_committee_hashed": "Vec<OrderId>",
-    "fully_raw": "Vec<OrderId>"
-  },
-  "MachineCommitteeList": {
-    "order_id": "OrderId",
-    "report_time": "BlockNumber",
-    "booked_committee": "Vec<AccountId>",
-    "hashed_committee": "Vec<AccountId>",
-    "confirm_start": "BlockNumber",
-    "confirmed_committee": "Vec<AccountId>",
-    "onlined_committee": "Vec<AccountId>"
-  },
-  "Pubkey": "Vec<u8>",
   "ReporterRecord": {
     "reported_id": "Vec<OrderId>"
-  },
-  "StakerList": {
-    "committee": "Vec<AccountId>",
-    "pubkey_list": "Vec<AccountId>",
-    "fulfill_list": "Vec<AccountId>",
-    "chill_list": "Vec<AccountId>",
-    "black_list": "Vec<AccountId>"
   },
   "MTCommitteeOpsDetail": {
     "booked_time": "BlockNumber",
@@ -294,18 +253,31 @@
   },
   "MachineFaultType": {
     "_enum": {
-      "HardwareFault": "(ReportHash, BoxPubkey)",
-      "MachineOffline": "(ReportHash, BoxPubkey)",
-      "MachineUnrentable": "MachineId"
+      "RentedInaccessible": "(ReportHash, BoxPubkey)",
+      "RentedHardwareMalfunction": "(ReportHash, BoxPubkey)",
+      "RentedHardwareCounterfeit": "(ReportHash, BoxPubkey)",
+      "OnlineRentFailed": "MachineId"
     }
   },
-  "PendingSlashInfo": {
+  "CMPendingSlashInfo": {
     "slash_who": "AccountId",
     "slash_time": "BlockNumber",
     "unlock_amount": "Balance",
     "slash_amount": "Balance",
     "slash_exec_time": "BlockNumber",
     "reward_to": "Vec<AccountId>"
+  },
+  "OPPendingSlashInfo": {
+    "slash_who": "AccountId",
+    "slash_time": "BlockNumber",
+    "unlock_amount": "Balance",
+    "slash_amount": "Balance",
+    "slash_exec_time": "BlockNumber",
+    "reward_to": "Vec<AccountId>",
+    "slash_reason": "OPSlashReason"
+  },
+  "OPSlashReason": {
+    "_enum": ["CommitteeRefusedOnline"]
   },
   "RentOrderDetail": {
     "renter": "AccountId",
@@ -336,7 +308,6 @@
     "min_free_stake_percent": "Perbill"
   },
   "ReporterStakeInfo": {
-    "box_pubkey": "[u8; 32]",
     "staked_amount": "Balance",
     "used_stake": "Balance",
     "can_claim_reward": "Balance",

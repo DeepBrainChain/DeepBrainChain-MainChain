@@ -7,13 +7,14 @@ use frame_support::{
 pub use frame_system::{self as system, RawOrigin};
 pub use sp_core::{
     sr25519::{self, Signature},
+    u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
 pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
-    ModuleId, Permill,
+    ModuleId, Perbill, Permill,
 };
 use std::convert::TryInto;
 
@@ -111,6 +112,24 @@ impl pallet_treasury::Config for TestRuntime {
 }
 
 parameter_types! {
+    pub const CouncilMotionDuration: u32 = 5 * 2880;
+    pub const CouncilMaxProposals: u32 = 100;
+    pub const CouncilMaxMembers: u32 = 100;
+}
+
+type TechnicalCollective = pallet_collective::Instance2;
+impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
+    type MotionDuration = CouncilMotionDuration;
+    type MaxProposals = CouncilMaxProposals;
+    type MaxMembers = CouncilMaxMembers;
+    type DefaultVote = pallet_collective::PrimeDefaultVote;
+    type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
+}
+
+parameter_types! {
     pub const BondingDuration: u32 = 7;
     pub const ProfitReleaseDuration: u64 = 150;
 }
@@ -119,6 +138,7 @@ impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
 }
 
 impl online_profile::Config for TestRuntime {
@@ -129,6 +149,7 @@ impl online_profile::Config for TestRuntime {
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
 }
 
 impl dbc_price_ocw::Config for TestRuntime {
@@ -196,6 +217,7 @@ frame_support::construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
         RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
+        TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
     }
 );
 
@@ -248,7 +270,7 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
             committee::CommitteeStakeParamsInfo {
                 stake_baseline: 20000 * ONE_DBC,
                 stake_per_order: 1000 * ONE_DBC,
-                min_free_stake: 8000 * ONE_DBC,
+                min_free_stake_percent: Perbill::from_rational_approximation(40u32, 100u32),
             },
         );
         // assert_ok!(Committee::set_staked_usd_per_order(RawOrigin::Root.into(), 15_000_000));

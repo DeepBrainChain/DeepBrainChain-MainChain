@@ -6236,6 +6236,7 @@ dependencies = [
  "online-profile",
  "online-profile-machine",
  "pallet-balances",
+ "pallet-collective",
  "pallet-randomness-collective-flip",
  "pallet-treasury",
  "parity-scale-codec",

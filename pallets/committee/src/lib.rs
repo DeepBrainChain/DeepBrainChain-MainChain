@@ -25,7 +25,7 @@ type NegativeImbalanceOf<T> =
 
 // 即将被执行的罚款
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct PendingSlashInfo<AccountId, BlockNumber, Balance> {
+pub struct CMPendingSlashInfo<AccountId, BlockNumber, Balance> {
     /// 被惩罚人
     pub slash_who: AccountId,
     /// 惩罚被创建的时间
@@ -136,7 +136,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         SlashId,
-        PendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        CMPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -641,7 +641,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         PendingSlash::<T>::insert(
             slash_id,
-            PendingSlashInfo {
+            CMPendingSlashInfo {
                 slash_who: who,
                 slash_time: now,
                 unlock_amount: amount,

@@ -17,6 +17,6 @@ sp_api::decl_runtime_apis! {
     {
         fn get_rent_order(renter: AccountId, machine_id: MachineId) -> RpcRentOrderDetail<AccountId, BlockNumber, Balance>;
         fn get_rent_list(renter: AccountId) -> Vec<MachineId>;
-        fn get_machine_renter(machine_id: MachineId) -> AccountId;
+        fn get_machine_renter(machine_id: MachineId) -> Option<AccountId>;
     }
 }

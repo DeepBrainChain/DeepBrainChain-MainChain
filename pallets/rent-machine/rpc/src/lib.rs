@@ -29,7 +29,7 @@ where
     fn get_rent_list(&self, renter: AccountId, at: Option<BlockHash>) -> Result<Vec<MachineId>>;
 
     #[rpc(name = "rentMachine_getMachineRenter")]
-    fn get_machine_renter(&self, machine_id: MachineId, at: Option<BlockHash>) -> Result<AccountId>;
+    fn get_machine_renter(&self, machine_id: MachineId, at: Option<BlockHash>) -> Result<Option<AccountId>>;
 }
 
 pub struct RmStorage<C, M> {
@@ -91,7 +91,11 @@ where
         })
     }
 
-    fn get_machine_renter(&self, machine_id: MachineId, at: Option<<Block as BlockT>::Hash>) -> Result<AccountId> {
+    fn get_machine_renter(
+        &self,
+        machine_id: MachineId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Option<AccountId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
