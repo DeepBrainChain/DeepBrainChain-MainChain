@@ -10,6 +10,7 @@ use online_profile::{
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
 
+// 当全部提交Hash+全部提交原始值时:
 // case 1: 3个支持，内容一致 ->上线
 // case 2: 3个支持，2内容一致 -> 上线 + 惩罚
 // case 3: 2个支持，1个反对 (2个一致) -> 上线 + 惩罚
@@ -19,6 +20,10 @@ use std::{collections::BTreeMap, convert::TryInto};
 
 // case 6: 2个反对，1个支持 -> 不上线 + 奖励 + 惩罚
 // case 7: 3个反对 -> 不上线 + 奖励
+
+// 全部提交Hash，部分提交原始值时
+
+// 部分提交Hash，部分提交原始值时
 
 #[test]
 fn machine_online_works() {
