@@ -5,10 +5,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::{
-        Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, LockIdentifier, LockableCurrency, OnUnbalanced,
-        WithdrawReasons,
-    },
+    traits::{Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency},
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
@@ -25,8 +22,6 @@ pub type SlashId = u64;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
-
-pub const PALLET_LOCK_ID: LockIdentifier = *b"committe";
 
 // 即将被执行的罚款
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -115,7 +110,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: ReservableCurrency<Self::AccountId>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
     }
@@ -202,18 +197,12 @@ pub mod pallet {
                 return Err(Error::<T>::NotCommittee.into())
             }
 
-            // 检查free_balance
-            ensure!(
-                <T as Config>::Currency::free_balance(&committee) > committee_stake_params.stake_baseline,
-                Error::<T>::BalanceNotEnough
-            );
-
-            <T as Config>::Currency::set_lock(
-                PALLET_LOCK_ID,
-                &committee,
-                committee_stake_params.stake_baseline,
-                WithdrawReasons::all(),
-            );
+            if <T as Config>::Currency::can_reserve(&committee, committee_stake_params.stake_baseline) {
+                <T as pallet::Config>::Currency::reserve(&committee, committee_stake_params.stake_baseline)
+                    .map_err(|_| Error::<T>::GetStakeParamsFailed)?;
+            } else {
+                return Err(Error::<T>::BalanceNotEnough.into())
+            }
 
             committee_stake.box_pubkey = box_pubkey;
             committee_stake.staked_amount = committee_stake_params.stake_baseline;
@@ -249,18 +238,12 @@ pub mod pallet {
                 Error::<T>::StakeNotEnough
             );
 
-            // 检查free_balance
-            ensure!(
-                <T as Config>::Currency::free_balance(&committee) > committee_stake.staked_amount,
-                Error::<T>::BalanceNotEnough
-            );
-
-            <T as Config>::Currency::set_lock(
-                PALLET_LOCK_ID,
-                &committee,
-                committee_stake.staked_amount,
-                WithdrawReasons::all(),
-            );
+            if <T as Config>::Currency::can_reserve(&committee, committee_stake_params.stake_baseline) {
+                <T as pallet::Config>::Currency::reserve(&committee, committee_stake_params.stake_baseline)
+                    .map_err(|_| Error::<T>::GetStakeParamsFailed)?;
+            } else {
+                return Err(Error::<T>::BalanceNotEnough.into())
+            }
 
             if let Ok(index) = committee_list.fulfilling_list.binary_search(&committee) {
                 committee_list.fulfilling_list.remove(index);
@@ -293,22 +276,17 @@ pub mod pallet {
                 Error::<T>::BalanceNotEnough
             );
 
-            let free_amount = committee_stake
+            let left_free_amount = committee_stake
                 .staked_amount
                 .checked_sub(&committee_stake.used_stake)
                 .ok_or(Error::<T>::BalanceNotEnough)?;
 
             ensure!(
-                committee_stake_params.min_free_stake_percent * committee_stake.staked_amount >= free_amount,
+                committee_stake_params.min_free_stake_percent * committee_stake.staked_amount >= left_free_amount,
                 Error::<T>::BalanceNotEnough
             );
 
-            <T as Config>::Currency::set_lock(
-                PALLET_LOCK_ID,
-                &committee,
-                committee_stake.staked_amount,
-                WithdrawReasons::all(),
-            );
+            let _ = <T as pallet::Config>::Currency::unreserve(&committee, amount);
 
             CommitteeStake::<T>::insert(&committee, committee_stake);
 
@@ -516,9 +494,9 @@ impl<T: Config> Pallet<T> {
         committee_stake.used_stake = committee_stake.used_stake.checked_sub(&amount).ok_or(())?;
         committee_stake.staked_amount = committee_stake.staked_amount.checked_sub(&amount).ok_or(())?;
 
-        let free_amount = committee_stake.staked_amount.checked_sub(&committee_stake.used_stake).ok_or(())?;
+        let left_free_amount = committee_stake.staked_amount.checked_sub(&committee_stake.used_stake).ok_or(())?;
 
-        if free_amount >= committee_stake_params.min_free_stake_percent * committee_stake.staked_amount {
+        if left_free_amount >= committee_stake_params.min_free_stake_percent * committee_stake.staked_amount {
             // 此时，委员会应该移动到Normal中
             if let Ok(index) = committee_list.fulfilling_list.binary_search(&committee) {
                 committee_list.fulfilling_list.remove(index);
@@ -539,12 +517,8 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        <T as Config>::Currency::set_lock(
-            PALLET_LOCK_ID,
-            &committee,
-            committee_stake.staked_amount,
-            WithdrawReasons::all(),
-        );
+        // FIXME: slash到国库
+        let (_slash_amount, _unapplied_slash) = <T as pallet::Config>::Currency::slash_reserved(&committee, amount);
 
         if is_committee_list_changed {
             Committee::<T>::put(committee_list);

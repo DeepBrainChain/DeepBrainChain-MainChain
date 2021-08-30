@@ -4,7 +4,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
-    traits::{Currency, LockIdentifier, LockableCurrency, WithdrawReasons},
+    traits::{Currency, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{MTOps, ManageCommittee};
@@ -28,8 +28,6 @@ pub type ReportId = u64; // 提交的单据ID
 pub type BoxPubkey = [u8; 32];
 pub type ReportHash = [u8; 16];
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-pub const PALLET_LOCK_ID: LockIdentifier = *b"mtcomite";
 
 /// 机器故障的报告
 /// 记录该模块中所有活跃的报告, 根据ReportStatus来区分
@@ -228,7 +226,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: ReservableCurrency<Self::AccountId>;
         type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
         type MTOps: MTOps<
             AccountId = Self::AccountId,
@@ -356,15 +354,14 @@ pub mod pallet {
             let user_free_balance = <T as Config>::Currency::free_balance(&reporter);
             ensure!(user_free_balance > reporter_stake.staked_amount, Error::<T>::BalanceNotEnough);
 
-            <T as Config>::Currency::set_lock(
-                PALLET_LOCK_ID,
-                &reporter,
-                reporter_stake.staked_amount,
-                WithdrawReasons::all(),
-            );
+            if <T as Config>::Currency::can_reserve(&reporter, amount) {
+                <T as pallet::Config>::Currency::reserve(&reporter, amount)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+            } else {
+                return Err(Error::<T>::BalanceNotEnough.into())
+            }
 
             ReporterStake::<T>::insert(&reporter, reporter_stake);
-
             Ok(().into())
         }
 
@@ -867,12 +864,14 @@ impl<T: Config> Pallet<T> {
             // 此时为第一次质押，检查free_balance是否足够
             let user_free_balance = <T as Config>::Currency::free_balance(&reporter);
             ensure!(user_free_balance > stake_params.stake_baseline, Error::<T>::BalanceNotEnough);
-            <T as Config>::Currency::set_lock(
-                PALLET_LOCK_ID,
-                &reporter,
-                stake_params.stake_baseline,
-                WithdrawReasons::all(),
-            );
+
+            if <T as Config>::Currency::can_reserve(&reporter, stake_params.stake_baseline) {
+                <T as pallet::Config>::Currency::reserve(&reporter, stake_params.stake_baseline)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+            } else {
+                return Err(Error::<T>::BalanceNotEnough.into())
+            }
+
             reporter_stake.staked_amount = stake_params.stake_baseline;
             reporter_stake.used_stake = stake_params.stake_per_report;
         } else {

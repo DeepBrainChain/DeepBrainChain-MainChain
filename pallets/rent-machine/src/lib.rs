@@ -5,7 +5,7 @@ use frame_support::{
     dispatch::DispatchResult,
     ensure,
     pallet_prelude::*,
-    traits::{Currency, ExistenceRequirement::KeepAlive, LockIdentifier, LockableCurrency, WithdrawReasons},
+    traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
     IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
@@ -25,8 +25,6 @@ pub const DAY_PER_MONTH: u64 = 30;
 /// 租用之后60个块内确认机器租用成功
 pub const CONFIRMING_DELAY: u64 = 60;
 
-pub const PALLET_LOCK_ID: LockIdentifier = *b"rentmach";
-
 pub use pallet::*;
 
 #[cfg(test)]
@@ -40,12 +38,18 @@ pub use rpc_types::RpcRentOrderDetail;
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
-    pub renter: AccountId,         // 租用者
-    pub rent_start: BlockNumber,   // 租用开始时间
-    pub confirm_rent: BlockNumber, // 用户确认租成功的时间
-    pub rent_end: BlockNumber,     // 租用结束时间
-    pub stake_amount: Balance,     // 用户对该机器的质押
-    pub rent_status: RentStatus,   // 当前订单的状态
+    /// 租用者
+    pub renter: AccountId,
+    /// 租用开始时间
+    pub rent_start: BlockNumber,
+    /// 用户确认租成功的时间
+    pub confirm_rent: BlockNumber,
+    /// 租用结束时间
+    pub rent_end: BlockNumber,
+    /// 用户对该机器的质押
+    pub stake_amount: Balance,
+    /// 当前订单的状态
+    pub rent_status: RentStatus,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -68,7 +72,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: ReservableCurrency<Self::AccountId>;
         type RTOps: RTOps<
             MachineId = MachineId,
             MachineStatus = MachineStatus<Self::BlockNumber, Self::AccountId>,
@@ -361,22 +365,23 @@ impl<T: Config> Pallet<T> {
         let current_stake = Self::user_total_stake(who);
         let next_stake = current_stake.checked_add(&amount).ok_or(())?;
 
-        let user_free_balance = <T as pallet::Config>::Currency::free_balance(&who);
-        if next_stake >= user_free_balance {
+        if <T as pallet::Config>::Currency::can_reserve(who, amount) {
+            <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
+        } else {
             return Err(())
         }
-        <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, who, next_stake, WithdrawReasons::all());
 
         UserTotalStake::<T>::insert(who, next_stake);
         Ok(())
     }
 
-    fn reduce_total_stake(controller: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        let current_stake = Self::user_total_stake(controller);
+    fn reduce_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        let current_stake = Self::user_total_stake(who);
         let next_stake = current_stake.checked_sub(&amount).ok_or(())?;
-        <T as pallet::Config>::Currency::set_lock(PALLET_LOCK_ID, controller, next_stake, WithdrawReasons::all());
 
-        UserTotalStake::<T>::insert(controller, next_stake);
+        let _ = <T as pallet::Config>::Currency::unreserve(&who, amount);
+
+        UserTotalStake::<T>::insert(who, next_stake);
         Ok(())
     }
 

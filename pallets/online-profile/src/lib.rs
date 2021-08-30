@@ -5,8 +5,7 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
     traits::{
-        Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, LockIdentifier, LockableCurrency, OnUnbalanced,
-        WithdrawReasons,
+        BalanceStatus, Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced, ReservableCurrency,
     },
     weights::Weight,
     IterableStorageDoubleMap, IterableStorageMap,
@@ -39,8 +38,6 @@ pub use pallet::*;
 /// 2880 blocks per era
 pub const BLOCK_PER_ERA: u64 = 2880;
 pub const REWARD_DURATION: u32 = 365 * 2;
-
-pub const PALLET_LOCK_ID: LockIdentifier = *b"olprofil";
 
 /// stash account overview self-status
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -315,7 +312,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + dbc_price_ocw::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: ReservableCurrency<Self::AccountId>;
         type BondingDuration: Get<EraIndex>;
         type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
         type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
@@ -709,15 +706,12 @@ pub mod pallet {
             let new_stash_stake = stash_stake.checked_add(&stake_amount).ok_or(Error::<T>::CalcStakeAmountFailed)?;
             ensure!(user_free_balance > new_stash_stake, Error::<T>::BalanceNotEnough);
 
-            <T as Config>::Currency::set_lock(
-                PALLET_LOCK_ID,
-                &machine_info.machine_stash,
-                new_stash_stake,
-                WithdrawReasons::all(),
-            );
-
-            // NOTE: 记录下机器下线时间，用以在机器重新分派时惩罚用户
-            machine_info.machine_status = MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
+            if <T as Config>::Currency::can_reserve(&machine_info.machine_stash, stake_amount) {
+                <T as pallet::Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)
+                    .map_err(|_| Error::<T>::CalcStakeAmountFailed)?;
+            } else {
+                return Err(Error::<T>::BalanceNotEnough.into())
+            }
 
             LiveMachine::rm_machine_id(&mut live_machines.online_machine, &machine_id);
             LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone()); // 放入bonding_machine中
@@ -836,12 +830,12 @@ pub mod pallet {
             let new_stash_stake = stash_stake + extra_stake_amount;
             ensure!(user_free_balance > new_stash_stake, Error::<T>::BalanceNotEnough);
 
-            <T as Config>::Currency::set_lock(
-                PALLET_LOCK_ID,
-                &machine_info.machine_stash,
-                new_stash_stake,
-                WithdrawReasons::all(),
-            );
+            if <T as Config>::Currency::can_reserve(&machine_info.machine_stash, extra_stake_amount) {
+                <T as pallet::Config>::Currency::reserve(&machine_info.machine_stash, extra_stake_amount)
+                    .map_err(|_| Error::<T>::CalcStakeAmountFailed)?;
+            } else {
+                return Err(Error::<T>::BalanceNotEnough.into())
+            }
 
             machine_info.current_stake_amount += extra_stake_amount;
 
@@ -1440,12 +1434,14 @@ impl<T: Config> Pallet<T> {
             // TODO: 将机器下线
         }
 
-        <T as Config>::Currency::set_lock(
-            PALLET_LOCK_ID,
-            &machine_info.machine_stash.clone(),
-            machine_info.current_stake_amount,
-            WithdrawReasons::all(),
-        );
+        // TODO: slash it
+
+        if <T as pallet::Config>::Currency::can_slash(&machine_info.machine_stash, slash_amount) {
+            let (imbalance, missing) =
+                <T as pallet::Config>::Currency::slash(&machine_info.machine_stash, slash_amount);
+
+            <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+        }
 
         // 根据比例，分配slash_amoun
         let (slash_to_treasury, reward_to_reporter, reward_to_committee) = {
@@ -1533,13 +1529,6 @@ impl<T: Config> Pallet<T> {
             let stash_stake = Self::stash_stake(&slash_info.slash_who);
             let stake_after_slash = stash_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
 
-            <T as Config>::Currency::set_lock(
-                PALLET_LOCK_ID,
-                &slash_info.slash_who,
-                stake_after_slash,
-                WithdrawReasons::all(),
-            );
-
             let reward_to_num = slash_info.reward_to.len() as u32;
 
             if reward_to_num == 0 {
@@ -1561,22 +1550,23 @@ impl<T: Config> Pallet<T> {
 
                 for a_committee in slash_info.reward_to {
                     if left_reward < reward_each_get {
-                        <T as pallet::Config>::Currency::transfer(
-                            &slash_info.slash_who,
-                            &a_committee,
-                            left_reward,
-                            KeepAlive,
-                        )
-                        .map_err(|_| ())?;
-                        return Ok(())
+                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
+                            <T as pallet::Config>::Currency::repatriate_reserved(
+                                &slash_info.slash_who,
+                                &a_committee,
+                                reward_each_get,
+                                BalanceStatus::Free,
+                            );
+                        }
                     } else {
-                        <T as pallet::Config>::Currency::transfer(
-                            &slash_info.slash_who,
-                            &a_committee,
-                            reward_each_get,
-                            KeepAlive,
-                        )
-                        .map_err(|_| ())?;
+                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
+                            <T as pallet::Config>::Currency::repatriate_reserved(
+                                &slash_info.slash_who,
+                                &a_committee,
+                                reward_each_get,
+                                BalanceStatus::Free,
+                            );
+                        }
 
                         left_reward -= reward_each_get;
                     }
@@ -1788,7 +1778,13 @@ impl<T: Config> Pallet<T> {
         let mut sys_info = Self::sys_info();
         sys_info.total_stake = sys_info.total_stake.checked_add(&amount).ok_or(())?;
 
-        <T as Config>::Currency::set_lock(PALLET_LOCK_ID, who, new_stash_stake, WithdrawReasons::all());
+        // <T as Config>::Currency::set_lock(PALLET_LOCK_ID, who, new_stash_stake, WithdrawReasons::all());
+
+        if <T as Config>::Currency::can_reserve(&who, amount) {
+            <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
+        } else {
+            return Err(())
+        }
 
         StashStake::<T>::insert(who, new_stash_stake);
         SysInfo::<T>::put(sys_info);
@@ -1803,7 +1799,7 @@ impl<T: Config> Pallet<T> {
         let mut sys_info = Self::sys_info();
         sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
 
-        <T as Config>::Currency::set_lock(PALLET_LOCK_ID, who, new_stash_stake, WithdrawReasons::all());
+        <T as pallet::Config>::Currency::unreserve(&who, amount);
         StashStake::<T>::insert(&who, new_stash_stake);
         SysInfo::<T>::put(sys_info);
 
@@ -1818,11 +1814,16 @@ impl<T: Config> Pallet<T> {
         let stash_stake = Self::stash_stake(who);
         let new_stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
 
-        <T as Config>::Currency::set_lock(PALLET_LOCK_ID, who, new_stash_stake, WithdrawReasons::all());
-
         let reward_each_get = Perbill::from_rational_approximation(1, committee.len() as u64) * amount;
         for a_committee in committee {
-            let _ = <T as pallet::Config>::Currency::transfer(who, &a_committee, reward_each_get, KeepAlive);
+            if <T as pallet::Config>::Currency::can_slash(who, reward_each_get) {
+                <T as pallet::Config>::Currency::repatriate_reserved(
+                    who,
+                    &a_committee,
+                    reward_each_get,
+                    BalanceStatus::Free,
+                );
+            }
         }
 
         StashStake::<T>::insert(&who, new_stash_stake);
@@ -2275,25 +2276,20 @@ impl<T: Config> LCOps for Pallet<T> {
         if is_mut_hardware {
             // 机器为修改硬件信息后的重新上线
             let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
-
             let new_stash_stake = stash_stake.checked_sub(&reonline_stake.stake_amount).ok_or(())?;
-            <T as Config>::Currency::set_lock(
-                PALLET_LOCK_ID,
-                &machine_info.machine_stash,
-                new_stash_stake,
-                WithdrawReasons::all(),
-            );
 
             let reward_each_get =
                 Perbill::from_rational_approximation(1u32, committee.len() as u32) * reonline_stake.stake_amount;
 
             for a_committee in committee {
-                let _ = <T as pallet::Config>::Currency::transfer(
-                    &machine_info.machine_stash,
-                    &a_committee,
-                    reward_each_get,
-                    KeepAlive,
-                );
+                if <T as pallet::Config>::Currency::can_slash(&machine_info.machine_stash, reward_each_get) {
+                    <T as pallet::Config>::Currency::repatriate_reserved(
+                        &machine_info.machine_stash,
+                        &a_committee,
+                        reward_each_get,
+                        BalanceStatus::Free,
+                    );
+                }
             }
 
             // 改变stash_stake
@@ -2316,16 +2312,17 @@ impl<T: Config> LCOps for Pallet<T> {
         // 惩罚5%，并将机器ID移动到LiveMachine的补充质押中。
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.init_stake_amount;
 
+        // FIXME: bugs
         stash_stake =
             stash_stake.checked_sub(&machine_info.init_stake_amount).ok_or(())?.checked_add(&slash).ok_or(())?;
 
         // 退还95%押金
-        <T as Config>::Currency::set_lock(
-            PALLET_LOCK_ID,
-            &machine_info.machine_stash,
-            stash_stake,
-            WithdrawReasons::all(),
-        );
+        // <T as Config>::Currency::set_lock(
+        //     PALLET_LOCK_ID,
+        //     &machine_info.machine_stash,
+        //     stash_stake,
+        //     WithdrawReasons::all(),
+        // );
 
         // 添加一个slash
         let slash_id = Self::get_new_slash_id();
