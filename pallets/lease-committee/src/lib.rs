@@ -21,13 +21,13 @@ pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// 分成9个区间进行验证
+/// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;
-/// 每个用户有480个块的时间验证机器: 480 * 30 / 3600 = 4 hours
+/// Each committee have 480 blocks (4 hours) to verify machine
 pub const DURATIONPERCOMMITTEE: u32 = 480;
-/// 在分派之后的36个小时后允许提交原始信息
+/// After order distribution 36 hours, allow committee submit raw info
 pub const SUBMIT_RAW_START: u32 = 4320;
-/// 在分派之后的48小时总结
+/// Summary committee's opinion after 48 hours
 pub const SUBMIT_RAW_END: u32 = 5760;
 
 pub use pallet::*;
@@ -38,38 +38,40 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// 从用户地址查询绑定的机器列表
+/// Query distributed machines by committee address
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LCCommitteeMachineList {
-    /// 记录分配给用户的机器ID及开始验证时间
+    /// machines, that distributed to committee, and should be verified
     pub booked_machine: Vec<MachineId>,
-    /// 存储已经提交了Hash信息的机器
+    /// machines, have submited machine info hash
     pub hashed_machine: Vec<MachineId>,
-    /// 存储已经提交了原始确认数据的机器
+    /// machines, have submited raw machine info
     pub confirmed_machine: Vec<MachineId>,
-    /// 存储已经成功上线的机器
+    /// machines, online successfully
     pub online_machine: Vec<MachineId>,
 }
 
-/// 机器对应的验证委员会
+/// Machines' verifying committee
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
-    /// 系统分派订单的时间
+    /// When order distribution happened
     pub book_time: BlockNumber,
-    /// 订单分配的委员会
+    /// Committees, get the job to verify machine info
     pub booked_committee: Vec<AccountId>,
-    /// 提交了Hash的委员会列表
+    /// Committees, have submited machine info hash
     pub hashed_committee: Vec<AccountId>,
-    /// 系统设定的开始提交raw信息的委员会
+    /// When committee can submit raw machine info, submit machine info can
+    /// immediately start after all booked_committee submit hash
     pub confirm_start_time: BlockNumber,
-    /// 已经提交了原始信息的委员会
+    /// Committees, have submit raw machine info
     pub confirmed_committee: Vec<AccountId>,
-    /// 若机器成功上线，可以获得该机器在线奖励的委员会
+    /// Committees, get a consensus, so can get rewards after machine online
     pub onlined_committee: Vec<AccountId>,
+    /// Current order status
     pub status: LCVerifyStatus,
 }
 
@@ -89,14 +91,16 @@ impl Default for LCVerifyStatus {
     }
 }
 
-// 一个委员会对对机器的操作记录
+/// A record of committee’s operations when verifying machine info
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct LCCommitteeOps<BlockNumber, Balance> {
     pub staked_dbc: Balance,
-    pub verify_time: Vec<BlockNumber>, // 委员会可以验证机器的时间
+    /// When one committee can start the virtual machine to verify machine info
+    pub verify_time: Vec<BlockNumber>,
     pub confirm_hash: [u8; 16],
     pub hash_time: BlockNumber,
-    pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
+    /// When one committee submit raw machine info
+    pub confirm_time: BlockNumber,
     pub machine_status: LCMachineStatus,
     pub machine_info: CommitteeUploadInfo,
 }
@@ -116,27 +120,29 @@ impl Default for LCMachineStatus {
     }
 }
 
-/// 委员会完成提交信息后，可能会出现的情况
+/// What will happen after all committee submit raw machine info
 enum MachineConfirmStatus<AccountId> {
-    /// 支持的委员会，反对的委员会，机器信息
+    /// Machine is confirmed by committee, so can be online later
     Confirmed(Summary<AccountId>),
-    /// 支持的委员会，反对的委员会，机器信息
+    /// Machine is refused, will not online
     Refuse(Summary<AccountId>),
-    /// 如果由于没有委员会提交信息而无共识，则委员会将受到惩罚
+    /// No consensus, so machine will be redistributed and verified later
     NoConsensus(Summary<AccountId>),
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 struct Summary<AccountId> {
-    /// 有效的支持者
+    /// Machine will be online, and those committee will get reward
     pub valid_support: Vec<AccountId>,
-    /// 无效的支持者
+    /// Machine will be online, and those committee cannot get reward
+    /// for they submit different message from majority committee
     pub invalid_support: Vec<AccountId>,
-    /// 没有提交全部信息的委员会
+    /// Committees, that not submit all message
+    /// such as: not submit hash, not submit raw info before deadline
     pub unruly: Vec<AccountId>,
-    /// 反对的委员会
+    /// Committees, refuse machine online
     pub against: Vec<AccountId>,
-    /// 达成共识的机器信息
+    /// Raw machine info, most majority committee submit
     pub info: Option<CommitteeUploadInfo>,
 }
 
@@ -163,8 +169,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-            Self::distribute_machines(); // 分派机器
-            Self::statistic_result(); // 检查订单状态
+            Self::distribute_machines();
+            Self::statistic_result();
         }
     }
 
@@ -533,22 +539,6 @@ impl<T: Config> Pallet<T> {
             // Do cleaning
             MachineSubmitedHash::<T>::remove(&machine_id);
         }
-    }
-
-    fn _clean_book(machine_id: MachineId, committee: T::AccountId) {
-        CommitteeOps::<T>::remove(&committee, &machine_id);
-
-        let mut committee_machine = Self::committee_machine(&committee);
-        if let Ok(index) = committee_machine.booked_machine.binary_search(&machine_id) {
-            committee_machine.booked_machine.remove(index);
-        }
-        if let Ok(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
-            committee_machine.hashed_machine.remove(index);
-        }
-        if let Ok(index) = committee_machine.confirmed_machine.binary_search(&machine_id) {
-            committee_machine.confirmed_machine.remove(index);
-        }
-        CommitteeMachine::<T>::insert(committee, committee_machine);
     }
 
     // 重新进行派单评估

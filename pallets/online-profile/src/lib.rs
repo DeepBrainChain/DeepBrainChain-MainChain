@@ -494,30 +494,6 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            let mut live_machines = Self::live_machines();
-
-            let mut online_machine = Vec::new();
-            let mut rented_machine = Vec::new();
-
-            for machine_id in live_machines.online_machine {
-                let machine_info = Self::machines_info(&machine_id);
-                match machine_info.machine_status {
-                    MachineStatus::Online =>
-                        if let Err(index) = online_machine.binary_search(&machine_id) {
-                            online_machine.insert(index, machine_id.clone());
-                        },
-                    MachineStatus::Rented =>
-                        if let Err(index) = rented_machine.binary_search(&machine_id) {
-                            rented_machine.insert(index, machine_id.clone());
-                        },
-                    _ => {},
-                }
-            }
-
-            live_machines.online_machine = online_machine;
-            live_machines.rented_machine = rented_machine;
-            LiveMachines::<T>::put(live_machines);
-
             0
         }
 
@@ -563,11 +539,10 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // 实现当达到5000卡时，开启奖励
+        /// When reward start to distribute
         #[pallet::weight(0)]
         pub fn set_reward_start_era(origin: OriginFor<T>, reward_start_era: EraIndex) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-
             RewardStartEra::<T>::put(reward_start_era);
             Ok(().into())
         }
@@ -613,17 +588,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
-        pub fn add_era_reward(
-            origin: OriginFor<T>,
-            era_index: EraIndex,
-            reward: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            EraReward::<T>::insert(era_index, reward);
-            Ok(().into())
-        }
-
         /// 上线被拒绝后，重新上线需要质押
         #[pallet::weight(0)]
         pub fn set_reonline_stake(origin: OriginFor<T>, reonline_stake: u64) -> DispatchResultWithPostInfo {
@@ -632,19 +596,21 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// stash账户设置一个控制账户
+        /// Stash account set a controller
         #[pallet::weight(10000)]
         pub fn set_controller(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResultWithPostInfo {
             let stash = ensure_signed(origin)?;
-            // 不允许多个stash指定同一个controller
+            // Not allow multiple stash have same controller
             ensure!(!<ControllerStash<T>>::contains_key(&controller), Error::<T>::AlreadyController);
 
             StashController::<T>::insert(stash.clone(), controller.clone());
-            ControllerStash::<T>::insert(controller, stash);
+            ControllerStash::<T>::insert(controller.clone(), stash.clone());
+
+            Self::deposit_event(Event::ControllerStashBonded(controller, stash));
             Ok(().into())
         }
 
-        /// stash账户为MachineId设置新的控制账户
+        /// Stash account reset controller for one machine
         #[pallet::weight(10000)]
         pub fn stash_reset_controller(
             origin: OriginFor<T>,
@@ -652,6 +618,7 @@ pub mod pallet {
             new_controller: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let stash = ensure_signed(origin)?;
+
             let mut machine_info = Self::machines_info(&machine_id);
 
             let raw_controller = machine_info.controller.clone();
@@ -661,7 +628,7 @@ pub mod pallet {
             ensure!(machine_info.machine_stash == stash, Error::<T>::NotMachineStash);
             machine_info.controller = new_controller.clone();
 
-            // 更改controller_machines
+            // Change controller_machines
             if let Ok(index) = raw_controller_machines.binary_search(&machine_id) {
                 raw_controller_machines.remove(index);
 
@@ -672,14 +639,13 @@ pub mod pallet {
                 }
             }
 
-            MachinesInfo::<T>::insert(machine_id, machine_info);
-
+            MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
+            Self::deposit_event(Event::MachineControllerChanged(machine_id, raw_controller, new_controller));
             Ok(().into())
         }
 
         /// Controller account reonline machine, allow change hardware info
         /// Committee will verify it later
-        ///
         /// NOTE: User need to add machine basic info(pos & net speed), after
         /// committee verify finished, will be slashed for `OnlineReportOffline`
         #[pallet::weight(10000)]
@@ -694,7 +660,6 @@ pub mod pallet {
             let mut machine_info = Self::machines_info(&machine_id);
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-
             // 只允许在线状态的机器修改信息
             match machine_info.machine_status {
                 MachineStatus::Online => {},
@@ -707,10 +672,7 @@ pub mod pallet {
                 T::DbcPrice::get_dbc_amount_by_value(reonline_stake).ok_or(Error::<T>::GetReonlineStakeFailed)?;
 
             let stash_stake = Self::stash_stake(&machine_info.machine_stash);
-
-            let user_free_balance = <T as Config>::Currency::free_balance(&machine_info.machine_stash);
             let new_stash_stake = stash_stake.checked_add(&stake_amount).ok_or(Error::<T>::CalcStakeAmountFailed)?;
-            ensure!(user_free_balance > new_stash_stake, Error::<T>::BalanceNotEnough);
 
             if <T as Config>::Currency::can_reserve(&machine_info.machine_stash, stake_amount) {
                 <T as pallet::Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)
@@ -722,7 +684,7 @@ pub mod pallet {
             machine_info.machine_status = MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
             LiveMachine::rm_machine_id(&mut live_machines.online_machine, &machine_id);
-            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone()); // 放入bonding_machine中
+            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
 
             UserReonlineStake::<T>::insert(
                 &machine_info.machine_stash,
@@ -735,12 +697,12 @@ pub mod pallet {
             LiveMachines::<T>::put(live_machines);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
+            Self::deposit_event(Event::MachineOfflineToMutHardware(machine_id, stake_amount));
+
             Ok(().into())
         }
 
-        // - Reads:
-        // - Writes: ControllerMachines, StashMachines, LiveMachines, MachinesInfo, SysInfo, StashStake
-        /// 控制账户上线一个机器
+        /// Controller account submit online request machine
         #[pallet::weight(10000)]
         pub fn bond_machine(
             origin: OriginFor<T>,
@@ -751,9 +713,13 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
             let mut live_machines = Self::live_machines();
+            let mut controller_machines = Self::controller_machines(&controller);
+            let mut stash_machines = Self::stash_machines(&stash);
 
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
-            ensure!(msg.len() == 112, Error::<T>::BadMsgLen); // 验证msg: len(pubkey + account) = 64 + 48
+
+            // 验证msg: len(pubkey + account) = 64 + 48
+            ensure!(msg.len() == 112, Error::<T>::BadMsgLen);
 
             let sig_machine_id: Vec<u8> = msg[..64].to_vec();
             ensure!(machine_id == sig_machine_id, Error::<T>::SigMachineIdNotEqualBondedMachineId);
@@ -774,12 +740,9 @@ pub mod pallet {
             // 扣除10个Dbc作为交易手续费
             <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
-            let mut stash_machines = Self::stash_machines(&stash);
             if let Err(index) = stash_machines.total_machine.binary_search(&machine_id) {
                 stash_machines.total_machine.insert(index, machine_id.clone());
             }
-
-            let mut controller_machines = Self::controller_machines(&controller);
             if let Err(index) = controller_machines.binary_search(&machine_id) {
                 controller_machines.insert(index, machine_id.clone());
             }
@@ -798,7 +761,7 @@ pub mod pallet {
                 ..Default::default()
             };
 
-            Self::add_user_total_stake(&stash, stake_amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
+            Self::add_user_total_stake(stash.clone(), stake_amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             ControllerMachines::<T>::insert(&controller, controller_machines);
             StashMachines::<T>::insert(&stash, stash_machines);
@@ -889,6 +852,7 @@ pub mod pallet {
             }
 
             StashServerRooms::<T>::insert(&stash, stash_server_rooms);
+            Self::deposit_event(Event::ServerRoomGenerated(controller.clone(), new_server_room));
             Ok(().into())
         }
 
@@ -937,6 +901,7 @@ pub mod pallet {
             }
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
+            Self::deposit_event(Event::MachineInfoAdded(machine_id));
             Ok(().into())
         }
 
@@ -961,7 +926,7 @@ pub mod pallet {
             if machine_info.current_stake_amount < stake_need {
                 let extra_stake = stake_need - machine_info.init_stake_amount;
 
-                Self::add_user_total_stake(&machine_info.machine_stash, extra_stake)
+                Self::add_user_total_stake(machine_info.machine_stash.clone(), extra_stake)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
                 machine_info.init_stake_amount = stake_need;
@@ -1007,14 +972,16 @@ pub mod pallet {
             let stash_account = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashAccount)?;
             ensure!(StashMachines::<T>::contains_key(&stash_account), Error::<T>::NotMachineController);
             let mut stash_machine = Self::stash_machines(&stash_account);
+            let can_claim = stash_machine.can_claim_reward;
 
-            <T as pallet::Config>::Currency::deposit_into_existing(&stash_account, stash_machine.can_claim_reward)
+            <T as pallet::Config>::Currency::deposit_into_existing(&stash_account, can_claim)
                 .map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
-            stash_machine.total_claimed_reward += stash_machine.can_claim_reward;
+            stash_machine.total_claimed_reward += can_claim;
             stash_machine.can_claim_reward = 0u64.saturated_into();
             StashMachines::<T>::insert(&stash_account, stash_machine);
 
+            Self::deposit_event(Event::ClaimReward(stash_account, can_claim));
             Ok(().into())
         }
 
@@ -1034,9 +1001,11 @@ pub mod pallet {
             }
 
             Self::machine_offline(
-                machine_id,
+                machine_id.clone(),
                 MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status)),
             );
+
+            Self::deposit_event(Event::ControllerReportOffline(machine_id));
             Ok(().into())
         }
 
@@ -1137,6 +1106,7 @@ pub mod pallet {
             MachinesInfo::<T>::insert(&machine_id, machine_info);
             SysInfo::<T>::put(sys_info);
 
+            Self::deposit_event(Event::ControllerReportOnline(machine_id));
             Ok(().into())
         }
 
@@ -1171,7 +1141,7 @@ pub mod pallet {
                 machine_info.init_stake_amount = stake_need;
                 machine_info.current_stake_amount = stake_need;
                 machine_info.last_machine_restake = now;
-                if Self::reduce_user_total_stake(&machine_info.machine_stash, extra_stake).is_err() {
+                if Self::reduce_user_total_stake(machine_info.machine_stash.clone(), extra_stake).is_err() {
                     return Err(Error::<T>::ReduceStakeFailed.into())
                 }
                 MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -1194,6 +1164,16 @@ pub mod pallet {
     pub enum Event<T: Config> {
         BondMachine(T::AccountId, MachineId, BalanceOf<T>),
         Slash(T::AccountId, BalanceOf<T>, OPSlashReason),
+        ControllerStashBonded(T::AccountId, T::AccountId),
+        MachineControllerChanged(MachineId, T::AccountId, T::AccountId),
+        MachineOfflineToMutHardware(MachineId, BalanceOf<T>),
+        StakeAdded(T::AccountId, BalanceOf<T>),
+        StakeReduced(T::AccountId, BalanceOf<T>),
+        ServerRoomGenerated(T::AccountId, H256),
+        MachineInfoAdded(MachineId),
+        ClaimReward(T::AccountId, BalanceOf<T>),
+        ControllerReportOffline(MachineId),
+        ControllerReportOnline(MachineId),
     }
 
     #[pallet::error]
@@ -1443,9 +1423,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // TODO: slash it
-
         if <T as pallet::Config>::Currency::can_slash(&machine_info.machine_stash, slash_amount) {
-            let (imbalance, missing) =
+            let (imbalance, _missing) =
                 <T as pallet::Config>::Currency::slash(&machine_info.machine_stash, slash_amount);
 
             <T as pallet::Config>::Slash::on_unbalanced(imbalance);
@@ -1559,7 +1538,7 @@ impl<T: Config> Pallet<T> {
                 for a_committee in slash_info.reward_to {
                     if left_reward < reward_each_get {
                         if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
-                            <T as pallet::Config>::Currency::repatriate_reserved(
+                            let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                                 &slash_info.slash_who,
                                 &a_committee,
                                 reward_each_get,
@@ -1568,7 +1547,7 @@ impl<T: Config> Pallet<T> {
                         }
                     } else {
                         if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
-                            <T as pallet::Config>::Currency::repatriate_reserved(
+                            let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                                 &slash_info.slash_who,
                                 &a_committee,
                                 reward_each_get,
@@ -1581,6 +1560,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
+            StashStake::<T>::insert(slash_info.slash_who, stake_after_slash);
             PendingSlash::<T>::remove(a_slash_id);
         }
 
@@ -1773,11 +1753,11 @@ impl<T: Config> Pallet<T> {
         Self::phase_n_reward_per_era(phase_index)
     }
 
-    fn add_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        let stash_stake = Self::stash_stake(who);
+    fn add_user_total_stake(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        let stash_stake = Self::stash_stake(&who);
         let new_stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
 
-        let user_free_balance = <T as Config>::Currency::free_balance(who);
+        let user_free_balance = <T as Config>::Currency::free_balance(&who);
         if user_free_balance < new_stash_stake {
             return Err(())
         }
@@ -1794,13 +1774,15 @@ impl<T: Config> Pallet<T> {
             return Err(())
         }
 
-        StashStake::<T>::insert(who, new_stash_stake);
+        StashStake::<T>::insert(&who, new_stash_stake);
         SysInfo::<T>::put(sys_info);
+
+        Self::deposit_event(Event::StakeAdded(who, amount));
         Ok(())
     }
 
-    fn reduce_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        let stash_stake = Self::stash_stake(who);
+    fn reduce_user_total_stake(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        let stash_stake = Self::stash_stake(&who);
         let new_stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
 
         // 改变总质押
@@ -1811,6 +1793,7 @@ impl<T: Config> Pallet<T> {
         StashStake::<T>::insert(&who, new_stash_stake);
         SysInfo::<T>::put(sys_info);
 
+        Self::deposit_event(Event::StakeReduced(who, amount));
         Ok(())
     }
 
@@ -1825,7 +1808,7 @@ impl<T: Config> Pallet<T> {
         let reward_each_get = Perbill::from_rational_approximation(1, committee.len() as u64) * amount;
         for a_committee in committee {
             if <T as pallet::Config>::Currency::can_slash(who, reward_each_get) {
-                <T as pallet::Config>::Currency::repatriate_reserved(
+                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                     who,
                     &a_committee,
                     reward_each_get,
@@ -2202,7 +2185,7 @@ impl<T: Config> LCOps for Pallet<T> {
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
         let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.init_stake_amount) {
-            if Self::add_user_total_stake(&machine_info.machine_stash, extra_stake).is_ok() {
+            if Self::add_user_total_stake(machine_info.machine_stash.clone(), extra_stake).is_ok() {
                 LiveMachine::add_machine_id(
                     &mut live_machines.online_machine,
                     committee_upload_info.machine_id.clone(),
@@ -2291,7 +2274,7 @@ impl<T: Config> LCOps for Pallet<T> {
 
             for a_committee in committee {
                 if <T as pallet::Config>::Currency::can_slash(&machine_info.machine_stash, reward_each_get) {
-                    <T as pallet::Config>::Currency::repatriate_reserved(
+                    let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                         &machine_info.machine_stash,
                         &a_committee,
                         reward_each_get,

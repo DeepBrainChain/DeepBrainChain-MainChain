@@ -138,9 +138,9 @@ impl<T: Config> Pallet<T> {
         }
 
         let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, fixed_tx_fee);
-        Self::deposit_event(Event::TxFeeToTreasury(who, fixed_tx_fee));
         T::FixedTxFee::on_unbalanced(imbalance);
 
+        Self::deposit_event(Event::TxFeeToTreasury(who, fixed_tx_fee));
         Ok(())
     }
 }
