@@ -121,7 +121,7 @@ impl Default for LCMachineStatus {
 }
 
 /// What will happen after all committee submit raw machine info
-enum MachineConfirmStatus<AccountId> {
+pub enum MachineConfirmStatus<AccountId> {
     /// Machine is confirmed by committee, so can be online later
     Confirmed(Summary<AccountId>),
     /// Machine is refused, will not online
@@ -131,7 +131,7 @@ enum MachineConfirmStatus<AccountId> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-struct Summary<AccountId> {
+pub struct Summary<AccountId> {
     /// Machine will be online, and those committee will get reward
     pub valid_support: Vec<AccountId>,
     /// Machine will be online, and those committee cannot get reward
@@ -580,7 +580,7 @@ impl<T: Config> Pallet<T> {
     // 1. 无共识：处理办法：退还委员会质押，机器重新派单。
     // 2. 支持上线: 处理办法：扣除所有反对上线，支持上线但提交无效信息的委员会的质押。
     // 3. 反对上线: 处理办法：反对的委员会平分支持的委员会的质押。扣5%矿工质押，允许矿工再次质押而上线。
-    fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
+    pub fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
         let machine_committee = Self::machine_committee(machine_id);
 
         let mut summary = Summary { ..Default::default() };
@@ -619,7 +619,8 @@ impl<T: Config> Pallet<T> {
 
         // 统计committee_for_machine_info中有多少委员会站队最多
         let support_committee_num: Vec<usize> = committee_for_machine_info.iter().map(|item| item.len()).collect();
-        let max_support = support_committee_num.iter().max(); // 最多多少个委员会达成一致意见
+        // 最多多少个委员会达成一致意见
+        let max_support = support_committee_num.iter().max();
 
         match max_support {
             None => {

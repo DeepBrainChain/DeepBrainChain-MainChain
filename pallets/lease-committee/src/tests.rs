@@ -1040,3 +1040,32 @@ fn committee_not_equal_then_redistribute_works() {
         // TODO: 测试清理信息
     })
 }
+
+#[test]
+fn test_summary_confirmation() {
+    new_test_with_init_params_ext().execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+
+        // 构建 machine_committee
+        <super::MachineCommittee<TestRuntime>>::insert(
+            &machine_id,
+            super::LCMachineCommitteeList {
+                book_time: 1112,
+                booked_committee: vec![committee1, committee2, committee3],
+                hashed_committee: vec![committee1, committee2, committee3],
+                confirm_start_time: 5432,
+                confirmed_committee: vec![committee1, committee2, committee3],
+                onlined_committee: vec![],
+                status: super::LCVerifyStatus::Summarizing,
+            },
+        );
+
+        // 构建committee_ops
+        // <super::CommitteeOps<TestRuntime>>::insert();
+
+        // LeaseCommittee::summary_confirmation();
+    })
+}
