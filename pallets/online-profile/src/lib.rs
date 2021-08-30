@@ -713,6 +713,8 @@ pub mod pallet {
                 return Err(Error::<T>::BalanceNotEnough.into())
             }
 
+            machine_info.machine_status = MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
+
             LiveMachine::rm_machine_id(&mut live_machines.online_machine, &machine_id);
             LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone()); // 放入bonding_machine中
 

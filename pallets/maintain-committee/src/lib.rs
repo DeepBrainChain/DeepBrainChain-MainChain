@@ -24,7 +24,7 @@ mod mock;
 mod tests;
 
 pub type MachineId = Vec<u8>;
-pub type ReportId = u64; // 提交的单据ID
+pub type ReportId = u64;
 pub type BoxPubkey = [u8; 32];
 pub type ReportHash = [u8; 16];
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

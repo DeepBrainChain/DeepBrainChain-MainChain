@@ -388,7 +388,7 @@ fn machine_online_works() {
         assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
 
         // 领取奖励后，查询账户余额
-        assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 549944999455500000000);
+        assert_eq!(Balances::free_balance(stash), INIT_BALANCE - 400000 * ONE_DBC + 549944999455500000000);
 
         // 委员会领取奖励
         // - Writes:
@@ -398,7 +398,7 @@ fn machine_online_works() {
         committee_stake_info.can_claim_reward = 0;
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
         // FIXME: 检查质押
-        assert_eq!(Balances::free_balance(committee1), INIT_BALANCE + 5554999994500000000);
+        assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC + 5554999994500000000);
 
         // NOTE: 测试 控制账户重新上线机器
         assert_ok!(OnlineProfile::offline_machine_change_hardware_info(Origin::signed(controller), machine_id.clone()));
@@ -639,7 +639,10 @@ fn machine_online_works() {
             online_profile::UserReonlineStakeInfo { ..Default::default() }
         );
         // 奖励2000DBC
-        assert_eq!(Balances::free_balance(committee1), INIT_BALANCE + 5554999994500000000 + 2000 * ONE_DBC);
+        assert_eq!(
+            Balances::free_balance(committee1),
+            INIT_BALANCE - 20000 * ONE_DBC + 5554999994500000000 + 2000 * ONE_DBC
+        );
     });
 }
 

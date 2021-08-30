@@ -431,17 +431,11 @@ impl<T: Config> Pallet<T> {
     // 返回Distribution(9)个随机顺序的账户列表
     pub fn lucky_committee() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
         let mut committee = <committee::Module<T>>::available_committee().ok()?;
-
-        // 如果委员会数量为0，直接返回空列表
-        if committee.len() == 0 {
-            return None
-        }
-
-        // 有多少个幸运的委员会： min(staker.committee.len(), 3)
-        let lucky_committee_num = committee.len().min(3);
-
         // 选出lucky_committee_num个委员会
         let mut lucky_committee = Vec::new();
+
+        // Require committee_num at lease 3
+        let lucky_committee_num = if committee.len() < 3 { return None } else { 3 };
 
         for _ in 0..lucky_committee_num {
             let lucky_index = <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
@@ -471,9 +465,12 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            let mut slash_committee = Vec::new(); // 应该被惩罚的委员会
-            let mut reward_committee = Vec::new(); // 当拒绝上线时，惩罚委员会的币奖励给拒绝的委员会
-            let mut unstake_committee = Vec::new(); // 解除质押的委员会
+            // committee, that should be slashed
+            let mut slash_committee = Vec::new();
+            // committee, that should be reward to
+            let mut reward_committee = Vec::new();
+            // committee, that finished his work, and should return his stake back
+            let mut unstake_committee = Vec::new();
 
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
