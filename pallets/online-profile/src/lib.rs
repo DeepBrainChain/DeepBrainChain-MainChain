@@ -328,7 +328,7 @@ pub mod pallet {
     /// How much a GPU should stake(DBC).eg. 100_000 DBC
     #[pallet::storage]
     #[pallet::getter(fn stake_per_gpu)]
-    pub(super) type StakePerGPU<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+    pub(super) type StakePerGPU<T: Config> = StorageValue<_, BalanceOf<T>>;
 
     /// 标准显卡算力点数和租用价格(USD*10^6/Era)
     #[pallet::storage]
@@ -338,7 +338,7 @@ pub mod pallet {
     /// 单卡质押上限。USD*10^6
     #[pallet::storage]
     #[pallet::getter(fn stake_usd_limit)]
-    pub(super) type StakeUSDLimit<T: Config> = StorageValue<_, u64, ValueQuery>;
+    pub(super) type StakeUSDLimit<T: Config> = StorageValue<_, u64>;
 
     /// 机器重新上线需要的手续费。USD*10^6，默认300RMB等值
     #[pallet::storage]
@@ -835,17 +835,15 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 控制账户生成机房信息,该机房记录到stash账户下
+        /// Controller generate new server room id, record to stash account
         #[pallet::weight(10000)]
         pub fn gen_server_room(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
 
-            // 扣除10个Dbc作为交易手续费
             <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
             let new_server_room = <generic_func::Module<T>>::random_server_room();
-
             let mut stash_server_rooms = Self::stash_server_rooms(&stash);
             if let Err(index) = stash_server_rooms.binary_search(&new_server_room) {
                 stash_server_rooms.insert(index, new_server_room);
@@ -856,7 +854,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 控制账户添加机器信息: 经纬度*10^4取整
+        /// Controller add machine pos & net info
         #[pallet::weight(10000)]
         pub fn add_machine_info(
             origin: OriginFor<T>,
@@ -1705,12 +1703,12 @@ impl<T: Config> Pallet<T> {
     pub fn calc_stake_amount(gpu_num: u32) -> Option<BalanceOf<T>> {
         let sys_info = Self::sys_info();
 
-        let mut base_stake = Self::stake_per_gpu(); // 单卡10_0000 DBC
+        let mut base_stake = Self::stake_per_gpu()?; // 单卡10_0000 DBC
         if sys_info.total_gpu_num > 10_000 {
             base_stake = Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num) * base_stake
         }
 
-        let stake_usd_limit = Self::stake_usd_limit();
+        let stake_usd_limit = Self::stake_usd_limit()?;
         let stake_limit = T::DbcPrice::get_dbc_amount_by_value(stake_usd_limit)?;
 
         return base_stake.min(stake_limit).checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())

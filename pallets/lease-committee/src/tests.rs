@@ -10,6 +10,16 @@ use online_profile::{
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
 
+// case 1: 3个支持，内容一致 ->上线
+// case 2: 3个支持，2内容一致 -> 上线 + 惩罚
+// case 3: 2个支持，1个反对 (2个一致) -> 上线 + 惩罚
+
+// case 4: 3个支持，内容都不一致 -> 无共识 + 重新分配
+// case 5: 2个支持，1个反对（2个不一致） -> 无共识 + 重新分配
+
+// case 6: 2个反对，1个支持 -> 不上线 + 奖励 + 惩罚
+// case 7: 3个反对 -> 不上线 + 奖励
+
 #[test]
 fn machine_online_works() {
     new_test_with_init_params_ext().execute_with(|| {

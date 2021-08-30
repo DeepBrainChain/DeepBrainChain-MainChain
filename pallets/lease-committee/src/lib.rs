@@ -169,8 +169,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-            Self::distribute_machines();
             Self::statistic_result();
+            Self::distribute_machines();
         }
     }
 
@@ -498,10 +498,10 @@ impl<T: Config> Pallet<T> {
                             CommitteeMachine::<T>::insert(&a_committee, committee_machine);
                         }
 
-                        // TODO: refa
                         let mut machine_committee = Self::machine_committee(&machine_id);
                         machine_committee.status = LCVerifyStatus::Finished;
                         machine_committee.onlined_committee = summary.valid_support;
+                        MachineCommittee::<T>::insert(&machine_id, machine_committee);
                     }
                 },
                 MachineConfirmStatus::Refuse(summary) => {

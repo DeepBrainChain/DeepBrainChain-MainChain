@@ -627,7 +627,6 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     fn stake_per_order() -> Option<BalanceOf<T>> {
         let committee_stake_params = Self::committee_stake_params()?;
         Some(committee_stake_params.stake_per_order)
-        // Self::committee_stake_per_order()
     }
 
     fn add_reward(committee: T::AccountId, reward: BalanceOf<T>) {

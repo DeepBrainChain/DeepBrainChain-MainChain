@@ -48,7 +48,7 @@ pub mod pallet {
     // 控制全局交易费用
     #[pallet::storage]
     #[pallet::getter(fn fixed_tx_fee)]
-    pub type FixedTxFee<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+    pub type FixedTxFee<T: Config> = StorageValue<_, BalanceOf<T>>;
 
     // 设置交易费管理者
     #[pallet::storage]
@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
     // 每次交易消耗一些交易费: 10DBC
     // 交易费直接转给国库
     pub fn pay_fixed_tx_fee(who: T::AccountId) -> Result<(), ()> {
-        let fixed_tx_fee = Self::fixed_tx_fee();
+        let fixed_tx_fee = Self::fixed_tx_fee().ok_or(())?;
 
         if !<T as pallet::Config>::Currency::can_slash(&who, fixed_tx_fee) {
             return Err(())
