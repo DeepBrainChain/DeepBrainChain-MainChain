@@ -231,7 +231,7 @@ pub mod pallet {
         type MTOps: MTOps<
             AccountId = Self::AccountId,
             MachineId = MachineId,
-            FaultType = online_profile::StashSlashReason<Self::BlockNumber>,
+            FaultType = online_profile::OPSlashReason<Self::BlockNumber>,
         >;
     }
 
@@ -1158,7 +1158,7 @@ impl<T: Config> Pallet<T> {
                                 report_info.reporter.clone(),
                                 support_committees,
                                 report_info.machine_id.clone(),
-                                online_profile::StashSlashReason::RentedInaccessible(report_info.report_time),
+                                online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
                             );
                         },
                         MachineFaultType::RentedHardwareMalfunction(..) => {
@@ -1166,7 +1166,7 @@ impl<T: Config> Pallet<T> {
                                 report_info.reporter.clone(),
                                 support_committees,
                                 report_info.machine_id.clone(),
-                                online_profile::StashSlashReason::RentedHardwareMalfunction(report_info.report_time),
+                                online_profile::OPSlashReason::RentedHardwareMalfunction(report_info.report_time),
                             );
                         },
                         MachineFaultType::RentedHardwareCounterfeit(..) => {
@@ -1174,7 +1174,7 @@ impl<T: Config> Pallet<T> {
                                 report_info.reporter.clone(),
                                 support_committees,
                                 report_info.machine_id.clone(),
-                                online_profile::StashSlashReason::RentedHardwareCounterfeit(report_info.report_time),
+                                online_profile::OPSlashReason::RentedHardwareCounterfeit(report_info.report_time),
                             );
                         },
                         MachineFaultType::OnlineRentFailed(..) => {
@@ -1182,7 +1182,7 @@ impl<T: Config> Pallet<T> {
                                 report_info.reporter.clone(),
                                 support_committees,
                                 report_info.machine_id.clone(),
-                                online_profile::StashSlashReason::OnlineRentFailed(report_info.report_time),
+                                online_profile::OPSlashReason::OnlineRentFailed(report_info.report_time),
                             );
                         },
                     }

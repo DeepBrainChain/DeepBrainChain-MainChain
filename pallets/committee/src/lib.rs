@@ -30,8 +30,6 @@ pub struct CMPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub slash_who: AccountId,
     /// 惩罚被创建的时间
     pub slash_time: BlockNumber,
-    /// 执行惩罚前解绑的金额
-    pub unlock_amount: Balance,
     /// 执行惩罚的金额
     pub slash_amount: Balance,
     /// 惩罚被执行的时间
@@ -121,8 +119,9 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_finalize(_block_number: T::BlockNumber) {
+        fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
             let _ = Self::check_and_exec_slash();
+            0
         }
     }
 
@@ -389,6 +388,22 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
+            // TODO: 退还质押
+
+            let slash_info = Self::pending_slash(slash_id);
+            let mut committee_stake = Self::committee_stake(&slash_info.slash_who);
+
+            committee_stake.used_stake = committee_stake
+                .used_stake
+                .checked_sub(&slash_info.slash_amount)
+                .ok_or(Error::<T>::CancleSlashFailed)?;
+
+            // TODO: 检查当前委员会的质押，并改变委员会的状态
+
+            let _ = <T as pallet::Config>::Currency::unreserve(&slash_info.slash_who, slash_info.slash_amount);
+
+            CommitteeStake::<T>::insert(slash_info.slash_who, committee_stake);
+
             PendingSlash::<T>::remove(slash_id);
             Ok(().into())
         }
@@ -425,6 +440,7 @@ pub mod pallet {
         StakeNotEnough,
         StatusNotAllowed,
         NotInNormalList,
+        CancleSlashFailed,
     }
 }
 
@@ -536,6 +552,23 @@ impl<T: Config> Pallet<T> {
 
         return slash_id
     }
+
+    // TODO: finished this and refa
+    // fn change_committee_status_when_stake_changed(
+    //     committee: &T::AccountId,
+    //     committee_list: &mut CommitteeList<T::AccountId>,
+    //     committee_stake: &CommitteeStakeInfo<BalanceOf<T>>,
+    //     committee_stake_params: &CommitteeStakeParams<BalanceOf<T>>,
+    // ) {
+    //     // 1. 检查当前质押，委员会应该处于的状态
+    //     let will_be_normal = if committee_stake_params.min_free_stake_percent * committee_stake.staked_amount >
+    //         committee_stake.staked_amount - committee_stake.used_stake
+    //     {
+    //         true
+    //     } else {
+    //         false
+    //     };
+    // }
 }
 
 impl<T: Config> ManageCommittee for Pallet<T> {
@@ -634,7 +667,6 @@ impl<T: Config> ManageCommittee for Pallet<T> {
             CMPendingSlashInfo {
                 slash_who: who,
                 slash_time: now,
-                unlock_amount: amount,
                 slash_amount: amount,
                 slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
                 reward_to,

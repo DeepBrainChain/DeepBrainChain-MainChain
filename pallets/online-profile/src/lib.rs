@@ -16,7 +16,7 @@ use online_profile_machine::{DbcPrice, MTOps, ManageCommittee, OCOps, OPRPCQuery
 use serde::{Deserialize, Serialize};
 use sp_core::{crypto::Public, H256};
 use sp_runtime::{
-    traits::{Bounded, CheckedAdd, CheckedMul, CheckedSub, Verify, Zero},
+    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify, Zero},
     Perbill, SaturatedConversion,
 };
 use sp_std::{
@@ -125,8 +125,7 @@ pub enum MachineStatus<BlockNumber, AccountId> {
     /// 机器管理者报告机器已下线
     StakerReportOffline(BlockNumber, Box<Self>),
     /// 报告人报告机器下线 (SlashReason, StatusBeforeOffline, Reporter, Committee)
-    ReporterReportOffline(StashSlashReason<BlockNumber>, Box<Self>, AccountId, Vec<AccountId>),
-    // ReporterReportOffline(BlockNumber, Box<Self>), // TODO
+    ReporterReportOffline(OPSlashReason<BlockNumber>, Box<Self>, AccountId, Vec<AccountId>),
     /// 机器被租用，虚拟机正在被创建，等待用户提交机器创建完成的信息
     Creating,
     /// 已经被租用
@@ -143,7 +142,7 @@ impl<BlockNumber, AccountId> Default for MachineStatus<BlockNumber, AccountId> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum StashSlashReason<BlockNumber> {
+pub enum OPSlashReason<BlockNumber> {
     /// 主动报告被租用的机器下线
     RentedReportOffline(BlockNumber),
     /// 主动报告在线的机器下线
@@ -156,11 +155,15 @@ pub enum StashSlashReason<BlockNumber> {
     RentedHardwareCounterfeit(BlockNumber),
     /// 机器是在线状态，但无法租用
     OnlineRentFailed(BlockNumber),
+    /// 机器被委员会拒绝上架
+    CommitteeRefusedOnline,
+    // 委员会拒绝重新上架
+    CommitteeRefusedMutHardware,
 }
 
-impl<BlockNumber: Bounded + From<u32>> Default for StashSlashReason<BlockNumber> {
+impl<BlockNumber> Default for OPSlashReason<BlockNumber> {
     fn default() -> Self {
-        StashSlashReason::OnlineReportOffline(0u32.saturated_into::<BlockNumber>())
+        Self::CommitteeRefusedOnline
     }
 }
 
@@ -277,33 +280,23 @@ pub struct PosInfo {
     pub online_gpu_calc_points: u64,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum OPSlashReason {
-    CommitteeRefusedOnline,
-}
-
-impl Default for OPSlashReason {
-    fn default() -> Self {
-        OPSlashReason::CommitteeRefusedOnline
-    }
-}
-
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct OPPendingSlashInfo<AccountId, BlockNumber, Balance> {
     /// 被惩罚人
     pub slash_who: AccountId,
-    /// 惩罚被创建的时间
+    pub machine_id: MachineId,
+    /// 惩罚创建时间
     pub slash_time: BlockNumber,
-    /// 执行惩罚前解绑的金额
-    pub unlock_amount: Balance,
     /// 执行惩罚的金额
     pub slash_amount: Balance,
-    /// 惩罚被执行的时间
+    /// 惩罚执行时间
     pub slash_exec_time: BlockNumber,
-    /// 奖励发放对象。如果为空，则惩罚到国库
-    pub reward_to: Vec<AccountId>,
+    /// 奖励报告人
+    pub reward_to_reporter: Option<AccountId>,
+    /// 奖励委员会
+    pub reward_to_committee: Option<Vec<AccountId>>,
     /// 被惩罚原因
-    pub slash_reason: OPSlashReason,
+    pub slash_reason: OPSlashReason<BlockNumber>,
 }
 
 #[frame_support::pallet]
@@ -940,7 +933,7 @@ pub mod pallet {
                 let offline_duration = now - reonline_stake.offline_time;
                 Self::slash_when_report_offline(
                     machine_id.clone(),
-                    StashSlashReason::OnlineReportOffline(offline_duration),
+                    OPSlashReason::OnlineReportOffline(offline_duration),
                     None,
                     None,
                 );
@@ -1060,7 +1053,7 @@ pub mod pallet {
                         MachineStatus::Online => {
                             Self::slash_when_report_offline(
                                 machine_id.clone(),
-                                StashSlashReason::OnlineReportOffline(offline_duration),
+                                OPSlashReason::OnlineReportOffline(offline_duration),
                                 None,
                                 None,
                             );
@@ -1072,7 +1065,7 @@ pub mod pallet {
                             // 机器在被租用状态下线，会被惩罚
                             Self::slash_when_report_offline(
                                 machine_id.clone(),
-                                StashSlashReason::RentedReportOffline(offline_duration),
+                                OPSlashReason::RentedReportOffline(offline_duration),
                                 None,
                                 None,
                             );
@@ -1161,7 +1154,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         BondMachine(T::AccountId, MachineId, BalanceOf<T>),
-        Slash(T::AccountId, BalanceOf<T>, OPSlashReason),
+        Slash(T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
         ControllerStashBonded(T::AccountId, T::AccountId),
         MachineControllerChanged(MachineId, T::AccountId, T::AccountId),
         MachineOfflineToMutHardware(MachineId, BalanceOf<T>),
@@ -1208,41 +1201,41 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn slash_when_report_offline(
         machine_id: MachineId,
-        slash_reason: StashSlashReason<T::BlockNumber>,
+        slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
     ) {
         let machine_info = Self::machines_info(&machine_id);
         match slash_reason {
             // 算工主动报告被租用的机器，主动下线
-            StashSlashReason::RentedReportOffline(duration) => {
+            OPSlashReason::RentedReportOffline(duration) => {
                 let duration = duration.saturated_into::<u64>();
                 match duration {
                     0 => return,
                     // 下线不超过7分钟
                     1..=14 => {
                         // 扣除2%质押币。100%进入国库。
-                        Self::do_slash_deposit(2, machine_id, None, None);
+                        Self::add_offline_slash(2, machine_id, None, None, slash_reason);
                     },
                     // 不超过48小时
                     15..=5760 => {
                         // 扣除4%质押币。100%进入国库
-                        Self::do_slash_deposit(4, machine_id, None, None);
+                        Self::add_offline_slash(4, machine_id, None, None, slash_reason);
                     },
                     // 不超过120小时
                     5761..=14400 => {
                         // 扣除30%质押币，10%给到用户，90%进入国库
-                        Self::do_slash_deposit(30, machine_id, machine_info.last_machine_renter, None);
+                        Self::add_offline_slash(30, machine_id, machine_info.last_machine_renter, None, slash_reason);
                     },
                     // 超过120小时
                     _ => {
                         // 扣除50%押金。10%给到用户，90%进入国库
-                        Self::do_slash_deposit(50, machine_id, machine_info.last_machine_renter, None);
+                        Self::add_offline_slash(50, machine_id, machine_info.last_machine_renter, None, slash_reason);
                     },
                 }
             },
             // 算工主动报告在线的机器，主动下线
-            StashSlashReason::OnlineReportOffline(duration) => {
+            OPSlashReason::OnlineReportOffline(duration) => {
                 // TODO: 判断是否已经下线十天，如果是，则不进行惩罚，仅仅下线处理
                 let duration = duration.saturated_into::<u64>();
                 match duration {
@@ -1250,157 +1243,181 @@ impl<T: Config> Pallet<T> {
                     // 下线不超过7分钟
                     1..=14 => {
                         // 扣除2%质押币，质押币全部进入国库。
-                        Self::do_slash_deposit(2, machine_id, None, None);
+                        Self::add_offline_slash(2, machine_id, None, None, slash_reason);
                     },
                     // 下线不超过48小时
                     15..=5760 => {
                         // 扣除4%质押币，质押币全部进入国库
-                        Self::do_slash_deposit(4, machine_id, None, None);
+                        Self::add_offline_slash(4, machine_id, None, None, slash_reason);
                     },
                     // 不超过240小时
                     5761..=28800 => {
                         // 扣除30%质押币，质押币全部进入国库
-                        Self::do_slash_deposit(30, machine_id, None, None);
+                        Self::add_offline_slash(30, machine_id, None, None, slash_reason);
                     },
                     _ => {
                         // TODO: 如果机器从首次上线时间起超过365天，剩下20%押金可以申请退回。
 
                         // 扣除80%质押币。质押币全部进入国库。
-                        Self::do_slash_deposit(80, machine_id, None, None);
+                        Self::add_offline_slash(80, machine_id, None, None, slash_reason);
                     },
                 }
             },
-            // 机器处于租用状态，无法访问
-            StashSlashReason::RentedInaccessible(duration) => {
+            // 机器处于租用状态，无法访问，这种情况下，reporter == renter
+            OPSlashReason::RentedInaccessible(duration) => {
                 let duration = duration.saturated_into::<u64>();
                 match duration {
                     0 => return,
                     // 不超过7分钟
                     1..=14 => {
                         // 扣除4%质押币。10%给验证人，90%进入国库
-                        Self::do_slash_deposit(4, machine_id, reporter, None);
+                        Self::add_offline_slash(4, machine_id, None, committee, slash_reason);
                     },
                     // 不超过48小时
                     15..=5760 => {
                         // 扣除8%质押币。10%给验证人，90%进入国库
-                        Self::do_slash_deposit(8, machine_id, reporter, None);
+                        Self::add_offline_slash(8, machine_id, None, committee, slash_reason);
                     },
                     // 不超过120小时
                     5761..=14400 => {
                         // 扣除60%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(60, machine_id, reporter, committee);
+                        Self::add_offline_slash(60, machine_id, reporter, committee, slash_reason);
                     },
                     // 超过120小时
                     _ => {
                         // 扣除100%押金。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(100, machine_id, reporter, committee);
+                        Self::add_offline_slash(100, machine_id, reporter, committee, slash_reason);
                     },
                 }
             },
             // 机器处于租用状态，机器出现故障
-            StashSlashReason::RentedHardwareMalfunction(duration) => {
+            OPSlashReason::RentedHardwareMalfunction(duration) => {
                 let duration = duration.saturated_into::<u64>();
                 match duration {
                     0 => return,
                     //不超过4小时
                     1..=480 => {
                         // 扣除6%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(6, machine_id, reporter, committee);
+                        Self::add_offline_slash(6, machine_id, reporter, committee, slash_reason);
                     },
                     // 不超过24小时
                     481..=2880 => {
                         // 扣除12%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(12, machine_id, reporter, committee, slash_reason);
                     },
                     // 不超过48小时
                     2881..=5760 => {
                         // 扣除16%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(16, machine_id, reporter, committee);
+                        Self::add_offline_slash(16, machine_id, reporter, committee, slash_reason);
                     },
                     // 不超过120小时
                     5761..=14400 => {
                         // 扣除60%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(60, machine_id, reporter, committee);
+                        Self::add_offline_slash(60, machine_id, reporter, committee, slash_reason);
                     },
                     _ => {
                         // 扣除100%押金，10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(100, machine_id, reporter, committee);
+                        Self::add_offline_slash(100, machine_id, reporter, committee, slash_reason);
                     },
                 }
             },
             // 机器处于租用状态，机器硬件造假
-            StashSlashReason::RentedHardwareCounterfeit(duration) => {
+            OPSlashReason::RentedHardwareCounterfeit(duration) => {
                 let duration = duration.saturated_into::<u64>();
                 match duration {
                     0 => return,
                     // 下线不超过4小时
                     1..=480 => {
                         // 扣除12%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(12, machine_id, reporter, committee, slash_reason);
                     },
                     // 不超过24小时
                     481..=2880 => {
                         // 扣除24%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(24, machine_id, reporter, committee, slash_reason);
                     },
                     // 不超过48小时
                     2881..=5760 => {
                         // 扣除32%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(32, machine_id, reporter, committee, slash_reason);
                     },
                     // 不超过120小时
                     5761..=14400 => {
                         // 扣除60%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(60, machine_id, reporter, committee, slash_reason);
                     },
                     _ => {
                         // 扣除100%押金，10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(100, machine_id, reporter, committee, slash_reason);
                     },
                 }
             },
             // 机器在线，被举报无法租用
-            StashSlashReason::OnlineRentFailed(duration) => {
+            OPSlashReason::OnlineRentFailed(duration) => {
                 let duration = duration.saturated_into::<u64>();
                 match duration {
                     0 => return,
                     1..=480 => {
                         // 扣除6%质押币。10%给到用户，20%给到验证人，50%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(6, machine_id, reporter, committee, slash_reason);
                     },
                     481..=2880 => {
                         // 扣除12%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(12, machine_id, reporter, committee, slash_reason);
                     },
                     2881..=5760 => {
                         // 扣除16%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(16, machine_id, reporter, committee, slash_reason);
                     },
                     5761..=14400 => {
                         // 扣除60%质押币。10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(60, machine_id, reporter, committee, slash_reason);
                     },
                     _ => {
                         // 扣除100%押金，10%给到用户，20%给到验证人，70%进入国库
-                        Self::do_slash_deposit(12, machine_id, reporter, committee);
+                        Self::add_offline_slash(100, machine_id, reporter, committee, slash_reason);
                     },
                 }
             },
+            _ => return,
         }
+    }
+
+    fn add_offline_slash(
+        slash_percent: u32,
+        machine_id: MachineId,
+        reporter: Option<T::AccountId>,
+        committee: Option<Vec<T::AccountId>>,
+        slash_reason: OPSlashReason<T::BlockNumber>,
+    ) {
+        let now = <frame_system::Module<T>>::block_number();
+        let machine_info = Self::machines_info(&machine_id);
+        let slash_amount = Perbill::from_rational_approximation(slash_percent, 100) * machine_info.init_stake_amount;
+
+        let slash_id = Self::get_new_slash_id();
+        let slash_info = OPPendingSlashInfo {
+            slash_who: machine_info.machine_stash,
+            machine_id,
+            slash_time: now,
+            slash_amount,
+            slash_exec_time: now + (2880u32 * 2).saturated_into::<T::BlockNumber>(),
+            reward_to_reporter: reporter,
+            reward_to_committee: committee,
+            slash_reason,
+        };
+
+        PendingSlash::<T>::insert(slash_id, slash_info);
     }
 
     // 惩罚掉机器押金，如果执行惩罚后机器押金不够，则状态变为补充质押
     fn do_slash_deposit(
-        slash_deposit_percent: u64,
+        slash_amount: BalanceOf<T>,
         machine_id: MachineId,
         reporter: Option<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
     ) {
-        let slash_percent = Perbill::from_rational_approximation(slash_deposit_percent, 100);
         let mut machine_info = Self::machines_info(&machine_id);
         let mut live_machine = Self::live_machines();
-
-        let slash_amount = slash_percent * machine_info.init_stake_amount;
 
         // 计算是否需要补充质押
         machine_info.current_stake_amount = machine_info.current_stake_amount.checked_sub(&slash_amount).unwrap();
@@ -1498,27 +1515,38 @@ impl<T: Config> Pallet<T> {
 
     fn do_pending_slash() -> Result<(), ()> {
         // 获得所有slashID
+        let now = <frame_system::Module<T>>::block_number();
         let all_slash_id = <PendingSlash<T> as IterableStorageMap<u64, _>>::iter()
             .map(|(slash_id, _)| slash_id)
             .collect::<Vec<_>>();
 
-        let now = <frame_system::Module<T>>::block_number();
-
         // 判断是否已经超过2天，如果超过，则执行惩罚
-        for a_slash_id in all_slash_id {
-            let slash_info = Self::pending_slash(a_slash_id);
+        for slash_id in all_slash_id {
+            let slash_info = Self::pending_slash(slash_id);
             if now < slash_info.slash_exec_time {
                 continue
+            }
+
+            match slash_info.slash_reason {
+                OPSlashReason::CommitteeRefusedOnline | OPSlashReason::CommitteeRefusedMutHardware => {},
+                _ => {
+                    Self::do_slash_deposit(
+                        slash_info.slash_amount,
+                        slash_info.machine_id,
+                        slash_info.reward_to_reporter,
+                        slash_info.reward_to_committee,
+                    );
+                    continue
+                },
             }
 
             let stash_stake = Self::stash_stake(&slash_info.slash_who);
             let stake_after_slash = stash_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
 
-            let reward_to_num = slash_info.reward_to.len() as u32;
-
+            let reward_to_num = slash_info.reward_to_committee.as_ref().ok_or(())?.len() as u32;
             if reward_to_num == 0 {
                 if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
-                    let (imbalance, _) =
+                    let (imbalance, _missing) =
                         <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
                     <T as pallet::Config>::Slash::on_unbalanced(imbalance);
                     Self::deposit_event(Event::Slash(
@@ -1530,11 +1558,10 @@ impl<T: Config> Pallet<T> {
             } else {
                 let reward_each_get =
                     Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
-
                 let mut left_reward = slash_info.slash_amount;
 
-                for a_committee in slash_info.reward_to {
-                    if left_reward < reward_each_get {
+                for a_committee in slash_info.reward_to_committee.ok_or(())? {
+                    if left_reward >= reward_each_get {
                         if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
                             let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                                 &slash_info.slash_who,
@@ -1543,23 +1570,22 @@ impl<T: Config> Pallet<T> {
                                 BalanceStatus::Free,
                             );
                         }
+                        left_reward -= reward_each_get;
                     } else {
                         if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
                             let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                                 &slash_info.slash_who,
                                 &a_committee,
-                                reward_each_get,
+                                left_reward,
                                 BalanceStatus::Free,
                             );
                         }
-
-                        left_reward -= reward_each_get;
                     }
                 }
             }
 
             StashStake::<T>::insert(slash_info.slash_who, stake_after_slash);
-            PendingSlash::<T>::remove(a_slash_id);
+            PendingSlash::<T>::remove(slash_id);
         }
 
         Ok(())
@@ -2243,7 +2269,7 @@ impl<T: Config> OCOps for Pallet<T> {
                 let offline_duration = now - reonline_stake.offline_time;
                 Self::slash_when_report_offline(
                     committee_upload_info.machine_id.clone(),
-                    StashSlashReason::OnlineReportOffline(offline_duration),
+                    OPSlashReason::OnlineReportOffline(offline_duration),
                     None,
                     None,
                 );
@@ -2265,25 +2291,21 @@ impl<T: Config> OCOps for Pallet<T> {
         if is_mut_hardware {
             // 机器为修改硬件信息后的重新上线
             let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
-            let new_stash_stake = stash_stake.checked_sub(&reonline_stake.stake_amount).ok_or(())?;
+            let now = <frame_system::Module<T>>::block_number();
 
-            let reward_each_get =
-                Perbill::from_rational_approximation(1u32, committee.len() as u32) * reonline_stake.stake_amount;
+            let slash_id = Self::get_new_slash_id();
+            let slash_info = OPPendingSlashInfo {
+                slash_who: machine_info.machine_stash,
+                machine_id: machine_id.clone(),
+                slash_time: now,
+                slash_amount: reonline_stake.stake_amount,
+                slash_exec_time: now + (2880u32 * 2).saturated_into::<T::BlockNumber>(),
+                reward_to_reporter: None,
+                reward_to_committee: Some(committee),
+                slash_reason: OPSlashReason::CommitteeRefusedMutHardware,
+            };
+            PendingSlash::<T>::insert(slash_id, slash_info);
 
-            for a_committee in committee {
-                if <T as pallet::Config>::Currency::can_slash(&machine_info.machine_stash, reward_each_get) {
-                    let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                        &machine_info.machine_stash,
-                        &a_committee,
-                        reward_each_get,
-                        BalanceStatus::Free,
-                    );
-                }
-            }
-
-            // 改变stash_stake
-            StashStake::<T>::insert(&machine_info.machine_stash, new_stash_stake);
-            // 改live_machine:
             LiveMachine::rm_machine_id(&mut live_machines.refused_mut_hardware_machine, &machine_id);
             LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
 
@@ -2300,30 +2322,26 @@ impl<T: Config> OCOps for Pallet<T> {
 
         // 惩罚5%，并将机器ID移动到LiveMachine的补充质押中。
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.init_stake_amount;
+        let left_stake = machine_info.init_stake_amount.checked_sub(&slash).ok_or(())?;
 
-        // FIXME: bugs
-        stash_stake =
-            stash_stake.checked_sub(&machine_info.init_stake_amount).ok_or(())?.checked_add(&slash).ok_or(())?;
-
-        // 退还95%押金
-        // <T as Config>::Currency::set_lock(
-        //     PALLET_LOCK_ID,
-        //     &machine_info.machine_stash,
-        //     stash_stake,
-        //     WithdrawReasons::all(),
-        // );
+        // 直接退还95%押金
+        <T as pallet::Config>::Currency::unreserve(&machine_info.machine_stash, left_stake);
+        stash_stake = stash_stake.checked_sub(&left_stake).ok_or(())?;
 
         // 添加一个slash
         let slash_id = Self::get_new_slash_id();
         let slash_info = OPPendingSlashInfo {
             slash_who: machine_info.machine_stash.clone(),
+            machine_id: machine_id.clone(),
             slash_time: now,
-            unlock_amount: slash,
             slash_amount: slash,
             slash_exec_time: now + (2880u32 * 2).saturated_into::<T::BlockNumber>(),
-            reward_to: vec![],
+            reward_to_reporter: None,
+            reward_to_committee: None,
             slash_reason: OPSlashReason::CommitteeRefusedOnline,
         };
+
+        // 清理存储
         if let Ok(index) = controller_machines.binary_search(&machine_id) {
             controller_machines.remove(index);
         }
@@ -2335,6 +2353,8 @@ impl<T: Config> OCOps for Pallet<T> {
         LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &machine_id);
         LiveMachine::add_machine_id(&mut live_machines.refused_machine, machine_id.clone());
 
+        // 修改变量
+        StashStake::<T>::insert(&machine_info.machine_stash, stash_stake);
         LiveMachines::<T>::put(live_machines);
         PendingSlash::<T>::insert(slash_id, slash_info);
         MachinesInfo::<T>::remove(&machine_id);
@@ -2440,13 +2460,13 @@ impl<T: Config> OPRPCQuery for Pallet<T> {
 impl<T: Config> MTOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
-    type FaultType = StashSlashReason<T::BlockNumber>;
+    type FaultType = OPSlashReason<T::BlockNumber>;
 
     fn mt_machine_offline(
         reporter: T::AccountId,
         committee: Vec<T::AccountId>,
         machine_id: MachineId,
-        fault_type: StashSlashReason<T::BlockNumber>,
+        fault_type: OPSlashReason<T::BlockNumber>,
     ) {
         let machine_info = Self::machines_info(&machine_id);
 
