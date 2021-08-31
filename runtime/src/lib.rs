@@ -1031,10 +1031,10 @@ impl committee::Config for Runtime {
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
 }
 
-impl lease_committee::Config for Runtime {
+impl online_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type LCOperations = OnlineProfile;
+    type OCOperations = OnlineProfile;
     type ManageCommittee = Committee;
 }
 
@@ -1099,7 +1099,7 @@ construct_runtime!(
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         SimpleRpc: simple_rpc::{Module},
         Committee: committee::{Module, Call, Storage, Event<T>},
-        LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
+        OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
     }
@@ -1205,17 +1205,17 @@ impl_runtime_apis! {
         }
     }
 
-    impl lease_committee_runtime_api::LcRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_committee_machine_list(committee: AccountId) -> lease_committee::LCCommitteeMachineList {
-            LeaseCommittee::get_committee_machine_list(committee)
+    impl online_committee_runtime_api::OcRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
+        fn get_committee_machine_list(committee: AccountId) -> online_committee::OCCommitteeMachineList {
+            OnlineCommittee::get_committee_machine_list(committee)
         }
 
-        fn get_committee_ops(committee: AccountId, machine_id: online_profile::MachineId) -> lease_committee::RpcLCCommitteeOps<BlockNumber, Balance> {
-            LeaseCommittee::get_committee_ops(committee, machine_id)
+        fn get_committee_ops(committee: AccountId, machine_id: online_profile::MachineId) -> online_committee::RpcOCCommitteeOps<BlockNumber, Balance> {
+            OnlineCommittee::get_committee_ops(committee, machine_id)
         }
 
-        fn get_machine_committee_list(machine_id: online_profile::MachineId) -> lease_committee::LCMachineCommitteeList<AccountId, BlockNumber> {
-            LeaseCommittee::get_machine_committee_list(machine_id)
+        fn get_machine_committee_list(machine_id: online_profile::MachineId) -> online_committee::OCMachineCommitteeList<AccountId, BlockNumber> {
+            OnlineCommittee::get_machine_committee_list(machine_id)
         }
     }
 

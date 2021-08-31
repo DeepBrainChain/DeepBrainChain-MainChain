@@ -3,16 +3,16 @@
 use sp_std::vec::Vec;
 
 // lease-committee_ops
-pub trait LCOps {
+pub trait OCOps {
     type AccountId;
     type MachineId;
     type CommitteeUploadInfo;
 
-    fn lc_booked_machine(id: Self::MachineId);
-    fn lc_revert_booked_machine(id: Self::MachineId);
+    fn oc_booked_machine(id: Self::MachineId);
+    fn oc_revert_booked_machine(id: Self::MachineId);
 
-    fn lc_confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo) -> Result<(), ()>;
-    fn lc_refuse_machine(machien_id: Self::MachineId, committee: Vec<Self::AccountId>) -> Result<(), ()>;
+    fn oc_confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo) -> Result<(), ()>;
+    fn oc_refuse_machine(machien_id: Self::MachineId, committee: Vec<Self::AccountId>) -> Result<(), ()>;
 }
 
 pub trait RTOps {

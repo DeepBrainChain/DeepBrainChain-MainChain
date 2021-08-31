@@ -64,11 +64,11 @@ async function main() {
   funcMap["committee"]["committeeSetBoxPubkey"] =
     api.tx.committee.committeeSetBoxPubkey;
 
-  funcMap["leaseCommittee"] = {};
-  funcMap["leaseCommittee"]["submitConfirmHash"] =
-    api.tx.leaseCommittee.submitConfirmHash;
-  funcMap["leaseCommittee"]["submitConfirmRaw"] =
-    api.tx.leaseCommittee.submitConfirmRaw;
+  funcMap["onlineCommittee"] = {};
+  funcMap["onlineCommittee"]["submitConfirmHash"] =
+    api.tx.onlineCommittee.submitConfirmHash;
+  funcMap["onlineCommittee"]["submitConfirmRaw"] =
+    api.tx.onlineCommittee.submitConfirmRaw;
 
   funcMap["rentMachine"] = {};
   funcMap["rentMachine"]["rentMachine"] = api.tx.rentMachine.rentMachine;

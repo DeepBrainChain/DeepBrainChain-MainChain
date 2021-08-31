@@ -1,5 +1,5 @@
 [package]
-name = "lease-committee"
+name = "online-committee"
 version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 edition = "2018"

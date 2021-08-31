@@ -62,9 +62,9 @@ version = '3.0.0'
 path = '../committee'
 package = 'committee'
 
-[dev-dependencies.lease-committee]
-path = '../lease-committee'
-package = 'lease-committee'
+[dev-dependencies.online-committee]
+path = '../online-committee'
+package = 'online-committee'
 
 [dev-dependencies.pallet-treasury]
 git = 'https://github.com/paritytech/substrate.git'

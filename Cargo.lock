@@ -2929,62 +2929,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
-name = "lease-committee"
-version = "0.1.0"
-dependencies = [
- "committee",
- "dbc-price-ocw",
- "frame-support",
- "frame-system",
- "generic-func",
- "hex",
- "online-profile",
- "online-profile-machine",
- "pallet-balances",
- "pallet-collective",
- "pallet-identity",
- "pallet-randomness-collective-flip",
- "pallet-timestamp",
- "pallet-treasury",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "lease-committee-rpc"
-version = "0.1.0"
-dependencies = [
- "generic-func",
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "lease-committee",
- "lease-committee-runtime-api",
- "parity-scale-codec",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
-]
-
-[[package]]
-name = "lease-committee-runtime-api"
-version = "0.1.0"
-dependencies = [
- "lease-committee",
- "parity-scale-codec",
- "sp-api",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "leb128"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3557,7 +3501,7 @@ dependencies = [
  "frame-system",
  "generic-func",
  "hex",
- "lease-committee",
+ "online-committee",
  "online-profile",
  "online-profile-machine",
  "pallet-balances",
@@ -4108,10 +4052,10 @@ dependencies = [
  "committee-rpc",
  "committee-runtime-api",
  "jsonrpc-core",
- "lease-committee-rpc",
- "lease-committee-runtime-api",
  "node-primitives",
  "node-runtime",
+ "online-committee-rpc",
+ "online-committee-runtime-api",
  "online-profile-rpc",
  "online-profile-runtime-api",
  "pallet-contracts-rpc",
@@ -4171,10 +4115,10 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "generic-func",
  "hex-literal",
- "lease-committee",
- "lease-committee-runtime-api",
  "maintain-committee",
  "node-primitives",
+ "online-committee",
+ "online-committee-runtime-api",
  "online-profile",
  "online-profile-runtime-api",
  "pallet-assets",
@@ -4392,6 +4336,62 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af8b08b04175473088b46763e51ee54da5f9a164bc162f615b91bc179dbf15a3"
 dependencies = [
  "parking_lot 0.11.1",
+]
+
+[[package]]
+name = "online-committee"
+version = "0.1.0"
+dependencies = [
+ "committee",
+ "dbc-price-ocw",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "online-profile",
+ "online-profile-machine",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-identity",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "online-committee-rpc"
+version = "0.1.0"
+dependencies = [
+ "generic-func",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "online-committee",
+ "online-committee-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "online-committee-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "online-committee",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6232,7 +6232,7 @@ dependencies = [
  "frame-system",
  "generic-func",
  "hex",
- "lease-committee",
+ "online-committee",
  "online-profile",
  "online-profile-machine",
  "pallet-balances",

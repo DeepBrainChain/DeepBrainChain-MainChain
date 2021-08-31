@@ -164,34 +164,34 @@
     "waiting_box_pubkey": "Vec<AccountId>",
     "fulfilling_list": "Vec<AccountId>"
   },
-  "LCCommitteeMachineList": {
+  "OCCommitteeMachineList": {
     "booked_machine": "Vec<MachineId>",
     "hashed_machine": "Vec<MachineId>",
     "confirmed_machine": "Vec<MachineId>",
     "online_machine": "Vec<MachineId>"
   },
-  "LCCommitteeOps": {
+  "OCCommitteeOps": {
     "staked_dbc": "Balance",
     "verify_time": "Vec<BlockNumber>",
     "confirm_hash": "[u8; 16]",
     "hash_time": "BlockNumber",
     "confirm_time": "BlockNumber",
-    "machine_status": "LCMachineStatus",
+    "machine_status": "OCMachineStatus",
     "machine_info": "CommitteeUploadInfo"
   },
-  "LCMachineStatus": {
+  "OCMachineStatus": {
     "_enum": ["Booked", "Hashed", "Confirmed"]
   },
-  "LCMachineCommitteeList": {
+  "OCMachineCommitteeList": {
     "book_time": "BlockNumber",
     "booked_committee": "Vec<AccountId>",
     "hashed_committee": "Vec<AccountId>",
     "confirm_start_time": "BlockNumber",
     "confirmed_committee": "Vec<AccountId>",
     "onlined_committee": "Vec<AccountId>",
-    "status": "LCVerifyStatus"
+    "status": "OCVerifyStatus"
   },
-  "LCVerifyStatus": {
+  "OCVerifyStatus": {
     "_enum": ["SubmittingHash", "SubmittingRaw", "Summarizing", "Finished"]
   },
   "ReporterRecord": {

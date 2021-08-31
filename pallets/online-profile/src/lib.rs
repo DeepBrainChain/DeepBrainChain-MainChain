@@ -11,7 +11,7 @@ use frame_support::{
     IterableStorageDoubleMap, IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use online_profile_machine::{DbcPrice, LCOps, MTOps, ManageCommittee, OPRPCQuery, RTOps};
+use online_profile_machine::{DbcPrice, MTOps, ManageCommittee, OCOps, OPRPCQuery, RTOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::{crypto::Public, H256};
@@ -2122,7 +2122,7 @@ impl<T: Config> Pallet<T> {
 }
 
 /// 审查委员会可以执行的操作
-impl<T: Config> LCOps for Pallet<T> {
+impl<T: Config> OCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
     type CommitteeUploadInfo = CommitteeUploadInfo;
@@ -2130,7 +2130,7 @@ impl<T: Config> LCOps for Pallet<T> {
     // 委员会订阅了一个机器ID
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
     // - Writes: LiveMachine, MachinesInfo
-    fn lc_booked_machine(id: MachineId) {
+    fn oc_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
         LiveMachine::rm_machine_id(&mut live_machines.confirmed_machine, &id);
@@ -2144,7 +2144,7 @@ impl<T: Config> LCOps for Pallet<T> {
     }
 
     /// 由于委员会没有达成一致，需要重新返回到bonding_machine
-    fn lc_revert_booked_machine(id: MachineId) {
+    fn oc_revert_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
         LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &id);
@@ -2159,7 +2159,7 @@ impl<T: Config> LCOps for Pallet<T> {
 
     // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
     // 机器被成功添加, 则添加上可以获取收益的委员会
-    fn lc_confirm_machine(
+    fn oc_confirm_machine(
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
@@ -2254,7 +2254,7 @@ impl<T: Config> LCOps for Pallet<T> {
     }
 
     // 当委员会达成统一意见，拒绝机器时，机器状态改为委员会拒绝。并记录拒绝时间。
-    fn lc_refuse_machine(machine_id: MachineId, committee: Vec<T::AccountId>) -> Result<(), ()> {
+    fn oc_refuse_machine(machine_id: MachineId, committee: Vec<T::AccountId>) -> Result<(), ()> {
         // 拒绝用户绑定，需要清除存储
         let machine_info = Self::machines_info(&machine_id);
         let mut live_machines = Self::live_machines();

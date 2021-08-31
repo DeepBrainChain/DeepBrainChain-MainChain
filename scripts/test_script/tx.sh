@@ -123,7 +123,7 @@ node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module committee
 
 # 提交机器信息Hash
 # python ../hash_str.py
-node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module leaseCommittee --func submitConfirmHash \
+node tx_by_user.js --port $ws --type-file $tf --rpc-file $rpc --module onlineCommittee --func submitConfirmHash \
     --key $dave_key --hash "0x6e10845ba0abcc5e058d0ed395d34a98" $bob
 
 # 提交原始信息

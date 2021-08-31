@@ -1,4 +1,4 @@
-use crate as lease_committee;
+use crate as online_committee;
 use dbc_price_ocw::MAX_LEN;
 use frame_support::{
     assert_ok, parameter_types,
@@ -170,7 +170,7 @@ impl committee::Config for TestRuntime {
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
 }
 
-impl lease_committee::Config for TestRuntime {
+impl onilne_committee::Config for TestRuntime {
     type Event = Event;
     type Currency = Balances;
     type LCOperations = OnlineProfile;
@@ -233,7 +233,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
+        OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
@@ -248,7 +248,7 @@ frame_support::construct_runtime!(
 pub fn run_to_block(n: BlockNumber) {
     for b in System::block_number()..=n {
         // 当前块结束
-        LeaseCommittee::on_finalize(b);
+        OnlineCommittee::on_finalize(b);
         OnlineProfile::on_finalize(b);
         Committee::on_finalize(b);
         System::on_finalize(b);
@@ -259,7 +259,7 @@ pub fn run_to_block(n: BlockNumber) {
         // 下一块初始化
         RandomnessCollectiveFlip::on_initialize(b + 1);
         System::on_initialize(b + 1);
-        LeaseCommittee::on_initialize(b + 1);
+        OnlineCommittee::on_initialize(b + 1);
         Committee::on_initialize(b + 1);
         OnlineProfile::on_initialize(b + 1);
         RandomnessCollectiveFlip::on_initialize(b + 1);

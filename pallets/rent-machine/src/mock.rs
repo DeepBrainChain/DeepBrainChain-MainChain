@@ -158,7 +158,7 @@ impl dbc_price_ocw::Config for TestRuntime {
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 
-impl lease_committee::Config for TestRuntime {
+impl online_committee::Config for TestRuntime {
     type Event = Event;
     type Currency = Balances;
     type LCOperations = OnlineProfile;
@@ -208,7 +208,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        LeaseCommittee: lease_committee::{Module, Call, Storage, Event<T>},
+        OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         Balances: pallet_balances::{Module, Call, Storage, Event<T>},
@@ -341,14 +341,14 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
 
         // 委员会提交机器Hash
         let machine_info_hash = "d80b116fd318f19fd89da792aba5e875";
-        assert_ok!(LeaseCommittee::submit_confirm_hash(
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(one_committee),
             machine_id.clone(),
             hex::decode(machine_info_hash).unwrap().try_into().unwrap()
         ));
 
         // 委员会提交原始信息
-        assert_ok!(LeaseCommittee::submit_confirm_raw(
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
             Origin::signed(one_committee),
             online_profile::CommitteeUploadInfo {
                 machine_id: machine_id.clone(),
@@ -378,7 +378,7 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
 pub fn run_to_block(n: BlockNumber) {
     for b in System::block_number()..=n {
         OnlineProfile::on_finalize(b);
-        LeaseCommittee::on_finalize(b);
+        OnlineCommittee::on_finalize(b);
         Committee::on_finalize(b);
         RentMachine::on_finalize(b);
         System::on_finalize(b);
@@ -387,7 +387,7 @@ pub fn run_to_block(n: BlockNumber) {
         System::set_block_number(b + 1);
 
         System::on_initialize(b + 1);
-        LeaseCommittee::on_initialize(b + 1);
+        OnlineCommittee::on_initialize(b + 1);
         Committee::on_initialize(b + 1);
         OnlineProfile::on_initialize(b + 1);
         RandomnessCollectiveFlip::on_initialize(b + 1);

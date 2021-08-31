@@ -186,7 +186,7 @@
       "type": "Balance"
     }
   },
-  "leaseCommittee": {
+  "onlineCommittee": {
     "getCommitteeMachineList": {
       "description": "Get machine list of one committee",
       "params": [

@@ -338,7 +338,7 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
  curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
      "jsonrpc":"2.0",
       "id":1,
-      "method":"leaseCommittee_getCommitteeMachineList",
+      "method":"onlineCommittee_getCommitteeMachineList",
       "params": ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]
     }'
 ```
@@ -368,7 +368,7 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
 curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d   '{
      "jsonrpc":"2.0",
       "id":1,
-      "method":"leaseCommittee_getCommitteeOps",
+      "method":"onlineCommittee_getCommitteeOps",
       "params": ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"]
     }'
 ```

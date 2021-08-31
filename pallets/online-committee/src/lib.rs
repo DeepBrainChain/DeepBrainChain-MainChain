@@ -8,14 +8,14 @@ use frame_support::{
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use online_profile::CommitteeUploadInfo;
-use online_profile_machine::{LCOps, ManageCommittee};
+use online_profile_machine::{ManageCommittee, OCOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, str, vec::Vec};
 
 mod rpc_types;
-pub use rpc_types::RpcLCCommitteeOps;
+pub use rpc_types::RpcOCCommitteeOps;
 
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
@@ -42,7 +42,7 @@ mod tests;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct LCCommitteeMachineList {
+pub struct OCCommitteeMachineList {
     /// machines, that distributed to committee, and should be verified
     pub booked_machine: Vec<MachineId>,
     /// machines, have submited machine info hash
@@ -57,7 +57,7 @@ pub struct LCCommitteeMachineList {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
+pub struct OCMachineCommitteeList<AccountId, BlockNumber> {
     /// When order distribution happened
     pub book_time: BlockNumber,
     /// Committees, get the job to verify machine info
@@ -72,28 +72,28 @@ pub struct LCMachineCommitteeList<AccountId, BlockNumber> {
     /// Committees, get a consensus, so can get rewards after machine online
     pub onlined_committee: Vec<AccountId>,
     /// Current order status
-    pub status: LCVerifyStatus,
+    pub status: OCVerifyStatus,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum LCVerifyStatus {
+pub enum OCVerifyStatus {
     SubmittingHash,
     SubmittingRaw,
     Summarizing,
     Finished,
 }
 
-impl Default for LCVerifyStatus {
+impl Default for OCVerifyStatus {
     fn default() -> Self {
-        LCVerifyStatus::SubmittingHash
+        OCVerifyStatus::SubmittingHash
     }
 }
 
 /// A record of committee’s operations when verifying machine info
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct LCCommitteeOps<BlockNumber, Balance> {
+pub struct OCCommitteeOps<BlockNumber, Balance> {
     pub staked_dbc: Balance,
     /// When one committee can start the virtual machine to verify machine info
     pub verify_time: Vec<BlockNumber>,
@@ -101,26 +101,27 @@ pub struct LCCommitteeOps<BlockNumber, Balance> {
     pub hash_time: BlockNumber,
     /// When one committee submit raw machine info
     pub confirm_time: BlockNumber,
-    pub machine_status: LCMachineStatus,
+    pub machine_status: OCMachineStatus,
     pub machine_info: CommitteeUploadInfo,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum LCMachineStatus {
+pub enum OCMachineStatus {
     Booked,
     Hashed,
     Confirmed,
 }
 
-impl Default for LCMachineStatus {
+impl Default for OCMachineStatus {
     fn default() -> Self {
-        LCMachineStatus::Booked
+        OCMachineStatus::Booked
     }
 }
 
 /// What will happen after all committee submit raw machine info
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineConfirmStatus<AccountId> {
     /// Machine is confirmed by committee, so can be online later
     Confirmed(Summary<AccountId>),
@@ -128,6 +129,12 @@ pub enum MachineConfirmStatus<AccountId> {
     Refuse(Summary<AccountId>),
     /// No consensus, so machine will be redistributed and verified later
     NoConsensus(Summary<AccountId>),
+}
+
+impl<AccountId: Default> Default for MachineConfirmStatus<AccountId> {
+    fn default() -> Self {
+        Self::Confirmed(Summary { ..Default::default() })
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -154,7 +161,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config + committee::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
-        type LCOperations: LCOps<
+        type OCOperations: OCOps<
             AccountId = Self::AccountId,
             MachineId = MachineId,
             CommitteeUploadInfo = CommitteeUploadInfo,
@@ -178,12 +185,12 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee_machine)]
     pub(super) type CommitteeMachine<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, LCCommitteeMachineList, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, OCCommitteeMachineList, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn machine_committee)]
     pub(super) type MachineCommittee<T: Config> =
-        StorageMap<_, Blake2_128Concat, MachineId, LCMachineCommitteeList<T::AccountId, T::BlockNumber>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, MachineId, OCMachineCommitteeList<T::AccountId, T::BlockNumber>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn machine_submited_hash)]
@@ -197,7 +204,7 @@ pub mod pallet {
         T::AccountId,
         Blake2_128Concat,
         MachineId,
-        LCCommitteeOps<T::BlockNumber, BalanceOf<T>>,
+        OCCommitteeOps<T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -249,13 +256,13 @@ pub mod pallet {
 
             // 添加用户对机器的操作记录
             let mut committee_ops = Self::committee_ops(&who, &machine_id);
-            committee_ops.machine_status = LCMachineStatus::Hashed;
+            committee_ops.machine_status = OCMachineStatus::Hashed;
             committee_ops.confirm_hash = hash.clone();
             committee_ops.hash_time = now;
 
             // 如果委员会都提交了Hash,则直接进入提交原始信息的阶段
             if machine_committee.booked_committee.len() == machine_committee.hashed_committee.len() {
-                machine_committee.status = LCVerifyStatus::SubmittingRaw;
+                machine_committee.status = OCVerifyStatus::SubmittingRaw;
             }
 
             // 更新存储
@@ -285,7 +292,7 @@ pub mod pallet {
             let mut machine_ops = Self::committee_ops(&who, &machine_id);
 
             // 如果所有人都提交了，则直接可以提交Hash
-            if machine_committee.status != LCVerifyStatus::SubmittingRaw {
+            if machine_committee.status != OCVerifyStatus::SubmittingRaw {
                 // 查询是否已经到了提交hash的时间 必须在36 ~ 48小时之间
                 ensure!(now >= machine_committee.confirm_start_time, Error::<T>::TimeNotAllow);
                 ensure!(now <= machine_committee.book_time + SUBMIT_RAW_END.into(), Error::<T>::TimeNotAllow);
@@ -320,13 +327,13 @@ pub mod pallet {
 
             // machine_ops.confirm_raw = confirm_raw.clone();
             machine_ops.confirm_time = now;
-            machine_ops.machine_status = LCMachineStatus::Confirmed;
+            machine_ops.machine_status = OCMachineStatus::Confirmed;
             machine_ops.machine_info = machine_info_detail.clone();
             machine_ops.machine_info.rand_str = Vec::new();
 
             // 如果全部都提交完了原始信息，则允许进入summary
             if machine_committee.confirmed_committee.len() == machine_committee.hashed_committee.len() {
-                machine_committee.status = LCVerifyStatus::Summarizing;
+                machine_committee.status = OCVerifyStatus::Summarizing;
             }
 
             CommitteeMachine::<T>::insert(&who, committee_machine);
@@ -383,7 +390,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 将机器状态从ocw_confirmed_machine改为booked_machine
-        T::LCOperations::lc_booked_machine(machine_id.clone());
+        T::OCOperations::oc_booked_machine(machine_id.clone());
         Ok(())
     }
 
@@ -415,7 +422,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 修改委员会的操作
-        let mut committee_ops = LCCommitteeOps { ..Default::default() };
+        let mut committee_ops = OCCommitteeOps { ..Default::default() };
         committee_ops.staked_dbc = stake_need;
         let start_time: Vec<_> = order_time
             .1
@@ -423,7 +430,7 @@ impl<T: Config> Pallet<T> {
             .map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into())
             .collect();
         committee_ops.verify_time = start_time;
-        committee_ops.machine_status = LCMachineStatus::Booked;
+        committee_ops.machine_status = OCMachineStatus::Booked;
 
         // 存储变量
         MachineCommittee::<T>::insert(&machine_id, machine_committee);
@@ -465,7 +472,7 @@ impl<T: Config> Pallet<T> {
         for machine_id in booked_machine {
             let machine_committee = Self::machine_committee(machine_id.clone());
             // 当不为Summary状态时查看是否到了48小时，如果不到则返回
-            if machine_committee.status != LCVerifyStatus::Summarizing {
+            if machine_committee.status != OCVerifyStatus::Summarizing {
                 if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
                     continue
                 }
@@ -484,14 +491,12 @@ impl<T: Config> Pallet<T> {
                     slash_committee.extend(summary.against);
                     slash_committee.extend(summary.invalid_support);
                     unstake_committee.extend(summary.valid_support.clone());
-                    if T::LCOperations::lc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap()).is_ok()
+                    if T::OCOperations::oc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap()).is_ok()
                     {
                         let valid_support = summary.valid_support.clone();
                         for a_committee in valid_support {
+                            // 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
                             let mut committee_machine = Self::committee_machine(&a_committee);
-                            if let Ok(index) = committee_machine.confirmed_machine.binary_search(&machine_id) {
-                                committee_machine.confirmed_machine.remove(index);
-                            }
                             if let Err(index) = committee_machine.online_machine.binary_search(&machine_id) {
                                 committee_machine.online_machine.insert(index, machine_id.clone());
                             }
@@ -499,7 +504,7 @@ impl<T: Config> Pallet<T> {
                         }
 
                         let mut machine_committee = Self::machine_committee(&machine_id);
-                        machine_committee.status = LCVerifyStatus::Finished;
+                        machine_committee.status = OCVerifyStatus::Finished;
                         machine_committee.onlined_committee = summary.valid_support;
                         MachineCommittee::<T>::insert(&machine_id, machine_committee);
                     }
@@ -510,14 +515,14 @@ impl<T: Config> Pallet<T> {
                     reward_committee.extend(summary.against.clone());
                     unstake_committee.extend(summary.against.clone());
 
-                    let _ = T::LCOperations::lc_refuse_machine(machine_id.clone(), reward_committee);
+                    let _ = T::OCOperations::oc_refuse_machine(machine_id.clone(), reward_committee);
                 },
                 MachineConfirmStatus::NoConsensus(summary) => {
                     slash_committee.extend(summary.unruly.clone());
                     unstake_committee.extend(machine_committee.confirmed_committee.clone());
                     let _ = Self::revert_book(machine_id.clone());
 
-                    T::LCOperations::lc_revert_booked_machine(machine_id.clone());
+                    T::OCOperations::oc_revert_booked_machine(machine_id.clone());
                 },
             }
 
@@ -537,13 +542,19 @@ impl<T: Config> Pallet<T> {
             }
 
             // Do cleaning
-            MachineSubmitedHash::<T>::remove(&machine_id);
+            for a_committee in machine_committee.booked_committee {
+                CommitteeOps::<T>::remove(&a_committee, &machine_id);
+                MachineSubmitedHash::<T>::remove(&machine_id);
+
+                // 改变committee_machine
+                // 改变machine_committee
+            }
         }
     }
 
     // 重新进行派单评估
     // 该函数将清除本模块信息，并将online_profile机器状态改为ocw_confirmed_machine
-    // 清除信息： LCCommitteeMachineList, LCMachineCommitteeList, LCCommitteeOps
+    // 清除信息： OCCommitteeMachineList, OCMachineCommitteeList, OCCommitteeOps
     fn revert_book(machine_id: MachineId) -> Result<(), ()> {
         let machine_committee = Self::machine_committee(&machine_id);
 
@@ -646,17 +657,19 @@ impl<T: Config> Pallet<T> {
                         }
                         summary.invalid_support.extend(committee_for_machine_info[index].clone());
                     }
-                    // 记录上所有的有效支持
-                    summary.valid_support = committee_for_machine_info[committee_group_index].clone();
 
-                    if summary.against.len() > max_support_group {
+                    if summary.against.len() > *max_support_num {
                         // 反对多于支持
+                        summary.invalid_support = committee_for_machine_info[committee_group_index].clone();
                         return MachineConfirmStatus::Refuse(summary)
-                    } else if summary.against.len() == max_support_group {
+                    } else if summary.against.len() == *max_support_num {
                         // 反对等于支持
+                        summary.invalid_support = committee_for_machine_info[committee_group_index].clone();
                         return MachineConfirmStatus::NoConsensus(summary)
                     } else {
                         // 反对小于支持
+                        // 记录上所有的有效支持
+                        summary.valid_support = committee_for_machine_info[committee_group_index].clone();
                         summary.info = Some(uniq_machine_info[committee_group_index].clone());
                         return MachineConfirmStatus::Confirmed(summary)
                     }
@@ -679,30 +692,30 @@ impl<T: Config> Pallet<T> {
 
 // RPC
 impl<T: Config> Module<T> {
-    pub fn get_machine_committee_list(machine_id: MachineId) -> LCMachineCommitteeList<T::AccountId, T::BlockNumber> {
+    pub fn get_machine_committee_list(machine_id: MachineId) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
         Self::machine_committee(machine_id)
     }
 
-    pub fn get_committee_machine_list(committee: T::AccountId) -> LCCommitteeMachineList {
+    pub fn get_committee_machine_list(committee: T::AccountId) -> OCCommitteeMachineList {
         Self::committee_machine(committee)
     }
 
     pub fn get_committee_ops(
         committee: T::AccountId,
         machine_id: MachineId,
-    ) -> RpcLCCommitteeOps<T::BlockNumber, BalanceOf<T>> {
-        let lc_committee_ops = Self::committee_ops(&committee, &machine_id);
+    ) -> RpcOCCommitteeOps<T::BlockNumber, BalanceOf<T>> {
+        let oc_committee_ops = Self::committee_ops(&committee, &machine_id);
         let committee_info = Self::machine_committee(&machine_id);
 
-        RpcLCCommitteeOps {
+        RpcOCCommitteeOps {
             booked_time: committee_info.book_time,
-            staked_dbc: lc_committee_ops.staked_dbc,
-            verify_time: lc_committee_ops.verify_time,
-            confirm_hash: lc_committee_ops.confirm_hash,
-            hash_time: lc_committee_ops.hash_time,
-            confirm_time: lc_committee_ops.confirm_time,
-            machine_status: lc_committee_ops.machine_status,
-            machine_info: lc_committee_ops.machine_info,
+            staked_dbc: oc_committee_ops.staked_dbc,
+            verify_time: oc_committee_ops.verify_time,
+            confirm_hash: oc_committee_ops.confirm_hash,
+            hash_time: oc_committee_ops.hash_time,
+            confirm_time: oc_committee_ops.confirm_time,
+            machine_status: oc_committee_ops.machine_status,
+            machine_info: oc_committee_ops.machine_info,
         }
     }
 }

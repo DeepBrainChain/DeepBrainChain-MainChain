@@ -44,7 +44,7 @@ async function main() {
     api.tx.committee.setStakedUsdPerOrder;
   funcMap["committee"]["addCommittee"] = api.tx.committee.addCommittee;
 
-  funcMap["leaseCommittee"] = {};
+  funcMap["onlineCommittee"] = {};
   funcMap["genericFunc"] = {};
   funcMap["genericFunc"]["setFixedTxFee"] = api.tx.genericFunc.setFixedTxFee;
 

@@ -2,51 +2,51 @@ use codec::Codec;
 use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use lease_committee::{LCCommitteeMachineList, LCMachineCommitteeList, RpcLCCommitteeOps};
-use lease_committee_runtime_api::LcRpcApi as LcStorageRuntimeApi;
+use online_committee::{OCCommitteeMachineList, OCMachineCommitteeList, RpcOCCommitteeOps};
+use online_committee_runtime_api::OcRpcApi as OcStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
 #[rpc]
-pub trait LcRpcApi<BlockHash, AccountId, BlockNumber, Balance>
+pub trait OcRpcApi<BlockHash, AccountId, BlockNumber, Balance>
 where
     Balance: Display + FromStr,
 {
-    #[rpc(name = "leaseCommittee_getCommitteeMachineList")]
+    #[rpc(name = "onilneCommittee_getCommitteeMachineList")]
     fn get_committee_machine_list(&self, committee: AccountId, at: Option<BlockHash>)
-        -> Result<LCCommitteeMachineList>;
+        -> Result<OCCommitteeMachineList>;
 
-    #[rpc(name = "leaseCommittee_getCommitteeOps")]
+    #[rpc(name = "onlineCommittee_getCommitteeOps")]
     fn get_committee_ops(
         &self,
         committee: AccountId,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> Result<RpcLCCommitteeOps<BlockNumber, RpcBalance<Balance>>>;
+    ) -> Result<RpcOCCommitteeOps<BlockNumber, RpcBalance<Balance>>>;
 
-    #[rpc(name = "leaseCommittee_getMachineCommitteeList")]
+    #[rpc(name = "onlineCommittee_getMachineCommitteeList")]
     fn get_machine_committee_list(
         &self,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> Result<LCMachineCommitteeList<AccountId, BlockNumber>>;
+    ) -> Result<OCMachineCommitteeList<AccountId, BlockNumber>>;
 }
 
-pub struct LcStorage<C, M> {
+pub struct OcStorage<C, M> {
     client: Arc<C>,
     _marker: std::marker::PhantomData<M>,
 }
 
-impl<C, M> LcStorage<C, M> {
+impl<C, M> OcStorage<C, M> {
     pub fn new(client: Arc<C>) -> Self {
         Self { client, _marker: Default::default() }
     }
 }
 
-impl<C, Block, AccountId, BlockNumber, Balance> LcRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance>
-    for LcStorage<C, Block>
+impl<C, Block, AccountId, BlockNumber, Balance> OcRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance>
+    for OcStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
@@ -55,13 +55,13 @@ where
     C: Send + Sync + 'static,
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block>,
-    C::Api: LcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
+    C::Api: OcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
 {
     fn get_committee_machine_list(
         &self,
         committee: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<LCCommitteeMachineList> {
+    ) -> Result<OCCommitteeMachineList> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -78,12 +78,12 @@ where
         committee: AccountId,
         machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RpcLCCommitteeOps<BlockNumber, RpcBalance<Balance>>> {
+    ) -> Result<RpcOCCommitteeOps<BlockNumber, RpcBalance<Balance>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api.get_committee_ops(&at, committee, machine_id).map(|ops| RpcLCCommitteeOps {
+        let runtime_api_result = api.get_committee_ops(&at, committee, machine_id).map(|ops| RpcOCCommitteeOps {
             booked_time: ops.booked_time,
             staked_dbc: ops.staked_dbc.into(),
             verify_time: ops.verify_time,
@@ -104,7 +104,7 @@ where
         &self,
         machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<LCMachineCommitteeList<AccountId, BlockNumber>> {
+    ) -> Result<OCMachineCommitteeList<AccountId, BlockNumber>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();

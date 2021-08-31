@@ -10,7 +10,7 @@ import json
 raw_info = json.loads(
     """
 {
-  "machine_id": "0a0855fafc62a8985cd2689e18ef885b2d94db9bf5f96d1bc082cb67d010e57a",
+  "machine_id": "c2ad03b01cb72857978f7e18527afddb671c8354c72c46523405334be23c3701",
   "gpu_type": "GeForceRTX3080",
   "gpu_num": 4,
   "cuda_core": 8704,
@@ -19,10 +19,10 @@ raw_info = json.loads(
   "sys_disk": 500,
   "data_disk": 3905,
   "cpu_type": "Intel(R) Xeon(R) Silver 4214R",
-  "cpu_core_num": 48,
+  "cpu_core_num": 46,
   "cpu_rate": 2400,
   "mem_num": 440,
-  "rand_str": "abcdefg1",
+  "rand_str": "abcdefg2",
   "is_support": 1
 }
     """

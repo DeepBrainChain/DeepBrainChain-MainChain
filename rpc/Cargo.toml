@@ -3,8 +3,8 @@ jsonrpc-core = '15.1.0'
 
 online-profile-rpc = { path = "../pallets/online-profile/rpc" }
 online-profile-runtime-api = { path = "../pallets/online-profile/rpc/runtime-api" }
-lease-committee-rpc = { path = "../pallets/lease-committee/rpc" }
-lease-committee-runtime-api = { path = "../pallets/lease-committee/rpc/runtime-api" }
+online-committee-rpc = { path = "../pallets/online-committee/rpc" }
+online-committee-runtime-api = { path = "../pallets/online-committee/rpc/runtime-api" }
 rent-machine-rpc = { path = "../pallets/rent-machine/rpc" }
 rent-machine-runtime-api = { path = "../pallets/rent-machine/rpc/runtime-api" }
 simple-rpc-rpc = { path = "../pallets/simple-rpc/rpc" }

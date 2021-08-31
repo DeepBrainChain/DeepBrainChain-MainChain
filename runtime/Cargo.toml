@@ -117,8 +117,8 @@ std = [
     'simple-rpc-runtime-api/std',
     'committee/std',
     'committee-runtime-api/std',
-    'lease-committee/std',
-    'lease-committee-runtime-api/std',
+    'online-committee/std',
+    'online-committee-runtime-api/std',
     'maintain-committee/std',
     'rent-machine/std',
     'rent-machine-runtime-api/std',
@@ -397,15 +397,15 @@ default-features = false
 path = '../pallets/committee/rpc/runtime-api'
 package = 'committee-runtime-api'
 
-[dependencies.lease-committee]
+[dependencies.online-committee]
 default-features = false
-path = '../pallets/lease-committee'
-package = 'lease-committee'
+path = '../pallets/online-committee'
+package = 'online-committee'
 
-[dependencies.lease-committee-runtime-api]
+[dependencies.online-committee-runtime-api]
 default-features = false
-path = '../pallets/lease-committee/rpc/runtime-api'
-package = 'lease-committee-runtime-api'
+path = '../pallets/online-committee/rpc/runtime-api'
+package = 'online-committee-runtime-api'
 
 [dependencies.maintain-committee]
 default-features = false

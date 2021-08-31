@@ -123,7 +123,7 @@ where
     C::Api: BlockBuilder<Block>,
     C::Api: online_profile_runtime_api::OpRpcApi<Block, AccountId, Balance, BlockNumber>,
     C::Api: simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance>,
-    C::Api: lease_committee_runtime_api::LcRpcApi<Block, AccountId, BlockNumber, Balance>,
+    C::Api: online_committee_runtime_api::OcRpcApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: committee_runtime_api::CmRpcApi<Block, AccountId>,
     P: TransactionPool + 'static,
@@ -179,7 +179,7 @@ where
 
     io.extend_with(online_profile_rpc::OpRpcApi::to_delegate(online_profile_rpc::OpStorage::new(client.clone())));
 
-    io.extend_with(lease_committee_rpc::LcRpcApi::to_delegate(lease_committee_rpc::LcStorage::new(client.clone())));
+    io.extend_with(online_committee_rpc::OcRpcApi::to_delegate(online_committee_rpc::OcStorage::new(client.clone())));
 
     io.extend_with(rent_machine_rpc::RmRpcApi::to_delegate(rent_machine_rpc::RmStorage::new(client.clone())));
 
