@@ -161,7 +161,7 @@ impl dbc_price_ocw::Config for TestRuntime {
 impl online_committee::Config for TestRuntime {
     type Event = Event;
     type Currency = Balances;
-    type LCOperations = OnlineProfile;
+    type OCOperations = OnlineProfile;
     type ManageCommittee = Committee;
 }
 

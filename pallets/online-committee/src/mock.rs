@@ -170,10 +170,10 @@ impl committee::Config for TestRuntime {
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
 }
 
-impl onilne_committee::Config for TestRuntime {
+impl online_committee::Config for TestRuntime {
     type Event = Event;
     type Currency = Balances;
-    type LCOperations = OnlineProfile;
+    type OCOperations = OnlineProfile;
     type ManageCommittee = Committee;
 }
 

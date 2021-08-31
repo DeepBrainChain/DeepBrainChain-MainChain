@@ -53,6 +53,14 @@ pub struct OCCommitteeMachineList {
     pub online_machine: Vec<MachineId>,
 }
 
+impl OCCommitteeMachineList {
+    fn rm_one(a_field: &mut Vec<MachineId>, machine_id: &MachineId) {
+        if let Ok(index) = a_field.binary_search(machine_id) {
+            a_field.remove(index);
+        }
+    }
+}
+
 /// Machines' verifying committee
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -515,6 +523,10 @@ impl<T: Config> Pallet<T> {
                     reward_committee.extend(summary.against.clone());
                     unstake_committee.extend(summary.against.clone());
 
+                    let mut machine_committee = Self::machine_committee(&machine_id);
+                    machine_committee.status = OCVerifyStatus::Finished;
+                    MachineCommittee::<T>::insert(&machine_id, machine_committee);
+
                     let _ = T::OCOperations::oc_refuse_machine(machine_id.clone(), reward_committee);
                 },
                 MachineConfirmStatus::NoConsensus(summary) => {
@@ -547,7 +559,12 @@ impl<T: Config> Pallet<T> {
                 MachineSubmitedHash::<T>::remove(&machine_id);
 
                 // 改变committee_machine
-                // 改变machine_committee
+                let mut committee_machine = Self::committee_machine(&a_committee);
+                OCCommitteeMachineList::rm_one(&mut committee_machine.booked_machine, &machine_id);
+                OCCommitteeMachineList::rm_one(&mut committee_machine.hashed_machine, &machine_id);
+                OCCommitteeMachineList::rm_one(&mut committee_machine.confirmed_machine, &machine_id);
+
+                CommitteeMachine::<T>::insert(&a_committee, committee_machine);
             }
         }
     }

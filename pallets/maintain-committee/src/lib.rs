@@ -242,11 +242,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-            // 每个块检查状态是否需要变化。
-            // 抢单逻辑不能在finalize中处理，防止一个块有多个抢单请求
             let _ = Self::heart_beat();
             let _ = Self::summary_offline_case();
-            // Self::check_and_exec_slash();
         }
     }
 

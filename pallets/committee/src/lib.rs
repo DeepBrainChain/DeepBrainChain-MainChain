@@ -5,7 +5,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::{Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency},
+    traits::{BalanceStatus, Currency, EnsureOrigin, OnUnbalanced, ReservableCurrency},
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
@@ -432,98 +432,89 @@ impl<T: Config> Pallet<T> {
     // 检查并执行slash
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
-
         let pending_slash_id = Self::get_slash_id();
-        for a_slash_id in pending_slash_id {
-            let a_slash_info = Self::pending_slash(&a_slash_id);
-            if now >= a_slash_info.slash_exec_time {
-                let _ = Self::do_slash_committee(a_slash_info.slash_who.clone(), a_slash_info.unlock_amount);
 
+        for slash_id in pending_slash_id {
+            let slash_info = Self::pending_slash(&slash_id);
+            if now >= slash_info.slash_exec_time {
                 // 如果reward_to为0，则将币转到国库
-                let reward_to_num = a_slash_info.reward_to.len() as u32;
+                let reward_to_num = slash_info.reward_to.len() as u32;
+
+                let mut committee_stake = Self::committee_stake(&slash_info.slash_who);
+                let mut committee_list = Self::committee();
+                let committee_stake_params = Self::committee_stake_params().ok_or(())?;
+                let mut is_committee_list_changed = false;
+
+                committee_stake.used_stake =
+                    committee_stake.used_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
+                committee_stake.staked_amount =
+                    committee_stake.staked_amount.checked_sub(&slash_info.slash_amount).ok_or(())?;
+
+                let left_free_amount =
+                    committee_stake.staked_amount.checked_sub(&committee_stake.used_stake).ok_or(())?;
+                if left_free_amount >= committee_stake_params.min_free_stake_percent * committee_stake.staked_amount {
+                    // 此时，委员会应该移动到Normal中
+                    if let Ok(index) = committee_list.fulfilling_list.binary_search(&slash_info.slash_who) {
+                        committee_list.fulfilling_list.remove(index);
+
+                        if let Ok(index) = committee_list.normal.binary_search(&slash_info.slash_who) {
+                            committee_list.normal.insert(index, slash_info.slash_who.clone());
+                            is_committee_list_changed = true;
+                        }
+                    }
+                } else {
+                    // 此时，委员会应该在fulfilling中
+                    if let Ok(index) = committee_list.normal.binary_search(&slash_info.slash_who) {
+                        committee_list.normal.remove(index);
+                        if let Err(index) = committee_list.fulfilling_list.binary_search(&slash_info.slash_who) {
+                            committee_list.fulfilling_list.insert(index, slash_info.slash_who.clone());
+                            is_committee_list_changed = true;
+                        };
+                    }
+                }
+
                 if reward_to_num == 0 {
-                    if <T as pallet::Config>::Currency::can_slash(&a_slash_info.slash_who, a_slash_info.slash_amount) {
-                        let (imbalance, missing) =
-                            <T as pallet::Config>::Currency::slash(&a_slash_info.slash_who, a_slash_info.slash_amount);
-                        Self::deposit_event(Event::Slash(a_slash_info.slash_who.clone(), a_slash_info.slash_amount));
-                        Self::deposit_event(Event::MissedSlash(a_slash_info.slash_who, missing.clone()));
+                    if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
+                        let (imbalance, _missing) =
+                            <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
                         <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+
+                        PendingSlash::<T>::remove(slash_id);
                     }
                 } else {
                     let reward_each_get =
-                        Perbill::from_rational_approximation(1u32, reward_to_num) * a_slash_info.slash_amount;
+                        Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
+                    let mut left_reward = slash_info.slash_amount;
 
-                    let mut left_reward = a_slash_info.slash_amount;
-
-                    for a_committee in a_slash_info.reward_to {
-                        if left_reward < reward_each_get {
-                            <T as pallet::Config>::Currency::transfer(
-                                &a_slash_info.slash_who,
-                                &a_committee,
-                                left_reward,
-                                KeepAlive,
-                            )
-                            .map_err(|_| ())?;
-                            return Ok(())
-                        } else {
-                            <T as pallet::Config>::Currency::transfer(
-                                &a_slash_info.slash_who,
-                                &a_committee,
-                                reward_each_get,
-                                KeepAlive,
-                            )
-                            .map_err(|_| ())?;
-
-                            left_reward -= reward_each_get;
+                    for a_committee in slash_info.reward_to {
+                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, left_reward) {
+                            if left_reward >= reward_each_get {
+                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                                    &slash_info.slash_who,
+                                    &a_committee,
+                                    reward_each_get,
+                                    BalanceStatus::Free,
+                                );
+                                left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
+                            } else {
+                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                                    &slash_info.slash_who,
+                                    &a_committee,
+                                    left_reward,
+                                    BalanceStatus::Free,
+                                );
+                            }
                         }
                     }
                 }
 
-                PendingSlash::<T>::remove(a_slash_id);
-            }
-        }
-        Ok(())
-    }
-
-    fn do_slash_committee(committee: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        let mut committee_stake = Self::committee_stake(&committee);
-        let mut committee_list = Self::committee();
-        let committee_stake_params = Self::committee_stake_params().ok_or(())?;
-        let mut is_committee_list_changed = false;
-
-        committee_stake.used_stake = committee_stake.used_stake.checked_sub(&amount).ok_or(())?;
-        committee_stake.staked_amount = committee_stake.staked_amount.checked_sub(&amount).ok_or(())?;
-
-        let left_free_amount = committee_stake.staked_amount.checked_sub(&committee_stake.used_stake).ok_or(())?;
-
-        if left_free_amount >= committee_stake_params.min_free_stake_percent * committee_stake.staked_amount {
-            // 此时，委员会应该移动到Normal中
-            if let Ok(index) = committee_list.fulfilling_list.binary_search(&committee) {
-                committee_list.fulfilling_list.remove(index);
-
-                if let Ok(index) = committee_list.normal.binary_search(&committee) {
-                    committee_list.normal.insert(index, committee.clone());
-                    is_committee_list_changed = true;
+                if is_committee_list_changed {
+                    Committee::<T>::put(committee_list);
                 }
-            }
-        } else {
-            // 此时，委员会应该在fulfilling中
-            if let Ok(index) = committee_list.normal.binary_search(&committee) {
-                committee_list.normal.remove(index);
-                if let Err(index) = committee_list.fulfilling_list.binary_search(&committee) {
-                    committee_list.fulfilling_list.insert(index, committee.clone());
-                    is_committee_list_changed = true;
-                };
+                CommitteeStake::<T>::insert(&slash_info.slash_who, committee_stake);
+                PendingSlash::<T>::remove(slash_id);
             }
         }
-
-        // FIXME: slash到国库
-        let (_slash_amount, _unapplied_slash) = <T as pallet::Config>::Currency::slash_reserved(&committee, amount);
-
-        if is_committee_list_changed {
-            Committee::<T>::put(committee_list);
-        }
-
         Ok(())
     }
 
