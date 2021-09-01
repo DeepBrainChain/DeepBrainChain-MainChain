@@ -337,7 +337,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        pub fn report_add_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn reporter_add_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
             let mut reporter_stake = Self::reporter_stake(&reporter);
@@ -391,10 +391,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 委员会进行抢单
-        // 状态变化：LiveReport的 bookable -> verifying_report
-        // 报告状态变为Verifying
-        // 订单状态变为WaitingEncrypt
+        /// 委员会进行抢单
         #[pallet::weight(10000)]
         pub fn book_fault_order(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;

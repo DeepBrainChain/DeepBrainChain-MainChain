@@ -368,25 +368,23 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 委员会可以退出, 从chill_list中退出
-        // 只有当委员会质押为0时才能退出，此时委员会没有待处理任务
-        // FIXME: bug
+        /// Only In Chill list & used_stake == 0 can exit.
         #[pallet::weight(10000)]
         pub fn exit_committee(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let committee_stake = Self::committee_stake(&committee);
+            let mut committee_stake = Self::committee_stake(&committee);
 
             let mut committee_list = Self::committee();
-            ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
             ensure!(committee_stake.used_stake == Zero::zero(), Error::<T>::JobNotDone);
+            ensure!(committee_list.chill_list.binary_search(&committee).is_ok(), Error::<T>::StatusNotFeat);
 
-            // TODO: change stake
-            CommitteeList::rm_one(&mut committee_list.normal, &committee);
             CommitteeList::rm_one(&mut committee_list.chill_list, &committee);
-            CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
+            let _ = <T as pallet::Config>::Currency::unreserve(&committee, committee_stake.staked_amount);
 
+            committee_stake.staked_amount = Zero::zero();
+
+            CommitteeStake::<T>::insert(&committee, committee_stake);
             Committee::<T>::put(committee_list);
-
             Self::deposit_event(Event::ExitFromCandidacy(committee));
 
             return Ok(().into())
@@ -456,6 +454,7 @@ pub mod pallet {
         NotInNormalList,
         CancleSlashFailed,
         SlashIDNotExist,
+        StatusNotFeat,
     }
 }
 
