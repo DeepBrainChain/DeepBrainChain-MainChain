@@ -1043,6 +1043,7 @@ impl maintain_committee::Config for Runtime {
     type Event = Event;
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
+    type Slash = Treasury;
 }
 
 impl rent_machine::Config for Runtime {

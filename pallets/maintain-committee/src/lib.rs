@@ -4,7 +4,8 @@
 use codec::{alloc::string::ToString, Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
-    traits::{Currency, ReservableCurrency},
+    traits::{BalanceStatus, Currency, OnUnbalanced, ReservableCurrency},
+    IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
 use online_profile_machine::{MTOps, ManageCommittee};
@@ -13,7 +14,7 @@ use sp_runtime::{
     traits::{CheckedSub, SaturatedConversion, Zero},
     Perbill, RuntimeDebug,
 };
-use sp_std::{prelude::*, str, vec::Vec};
+use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
 pub use pallet::*;
 
@@ -23,11 +24,14 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub type SlashId = u64;
 pub type MachineId = Vec<u8>;
 pub type ReportId = u64;
 pub type BoxPubkey = [u8; 32];
 pub type ReportHash = [u8; 16];
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 /// 机器故障的报告
 /// 记录该模块中所有活跃的报告, 根据ReportStatus来区分
@@ -122,22 +126,23 @@ impl Default for ReportStatus {
     }
 }
 
+// FIXME: 修复报告类型错误
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineFaultType {
-    /// 机器被租用，但无法访问的故障
-    RentedInaccessible(ReportHash, BoxPubkey),
+    /// 机器被租用，但无法访问的故障 (机器离线)
+    RentedInaccessible(ReportHash),
     /// 机器被租用，但有硬件故障
     RentedHardwareMalfunction(ReportHash, BoxPubkey),
     /// 机器被租用，但硬件参数造假
     RentedHardwareCounterfeit(ReportHash, BoxPubkey),
     /// 机器是在线状态，但无法租用
-    OnlineRentFailed(MachineId),
+    OnlineRentFailed(ReportHash, BoxPubkey),
 }
 
 // 默认硬件故障
 impl Default for MachineFaultType {
     fn default() -> Self {
-        MachineFaultType::RentedInaccessible([0; 16], [0; 32])
+        Self::RentedInaccessible([0; 16])
     }
 }
 
@@ -219,6 +224,21 @@ pub struct ReporterStakeInfo<Balance> {
     pub claimed_reward: Balance,
 }
 
+// 即将被执行的罚款
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct MTPendingSlashInfo<AccountId, BlockNumber, Balance> {
+    /// 被惩罚人
+    pub slash_who: AccountId,
+    /// 惩罚被创建的时间
+    pub slash_time: BlockNumber,
+    /// 执行惩罚的金额
+    pub slash_amount: Balance,
+    /// 惩罚被执行的时间
+    pub slash_exec_time: BlockNumber,
+    /// 奖励发放对象。如果为空，则惩罚到国库
+    pub reward_to: Vec<AccountId>,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -233,6 +253,7 @@ pub mod pallet {
             MachineId = MachineId,
             FaultType = online_profile::OPSlashReason<Self::BlockNumber>,
         >;
+        type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -241,6 +262,11 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
+            let _ = Self::check_and_exec_slash();
+            0
+        }
+
         fn on_finalize(_block_number: T::BlockNumber) {
             let _ = Self::heart_beat();
             let _ = Self::summary_offline_case();
@@ -302,14 +328,28 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage]
+    #[pallet::getter(fn next_report_id)]
+    pub(super) type NextReportId<T: Config> = StorageValue<_, ReportId, ValueQuery>;
+
     /// 系统中还未完成的订单
     #[pallet::storage]
     #[pallet::getter(fn live_report)]
     pub(super) type LiveReport<T: Config> = StorageValue<_, MTLiveReportList, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn next_report_id)]
-    pub(super) type NextReportId<T: Config> = StorageValue<_, ReportId, ValueQuery>;
+    #[pallet::getter(fn next_slash_id)]
+    pub(super) type NextSlashId<T: Config> = StorageValue<_, SlashId, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash)]
+    pub(super) type PendingSlash<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        SlashId,
+        MTPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -695,10 +735,10 @@ pub mod pallet {
             }
 
             let reporter_hash = match report_info.machine_fault_type {
-                MachineFaultType::RentedInaccessible(hash, _) => hash,
+                MachineFaultType::RentedInaccessible(hash) => return Err(Error::<T>::OrderStatusNotFeat.into()),
                 MachineFaultType::RentedHardwareMalfunction(hash, _) => hash,
                 MachineFaultType::RentedHardwareCounterfeit(hash, _) => hash,
-                MachineFaultType::OnlineRentFailed(_) => return Err(Error::<T>::OrderStatusNotFeat.into()),
+                MachineFaultType::OnlineRentFailed(hash, _) => hash,
             };
 
             // 检查是否提交了该订单的hash
@@ -834,6 +874,73 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    fn check_and_exec_slash() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+        let pending_slash_id = Self::get_slash_id();
+
+        for slash_id in pending_slash_id {
+            let slash_info = Self::pending_slash(&slash_id);
+            if now >= slash_info.slash_exec_time {
+                // 如果reward_to为0，则将币转到国库
+                let reward_to_num = slash_info.reward_to.len() as u32;
+
+                let mut reporter_stake = Self::reporter_stake(&slash_info.slash_who);
+
+                // let mut committee_stake = Self::committee_stake(&slash_info.slash_who);
+
+                reporter_stake.used_stake = reporter_stake.used_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
+                reporter_stake.staked_amount =
+                    reporter_stake.staked_amount.checked_sub(&slash_info.slash_amount).ok_or(())?;
+
+                if reward_to_num == 0 {
+                    if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
+                        let (imbalance, _missing) =
+                            <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
+                        <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+
+                        PendingSlash::<T>::remove(slash_id);
+                    }
+                } else {
+                    let reward_each_get =
+                        Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
+                    let mut left_reward = slash_info.slash_amount;
+
+                    for a_committee in slash_info.reward_to {
+                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, left_reward) {
+                            if left_reward >= reward_each_get {
+                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                                    &slash_info.slash_who,
+                                    &a_committee,
+                                    reward_each_get,
+                                    BalanceStatus::Free,
+                                );
+                                left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
+                            } else {
+                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                                    &slash_info.slash_who,
+                                    &a_committee,
+                                    left_reward,
+                                    BalanceStatus::Free,
+                                );
+                            }
+                        }
+                    }
+                }
+
+                ReporterStake::<T>::insert(&slash_info.slash_who, reporter_stake);
+                PendingSlash::<T>::remove(slash_id);
+            }
+        }
+        Ok(())
+    }
+
+    // 获得所有被惩罚的订单列表
+    fn get_slash_id() -> BTreeSet<SlashId> {
+        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
+            .map(|(slash_id, _)| slash_id)
+            .collect::<BTreeSet<_>>()
+    }
+
     pub fn report_handler(reporter: T::AccountId, machine_fault_type: MachineFaultType) -> DispatchResultWithPostInfo {
         let now = <frame_system::Module<T>>::block_number();
         let report_id = Self::get_new_report_id();
@@ -849,9 +956,10 @@ impl<T: Config> Pallet<T> {
             ..Default::default()
         };
 
-        if let MachineFaultType::OnlineRentFailed(machine_id) = machine_fault_type.clone() {
+        // FIXME
+        if let MachineFaultType::RentedInaccessible(machine_id) = machine_fault_type.clone() {
             <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
-            report_info.machine_id = machine_id;
+            // report_info.machine_id = machine_id;
         }
 
         // 3种报告类型，都需要质押 1000 DBC
@@ -904,6 +1012,33 @@ impl<T: Config> Pallet<T> {
         };
 
         return report_id
+    }
+
+    fn get_new_slash_id() -> SlashId {
+        let slash_id = Self::next_slash_id();
+
+        if slash_id == u64::MAX {
+            NextSlashId::<T>::put(0);
+        } else {
+            NextSlashId::<T>::put(slash_id + 1);
+        };
+
+        return slash_id
+    }
+
+    fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
+        let slash_id = Self::get_new_slash_id();
+        let now = <frame_system::Module<T>>::block_number();
+        PendingSlash::<T>::insert(
+            slash_id,
+            MTPendingSlashInfo {
+                slash_who: who,
+                slash_time: now,
+                slash_amount: amount,
+                slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
+                reward_to,
+            },
+        );
     }
 
     fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
@@ -988,6 +1123,7 @@ impl<T: Config> Pallet<T> {
         return ReportConfirmStatus::Refuse(report_info.support_committee, report_info.against_committee)
     }
 
+    // 惩罚掉线的机器
     fn summary_offline_case() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let live_report = Self::live_report();
@@ -996,15 +1132,64 @@ impl<T: Config> Pallet<T> {
             let report_info = Self::report_info(&report_id);
             match report_info.machine_fault_type {
                 // 仅处理Offline的情况
-                MachineFaultType::OnlineRentFailed(..) => {},
+                MachineFaultType::RentedInaccessible(..) => {},
                 _ => continue,
             }
 
+            // 距第一次抢单已经还没到10分钟，并且抢单数量不超过3个
             if now - report_info.first_book_time < 10u32.into() && report_info.confirmed_committee.len() < 3 {
                 continue
             }
 
-            // TODO: 根据情况记录总结情况，并调用惩罚函数
+            // 统计预订了但没有提交确认的委员会
+            for a_committee in report_info.booked_committee {
+                if report_info.confirmed_committee.binary_search(&a_committee).is_err() {
+                    let committee_ops = Self::committee_ops(&a_committee, report_id);
+                    <T as pallet::Config>::ManageCommittee::add_slash(
+                        a_committee.clone(),
+                        committee_ops.staked_balance,
+                        Vec::new(),
+                    );
+                }
+            }
+
+            if report_info.confirmed_committee.len() == 0 {
+                // TODO: 需要重新派发，清理存储
+                continue
+            }
+
+            if report_info.support_committee >= report_info.against_committee {
+                // 此时，应该支持报告人，惩罚反对的委员会
+                T::MTOps::mt_machine_offline(
+                    report_info.reporter.clone(),
+                    report_info.support_committee,
+                    report_info.machine_id.clone(),
+                    online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
+                );
+                for a_committee in report_info.against_committee {
+                    let committee_ops = Self::committee_ops(&a_committee, report_id);
+                    <T as pallet::Config>::ManageCommittee::add_slash(
+                        a_committee.clone(),
+                        committee_ops.staked_balance,
+                        Vec::new(),
+                    );
+                }
+            } else {
+                // 此时，应该否决报告人，处理委员会
+                Self::add_slash(
+                    report_info.reporter,
+                    report_info.reporter_stake,
+                    report_info.against_committee.clone(),
+                );
+                for a_committee in report_info.support_committee {
+                    let committee_ops = Self::committee_ops(&a_committee, report_id);
+                    <T as pallet::Config>::ManageCommittee::add_slash(
+                        a_committee.clone(),
+                        committee_ops.staked_balance,
+                        report_info.against_committee.clone(),
+                    );
+                }
+            }
         }
 
         Ok(())
@@ -1050,11 +1235,7 @@ impl<T: Config> Pallet<T> {
 
                 // 报告人没有提交给原始信息，则惩罚报告人到国库，不进行奖励
                 if committee_ops.encrypted_err_info.is_none() && now - committee_ops.booked_time >= half_hour {
-                    <T as pallet::Config>::ManageCommittee::add_slash(
-                        report_info.reporter,
-                        report_info.reporter_stake,
-                        Vec::new(),
-                    );
+                    Self::add_slash(report_info.reporter, report_info.reporter_stake, Vec::new());
 
                     Self::refund_committee_clean_report(a_report);
 
