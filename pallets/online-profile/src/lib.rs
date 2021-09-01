@@ -226,6 +226,18 @@ impl LiveMachine {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct OnlineStakeParamsInfo<Balance> {
+    /// How much a GPU should stake(DBC).eg. 100_000 DBC
+    pub online_stake_per_gpu: Balance,
+    /// 单卡质押上限。USD*10^6
+    pub online_stake_usd_limit: u64,
+    /// 当剩余的质押数量到阈值时，需要补质押
+    pub min_free_stake_percent: Perbill,
+    /// 机器重新上线需要的手续费。USD*10^6，默认300RMB等值
+    pub reonline_stake: u64,
+}
+
 /// Standard GPU rent price Per Era
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct StandardGpuPointPrice {
@@ -318,25 +330,14 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
-    /// How much a GPU should stake(DBC).eg. 100_000 DBC
     #[pallet::storage]
-    #[pallet::getter(fn stake_per_gpu)]
-    pub(super) type StakePerGPU<T: Config> = StorageValue<_, BalanceOf<T>>;
+    #[pallet::getter(fn online_stake_params)]
+    pub(super) type OnlineStakeParams<T: Config> = StorageValue<_, OnlineStakeParamsInfo<BalanceOf<T>>>;
 
     /// 标准显卡算力点数和租用价格(USD*10^6/Era)
     #[pallet::storage]
     #[pallet::getter(fn standard_gpu_point_price)]
     pub(super) type StandardGPUPointPrice<T: Config> = StorageValue<_, StandardGpuPointPrice>;
-
-    /// 单卡质押上限。USD*10^6
-    #[pallet::storage]
-    #[pallet::getter(fn stake_usd_limit)]
-    pub(super) type StakeUSDLimit<T: Config> = StorageValue<_, u64>;
-
-    /// 机器重新上线需要的手续费。USD*10^6，默认300RMB等值
-    #[pallet::storage]
-    #[pallet::getter(fn reonline_stake)]
-    pub(super) type ReonlineStake<T: Config> = StorageValue<_, u64>;
 
     /// 重新上线用户质押的数量
     #[pallet::storage]
@@ -554,19 +555,13 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 设置单卡质押DBC数量
         #[pallet::weight(0)]
-        pub fn set_gpu_stake(origin: OriginFor<T>, stake_per_gpu: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn set_stake_info(
+            origin: OriginFor<T>,
+            online_stake_params_info: OnlineStakeParamsInfo<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            StakePerGPU::<T>::put(stake_per_gpu);
-            Ok(().into())
-        }
-
-        /// 单GPU质押量等价USD的上限
-        #[pallet::weight(0)]
-        pub fn set_stake_usd_limit(origin: OriginFor<T>, stake_usd_limit: u64) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            StakeUSDLimit::<T>::put(stake_usd_limit);
+            OnlineStakeParams::<T>::put(online_stake_params_info);
             Ok(().into())
         }
 
@@ -578,14 +573,6 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StandardGPUPointPrice::<T>::put(point_price);
-            Ok(().into())
-        }
-
-        /// 上线被拒绝后，重新上线需要质押
-        #[pallet::weight(0)]
-        pub fn set_reonline_stake(origin: OriginFor<T>, reonline_stake: u64) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            ReonlineStake::<T>::put(reonline_stake);
             Ok(().into())
         }
 
@@ -660,9 +647,9 @@ pub mod pallet {
             }
 
             // 重新上链需要质押一定的手续费
-            let reonline_stake = Self::reonline_stake().ok_or(Error::<T>::GetReonlineStakeFailed)?;
-            let stake_amount =
-                T::DbcPrice::get_dbc_amount_by_value(reonline_stake).ok_or(Error::<T>::GetReonlineStakeFailed)?;
+            let online_stake_params = Self::online_stake_params().ok_or(Error::<T>::GetReonlineStakeFailed)?;
+            let stake_amount = T::DbcPrice::get_dbc_amount_by_value(online_stake_params.reonline_stake)
+                .ok_or(Error::<T>::GetReonlineStakeFailed)?;
 
             let stash_stake = Self::stash_stake(&machine_info.machine_stash);
             let new_stash_stake = stash_stake.checked_add(&stake_amount).ok_or(Error::<T>::CalcStakeAmountFailed)?;
@@ -754,7 +741,8 @@ pub mod pallet {
                 ..Default::default()
             };
 
-            Self::add_user_total_stake(stash.clone(), stake_amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
+            Self::change_user_total_stake(stash.clone(), stake_amount, true)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             ControllerMachines::<T>::insert(&controller, controller_machines);
             StashMachines::<T>::insert(&stash, stash_machines);
@@ -917,7 +905,7 @@ pub mod pallet {
             if machine_info.current_stake_amount < stake_need {
                 let extra_stake = stake_need - machine_info.init_stake_amount;
 
-                Self::add_user_total_stake(machine_info.machine_stash.clone(), extra_stake)
+                Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
                 machine_info.init_stake_amount = stake_need;
@@ -1121,9 +1109,6 @@ pub mod pallet {
             ensure!(controller == machine_info.controller, Error::<T>::NotMachineController);
             ensure!(now - machine_info.last_machine_restake >= one_year.into(), Error::<T>::TooFastToReStake);
 
-            // 计算现在需要多少质押
-            // FIXME: 不应该重新计算质押，除非需要补交
-            // FIXME: calc_stake都应该再检查一遍
             let stake_need = Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num)
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
             ensure!(machine_info.init_stake_amount > stake_need, Error::<T>::NoStakeToReduce);
@@ -1132,7 +1117,7 @@ pub mod pallet {
                 machine_info.init_stake_amount = stake_need;
                 machine_info.current_stake_amount = stake_need;
                 machine_info.last_machine_restake = now;
-                if Self::reduce_user_total_stake(machine_info.machine_stash.clone(), extra_stake).is_err() {
+                if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false).is_err() {
                     return Err(Error::<T>::ReduceStakeFailed.into())
                 }
                 MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -1144,6 +1129,16 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
+            ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIdNotExist);
+
+            let slash_info = Self::pending_slash(slash_id);
+            let stash_stake = Self::stash_stake(&slash_info.slash_who)
+                .checked_sub(&slash_info.slash_amount)
+                .ok_or(Error::<T>::CalcStakeAmountFailed)?;
+
+            <T as pallet::Config>::Currency::unreserve(&slash_info.slash_who, slash_info.slash_amount);
+
+            StashStake::<T>::insert(&slash_info.slash_who, stash_stake);
             PendingSlash::<T>::remove(slash_id);
             Ok(().into())
         }
@@ -1195,6 +1190,7 @@ pub mod pallet {
         NoStakeToReduce,
         ReduceStakeFailed,
         GetReonlineStakeFailed,
+        SlashIdNotExist,
     }
 }
 
@@ -1513,6 +1509,7 @@ impl<T: Config> Pallet<T> {
         return slash_id
     }
 
+    // TODO: 机器质押不够时，需要移动到补交质押状态
     fn do_pending_slash() -> Result<(), ()> {
         // 获得所有slashID
         let now = <frame_system::Module<T>>::block_number();
@@ -1728,16 +1725,17 @@ impl<T: Config> Pallet<T> {
     // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
     pub fn calc_stake_amount(gpu_num: u32) -> Option<BalanceOf<T>> {
         let sys_info = Self::sys_info();
+        let online_stake_params = Self::online_stake_params()?;
 
-        let mut base_stake = Self::stake_per_gpu()?; // 单卡10_0000 DBC
-        if sys_info.total_gpu_num > 10_000 {
-            base_stake = Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num) * base_stake
-        }
+        let dbc_stake_per_gpu = if sys_info.total_gpu_num > 10_000 {
+            Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num) *
+                online_stake_params.online_stake_per_gpu
+        } else {
+            online_stake_params.online_stake_per_gpu
+        };
 
-        let stake_usd_limit = Self::stake_usd_limit()?;
-        let stake_limit = T::DbcPrice::get_dbc_amount_by_value(stake_usd_limit)?;
-
-        return base_stake.min(stake_limit).checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())
+        let stake_limit = T::DbcPrice::get_dbc_amount_by_value(online_stake_params.online_stake_usd_limit)?;
+        return dbc_stake_per_gpu.min(stake_limit).checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())
     }
 
     /// 根据GPU数量和该机器算力点数，计算该机器相比标准配置的租用价格
@@ -1777,47 +1775,29 @@ impl<T: Config> Pallet<T> {
         Self::phase_n_reward_per_era(phase_index)
     }
 
-    fn add_user_total_stake(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        let stash_stake = Self::stash_stake(&who);
-        let new_stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
-
-        let user_free_balance = <T as Config>::Currency::free_balance(&who);
-        if user_free_balance < new_stash_stake {
-            return Err(())
-        }
-
-        // 改变总质押
+    fn change_user_total_stake(who: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+        let mut stash_stake = Self::stash_stake(&who);
         let mut sys_info = Self::sys_info();
-        sys_info.total_stake = sys_info.total_stake.checked_add(&amount).ok_or(())?;
 
-        // <T as Config>::Currency::set_lock(PALLET_LOCK_ID, who, new_stash_stake, WithdrawReasons::all());
+        if is_add {
+            sys_info.total_stake = sys_info.total_stake.checked_add(&amount).ok_or(())?;
+            stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
 
-        if <T as Config>::Currency::can_reserve(&who, amount) {
-            <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
+            if <T as Config>::Currency::can_reserve(&who, amount) {
+                <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
+            } else {
+                return Err(())
+            }
         } else {
-            return Err(())
+            stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
+            sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
+            <T as pallet::Config>::Currency::unreserve(&who, amount);
         }
 
-        StashStake::<T>::insert(&who, new_stash_stake);
+        StashStake::<T>::insert(&who, stash_stake);
         SysInfo::<T>::put(sys_info);
 
         Self::deposit_event(Event::StakeAdded(who, amount));
-        Ok(())
-    }
-
-    fn reduce_user_total_stake(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        let stash_stake = Self::stash_stake(&who);
-        let new_stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
-
-        // 改变总质押
-        let mut sys_info = Self::sys_info();
-        sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
-
-        <T as pallet::Config>::Currency::unreserve(&who, amount);
-        StashStake::<T>::insert(&who, new_stash_stake);
-        SysInfo::<T>::put(sys_info);
-
-        Self::deposit_event(Event::StakeReduced(who, amount));
         Ok(())
     }
 
@@ -2209,7 +2189,7 @@ impl<T: Config> OCOps for Pallet<T> {
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
         let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.init_stake_amount) {
-            if Self::add_user_total_stake(machine_info.machine_stash.clone(), extra_stake).is_ok() {
+            if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true).is_ok() {
                 LiveMachine::add_machine_id(
                     &mut live_machines.online_machine,
                     committee_upload_info.machine_id.clone(),

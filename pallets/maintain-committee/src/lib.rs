@@ -10,7 +10,7 @@ use frame_system::pallet_prelude::*;
 use online_profile_machine::{MTOps, ManageCommittee};
 use sp_io::hashing::blake2_128;
 use sp_runtime::{
-    traits::{SaturatedConversion, Zero},
+    traits::{CheckedSub, SaturatedConversion, Zero},
     Perbill, RuntimeDebug,
 };
 use sp_std::{prelude::*, str, vec::Vec};
@@ -343,20 +343,14 @@ pub mod pallet {
             let mut reporter_stake = Self::reporter_stake(&reporter);
 
             reporter_stake.staked_amount += amount;
-            if reporter_stake.used_stake > stake_params.min_free_stake_percent * reporter_stake.staked_amount {
-                return Err(Error::<T>::StakeNotEnough.into())
-            }
+            ensure!(
+                reporter_stake.staked_amount - reporter_stake.used_stake >
+                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                Error::<T>::StakeNotEnough
+            );
+            ensure!(<T as Config>::Currency::can_reserve(&reporter, amount), Error::<T>::BalanceNotEnough);
 
-            // 确保free_balance足够
-            let user_free_balance = <T as Config>::Currency::free_balance(&reporter);
-            ensure!(user_free_balance > reporter_stake.staked_amount, Error::<T>::BalanceNotEnough);
-
-            if <T as Config>::Currency::can_reserve(&reporter, amount) {
-                <T as pallet::Config>::Currency::reserve(&reporter, amount)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
-            } else {
-                return Err(Error::<T>::BalanceNotEnough.into())
-            }
+            <T as pallet::Config>::Currency::reserve(&reporter, amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             ReporterStake::<T>::insert(&reporter, reporter_stake);
             Ok(().into())
@@ -381,14 +375,15 @@ pub mod pallet {
                 reporter_report.reported_id.remove(index);
             }
 
-            // FIXME: 修复？？
-            <T as pallet::Config>::ManageCommittee::change_used_stake(
-                reporter.clone(),
-                report_info.reporter_stake,
-                false,
-            )
-            .map_err(|_| Error::<T>::ReduceTotalStakeFailed)?;
+            let mut reporter_stake = Self::reporter_stake(&reporter);
+            reporter_stake.used_stake = reporter_stake
+                .used_stake
+                .checked_sub(&report_info.reporter_stake)
+                .ok_or(Error::<T>::ReduceTotalStakeFailed)?;
 
+            let _ = <T as pallet::Config>::Currency::unreserve(&reporter, report_info.reporter_stake);
+
+            ReporterStake::<T>::insert(&reporter, reporter_stake);
             ReporterReport::<T>::insert(&reporter, reporter_report);
             LiveReport::<T>::put(live_report);
             ReportInfo::<T>::remove(&report_id);
@@ -846,14 +841,15 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     pub fn report_handler(reporter: T::AccountId, machine_fault_type: MachineFaultType) -> DispatchResultWithPostInfo {
-        let report_time = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
         let report_id = Self::get_new_report_id();
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
         let mut reporter_stake = Self::reporter_stake(&reporter);
         let mut report_info = MTReportInfoDetail {
             reporter: reporter.clone(),
-            report_time,
+            report_time: now,
+            reporter_stake: stake_params.stake_per_report,
             machine_fault_type: machine_fault_type.clone(),
             report_status: ReportStatus::Reported,
             ..Default::default()
@@ -865,29 +861,24 @@ impl<T: Config> Pallet<T> {
         }
 
         // 3种报告类型，都需要质押 1000 DBC
-        // 如果是第一次绑定，则需要质押2w DBC，其他情况: TODO: 则给一个补充质押的接口
+        // 如果是第一次绑定，则需要质押2w DBC，其他情况:
         if reporter_stake.staked_amount == Zero::zero() {
-            // 此时为第一次质押，检查free_balance是否足够
-            let user_free_balance = <T as Config>::Currency::free_balance(&reporter);
-            ensure!(user_free_balance > stake_params.stake_baseline, Error::<T>::BalanceNotEnough);
-
-            if <T as Config>::Currency::can_reserve(&reporter, stake_params.stake_baseline) {
-                <T as pallet::Config>::Currency::reserve(&reporter, stake_params.stake_baseline)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
-            } else {
+            if !<T as Config>::Currency::can_reserve(&reporter, stake_params.stake_baseline) {
                 return Err(Error::<T>::BalanceNotEnough.into())
             }
 
+            <T as pallet::Config>::Currency::reserve(&reporter, stake_params.stake_baseline)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
             reporter_stake.staked_amount = stake_params.stake_baseline;
             reporter_stake.used_stake = stake_params.stake_per_report;
         } else {
             reporter_stake.used_stake += stake_params.stake_per_report;
-            if reporter_stake.used_stake > stake_params.min_free_stake_percent * reporter_stake.staked_amount {
+            if reporter_stake.staked_amount - reporter_stake.used_stake >
+                stake_params.min_free_stake_percent * reporter_stake.staked_amount
+            {
                 return Err(Error::<T>::StakeNotEnough.into())
             }
         }
-
-        report_info.reporter_stake = stake_params.stake_per_report;
 
         let mut live_report = Self::live_report();
         if let Err(index) = live_report.bookable_report.binary_search(&report_id) {

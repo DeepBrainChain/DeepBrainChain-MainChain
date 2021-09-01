@@ -256,6 +256,12 @@
     "slash_exec_time": "BlockNumber",
     "reward_to": "Vec<AccountId>"
   },
+  "OnlineStakeParamsInfo": {
+    "online_stake_per_gpu": "Balance",
+    "online_stake_usd_limit": "u64",
+    "min_free_stake_percent": "Perbill",
+    "reonline_stake": "u64"
+  },
   "OPPendingSlashInfo": {
     "slash_who": "AccountId",
     "slash_time": "BlockNumber",
