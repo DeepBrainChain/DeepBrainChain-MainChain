@@ -556,7 +556,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_stake_info(
+        pub fn set_online_stake_params(
             origin: OriginFor<T>,
             online_stake_params_info: OnlineStakeParamsInfo<BalanceOf<T>>,
         ) -> DispatchResultWithPostInfo {

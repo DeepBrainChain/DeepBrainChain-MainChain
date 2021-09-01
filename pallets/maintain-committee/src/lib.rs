@@ -1,7 +1,7 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::{alloc::string::ToString, Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, ReservableCurrency},
@@ -398,15 +398,14 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             // 判断发起请求者是状态正常的委员会
-            if !T::ManageCommittee::is_valid_committee(&committee) {
-                return Err(Error::<T>::NotCommittee.into())
-            }
+            ensure!(T::ManageCommittee::is_valid_committee(&committee), Error::<T>::NotCommittee);
             ensure!(<ReportInfo<T>>::contains_key(report_id), Error::<T>::OrderNotAllowBook);
 
             // 检查订单是否可预订状态
             let mut live_report = Self::live_report();
             let mut report_info = Self::report_info(report_id);
             let mut ops_detail = Self::committee_ops(&committee, &report_id);
+            let mut is_live_report_changed = false;
 
             // 检查订单是否可以抢定
             ensure!(
@@ -419,18 +418,17 @@ pub mod pallet {
             // 记录预订订单的委员会
             if let Err(index) = report_info.booked_committee.binary_search(&committee) {
                 report_info.booked_committee.insert(index, committee.clone());
+                // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
+                if report_info.booked_committee.len() == 1 {
+                    report_info.first_book_time = now;
+                    report_info.confirm_start = now + 360u32.saturated_into::<T::BlockNumber>();
+                }
             } else {
                 return Err(Error::<T>::AlreadyBooked.into())
             }
 
             // 添加委员会对于机器的操作记录
             ops_detail.booked_time = now;
-
-            // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
-            if report_info.booked_committee.len() == 1 {
-                report_info.first_book_time = now;
-                report_info.confirm_start = now + 360u32.saturated_into::<T::BlockNumber>();
-            }
 
             // 支付手续费或押金
             match report_info.machine_fault_type {
@@ -460,15 +458,15 @@ pub mod pallet {
                     if let Err(index) = live_report.verifying_report.binary_search(&report_id) {
                         live_report.verifying_report.insert(index, report_id);
                     }
-                    LiveReport::<T>::put(live_report);
+                    is_live_report_changed = true;
                 },
-                // 付10个DBC的手续费
                 MachineFaultType::OnlineRentFailed(..) => {
+                    // 付10个DBC的手续费
                     <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone())
                         .map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
-                    // WaitingBook状态允许其他委员会继续抢单
                     ops_detail.order_status = MTOrderStatus::Verifying;
+                    // WaitingBook状态允许其他委员会继续抢单
                     report_info.report_status = if report_info.booked_committee.len() == 3 {
                         ReportStatus::Verifying
                     } else {
@@ -486,6 +484,9 @@ pub mod pallet {
                 committee_order.booked_report.insert(index, report_id);
             }
 
+            if is_live_report_changed {
+                LiveReport::<T>::put(live_report);
+            }
             CommitteeOps::<T>::insert(&committee, &report_id, ops_detail);
             CommitteeOrder::<T>::insert(&committee, committee_order);
             ReportInfo::<T>::insert(&report_id, report_info);
@@ -644,12 +645,8 @@ pub mod pallet {
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
             // 计算Hash
             let mut raw_msg_info = Vec::new();
-            // FIXME: bugs: should convert int to string
-            // let new_report_id: &str = "".into(); // (report_id as u32).display().into();
-            // let new_report_id2 = new_report_id.to_string();
-
-            // raw_msg_info.extend("0".to_string().bytes());
-            raw_msg_info.extend("0".bytes());
+            let new_report_id: Vec<u8> = report_id.to_string().into();
+            raw_msg_info.extend(new_report_id);
             raw_msg_info.extend(committee_rand_str);
             let is_support_u8: Vec<u8> = if is_support { "1".into() } else { "0".into() };
             raw_msg_info.extend(is_support_u8);
@@ -938,7 +935,7 @@ impl<T: Config> Pallet<T> {
         ReportInfo::<T>::remove(&report_id);
     }
 
-    // 从委员会的订单列表中删除
+    // rm from committee_order
     fn clean_from_committee_order(committee: &T::AccountId, report_id: &ReportId) {
         let mut committee_order = Self::committee_order(committee);
         if let Ok(index) = committee_order.booked_report.binary_search(report_id) {
@@ -954,7 +951,7 @@ impl<T: Config> Pallet<T> {
         CommitteeOrder::<T>::insert(committee, committee_order);
     }
 
-    // 从live_report中移除一个订单
+    // rm from live_report
     fn clean_from_live_report(report_id: &ReportId) {
         let mut live_report = Self::live_report();
         if let Ok(index) = live_report.bookable_report.binary_search(report_id) {

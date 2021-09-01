@@ -191,6 +191,12 @@ pub mod pallet {
             let mut committee_stake = Self::committee_stake(&committee);
             let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
 
+            if committee_list.normal.binary_search(&committee).is_ok() {
+                committee_stake.box_pubkey = box_pubkey;
+                CommitteeStake::<T>::insert(&committee, committee_stake);
+                return Ok(().into())
+            }
+
             // 只允许委员会第一次操作
             if committee_list.waiting_box_pubkey.binary_search(&committee).is_err() {
                 return Err(Error::<T>::NotCommittee.into())
@@ -289,20 +295,6 @@ pub mod pallet {
 
             CommitteeStake::<T>::insert(&committee, committee_stake);
 
-            Ok(().into())
-        }
-
-        /// 状态正常的委员会更改加密pubkey
-        #[pallet::weight(10000)]
-        pub fn committee_change_pubkey(origin: OriginFor<T>, box_pubkey: [u8; 32]) -> DispatchResultWithPostInfo {
-            let committee = ensure_signed(origin)?;
-            let mut committee_stake = Self::committee_stake(&committee);
-            let committee_list = Self::committee();
-
-            ensure!(committee_list.normal.binary_search(&committee).is_ok(), Error::<T>::StatusNotAllowed);
-
-            committee_stake.box_pubkey = box_pubkey;
-            CommitteeStake::<T>::insert(&committee, committee_stake);
             Ok(().into())
         }
 
@@ -555,8 +547,8 @@ impl<T: Config> Pallet<T> {
         committee_stake: &CommitteeStakeInfo<BalanceOf<T>>,
     ) -> bool {
         let committee_stake_params = Self::committee_stake_params().unwrap_or_default();
-        let is_free_stake_enough = committee_stake_params.min_free_stake_percent * committee_stake.staked_amount >=
-            committee_stake.staked_amount - committee_stake.used_stake;
+        let is_free_stake_enough = committee_stake.staked_amount - committee_stake.used_stake >=
+            committee_stake_params.min_free_stake_percent * committee_stake.staked_amount;
 
         if is_free_stake_enough {
             if let Ok(index) = committee_list.fulfilling_list.binary_search(&committee) {
@@ -575,6 +567,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
+
         false
     }
 }
