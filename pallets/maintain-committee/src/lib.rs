@@ -381,8 +381,13 @@ pub mod pallet {
                 reporter_report.reported_id.remove(index);
             }
 
-            <T as pallet::Config>::ManageCommittee::change_used_stake(&reporter, report_info.reporter_stake, false)
-                .map_err(|_| Error::<T>::ReduceTotalStakeFailed)?;
+            // FIXME: 修复？？
+            <T as pallet::Config>::ManageCommittee::change_used_stake(
+                reporter.clone(),
+                report_info.reporter_stake,
+                false,
+            )
+            .map_err(|_| Error::<T>::ReduceTotalStakeFailed)?;
 
             ReporterReport::<T>::insert(&reporter, reporter_report);
             LiveReport::<T>::put(live_report);
@@ -444,8 +449,12 @@ pub mod pallet {
                     // 支付质押
                     let committee_order_stake =
                         T::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
-                    <T as pallet::Config>::ManageCommittee::change_used_stake(&committee, committee_order_stake, true)
-                        .map_err(|_| Error::<T>::StakeFailed)?;
+                    <T as pallet::Config>::ManageCommittee::change_used_stake(
+                        committee.clone(),
+                        committee_order_stake,
+                        true,
+                    )
+                    .map_err(|_| Error::<T>::StakeFailed)?;
                     ops_detail.staked_balance = committee_order_stake;
                     ops_detail.order_status = MTOrderStatus::WaitingEncrypt;
 
@@ -926,7 +935,7 @@ impl<T: Config> Pallet<T> {
             let committee_ops = Self::committee_ops(&a_committee, &report_id);
 
             let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
-                &a_committee,
+                a_committee.clone(),
                 committee_ops.staked_balance,
                 false,
             );
@@ -1144,8 +1153,11 @@ impl<T: Config> Pallet<T> {
 
                     for a_committee in support_committees.clone() {
                         let committee_ops = Self::committee_ops(&a_committee, a_report);
-                        let _ =
-                            T::ManageCommittee::change_used_stake(&a_committee, committee_ops.staked_balance, false);
+                        let _ = T::ManageCommittee::change_used_stake(
+                            a_committee.clone(),
+                            committee_ops.staked_balance,
+                            false,
+                        );
                     }
 
                     MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
@@ -1201,8 +1213,11 @@ impl<T: Config> Pallet<T> {
 
                     for a_committee in against_committee.clone() {
                         let committee_ops = Self::committee_ops(&a_committee, a_report);
-                        let _ =
-                            T::ManageCommittee::change_used_stake(&a_committee, committee_ops.staked_balance, false);
+                        let _ = T::ManageCommittee::change_used_stake(
+                            a_committee.clone(),
+                            committee_ops.staked_balance,
+                            false,
+                        );
                     }
 
                     T::ManageCommittee::add_slash(

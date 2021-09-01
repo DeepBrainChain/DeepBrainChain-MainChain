@@ -412,7 +412,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         // 增加质押：由committee执行
         let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
-        <T as pallet::Config>::ManageCommittee::change_used_stake(&order_time.0, stake_need, true)?;
+        <T as pallet::Config>::ManageCommittee::change_used_stake(order_time.0.clone(), stake_need, true)?;
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
@@ -547,7 +547,7 @@ impl<T: Config> Pallet<T> {
             for a_committee in unstake_committee {
                 let committee_ops = Self::committee_ops(&a_committee, &machine_id);
                 let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
-                    &a_committee,
+                    a_committee.clone(),
                     committee_ops.staked_dbc,
                     false,
                 );

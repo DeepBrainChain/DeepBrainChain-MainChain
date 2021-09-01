@@ -46,7 +46,7 @@ pub trait ManageCommittee {
     fn is_valid_committee(who: &Self::AccountId) -> bool;
 
     fn available_committee() -> Result<Vec<Self::AccountId>, ()>;
-    fn change_used_stake(controller: &Self::AccountId, amount: Self::BalanceOf, is_add: bool) -> Result<(), ()>;
+    fn change_used_stake(committee: Self::AccountId, amount: Self::BalanceOf, is_add: bool) -> Result<(), ()>;
     fn stake_per_order() -> Option<Self::BalanceOf>;
     fn add_reward(committee: Self::AccountId, reward: Self::BalanceOf);
     fn add_slash(who: Self::AccountId, amount: Self::BalanceOf, reward_to: Vec<Self::AccountId>);
