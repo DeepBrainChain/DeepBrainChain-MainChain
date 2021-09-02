@@ -280,7 +280,7 @@ pub mod pallet {
     #[pallet::getter(fn committee_limit)]
     pub(super) type CommitteeLimit<T: Config> = StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
 
-    /// 查询报告人报告的机器
+    /// Report record for reporter
     #[pallet::storage]
     #[pallet::getter(fn reporter_report)]
     pub(super) type ReporterReport<T: Config> =
