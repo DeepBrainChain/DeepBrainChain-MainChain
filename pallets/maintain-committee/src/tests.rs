@@ -209,7 +209,7 @@ fn report_machine_offline_works() {
 
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
-            crate::MachineFaultType::OnlineRentFailed(machine_id),
+            crate::MachineFaultType::RentedInaccessible(machine_id),
         ));
 
         // 委员会订阅机器故障报告
@@ -234,15 +234,15 @@ fn report_machine_offline_works() {
             offline_committee_hash.clone()
         ));
 
-        run_to_block(12);
+        run_to_block(21);
         assert_ok!(MaintainCommittee::submit_offline_raw(
             Origin::signed(committee),
             0,
             "abcd".as_bytes().to_vec(),
             true
         ));
-
-        // TODO: 5分钟后，开始summary，提交原始信息
+        run_to_block(22);
+        assert_eq!(1, 2);
     })
 }
 

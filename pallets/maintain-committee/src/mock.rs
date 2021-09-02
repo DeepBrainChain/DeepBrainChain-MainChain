@@ -208,6 +208,7 @@ impl maintain_committee::Config for TestRuntime {
     type Event = Event;
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
+    type Slash = Treasury;
 }
 
 // Configure a mock runtime to test the pallet.
@@ -245,6 +246,7 @@ pub fn run_to_block(n: BlockNumber) {
         System::set_block_number(b + 1);
 
         // 下一块初始化
+        MaintainCommittee::on_initialize(b + 1);
         RandomnessCollectiveFlip::on_initialize(b + 1);
         System::on_initialize(b + 1);
         OnlineCommittee::on_initialize(b + 1);

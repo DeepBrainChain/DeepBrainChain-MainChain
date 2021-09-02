@@ -1092,66 +1092,76 @@ impl<T: Config> Pallet<T> {
         let mut live_report = Self::live_report();
 
         for report_id in live_report.bookable_report {
-            let report_info = Self::report_info(&report_id);
+            let mut report_info = Self::report_info(&report_id);
             match report_info.machine_fault_type {
                 // 仅处理Offline的情况
                 MachineFaultType::RentedInaccessible(..) => {},
                 _ => continue,
             }
 
-            // 距第一次抢单已经还没到10分钟，并且抢单数量不超过3个
-            if now - report_info.first_book_time < 10u32.into() && report_info.confirmed_committee.len() < 3 {
-                continue
-            }
-
-            // 统计预订了但没有提交确认的委员会
-            for a_committee in report_info.booked_committee {
-                if report_info.confirmed_committee.binary_search(&a_committee).is_err() {
-                    let committee_ops = Self::committee_ops(&a_committee, report_id);
-                    <T as pallet::Config>::ManageCommittee::add_slash(
-                        a_committee.clone(),
-                        committee_ops.staked_balance,
-                        Vec::new(),
-                    );
+            // 当大于等于10分钟，或者提交确认的委员会等于提交了hash的委员会，需要执行后面的逻辑，来确认
+            if now - report_info.first_book_time >= 20u32.into() ||
+                report_info.confirmed_committee.len() == report_info.hashed_committee.len()
+            {
+                // 统计预订了但没有提交确认的委员会
+                for a_committee in report_info.booked_committee {
+                    if report_info.confirmed_committee.binary_search(&a_committee).is_err() {
+                        let committee_ops = Self::committee_ops(&a_committee, report_id);
+                        <T as pallet::Config>::ManageCommittee::add_slash(
+                            a_committee.clone(),
+                            committee_ops.staked_balance,
+                            Vec::new(),
+                        );
+                    }
                 }
-            }
 
-            if report_info.confirmed_committee.len() == 0 {
-                // TODO: 需要重新派发，清理存储
-                continue
-            }
-
-            if report_info.support_committee >= report_info.against_committee {
-                // 此时，应该支持报告人，惩罚反对的委员会
-                T::MTOps::mt_machine_offline(
-                    report_info.reporter.clone(),
-                    report_info.support_committee,
-                    report_info.machine_id.clone(),
-                    online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
-                );
-                for a_committee in report_info.against_committee {
-                    let committee_ops = Self::committee_ops(&a_committee, report_id);
-                    <T as pallet::Config>::ManageCommittee::add_slash(
-                        a_committee.clone(),
-                        committee_ops.staked_balance,
-                        Vec::new(),
-                    );
+                if report_info.confirmed_committee.len() == 0 {
+                    // TODO: 需要重新派发，清理存储
+                    continue
                 }
-            } else {
-                // 此时，应该否决报告人，处理委员会
-                Self::add_slash(
-                    report_info.reporter,
-                    report_info.reporter_stake,
-                    report_info.against_committee.clone(),
-                );
-                for a_committee in report_info.support_committee {
-                    let committee_ops = Self::committee_ops(&a_committee, report_id);
-                    <T as pallet::Config>::ManageCommittee::add_slash(
-                        a_committee.clone(),
-                        committee_ops.staked_balance,
+
+                if report_info.support_committee >= report_info.against_committee {
+                    // 此时，应该支持报告人，惩罚反对的委员会
+                    T::MTOps::mt_machine_offline(
+                        report_info.reporter.clone(),
+                        report_info.support_committee,
+                        report_info.machine_id.clone(),
+                        online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
+                    );
+                    for a_committee in report_info.against_committee {
+                        let committee_ops = Self::committee_ops(&a_committee, report_id);
+                        <T as pallet::Config>::ManageCommittee::add_slash(
+                            a_committee.clone(),
+                            committee_ops.staked_balance,
+                            Vec::new(),
+                        );
+                    }
+                } else {
+                    // 此时，应该否决报告人，处理委员会
+                    Self::add_slash(
+                        report_info.reporter,
+                        report_info.reporter_stake,
                         report_info.against_committee.clone(),
                     );
+                    for a_committee in report_info.support_committee {
+                        let committee_ops = Self::committee_ops(&a_committee, report_id);
+                        <T as pallet::Config>::ManageCommittee::add_slash(
+                            a_committee.clone(),
+                            committee_ops.staked_balance,
+                            report_info.against_committee.clone(),
+                        );
+                    }
                 }
+
+                continue
+            }
+            // 当大于等于5分钟或者hashed的委员会已经达到3人，则更改报告状态，允许提交原始值
+            if now - report_info.first_book_time >= 10u32.into() || report_info.hashed_committee.len() == 3 {
+                if let ReportStatus::WaitingBook = report_info.report_status {
+                    report_info.report_status = ReportStatus::SubmittingRaw;
+                    ReportInfo::<T>::insert(report_id, report_info);
+                }
+                continue
             }
         }
 
