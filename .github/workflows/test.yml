@@ -25,9 +25,9 @@ jobs:
           target: wasm32-unknown-unknown
 
       - uses: actions/checkout@v2
-      
+
+      - name: Run build
+        run: cargo build --release
+
       - name: Run tests
-        run: cargo test --verbose
-          
-      - name: Build
-        run: cargo build --release --verbose
+        run: cargo test
