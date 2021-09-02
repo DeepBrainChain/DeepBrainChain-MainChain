@@ -23,6 +23,8 @@ jobs:
         with:
           toolchain: nightly
           target: wasm32-unknown-unknown
+
+      - uses: actions/checkout@v2
       
       - name: Run tests
         run: cargo test --verbose
