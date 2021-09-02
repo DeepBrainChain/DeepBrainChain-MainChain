@@ -265,7 +265,7 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         // 初始化设置参数
         // 委员会每次抢单质押数量 (15$)
         // 委员会每次抢单质押数量 (15$)
-        Committee::set_committee_stake_params(
+        let _ = Committee::set_committee_stake_params(
             RawOrigin::Root.into(),
             committee::CommitteeStakeParamsInfo {
                 stake_baseline: 20000 * ONE_DBC,
@@ -277,14 +277,21 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         // 操作时的固定费率: 10 DBC
         assert_ok!(GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10 * ONE_DBC));
         // 每张GPU质押数量: 100,000 DBC
-        assert_ok!(OnlineProfile::set_gpu_stake(RawOrigin::Root.into(), 100_000 * ONE_DBC));
+        // 设置单卡质押上限： 7700_000_000, 每张GPU质押数量: 100,000 DBC
+        let _ = OnlineProfile::set_online_stake_params(
+            RawOrigin::Root.into(),
+            online_profile::OnlineStakeParamsInfo {
+                online_stake_per_gpu: 100000 * ONE_DBC,
+                online_stake_usd_limit: 7700_000_000,
+                min_free_stake_percent: Perbill::from_rational_approximation(80u32, 100u32),
+                reonline_stake: 46_000_000,
+            },
+        );
         // 设置奖励发放开始时间
         assert_ok!(OnlineProfile::set_reward_start_era(RawOrigin::Root.into(), 0));
         // 设置每个Era奖励数量: 1,100,000
         assert_ok!(OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 0, 1_100_000 * ONE_DBC));
         assert_ok!(OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 1, 1_100_000 * ONE_DBC));
-        // 设置单卡质押上限： 7700_000_000
-        assert_ok!(OnlineProfile::set_stake_usd_limit(RawOrigin::Root.into(), 7700_000_000));
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
         assert_ok!(OnlineProfile::set_standard_gpu_point_price(
             RawOrigin::Root.into(),

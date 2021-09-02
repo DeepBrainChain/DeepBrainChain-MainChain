@@ -839,7 +839,6 @@ fn committee_not_submit_hash_slash_works() {
             committee::CMPendingSlashInfo {
                 slash_who: committee4,
                 slash_time: 4327,
-                unlock_amount: 1000 * ONE_DBC,
                 slash_amount: 1000 * ONE_DBC,
                 slash_exec_time: 4327 + 2880 * 2, // 2day
                 reward_to: vec![]

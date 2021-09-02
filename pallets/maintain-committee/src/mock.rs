@@ -314,7 +314,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             online_profile::OnlineStakeParamsInfo {
                 online_stake_per_gpu: 100000 * ONE_DBC,
                 online_stake_usd_limit: 7700_000_000,
-                min_free_stake_percent: Perbill::from_rational_approximation(50u32, 100u32),
+                min_free_stake_percent: Perbill::from_rational_approximation(80u32, 100u32),
                 reonline_stake: 46_000_000,
             },
         );
