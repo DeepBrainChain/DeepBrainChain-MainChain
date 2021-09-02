@@ -254,3 +254,7 @@ fn report_machine_unrentable_works() {}
 fn controller_report_online_machine_offline_should_work() {
     new_test_with_init_params_ext().execute_with(|| {})
 }
+
+// 检查各种情况下，live_report状态正确变化
+#[test]
+fn live_report_status_change_works() {}
