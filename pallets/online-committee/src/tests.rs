@@ -402,7 +402,8 @@ fn machine_online_works() {
         assert_eq!(&OnlineProfile::stash_machines(stash), &stash_machine_info);
 
         // 第二天释放的获得的第一天的将奖励： 1100000 * 0.75 * 6666666 / 10**9 * 0.01 = 54.9999945
-        committee_stake_info.can_claim_reward = 2750 * ONE_DBC * 2 + 54 * ONE_DBC + 9999945 * ONE_DBC / 10000000; // 1100000 * 0.25 * 0.01; 1100000 * 0.75 / 150 * 0.01 * 333333333 / 10**9
+        // 1100000 * 0.25 * 0.01; 1100000 * 0.75 / 150 * 0.01 * 333333333 / 10**9
+        committee_stake_info.can_claim_reward = 2750 * ONE_DBC * 2 + 54 * ONE_DBC + 9999945 * ONE_DBC / 10000000;
         committee_stake_info.used_stake = 0;
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
 
