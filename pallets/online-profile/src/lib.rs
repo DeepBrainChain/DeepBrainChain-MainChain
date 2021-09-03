@@ -1150,6 +1150,7 @@ impl<T: Config> Pallet<T> {
         committee: Option<Vec<T::AccountId>>,
     ) -> BalanceOf<T> {
         let machine_info = Self::machines_info(&machine_id);
+        let now = <frame_system::Module<T>>::block_number();
         match slash_reason {
             // 算工主动报告被租用的机器，主动下线
             OPSlashReason::RentedReportOffline(duration) => {
@@ -1192,7 +1193,11 @@ impl<T: Config> Pallet<T> {
             },
             // 算工主动报告在线的机器，主动下线
             OPSlashReason::OnlineReportOffline(duration) => {
-                // TODO: 判断是否已经下线十天，如果是，则不进行惩罚，仅仅下线处理
+                // 判断是否已经下线十天，如果是，则不进行惩罚，仅仅下线处理
+                // NOTE: 此时，machine_info.last_online_height还未改变
+                if now > 28800u32.saturated_into::<T::BlockNumber>() + duration + machine_info.last_online_height {
+                    return Zero::zero()
+                }
                 let duration = duration.saturated_into::<u64>();
                 match duration {
                     0 => return Zero::zero(),

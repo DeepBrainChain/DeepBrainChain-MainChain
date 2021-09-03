@@ -242,10 +242,10 @@
   },
   "MachineFaultType": {
     "_enum": {
-      "RentedInaccessible": "(ReportHash, BoxPubkey)",
+      "RentedInaccessible": "MachineId",
       "RentedHardwareMalfunction": "(ReportHash, BoxPubkey)",
       "RentedHardwareCounterfeit": "(ReportHash, BoxPubkey)",
-      "OnlineRentFailed": "MachineId"
+      "OnlineRentFailed": "(ReportHash, BoxPubkey)"
     }
   },
   "CMPendingSlashInfo": {

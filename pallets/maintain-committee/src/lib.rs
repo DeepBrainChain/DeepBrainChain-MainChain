@@ -1066,6 +1066,18 @@ impl<T: Config> Pallet<T> {
         LiveReport::<T>::put(live_report);
     }
 
+    // - Writes:
+    // CommitteeOps, MTCommitteeReportList, MTLiveReportList
+    // NOTE: MTReportInfoDetail 不清理
+    fn clean_finished_order(report_id: ReportId) {
+        let report_info = Self::report_info(report_id);
+        for a_committee in report_info.booked_committee {
+            CommitteeOps::<T>::remove(&a_committee, report_id);
+            Self::clean_from_committee_order(&a_committee, &report_id);
+            Self::clean_from_live_report(&report_id);
+        }
+    }
+
     // Summary committee's handle result
     fn summary_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {
         let report_info = Self::report_info(&report_id);
@@ -1088,10 +1100,9 @@ impl<T: Config> Pallet<T> {
     // 惩罚掉线的机器
     fn summary_offline_case() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
-        // TODO: rm from live_report
-        let mut live_report = Self::live_report();
+        let live_report = Self::live_report();
 
-        for report_id in live_report.bookable_report {
+        for report_id in live_report.bookable_report.clone() {
             let mut report_info = Self::report_info(&report_id);
             match report_info.machine_fault_type {
                 // 仅处理Offline的情况
@@ -1113,12 +1124,6 @@ impl<T: Config> Pallet<T> {
                             Vec::new(),
                         );
                     }
-                }
-
-                if report_info.confirmed_committee.len() == 0 {
-                    // TODO: 惩罚提交了Hash的委员会
-                    // TODO: 需要重新派发，清理存储
-                    continue
                 }
 
                 if report_info.support_committee >= report_info.against_committee {
@@ -1153,6 +1158,9 @@ impl<T: Config> Pallet<T> {
                         );
                     }
                 }
+
+                // If report_info.confirmed_committee.len() == 0 do nothing but clean
+                Self::clean_finished_order(report_id);
 
                 continue
             }
@@ -1328,8 +1336,6 @@ impl<T: Config> Pallet<T> {
                             );
                         },
                     }
-
-                    // TODO: do clean
                 },
                 ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                     for a_committee in support_committee {
@@ -1356,13 +1362,16 @@ impl<T: Config> Pallet<T> {
                 // In this case, no raw info is submitted, so committee record should be None
                 ReportConfirmStatus::NoConsensus => {
                     report_info.report_status = ReportStatus::Reported;
-                    MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
-                    MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
-                    MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
-                    // TODO: make some clean
-                    // TODO: 退还押金
+                    // 仅在没有人提交原始值时才无共识
+                    for a_committee in report_info.booked_committee.clone() {
+                        let committee_ops = Self::committee_ops(a_committee.clone(), a_report);
+                        T::ManageCommittee::add_slash(a_committee, committee_ops.staked_balance, vec![]);
+                    }
                 },
             }
+
+            // FIXME: live_report与本逻辑中的冲突
+            Self::clean_finished_order(a_report);
             ReportInfo::<T>::insert(a_report, report_info);
         }
 
