@@ -129,9 +129,6 @@ fn machine_online_works() {
             .unwrap();
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey.clone()));
 
-        // FIXME: bugs: check free_balance
-        // assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC);
-
         // 委员会处于正常状态(排序后的列表)
         assert_eq!(Committee::committee(), CommitteeList { normal: vec![committee1], ..Default::default() });
         // 获取可派单的委员会正常
@@ -415,7 +412,6 @@ fn machine_online_works() {
         committee_stake_info.claimed_reward = committee_stake_info.can_claim_reward;
         committee_stake_info.can_claim_reward = 0;
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
-        // FIXME: 检查质押
         assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC + 5554999994500000000);
 
         // NOTE: 测试 控制账户重新上线机器

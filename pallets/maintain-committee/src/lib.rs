@@ -1116,6 +1116,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 if report_info.confirmed_committee.len() == 0 {
+                    // TODO: 惩罚提交了Hash的委员会
                     // TODO: 需要重新派发，清理存储
                     continue
                 }

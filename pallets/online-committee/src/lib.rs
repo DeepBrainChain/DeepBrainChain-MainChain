@@ -575,13 +575,6 @@ impl<T: Config> Pallet<T> {
     fn revert_book(machine_id: MachineId) -> Result<(), ()> {
         let machine_committee = Self::machine_committee(&machine_id);
 
-        // 给提交了信息的委员会退押金
-        for booked_committee in machine_committee.confirmed_committee {
-            let _committee_ops = Self::committee_ops(&booked_committee, &machine_id);
-            // TODO: committee 提供
-            // Self::reduce_stake(&booked_committee, committee_ops.staked_dbc)?;
-        }
-
         // 清除预订了机器的委员会
         for booked_committee in machine_committee.booked_committee {
             CommitteeOps::<T>::remove(&booked_committee, &machine_id);

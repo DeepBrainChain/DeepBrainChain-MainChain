@@ -1041,7 +1041,6 @@ pub mod pallet {
                     }
                     match machine_info.machine_status {
                         MachineStatus::Online => {
-                            // FIXME: 此时直接补交质押!
                             slash_amount = Self::slash_when_report_offline(
                                 machine_id.clone(),
                                 OPSlashReason::OnlineReportOffline(offline_duration),

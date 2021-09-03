@@ -52,7 +52,7 @@ fn rent_machine_should_works() {
         assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 10));
         // So balance change should be right
         let stash_machines = OnlineProfile::stash_machines(&stash);
-        assert_eq!(stash_machines.total_rent_fee, 284375 * ONE_DBC / 10 * 2); // FIXME
+        assert_eq!(stash_machines.total_rent_fee, 284375 * ONE_DBC / 10 * 2);
         assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 284375 * ONE_DBC / 10 * 2);
         assert_eq!(Balances::free_balance(renter_dave), INIT_BALANCE - 284375 * ONE_DBC / 10 * 2 - 10 * ONE_DBC);
 
