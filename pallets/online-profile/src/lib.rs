@@ -2298,9 +2298,9 @@ impl<T: Config> RTOps for Pallet<T> {
                 // 机器创建成功
                 Self::update_snap_by_rent_status(machine_id.to_vec(), true);
 
-                if let Err(index) = live_machines.online_machine.binary_search(&machine_id) {
+                if let Ok(index) = live_machines.online_machine.binary_search(&machine_id) {
                     live_machines.online_machine.remove(index);
-                    if let Ok(index) = live_machines.rented_machine.binary_search(&machine_id) {
+                    if let Err(index) = live_machines.rented_machine.binary_search(&machine_id) {
                         live_machines.rented_machine.insert(index, machine_id.clone());
                         LiveMachines::<T>::put(live_machines);
                     }
