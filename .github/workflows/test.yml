@@ -26,8 +26,11 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      - name: Run check
-        run: cargo check
+      # - name: Run check
+      #   run: cargo check
+
+      - name: Run build release
+        run: cargo build --release
 
       - name: Run machine online tests
         run: cargo test -p online-committee
