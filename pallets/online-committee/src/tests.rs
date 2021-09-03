@@ -51,8 +51,7 @@ fn machine_online_works() {
             controller: controller.clone(),
             machine_stash: stash.clone(),
             bonding_height: 3,
-            init_stake_amount: 100000 * ONE_DBC,
-            current_stake_amount: 100000 * ONE_DBC,
+            stake_amount: 100000 * ONE_DBC,
             machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
             ..Default::default()
         };
@@ -268,8 +267,7 @@ fn machine_online_works() {
             last_machine_restake: 6,
             online_height: 6,
             last_online_height: 6,
-            init_stake_amount: 400000 * ONE_DBC,
-            current_stake_amount: 400000 * ONE_DBC,
+            stake_amount: 400000 * ONE_DBC,
             reward_deadline: 365 * 2,
             reward_committee: vec![committee2, committee3, committee1],
             machine_info_detail: online_profile::MachineInfoDetail {
@@ -640,8 +638,7 @@ fn machine_online_works() {
         let machine_info = online_profile::MachineInfo {
             last_machine_restake: 8644,
             last_online_height: 8644,
-            init_stake_amount: 800000 * ONE_DBC,
-            current_stake_amount: 800000 * ONE_DBC, // 扣除2%的machine_stake质押
+            stake_amount: 800000 * ONE_DBC,
             machine_status: online_profile::MachineStatus::Online,
             ..machine_info
         };
@@ -822,10 +819,17 @@ fn fulfill_should_works() {
 // 三个委员会提交信息不一致，导致重新分派
 #[test]
 fn committee_not_equal_then_redistribute_works() {
-    // new_test_with_online_machine_distribution().execute_with(|| {
     new_test_with_init_params_ext().execute_with(|| {
+        // Bob pubkey
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
+                   5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
+        let sig = "181948e14e3e983734aac572ff2b9d58d4322d6546f29a2f8d5fa0b7c93e5c5c\
+                   fd17c13e8c618265824988e2654846c551433f25bf6b01e6f99a7513c4b4618c";
+
         // 委员会需要提交的信息
-        let mut machine_3080 = online_profile::CommitteeUploadInfo {
+        let mut committee_upload_info = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,
             cuda_core: 8704,
@@ -834,13 +838,12 @@ fn committee_not_equal_then_redistribute_works() {
             sys_disk: 500,
             data_disk: 3905,
             cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
-            cpu_core_num: 64,
+            cpu_core_num: 46,
             cpu_rate: 2400,
             mem_num: 440,
 
+            rand_str: "abcdefg1".as_bytes().to_vec(),
             is_support: true,
-
-            ..Default::default()
         };
 
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
@@ -863,25 +866,19 @@ fn committee_not_equal_then_redistribute_works() {
                 .try_into()
                 .unwrap();
 
-        let machine_info_hash1: [u8; 16] = hex::decode("6b561dfad171810dfb69924dd68733ec").unwrap().try_into().unwrap();
-        let machine_info_hash2: [u8; 16] = hex::decode("5b4499c4b6e9f080673f9573410a103a").unwrap().try_into().unwrap();
-        let machine_info_hash3: [u8; 16] = hex::decode("3ac5b3416d1743b58a4c9af58c7002d7").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] = hex::decode("26c58bca9792cc285aa0a2e42483131b").unwrap().try_into().unwrap();
+        let machine_info_hash3: [u8; 16] = hex::decode("5745567d193b6d3cba18412489ccd433").unwrap().try_into().unwrap();
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Bob).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // Machine account Info:
         // ❯ subkey generate --scheme sr25519
         //   Secret seed:       0x16f2e4b3ad50aab4f5c7ab56d793738a893080d578976040a5be284da12437b6
         //   Public key (hex):  0xdc763e931919cceee0c35392d124c753fc4e4ab6e494bc67722fdd31989d660f
 
-        let machine_id = "dc763e931919cceee0c35392d124c753fc4e4ab6e494bc67722fdd31989d660f".as_bytes().to_vec();
-        let msg = "dc763e931919cceee0c35392d124c753fc4e4ab6e494bc67722fdd31989d660f\
-                   5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
-        let sig = "d43429622b5754557bc0ccc39e29d717d6d103633777082bd0c5deffbade94\
-           224804c95ca06bcd5f99f5c9302c14ed26cef32d474163ec9a201afd0fcee0d189";
-
-        machine_3080.machine_id = machine_id.clone();
+        committee_upload_info.machine_id = machine_id.clone();
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
@@ -899,8 +896,7 @@ fn committee_not_equal_then_redistribute_works() {
             controller: controller.clone(),
             machine_stash: stash.clone(),
             bonding_height: 3,
-            init_stake_amount: 100000 * ONE_DBC,
-            current_stake_amount: 100000 * ONE_DBC,
+            stake_amount: 100000 * ONE_DBC,
             machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
             ..Default::default()
         };
@@ -958,40 +954,63 @@ fn committee_not_equal_then_redistribute_works() {
             machine_info_hash3
         ));
 
-        machine_3080.rand_str = "abcdefg1".as_bytes().to_vec();
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), machine_3080.clone()));
-        machine_3080.cpu_core_num = 48;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), machine_3080.clone()));
-        machine_3080.cpu_core_num = 96;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), machine_3080.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
+        committee_upload_info.mem_num = 441;
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
+        committee_upload_info.mem_num = 442;
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info.clone()));
 
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            super::OCMachineCommitteeList { ..Default::default() }
+            super::OCMachineCommitteeList {
+                book_time: 16,
+                booked_committee: vec![committee3, committee1, committee2],
+                hashed_committee: vec![committee3, committee1, committee2],
+                confirmed_committee: vec![committee3, committee1, committee2],
+                confirm_start_time: 4336,
+                status: super::OCVerifyStatus::Summarizing,
+                ..Default::default()
+            }
         );
 
         run_to_block(17);
 
         // 机器直接删掉信息即可
-        assert_eq!(OnlineCommittee::committee_machine(&committee1), OCCommitteeMachineList { ..Default::default() });
-        assert_eq!(OnlineCommittee::committee_machine(&committee2), OCCommitteeMachineList { ..Default::default() });
-        assert_eq!(OnlineCommittee::committee_machine(&committee3), OCCommitteeMachineList { ..Default::default() });
+        assert_eq!(
+            OnlineCommittee::committee_machine(&committee1),
+            OCCommitteeMachineList { booked_machine: vec![machine_id.clone()], ..Default::default() }
+        );
+        assert_eq!(
+            OnlineCommittee::committee_machine(&committee2),
+            OCCommitteeMachineList { booked_machine: vec![machine_id.clone()], ..Default::default() }
+        );
+        assert_eq!(
+            OnlineCommittee::committee_machine(&committee3),
+            OCCommitteeMachineList { booked_machine: vec![machine_id.clone()], ..Default::default() }
+        );
 
         // 如果on_finalize先执行lease_committee 再z执行online_profile则没有内容，否则被重新分配了
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            super::OCMachineCommitteeList { ..Default::default() }
+            super::OCMachineCommitteeList {
+                book_time: 17,
+                booked_committee: vec![committee3, committee1, committee2],
+                confirm_start_time: 4337,
+                ..Default::default()
+            }
         );
 
         let machine_submit_hash: Vec<[u8; 16]> = vec![];
         assert_eq!(OnlineCommittee::machine_submited_hash(&machine_id), machine_submit_hash);
         assert_eq!(
             OnlineCommittee::committee_ops(&committee1, &machine_id),
-            super::OCCommitteeOps { ..Default::default() }
+            super::OCCommitteeOps {
+                staked_dbc: 1000 * ONE_DBC,
+                verify_time: vec![497, 1937, 3377],
+                ..Default::default()
+            }
         );
-
-        // TODO: 测试清理信息
     })
 }
 

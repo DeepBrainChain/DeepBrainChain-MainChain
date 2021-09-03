@@ -244,13 +244,17 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
 
     let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
     let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-    let one_committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
     let pot_two: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-    let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909\
-                   cb226aa4794f26a485CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
-    let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e02\
-                   54f4a9b010e2d8a5cce9d262e9193b76be87b46f6bef4219517cf939520bfff84";
+    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+    let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+
+    // Bob pubkey
+    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+    let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
+                   5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
+    let sig = "181948e14e3e983734aac572ff2b9d58d4322d6546f29a2f8d5fa0b7c93e5c5c\
+                   fd17c13e8c618265824988e2654846c551433f25bf6b01e6f99a7513c4b4618c";
 
     ext.execute_with(|| {
         run_to_block(1);
@@ -283,7 +287,6 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
             online_profile::OnlineStakeParamsInfo {
                 online_stake_per_gpu: 100000 * ONE_DBC,
                 online_stake_usd_limit: 7700_000_000,
-                min_free_stake_percent: Perbill::from_rational_approximation(80u32, 100u32),
                 reonline_stake: 46_000_000,
             },
         );
@@ -337,44 +340,64 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         run_to_block(3);
 
         // 增加一个委员会
-        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), one_committee));
-        let one_box_pubkey = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
+
+        let one_box_pubkey: [u8; 32] = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
             .unwrap()
             .try_into()
             .unwrap();
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(one_committee), one_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), one_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), one_box_pubkey.clone()));
 
         run_to_block(5);
 
         // 委员会提交机器Hash
-        let machine_info_hash = "d80b116fd318f19fd89da792aba5e875";
+        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(one_committee),
+            Origin::signed(committee1),
             machine_id.clone(),
-            hex::decode(machine_info_hash).unwrap().try_into().unwrap()
+            machine_info_hash1
         ));
+        let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee2),
+            machine_id.clone(),
+            machine_info_hash2
+        ));
+        let machine_info_hash3: [u8; 16] = hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee3),
+            machine_id.clone(),
+            machine_info_hash3
+        ));
+
+        let mut committee_upload_info = online_profile::CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
+            gpu_num: 4,
+            cuda_core: 8704,
+            gpu_mem: 10,
+            calc_point: 59890,
+            sys_disk: 500,
+            data_disk: 3905,
+            cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
+            cpu_core_num: 46,
+            cpu_rate: 2400,
+            mem_num: 440,
+
+            rand_str: "abcdefg1".as_bytes().to_vec(),
+            is_support: true,
+        };
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(one_committee),
-            online_profile::CommitteeUploadInfo {
-                machine_id: machine_id.clone(),
-                gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 4352,
-                gpu_mem: 11283456,
-                calc_point: 6825,
-                sys_disk: 12345465,
-                data_disk: 324567733,
-                cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
-                cpu_core_num: 32,
-                cpu_rate: 26,
-                mem_num: 527988672,
-
-                rand_str: "abcdefg".as_bytes().to_vec(),
-                is_support: true,
-            }
-        ));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
+        committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
+        committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info.clone()));
 
         run_to_block(10);
     });

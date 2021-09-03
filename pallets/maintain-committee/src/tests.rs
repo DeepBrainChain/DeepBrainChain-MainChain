@@ -242,7 +242,6 @@ fn report_machine_offline_works() {
             true
         ));
         run_to_block(22);
-        assert_eq!(1, 2);
     })
 }
 

@@ -309,7 +309,6 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             online_profile::OnlineStakeParamsInfo {
                 online_stake_per_gpu: 100000 * ONE_DBC,
                 online_stake_usd_limit: 7700_000_000,
-                min_free_stake_percent: Perbill::from_rational_approximation(80u32, 100u32),
                 // 设置重新上线绑定的金额: 47美元；这里为了方便计算，设置为24美元
                 reonline_stake: 24_000_000,
             },
@@ -382,8 +381,8 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
-        let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e025\
-                   4f4a9b010e2d8a5cce9d262e9193b76be87b46f6bef4219517cf939520bfff84";
+        let sig = "181948e14e3e983734aac572ff2b9d58d4322d6546f29a2f8d5fa0b7c93e5c5c\
+                   fd17c13e8c618265824988e2654846c551433f25bf6b01e6f99a7513c4b4618c";
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));

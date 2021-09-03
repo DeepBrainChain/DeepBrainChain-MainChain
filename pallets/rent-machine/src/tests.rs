@@ -23,7 +23,7 @@ fn rent_machine_should_works() {
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
 
         let era_grade_snap = OnlineProfile::eras_stash_points(1).unwrap();
-        assert_eq!(era_grade_snap.total, 8875); // 6825 * 4/10000 + 6825 * 0.3 + 6825
+        assert_eq!(era_grade_snap.total, 77881); // 59890 * 4/10000 + 59890 * 0.3 + 59890
         let staker_grade_snap = era_grade_snap.staker_statistic.get(&stash).unwrap();
 
         assert_eq!(
@@ -31,8 +31,8 @@ fn rent_machine_should_works() {
             &online_profile::StashMachineStatistics {
                 online_gpu_num: 4,
                 inflation: Perbill::from_rational_approximation(4u32, 10000u32),
-                machine_total_calc_point: 6825,
-                rent_extra_grade: Perbill::from_rational_approximation(30u32, 100u32) * 6825,
+                machine_total_calc_point: 59890,
+                rent_extra_grade: Perbill::from_rational_approximation(30u32, 100u32) * 59890,
             }
         );
 
@@ -41,20 +41,26 @@ fn rent_machine_should_works() {
         assert_eq!(stash_machines.total_rented_gpu, 4);
 
         // DBC price: {1000 points/ 5_000_000 usd }; 6825 points; 10 eras; DBC price: 12_000 usd
-        // So, rent fee: 6825 / 1000 * 5000000 / 12000 * 10 = 28437.5 DBC
-        assert_eq!(stash_machines.total_rent_fee, 284375 * ONE_DBC / 10);
+        // So, rent fee: 59890 / 1000 * 5000000 / 12000 * 10 =  249541.6666666667 DBC
+        assert_eq!(stash_machines.total_rent_fee, 249541666666666666666);
         // Balance of stash account will increase
-        assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 284375 * ONE_DBC / 10);
-        // Balance of renter will decrease
-        assert_eq!(Balances::free_balance(renter_dave), INIT_BALANCE - 284375 * ONE_DBC / 10 - 10 * ONE_DBC);
+        assert_eq!(Balances::free_balance(stash), INIT_BALANCE - 400000 * ONE_DBC + 249541666666666666666);
+        // Balance of renter will decrease, Dave is committee so - 20000
+        assert_eq!(
+            Balances::free_balance(renter_dave),
+            INIT_BALANCE - 249541666666666666666 - 10 * ONE_DBC - 20000 * ONE_DBC
+        );
 
         // Dave relet machine
         assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 10));
         // So balance change should be right
         let stash_machines = OnlineProfile::stash_machines(&stash);
-        assert_eq!(stash_machines.total_rent_fee, 284375 * ONE_DBC / 10 * 2);
-        assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 284375 * ONE_DBC / 10 * 2);
-        assert_eq!(Balances::free_balance(renter_dave), INIT_BALANCE - 284375 * ONE_DBC / 10 * 2 - 10 * ONE_DBC);
+        assert_eq!(stash_machines.total_rent_fee, 249541666666666666666 * 2);
+        assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 249541666666666666666 * 2 - 400000 * ONE_DBC);
+        assert_eq!(
+            Balances::free_balance(renter_dave),
+            INIT_BALANCE - 249541666666666666666 * 2 - 10 * ONE_DBC - 20000 * ONE_DBC
+        );
 
         // 21 days later
         run_to_block(60530);
