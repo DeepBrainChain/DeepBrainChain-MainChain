@@ -2315,9 +2315,9 @@ impl<T: Config> RTOps for Pallet<T> {
                     // 租用结束
                     Self::update_snap_by_rent_status(machine_id.to_vec(), false);
 
-                    if let Err(index) = live_machines.rented_machine.binary_search(&machine_id) {
+                    if let Ok(index) = live_machines.rented_machine.binary_search(&machine_id) {
                         live_machines.rented_machine.remove(index);
-                        if let Ok(index) = live_machines.online_machine.binary_search(&machine_id) {
+                        if let Err(index) = live_machines.online_machine.binary_search(&machine_id) {
                             live_machines.online_machine.insert(index, machine_id.clone());
                             LiveMachines::<T>::put(live_machines);
                         }

@@ -65,7 +65,7 @@ fn rent_machine_should_works() {
         // 21 days later
         run_to_block(60530);
         let era_grade_snap = OnlineProfile::eras_stash_points(21).unwrap();
-        assert_eq!(era_grade_snap.total, 6828) // 6824 * 4 / 10000 + 6825
+        assert_eq!(era_grade_snap.total, 59914) // 59890 * 4 / 10000 + 59890
     })
 }
 
