@@ -11,27 +11,12 @@ use online_profile::{
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
 
-// 当全部提交Hash+全部提交原始值时:
-// case 1: 3个支持，内容一致 ->上线
-// case 2: 3个支持，2内容一致 -> 上线 + 惩罚
-// case 3: 2个支持，1个反对 (2个一致) -> 上线 + 惩罚
-
-// case 4: 3个支持，内容都不一致 -> 无共识 + 重新分配
-// case 5: 2个支持，1个反对（2个不一致） -> 无共识 + 重新分配
-
-// case 6: 2个反对，1个支持 -> 不上线 + 奖励 + 惩罚
-// case 7: 3个反对 -> 不上线 + 奖励
-
-// case 8: 2提交Hash， 2提交原始值
-
-// 全部提交Hash，部分提交原始值时
-
-// 部分提交Hash，部分提交原始值时
-
 #[test]
 fn machine_online_works() {
     new_test_with_init_params_ext().execute_with(|| {
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
 
         let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
@@ -39,8 +24,8 @@ fn machine_online_works() {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
-        let sig = "3abb2adb1bad83b87d61be8e55c31cec4b3fb2ecc5ee7254c8df88b1ec92e025\
-                   4f4a9b010e2d8a5cce9d262e9193b76be87b46f6bef4219517cf939520bfff84";
+        let sig = "181948e14e3e983734aac572ff2b9d58d4322d6546f29a2f8d5fa0b7c93e5c5c\
+                   fd17c13e8c618265824988e2654846c551433f25bf6b01e6f99a7513c4b4618c";
 
         // 查询状态
         assert_eq!(Balances::free_balance(committee1), INIT_BALANCE);
@@ -123,14 +108,22 @@ fn machine_online_works() {
 
         // 增加一个委员会
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
+
         let one_box_pubkey: [u8; 32] = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
             .unwrap()
             .try_into()
             .unwrap();
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), one_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), one_box_pubkey.clone()));
 
         // 委员会处于正常状态(排序后的列表)
-        assert_eq!(Committee::committee(), CommitteeList { normal: vec![committee1], ..Default::default() });
+        assert_eq!(
+            Committee::committee(),
+            CommitteeList { normal: vec![committee2, committee3, committee1], ..Default::default() }
+        );
         // 获取可派单的委员会正常
         assert_ok!(OnlineCommittee::lucky_committee().ok_or(()));
 
@@ -160,7 +153,7 @@ fn machine_online_works() {
             OCMachineCommitteeList {
                 book_time: 4,
                 confirm_start_time: 4324,
-                booked_committee: vec![committee1],
+                booked_committee: vec![committee2, committee3, committee1],
                 ..Default::default()
             }
         );
@@ -172,51 +165,70 @@ fn machine_online_works() {
             OnlineCommittee::committee_ops(&committee1, &machine_id),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![4, 484, 964, 1444, 1924, 2404, 2884, 3364, 3844],
+                verify_time: vec![4, 1444, 2884],
                 ..Default::default()
             }
         );
 
         // 委员会提交机器Hash
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee1),
             machine_id.clone(),
-            machine_info_hash
+            machine_info_hash1
+        ));
+        let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee2),
+            machine_id.clone(),
+            machine_info_hash2
+        ));
+        let machine_info_hash3: [u8; 16] = hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee3),
+            machine_id.clone(),
+            machine_info_hash3
         ));
 
         let mut committee_upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
-            gpu_type: "GeForceRTX2080Ti".as_bytes().to_vec(),
+            gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,
-            cuda_core: 4352,
-            gpu_mem: 11283456,
-            calc_point: 6825,
-            sys_disk: 12345465,
-            data_disk: 324567733,
-            cpu_type: "Intel(R) Xeon(R) Silver 4110 CPU".as_bytes().to_vec(),
-            cpu_core_num: 32,
-            cpu_rate: 26,
-            mem_num: 527988672,
+            cuda_core: 8704,
+            gpu_mem: 10,
+            calc_point: 59890,
+            sys_disk: 500,
+            data_disk: 3905,
+            cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
+            cpu_core_num: 46,
+            cpu_rate: 2400,
+            mem_num: 440,
 
-            rand_str: "abcdefg".as_bytes().to_vec(),
+            rand_str: "abcdefg1".as_bytes().to_vec(),
             is_support: true,
         };
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
+        committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
+        committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info.clone()));
 
         // submit_confirm_raw:
         // - Writes: MachineSubmitedHash, MachineCommittee, CommitteeMachine, CommitteeOps
-        assert_eq!(OnlineCommittee::machine_submited_hash(&machine_id), vec![machine_info_hash.clone()]);
+        assert_eq!(
+            OnlineCommittee::machine_submited_hash(&machine_id),
+            vec![machine_info_hash3, machine_info_hash2, machine_info_hash1]
+        );
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
             crate::OCMachineCommitteeList {
                 book_time: 4,
                 confirm_start_time: 4324,
-                booked_committee: vec![committee1],
-                hashed_committee: vec![committee1],
-                confirmed_committee: vec![committee1],
+                booked_committee: vec![committee2, committee3, committee1],
+                hashed_committee: vec![committee2, committee3, committee1],
+                confirmed_committee: vec![committee2, committee3, committee1],
                 status: crate::OCVerifyStatus::Summarizing,
                 ..Default::default()
             }
@@ -230,8 +242,8 @@ fn machine_online_works() {
             OnlineCommittee::committee_ops(&committee1, machine_id.clone()),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![4, 484, 964, 1444, 1924, 2404, 2884, 3364, 3844],
-                confirm_hash: machine_info_hash,
+                verify_time: vec![4, 1444, 2884],
+                confirm_hash: machine_info_hash1,
                 hash_time: 6,
                 confirm_time: 6,
                 machine_status: crate::OCMachineStatus::Confirmed,
@@ -259,7 +271,7 @@ fn machine_online_works() {
             init_stake_amount: 400000 * ONE_DBC,
             current_stake_amount: 400000 * ONE_DBC,
             reward_deadline: 365 * 2,
-            reward_committee: vec![committee1],
+            reward_committee: vec![committee2, committee3, committee1],
             machine_info_detail: online_profile::MachineInfoDetail {
                 committee_upload_info,
                 staker_customize_info: machine_info.machine_info_detail.staker_customize_info,
@@ -270,7 +282,7 @@ fn machine_online_works() {
         let sys_info = online_profile::SysInfoDetail {
             total_gpu_num: 4,
             total_staker: 1,
-            total_calc_points: 6828,
+            total_calc_points: 59914, // 59890 + 59890 * 4/10000) = +24
             total_stake: 400000 * ONE_DBC,
             ..Default::default()
         };
@@ -281,7 +293,7 @@ fn machine_online_works() {
                 online_profile::Longitude::East(1157894),
                 online_profile::Latitude::North(235678)
             ),
-            online_profile::PosInfo { online_gpu: 4, online_gpu_calc_points: 6825, ..Default::default() }
+            online_profile::PosInfo { online_gpu: 4, online_gpu_calc_points: 59890, ..Default::default() }
         );
         assert_eq!(OnlineProfile::server_room_machines(server_room[0]), Some(vec![machine_id.clone()]));
         assert_eq!(&OnlineProfile::sys_info(), &sys_info);
@@ -292,21 +304,25 @@ fn machine_online_works() {
             online_profile::StashMachineStatistics {
                 online_gpu_num: 4,
                 inflation: Perbill::from_rational_approximation(4u32, 10000),
-                machine_total_calc_point: 6825,
+                machine_total_calc_point: 59890,
                 rent_extra_grade: 0,
             },
         );
         assert_eq!(OnlineProfile::eras_stash_points(0), Some(EraStashPoints { ..Default::default() }));
         assert_eq!(
             OnlineProfile::eras_stash_points(1),
-            Some(EraStashPoints { total: 6828, staker_statistic: staker_statistic.clone() })
+            Some(EraStashPoints { total: 59914, staker_statistic: staker_statistic.clone() })
         );
 
         let mut era_machine_points = BTreeMap::new();
         assert_eq!(OnlineProfile::eras_machine_points(0), Some(BTreeMap::new()));
         era_machine_points.insert(
             machine_id.clone(),
-            MachineGradeStatus { basic_grade: 6825, is_rented: false, reward_account: vec![committee1] },
+            MachineGradeStatus {
+                basic_grade: 59890,
+                is_rented: false,
+                reward_account: vec![committee2, committee3, committee1],
+            },
         );
         assert_eq!(OnlineProfile::eras_machine_points(1), Some(era_machine_points));
 
@@ -332,14 +348,14 @@ fn machine_online_works() {
             can_claim_reward: 272250 * ONE_DBC, // 1100000 * 0.99 * 0.25
             online_machine: vec![machine_id.clone()],
             total_earned_reward: 1089000 * ONE_DBC,
-            total_calc_points: 6828,
+            total_calc_points: 59914,
             total_gpu_num: 4,
             ..stash_machine_info
         };
 
         assert_eq!(&OnlineProfile::stash_machines(stash), &stash_machine_info);
 
-        committee_stake_info.can_claim_reward = 2750 * ONE_DBC; // 1100000 * 0.25 * 0.01
+        committee_stake_info.can_claim_reward = 916 * ONE_DBC + 66666575 * 10_000_000; // 1100000 * 25 / 100 / 100 * 333333333 / 10**9 = 916.66666575
         committee_stake_info.used_stake = 0;
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
 
@@ -371,7 +387,7 @@ fn machine_online_works() {
             can_claim_reward: 272250 * 2 * ONE_DBC + first_day_linear_release, // 1100000 * 0.99 * 0.25
             online_machine: vec![machine_id.clone()],
             total_earned_reward: 1089000 * ONE_DBC * 2,
-            total_calc_points: 6828,
+            total_calc_points: 59914,
             total_gpu_num: 4,
             ..stash_machine_info
         };
@@ -386,7 +402,7 @@ fn machine_online_works() {
         assert_eq!(&OnlineProfile::stash_machines(stash), &stash_machine_info);
 
         // 第二天释放的获得的第一天的将奖励： 1100000 * 0.75 * 6666666 / 10**9 * 0.01 = 54.9999945
-        committee_stake_info.can_claim_reward = 2750 * ONE_DBC * 2 + 54 * ONE_DBC + 9999945 * ONE_DBC / 10000000; // 1100000 * 0.25 * 0.01; 1100000 * 0.75 / 150 * 0.01
+        committee_stake_info.can_claim_reward = 2750 * ONE_DBC * 2 + 54 * ONE_DBC + 9999945 * ONE_DBC / 10000000; // 1100000 * 0.25 * 0.01; 1100000 * 0.75 / 150 * 0.01 * 333333333 / 10**9
         committee_stake_info.used_stake = 0;
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
 
@@ -1039,10 +1055,23 @@ fn committee_not_equal_then_redistribute_works() {
     })
 }
 
+// NOTE: 测试summary函数
 // 当全部提交Hash+全部提交原始值时:
 // case 1: 3个支持，内容一致 ->上线
+// case 2: 3个支持，2内容一致 -> 上线 + 惩罚
+// case 3: 2个支持，1个反对 (2个一致) -> 上线 + 惩罚
+// case 4: 3个支持，内容都不一致 -> 无共识 + 重新分配
+// case 5: 2个支持，1个反对（2个不一致） -> 无共识 + 重新分配
+// case 6: 2个反对，1个支持 -> 不上线 + 奖励 + 惩罚
+// case 7: 3个反对 -> 不上线 + 奖励
+// case 8: 2提交Hash， 2提交原始值，都是反对
+// case 9: 2提交Hash， 2提交原始值，都是支持
+// case 10: 全部提交Hash，2提交原始值，且都是支持，两个不相同
+// case 11: 全部提交Hash，2提交原始值时，且都是支持，两个相同
+
+// case 1: 3个支持，内容一致 ->上线
 #[test]
-fn test_summary_confirmation() {
+fn test_summary_confirmation1() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
 
