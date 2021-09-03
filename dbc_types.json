@@ -62,8 +62,7 @@
     "bonding_height": "BlockNumber",
     "online_height": "BlockNumber",
     "last_online_height": "BlockNumber",
-    "init_stake_amount": "Balance",
-    "current_stake_amount": "Balance",
+    "stake_amount": "Balance",
     "machine_status": "MachineStatus",
     "total_rented_duration": "u64",
     "total_rented_times": "u64",
@@ -259,7 +258,6 @@
   "OnlineStakeParamsInfo": {
     "online_stake_per_gpu": "Balance",
     "online_stake_usd_limit": "u64",
-    "min_free_stake_percent": "Perbill",
     "reonline_stake": "u64"
   },
   "OPPendingSlashInfo": {

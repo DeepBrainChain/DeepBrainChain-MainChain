@@ -85,10 +85,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     /// Last time machine is online
     /// (When first online; Rented -> Online, Offline -> Online e.t.)
     pub last_online_height: BlockNumber,
-    /// How much machine staked when first online
-    pub init_stake_amount: Balance,
-    /// current stake of machine(may be reduced for slash)
-    pub current_stake_amount: Balance,
+    /// How much machine staked
+    pub stake_amount: Balance,
     /// Status of machine
     pub machine_status: MachineStatus<BlockNumber, AccountId>,
     /// How long machine has been rented(will be update after one rent is end)
@@ -234,8 +232,6 @@ pub struct OnlineStakeParamsInfo<Balance> {
     pub online_stake_per_gpu: Balance,
     /// 单卡质押上限。USD*10^6
     pub online_stake_usd_limit: u64,
-    /// 当剩余的质押数量到阈值时，需要补质押
-    pub min_free_stake_percent: Perbill,
     /// 机器重新上线需要的手续费。USD*10^6，默认300RMB等值
     pub reonline_stake: u64,
 }
@@ -736,8 +732,7 @@ pub mod pallet {
                 controller: controller.clone(),
                 machine_stash: stash.clone(),
                 bonding_height: <frame_system::Module<T>>::block_number(),
-                init_stake_amount: stake_amount,
-                current_stake_amount: stake_amount,
+                stake_amount,
                 machine_status: MachineStatus::AddingCustomizeInfo,
                 ..Default::default()
             };
@@ -751,69 +746,6 @@ pub mod pallet {
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Self::deposit_event(Event::BondMachine(controller.clone(), machine_id.clone(), stake_amount));
-            Ok(().into())
-        }
-
-        // 只有机器状态为Online或者WaitingFulfill 时执行
-        #[pallet::weight(10000)]
-        pub fn add_machine_stake(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            extra_stake_amount: BalanceOf<T>,
-        ) -> DispatchResultWithPostInfo {
-            let controller = ensure_signed(origin)?;
-            let mut machine_info = Self::machines_info(&machine_id);
-            let mut live_machines = Self::live_machines();
-            let stash_stake = Self::stash_stake(&machine_info.machine_stash);
-            let now = <frame_system::Module<T>>::block_number();
-
-            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-            match machine_info.machine_status {
-                MachineStatus::Online | MachineStatus::WaitingFulfill => {},
-                _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
-            }
-
-            // 不允许第一次绑定就不够的进行质押
-            if machine_info.online_height == Zero::zero() {
-                return Err(Error::<T>::MachineStatusNotAllowed.into())
-            }
-
-            // 先把钱收了，再判断机器状态
-            let user_free_balance = <T as Config>::Currency::free_balance(&machine_info.machine_stash);
-            let new_stash_stake = stash_stake + extra_stake_amount;
-            ensure!(user_free_balance > new_stash_stake, Error::<T>::BalanceNotEnough);
-
-            ensure!(
-                <T as Config>::Currency::can_reserve(&machine_info.machine_stash, extra_stake_amount),
-                Error::<T>::BalanceNotEnough
-            );
-            <T as pallet::Config>::Currency::reserve(&machine_info.machine_stash, extra_stake_amount)
-                .map_err(|_| Error::<T>::CalcStakeAmountFailed)?;
-
-            machine_info.current_stake_amount += extra_stake_amount;
-
-            if let MachineStatus::WaitingFulfill = machine_info.machine_status {
-                if machine_info.current_stake_amount >=
-                    Perbill::from_rational_approximation(90u32, 100u32) * machine_info.init_stake_amount
-                {
-                    if let Ok(index) = live_machines.fulfilling_machine.binary_search(&machine_id) {
-                        live_machines.fulfilling_machine.remove(index);
-                        if let Err(index) = live_machines.online_machine.binary_search(&machine_id) {
-                            live_machines.online_machine.remove(index);
-                        }
-                        LiveMachines::<T>::put(live_machines);
-                    }
-
-                    machine_info.machine_status = MachineStatus::Online;
-                    machine_info.last_online_height = now;
-
-                    Self::change_pos_gpu_by_online(&machine_id, true);
-                    Self::update_snap_by_online_status(machine_id.clone(), true);
-                }
-            }
-
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
-
             Ok(().into())
         }
 
@@ -903,14 +835,13 @@ pub mod pallet {
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
 
             // 当出现需要补交质押时
-            if machine_info.current_stake_amount < stake_need {
-                let extra_stake = stake_need - machine_info.init_stake_amount;
+            if machine_info.stake_amount < stake_need {
+                let extra_stake = stake_need - machine_info.stake_amount;
 
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
-                machine_info.init_stake_amount = stake_need;
-                machine_info.current_stake_amount = stake_need;
+                machine_info.stake_amount = stake_need;
             }
             machine_info.machine_status = MachineStatus::Online;
 
@@ -1129,11 +1060,10 @@ pub mod pallet {
 
             let stake_need = Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num)
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
-            ensure!(machine_info.init_stake_amount > stake_need, Error::<T>::NoStakeToReduce);
+            ensure!(machine_info.stake_amount > stake_need, Error::<T>::NoStakeToReduce);
 
-            if let Some(extra_stake) = machine_info.current_stake_amount.checked_sub(&stake_need) {
-                machine_info.init_stake_amount = stake_need;
-                machine_info.current_stake_amount = stake_need;
+            if let Some(extra_stake) = machine_info.stake_amount.checked_sub(&stake_need) {
+                machine_info.stake_amount = stake_need;
                 machine_info.last_machine_restake = now;
                 if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false).is_err() {
                     return Err(Error::<T>::ReduceStakeFailed.into())
@@ -1419,7 +1349,7 @@ impl<T: Config> Pallet<T> {
     ) -> BalanceOf<T> {
         let now = <frame_system::Module<T>>::block_number();
         let machine_info = Self::machines_info(&machine_id);
-        let slash_amount = Perbill::from_rational_approximation(slash_percent, 100) * machine_info.init_stake_amount;
+        let slash_amount = Perbill::from_rational_approximation(slash_percent, 100) * machine_info.stake_amount;
 
         let slash_id = Self::get_new_slash_id();
         let slash_info = OPPendingSlashInfo {
@@ -2188,14 +2118,13 @@ impl<T: Config> OCOps for Pallet<T> {
 
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
         let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
-        if let Some(extra_stake) = stake_need.checked_sub(&machine_info.init_stake_amount) {
+        if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
             if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true).is_ok() {
                 LiveMachine::add_machine_id(
                     &mut live_machines.online_machine,
                     committee_upload_info.machine_id.clone(),
                 );
-                machine_info.init_stake_amount = stake_need;
-                machine_info.current_stake_amount = stake_need;
+                machine_info.stake_amount = stake_need;
                 machine_info.machine_status = MachineStatus::Online;
                 machine_info.last_online_height = now;
                 machine_info.last_machine_restake = now;
@@ -2298,11 +2227,11 @@ impl<T: Config> OCOps for Pallet<T> {
         let mut stash_machines = Self::stash_machines(&machine_info.machine_stash);
         let mut controller_machines = Self::controller_machines(&machine_info.controller);
 
-        sys_info.total_stake = sys_info.total_stake.checked_sub(&machine_info.init_stake_amount).ok_or(())?;
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&machine_info.stake_amount).ok_or(())?;
 
         // Slash 5% of init stake(5% of one gpu stake)
-        let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.init_stake_amount;
-        let left_stake = machine_info.init_stake_amount.checked_sub(&slash).ok_or(())?;
+        let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
+        let left_stake = machine_info.stake_amount.checked_sub(&slash).ok_or(())?;
 
         // Return 95% left stake(95% of one gpu stake)
         <T as pallet::Config>::Currency::unreserve(&machine_info.machine_stash, left_stake);
@@ -2512,8 +2441,7 @@ impl<T: Config> Module<T> {
         RPCMachineInfo {
             machine_owner: machine_info.machine_stash,
             bonding_height: machine_info.bonding_height,
-            init_stake_amount: machine_info.init_stake_amount,
-            current_stake_amount: machine_info.current_stake_amount,
+            stake_amount: machine_info.stake_amount,
             machine_status: machine_info.machine_status,
             total_rented_duration: machine_info.total_rented_duration,
             total_rented_times: machine_info.total_rented_times,
