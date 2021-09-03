@@ -144,21 +144,21 @@ impl<BlockNumber, AccountId> Default for MachineStatus<BlockNumber, AccountId> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum OPSlashReason<BlockNumber> {
-    /// 主动报告被租用的机器下线
+    /// Controller report rented machine offline
     RentedReportOffline(BlockNumber),
-    /// 主动报告在线的机器下线
+    /// Controller report online machine offline
     OnlineReportOffline(BlockNumber),
-    /// 机器被租用，但被举报有无法访问的故障
+    /// Reporter report rented machine is offline
     RentedInaccessible(BlockNumber),
-    /// 机器被租用，但被举报有硬件故障
+    /// Reporter report rented machine hardware fault
     RentedHardwareMalfunction(BlockNumber),
-    /// 机器被租用，但被举报硬件参数造假
+    /// Reporter report rented machine is fake
     RentedHardwareCounterfeit(BlockNumber),
-    /// 机器是在线状态，但无法租用
+    /// Machine is online, but rent failed
     OnlineRentFailed(BlockNumber),
-    /// 机器被委员会拒绝上架
+    /// Committee refuse machine online
     CommitteeRefusedOnline,
-    // 委员会拒绝重新上架
+    // Committee refuse changed hardware info machine reonline
     CommitteeRefusedMutHardware,
 }
 
@@ -173,23 +173,25 @@ impl<BlockNumber> Default for OPSlashReason<BlockNumber> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct LiveMachine {
-    /// 用户质押DBC并绑定机器，机器等待控制人提交信息
+    /// After call bond_machine, machine is stored waitting for controller add info
     pub bonding_machine: Vec<MachineId>,
-    /// 补交了自定义信息的机器，机器等待分派委员会
+    /// Machines, have added info, waiting for distributing to committee
     pub confirmed_machine: Vec<MachineId>,
-    /// 当机器已经全部分配了委员会。若lc确认机器失败(认可=不认可时)则返回上一状态，重新分派订单
+    /// Machines, have booked by committees
     pub booked_machine: Vec<MachineId>,
-    /// 委员会确认之后，机器上线
+    /// Verified by committees, and is online to get rewrad
     pub online_machine: Vec<MachineId>,
-    /// 委员会同意上线，但是由于stash账户质押不够，需要补充质押
+    /// Verified by committees, but stake is not enough:
+    /// One gpu is staked first time call bond_machine, after committee verification,
+    /// actual stake is calced by actual gpu num
     pub fulfilling_machine: Vec<MachineId>,
-    /// 被委员会拒绝的机器
+    /// Machines, refused by committee
     pub refused_machine: Vec<MachineId>,
-    /// 被用户租用的机器，当机器被租用时，从online_machine中移除
+    /// Machines, is rented
     pub rented_machine: Vec<MachineId>,
-    /// 下线的机器
+    /// Machines, called offline by controller
     pub offline_machine: Vec<MachineId>,
-    /// 修改硬件信息被拒绝的机器
+    /// Machines, want to change hardware info, but refused by committee
     pub refused_mut_hardware_machine: Vec<MachineId>,
 }
 
@@ -230,9 +232,9 @@ impl LiveMachine {
 pub struct OnlineStakeParamsInfo<Balance> {
     /// How much a GPU should stake(DBC).eg. 100_000 DBC
     pub online_stake_per_gpu: Balance,
-    /// 单卡质押上限。USD*10^6
+    /// Limit of value of one GPU's actual stake。USD*10^6
     pub online_stake_usd_limit: u64,
-    /// 机器重新上线需要的手续费。USD*10^6，默认300RMB等值
+    /// How much should stake when want reonline (change hardware info). USD*10^6
     pub reonline_stake: u64,
 }
 
@@ -258,19 +260,19 @@ type NegativeImbalanceOf<T> =
 /// SysInfo of onlineProfile pallet
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct SysInfoDetail<Balance> {
-    /// 在线机器的GPU的总数
+    /// Total online gpu
     pub total_gpu_num: u64,
-    /// 被租用机器的GPU的总数
+    /// Total rented gpu
     pub total_rented_gpu: u64,
-    /// 系统中总stash账户数量(有机器成功上线)
+    /// Total stash number (at lease one gpu is online)
     pub total_staker: u64,
-    /// 系统中上线的总算力点数, 考虑额外得分
+    /// Total calc points of all gpu. (Extra rewarded grades is counted)
     pub total_calc_points: u64,
-    /// 系统中DBC质押总数
+    /// Total stake of all stash account
     pub total_stake: Balance,
-    /// 系统中产生的租金收益总数(银河竞赛开启前)
+    /// Total rent fee before Galaxy is on
     pub total_rent_fee: Balance,
-    /// 系统中租金销毁总数(银河竞赛开启后)
+    /// Total burn fee (after Galaxy is on, rent fee will burn)
     pub total_burn_fee: Balance,
 }
 
@@ -279,14 +281,13 @@ pub struct SysInfoDetail<Balance> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct PosInfo {
-    /// 在线机器的GPU数量
+    /// Online gpu num in one position
     pub online_gpu: u64,
-    /// 离线GPU数量
+    /// Offline gpu num in one position
     pub offline_gpu: u64,
-    /// 被租用机器GPU数量
+    /// Rented gpu num in one position
     pub rented_gpu: u64,
-    // 膨胀得分不考虑在内
-    /// 在线机器算力点数
+    /// Online gpu grades (NOTE: Extra rewarded grades is not counted)
     pub online_gpu_calc_points: u64,
 }
 
@@ -333,12 +334,12 @@ pub mod pallet {
     #[pallet::getter(fn online_stake_params)]
     pub(super) type OnlineStakeParams<T: Config> = StorageValue<_, OnlineStakeParamsInfo<BalanceOf<T>>>;
 
-    /// 标准显卡算力点数和租用价格(USD*10^6/Era)
+    /// A standard example for rent fee calculation(price: USD*10^6)
     #[pallet::storage]
     #[pallet::getter(fn standard_gpu_point_price)]
     pub(super) type StandardGPUPointPrice<T: Config> = StorageValue<_, StandardGpuPointPrice>;
 
-    /// 重新上线用户质押的数量
+    /// Reonline to change hardware, should stake some balance
     #[pallet::storage]
     #[pallet::getter(fn user_reonline_stake)]
     pub(super) type UserReonlineStake<T: Config> = StorageDoubleMap<
@@ -356,34 +357,32 @@ pub mod pallet {
     #[pallet::getter(fn galaxy_is_on)]
     pub(super) type GalaxyIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-    /// 模块统计信息
+    /// Statistics of gpu and stake
     #[pallet::storage]
     #[pallet::getter(fn sys_info)]
     pub(super) type SysInfo<T: Config> = StorageValue<_, SysInfoDetail<BalanceOf<T>>, ValueQuery>;
 
-    /// 不同经纬度GPU信息统计
+    /// Statistics of gpu in one position
     #[pallet::storage]
     #[pallet::getter(fn pos_gpu_info)]
     pub(super) type PosGPUInfo<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, Longitude, Blake2_128Concat, Latitude, PosInfo, ValueQuery>;
 
-    /// stash 对应的 controller
     #[pallet::storage]
     #[pallet::getter(fn stash_controller)]
     pub(super) type StashController<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
 
-    /// controller 控制的 stash
     #[pallet::storage]
     #[pallet::getter(fn controller_stash)]
     pub(super) type ControllerStash<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
 
-    /// 机器的详细信息
+    /// Detail info of machines
     #[pallet::storage]
     #[pallet::getter(fn machines_info)]
     pub type MachinesInfo<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
 
-    /// stash账户下所有机器统计
+    /// Statistics of stash account
     #[pallet::storage]
     #[pallet::getter(fn stash_machines)]
     pub(super) type StashMachines<T: Config> =
@@ -394,12 +393,12 @@ pub mod pallet {
     #[pallet::getter(fn stash_server_rooms)]
     pub(super) type StashServerRooms<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<H256>, ValueQuery>;
 
-    /// 某机房下的所有机器
+    /// All machines in one server room
     #[pallet::storage]
     #[pallet::getter(fn server_room_machines)]
     pub(super) type ServerRoomMachines<T: Config> = StorageMap<_, Blake2_128Concat, H256, Vec<MachineId>>;
 
-    /// controller账户下的所有机器
+    /// All machines controlled by controller
     #[pallet::storage]
     #[pallet::getter(fn controller_machines)]
     pub(super) type ControllerMachines<T: Config> =
@@ -2309,7 +2308,7 @@ impl<T: Config> RTOps for Pallet<T> {
                 Self::change_pos_gpu_by_rent(machine_id, true);
             },
             // 租用结束 或 租用失败(半小时无确认)
-            MachineStatus::Online =>
+            MachineStatus::Online => {
                 if rent_duration.is_some() {
                     machine_info.total_rented_duration += rent_duration.unwrap_or_default();
                     // 租用结束
@@ -2324,7 +2323,8 @@ impl<T: Config> RTOps for Pallet<T> {
                     }
 
                     Self::change_pos_gpu_by_rent(machine_id, false);
-                },
+                }
+            },
             _ => {},
         }
 
