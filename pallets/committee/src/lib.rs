@@ -36,6 +36,25 @@ pub struct CMPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub slash_exec_time: BlockNumber,
     /// 奖励发放对象。如果为空，则惩罚到国库
     pub reward_to: Vec<AccountId>,
+    /// 委员会被惩罚的原因
+    pub slash_reason: CMSlashReason,
+}
+
+// TODO: 在OC中，惩罚全部都是NotSubmitRaw，可能需要更精细区分
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum CMSlashReason {
+    OCNotSubmitHash,
+    OCNotSubmitRaw,
+    OCInconsistentSubmit,
+    MCNotSubmitHash,
+    MCNotSubmitRaw,
+    MCInconsistentSubmit,
+}
+
+impl Default for CMSlashReason {
+    fn default() -> Self {
+        Self::OCNotSubmitHash
+    }
 }
 
 // 处于不同状态的委员会的列表
@@ -575,6 +594,7 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> ManageCommittee for Pallet<T> {
     type AccountId = T::AccountId;
     type BalanceOf = BalanceOf<T>;
+    type SlashReason = CMSlashReason;
 
     // 检查是否为状态正常的委员会
     fn is_valid_committee(who: &T::AccountId) -> bool {
@@ -643,7 +663,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         CommitteeStake::<T>::insert(&committee, committee_stake);
     }
 
-    fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
+    fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>, slash_reason: CMSlashReason) {
         let slash_id = Self::get_new_slash_id();
         let now = <frame_system::Module<T>>::block_number();
         PendingSlash::<T>::insert(
@@ -654,6 +674,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
                 slash_amount: amount,
                 slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
                 reward_to,
+                slash_reason,
             },
         );
     }

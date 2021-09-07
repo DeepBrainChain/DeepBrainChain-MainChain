@@ -155,7 +155,7 @@ enum ReportConfirmStatus<AccountId> {
 /// 委员会抢到的报告的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MTCommitteeReportList {
-    /// 委员会的报告
+    /// 委员会预订的报告
     pub booked_report: Vec<ReportId>,
     /// 已经提交了Hash信息的报告
     pub hashed_report: Vec<ReportId>,
@@ -234,6 +234,20 @@ pub struct MTPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub slash_exec_time: BlockNumber,
     /// 奖励发放对象。如果为空，则惩罚到国库
     pub reward_to: Vec<AccountId>,
+    /// 报告人被惩罚的原因
+    pub slash_reason: MTReporterSlashReason,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum MTReporterSlashReason {
+    ReportRefused,
+    NotSubmitEncryptedInfo,
+}
+
+impl Default for MTReporterSlashReason {
+    fn default() -> Self {
+        Self::ReportRefused
+    }
 }
 
 #[frame_support::pallet]
@@ -244,7 +258,11 @@ pub mod pallet {
     pub trait Config: frame_system::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
-        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type ManageCommittee: ManageCommittee<
+            AccountId = Self::AccountId,
+            BalanceOf = BalanceOf<Self>,
+            SlashReason = committee::CMSlashReason,
+        >;
         type MTOps: MTOps<
             AccountId = Self::AccountId,
             MachineId = MachineId,
@@ -988,7 +1006,12 @@ impl<T: Config> Pallet<T> {
         return slash_id
     }
 
-    fn add_slash(who: T::AccountId, amount: BalanceOf<T>, reward_to: Vec<T::AccountId>) {
+    fn add_slash(
+        who: T::AccountId,
+        amount: BalanceOf<T>,
+        reward_to: Vec<T::AccountId>,
+        slash_reason: MTReporterSlashReason,
+    ) {
         let slash_id = Self::get_new_slash_id();
         let now = <frame_system::Module<T>>::block_number();
         PendingSlash::<T>::insert(
@@ -999,6 +1022,7 @@ impl<T: Config> Pallet<T> {
                 slash_amount: amount,
                 slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
                 reward_to,
+                slash_reason,
             },
         );
     }
@@ -1122,6 +1146,7 @@ impl<T: Config> Pallet<T> {
                             a_committee.clone(),
                             committee_ops.staked_balance,
                             Vec::new(),
+                            committee::CMSlashReason::MCNotSubmitRaw,
                         );
                     }
                 }
@@ -1140,6 +1165,7 @@ impl<T: Config> Pallet<T> {
                             a_committee.clone(),
                             committee_ops.staked_balance,
                             Vec::new(),
+                            committee::CMSlashReason::MCInconsistentSubmit,
                         );
                     }
                 } else {
@@ -1148,6 +1174,7 @@ impl<T: Config> Pallet<T> {
                         report_info.reporter,
                         report_info.reporter_stake,
                         report_info.against_committee.clone(),
+                        MTReporterSlashReason::ReportRefused,
                     );
                     for a_committee in report_info.support_committee {
                         let committee_ops = Self::committee_ops(&a_committee, report_id);
@@ -1155,6 +1182,7 @@ impl<T: Config> Pallet<T> {
                             a_committee.clone(),
                             committee_ops.staked_balance,
                             report_info.against_committee.clone(),
+                            committee::CMSlashReason::MCInconsistentSubmit,
                         );
                     }
                 }
@@ -1180,6 +1208,8 @@ impl<T: Config> Pallet<T> {
     fn heart_beat() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let mut live_report = Self::live_report();
+        let mut live_report_is_changed = false;
+
         let mut verifying_report = live_report.verifying_report.clone();
         verifying_report.extend(live_report.bookable_report.clone());
         let submitting_raw_report = live_report.waiting_raw_report.clone();
@@ -1209,7 +1239,12 @@ impl<T: Config> Pallet<T> {
 
                 // 报告人没有提交给原始信息，则惩罚报告人到国库，不进行奖励
                 if committee_ops.encrypted_err_info.is_none() && now - committee_ops.booked_time >= half_hour {
-                    Self::add_slash(report_info.reporter, report_info.reporter_stake, Vec::new());
+                    Self::add_slash(
+                        report_info.reporter,
+                        report_info.reporter_stake,
+                        Vec::new(),
+                        MTReporterSlashReason::NotSubmitEncryptedInfo,
+                    );
                     Self::refund_committee_clean_report(a_report);
                     continue
                 }
@@ -1235,12 +1270,14 @@ impl<T: Config> Pallet<T> {
 
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
                     MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
+                    live_report_is_changed = true;
 
                     // slash committee
                     <T as pallet::Config>::ManageCommittee::add_slash(
                         verifying_committee.clone(),
                         committee_ops.staked_balance,
                         Vec::new(),
+                        committee::CMSlashReason::MCNotSubmitHash,
                     );
 
                     let mut committee_order = Self::committee_order(&verifying_committee);
@@ -1263,6 +1300,7 @@ impl<T: Config> Pallet<T> {
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
                     MTLiveReportList::rm_report_id(&mut live_report.bookable_report, a_report);
                     MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
+                    live_report_is_changed = true;
 
                     ReportInfo::<T>::insert(a_report, report_info);
                     continue
@@ -1281,6 +1319,7 @@ impl<T: Config> Pallet<T> {
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
                     MTLiveReportList::rm_report_id(&mut live_report.bookable_report, a_report);
                     MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
+                    live_report_is_changed = true;
 
                     ReportInfo::<T>::insert(a_report, report_info);
                     continue
@@ -1305,6 +1344,7 @@ impl<T: Config> Pallet<T> {
                             report_info.reporter.clone(),
                             committee_ops.staked_balance,
                             Vec::new(),
+                            committee::CMSlashReason::MCInconsistentSubmit,
                         );
                     }
 
@@ -1319,6 +1359,7 @@ impl<T: Config> Pallet<T> {
 
                     MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
                     MTLiveReportList::add_report_id(&mut live_report.waiting_rechecked_report, a_report);
+                    live_report_is_changed = true;
 
                     // 根据错误类型，调用不同的处理函数
                     match report_info.machine_fault_type {
@@ -1363,6 +1404,7 @@ impl<T: Config> Pallet<T> {
                             a_committee,
                             committee_ops.staked_balance,
                             against_committee.clone(),
+                            committee::CMSlashReason::MCInconsistentSubmit,
                         );
                     }
 
@@ -1375,7 +1417,12 @@ impl<T: Config> Pallet<T> {
                         );
                     }
 
-                    Self::add_slash(report_info.reporter.clone(), report_info.reporter_stake, against_committee);
+                    Self::add_slash(
+                        report_info.reporter.clone(),
+                        report_info.reporter_stake,
+                        against_committee,
+                        MTReporterSlashReason::ReportRefused,
+                    );
                 },
                 // No consensus, will clean record & as new report to handle
                 // In this case, no raw info is submitted, so committee record should be None
@@ -1384,7 +1431,12 @@ impl<T: Config> Pallet<T> {
                     // 仅在没有人提交原始值时才无共识
                     for a_committee in report_info.booked_committee.clone() {
                         let committee_ops = Self::committee_ops(a_committee.clone(), a_report);
-                        T::ManageCommittee::add_slash(a_committee, committee_ops.staked_balance, vec![]);
+                        T::ManageCommittee::add_slash(
+                            a_committee,
+                            committee_ops.staked_balance,
+                            vec![],
+                            committee::CMSlashReason::MCNotSubmitRaw,
+                        );
                     }
                 },
             }
@@ -1394,7 +1446,9 @@ impl<T: Config> Pallet<T> {
             ReportInfo::<T>::insert(a_report, report_info);
         }
 
-        LiveReport::<T>::put(live_report);
+        if live_report_is_changed {
+            LiveReport::<T>::put(live_report);
+        }
         Ok(())
     }
 }

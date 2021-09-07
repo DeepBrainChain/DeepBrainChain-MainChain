@@ -42,6 +42,7 @@ pub trait OPRPCQuery {
 pub trait ManageCommittee {
     type AccountId;
     type BalanceOf;
+    type SlashReason;
 
     fn is_valid_committee(who: &Self::AccountId) -> bool;
 
@@ -49,7 +50,12 @@ pub trait ManageCommittee {
     fn change_used_stake(committee: Self::AccountId, amount: Self::BalanceOf, is_add: bool) -> Result<(), ()>;
     fn stake_per_order() -> Option<Self::BalanceOf>;
     fn add_reward(committee: Self::AccountId, reward: Self::BalanceOf);
-    fn add_slash(who: Self::AccountId, amount: Self::BalanceOf, reward_to: Vec<Self::AccountId>);
+    fn add_slash(
+        who: Self::AccountId,
+        amount: Self::BalanceOf,
+        reward_to: Vec<Self::AccountId>,
+        slash_reason: Self::SlashReason,
+    );
 }
 
 pub trait DbcPrice {

@@ -245,6 +245,109 @@ fn report_machine_offline_works() {
     })
 }
 
+// 1. case1. 报告人没有在半个小时内提交错误信息
+// 2. case2. 委员会没有在抢单1小时内提交错误Hash
+// 3. case3.
+
+// 1. case1. 报告人没有在半个小时内提交错误信息
+#[test]
+fn test_heart_beat1() {
+    new_test_with_init_params_ext().execute_with(|| {
+        // 机器管理者
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+
+        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let reporter_rand_str = "abcdef".as_bytes().to_vec();
+        let committee_rand_str = "fedcba".as_bytes().to_vec();
+        let err_reason = "它坏了".as_bytes().to_vec();
+        let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
+
+        assert_ok!(MaintainCommittee::report_machine_fault(
+            Origin::signed(reporter),
+            crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
+        ));
+
+        // report_machine hardware fault:
+        // - Writes:
+        // ReporterStake, ReportInfo, LiveReport, ReporterReport
+
+        // 委员会订阅机器故障报告
+        assert_ok!(MaintainCommittee::book_fault_order(Origin::signed(committee1), 0));
+
+        // book_fault_order:
+        // - Writes:
+        // LiveReport, ReportInfo, CommitteeOps, CommitteeOrder
+
+        // 预订时间为11
+        run_to_block(11 + 61);
+
+        // hertbeat will run, and report info will be deleted
+        // - Writes:
+        // LiveReport, CommitteeReport, CommitteeOps, ReportInfo
+        assert_eq!(MaintainCommittee::live_report(), super::MTLiveReportList { ..Default::default() });
+        assert_eq!(
+            MaintainCommittee::committee_order(&committee1),
+            super::MTCommitteeReportList { ..Default::default() }
+        );
+        assert_eq!(
+            MaintainCommittee::committee_ops(&committee1, 0),
+            super::MTCommitteeOpsDetail { ..Default::default() }
+        );
+        assert_eq!(MaintainCommittee::report_info(0), super::MTReportInfoDetail { ..Default::default() });
+        assert_eq!(
+            MaintainCommittee::pending_slash(0),
+            super::MTPendingSlashInfo {
+                slash_who: reporter.clone(),
+                slash_time: 11 + 60,
+                slash_amount: 1000 * ONE_DBC,
+                slash_exec_time: 11 + 60 + 2880 * 2,
+                reward_to: vec![],
+                slash_reason: super::MTReporterSlashReason::NotSubmitEncryptedInfo
+            }
+        );
+
+        // 运行到某个时间
+    })
+}
+
+#[test]
+fn test_heart_beat2() {}
+
+#[test]
+fn test_heart_beat3() {}
+
+#[test]
+fn test_heart_beat4() {}
+
+#[test]
+fn test_heart_beat5() {}
+
+#[test]
+fn test_heart_beat6() {}
+
+#[test]
+fn test_heart_beat7() {}
+
+#[test]
+fn test_offline_case1() {}
+
+#[test]
+fn test_offline_case2() {}
+
+#[test]
+fn test_offline_case3() {}
+
 #[test]
 fn report_machine_unrentable_works() {}
 

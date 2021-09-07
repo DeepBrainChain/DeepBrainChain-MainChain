@@ -174,7 +174,11 @@ pub mod pallet {
             MachineId = MachineId,
             CommitteeUploadInfo = CommitteeUploadInfo,
         >;
-        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type ManageCommittee: ManageCommittee<
+            AccountId = Self::AccountId,
+            BalanceOf = BalanceOf<Self>,
+            SlashReason = committee::CMSlashReason,
+        >;
     }
 
     #[pallet::pallet]
@@ -541,7 +545,12 @@ impl<T: Config> Pallet<T> {
             // 惩罚没有提交信息的委员会
             for a_committee in slash_committee {
                 let committee_ops = Self::committee_ops(&a_committee, &machine_id);
-                <T as pallet::Config>::ManageCommittee::add_slash(a_committee, committee_ops.staked_dbc, vec![]);
+                <T as pallet::Config>::ManageCommittee::add_slash(
+                    a_committee,
+                    committee_ops.staked_dbc,
+                    vec![],
+                    committee::CMSlashReason::OCNotSubmitRaw,
+                );
             }
 
             for a_committee in unstake_committee {

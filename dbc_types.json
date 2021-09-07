@@ -213,6 +213,17 @@
     "waiting_raw_report": "Vec<ReportId>",
     "waiting_rechecked_report": "Vec<ReportId>"
   },
+  "MTPendingSlashInfo": {
+    "slash_who": "AccountId",
+    "slash_time": "BlockNumber",
+    "slash_amount": "Balance",
+    "slash_exec_time": "BlockNumber",
+    "reward_to": "Vec<AccountId>",
+    "slash_reason": "MTReporterSlashReason"
+  },
+  "MTReporterSlashReason": {
+    "_enum": ["ReportRefused", "NotSubmitEncryptedInfo"]
+  },
   "MTReportInfoDetail": {
     "reporter": "AccountId",
     "report_time": "BlockNumber",
@@ -254,6 +265,16 @@
     "slash_amount": "Balance",
     "slash_exec_time": "BlockNumber",
     "reward_to": "Vec<AccountId>"
+  },
+  "CMSlashReason": {
+    "_enum": [
+      "OCNotSubmitHash",
+      "OCNotSubmitRaw",
+      "OCInconsistentSubmit",
+      "MCNotSubmitHash",
+      "MCNotSubmitRaw",
+      "MCInconsistentSubmit"
+    ]
   },
   "OnlineStakeParamsInfo": {
     "online_stake_per_gpu": "Balance",
