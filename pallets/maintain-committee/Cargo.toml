@@ -55,6 +55,7 @@ path = '../online-profile'
 package = 'online-profile'
 
 [dependencies.committee]
+default-features = false
 path = '../committee'
 package = 'committee'
 
