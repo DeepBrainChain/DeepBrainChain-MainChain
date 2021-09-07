@@ -85,8 +85,8 @@ pub mod pallet {
             }
 
             let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, amount);
-            Self::deposit_event(Event::DonateToTreasury(who, amount));
             T::FixedTxFee::on_unbalanced(imbalance);
+            Self::deposit_event(Event::DonateToTreasury(who, amount));
             Ok(().into())
         }
     }

@@ -425,7 +425,7 @@ pub mod pallet {
             LiveReport::<T>::put(live_report);
             ReportInfo::<T>::remove(&report_id);
 
-            Self::deposit_event(Event::ReportCancled(reporter, report_id, report_info.machine_fault_type));
+            Self::deposit_event(Event::ReportCanceld(reporter, report_id, report_info.machine_fault_type));
             Ok(().into())
         }
 
@@ -804,7 +804,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         ReportMachineFault(T::AccountId, MachineFaultType),
-        ReportCancled(T::AccountId, ReportId, MachineFaultType),
+        ReportCanceld(T::AccountId, ReportId, MachineFaultType),
         EncryptedInfoSent(T::AccountId, T::AccountId, ReportId),
         HashSubmited(ReportId, T::AccountId),
         RawInfoSubmited(ReportId, T::AccountId),
@@ -1217,7 +1217,20 @@ impl<T: Config> Pallet<T> {
                 // 不足3小时，且委员会没有提交Hash，删除该委员会，并惩罚
                 if now - committee_ops.booked_time >= one_hour {
                     report_info.verifying_committee = None;
-                    report_info.booked_committee.remove(report_info.booked_committee.len() - 1);
+                    if let Ok(index) = report_info.booked_committee.binary_search(&verifying_committee) {
+                        report_info.booked_committee.remove(index);
+                    }
+                    if let Ok(index) = report_info.get_encrypted_info_committee.binary_search(&verifying_committee) {
+                        report_info.get_encrypted_info_committee.remove(index);
+                    }
+
+                    // 如果此时booked_committee.len() == 0；返回到最初始的状态，并允许取消报告
+                    if report_info.booked_committee.len() == 0 {
+                        report_info.first_book_time = Zero::zero();
+                        report_info.confirm_start = Zero::zero();
+                        report_info.report_status = ReportStatus::Reported;
+                    }
+
                     report_info.report_status = ReportStatus::WaitingBook;
 
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
@@ -1230,6 +1243,12 @@ impl<T: Config> Pallet<T> {
                         Vec::new(),
                     );
 
+                    let mut committee_order = Self::committee_order(&verifying_committee);
+                    if let Ok(index) = committee_order.booked_report.binary_search(&a_report) {
+                        committee_order.booked_report.remove(index);
+                    }
+
+                    CommitteeOrder::<T>::insert(&verifying_committee, committee_order);
                     ReportInfo::<T>::insert(a_report, report_info);
                     CommitteeOps::<T>::remove(&verifying_committee, &a_report);
 

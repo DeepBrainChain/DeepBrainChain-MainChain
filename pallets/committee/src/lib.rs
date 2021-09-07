@@ -394,7 +394,7 @@ pub mod pallet {
             committee_stake.used_stake = committee_stake
                 .used_stake
                 .checked_sub(&slash_info.slash_amount)
-                .ok_or(Error::<T>::CancleSlashFailed)?;
+                .ok_or(Error::<T>::CancelSlashFailed)?;
 
             let is_committee_list_changed = Self::change_committee_status_when_stake_changed(
                 slash_info.slash_who.clone(),
@@ -444,7 +444,7 @@ pub mod pallet {
         StakeNotEnough,
         StatusNotAllowed,
         NotInNormalList,
-        CancleSlashFailed,
+        CancelSlashFailed,
         SlashIDNotExist,
         StatusNotFeat,
     }

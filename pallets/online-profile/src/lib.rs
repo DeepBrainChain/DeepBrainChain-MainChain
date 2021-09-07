@@ -596,6 +596,7 @@ pub mod pallet {
             new_controller: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let stash = ensure_signed(origin)?;
+            ensure!(!<ControllerStash<T>>::contains_key(&new_controller), Error::<T>::AlreadyController);
 
             let mut machine_info = Self::machines_info(&machine_id);
 
@@ -676,7 +677,6 @@ pub mod pallet {
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Self::deposit_event(Event::MachineOfflineToMutHardware(machine_id, stake_amount));
-
             Ok(().into())
         }
 

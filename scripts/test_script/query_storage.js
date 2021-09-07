@@ -58,6 +58,9 @@ async function main() {
   funcMap["rentMachine"]["userTotalStake"] =
     api.query.rentMachine.userTotalStake;
 
+  funcMap["maintainCommittee"] = {};
+  funcMap["maintainCommittee"]["committeeOps"] = api.query.maintainCommittee.committeeOps;
+
   let heightHash = await api.rpc.chain.getBlockHash(args["at-height"]);
 
   var callFunc = funcMap[args["module"]][args["func"]].at;
