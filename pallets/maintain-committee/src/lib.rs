@@ -546,6 +546,7 @@ pub mod pallet {
             CommitteeOps::<T>::insert(&committee, &report_id, ops_detail);
             CommitteeOrder::<T>::insert(&committee, committee_order);
             ReportInfo::<T>::insert(&report_id, report_info);
+
             Ok(().into())
         }
 
@@ -1264,9 +1265,9 @@ impl<T: Config> Pallet<T> {
                         report_info.first_book_time = Zero::zero();
                         report_info.confirm_start = Zero::zero();
                         report_info.report_status = ReportStatus::Reported;
-                    }
-
-                    report_info.report_status = ReportStatus::WaitingBook;
+                    } else {
+                        report_info.report_status = ReportStatus::WaitingBook
+                    };
 
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
                     MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
@@ -1313,15 +1314,31 @@ impl<T: Config> Pallet<T> {
                 if now - committee_ops.booked_time < one_hour {
                     // 将最后一个委员会移除，并不惩罚
                     report_info.verifying_committee = None;
-                    report_info.booked_committee.remove(report_info.booked_committee.len() - 1);
+                    if let Ok(index) = report_info.booked_committee.binary_search(&verifying_committee) {
+                        report_info.booked_committee.remove(index);
+                    }
+                    if let Ok(index) = report_info.get_encrypted_info_committee.binary_search(&verifying_committee) {
+                        report_info.get_encrypted_info_committee.remove(index);
+                    }
                     report_info.report_status = ReportStatus::SubmittingRaw;
+
+                    // 从最后一个委员会的存储中删除
+                    Self::clean_from_committee_order(&verifying_committee, &a_report);
+                    // 退还质押
+                    let _ = T::ManageCommittee::change_used_stake(
+                        verifying_committee.clone(),
+                        committee_ops.staked_balance,
+                        false,
+                    );
 
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
                     MTLiveReportList::rm_report_id(&mut live_report.bookable_report, a_report);
                     MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
                     live_report_is_changed = true;
 
+                    CommitteeOps::<T>::remove(&verifying_committee, a_report);
                     ReportInfo::<T>::insert(a_report, report_info);
+
                     continue
                 }
             }

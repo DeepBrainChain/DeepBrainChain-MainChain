@@ -790,7 +790,8 @@ fn committee_not_submit_hash_slash_works() {
                 slash_time: 4327,
                 slash_amount: 1000 * ONE_DBC,
                 slash_exec_time: 4327 + 2880 * 2, // 2day
-                reward_to: vec![]
+                reward_to: vec![],
+                slash_reason: committee::CMSlashReason::OCNotSubmitRaw,
             }
         );
         // 惩罚
