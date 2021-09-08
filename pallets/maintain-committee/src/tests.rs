@@ -195,8 +195,6 @@ fn report_machine_fault_works() {
 
         // 报告人上线机器
         assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
-
-        // TODO: Slash
     })
 }
 
@@ -500,37 +498,3 @@ fn test_heart_beat3() {
         );
     })
 }
-
-#[test]
-fn test_heart_beat4() {}
-
-#[test]
-fn test_heart_beat5() {}
-
-#[test]
-fn test_heart_beat6() {}
-
-#[test]
-fn test_heart_beat7() {}
-
-#[test]
-fn test_offline_case1() {}
-
-#[test]
-fn test_offline_case2() {}
-
-#[test]
-fn test_offline_case3() {}
-
-#[test]
-fn report_machine_unrentable_works() {}
-
-// 控制账户报告机器下线
-#[test]
-fn controller_report_online_machine_offline_should_work() {
-    new_test_with_init_params_ext().execute_with(|| {})
-}
-
-// 检查各种情况下，live_report状态正确变化
-#[test]
-fn live_report_status_change_works() {}
