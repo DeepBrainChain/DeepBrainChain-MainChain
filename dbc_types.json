@@ -205,13 +205,13 @@
     "booked_report": "Vec<ReportId>",
     "hashed_report": "Vec<ReportId>",
     "confirmed_report": "Vec<ReportId>",
-    "online_machine": "Vec<MachineId>"
+    "finished_report": "Vec<MachineId>"
   },
   "MTLiveReportList": {
     "bookable_report": "Vec<ReportId>",
     "verifying_report": "Vec<ReportId>",
     "waiting_raw_report": "Vec<ReportId>",
-    "waiting_rechecked_report": "Vec<ReportId>"
+    "finished_report": "Vec<ReportId>"
   },
   "MTPendingSlashInfo": {
     "slash_who": "AccountId",

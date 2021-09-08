@@ -176,7 +176,7 @@ fn report_machine_fault_works() {
         assert_eq!(&MaintainCommittee::report_info(0), &report_info);
         assert_eq!(
             &MaintainCommittee::live_report(),
-            &super::MTLiveReportList { waiting_rechecked_report: vec![0], ..Default::default() }
+            &super::MTLiveReportList { finished_report: vec![0], ..Default::default() }
         );
 
         // mt_machine_offline -> machine_offline
@@ -188,7 +188,7 @@ fn report_machine_fault_works() {
 
         assert_eq!(
             &MaintainCommittee::live_report(),
-            &super::MTLiveReportList { waiting_rechecked_report: vec![0], ..Default::default() }
+            &super::MTLiveReportList { finished_report: vec![0], ..Default::default() }
         );
 
         run_to_block(2880 + 400);

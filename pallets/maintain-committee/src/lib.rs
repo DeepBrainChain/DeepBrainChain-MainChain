@@ -49,7 +49,7 @@ pub struct MTLiveReportList {
     /// 等待提交原始值的报告, 所有委员会提交或时间截止，转为下面状态
     pub waiting_raw_report: Vec<ReportId>,
     /// 等待48小时后执行的报告, 此期间可以申述，由技术委员会审核
-    pub waiting_rechecked_report: Vec<ReportId>,
+    pub finished_report: Vec<ReportId>,
 }
 
 impl MTLiveReportList {
@@ -167,7 +167,7 @@ pub struct MTCommitteeReportList {
     /// 已经提交了原始确认数据的报告
     pub confirmed_report: Vec<ReportId>,
     /// 已经成功上线的机器
-    pub online_machine: Vec<MachineId>,
+    pub finished_report: Vec<MachineId>,
 }
 
 /// 委员会对报告的操作信息
@@ -1090,8 +1090,8 @@ impl<T: Config> Pallet<T> {
         if let Ok(index) = live_report.waiting_raw_report.binary_search(report_id) {
             live_report.waiting_raw_report.remove(index);
         }
-        if let Ok(index) = live_report.waiting_rechecked_report.binary_search(report_id) {
-            live_report.waiting_rechecked_report.remove(index);
+        if let Ok(index) = live_report.finished_report.binary_search(report_id) {
+            live_report.finished_report.remove(index);
         }
         LiveReport::<T>::put(live_report);
     }
@@ -1211,10 +1211,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn summary_waiting_raw(a_report: ReportId) {
+    fn summary_waiting_raw(a_report: ReportId, live_report: &mut MTLiveReportList) {
         let now = <frame_system::Module<T>>::block_number();
         let mut report_info = Self::report_info(&a_report);
-        let mut live_report = Self::live_report();
+
         // 未全部提交了原始信息且未达到了四个小时
         if now - report_info.report_time < FOUR_HOUR.saturated_into::<T::BlockNumber>() &&
             report_info.hashed_committee.len() != report_info.confirmed_committee.len()
@@ -1222,7 +1222,8 @@ impl<T: Config> Pallet<T> {
             return
         }
         match Self::summary_report(a_report) {
-            ReportConfirmStatus::Confirmed(support_committees, against_committee, _err_info) => {
+            ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
+                // Slash against_committee and release support committee stake
                 for a_committee in against_committee.clone() {
                     let committee_ops = Self::committee_ops(&a_committee, a_report);
                     T::ManageCommittee::add_slash(
@@ -1232,7 +1233,6 @@ impl<T: Config> Pallet<T> {
                         committee::CMSlashReason::MCInconsistentSubmit,
                     );
                 }
-
                 for a_committee in support_committees.clone() {
                     let committee_ops = Self::committee_ops(&a_committee, a_report);
                     let _ =
@@ -1240,47 +1240,30 @@ impl<T: Config> Pallet<T> {
                 }
 
                 MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
-                MTLiveReportList::add_report_id(&mut live_report.waiting_rechecked_report, a_report);
+                MTLiveReportList::add_report_id(&mut live_report.finished_report, a_report);
 
                 // 根据错误类型，调用不同的处理函数
-                match report_info.machine_fault_type {
-                    MachineFaultType::RentedInaccessible(..) => {
-                        T::MTOps::mt_machine_offline(
-                            report_info.reporter.clone(),
-                            support_committees,
-                            report_info.machine_id.clone(),
-                            online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
-                        );
-                    },
-                    MachineFaultType::RentedHardwareMalfunction(..) => {
-                        T::MTOps::mt_machine_offline(
-                            report_info.reporter.clone(),
-                            support_committees,
-                            report_info.machine_id.clone(),
-                            online_profile::OPSlashReason::RentedHardwareMalfunction(report_info.report_time),
-                        );
-                    },
-                    MachineFaultType::RentedHardwareCounterfeit(..) => {
-                        T::MTOps::mt_machine_offline(
-                            report_info.reporter.clone(),
-                            support_committees,
-                            report_info.machine_id.clone(),
-                            online_profile::OPSlashReason::RentedHardwareCounterfeit(report_info.report_time),
-                        );
-                    },
-                    MachineFaultType::OnlineRentFailed(..) => {
-                        T::MTOps::mt_machine_offline(
-                            report_info.reporter.clone(),
-                            support_committees,
-                            report_info.machine_id.clone(),
-                            online_profile::OPSlashReason::OnlineRentFailed(report_info.report_time),
-                        );
-                    },
-                }
+                let fault_type = match report_info.machine_fault_type {
+                    MachineFaultType::RentedInaccessible(..) =>
+                        online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
+                    MachineFaultType::RentedHardwareMalfunction(..) =>
+                        online_profile::OPSlashReason::RentedHardwareMalfunction(report_info.report_time),
+                    MachineFaultType::RentedHardwareCounterfeit(..) =>
+                        online_profile::OPSlashReason::RentedHardwareCounterfeit(report_info.report_time),
+                    MachineFaultType::OnlineRentFailed(..) =>
+                        online_profile::OPSlashReason::OnlineRentFailed(report_info.report_time),
+                };
+                T::MTOps::mt_machine_offline(
+                    report_info.reporter.clone(),
+                    support_committees,
+                    report_info.machine_id.clone(),
+                    fault_type,
+                );
             },
             ReportConfirmStatus::Refuse(support_committee, against_committee) => {
+                // Slash support committee and release against committee stake
                 for a_committee in support_committee {
-                    let committee_ops = Self::committee_ops(a_committee.clone(), a_report);
+                    let committee_ops = Self::committee_ops(&a_committee, a_report);
                     T::ManageCommittee::add_slash(
                         a_committee,
                         committee_ops.staked_balance,
@@ -1288,13 +1271,13 @@ impl<T: Config> Pallet<T> {
                         committee::CMSlashReason::MCInconsistentSubmit,
                     );
                 }
-
                 for a_committee in against_committee.clone() {
                     let committee_ops = Self::committee_ops(&a_committee, a_report);
                     let _ =
                         T::ManageCommittee::change_used_stake(a_committee.clone(), committee_ops.staked_balance, false);
                 }
 
+                // Slash reporter
                 Self::add_slash(
                     report_info.reporter.clone(),
                     report_info.reporter_stake,
@@ -1306,9 +1289,14 @@ impl<T: Config> Pallet<T> {
             // In this case, no raw info is submitted, so committee record should be None
             ReportConfirmStatus::NoConsensus => {
                 report_info.report_status = ReportStatus::Reported;
-                // 仅在没有人提交原始值时才无共识
+                // 仅在没有人提交原始值时才无共识，因此所有booked_committee都应该被惩罚
                 for a_committee in report_info.booked_committee.clone() {
-                    let committee_ops = Self::committee_ops(a_committee.clone(), a_report);
+                    // clean from committee storage
+                    CommitteeOps::<T>::remove(&a_committee, a_report);
+
+                    // TODO: 从committee_order中删除
+
+                    let committee_ops = Self::committee_ops(&a_committee, a_report);
                     T::ManageCommittee::add_slash(
                         a_committee,
                         committee_ops.staked_balance,
@@ -1316,13 +1304,27 @@ impl<T: Config> Pallet<T> {
                         committee::CMSlashReason::MCNotSubmitRaw,
                     );
                 }
+
+                // All info of report should be cleaned, and so allow report be booked or cancled
+                report_info = MTReportInfoDetail {
+                    reporter: report_info.reporter,
+                    report_time: report_info.report_time,
+                    reporter_stake: report_info.reporter_stake,
+                    report_status: ReportStatus::Reported,
+                    machine_fault_type: report_info.machine_fault_type,
+                    ..Default::default()
+                };
+
+                // 放到live_report的bookable字段
+                MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
+                MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
+                MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
             },
         }
 
-        // FIXME: live_report与本逻辑中的冲突
+        // FIXME: 在NoConsensus不能调用该方法
         Self::clean_finished_order(a_report);
         ReportInfo::<T>::insert(a_report, report_info);
-        LiveReport::<T>::put(live_report);
     }
 
     fn heart_beat() -> Result<(), ()> {
@@ -1463,7 +1465,8 @@ impl<T: Config> Pallet<T> {
 
         // 正在提交原始值的
         for a_report in submitting_raw_report {
-            Self::summary_waiting_raw(a_report);
+            Self::summary_waiting_raw(a_report, &mut live_report);
+            live_report_is_changed = true;
         }
 
         if live_report_is_changed {
