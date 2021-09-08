@@ -28,6 +28,7 @@ const HALF_HOUR: u32 = 60;
 const ONE_HOUR: u32 = 120;
 const THREE_HOUR: u32 = 360;
 const FOUR_HOUR: u32 = 480;
+const TWO_DAY: u32 = 5760;
 
 pub type SlashId = u64;
 pub type MachineId = Vec<u8>;
@@ -861,73 +862,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn check_and_exec_slash() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
-        let pending_slash_id = Self::get_all_slash_id();
-
-        for slash_id in pending_slash_id {
-            let slash_info = Self::pending_slash(&slash_id);
-            if now >= slash_info.slash_exec_time {
-                // 如果reward_to为0，则将币转到国库
-                let reward_to_num = slash_info.reward_to.len() as u32;
-
-                let mut reporter_stake = Self::reporter_stake(&slash_info.slash_who);
-
-                // let mut committee_stake = Self::committee_stake(&slash_info.slash_who);
-
-                reporter_stake.used_stake = reporter_stake.used_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
-                reporter_stake.staked_amount =
-                    reporter_stake.staked_amount.checked_sub(&slash_info.slash_amount).ok_or(())?;
-
-                if reward_to_num == 0 {
-                    if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
-                        let (imbalance, _missing) =
-                            <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
-                        <T as pallet::Config>::Slash::on_unbalanced(imbalance);
-
-                        PendingSlash::<T>::remove(slash_id);
-                    }
-                } else {
-                    let reward_each_get =
-                        Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
-                    let mut left_reward = slash_info.slash_amount;
-
-                    for a_committee in slash_info.reward_to {
-                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, left_reward) {
-                            if left_reward >= reward_each_get {
-                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                                    &slash_info.slash_who,
-                                    &a_committee,
-                                    reward_each_get,
-                                    BalanceStatus::Free,
-                                );
-                                left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
-                            } else {
-                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                                    &slash_info.slash_who,
-                                    &a_committee,
-                                    left_reward,
-                                    BalanceStatus::Free,
-                                );
-                            }
-                        }
-                    }
-                }
-
-                ReporterStake::<T>::insert(&slash_info.slash_who, reporter_stake);
-                PendingSlash::<T>::remove(slash_id);
-            }
-        }
-        Ok(())
-    }
-
-    // 获得所有被惩罚的订单列表
-    fn get_all_slash_id() -> BTreeSet<SlashId> {
-        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
-            .map(|(slash_id, _)| slash_id)
-            .collect::<BTreeSet<_>>()
-    }
-
     pub fn report_handler(reporter: T::AccountId, machine_fault_type: MachineFaultType) -> DispatchResultWithPostInfo {
         let now = <frame_system::Module<T>>::block_number();
         let report_id = Self::get_new_report_id();
@@ -1026,7 +960,7 @@ impl<T: Config> Pallet<T> {
                 slash_who: who,
                 slash_time: now,
                 slash_amount: amount,
-                slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
+                slash_exec_time: now + TWO_DAY.saturated_into::<T::BlockNumber>(),
                 reward_to,
                 slash_reason,
             },
@@ -1111,7 +1045,7 @@ impl<T: Config> Pallet<T> {
     // Summary committee's handle result
     fn summary_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {
         let report_info = Self::report_info(&report_id);
-        // 如果没有委员会提交Raw信息，则无共识
+        // If no committee submit raw info, NoConsensus
         if report_info.confirmed_committee.len() == 0 {
             return ReportConfirmStatus::NoConsensus
         }
@@ -1224,6 +1158,7 @@ impl<T: Config> Pallet<T> {
         for a_report in verifying_report {
             let mut report_info = Self::report_info(&a_report);
 
+            // 忽略掉线的类型
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
                 continue
             };
@@ -1249,12 +1184,14 @@ impl<T: Config> Pallet<T> {
                         Vec::new(),
                         MTReporterSlashReason::NotSubmitEncryptedInfo,
                     );
+                    // TODO: 应该在live_report中删除
                     Self::refund_committee_clean_report(a_report);
                     continue
                 }
 
                 // 不足3小时，且委员会没有提交Hash，删除该委员会，并惩罚
-                if now - committee_ops.booked_time >= ONE_HOUR.saturated_into::<T::BlockNumber>() {
+                if now - committee_ops.booked_time > ONE_HOUR.saturated_into::<T::BlockNumber>() {
+                    // 更改report_info
                     report_info.verifying_committee = None;
                     if let Ok(index) = report_info.booked_committee.binary_search(&verifying_committee) {
                         report_info.booked_committee.remove(index);
@@ -1262,7 +1199,6 @@ impl<T: Config> Pallet<T> {
                     if let Ok(index) = report_info.get_encrypted_info_committee.binary_search(&verifying_committee) {
                         report_info.get_encrypted_info_committee.remove(index);
                     }
-
                     // 如果此时booked_committee.len() == 0；返回到最初始的状态，并允许取消报告
                     if report_info.booked_committee.len() == 0 {
                         report_info.first_book_time = Zero::zero();
@@ -1350,6 +1286,7 @@ impl<T: Config> Pallet<T> {
         // 正在提交原始值的
         for a_report in submitting_raw_report {
             Self::summary_waiting_raw(a_report, &mut live_report);
+            // FIXME: 这样这里必改变
             live_report_is_changed = true;
         }
 
@@ -1481,5 +1418,72 @@ impl<T: Config> Pallet<T> {
         // FIXME: 在NoConsensus不能调用该方法
         Self::clean_finished_order(a_report);
         ReportInfo::<T>::insert(a_report, report_info);
+    }
+
+    // Get all pending slash id
+    fn get_all_slash_id() -> BTreeSet<SlashId> {
+        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
+            .map(|(slash_id, _)| slash_id)
+            .collect::<BTreeSet<_>>()
+    }
+
+    fn check_and_exec_slash() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+        let pending_slash_id = Self::get_all_slash_id();
+
+        for slash_id in pending_slash_id {
+            let slash_info = Self::pending_slash(&slash_id);
+            if now >= slash_info.slash_exec_time {
+                // 如果reward_to为0，则将币转到国库
+                let reward_to_num = slash_info.reward_to.len() as u32;
+
+                let mut reporter_stake = Self::reporter_stake(&slash_info.slash_who);
+
+                // let mut committee_stake = Self::committee_stake(&slash_info.slash_who);
+
+                reporter_stake.used_stake = reporter_stake.used_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
+                reporter_stake.staked_amount =
+                    reporter_stake.staked_amount.checked_sub(&slash_info.slash_amount).ok_or(())?;
+
+                if reward_to_num == 0 {
+                    if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
+                        let (imbalance, _missing) =
+                            <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
+                        <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+
+                        PendingSlash::<T>::remove(slash_id);
+                    }
+                } else {
+                    let reward_each_get =
+                        Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
+                    let mut left_reward = slash_info.slash_amount;
+
+                    for a_committee in slash_info.reward_to {
+                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, left_reward) {
+                            if left_reward >= reward_each_get {
+                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                                    &slash_info.slash_who,
+                                    &a_committee,
+                                    reward_each_get,
+                                    BalanceStatus::Free,
+                                );
+                                left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
+                            } else {
+                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                                    &slash_info.slash_who,
+                                    &a_committee,
+                                    left_reward,
+                                    BalanceStatus::Free,
+                                );
+                            }
+                        }
+                    }
+                }
+
+                ReporterStake::<T>::insert(&slash_info.slash_who, reporter_stake);
+                PendingSlash::<T>::remove(slash_id);
+            }
+        }
+        Ok(())
     }
 }
