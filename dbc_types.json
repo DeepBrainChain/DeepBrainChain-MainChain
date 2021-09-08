@@ -205,7 +205,7 @@
     "booked_report": "Vec<ReportId>",
     "hashed_report": "Vec<ReportId>",
     "confirmed_report": "Vec<ReportId>",
-    "finished_report": "Vec<MachineId>"
+    "finished_report": "Vec<ReportId>"
   },
   "MTLiveReportList": {
     "bookable_report": "Vec<ReportId>",

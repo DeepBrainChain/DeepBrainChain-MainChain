@@ -24,6 +24,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+const TEN_MINUTE: u32 = 20;
 const HALF_HOUR: u32 = 60;
 const ONE_HOUR: u32 = 120;
 const THREE_HOUR: u32 = 360;
@@ -168,7 +169,7 @@ pub struct MTCommitteeReportList {
     /// 已经提交了原始确认数据的报告
     pub confirmed_report: Vec<ReportId>,
     /// 已经成功上线的机器
-    pub finished_report: Vec<MachineId>,
+    pub finished_report: Vec<ReportId>,
 }
 
 /// 委员会对报告的操作信息
@@ -972,8 +973,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // rm from committee_order
-    fn clean_from_committee_order(committee: &T::AccountId, report_id: &ReportId) {
-        let mut committee_order = Self::committee_order(committee);
+    fn clean_from_committee_order(committee_order: &mut MTCommitteeReportList, report_id: &ReportId) {
         if let Ok(index) = committee_order.booked_report.binary_search(report_id) {
             committee_order.booked_report.remove(index);
         }
@@ -983,8 +983,6 @@ impl<T: Config> Pallet<T> {
         if let Ok(index) = committee_order.confirmed_report.binary_search(report_id) {
             committee_order.confirmed_report.remove(index);
         }
-
-        CommitteeOrder::<T>::insert(committee, committee_order);
     }
 
     // rm from live_report
@@ -1004,7 +1002,8 @@ impl<T: Config> Pallet<T> {
         let report_info = Self::report_info(report_id);
         for a_committee in report_info.booked_committee {
             CommitteeOps::<T>::remove(&a_committee, report_id);
-            Self::clean_from_committee_order(&a_committee, &report_id);
+            // TODO: rm this
+            // Self::clean_from_committee_order(&a_committee, &report_id);
             Self::clean_from_live_report(report_id);
         }
     }
@@ -1042,7 +1041,7 @@ impl<T: Config> Pallet<T> {
             }
 
             // 当大于等于10分钟，或者提交确认的委员会等于提交了hash的委员会，需要执行后面的逻辑，来确认
-            if now - report_info.first_book_time >= 20u32.into() ||
+            if now - report_info.first_book_time >= TEN_MINUTE.into() ||
                 report_info.confirmed_committee.len() == report_info.hashed_committee.len()
             {
                 // 统计预订了但没有提交确认的委员会
@@ -1095,7 +1094,8 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // If report_info.confirmed_committee.len() == 0 do nothing but clean
-                Self::clean_finished_order(report_id);
+                // Self::clean_finished_order(report_id);
+                // TODO: do clean
 
                 continue
             }
@@ -1133,7 +1133,7 @@ impl<T: Config> Pallet<T> {
             // 不足验证时间截止时，处理：
             // 1. 报告人没有在规定时间内提交加密信息
             // 2. 委员会没有在1个小时内提交Hash
-            if now - report_info.first_book_time < THREE_HOUR.saturated_into::<T::BlockNumber>() {
+            if now - report_info.first_book_time < THREE_HOUR.into() {
                 if let ReportStatus::WaitingBook = report_info.report_status {
                     continue
                 }
@@ -1142,9 +1142,7 @@ impl<T: Config> Pallet<T> {
                 let committee_ops = Self::committee_ops(&verifying_committee, &a_report);
 
                 // 报告人没有提交给原始信息，则惩罚报告人到国库，不进行奖励
-                if committee_ops.encrypted_err_info.is_none() &&
-                    now - committee_ops.booked_time >= HALF_HOUR.saturated_into::<T::BlockNumber>()
-                {
+                if committee_ops.encrypted_err_info.is_none() && now - committee_ops.booked_time >= HALF_HOUR.into() {
                     Self::add_slash(
                         report_info.reporter,
                         report_info.reporter_stake,
@@ -1162,7 +1160,8 @@ impl<T: Config> Pallet<T> {
                             false,
                         );
                         CommitteeOps::<T>::remove(&a_committee, a_report);
-                        Self::clean_from_committee_order(&a_committee, &a_report);
+                        // TODO: clean this
+                        // Self::clean_from_committee_order(&a_committee, &a_report);
                     }
 
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
@@ -1172,7 +1171,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // 不足3小时，且委员会没有提交Hash，删除该委员会，并惩罚
-                if now - committee_ops.booked_time > ONE_HOUR.saturated_into::<T::BlockNumber>() {
+                if now - committee_ops.booked_time > ONE_HOUR.into() {
                     // 更改report_info
                     report_info.verifying_committee = None;
                     if let Ok(index) = report_info.booked_committee.binary_search(&verifying_committee) {
@@ -1232,7 +1231,7 @@ impl<T: Config> Pallet<T> {
                 let verifying_committee = report_info.verifying_committee.ok_or(())?;
                 let committee_ops = Self::committee_ops(&verifying_committee, &a_report);
 
-                if now - committee_ops.booked_time < ONE_HOUR.saturated_into::<T::BlockNumber>() {
+                if now - committee_ops.booked_time < ONE_HOUR.into() {
                     // 将最后一个委员会移除，并不惩罚
                     report_info.verifying_committee = None;
                     if let Ok(index) = report_info.booked_committee.binary_search(&verifying_committee) {
@@ -1244,7 +1243,8 @@ impl<T: Config> Pallet<T> {
                     report_info.report_status = ReportStatus::SubmittingRaw;
 
                     // 从最后一个委员会的存储中删除
-                    Self::clean_from_committee_order(&verifying_committee, &a_report);
+                    // TODO: clean this
+                    // Self::clean_from_committee_order(&verifying_committee, &a_report);
                     // 退还质押
                     let _ = T::ManageCommittee::change_used_stake(
                         verifying_committee.clone(),
@@ -1283,7 +1283,7 @@ impl<T: Config> Pallet<T> {
         let mut report_info = Self::report_info(&a_report);
 
         // 未全部提交了原始信息且未达到了四个小时
-        if now - report_info.report_time < FOUR_HOUR.saturated_into::<T::BlockNumber>() &&
+        if now - report_info.report_time < FOUR_HOUR.into() &&
             report_info.hashed_committee.len() != report_info.confirmed_committee.len()
         {
             return
@@ -1299,11 +1299,24 @@ impl<T: Config> Pallet<T> {
                         Vec::new(),
                         committee::CMSlashReason::MCInconsistentSubmit,
                     );
+
+                    // 改变committee_order
+                    let mut committee_order = Self::committee_order(&a_committee);
+                    Self::clean_from_committee_order(&mut committee_order, &a_report);
+                    CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
                 for a_committee in support_committees.clone() {
                     let committee_ops = Self::committee_ops(&a_committee, a_report);
                     let _ =
                         T::ManageCommittee::change_used_stake(a_committee.clone(), committee_ops.staked_balance, false);
+
+                    // 改变committee_order
+                    let mut committee_order = Self::committee_order(&a_committee);
+                    Self::clean_from_committee_order(&mut committee_order, &a_report);
+                    if let Err(index) = committee_order.finished_report.binary_search(&a_report) {
+                        committee_order.finished_report.insert(index, a_report);
+                    }
+                    CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
 
                 MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
