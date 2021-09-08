@@ -971,31 +971,6 @@ impl<T: Config> Pallet<T> {
         return blake2_128(raw_str)
     }
 
-    // 处理用户没有发送加密信息的订单
-    // 对用户进行惩罚，对委员会进行奖励
-    fn refund_committee_clean_report(report_id: ReportId) {
-        let report_info = Self::report_info(report_id);
-
-        // 清理每个委员会存储
-        for a_committee in report_info.booked_committee {
-            let committee_ops = Self::committee_ops(&a_committee, &report_id);
-
-            let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
-                a_committee.clone(),
-                committee_ops.staked_balance,
-                false,
-            );
-
-            CommitteeOps::<T>::remove(&a_committee, &report_id);
-
-            Self::clean_from_committee_order(&a_committee, &report_id);
-        }
-
-        // 清理该报告
-        Self::clean_from_live_report(&report_id);
-        ReportInfo::<T>::remove(&report_id);
-    }
-
     // rm from committee_order
     fn clean_from_committee_order(committee: &T::AccountId, report_id: &ReportId) {
         let mut committee_order = Self::committee_order(committee);
@@ -1013,20 +988,12 @@ impl<T: Config> Pallet<T> {
     }
 
     // rm from live_report
-    fn clean_from_live_report(report_id: &ReportId) {
+    fn clean_from_live_report(report_id: ReportId) {
         let mut live_report = Self::live_report();
-        if let Ok(index) = live_report.bookable_report.binary_search(report_id) {
-            live_report.bookable_report.remove(index);
-        }
-        if let Ok(index) = live_report.verifying_report.binary_search(report_id) {
-            live_report.verifying_report.remove(index);
-        }
-        if let Ok(index) = live_report.waiting_raw_report.binary_search(report_id) {
-            live_report.waiting_raw_report.remove(index);
-        }
-        if let Ok(index) = live_report.finished_report.binary_search(report_id) {
-            live_report.finished_report.remove(index);
-        }
+        MTLiveReportList::rm_report_id(&mut live_report.bookable_report, report_id);
+        MTLiveReportList::rm_report_id(&mut live_report.verifying_report, report_id);
+        MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, report_id);
+        MTLiveReportList::rm_report_id(&mut live_report.finished_report, report_id);
         LiveReport::<T>::put(live_report);
     }
 
@@ -1038,7 +1005,7 @@ impl<T: Config> Pallet<T> {
         for a_committee in report_info.booked_committee {
             CommitteeOps::<T>::remove(&a_committee, report_id);
             Self::clean_from_committee_order(&a_committee, &report_id);
-            Self::clean_from_live_report(&report_id);
+            Self::clean_from_live_report(report_id);
         }
     }
 
@@ -1184,8 +1151,23 @@ impl<T: Config> Pallet<T> {
                         Vec::new(),
                         MTReporterSlashReason::NotSubmitEncryptedInfo,
                     );
-                    // TODO: 应该在live_report中删除
-                    Self::refund_committee_clean_report(a_report);
+
+                    // 清理存储
+                    let report_info = Self::report_info(a_report);
+                    for a_committee in report_info.booked_committee {
+                        let committee_ops = Self::committee_ops(&a_committee, &a_report);
+                        let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                            a_committee.clone(),
+                            committee_ops.staked_balance,
+                            false,
+                        );
+                        CommitteeOps::<T>::remove(&a_committee, a_report);
+                        Self::clean_from_committee_order(&a_committee, &a_report);
+                    }
+
+                    MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
+                    live_report_is_changed = true;
+
                     continue
                 }
 
@@ -1438,14 +1420,12 @@ impl<T: Config> Pallet<T> {
                 let reward_to_num = slash_info.reward_to.len() as u32;
 
                 let mut reporter_stake = Self::reporter_stake(&slash_info.slash_who);
-
-                // let mut committee_stake = Self::committee_stake(&slash_info.slash_who);
-
                 reporter_stake.used_stake = reporter_stake.used_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
                 reporter_stake.staked_amount =
                     reporter_stake.staked_amount.checked_sub(&slash_info.slash_amount).ok_or(())?;
 
                 if reward_to_num == 0 {
+                    // Slash to Treasury
                     if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
                         let (imbalance, _missing) =
                             <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
