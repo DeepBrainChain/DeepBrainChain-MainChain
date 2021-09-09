@@ -1010,19 +1010,10 @@ impl<T: Config> Pallet<T> {
         MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, report_id);
     }
 
+    // fn clean_finished_order
     // - Writes:
-    // CommitteeOps, MTCommitteeOrderList, MTLiveReportList
+    // NOTE: ==CommitteeOps, MTCommitteeOrderList, MTLiveReportList==
     // NOTE: MTReportInfoDetail 不清理
-    fn clean_finished_order(report_id: ReportId) {
-        let report_info = Self::report_info(report_id);
-        let mut live_report = Self::live_report();
-        for a_committee in report_info.booked_committee {
-            CommitteeOps::<T>::remove(&a_committee, report_id);
-            // TODO: rm this
-            // Self::clean_from_committee_order(&a_committee, &report_id);
-            Self::rm_from_live_report(&mut live_report, report_id);
-        }
-    }
 
     // Summary committee's handle result
     fn summary_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {
@@ -1051,9 +1042,10 @@ impl<T: Config> Pallet<T> {
         let mut verifying_report = live_report.verifying_report.clone();
         verifying_report.extend(live_report.bookable_report.clone());
 
-        // TODO: 当满足三个预订时，移动到 verifying_report
         for report_id in verifying_report {
             let mut report_info = Self::report_info(&report_id);
+            let mut reporter_report = Self::reporter_report(&report_info.reporter);
+
             match report_info.machine_fault_type {
                 // 仅处理Offline的情况
                 MachineFaultType::RentedInaccessible(..) => {},
@@ -1085,14 +1077,14 @@ impl<T: Config> Pallet<T> {
                             Vec::new(),
                             committee::CMSlashReason::MCNotSubmitRaw,
                         );
+                    } else {
+                        if let Err(index) = committee_order.finished_report.binary_search(&report_id) {
+                            committee_order.finished_report.insert(index, report_id);
+                        }
                     }
-                    CommitteeOps::<T>::remove(&a_committee, report_id);
 
+                    CommitteeOps::<T>::remove(&a_committee, report_id);
                     Self::rm_from_committee_order(&mut committee_order, &report_id);
-                    // 只插入
-                    if let Err(index) = committee_order.finished_report.binary_search(&report_id) {
-                        committee_order.finished_report.insert(index, report_id);
-                    }
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
 
@@ -1117,6 +1109,10 @@ impl<T: Config> Pallet<T> {
                     continue
                 }
 
+                if let Ok(index) = reporter_report.processing_report.binary_search(&report_id) {
+                    reporter_report.processing_report.remove(index);
+                }
+
                 if report_info.support_committee >= report_info.against_committee {
                     // 此时，应该支持报告人，惩罚反对的委员会
                     T::MTOps::mt_machine_offline(
@@ -1134,10 +1130,14 @@ impl<T: Config> Pallet<T> {
                             committee::CMSlashReason::MCInconsistentSubmit,
                         );
                     }
+
+                    if let Err(index) = reporter_report.succeed_report.binary_search(&report_id) {
+                        reporter_report.succeed_report.insert(index, report_id);
+                    }
                 } else {
                     // 此时，应该否决报告人，处理委员会
                     Self::add_slash(
-                        report_info.reporter,
+                        report_info.reporter.clone(),
                         report_info.reporter_stake,
                         report_info.against_committee.clone(),
                         MTReporterSlashReason::ReportRefused,
@@ -1151,19 +1151,17 @@ impl<T: Config> Pallet<T> {
                             committee::CMSlashReason::MCInconsistentSubmit,
                         );
                     }
+
+                    if let Err(index) = reporter_report.failed_report.binary_search(&report_id) {
+                        reporter_report.failed_report.insert(index, report_id);
+                    }
                 }
 
-                // TODO: 修改CommitteeOrder
-
-                // TODO: 修改ReporterReport
+                ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
 
                 // 支持或反对，该报告都变为完成状态
                 Self::rm_from_live_report(&mut live_report, report_id);
                 MTLiveReportList::add_report_id(&mut live_report.finished_report, report_id);
-
-                // If report_info.confirmed_committee.len() == 0 do nothing but clean
-                // Self::clean_finished_order(report_id);
-                // TODO: do clean
             }
         }
 
@@ -1184,15 +1182,14 @@ impl<T: Config> Pallet<T> {
 
         for a_report in verifying_report {
             let mut report_info = Self::report_info(&a_report);
+            let mut reporter_report = Self::reporter_report(&report_info.reporter);
 
             // 忽略掉线的类型
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
                 continue
             };
 
-            // 不足验证时间截止时，处理：
-            // 1. 报告人没有在规定时间内提交加密信息
-            // 2. 委员会没有在1个小时内提交Hash
+            // 不到验证截止时间时:
             if now - report_info.first_book_time < THREE_HOUR.into() {
                 if let ReportStatus::WaitingBook = report_info.report_status {
                     continue
@@ -1201,17 +1198,26 @@ impl<T: Config> Pallet<T> {
                 let verifying_committee = report_info.verifying_committee.ok_or(())?;
                 let committee_ops = Self::committee_ops(&verifying_committee, &a_report);
 
-                // 报告人没有提交给原始信息，则惩罚报告人到国库，不进行奖励
+                // 1. 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
                 if committee_ops.encrypted_err_info.is_none() && now - committee_ops.booked_time >= HALF_HOUR.into() {
                     Self::add_slash(
-                        report_info.reporter,
+                        report_info.reporter.clone(),
                         report_info.reporter_stake,
                         Vec::new(),
                         MTReporterSlashReason::NotSubmitEncryptedInfo,
                     );
 
+                    if let Ok(index) = reporter_report.processing_report.binary_search(&a_report) {
+                        reporter_report.processing_report.remove(index);
+                        if let Err(index) = reporter_report.failed_report.binary_search(&a_report) {
+                            reporter_report.failed_report.insert(index, a_report);
+                            ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
+                        }
+                    }
+
                     // 清理存储: CommitteeOps, LiveReport, CommitteeOrder, ReporterRecord
                     let report_info = Self::report_info(a_report);
+
                     for a_committee in report_info.booked_committee {
                         let committee_ops = Self::committee_ops(&a_committee, &a_report);
                         let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
@@ -1230,7 +1236,7 @@ impl<T: Config> Pallet<T> {
                     continue
                 }
 
-                // 不足3小时，且委员会没有提交Hash，删除该委员会，并惩罚
+                // 2. 委员会没有提交Hash，删除该委员会，并惩罚
                 if now - committee_ops.booked_time > ONE_HOUR.into() {
                     // 更改report_info
                     report_info.verifying_committee = None;
@@ -1453,7 +1459,7 @@ impl<T: Config> Pallet<T> {
                     );
                 }
 
-                // All info of report should be cleaned, and so allow report be booked or cancled
+                // All info of report should be cleaned, and so allow report be booked or canceled
                 report_info = MTReportInfoDetail {
                     reporter: report_info.reporter,
                     report_time: report_info.report_time,
@@ -1471,7 +1477,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // FIXME: 在NoConsensus不能调用该方法
-        Self::clean_finished_order(a_report);
+        // Self::clean_finished_order(a_report);
         ReportInfo::<T>::insert(a_report, report_info);
     }
 
