@@ -919,7 +919,7 @@ impl<T: Config> Pallet<T> {
             reporter_stake.used_stake = stake_params.stake_per_report;
         } else {
             reporter_stake.used_stake += stake_params.stake_per_report;
-            if reporter_stake.staked_amount - reporter_stake.used_stake >
+            if reporter_stake.staked_amount - reporter_stake.used_stake <
                 stake_params.min_free_stake_percent * reporter_stake.staked_amount
             {
                 return Err(Error::<T>::StakeNotEnough.into())
