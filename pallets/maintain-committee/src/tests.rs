@@ -51,10 +51,13 @@ fn report_machine_fault_works() {
             &MaintainCommittee::live_report(),
             &super::MTLiveReportList { bookable_report: vec![0], ..Default::default() }
         );
-        assert_eq!(&MaintainCommittee::reporter_report(&reporter), &super::ReporterRecord { reported_id: vec![0] });
+        assert_eq!(
+            &MaintainCommittee::reporter_report(&reporter),
+            &super::ReporterReportList { processing_report: vec![0], ..Default::default() }
+        );
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::book_fault_order(Origin::signed(committee1), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
 
         // book_fault_order:
         // - Writes:
@@ -81,7 +84,7 @@ fn report_machine_fault_works() {
         assert_eq!(&MaintainCommittee::committee_ops(&committee1, 0), &committee_ops);
         assert_eq!(
             &MaintainCommittee::committee_order(&committee1),
-            &super::MTCommitteeReportList { booked_report: vec![0], ..Default::default() }
+            &super::MTCommitteeOrderList { booked_report: vec![0], ..Default::default() }
         );
 
         // 提交加密信息
@@ -109,7 +112,11 @@ fn report_machine_fault_works() {
         assert_eq!(&MaintainCommittee::committee_ops(&committee1, 0), &committee_ops);
 
         // 提交验证Hash
-        assert_ok!(MaintainCommittee::submit_confirm_hash(Origin::signed(committee1), 0, committee_hash.clone()));
+        assert_ok!(MaintainCommittee::committee_submit_verify_hash(
+            Origin::signed(committee1),
+            0,
+            committee_hash.clone()
+        ));
 
         // submit_confirm_hash:
         // - Writes:
@@ -129,7 +136,7 @@ fn report_machine_fault_works() {
         assert_eq!(&MaintainCommittee::committee_ops(&committee1, 0), &committee_ops);
         assert_eq!(
             &MaintainCommittee::committee_order(&committee1),
-            &super::MTCommitteeReportList { hashed_report: vec![0], ..Default::default() }
+            &super::MTCommitteeOrderList { hashed_report: vec![0], ..Default::default() }
         );
 
         // 3个小时之后才能提交：
@@ -146,7 +153,7 @@ fn report_machine_fault_works() {
         // - Writes:
         // ReportInfo, CommitteeOps
         let extra_err_info = Vec::new();
-        assert_ok!(MaintainCommittee::submit_confirm_raw(
+        assert_ok!(MaintainCommittee::committee_submit_verify_raw(
             Origin::signed(committee1),
             0,
             machine_id.clone(),
@@ -211,7 +218,7 @@ fn report_machine_offline_works() {
         ));
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::book_fault_order(Origin::signed(committee), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee), 0));
 
         // book_fault_order:
         // - Writes:
@@ -226,14 +233,14 @@ fn report_machine_offline_works() {
         // hash(0abcd1) => 0x73124a023f585b4018b9ed3593c7470a
         let offline_committee_hash: [u8; 16] =
             hex::decode("73124a023f585b4018b9ed3593c7470a").unwrap().try_into().unwrap();
-        assert_ok!(MaintainCommittee::submit_confirm_hash(
+        assert_ok!(MaintainCommittee::committee_submit_verify_hash(
             Origin::signed(committee),
             0,
             offline_committee_hash.clone()
         ));
 
         run_to_block(21);
-        assert_ok!(MaintainCommittee::submit_offline_raw(
+        assert_ok!(MaintainCommittee::committee_submit_offline_raw(
             Origin::signed(committee),
             0,
             "abcd".as_bytes().to_vec(),
@@ -271,7 +278,7 @@ fn test_heart_beat1() {
         // ReporterStake, ReportInfo, LiveReport, ReporterReport
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::book_fault_order(Origin::signed(committee1), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
 
         // book_fault_order:
         // - Writes:
@@ -282,11 +289,11 @@ fn test_heart_beat1() {
 
         // hertbeat will run, and report info will be deleted
         // - Writes:
-        // LiveReport, CommitteeReport, CommitteeOps, ReportInfo
+        // LiveReport, CommitteeOrder, CommitteeOps, ReportInfo
         assert_eq!(MaintainCommittee::live_report(), super::MTLiveReportList { ..Default::default() });
         assert_eq!(
             MaintainCommittee::committee_order(&committee1),
-            super::MTCommitteeReportList { ..Default::default() }
+            super::MTCommitteeOrderList { ..Default::default() }
         );
         assert_eq!(
             MaintainCommittee::committee_ops(&committee1, 0),
@@ -332,7 +339,7 @@ fn test_heart_beat2() {
         // ReporterStake, ReportInfo, LiveReport, ReporterReport
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::book_fault_order(Origin::signed(committee1), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
 
         // book_fault_order:
         // - Writes:
@@ -359,14 +366,14 @@ fn test_heart_beat2() {
 
         // hertbeat will run, and report info will be deleted
         // - Writes:
-        // LiveReport, CommitteeReport, CommitteeOps, ReportInfo
+        // LiveReport, CommitteeOrder, CommitteeOps, ReportInfo
         assert_eq!(
             MaintainCommittee::live_report(),
             super::MTLiveReportList { bookable_report: vec![0], ..Default::default() }
         );
         assert_eq!(
             MaintainCommittee::committee_order(&committee1),
-            super::MTCommitteeReportList { ..Default::default() }
+            super::MTCommitteeOrderList { ..Default::default() }
         );
         assert_eq!(
             MaintainCommittee::committee_ops(&committee1, 0),
@@ -421,7 +428,7 @@ fn test_heart_beat3() {
         // ReporterStake, ReportInfo, LiveReport, ReporterReport
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::book_fault_order(Origin::signed(committee1), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
 
         // book_fault_order:
         // - Writes:
@@ -448,12 +455,16 @@ fn test_heart_beat3() {
 
         // 提交验证Hash
         let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
-        assert_ok!(MaintainCommittee::submit_confirm_hash(Origin::signed(committee1), 0, committee_hash.clone()));
+        assert_ok!(MaintainCommittee::committee_submit_verify_hash(
+            Origin::signed(committee1),
+            0,
+            committee_hash.clone()
+        ));
 
         // 第二个委员会去预订: 第一次预订时间为11， 则开始提交原始值时间为11 + 3*120
         run_to_block(3 * 120);
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::book_fault_order(Origin::signed(committee2), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee2), 0));
         // 报告人给第二个委员会提供加密信息
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
             Origin::signed(reporter),
@@ -467,14 +478,14 @@ fn test_heart_beat3() {
 
         // hertbeat will run, and report info will be deleted
         // - Writes:
-        // LiveReport, CommitteeReport, CommitteeOps, ReportInfo
+        // LiveReport, CommitteeOrder, CommitteeOps, ReportInfo
         assert_eq!(
             MaintainCommittee::live_report(),
             super::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
         );
         assert_eq!(
             MaintainCommittee::committee_order(&committee2),
-            super::MTCommitteeReportList { ..Default::default() }
+            super::MTCommitteeOrderList { ..Default::default() }
         );
         assert_eq!(
             MaintainCommittee::committee_ops(&committee2, 0),

@@ -183,8 +183,11 @@
   "OCVerifyStatus": {
     "_enum": ["SubmittingHash", "SubmittingRaw", "Summarizing", "Finished"]
   },
-  "ReporterRecord": {
-    "reported_id": "Vec<OrderId>"
+  "ReporterReportList": {
+    "processing_report": "Vec<ReportId>",
+    "canceled_report": "Vec<ReportId>",
+    "succeed_report": "Vec<ReportId>",
+    "failed_report": "Vec<ReportId>"
   },
   "MTCommitteeOpsDetail": {
     "booked_time": "BlockNumber",
@@ -201,7 +204,7 @@
   "MTOrderStatus": {
     "_enum": ["WaitingEncrypt", "Verifying", "WaitingRaw", "Finished"]
   },
-  "MTCommitteeReportList": {
+  "MTCommitteeOrderList": {
     "booked_report": "Vec<ReportId>",
     "hashed_report": "Vec<ReportId>",
     "confirmed_report": "Vec<ReportId>",
