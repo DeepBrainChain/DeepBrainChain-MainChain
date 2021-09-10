@@ -1296,8 +1296,6 @@ impl<T: Config> Pallet<T> {
                 let verifying_committee = report_info.verifying_committee.ok_or(())?;
                 let committee_ops = Self::committee_ops(&verifying_committee, &a_report);
 
-                println!("################################ ok");
-
                 if now - committee_ops.booked_time < ONE_HOUR.into() {
                     // 将最后一个委员会移除，不惩罚
                     report_info.verifying_committee = None;
