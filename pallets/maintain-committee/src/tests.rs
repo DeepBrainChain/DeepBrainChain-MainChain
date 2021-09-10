@@ -299,7 +299,21 @@ fn test_heart_beat1() {
             MaintainCommittee::committee_ops(&committee1, 0),
             super::MTCommitteeOpsDetail { ..Default::default() }
         );
-        assert_eq!(MaintainCommittee::report_info(0), super::MTReportInfoDetail { ..Default::default() });
+        assert_eq!(
+            MaintainCommittee::report_info(0),
+            super::MTReportInfoDetail {
+                reporter,
+                report_time: 11,
+                reporter_stake: 1000 * ONE_DBC,
+                first_book_time: 11,
+                verifying_committee: Some(committee1),
+                booked_committee: vec![committee1],
+                confirm_start: 371,
+                report_status: super::ReportStatus::Verifying,
+                machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
+                ..Default::default()
+            }
+        );
         assert_eq!(
             MaintainCommittee::pending_slash(0),
             super::MTPendingSlashInfo {

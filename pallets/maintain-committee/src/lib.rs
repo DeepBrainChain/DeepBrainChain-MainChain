@@ -24,7 +24,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-const FIVE_MINUTE: u32 = 20;
+const FIVE_MINUTE: u32 = 10;
 const TEN_MINUTE: u32 = 20;
 const HALF_HOUR: u32 = 60;
 const ONE_HOUR: u32 = 120;
@@ -423,8 +423,8 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        pub fn reporter_reduce_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
-            let reporter = ensure_signed(origin)?;
+        pub fn reporter_reduce_stake(origin: OriginFor<T>, _amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            let _reporter = ensure_signed(origin)?;
             // TODO:  Add this
 
             Ok(().into())
@@ -1216,8 +1216,6 @@ impl<T: Config> Pallet<T> {
                     }
 
                     // 清理存储: CommitteeOps, LiveReport, CommitteeOrder, ReporterRecord
-                    let report_info = Self::report_info(a_report);
-
                     for a_committee in report_info.booked_committee {
                         let committee_ops = Self::committee_ops(&a_committee, &a_report);
                         let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
@@ -1226,8 +1224,10 @@ impl<T: Config> Pallet<T> {
                             false,
                         );
                         CommitteeOps::<T>::remove(&a_committee, a_report);
-                        // TODO: clean this
-                        // Self::clean_from_committee_order(&a_committee, &a_report);
+
+                        let mut committee_order = Self::committee_order(&a_committee);
+                        Self::rm_from_committee_order(&mut committee_order, &a_report);
+                        CommitteeOrder::<T>::insert(&a_committee, committee_order);
                     }
 
                     MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
@@ -1237,7 +1237,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // 2. 委员会没有提交Hash，删除该委员会，并惩罚
-                if now - committee_ops.booked_time > ONE_HOUR.into() {
+                if now - committee_ops.booked_time >= ONE_HOUR.into() {
                     // 更改report_info
                     report_info.verifying_committee = None;
                     if let Ok(index) = report_info.booked_committee.binary_search(&verifying_committee) {
@@ -1281,13 +1281,12 @@ impl<T: Config> Pallet<T> {
             }
             // 已经到3个小时
             else {
+                Self::rm_from_live_report(&mut live_report, a_report);
+                MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
+                live_report_is_changed = true;
+
                 if let ReportStatus::WaitingBook = report_info.report_status {
                     report_info.report_status = ReportStatus::SubmittingRaw;
-
-                    MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
-                    MTLiveReportList::rm_report_id(&mut live_report.bookable_report, a_report);
-                    MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
-                    live_report_is_changed = true;
 
                     ReportInfo::<T>::insert(a_report, report_info);
                     continue
@@ -1297,8 +1296,10 @@ impl<T: Config> Pallet<T> {
                 let verifying_committee = report_info.verifying_committee.ok_or(())?;
                 let committee_ops = Self::committee_ops(&verifying_committee, &a_report);
 
+                println!("################################ ok");
+
                 if now - committee_ops.booked_time < ONE_HOUR.into() {
-                    // 将最后一个委员会移除，并不惩罚
+                    // 将最后一个委员会移除，不惩罚
                     report_info.verifying_committee = None;
                     if let Ok(index) = report_info.booked_committee.binary_search(&verifying_committee) {
                         report_info.booked_committee.remove(index);
@@ -1308,20 +1309,16 @@ impl<T: Config> Pallet<T> {
                     }
                     report_info.report_status = ReportStatus::SubmittingRaw;
 
-                    // 从最后一个委员会的存储中删除
-                    // TODO: clean this
-                    // Self::clean_from_committee_order(&verifying_committee, &a_report);
-                    // 退还质押
+                    // 从最后一个委员会的存储中删除,并退还质押
+                    let mut committee_order = Self::committee_order(&verifying_committee);
+                    Self::rm_from_committee_order(&mut committee_order, &a_report);
+                    CommitteeOrder::<T>::insert(&verifying_committee, committee_order);
+
                     let _ = T::ManageCommittee::change_used_stake(
                         verifying_committee.clone(),
                         committee_ops.staked_balance,
                         false,
                     );
-
-                    MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
-                    MTLiveReportList::rm_report_id(&mut live_report.bookable_report, a_report);
-                    MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
-                    live_report_is_changed = true;
 
                     CommitteeOps::<T>::remove(&verifying_committee, a_report);
                     ReportInfo::<T>::insert(a_report, report_info);
@@ -1333,9 +1330,7 @@ impl<T: Config> Pallet<T> {
 
         // 正在提交原始值的
         for a_report in submitting_raw_report {
-            Self::summary_waiting_raw(a_report, &mut live_report);
-            // FIXME: 这样这里必改变
-            live_report_is_changed = true;
+            live_report_is_changed = Self::summary_waiting_raw(a_report, &mut live_report) || live_report_is_changed;
         }
 
         if live_report_is_changed {
@@ -1344,15 +1339,16 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn summary_waiting_raw(a_report: ReportId, live_report: &mut MTLiveReportList) {
+    fn summary_waiting_raw(a_report: ReportId, live_report: &mut MTLiveReportList) -> bool {
         let now = <frame_system::Module<T>>::block_number();
         let mut report_info = Self::report_info(&a_report);
+        let mut live_report_is_changed = false;
 
         // 未全部提交了原始信息且未达到了四个小时
         if now - report_info.report_time < FOUR_HOUR.into() &&
             report_info.hashed_committee.len() != report_info.confirmed_committee.len()
         {
-            return
+            return false
         }
         match Self::summary_report(a_report) {
             ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
@@ -1387,6 +1383,7 @@ impl<T: Config> Pallet<T> {
 
                 MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
                 MTLiveReportList::add_report_id(&mut live_report.finished_report, a_report);
+                live_report_is_changed = true;
 
                 // 根据错误类型，调用不同的处理函数
                 let fault_type = match report_info.machine_fault_type {
@@ -1473,12 +1470,12 @@ impl<T: Config> Pallet<T> {
                 MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
                 MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
                 MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
+                live_report_is_changed = true;
             },
         }
 
-        // FIXME: 在NoConsensus不能调用该方法
-        // Self::clean_finished_order(a_report);
         ReportInfo::<T>::insert(a_report, report_info);
+        live_report_is_changed
     }
 
     // Get all pending slash id
