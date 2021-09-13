@@ -283,7 +283,6 @@ pub mod pallet {
             CommitteeOps::<T>::insert(&committee, &machine_id, committee_ops);
 
             Self::deposit_event(Event::AddConfirmHash(committee, hash));
-
             Ok(().into())
         }
 
@@ -293,14 +292,14 @@ pub mod pallet {
             origin: OriginFor<T>,
             machine_info_detail: CommitteeUploadInfo,
         ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+            let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
             let machine_id = machine_info_detail.machine_id.clone();
 
             let mut machine_committee = Self::machine_committee(&machine_id);
-            let mut committee_machine = Self::committee_machine(&who);
-            let mut machine_ops = Self::committee_ops(&who, &machine_id);
+            let mut committee_machine = Self::committee_machine(&committee);
+            let mut machine_ops = Self::committee_ops(&committee, &machine_id);
 
             // 如果所有人都提交了，则直接可以提交Hash
             if machine_committee.status != OCVerifyStatus::SubmittingRaw {
@@ -310,7 +309,7 @@ pub mod pallet {
             }
 
             // 该用户已经给机器提交过Hash
-            ensure!(machine_committee.hashed_committee.binary_search(&who).is_ok(), Error::<T>::NotSubmitHash);
+            ensure!(machine_committee.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotSubmitHash);
             // 机器ID存在于用户已经Hash的机器里
             ensure!(committee_machine.hashed_machine.binary_search(&machine_id).is_ok(), Error::<T>::NotSubmitHash);
             // 用户还未提交过原始信息
@@ -331,8 +330,8 @@ pub mod pallet {
                 committee_machine.confirmed_machine.insert(index, machine_id.clone());
             }
 
-            if let Err(index) = machine_committee.confirmed_committee.binary_search(&who) {
-                machine_committee.confirmed_committee.insert(index, who.clone());
+            if let Err(index) = machine_committee.confirmed_committee.binary_search(&committee) {
+                machine_committee.confirmed_committee.insert(index, committee.clone());
             }
 
             // machine_ops.confirm_raw = confirm_raw.clone();
@@ -346,10 +345,11 @@ pub mod pallet {
                 machine_committee.status = OCVerifyStatus::Summarizing;
             }
 
-            CommitteeMachine::<T>::insert(&who, committee_machine);
+            CommitteeMachine::<T>::insert(&committee, committee_machine);
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            CommitteeOps::<T>::insert(&who, &machine_id, machine_ops);
+            CommitteeOps::<T>::insert(&committee, &machine_id, machine_ops);
 
+            Self::deposit_event(Event::AddConfirmRaw(committee, machine_id));
             Ok(().into())
         }
     }
@@ -359,6 +359,8 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         AddConfirmHash(T::AccountId, [u8; 16]),
+        AddConfirmRaw(T::AccountId, MachineId),
+        MachineDistributed(MachineId, T::AccountId),
     }
 
     #[pallet::error]
@@ -396,7 +398,7 @@ impl<T: Config> Pallet<T> {
         let confirm_start = now + SUBMIT_RAW_START.into(); // 添加确认信息时间为分发之后的36小时
 
         for a_committee_workflow in committee_workflow {
-            let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, a_committee_workflow);
+            Self::book_one(machine_id.to_vec(), confirm_start, now, a_committee_workflow.clone())?;
         }
 
         // 将机器状态从ocw_confirmed_machine改为booked_machine
@@ -444,6 +446,7 @@ impl<T: Config> Pallet<T> {
         CommitteeMachine::<T>::insert(&work_time.0, committee_machine);
         CommitteeOps::<T>::insert(&work_time.0, &machine_id, committee_ops);
 
+        Self::deposit_event(Event::MachineDistributed(machine_id.to_vec(), work_time.0));
         Ok(())
     }
 

@@ -1094,7 +1094,7 @@ pub mod pallet {
             StashStake::<T>::insert(&slash_info.slash_who, stash_stake);
             PendingSlash::<T>::remove(slash_id);
 
-            Self::deposit_event(Event::SlashCancled(slash_id, slash_info.slash_who, slash_info.slash_amount));
+            Self::deposit_event(Event::SlashCanceled(slash_id, slash_info.slash_who, slash_info.slash_amount));
             Ok(().into())
         }
     }
@@ -1115,7 +1115,7 @@ pub mod pallet {
         ClaimReward(T::AccountId, BalanceOf<T>),
         ControllerReportOffline(MachineId),
         ControllerReportOnline(MachineId),
-        SlashCancled(u64, T::AccountId, BalanceOf<T>),
+        SlashCanceled(u64, T::AccountId, BalanceOf<T>),
         // machine_id, old_stake, new_stake
         MachineRestaked(MachineId, BalanceOf<T>, BalanceOf<T>),
     }

@@ -11,7 +11,7 @@ use frame_system::pallet_prelude::*;
 use online_profile_machine::{MTOps, ManageCommittee};
 use sp_io::hashing::blake2_128;
 use sp_runtime::{
-    traits::{CheckedSub, SaturatedConversion, Zero},
+    traits::{CheckedSub, Zero},
     Perbill, RuntimeDebug,
 };
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
@@ -513,7 +513,7 @@ pub mod pallet {
                 // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
                 if report_info.booked_committee.len() == 1 {
                     report_info.first_book_time = now;
-                    report_info.confirm_start = now + 360u32.saturated_into::<T::BlockNumber>();
+                    report_info.confirm_start = now + THREE_HOUR.into();
                 }
             } else {
                 return Err(Error::<T>::AlreadyBooked.into())
@@ -955,8 +955,8 @@ impl<T: Config> Pallet<T> {
         ReportInfo::<T>::insert(&report_id, report_info);
         LiveReport::<T>::put(live_report);
         ReporterReport::<T>::insert(&reporter, reporter_report);
-        Self::deposit_event(Event::ReportMachineFault(reporter, machine_fault_type));
 
+        Self::deposit_event(Event::ReportMachineFault(reporter, machine_fault_type));
         Ok(().into())
     }
 
@@ -993,7 +993,7 @@ impl<T: Config> Pallet<T> {
                 slash_who: who,
                 slash_time: now,
                 slash_amount: amount,
-                slash_exec_time: now + TWO_DAY.saturated_into::<T::BlockNumber>(),
+                slash_exec_time: now + TWO_DAY.into(),
                 reward_to,
                 slash_reason,
             },

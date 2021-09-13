@@ -213,6 +213,7 @@ pub mod pallet {
             if committee_list.normal.binary_search(&committee).is_ok() {
                 committee_stake.box_pubkey = box_pubkey;
                 CommitteeStake::<T>::insert(&committee, committee_stake);
+                Self::deposit_event(Event::CommitteeSetBoxPubkey(committee, box_pubkey));
                 return Ok(().into())
             }
 
@@ -235,8 +236,10 @@ pub mod pallet {
                 Committee::<T>::put(committee_list);
             }
 
-            CommitteeStake::<T>::insert(committee, committee_stake);
+            CommitteeStake::<T>::insert(&committee, committee_stake);
 
+            Self::deposit_event(Event::StakeAdded(committee.clone(), committee_stake_params.stake_baseline));
+            Self::deposit_event(Event::CommitteeSetBoxPubkey(committee, box_pubkey));
             Ok(().into())
         }
 
@@ -277,6 +280,7 @@ pub mod pallet {
 
             CommitteeStake::<T>::insert(&committee, committee_stake);
 
+            Self::deposit_event(Event::StakeAdded(committee, amount));
             Ok(().into())
         }
 
@@ -311,7 +315,7 @@ pub mod pallet {
             let _ = <T as pallet::Config>::Currency::unreserve(&committee, amount);
 
             CommitteeStake::<T>::insert(&committee, committee_stake);
-
+            Self::deposit_event(Event::StakeReduced(committee, amount));
             Ok(().into())
         }
 
@@ -322,14 +326,15 @@ pub mod pallet {
             let mut committee_stake = Self::committee_stake(&committee);
             ensure!(committee_stake.can_claim_reward != Zero::zero(), Error::<T>::NothingToClaim);
 
-            <T as pallet::Config>::Currency::deposit_into_existing(&committee, committee_stake.can_claim_reward)
-                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
-
-            committee_stake.claimed_reward += committee_stake.can_claim_reward;
+            let can_claim_reward = committee_stake.can_claim_reward;
+            committee_stake.claimed_reward += can_claim_reward;
             committee_stake.can_claim_reward = Zero::zero();
 
-            CommitteeStake::<T>::insert(&committee, committee_stake);
+            <T as pallet::Config>::Currency::deposit_into_existing(&committee, can_claim_reward)
+                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
+            CommitteeStake::<T>::insert(&committee, committee_stake);
+            Self::deposit_event(Event::ClaimReward(committee, can_claim_reward));
             Ok(().into())
         }
 
@@ -416,11 +421,14 @@ pub mod pallet {
 
             let _ = <T as pallet::Config>::Currency::unreserve(&slash_info.slash_who, slash_info.slash_amount);
 
-            CommitteeStake::<T>::insert(slash_info.slash_who, committee_stake);
+            CommitteeStake::<T>::insert(&slash_info.slash_who, committee_stake);
             if is_committee_list_changed {
                 Committee::<T>::put(committee_list);
             }
             PendingSlash::<T>::remove(slash_id);
+
+            Self::deposit_event(Event::StakeReduced(slash_info.slash_who.clone(), slash_info.slash_amount));
+            Self::deposit_event(Event::SlashCanceled(slash_id, slash_info.slash_who, slash_info.slash_amount));
             Ok(().into())
         }
     }
@@ -438,6 +446,11 @@ pub mod pallet {
         Slash(T::AccountId, BalanceOf<T>),
         MissedSlash(T::AccountId, BalanceOf<T>),
         ExitFromCandidacy(T::AccountId),
+        CommitteeSetBoxPubkey(T::AccountId, [u8; 32]),
+        StakeAdded(T::AccountId, BalanceOf<T>),
+        StakeReduced(T::AccountId, BalanceOf<T>),
+        ClaimReward(T::AccountId, BalanceOf<T>),
+        SlashCanceled(u64, T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
