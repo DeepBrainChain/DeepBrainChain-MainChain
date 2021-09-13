@@ -1003,7 +1003,6 @@ pub mod pallet {
                         Some(committee),
                     );
                 },
-
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
@@ -1069,12 +1068,10 @@ pub mod pallet {
 
             machine_info.stake_amount = stake_need;
             machine_info.last_machine_restake = now;
-            if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false).is_err() {
-                return Err(Error::<T>::ReduceStakeFailed.into())
-            }
+            Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false)
+                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
             MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
-
             Self::deposit_event(Event::MachineRestaked(machine_id, old_stake, machine_info.stake_amount));
             Ok(().into())
         }
@@ -1972,118 +1969,127 @@ impl<T: Config> Pallet<T> {
                 let mut stash_machine = Self::stash_machines(a_stash);
 
                 for machine_id in stash_machine.total_machine.clone() {
-                    let machine_info = Self::machines_info(&machine_id);
-
-                    // 计算当时机器实际获得的奖励
-                    let machine_points = era_machine_points.get(&machine_id);
-                    let stash_points = era_stash_points.staker_statistic.get(&a_stash);
-
-                    if machine_points.is_none() || stash_points.is_none() {
-                        continue
-                    }
-                    let machine_points = machine_points.unwrap();
-                    let stash_points = stash_points.unwrap();
-
-                    let machine_actual_grade = machine_points.machine_actual_grade(stash_points.inflation);
-
-                    // 该Era机器获得的总奖励
-                    let machine_total_reward = Perbill::from_rational_approximation(
-                        machine_actual_grade as u64,
-                        era_stash_points.total as u64,
-                    ) * era_reward;
-
-                    let linear_reward_part = Perbill::from_rational_approximation(75u64, 100u64) * machine_total_reward;
-
-                    let release_now = if era_index == current_era {
-                        if current_era >= machine_info.reward_deadline {
-                            ErasMachineReward::<T>::insert(current_era, &machine_id, machine_total_reward);
-                            ErasStashReward::<T>::mutate(&current_era, &a_stash, |old_value| {
-                                *old_value += machine_total_reward
-                            });
-                        } else {
-                            // 考虑1%给委员会的部分
-                            let machine_total_reward =
-                                Perbill::from_rational_approximation(99u32, 100u32) * machine_total_reward;
-                            ErasMachineReward::<T>::insert(current_era, &machine_id, machine_total_reward);
-                            ErasStashReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
-                                *old_value += machine_total_reward
-                            });
-                        }
-
-                        // 当前Era释放25%
-                        machine_total_reward - linear_reward_part
-                    } else {
-                        // 剩余75%的1/150
-                        Perbill::from_rational_approximation(1u32, 150u32) * linear_reward_part
-                    };
-
-                    if machine_points.reward_account.len() == 0 || current_era >= machine_info.reward_deadline {
-                        // 没有委员会来分，则全部奖励给stash账户
-                        stash_machine.can_claim_reward += release_now;
-                        if era_index == current_era {
-                            stash_machine.total_earned_reward += machine_total_reward;
-                        }
-
-                        ErasMachineReleasedReward::<T>::mutate(&current_era, &machine_id, |old_value| {
-                            *old_value += release_now
-                        });
-                        ErasStashReleasedReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
-                            *old_value += release_now
-                        });
-                    } else {
-                        if era_index == current_era {
-                            // FIXME：如果委员的奖励时间会很快就要结束了
-                            // 则奖励的前一部分给委员会一部分，后一部分，不给委员会
-                            if machine_info.reward_deadline - current_era >= 150 {
-                                stash_machine.total_earned_reward = stash_machine.total_earned_reward +
-                                    Perbill::from_rational_approximation(99u64, 100u64) * machine_total_reward;
-                            } else if current_era > machine_info.reward_deadline {
-                                stash_machine.total_earned_reward =
-                                    stash_machine.total_earned_reward + machine_total_reward;
-                            } else {
-                                // reward_to_committee:
-                                let reward_to_committee = machine_info.reward_deadline - current_era;
-
-                                let total_reward_before_deadline =
-                                    Perbill::from_rational_approximation(reward_to_committee, 150) *
-                                        machine_total_reward;
-                                let total_reward_after_deadline = machine_total_reward - total_reward_before_deadline;
-
-                                let reward_to_stash_before_deadline =
-                                    Perbill::from_rational_approximation(99u32, 100u32) * total_reward_before_deadline;
-
-                                stash_machine.total_earned_reward = stash_machine.total_earned_reward +
-                                    total_reward_after_deadline +
-                                    reward_to_stash_before_deadline;
-                            }
-                        }
-
-                        // 99% 分给stash账户
-                        let release_to_stash = Perbill::from_rational_approximation(99u64, 100u64) * release_now;
-                        stash_machine.can_claim_reward += release_to_stash;
-
-                        ErasMachineReleasedReward::<T>::mutate(&current_era, &machine_id, |old_value| {
-                            *old_value += release_to_stash
-                        });
-                        ErasStashReleasedReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
-                            *old_value += release_to_stash
-                        });
-
-                        // 剩下分给committee
-                        let release_to_committee = release_now - release_to_stash;
-                        let committee_each_get =
-                            Perbill::from_rational_approximation(1u64, machine_points.reward_account.len() as u64) *
-                                release_to_committee;
-
-                        for a_committee in machine_points.reward_account.clone() {
-                            T::ManageCommittee::add_reward(a_committee, committee_each_get);
-                        }
-                    }
+                    Self::distrubute_a_machine(
+                        machine_id,
+                        a_stash,
+                        era_reward,
+                        &era_stash_points,
+                        &era_machine_points,
+                        current_era,
+                        era_index,
+                        &mut stash_machine,
+                    );
                 }
-
                 StashMachines::<T>::insert(a_stash, stash_machine);
             }
         }
+    }
+
+    fn distrubute_a_machine(
+        machine_id: MachineId,
+        a_stash: &T::AccountId,
+        era_reward: BalanceOf<T>,
+        era_stash_points: &EraStashPoints<T::AccountId>,
+        era_machine_points: &BTreeMap<MachineId, MachineGradeStatus<T::AccountId>>,
+        current_era: EraIndex,
+        era_index: EraIndex,
+        stash_machine: &mut StashMachine<BalanceOf<T>>,
+    ) -> Result<(), ()> {
+        let machine_info = Self::machines_info(&machine_id);
+
+        // 计算当时机器实际获得的奖励
+        let machine_points = era_machine_points.get(&machine_id).ok_or(())?;
+        let stash_points = era_stash_points.staker_statistic.get(&a_stash).ok_or(())?;
+
+        let machine_actual_grade = machine_points.machine_actual_grade(stash_points.inflation);
+
+        // 该Era机器获得的总奖励
+        let machine_total_reward =
+            Perbill::from_rational_approximation(machine_actual_grade as u64, era_stash_points.total as u64) *
+                era_reward;
+
+        let linear_reward_part = Perbill::from_rational_approximation(75u64, 100u64) * machine_total_reward;
+
+        let release_now = if era_index == current_era {
+            if current_era >= machine_info.reward_deadline {
+                ErasMachineReward::<T>::insert(current_era, &machine_id, machine_total_reward);
+                ErasStashReward::<T>::mutate(&current_era, &a_stash, |old_value| *old_value += machine_total_reward);
+            } else {
+                // 考虑1%给委员会的部分
+                let machine_total_reward = Perbill::from_rational_approximation(99u32, 100u32) * machine_total_reward;
+                ErasMachineReward::<T>::insert(current_era, &machine_id, machine_total_reward);
+                ErasStashReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
+                    *old_value += machine_total_reward
+                });
+            }
+
+            // 当前Era释放25%
+            machine_total_reward - linear_reward_part
+        } else {
+            // 剩余75%的1/150
+            Perbill::from_rational_approximation(1u32, 150u32) * linear_reward_part
+        };
+
+        if machine_points.reward_account.len() == 0 || current_era >= machine_info.reward_deadline {
+            // 没有委员会来分，则全部奖励给stash账户
+            stash_machine.can_claim_reward += release_now;
+            if era_index == current_era {
+                stash_machine.total_earned_reward += machine_total_reward;
+            }
+
+            ErasMachineReleasedReward::<T>::mutate(&current_era, &machine_id, |old_value| *old_value += release_now);
+            ErasStashReleasedReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
+                *old_value += release_now
+            });
+        } else {
+            if era_index == current_era {
+                // FIXME：如果委员的奖励时间会很快就要结束了
+                // 则奖励的前一部分给委员会一部分，后一部分，不给委员会
+                if machine_info.reward_deadline - current_era >= 150 {
+                    stash_machine.total_earned_reward = stash_machine.total_earned_reward +
+                        Perbill::from_rational_approximation(99u64, 100u64) * machine_total_reward;
+                } else if current_era > machine_info.reward_deadline {
+                    stash_machine.total_earned_reward = stash_machine.total_earned_reward + machine_total_reward;
+                } else {
+                    // reward_to_committee:
+                    let reward_to_committee = machine_info.reward_deadline - current_era;
+
+                    let total_reward_before_deadline =
+                        Perbill::from_rational_approximation(reward_to_committee, 150) * machine_total_reward;
+                    let total_reward_after_deadline = machine_total_reward - total_reward_before_deadline;
+
+                    let reward_to_stash_before_deadline =
+                        Perbill::from_rational_approximation(99u32, 100u32) * total_reward_before_deadline;
+
+                    stash_machine.total_earned_reward = stash_machine.total_earned_reward +
+                        total_reward_after_deadline +
+                        reward_to_stash_before_deadline;
+                }
+            }
+
+            // 99% 分给stash账户
+            let release_to_stash = Perbill::from_rational_approximation(99u64, 100u64) * release_now;
+            stash_machine.can_claim_reward += release_to_stash;
+
+            ErasMachineReleasedReward::<T>::mutate(&current_era, &machine_id, |old_value| {
+                *old_value += release_to_stash
+            });
+            ErasStashReleasedReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
+                *old_value += release_to_stash
+            });
+
+            // 剩下分给committee
+            let release_to_committee = release_now - release_to_stash;
+            let committee_each_get =
+                Perbill::from_rational_approximation(1u64, machine_points.reward_account.len() as u64) *
+                    release_to_committee;
+
+            for a_committee in machine_points.reward_account.clone() {
+                T::ManageCommittee::add_reward(a_committee, committee_each_get);
+            }
+        }
+
+        Ok(())
     }
 }
 
