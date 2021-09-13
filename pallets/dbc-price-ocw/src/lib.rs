@@ -74,11 +74,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(_block_number: T::BlockNumber) {
-            if let None = Self::price_url() {
-                return
+            if Self::price_url().is_some() {
+                let _ = Self::fetch_price_and_send_unsigned_tx();
             }
-
-            let _ = Self::fetch_price_and_send_unsigned_tx();
         }
     }
 
@@ -87,10 +85,8 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn submit_price_unsigned(origin: OriginFor<T>, price: u64) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-
             Self::add_price(price);
             Self::add_avg_price();
-
             Ok(().into())
         }
 
@@ -105,31 +101,19 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn add_price_url(origin: OriginFor<T>, new_url: URL) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-
-            if let Some(mut price_url) = Self::price_url() {
-                price_url.push(new_url);
-                PriceURL::<T>::put(price_url);
-            } else {
-                let mut out = Vec::new();
-                out.push(new_url);
-                PriceURL::<T>::put(out);
-            }
-
+            let mut price_url = Self::price_url().unwrap_or_default();
+            price_url.push(new_url);
+            PriceURL::<T>::put(price_url);
             Ok(().into())
         }
 
         #[pallet::weight(0)]
         pub fn rm_price_url_by_index(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-
-            if let Some(mut price_url) = Self::price_url() {
-                ensure!(index < price_url.len() as u32, Error::<T>::IndexOutOfRange);
-                price_url.remove(index as usize);
-                PriceURL::<T>::put(price_url);
-            } else {
-                return Err(Error::<T>::IndexOutOfRange.into())
-            }
-
+            let mut price_url = Self::price_url().unwrap_or_default();
+            ensure!(index < price_url.len() as u32, Error::<T>::IndexOutOfRange);
+            price_url.remove(index as usize);
+            PriceURL::<T>::put(price_url);
             Ok(().into())
         }
     }
@@ -194,12 +178,7 @@ impl<T: Config> Pallet<T> {
         // Create a str slice from the body.
         let body_str = sp_std::str::from_utf8(&body).map_err(|_| http::Error::Unknown)?;
 
-        let price = match parse_price::parse_price(body_str) {
-            Some(price) => Ok(price),
-            None => Err(http::Error::Unknown),
-        }?;
-
-        Ok(price)
+        parse_price::parse_price(body_str).ok_or(http::Error::Unknown)
     }
 
     // 存储获取到的价格
@@ -212,7 +191,6 @@ impl<T: Config> Pallet<T> {
         }
 
         Prices::<T>::put(prices);
-
         Self::deposit_event(Event::AddNewPrice(price));
     }
 

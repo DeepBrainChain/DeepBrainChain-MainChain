@@ -79,10 +79,7 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn deposit_into_treasury(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-
-            if !<T as pallet::Config>::Currency::can_slash(&who, amount) {
-                return Err(Error::<T>::FreeBalanceNotEnough.into())
-            }
+            ensure!(<T as pallet::Config>::Currency::can_slash(&who, amount), Error::<T>::FreeBalanceNotEnough);
 
             let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, amount);
             T::FixedTxFee::on_unbalanced(imbalance);
@@ -132,10 +129,7 @@ impl<T: Config> Pallet<T> {
     // 交易费直接转给国库
     pub fn pay_fixed_tx_fee(who: T::AccountId) -> Result<(), ()> {
         let fixed_tx_fee = Self::fixed_tx_fee().ok_or(())?;
-
-        if !<T as pallet::Config>::Currency::can_slash(&who, fixed_tx_fee) {
-            return Err(())
-        }
+        ensure!(<T as pallet::Config>::Currency::can_slash(&who, fixed_tx_fee), ());
 
         let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, fixed_tx_fee);
         T::FixedTxFee::on_unbalanced(imbalance);

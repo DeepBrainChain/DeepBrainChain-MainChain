@@ -217,16 +217,14 @@ pub mod pallet {
             }
 
             // 只允许委员会第一次操作
-            if committee_list.waiting_box_pubkey.binary_search(&committee).is_err() {
-                return Err(Error::<T>::NotCommittee.into())
-            }
+            ensure!(committee_list.waiting_box_pubkey.binary_search(&committee).is_ok(), Error::<T>::NotCommittee);
+            ensure!(
+                <T as Config>::Currency::can_reserve(&committee, committee_stake_params.stake_baseline),
+                Error::<T>::BalanceNotEnough
+            );
 
-            if <T as Config>::Currency::can_reserve(&committee, committee_stake_params.stake_baseline) {
-                <T as pallet::Config>::Currency::reserve(&committee, committee_stake_params.stake_baseline)
-                    .map_err(|_| Error::<T>::GetStakeParamsFailed)?;
-            } else {
-                return Err(Error::<T>::BalanceNotEnough.into())
-            }
+            <T as pallet::Config>::Currency::reserve(&committee, committee_stake_params.stake_baseline)
+                .map_err(|_| Error::<T>::GetStakeParamsFailed)?;
 
             committee_stake.box_pubkey = box_pubkey;
             committee_stake.staked_amount = committee_stake_params.stake_baseline;
@@ -261,13 +259,13 @@ pub mod pallet {
                     committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
                 Error::<T>::StakeNotEnough
             );
+            ensure!(
+                <T as Config>::Currency::can_reserve(&committee, committee_stake_params.stake_baseline),
+                Error::<T>::BalanceNotEnough
+            );
 
-            if <T as Config>::Currency::can_reserve(&committee, committee_stake_params.stake_baseline) {
-                <T as pallet::Config>::Currency::reserve(&committee, committee_stake_params.stake_baseline)
-                    .map_err(|_| Error::<T>::GetStakeParamsFailed)?;
-            } else {
-                return Err(Error::<T>::BalanceNotEnough.into())
-            }
+            <T as pallet::Config>::Currency::reserve(&committee, committee_stake_params.stake_baseline)
+                .map_err(|_| Error::<T>::GetStakeParamsFailed)?;
 
             if let Ok(index) = committee_list.fulfilling_list.binary_search(&committee) {
                 committee_list.fulfilling_list.remove(index);
@@ -324,12 +322,11 @@ pub mod pallet {
             let mut committee_stake = Self::committee_stake(&committee);
             ensure!(committee_stake.can_claim_reward != Zero::zero(), Error::<T>::NothingToClaim);
 
-            <T as pallet::Config>::Currency::deposit_into_existing(&committee, committee_stake.can_claim_reward)
-                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
-
             committee_stake.claimed_reward += committee_stake.can_claim_reward;
             committee_stake.can_claim_reward = Zero::zero();
 
+            <T as pallet::Config>::Currency::deposit_into_existing(&committee, committee_stake.can_claim_reward)
+                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
             CommitteeStake::<T>::insert(&committee, committee_stake);
 
             Ok(().into())
@@ -339,21 +336,17 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-
             let mut committee_list = Self::committee();
-            ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
 
+            ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
             // waiting_box_pubkey不能执行该操作
-            if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
-                return Err(Error::<T>::PubkeyNotSet.into())
-            }
+            ensure!(committee_list.waiting_box_pubkey.binary_search(&committee).is_err(), Error::<T>::PubkeyNotSet);
 
             CommitteeList::rm_one(&mut committee_list.normal, &committee);
             CommitteeList::add_one(&mut committee_list.chill_list, committee.clone());
 
             Committee::<T>::put(committee_list);
             Self::deposit_event(Event::Chill(committee));
-
             Ok(().into())
         }
 
@@ -397,7 +390,6 @@ pub mod pallet {
             CommitteeStake::<T>::insert(&committee, committee_stake);
             Committee::<T>::put(committee_list);
             Self::deposit_event(Event::ExitFromCandidacy(committee));
-
             return Ok(().into())
         }
 
@@ -556,7 +548,7 @@ impl<T: Config> Pallet<T> {
             NextSlashId::<T>::put(slash_id + 1);
         };
 
-        return slash_id
+        slash_id
     }
 
     // 根据当前质押量，修改committee状态
@@ -630,9 +622,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     // - Writes: CommitteeStake, Committee
     fn change_used_stake(committee: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let mut committee_stake = Self::committee_stake(&committee);
-        // let stake_params = Self::committee_stake_params().ok_or(())?;
         let mut committee_list = Self::committee();
-        // let mut all_committee_changed = false;
 
         // 计算下一阶段需要的质押数量
         committee_stake.used_stake = if is_add {
@@ -653,8 +643,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     }
 
     fn stake_per_order() -> Option<BalanceOf<T>> {
-        let committee_stake_params = Self::committee_stake_params()?;
-        Some(committee_stake_params.stake_per_order)
+        Some(Self::committee_stake_params()?.stake_per_order)
     }
 
     fn add_reward(committee: T::AccountId, reward: BalanceOf<T>) {
