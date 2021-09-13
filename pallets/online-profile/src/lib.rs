@@ -37,7 +37,7 @@ pub use pallet::*;
 
 /// 2880 blocks per era
 pub const BLOCK_PER_ERA: u64 = 2880;
-/// Reward duration for committee
+/// Reward duration for committee (Era)
 pub const REWARD_DURATION: u32 = 365 * 2;
 /// Rebond frequency, 1 year
 pub const REBOND_FREQUENCY: u32 = 365 * 2880;
@@ -427,7 +427,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn eras_machine_points)]
     pub(super) type ErasMachinePoints<T: Config> =
-        StorageMap<_, Blake2_128Concat, EraIndex, BTreeMap<MachineId, MachineGradeStatus<T::AccountId>>>;
+        StorageMap<_, Blake2_128Concat, EraIndex, BTreeMap<MachineId, MachineGradeStatus>>;
 
     /// 在线奖励开始时间
     #[pallet::storage]
@@ -505,7 +505,7 @@ pub mod pallet {
                 if current_era == 0 {
                     ErasStashPoints::<T>::insert(0, EraStashPoints { ..Default::default() });
                     ErasStashPoints::<T>::insert(1, EraStashPoints { ..Default::default() });
-                    let init_value: BTreeMap<MachineId, MachineGradeStatus<T::AccountId>> = BTreeMap::new();
+                    let init_value: BTreeMap<MachineId, MachineGradeStatus> = BTreeMap::new();
                     ErasMachinePoints::<T>::insert(0, init_value.clone());
                     ErasMachinePoints::<T>::insert(1, init_value);
                 } else {
@@ -1827,7 +1827,6 @@ impl<T: Config> Pallet<T> {
                 MachineGradeStatus {
                     basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
                     is_rented: false,
-                    reward_account: machine_info.reward_committee,
                 },
             );
 
@@ -1910,7 +1909,6 @@ impl<T: Config> Pallet<T> {
             MachineGradeStatus {
                 basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
                 is_rented,
-                reward_account: machine_info.reward_committee.clone(),
             },
         );
 
@@ -1926,7 +1924,6 @@ impl<T: Config> Pallet<T> {
                 MachineGradeStatus {
                     basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
                     is_rented,
-                    reward_account: machine_info.reward_committee.clone(),
                 },
             );
         }
@@ -1985,12 +1982,15 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // 分情况：1. 没有到奖励结束，2到奖励结束
+    // a, 分第一天奖励，b，分后面的奖励
+    // 释放 era_index的奖励
     fn distrubute_a_machine(
         machine_id: MachineId,
         a_stash: &T::AccountId,
         era_reward: BalanceOf<T>,
         era_stash_points: &EraStashPoints<T::AccountId>,
-        era_machine_points: &BTreeMap<MachineId, MachineGradeStatus<T::AccountId>>,
+        era_machine_points: &BTreeMap<MachineId, MachineGradeStatus>,
         current_era: EraIndex,
         era_index: EraIndex,
         stash_machine: &mut StashMachine<BalanceOf<T>>,
@@ -2030,7 +2030,7 @@ impl<T: Config> Pallet<T> {
             Perbill::from_rational_approximation(1u32, 150u32) * linear_reward_part
         };
 
-        if machine_points.reward_account.len() == 0 || current_era >= machine_info.reward_deadline {
+        if era_index >= machine_info.reward_deadline {
             // 没有委员会来分，则全部奖励给stash账户
             stash_machine.can_claim_reward += release_now;
             if era_index == current_era {
@@ -2081,10 +2081,10 @@ impl<T: Config> Pallet<T> {
             // 剩下分给committee
             let release_to_committee = release_now - release_to_stash;
             let committee_each_get =
-                Perbill::from_rational_approximation(1u64, machine_points.reward_account.len() as u64) *
+                Perbill::from_rational_approximation(1u64, machine_info.reward_committee.len() as u64) *
                     release_to_committee;
 
-            for a_committee in machine_points.reward_account.clone() {
+            for a_committee in machine_info.reward_committee.clone() {
                 T::ManageCommittee::add_reward(a_committee, committee_each_get);
             }
         }

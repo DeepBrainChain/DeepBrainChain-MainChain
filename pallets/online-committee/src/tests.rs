@@ -314,14 +314,7 @@ fn machine_online_works() {
 
         let mut era_machine_points = BTreeMap::new();
         assert_eq!(OnlineProfile::eras_machine_points(0), Some(BTreeMap::new()));
-        era_machine_points.insert(
-            machine_id.clone(),
-            MachineGradeStatus {
-                basic_grade: 59890,
-                is_rented: false,
-                reward_account: vec![committee2, committee3, committee1],
-            },
-        );
+        era_machine_points.insert(machine_id.clone(), MachineGradeStatus { basic_grade: 59890, is_rented: false });
         assert_eq!(OnlineProfile::eras_machine_points(1), Some(era_machine_points));
 
         // 过一个Era: 一天是2880个块
@@ -681,14 +674,7 @@ fn machine_online_works() {
         );
 
         let mut era_machine_points = BTreeMap::new();
-        era_machine_points.insert(
-            machine_id.clone(),
-            MachineGradeStatus {
-                basic_grade: 119780,
-                is_rented: false,
-                reward_account: vec![committee2, committee3, committee1],
-            },
-        );
+        era_machine_points.insert(machine_id.clone(), MachineGradeStatus { basic_grade: 119780, is_rented: false });
         assert_eq!(OnlineProfile::eras_machine_points(4), Some(era_machine_points));
         assert_eq!(
             OnlineProfile::user_reonline_stake(&stash, &machine_id),

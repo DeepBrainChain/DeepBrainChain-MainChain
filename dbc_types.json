@@ -144,8 +144,7 @@
   },
   "MachineGradeStatus": {
     "basic_grade": "u64",
-    "is_rented": "bool",
-    "reward_account": "Vec<AccountId>"
+    "is_rented": "bool"
   },
   "CommitteeList": {
     "normal": "Vec<AccountId>",

@@ -142,13 +142,11 @@ pub struct StashMachineStatistics {
 
 // 每台机器的基础得分与租用情况
 #[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
-pub struct MachineGradeStatus<AccountId> {
+pub struct MachineGradeStatus {
     /// 机器的基础得分
     pub basic_grade: u64,
     /// 机器的租用状态
     pub is_rented: bool,
-    /// 奖励的委员会
-    pub reward_account: Vec<AccountId>,
 }
 
 impl<AccountId> EraStashPoints<AccountId>
@@ -237,7 +235,7 @@ impl StashMachineStatistics {
     }
 }
 
-impl<AccountId> MachineGradeStatus<AccountId> {
+impl MachineGradeStatus {
     pub fn machine_actual_grade(&self, inflation: Perbill) -> u64 {
         let rent_extra_grade =
             if self.is_rented { Perbill::from_rational_approximation(30u32, 100u32) * self.basic_grade } else { 0 };
