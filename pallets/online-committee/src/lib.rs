@@ -229,34 +229,34 @@ pub mod pallet {
             machine_id: MachineId,
             hash: [u8; 16],
         ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+            let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
             let mut machine_committee = Self::machine_committee(&machine_id);
             let mut machine_submited_hash = Self::machine_submited_hash(&machine_id);
 
             // 从机器信息列表中有该委员会
-            machine_committee.booked_committee.binary_search(&who).map_err(|_| Error::<T>::NotInBookList)?;
-
+            ensure!(machine_committee.booked_committee.binary_search(&committee).is_ok(), Error::<T>::NotInBookList);
             // 该委员会没有提交过Hash
-            if machine_committee.hashed_committee.binary_search(&who).is_ok() {
-                return Err(Error::<T>::AlreadySubmitHash.into())
-            }
+            ensure!(
+                machine_committee.hashed_committee.binary_search(&committee).is_err(),
+                Error::<T>::AlreadySubmitHash
+            );
 
-            // 检查该Hash应该未出现过
+            // 记录该机器出现过的Hash
             if let Err(index) = machine_submited_hash.binary_search(&hash) {
                 machine_submited_hash.insert(index, hash.clone());
             } else {
                 return Err(Error::<T>::DuplicateHash.into())
             }
 
-            // 在该机器信息中，记录上委员的Hash
-            if let Err(index) = machine_committee.hashed_committee.binary_search(&who) {
-                machine_committee.hashed_committee.insert(index, who.clone());
+            let mut committee_ops = Self::committee_ops(&committee, &machine_id);
+            let mut committee_machine = Self::committee_machine(&committee);
+
+            // 在机器信息中，记录上委员
+            if let Err(index) = machine_committee.hashed_committee.binary_search(&committee) {
+                machine_committee.hashed_committee.insert(index, committee.clone());
             }
-
-            let mut committee_machine = Self::committee_machine(&who);
-
             // 从委员的任务中，删除该机器的任务
             if let Ok(index) = committee_machine.booked_machine.binary_search(&machine_id) {
                 committee_machine.booked_machine.remove(index);
@@ -267,7 +267,6 @@ pub mod pallet {
             }
 
             // 添加用户对机器的操作记录
-            let mut committee_ops = Self::committee_ops(&who, &machine_id);
             committee_ops.machine_status = OCMachineStatus::Hashed;
             committee_ops.confirm_hash = hash.clone();
             committee_ops.hash_time = now;
@@ -280,10 +279,10 @@ pub mod pallet {
             // 更新存储
             MachineSubmitedHash::<T>::insert(&machine_id, machine_submited_hash);
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            CommitteeMachine::<T>::insert(&who, committee_machine);
-            CommitteeOps::<T>::insert(&who, &machine_id, committee_ops);
+            CommitteeMachine::<T>::insert(&committee, committee_machine);
+            CommitteeOps::<T>::insert(&committee, &machine_id, committee_ops);
 
-            Self::deposit_event(Event::AddConfirmHash(who, hash));
+            Self::deposit_event(Event::AddConfirmHash(committee, hash));
 
             Ok(().into())
         }
@@ -311,19 +310,18 @@ pub mod pallet {
             }
 
             // 该用户已经给机器提交过Hash
-            machine_committee.hashed_committee.binary_search(&who).map_err(|_| Error::<T>::NotSubmitHash)?;
-
+            ensure!(machine_committee.hashed_committee.binary_search(&who).is_ok(), Error::<T>::NotSubmitHash);
             // 机器ID存在于用户已经Hash的机器里
-            committee_machine.hashed_machine.binary_search(&machine_id).map_err(|_| Error::<T>::NotSubmitHash)?;
+            ensure!(committee_machine.hashed_machine.binary_search(&machine_id).is_ok(), Error::<T>::NotSubmitHash);
+            // 用户还未提交过原始信息
+            ensure!(
+                committee_machine.confirmed_machine.binary_search(&machine_id).is_err(),
+                Error::<T>::AlreadySubmitRaw
+            );
 
             // 检查提交的raw与已提交的Hash一致
             let info_hash = machine_info_detail.hash();
             ensure!(info_hash == machine_ops.confirm_hash, Error::<T>::InfoNotFeatHash);
-
-            // 用户还未提交过原始信息
-            if committee_machine.confirmed_machine.binary_search(&machine_id).is_ok() {
-                return Err(Error::<T>::AlreadySubmitRaw.into())
-            }
 
             // 修改存储
             if let Ok(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
@@ -391,14 +389,14 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn distribute_one_machine(machine_id: &MachineId) -> Result<(), ()> {
-        let lucky_committee = Self::lucky_committee().ok_or(())?;
+        let committee_workflow = Self::committee_workflow().ok_or(())?;
 
         // 每个添加4个小时
         let now = <frame_system::Module<T>>::block_number();
         let confirm_start = now + SUBMIT_RAW_START.into(); // 添加确认信息时间为分发之后的36小时
 
-        for a_book in lucky_committee {
-            let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, a_book);
+        for a_committee_workflow in committee_workflow {
+            let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, a_committee_workflow);
         }
 
         // 将机器状态从ocw_confirmed_machine改为booked_machine
@@ -412,23 +410,23 @@ impl<T: Config> Pallet<T> {
         machine_id: MachineId,
         confirm_start: T::BlockNumber,
         now: T::BlockNumber,
-        order_time: (T::AccountId, Vec<usize>),
+        work_time: (T::AccountId, Vec<usize>),
     ) -> Result<(), ()> {
         // 增加质押：由committee执行
         let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
-        <T as pallet::Config>::ManageCommittee::change_used_stake(order_time.0.clone(), stake_need, true)?;
+        <T as pallet::Config>::ManageCommittee::change_used_stake(work_time.0.clone(), stake_need, true)?;
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
         machine_committee.book_time = now;
 
-        if let Err(index) = machine_committee.booked_committee.binary_search(&order_time.0) {
-            machine_committee.booked_committee.insert(index, order_time.0.clone());
+        if let Err(index) = machine_committee.booked_committee.binary_search(&work_time.0) {
+            machine_committee.booked_committee.insert(index, work_time.0.clone());
         }
         machine_committee.confirm_start_time = confirm_start;
 
         // 修改委员会对应的machine
-        let mut committee_machine = Self::committee_machine(&order_time.0);
+        let mut committee_machine = Self::committee_machine(&work_time.0);
         if let Err(index) = committee_machine.booked_machine.binary_search(&machine_id) {
             committee_machine.booked_machine.insert(index, machine_id.clone());
         }
@@ -436,31 +434,28 @@ impl<T: Config> Pallet<T> {
         // 修改委员会的操作
         let mut committee_ops = OCCommitteeOps { ..Default::default() };
         committee_ops.staked_dbc = stake_need;
-        let start_time: Vec<_> = order_time
-            .1
-            .into_iter()
-            .map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into())
-            .collect();
+        let start_time: Vec<_> =
+            work_time.1.into_iter().map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into()).collect();
         committee_ops.verify_time = start_time;
         committee_ops.machine_status = OCMachineStatus::Booked;
 
         // 存储变量
         MachineCommittee::<T>::insert(&machine_id, machine_committee);
-        CommitteeMachine::<T>::insert(&order_time.0, committee_machine);
-        CommitteeOps::<T>::insert(&order_time.0, &machine_id, committee_ops);
+        CommitteeMachine::<T>::insert(&work_time.0, committee_machine);
+        CommitteeOps::<T>::insert(&work_time.0, &machine_id, committee_ops);
 
         Ok(())
     }
 
     // 分派一个machineId给随机的委员会
     // 返回Distribution(9)个随机顺序的账户列表
-    pub fn lucky_committee() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
+    pub fn committee_workflow() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
         let mut committee = <committee::Module<T>>::available_committee().ok()?;
-        // 选出lucky_committee_num个委员会
-        let mut lucky_committee = Vec::new();
-
         // Require committee_num at lease 3
         let lucky_committee_num = if committee.len() < 3 { return None } else { 3 };
+
+        // 选出lucky_committee_num个委员会
+        let mut lucky_committee = Vec::new();
 
         for _ in 0..lucky_committee_num {
             let lucky_index = <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;

@@ -124,7 +124,7 @@ fn machine_online_works() {
             CommitteeList { normal: vec![committee2, committee3, committee1], ..Default::default() }
         );
         // 获取可派单的委员会正常
-        assert_ok!(OnlineCommittee::lucky_committee().ok_or(()));
+        assert_ok!(OnlineCommittee::committee_workflow().ok_or(()));
 
         run_to_block(5);
 

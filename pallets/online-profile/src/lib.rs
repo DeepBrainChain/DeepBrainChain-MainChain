@@ -37,7 +37,10 @@ pub use pallet::*;
 
 /// 2880 blocks per era
 pub const BLOCK_PER_ERA: u64 = 2880;
+/// Reward duration for committee
 pub const REWARD_DURATION: u32 = 365 * 2;
+/// Rebond frequency, 1 year
+pub const REBOND_FREQUENCY: u32 = 365 * 2880;
 
 /// stash account overview self-status
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -599,27 +602,27 @@ pub mod pallet {
             ensure!(!<ControllerStash<T>>::contains_key(&new_controller), Error::<T>::AlreadyController);
 
             let mut machine_info = Self::machines_info(&machine_id);
+            let old_controller = machine_info.controller.clone();
 
-            let raw_controller = machine_info.controller.clone();
-            let mut raw_controller_machines = Self::controller_machines(&raw_controller);
+            let mut old_controller_machines = Self::controller_machines(&old_controller);
             let mut new_controller_machines = Self::controller_machines(&new_controller);
 
             ensure!(machine_info.machine_stash == stash, Error::<T>::NotMachineStash);
             machine_info.controller = new_controller.clone();
 
             // Change controller_machines
-            if let Ok(index) = raw_controller_machines.binary_search(&machine_id) {
-                raw_controller_machines.remove(index);
+            if let Ok(index) = old_controller_machines.binary_search(&machine_id) {
+                old_controller_machines.remove(index);
 
                 if let Err(index) = new_controller_machines.binary_search(&machine_id) {
                     new_controller_machines.insert(index, machine_id.clone());
-                    ControllerMachines::<T>::insert(&raw_controller, raw_controller_machines);
+                    ControllerMachines::<T>::insert(&old_controller, old_controller_machines);
                     ControllerMachines::<T>::insert(&new_controller, new_controller_machines);
                 }
             }
 
             MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
-            Self::deposit_event(Event::MachineControllerChanged(machine_id, raw_controller, new_controller));
+            Self::deposit_event(Event::MachineControllerChanged(machine_id, old_controller, new_controller));
             Ok(().into())
         }
 
@@ -695,7 +698,6 @@ pub mod pallet {
             let mut stash_machines = Self::stash_machines(&stash);
 
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
-
             // 验证msg: len(pubkey + account) = 64 + 48
             ensure!(msg.len() == 112, Error::<T>::BadMsgLen);
 
@@ -756,8 +758,8 @@ pub mod pallet {
 
             <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
-            let new_server_room = <generic_func::Module<T>>::random_server_room();
             let mut stash_server_rooms = Self::stash_server_rooms(&stash);
+            let new_server_room = <generic_func::Module<T>>::random_server_room();
             if let Err(index) = stash_server_rooms.binary_search(&new_server_room) {
                 stash_server_rooms.insert(index, new_server_room);
             }
@@ -776,18 +778,17 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            if customize_machine_info.telecom_operators.len() == 0 {
-                return Err(Error::<T>::TelecomIsNull.into())
-            }
+            ensure!(customize_machine_info.telecom_operators.len() > 0, Error::<T>::TelecomIsNull);
 
             // 查询机器Id是否在该账户的控制下
             let mut machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
             let stash_server_rooms = Self::stash_server_rooms(&machine_info.machine_stash);
-            if stash_server_rooms.binary_search(&customize_machine_info.server_room).is_err() {
-                return Err(Error::<T>::ServerRoomNotFound.into())
-            }
+            ensure!(
+                stash_server_rooms.binary_search(&customize_machine_info.server_room).is_ok(),
+                Error::<T>::ServerRoomNotFound
+            );
 
             match machine_info.machine_status {
                 MachineStatus::AddingCustomizeInfo |
@@ -884,13 +885,14 @@ pub mod pallet {
             let mut stash_machine = Self::stash_machines(&stash_account);
             let can_claim = stash_machine.can_claim_reward;
 
+            stash_machine.total_claimed_reward =
+                stash_machine.total_claimed_reward.checked_add(&can_claim).ok_or(Error::<T>::ClaimRewardFailed)?;
+            stash_machine.can_claim_reward = Zero::zero();
+
             <T as pallet::Config>::Currency::deposit_into_existing(&stash_account, can_claim)
                 .map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
-            stash_machine.total_claimed_reward += can_claim;
-            stash_machine.can_claim_reward = 0u64.saturated_into();
             StashMachines::<T>::insert(&stash_account, stash_machine);
-
             Self::deposit_event(Event::ClaimReward(stash_account, can_claim));
             Ok(().into())
         }
@@ -900,8 +902,8 @@ pub mod pallet {
         pub fn controller_report_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
-
             let machine_info = Self::machines_info(&machine_id);
+
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
             // 某些状态允许下线
@@ -1040,6 +1042,7 @@ pub mod pallet {
         /// 超过365天的机器可以在距离上次租用10天，且没被租用时退出
         #[pallet::weight(10000)]
         pub fn claim_exit(origin: OriginFor<T>, _controller: T::AccountId) -> DispatchResultWithPostInfo {
+            // TODO: finish logic
             let _controller = ensure_signed(origin)?;
             Ok(().into())
         }
@@ -1048,28 +1051,31 @@ pub mod pallet {
         /// 在系统中上线满365天之后，可以按当时机器需要的质押数量，重新入网。多余的币解绑
         /// 在重新上线之后，下次再执行本操作，需要等待365天
         #[pallet::weight(10000)]
-        pub fn rebond_online_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn restake_online_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
-            let one_year = 1051200u32; // 365 * 2880
             let mut machine_info = Self::machines_info(&machine_id);
+            let old_stake = machine_info.stake_amount;
 
             ensure!(controller == machine_info.controller, Error::<T>::NotMachineController);
-            ensure!(now - machine_info.last_machine_restake >= one_year.into(), Error::<T>::TooFastToReStake);
+            ensure!(now - machine_info.last_machine_restake >= REBOND_FREQUENCY.into(), Error::<T>::TooFastToReStake);
 
             let stake_need = Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num)
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
             ensure!(machine_info.stake_amount > stake_need, Error::<T>::NoStakeToReduce);
 
-            if let Some(extra_stake) = machine_info.stake_amount.checked_sub(&stake_need) {
-                machine_info.stake_amount = stake_need;
-                machine_info.last_machine_restake = now;
-                if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false).is_err() {
-                    return Err(Error::<T>::ReduceStakeFailed.into())
-                }
-                MachinesInfo::<T>::insert(&machine_id, machine_info);
+            let extra_stake =
+                machine_info.stake_amount.checked_sub(&stake_need).ok_or(Error::<T>::ReduceStakeFailed)?;
+
+            machine_info.stake_amount = stake_need;
+            machine_info.last_machine_restake = now;
+            if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false).is_err() {
+                return Err(Error::<T>::ReduceStakeFailed.into())
             }
 
+            MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
+
+            Self::deposit_event(Event::MachineRestaked(machine_id, old_stake, machine_info.stake_amount));
             Ok(().into())
         }
 
@@ -1087,6 +1093,8 @@ pub mod pallet {
 
             StashStake::<T>::insert(&slash_info.slash_who, stash_stake);
             PendingSlash::<T>::remove(slash_id);
+
+            Self::deposit_event(Event::SlashCancled(slash_id, slash_info.slash_who, slash_info.slash_amount));
             Ok(().into())
         }
     }
@@ -1107,6 +1115,9 @@ pub mod pallet {
         ClaimReward(T::AccountId, BalanceOf<T>),
         ControllerReportOffline(MachineId),
         ControllerReportOnline(MachineId),
+        SlashCancled(u64, T::AccountId, BalanceOf<T>),
+        // machine_id, old_stake, new_stake
+        MachineRestaked(MachineId, BalanceOf<T>, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -1433,8 +1444,6 @@ impl<T: Config> Pallet<T> {
             // Self::deposit_event(Event::Slash(machine_info.machine_stash.clone(), slash_amount, SlashReason::));
             <T as pallet::Config>::Slash::on_unbalanced(imbalance);
         }
-
-        MachinesInfo::<T>::insert(slash_info.machine_id.to_vec(), machine_info);
     }
 
     fn get_new_slash_id() -> u64 {
@@ -1731,7 +1740,11 @@ impl<T: Config> Pallet<T> {
         StashStake::<T>::insert(&who, stash_stake);
         SysInfo::<T>::put(sys_info);
 
-        Self::deposit_event(Event::StakeAdded(who, amount));
+        if is_add {
+            Self::deposit_event(Event::StakeAdded(who, amount));
+        } else {
+            Self::deposit_event(Event::StakeReduced(who, amount));
+        }
         Ok(())
     }
 
@@ -2006,7 +2019,7 @@ impl<T: Config> Pallet<T> {
                         });
                     } else {
                         if era_index == current_era {
-                            // 修复：如果委员的奖励时间会很快就要结束了
+                            // FIXME：如果委员的奖励时间会很快就要结束了
                             // 则奖励的前一部分给委员会一部分，后一部分，不给委员会
                             if machine_info.reward_deadline - current_era >= 150 {
                                 stash_machine.total_earned_reward = stash_machine.total_earned_reward +
@@ -2083,7 +2096,7 @@ impl<T: Config> OCOps for Pallet<T> {
         MachinesInfo::<T>::insert(&id, machine_info);
     }
 
-    /// 由于委员会没有达成一致，需要重新返回到bonding_machine
+    // 由于委员会没有达成一致，需要重新返回到bonding_machine
     fn oc_revert_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
