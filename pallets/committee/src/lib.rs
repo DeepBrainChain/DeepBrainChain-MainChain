@@ -322,11 +322,12 @@ pub mod pallet {
             let mut committee_stake = Self::committee_stake(&committee);
             ensure!(committee_stake.can_claim_reward != Zero::zero(), Error::<T>::NothingToClaim);
 
+            <T as pallet::Config>::Currency::deposit_into_existing(&committee, committee_stake.can_claim_reward)
+                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
+
             committee_stake.claimed_reward += committee_stake.can_claim_reward;
             committee_stake.can_claim_reward = Zero::zero();
 
-            <T as pallet::Config>::Currency::deposit_into_existing(&committee, committee_stake.can_claim_reward)
-                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
             CommitteeStake::<T>::insert(&committee, committee_stake);
 
             Ok(().into())
@@ -541,13 +542,11 @@ impl<T: Config> Pallet<T> {
 
     fn get_new_slash_id() -> SlashId {
         let slash_id = Self::next_slash_id();
-
         if slash_id == u64::MAX {
             NextSlashId::<T>::put(0);
         } else {
             NextSlashId::<T>::put(slash_id + 1);
         };
-
         slash_id
     }
 
@@ -590,20 +589,18 @@ impl<T: Config> ManageCommittee for Pallet<T> {
 
     // 检查是否为状态正常的委员会
     fn is_valid_committee(who: &T::AccountId) -> bool {
-        let committee_list = Self::committee();
-        committee_list.normal.binary_search(&who).is_ok()
+        Self::committee().normal.binary_search(&who).is_ok()
     }
 
     // 检查委员会是否有足够的质押,返回有可以抢单的机器列表
     // 在每个区块以及每次分配一个机器之后，都需要检查
     fn available_committee() -> Result<Vec<T::AccountId>, ()> {
         let committee_list = Self::committee();
-        let stake_params = Self::committee_stake_params().ok_or(())?;
-
         let normal_committee = committee_list.normal.clone();
 
-        let mut out = Vec::new();
+        let stake_params = Self::committee_stake_params().ok_or(())?;
 
+        let mut out = Vec::new();
         // 如果free_balance足够，则复制到out列表中
         for a_committee in normal_committee {
             // 当委员会质押不够时，将委员会移动到fulfill_list中

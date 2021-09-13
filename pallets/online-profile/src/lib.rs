@@ -1502,7 +1502,7 @@ impl<T: Config> Pallet<T> {
 
                 for a_committee in slash_info.reward_to_committee.ok_or(())? {
                     if left_reward >= reward_each_get {
-                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
+                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, reward_each_get) {
                             let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                                 &slash_info.slash_who,
                                 &a_committee,
@@ -1512,7 +1512,7 @@ impl<T: Config> Pallet<T> {
                         }
                         left_reward -= reward_each_get;
                     } else {
-                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
+                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, left_reward) {
                             let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                                 &slash_info.slash_who,
                                 &a_committee,
@@ -1757,19 +1757,32 @@ impl<T: Config> Pallet<T> {
         let new_stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
 
         let reward_each_get = Perbill::from_rational_approximation(1, committee.len() as u64) * amount;
+        let mut left_reward = amount;
+
         for a_committee in committee {
-            if <T as pallet::Config>::Currency::can_slash(who, reward_each_get) {
-                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                    who,
-                    &a_committee,
-                    reward_each_get,
-                    BalanceStatus::Free,
-                );
+            if left_reward >= reward_each_get {
+                if <T as pallet::Config>::Currency::can_slash(who, reward_each_get) {
+                    let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                        who,
+                        &a_committee,
+                        reward_each_get,
+                        BalanceStatus::Free,
+                    );
+                }
+                left_reward -= reward_each_get;
+            } else {
+                if <T as pallet::Config>::Currency::can_slash(who, left_reward) {
+                    let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                        who,
+                        &a_committee,
+                        left_reward,
+                        BalanceStatus::Free,
+                    );
+                }
             }
         }
 
         StashStake::<T>::insert(&who, new_stash_stake);
-
         Ok(())
     }
 

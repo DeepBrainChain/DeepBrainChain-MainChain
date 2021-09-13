@@ -407,8 +407,8 @@ pub mod pallet {
             let reporter = ensure_signed(origin)?;
             let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
             let mut reporter_stake = Self::reporter_stake(&reporter);
-
             reporter_stake.staked_amount += amount;
+
             ensure!(
                 reporter_stake.staked_amount - reporter_stake.used_stake >
                     stake_params.min_free_stake_percent * reporter_stake.staked_amount,
@@ -417,16 +417,30 @@ pub mod pallet {
             ensure!(<T as Config>::Currency::can_reserve(&reporter, amount), Error::<T>::BalanceNotEnough);
 
             <T as pallet::Config>::Currency::reserve(&reporter, amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
-
             ReporterStake::<T>::insert(&reporter, reporter_stake);
+            Self::deposit_event(Event::ReporterAddStake(reporter, amount));
             Ok(().into())
         }
 
         #[pallet::weight(10000)]
-        pub fn reporter_reduce_stake(origin: OriginFor<T>, _amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
-            let _reporter = ensure_signed(origin)?;
-            // TODO:  Add this
+        pub fn reporter_reduce_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
+            let mut reporter_stake = Self::reporter_stake(&reporter);
+            ensure!(reporter_stake.staked_amount >= amount, Error::<T>::BalanceNotEnough);
+            reporter_stake.staked_amount -= amount;
+
+            ensure!(
+                reporter_stake.staked_amount - reporter_stake.used_stake >
+                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                Error::<T>::StakeNotEnough
+            );
+
+            <T as pallet::Config>::Currency::unreserve(&reporter, amount);
+            ReporterStake::<T>::insert(&reporter, reporter_stake);
+
+            Self::deposit_event(Event::ReporterReduceStake(reporter, amount));
             Ok(().into())
         }
 
@@ -602,9 +616,7 @@ pub mod pallet {
             let mut committee_ops = Self::committee_ops(&to_committee, &report_id);
             ensure!(committee_ops.order_status == MTOrderStatus::WaitingEncrypt, Error::<T>::OrderStatusNotFeat);
             // 检查该委员会为预订了该订单的委员会
-            if report_info.booked_committee.binary_search(&to_committee).is_err() {
-                return Err(Error::<T>::NotOrderCommittee.into())
-            }
+            ensure!(report_info.booked_committee.binary_search(&to_committee).is_ok(), Error::<T>::NotOrderCommittee);
 
             // report_info中插入已经收到了加密信息的委员会
             if let Err(index) = report_info.get_encrypted_info_committee.binary_search(&to_committee) {
@@ -640,9 +652,8 @@ pub mod pallet {
             let mut report_info = Self::report_info(&report_id);
             let mut live_report = Self::live_report();
 
-            if committee_order.booked_report.binary_search(&report_id).is_err() {
-                return Err(Error::<T>::NotInBookedList.into())
-            }
+            ensure!(committee_order.booked_report.binary_search(&report_id).is_ok(), Error::<T>::NotInBookedList);
+
             // 判断该委员会的状态是验证中
             ensure!(committee_ops.order_status == MTOrderStatus::Verifying, Error::<T>::OrderStatusNotFeat);
             // 判断该report_id是否可以提交信息
@@ -736,7 +747,7 @@ pub mod pallet {
             };
 
             // 检查是否提交了该订单的hash
-            report_info.hashed_committee.binary_search(&committee).map_err(|_| Error::<T>::NotProperCommittee)?;
+            ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
 
             // 添加到Report的已提交Raw的列表
             if let Err(index) = report_info.confirmed_committee.binary_search(&committee) {
@@ -809,7 +820,7 @@ pub mod pallet {
             }
 
             // 检查是否提交了该订单的hash
-            report_info.hashed_committee.binary_search(&committee).map_err(|_| Error::<T>::NotProperCommittee)?;
+            ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
 
             // 添加到Report的已提交Raw的列表
             if let Err(index) = report_info.confirmed_committee.binary_search(&committee) {
@@ -857,6 +868,8 @@ pub mod pallet {
         EncryptedInfoSent(T::AccountId, T::AccountId, ReportId),
         HashSubmited(ReportId, T::AccountId),
         RawInfoSubmited(ReportId, T::AccountId),
+        ReporterAddStake(T::AccountId, BalanceOf<T>),
+        ReporterReduceStake(T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -909,9 +922,10 @@ impl<T: Config> Pallet<T> {
         // 各种报告类型，都需要质押 1000 DBC
         // 如果是第一次绑定，则需要质押2w DBC，其他情况:
         if reporter_stake.staked_amount == Zero::zero() {
-            if !<T as Config>::Currency::can_reserve(&reporter, stake_params.stake_baseline) {
-                return Err(Error::<T>::BalanceNotEnough.into())
-            }
+            ensure!(
+                <T as Config>::Currency::can_reserve(&reporter, stake_params.stake_baseline),
+                Error::<T>::BalanceNotEnough
+            );
 
             <T as pallet::Config>::Currency::reserve(&reporter, stake_params.stake_baseline)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
