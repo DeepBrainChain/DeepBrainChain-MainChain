@@ -986,6 +986,18 @@ pub mod pallet {
                                 );
                             }
                         },
+                        MachineStatus::Rented => {
+                            Self::update_snap_by_rent_status(machine_id.clone(), true);
+                            Self::change_pos_gpu_by_rent(&machine_id, true);
+
+                            // 机器在被租用状态下线，会被惩罚
+                            slash_amount = Self::slash_when_report_offline(
+                                machine_id.clone(),
+                                OPSlashReason::RentedReportOffline(offline_duration),
+                                None,
+                                None,
+                            );
+                        },
                         _ => {},
                     }
                 },
@@ -1172,6 +1184,20 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // TODO: 主动惩罚超过下线阈值的机器
+    fn check_offline_machine_duration() {
+        let live_machine = Self::live_machines();
+
+        for a_machine in live_machine.offline_machine {
+            let machine_info = Self::machines_info(&a_machine);
+            match machine_info.machine_status {
+                MachineStatus::StakerReportOffline(offline_time, status) => {},
+                MachineStatus::ReporterReportOffline(offline_reason, status, reporter, committee) => {},
+                _ => continue,
+            }
+        }
+    }
+
     // Return slashed amount when slash is executed
     fn slash_when_report_offline(
         machine_id: MachineId,
