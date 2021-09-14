@@ -1040,9 +1040,29 @@ pub mod pallet {
 
         /// 超过365天的机器可以在距离上次租用10天，且没被租用时退出
         #[pallet::weight(10000)]
-        pub fn claim_exit(origin: OriginFor<T>, _controller: T::AccountId) -> DispatchResultWithPostInfo {
-            // TODO: finish logic
-            let _controller = ensure_signed(origin)?;
+        pub fn claim_exit(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+            let mut machine_info = Self::machines_info(&machine_id);
+            let now = <frame_system::Module<T>>::block_number();
+            let current_era = Self::current_era();
+
+            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+            ensure!(MachineStatus::Online == machine_info.machine_status, Error::<T>::MachineStatusNotAllowed);
+            // 确保机器：奖励结束时间 - 1年即为上线时间
+            ensure!(machine_info.reward_deadline <= current_era + 365, Error::<T>::TimeNotAllowed);
+            // 确保机器距离上次租用超过10天
+            ensure!(now - machine_info.last_online_height >= 28800u32.into(), Error::<T>::TimeNotAllowed);
+
+            // 下线机器，并退还奖励
+            Self::change_pos_gpu_by_online(&machine_id, false);
+            Self::update_snap_by_online_status(machine_id.clone(), false);
+            Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
+                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+            machine_info.stake_amount = Zero::zero();
+
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
+
+            Self::deposit_event(Event::MachineExit(machine_id));
             Ok(().into())
         }
 
@@ -1115,6 +1135,7 @@ pub mod pallet {
         SlashCanceled(u64, T::AccountId, BalanceOf<T>),
         // machine_id, old_stake, new_stake
         MachineRestaked(MachineId, BalanceOf<T>, BalanceOf<T>),
+        MachineExit(MachineId),
     }
 
     #[pallet::error]
@@ -1146,6 +1167,7 @@ pub mod pallet {
         ReduceStakeFailed,
         GetReonlineStakeFailed,
         SlashIdNotExist,
+        TimeNotAllowed,
     }
 }
 
