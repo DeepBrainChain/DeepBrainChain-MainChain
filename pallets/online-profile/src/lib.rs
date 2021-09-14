@@ -88,6 +88,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     /// Last time machine is online
     /// (When first online; Rented -> Online, Offline -> Online e.t.)
     pub last_online_height: BlockNumber,
+    /// When first bond_machine, record how much should stake per GPU
+    pub init_stake_per_gpu: Balance,
     /// How much machine staked
     pub stake_amount: Balance,
     /// Status of machine
@@ -134,6 +136,8 @@ pub enum MachineStatus<BlockNumber, AccountId> {
     Creating,
     /// Machine is rented now
     Rented,
+    /// Machine is exit
+    Exit,
 }
 
 impl<BlockNumber, AccountId> Default for MachineStatus<BlockNumber, AccountId> {
@@ -643,31 +647,20 @@ pub mod pallet {
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
             // 只允许在线状态的机器修改信息
-            match machine_info.machine_status {
-                MachineStatus::Online => {},
-                _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
-            }
+            ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineStatusNotAllowed);
 
             // 重新上链需要质押一定的手续费
             let online_stake_params = Self::online_stake_params().ok_or(Error::<T>::GetReonlineStakeFailed)?;
             let stake_amount = T::DbcPrice::get_dbc_amount_by_value(online_stake_params.reonline_stake)
                 .ok_or(Error::<T>::GetReonlineStakeFailed)?;
 
-            let stash_stake = Self::stash_stake(&machine_info.machine_stash);
-            let new_stash_stake = stash_stake.checked_add(&stake_amount).ok_or(Error::<T>::CalcStakeAmountFailed)?;
-
-            ensure!(
-                <T as Config>::Currency::can_reserve(&machine_info.machine_stash, stake_amount),
-                Error::<T>::BalanceNotEnough
-            );
-            <T as pallet::Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)
-                .map_err(|_| Error::<T>::CalcStakeAmountFailed)?;
-
             machine_info.machine_status = MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
             LiveMachine::rm_machine_id(&mut live_machines.online_machine, &machine_id);
             LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
 
+            Self::change_user_total_stake(machine_info.machine_stash.clone(), stake_amount, true)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
             UserReonlineStake::<T>::insert(
                 &machine_info.machine_stash,
                 &machine_id,
@@ -675,7 +668,6 @@ pub mod pallet {
             );
             Self::change_pos_gpu_by_online(&machine_id, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
-            StashStake::<T>::insert(&machine_info.machine_stash, new_stash_stake);
             LiveMachines::<T>::put(live_machines);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
@@ -713,7 +705,7 @@ pub mod pallet {
             ensure!(Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()).is_none(), Error::<T>::BadSignature);
 
             // 用户绑定机器需要质押一张显卡的DBC
-            let stake_amount = Self::calc_stake_amount(1).ok_or(Error::<T>::CalcStakeAmountFailed)?;
+            let stake_amount = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
 
             // 扣除10个Dbc作为交易手续费
             <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
@@ -733,6 +725,7 @@ pub mod pallet {
                 controller: controller.clone(),
                 machine_stash: stash.clone(),
                 bonding_height: <frame_system::Module<T>>::block_number(),
+                init_stake_per_gpu: stake_amount,
                 stake_amount,
                 machine_status: MachineStatus::AddingCustomizeInfo,
                 ..Default::default()
@@ -779,7 +772,6 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
 
             ensure!(customize_machine_info.telecom_operators.len() > 0, Error::<T>::TelecomIsNull);
-
             // 查询机器Id是否在该账户的控制下
             let mut machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
@@ -831,38 +823,48 @@ pub mod pallet {
             ensure!(machine_info.online_height == Zero::zero(), Error::<T>::MachineStatusNotAllowed);
 
             // NOTE: 机器补交质押时，所需的质押 = max(当前机器需要的质押，第一次绑定上线时的质押量)
-            let stake_need = Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num)
+            // 每卡质押按照第一次上线时计算
+            let stake_need = machine_info
+                .init_stake_per_gpu
+                .checked_sub(
+                    &machine_info.machine_info_detail.committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>(),
+                )
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
 
             // 当出现需要补交质押时
             if machine_info.stake_amount < stake_need {
                 let extra_stake = stake_need - machine_info.stake_amount;
-
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
-
                 machine_info.stake_amount = stake_need;
             }
             machine_info.machine_status = MachineStatus::Online;
 
             if UserReonlineStake::<T>::contains_key(&machine_info.machine_stash, &machine_id) {
-                // // 根据质押，奖励给这些委员会
+                // 根据质押，奖励给这些委员会
                 let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
 
                 // 根据下线时间，惩罚stash
                 let offline_duration = now - reonline_stake.offline_time;
-                Self::slash_when_report_offline(
-                    machine_id.clone(),
-                    OPSlashReason::OnlineReportOffline(offline_duration),
-                    None,
-                    None,
-                );
+                // 如果下线的时候空闲超过10天，则不进行惩罚
+                if reonline_stake.offline_time < machine_info.last_online_height + 28800u32.into() {
+                    Self::slash_when_report_offline(
+                        machine_id.clone(),
+                        OPSlashReason::OnlineReportOffline(offline_duration),
+                        None,
+                        None,
+                    );
+                }
+                // 退还reonline_stake
+                Self::change_user_total_stake(machine_info.machine_stash.clone(), reonline_stake.stake_amount, false)
+                    .map_err(|_| Error::<T>::ReduceStakeFailed)?;
                 UserReonlineStake::<T>::remove(&machine_info.machine_stash, &machine_id);
+            } else {
+                machine_info.online_height = now;
+                machine_info.reward_deadline = current_era + REWARD_DURATION;
             }
 
-            machine_info.online_height = now;
             machine_info.last_online_height = now;
-            machine_info.reward_deadline = current_era + REWARD_DURATION;
             machine_info.last_machine_restake = now;
 
             Self::change_pos_gpu_by_online(&machine_id, true);
@@ -973,24 +975,16 @@ pub mod pallet {
                     }
                     match machine_info.machine_status {
                         MachineStatus::Online => {
-                            slash_amount = Self::slash_when_report_offline(
-                                machine_id.clone(),
-                                OPSlashReason::OnlineReportOffline(offline_duration),
-                                None,
-                                None,
-                            );
-                        },
-                        MachineStatus::Rented => {
-                            Self::update_snap_by_rent_status(machine_id.clone(), true);
-                            Self::change_pos_gpu_by_rent(&machine_id, true);
-
-                            // 机器在被租用状态下线，会被惩罚
-                            slash_amount = Self::slash_when_report_offline(
-                                machine_id.clone(),
-                                OPSlashReason::RentedReportOffline(offline_duration),
-                                None,
-                                None,
-                            );
+                            // 如果在线超过10天，则不进行惩罚超过
+                            if offline_time < machine_info.last_online_height + 28800u32.into() {
+                                // 机器在被租用状态下线，会被惩罚
+                                slash_amount = Self::slash_when_report_offline(
+                                    machine_id.clone(),
+                                    OPSlashReason::RentedReportOffline(offline_duration),
+                                    None,
+                                    None,
+                                );
+                            }
                         },
                         _ => {},
                     }
@@ -1040,7 +1034,7 @@ pub mod pallet {
 
         /// 超过365天的机器可以在距离上次租用10天，且没被租用时退出
         #[pallet::weight(10000)]
-        pub fn claim_exit(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn machine_exit(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let mut machine_info = Self::machines_info(&machine_id);
             let now = <frame_system::Module<T>>::block_number();
@@ -1059,6 +1053,7 @@ pub mod pallet {
             Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
                 .map_err(|_| Error::<T>::ReduceStakeFailed)?;
             machine_info.stake_amount = Zero::zero();
+            machine_info.machine_status = MachineStatus::Exit;
 
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
@@ -1079,7 +1074,11 @@ pub mod pallet {
             ensure!(controller == machine_info.controller, Error::<T>::NotMachineController);
             ensure!(now - machine_info.last_machine_restake >= REBOND_FREQUENCY.into(), Error::<T>::TooFastToReStake);
 
-            let stake_need = Self::calc_stake_amount(machine_info.machine_info_detail.committee_upload_info.gpu_num)
+            let stake_per_gpu = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
+            let stake_need = stake_per_gpu
+                .checked_mul(
+                    &machine_info.machine_info_detail.committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>(),
+                )
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
             ensure!(machine_info.stake_amount > stake_need, Error::<T>::NoStakeToReduce);
 
@@ -1088,6 +1087,7 @@ pub mod pallet {
 
             machine_info.stake_amount = stake_need;
             machine_info.last_machine_restake = now;
+            machine_info.init_stake_per_gpu = stake_per_gpu;
             Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false)
                 .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
@@ -1684,8 +1684,8 @@ impl<T: Config> Pallet<T> {
     }
 
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
-    // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC )
-    pub fn calc_stake_amount(gpu_num: u32) -> Option<BalanceOf<T>> {
+    // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC
+    pub fn stake_per_gpu() -> Option<BalanceOf<T>> {
         let sys_info = Self::sys_info();
         let online_stake_params = Self::online_stake_params()?;
 
@@ -1697,7 +1697,7 @@ impl<T: Config> Pallet<T> {
         };
 
         let stake_limit = T::DbcPrice::get_dbc_amount_by_value(online_stake_params.online_stake_usd_limit)?;
-        return dbc_stake_per_gpu.min(stake_limit).checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())
+        Some(dbc_stake_per_gpu.min(stake_limit)) // .checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())
     }
 
     /// 根据GPU数量和该机器算力点数，计算该机器相比标准配置的租用价格
@@ -2169,7 +2169,10 @@ impl<T: Config> OCOps for Pallet<T> {
         }
 
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
-        let stake_need = Self::calc_stake_amount(committee_upload_info.gpu_num).ok_or(())?;
+        let stake_need = machine_info
+            .init_stake_per_gpu
+            .checked_mul(&committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>())
+            .ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
             if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true).is_ok() {
                 LiveMachine::add_machine_id(

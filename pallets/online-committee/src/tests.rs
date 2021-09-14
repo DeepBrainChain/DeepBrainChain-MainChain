@@ -52,6 +52,7 @@ fn machine_online_works() {
             machine_stash: stash.clone(),
             bonding_height: 3,
             stake_amount: 100000 * ONE_DBC,
+            init_stake_per_gpu: 100000 * ONE_DBC,
             machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
             ..Default::default()
         };

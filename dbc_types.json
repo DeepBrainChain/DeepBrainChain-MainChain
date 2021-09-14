@@ -62,6 +62,7 @@
     "bonding_height": "BlockNumber",
     "online_height": "BlockNumber",
     "last_online_height": "BlockNumber",
+    "init_stake_per_gpu": "Balance",
     "stake_amount": "Balance",
     "machine_status": "MachineStatus",
     "total_rented_duration": "u64",
