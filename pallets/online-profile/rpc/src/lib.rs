@@ -5,7 +5,7 @@ use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use online_profile::{
-    EraIndex, Latitude, LiveMachine, Longitude, PosInfo, RPCMachineInfo, RpcStakerInfo, RpcSysInfo, StashMachine,
+    EraIndex, Latitude, LiveMachine, Longitude, MachineInfo, PosInfo, RpcStakerInfo, StashMachine, SysInfoDetail,
 };
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
@@ -20,12 +20,13 @@ use std::{fmt::Display, str::FromStr, sync::Arc};
 pub trait OpRpcApi<BlockHash, AccountId, Balance, BlockNumber>
 where
     Balance: Display + FromStr,
+    AccountId: Ord,
 {
     #[rpc(name = "onlineProfile_getStakerNum")]
     fn get_total_staker_num(&self, at: Option<BlockHash>) -> Result<u64>;
 
     #[rpc(name = "onlineProfile_getOpInfo")]
-    fn get_op_info(&self, at: Option<BlockHash>) -> Result<RpcSysInfo<RpcBalance<Balance>>>;
+    fn get_op_info(&self, at: Option<BlockHash>) -> Result<SysInfoDetail<RpcBalance<Balance>>>;
 
     #[rpc(name = "onlineProfile_getStakerInfo")]
     fn get_staker_info(
@@ -42,7 +43,7 @@ where
         &self,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> Result<RPCMachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>>;
+    ) -> Result<MachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>>;
 
     #[rpc(name = "onlineProfile_getPosGpuInfo")]
     fn get_pos_gpu_info(&self, at: Option<BlockHash>) -> Result<Vec<(Longitude, Latitude, PosInfo)>>;
@@ -115,11 +116,11 @@ where
         })
     }
 
-    fn get_op_info(&self, at: Option<<Block as BlockT>::Hash>) -> Result<RpcSysInfo<RpcBalance<Balance>>> {
+    fn get_op_info(&self, at: Option<<Block as BlockT>::Hash>) -> Result<SysInfoDetail<RpcBalance<Balance>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_op_info(&at).map(|sys_info| RpcSysInfo {
+        let runtime_api_result = api.get_op_info(&at).map(|sys_info| SysInfoDetail {
             total_gpu_num: sys_info.total_gpu_num,
             total_rented_gpu: sys_info.total_rented_gpu,
             total_staker: sys_info.total_staker,
@@ -183,14 +184,20 @@ where
         &self,
         machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RPCMachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>> {
+    ) -> Result<MachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api.get_machine_info(&at, machine_id).map(|machine_info| RPCMachineInfo {
-            machine_owner: machine_info.machine_owner,
+        let runtime_api_result = api.get_machine_info(&at, machine_id).map(|machine_info| MachineInfo {
+            controller: machine_info.controller,
+            machine_stash: machine_info.machine_stash,
+            last_machine_renter: machine_info.last_machine_renter,
+            last_machine_restake: machine_info.last_machine_restake,
             bonding_height: machine_info.bonding_height,
+            online_height: machine_info.online_height,
+            last_online_height: machine_info.last_online_height,
+            init_stake_per_gpu: machine_info.init_stake_per_gpu.into(),
             stake_amount: machine_info.stake_amount.into(),
             machine_status: machine_info.machine_status,
             total_rented_duration: machine_info.total_rented_duration,

@@ -610,7 +610,7 @@ impl pallet_elections_phragmen::Config for Runtime {
 }
 
 parameter_types! {
-    pub const TechnicalMotionDuration: BlockNumber = 2 * DAYS;
+    pub const TechnicalMotionDuration: BlockNumber = 10 * MINUTES;
     pub const TechnicalMaxProposals: u32 = 100;
     pub const TechnicalMaxMembers: u32 = 100;
 }
@@ -1157,7 +1157,7 @@ impl_runtime_apis! {
             OnlineProfile::get_total_staker_num()
         }
 
-        fn get_op_info() -> online_profile::RpcSysInfo<Balance> {
+        fn get_op_info() -> online_profile::SysInfoDetail<Balance> {
             OnlineProfile::get_op_info()
         }
 
@@ -1169,7 +1169,7 @@ impl_runtime_apis! {
             OnlineProfile::get_machine_list()
         }
 
-        fn get_machine_info(machine_id: online_profile::MachineId) -> online_profile::RPCMachineInfo<AccountId, BlockNumber, Balance> {
+        fn get_machine_info(machine_id: online_profile::MachineId) -> online_profile::MachineInfo<AccountId, BlockNumber, Balance> {
             OnlineProfile::get_machine_info(machine_id)
         }
 

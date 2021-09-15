@@ -72,6 +72,8 @@ pub struct StashMachine<Balance> {
 
 /// All details of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     /// Who can control this machine
     pub controller: AccountId,
@@ -266,6 +268,8 @@ type NegativeImbalanceOf<T> =
 
 /// SysInfo of onlineProfile pallet
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct SysInfoDetail<Balance> {
     /// Total online gpu
     pub total_gpu_num: u64,
@@ -2479,17 +2483,8 @@ impl<T: Config> Module<T> {
         return all_stash.len() as u64
     }
 
-    pub fn get_op_info() -> RpcSysInfo<BalanceOf<T>> {
-        let sys_info = Self::sys_info();
-        RpcSysInfo {
-            total_gpu_num: sys_info.total_gpu_num,
-            total_rented_gpu: sys_info.total_rented_gpu,
-            total_staker: Self::get_total_staker_num(),
-            total_calc_points: sys_info.total_calc_points,
-            total_stake: sys_info.total_stake,
-            total_rent_fee: sys_info.total_rent_fee,
-            total_burn_fee: sys_info.total_burn_fee,
-        }
+    pub fn get_op_info() -> SysInfoDetail<BalanceOf<T>> {
+        Self::sys_info()
     }
 
     pub fn get_staker_info(
@@ -2518,21 +2513,8 @@ impl<T: Config> Module<T> {
     }
 
     /// 获取机器详情
-    pub fn get_machine_info(machine_id: MachineId) -> RPCMachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        let machine_info = Self::machines_info(&machine_id);
-        RPCMachineInfo {
-            machine_owner: machine_info.machine_stash,
-            bonding_height: machine_info.bonding_height,
-            stake_amount: machine_info.stake_amount,
-            machine_status: machine_info.machine_status,
-            total_rented_duration: machine_info.total_rented_duration,
-            total_rented_times: machine_info.total_rented_times,
-            total_rent_fee: machine_info.total_rent_fee,
-            total_burn_fee: machine_info.total_burn_fee,
-            machine_info_detail: machine_info.machine_info_detail,
-            reward_committee: machine_info.reward_committee,
-            reward_deadline: machine_info.reward_deadline,
-        }
+    pub fn get_machine_info(machine_id: MachineId) -> MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+        Self::machines_info(&machine_id)
     }
 
     /// 获得系统中所有位置列表
