@@ -61,7 +61,7 @@
           "isOptional": true
         }
       ],
-      "type": "RPCMachineInfo<AccountId, BlockNumber, Balance>"
+      "type": "MachineInfo<AccountId, BlockNumber, Balance>"
     },
     "getMachineList": {
       "description": "Get all machine in online profile pallet",

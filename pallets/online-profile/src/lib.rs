@@ -167,8 +167,10 @@ pub enum OPSlashReason<BlockNumber> {
     OnlineRentFailed(BlockNumber),
     /// Committee refuse machine online
     CommitteeRefusedOnline,
-    // Committee refuse changed hardware info machine reonline
+    /// Committee refuse changed hardware info machine reonline
     CommitteeRefusedMutHardware,
+    /// Machine change hardware is passed, so should reward committee
+    ReonlineShouldReward,
 }
 
 impl<BlockNumber> Default for OPSlashReason<BlockNumber> {
@@ -938,7 +940,6 @@ pub mod pallet {
             let mut sys_info = Self::sys_info();
             let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
             let mut live_machine = Self::live_machines();
-            let mut stash_stake = Self::stash_stake(&machine_info.machine_stash);
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
             ensure!(
@@ -1016,15 +1017,11 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
+            SysInfo::<T>::put(sys_info); // Must before `change_user_total_stake`
             if slash_amount != Zero::zero() {
-                ensure!(
-                    <T as Config>::Currency::can_reserve(&machine_info.machine_stash, slash_amount),
-                    Error::<T>::BalanceNotEnough
-                );
-                <T as pallet::Config>::Currency::reserve(&machine_info.machine_stash, slash_amount)
-                    .map_err(|_| Error::<T>::CalcStakeAmountFailed)?;
+                Self::change_user_total_stake(machine_info.machine_stash.clone(), slash_amount, true)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
             }
-            stash_stake = stash_stake.checked_add(&slash_amount).ok_or(Error::<T>::CalcStakeAmountFailed)?;
 
             machine_info.last_online_height = now;
 
@@ -1038,11 +1035,9 @@ pub mod pallet {
                 },
             }
 
-            StashStake::<T>::insert(&machine_info.machine_stash, stash_stake);
             LiveMachines::<T>::put(live_machine);
             StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
-            SysInfo::<T>::put(sys_info);
 
             Self::deposit_event(Event::ControllerReportOnline(machine_id));
             Ok(().into())
@@ -1118,13 +1113,9 @@ pub mod pallet {
             ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIdNotExist);
 
             let slash_info = Self::pending_slash(slash_id);
-            let stash_stake = Self::stash_stake(&slash_info.slash_who)
-                .checked_sub(&slash_info.slash_amount)
-                .ok_or(Error::<T>::CalcStakeAmountFailed)?;
 
-            <T as pallet::Config>::Currency::unreserve(&slash_info.slash_who, slash_info.slash_amount);
-
-            StashStake::<T>::insert(&slash_info.slash_who, stash_stake);
+            Self::change_user_total_stake(slash_info.slash_who.clone(), slash_info.slash_amount, false)
+                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
             PendingSlash::<T>::remove(slash_id);
 
             Self::deposit_event(Event::SlashCanceled(slash_id, slash_info.slash_who, slash_info.slash_amount));
@@ -1152,6 +1143,8 @@ pub mod pallet {
         // machine_id, old_stake, new_stake
         MachineRestaked(MachineId, BalanceOf<T>, BalanceOf<T>),
         MachineExit(MachineId),
+        // Slash_who, reward_who, reward_amount
+        SlashAndReward(T::AccountId, T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
     }
 
     #[pallet::error]
@@ -1431,6 +1424,7 @@ impl<T: Config> Pallet<T> {
         slash_amount
     }
 
+    // FIXME: refa, and should not do transfer but unreserve
     // 惩罚掉机器押金，如果执行惩罚后机器押金不够，则状态变为补充质押
     fn do_slash_deposit(slash_info: &OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
         let machine_info = Self::machines_info(&slash_info.machine_id);
@@ -1522,58 +1516,20 @@ impl<T: Config> Pallet<T> {
             }
 
             match slash_info.slash_reason {
-                OPSlashReason::CommitteeRefusedOnline | OPSlashReason::CommitteeRefusedMutHardware => {},
+                OPSlashReason::CommitteeRefusedOnline | OPSlashReason::CommitteeRefusedMutHardware => {
+                    Self::slash_and_reward(
+                        slash_info.slash_who,
+                        slash_info.slash_amount,
+                        slash_info.slash_reason,
+                        slash_info.reward_to_committee.unwrap_or_default(),
+                    )?;
+                },
                 _ => {
                     Self::do_slash_deposit(&slash_info);
                     continue
                 },
             }
 
-            let stash_stake = Self::stash_stake(&slash_info.slash_who);
-            let stake_after_slash = stash_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
-
-            let reward_to_num = slash_info.reward_to_committee.as_ref().ok_or(())?.len() as u32;
-            if reward_to_num == 0 {
-                if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
-                    let (imbalance, _missing) =
-                        <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
-                    <T as pallet::Config>::Slash::on_unbalanced(imbalance);
-                    Self::deposit_event(Event::Slash(
-                        slash_info.slash_who.clone(),
-                        slash_info.slash_amount,
-                        slash_info.slash_reason,
-                    ));
-                }
-            } else {
-                let reward_each_get =
-                    Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
-                let mut left_reward = slash_info.slash_amount;
-
-                for a_committee in slash_info.reward_to_committee.ok_or(())? {
-                    if left_reward >= reward_each_get {
-                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, reward_each_get) {
-                            let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                                &slash_info.slash_who,
-                                &a_committee,
-                                reward_each_get,
-                                BalanceStatus::Free,
-                            );
-                        }
-                        left_reward -= reward_each_get;
-                    } else {
-                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, left_reward) {
-                            let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                                &slash_info.slash_who,
-                                &a_committee,
-                                left_reward,
-                                BalanceStatus::Free,
-                            );
-                        }
-                    }
-                }
-            }
-
-            StashStake::<T>::insert(slash_info.slash_who, stake_after_slash);
             PendingSlash::<T>::remove(slash_id);
         }
 
@@ -1741,7 +1697,7 @@ impl<T: Config> Pallet<T> {
             .checked_div(10_000)
     }
 
-    /// 计算当前Era在线奖励数量
+    /// TODO: 计算当前Era在线奖励数量
     fn current_era_reward() -> Option<BalanceOf<T>> {
         let current_era = Self::current_era() as u64;
         let reward_start_era = Self::reward_start_era()? as u64;
@@ -1767,6 +1723,52 @@ impl<T: Config> Pallet<T> {
         Self::phase_n_reward_per_era(phase_index)
     }
 
+    fn slash_and_reward(
+        slash_who: T::AccountId,
+        slash_amount: BalanceOf<T>,
+        slash_reason: OPSlashReason<T::BlockNumber>,
+        reward_to: Vec<T::AccountId>,
+    ) -> Result<(), ()> {
+        let mut stash_stake = Self::stash_stake(&slash_who);
+        let mut sys_info = Self::sys_info();
+
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&slash_amount).ok_or(())?;
+        stash_stake = stash_stake.checked_sub(&slash_amount).ok_or(())?;
+
+        let mut left_reward = slash_amount;
+        let reward_each_get = Perbill::from_rational_approximation(1u32, reward_to.len() as u32) * slash_amount;
+
+        ensure!(<T as pallet::Config>::Currency::can_slash(&slash_who, slash_amount), ());
+
+        if reward_to.len() == 0 {
+            let (imbalance, _missing) = <T as pallet::Config>::Currency::slash(&slash_who, slash_amount);
+            <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+            Self::deposit_event(Event::Slash(slash_who.clone(), slash_amount, slash_reason));
+        } else {
+            for a_committee in reward_to.clone() {
+                let a_slash = if left_reward >= reward_each_get { reward_each_get } else { left_reward };
+                <T as pallet::Config>::Currency::repatriate_reserved(
+                    &slash_who,
+                    &a_committee,
+                    a_slash,
+                    BalanceStatus::Free,
+                )
+                .map_err(|_| ())?;
+                Self::deposit_event(Event::SlashAndReward(
+                    slash_who.clone(),
+                    a_committee,
+                    a_slash,
+                    slash_reason.clone(),
+                ));
+                left_reward -= a_slash;
+            }
+        }
+
+        StashStake::<T>::insert(&slash_who, stash_stake);
+        SysInfo::<T>::put(sys_info);
+        Ok(())
+    }
+
     fn change_user_total_stake(who: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let mut stash_stake = Self::stash_stake(&who);
         let mut sys_info = Self::sys_info();
@@ -1775,11 +1777,8 @@ impl<T: Config> Pallet<T> {
             sys_info.total_stake = sys_info.total_stake.checked_add(&amount).ok_or(())?;
             stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
 
-            if <T as Config>::Currency::can_reserve(&who, amount) {
-                <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
-            } else {
-                return Err(())
-            }
+            ensure!(<T as Config>::Currency::can_reserve(&who, amount), ());
+            <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
         } else {
             stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
             sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
@@ -1798,41 +1797,11 @@ impl<T: Config> Pallet<T> {
     }
 
     fn reward_reonline_committee(
-        who: &T::AccountId,
+        who: T::AccountId,
         amount: BalanceOf<T>,
         committee: Vec<T::AccountId>,
     ) -> Result<(), ()> {
-        let stash_stake = Self::stash_stake(who);
-        let new_stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
-
-        let reward_each_get = Perbill::from_rational_approximation(1, committee.len() as u64) * amount;
-        let mut left_reward = amount;
-
-        for a_committee in committee {
-            if left_reward >= reward_each_get {
-                if <T as pallet::Config>::Currency::can_slash(who, reward_each_get) {
-                    let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                        who,
-                        &a_committee,
-                        reward_each_get,
-                        BalanceStatus::Free,
-                    );
-                }
-                left_reward -= reward_each_get;
-            } else {
-                if <T as pallet::Config>::Currency::can_slash(who, left_reward) {
-                    let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                        who,
-                        &a_committee,
-                        left_reward,
-                        BalanceStatus::Free,
-                    );
-                }
-            }
-        }
-
-        StashStake::<T>::insert(&who, new_stash_stake);
-        Ok(())
+        Self::slash_and_reward(who, amount, OPSlashReason::ReonlineShouldReward, committee)
     }
 
     // 获取下一Era stash grade即为当前Era stash grade
@@ -2241,7 +2210,7 @@ impl<T: Config> OCOps for Pallet<T> {
             let reonline_stake =
                 Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
             let _ = Self::reward_reonline_committee(
-                &machine_info.machine_stash,
+                machine_info.machine_stash.clone(),
                 reonline_stake.stake_amount,
                 reported_committee,
             );

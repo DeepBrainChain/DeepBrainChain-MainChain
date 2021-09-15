@@ -295,7 +295,8 @@
       "RentedHardwareCounterfeit": "BlockNumber",
       "OnlineRentFailed": "BlockNumber",
       "CommitteeRefusedOnline": null,
-      "CommitteeRefusedMutHardware": null
+      "CommitteeRefusedMutHardware": null,
+      "ReonlineShouldReward": null
     }
   },
   "RentOrderDetail": {
