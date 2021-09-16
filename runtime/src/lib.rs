@@ -258,18 +258,18 @@ impl InstanceFilter<Call> for ProxyType {
             ProxyType::Any => true,
             ProxyType::NonTransfer => !matches!(
                 c,
-                Call::Balances(..) |
-                    Call::Vesting(pallet_vesting::Call::vested_transfer(..)) |
-                    Call::Indices(pallet_indices::Call::transfer(..))
+                Call::Balances(..)
+                    | Call::Vesting(pallet_vesting::Call::vested_transfer(..))
+                    | Call::Indices(pallet_indices::Call::transfer(..))
             ),
             ProxyType::Governance => matches!(
                 c,
-                Call::Democracy(..) |
-                    Call::Council(..) |
-                    Call::Society(..) |
-                    Call::TechnicalCommittee(..) |
-                    Call::Elections(..) |
-                    Call::Treasury(..)
+                Call::Democracy(..)
+                    | Call::Council(..)
+                    | Call::Society(..)
+                    | Call::TechnicalCommittee(..)
+                    | Call::Elections(..)
+                    | Call::Treasury(..)
             ),
             ProxyType::Staking => matches!(c, Call::Staking(..)),
         }
@@ -646,8 +646,8 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub const ProposalBondMinimum: Balance = 1 * DOLLARS;
-    pub const SpendPeriod: BlockNumber = 365 * DAYS;
-    pub const Burn: Permill = Permill::from_percent(50);
+    pub const SpendPeriod: BlockNumber = 12 * DAYS;
+    pub Burn: Permill = Permill::from_rational_approximation(5u32, 1000u32);
     pub const TipCountdown: BlockNumber = 1 * DAYS;
     pub const TipFindersFee: Percent = Percent::from_percent(20);
     pub const TipReportDepositBase: Balance = 1 * DOLLARS;
