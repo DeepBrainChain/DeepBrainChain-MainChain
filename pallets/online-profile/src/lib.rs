@@ -708,7 +708,7 @@ pub mod pallet {
             ensure!(sig_stash_account == stash, Error::<T>::MachineStashNotEqualControllerStash);
 
             // 验证签名是否为MachineId发出
-            ensure!(Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()).is_none(), Error::<T>::BadSignature);
+            ensure!(Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()).is_some(), Error::<T>::BadSignature);
 
             // 用户绑定机器需要质押一张显卡的DBC
             let stake_amount = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
