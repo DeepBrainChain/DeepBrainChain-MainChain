@@ -261,7 +261,8 @@
     "slash_time": "BlockNumber",
     "slash_amount": "Balance",
     "slash_exec_time": "BlockNumber",
-    "reward_to": "Vec<AccountId>"
+    "reward_to": "Vec<AccountId>",
+    "slash_reason": "CMSlashReason"
   },
   "CMSlashReason": {
     "_enum": [
