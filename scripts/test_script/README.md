@@ -46,3 +46,9 @@ node query_committee_storage.js --port wss://preinfo.dbcwallet.io --type-file ..
 node query_committee_storage.js --port wss://preinfo.dbcwallet.io --type-file ../../dbc_types.json --rpc-file ../../dbc_rpc.json --module onlineCommittee --func machineCommittee a0117989bd823e512eb63f65585b21a241755e117bf794261890ca0578070930
 ```
 
+### 如何查询某个高度数据
+
+```bash
+# 查询某个高度(8800)时，onlineCommittee模块的committeeMachine
+node query_storage.js --port wss://galaxytest.congtu.cloud --type-file ../../dbc_types.json --rpc-file ../../dbc_rpc.json --module onlineCommittee --func committeeMachine --at-height 8800 5He35goba34RReW9WZT3xEjHNY9mo4DpqWTRXzNsR4Y1X7xF
+```
