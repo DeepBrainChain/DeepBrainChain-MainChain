@@ -35,3 +35,14 @@ node seal_msg.js --sender_privkey 0x0cdc17e4cd84743c66bae7761ad354d423c93ac1e398
 # 接收者解密信息： 其中，--sender_box_pubkey 为发送者box_pubkey，--receiver_privkey为接收者私钥
 node open_msg.js --sender_box_pubkey 0xe30cac79ec5fe7c9811ed9f1a18ca3806b22798e24b7d9f9424b1a27bde3e866 --receiver_privkey 0x171baa0f7baa4fa7e2dd94b8f9efc0b95034a4ad5f3aba5b6b923e38130c3f0d --sealed_msg 0x01405deeef2a8b0f4a09380d14431dd10fde1ad62b3c27b3fbea4701311d
 ```
+
+### 委员会如何查询数据
+
+```bash
+# 查询onlineCommittee模块的committeeMachine:
+node query_committee_storage.js --port wss://preinfo.dbcwallet.io --type-file ../../dbc_types.json --rpc-file ../../dbc_rpc.json --module onlineCommittee --func committeeMachine 5DdA3eHdWKuHLjqEquKQzyvhumNBEN32RxRWkuuaFvda474S
+
+# 查询onlineCommittee模块的machineCommittee
+node query_committee_storage.js --port wss://preinfo.dbcwallet.io --type-file ../../dbc_types.json --rpc-file ../../dbc_rpc.json --module onlineCommittee --func machineCommittee a0117989bd823e512eb63f65585b21a241755e117bf794261890ca0578070930
+```
+
