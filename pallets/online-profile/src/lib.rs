@@ -1483,13 +1483,7 @@ impl<T: Config> Pallet<T> {
     fn do_slash_deposit(slash_info: &OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
         let machine_info = Self::machines_info(&slash_info.machine_id);
 
-        if <T as pallet::Config>::Currency::can_slash(&machine_info.machine_stash, slash_info.slash_amount) {
-            let (imbalance, _missing) =
-                <T as pallet::Config>::Currency::slash(&machine_info.machine_stash, slash_info.slash_amount);
-
-            <T as pallet::Config>::Slash::on_unbalanced(imbalance);
-        }
-
+        // FIXME: 检查分配比例;执行惩罚
         // 根据比例，分配slash_amoun
         let (slash_to_treasury, reward_to_reporter, reward_to_committee) = {
             let percent_10 = Perbill::from_rational_approximation(10u32, 100u32);

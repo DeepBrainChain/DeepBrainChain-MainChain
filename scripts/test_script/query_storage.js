@@ -39,6 +39,10 @@ async function main() {
   funcMap["committee"]["committeeStakeDBCPerOrder"] =
     api.query.committee.committeeStakeDBCPerOrder;
 
+  funcMap["onlineCommittee"] = {};
+  funcMap["onlineCommittee"]["committeeMachine"] =
+    api.query.onlineCommittee.committeeMachine;
+
   funcMap["genericFunc"] = {};
   funcMap["genericFunc"]["fixedTxFee"] = api.query.genericFunc.fixedTxFee;
 
@@ -59,7 +63,8 @@ async function main() {
     api.query.rentMachine.userTotalStake;
 
   funcMap["maintainCommittee"] = {};
-  funcMap["maintainCommittee"]["committeeOps"] = api.query.maintainCommittee.committeeOps;
+  funcMap["maintainCommittee"]["committeeOps"] =
+    api.query.maintainCommittee.committeeOps;
 
   let heightHash = await api.rpc.chain.getBlockHash(args["at-height"]);
 
