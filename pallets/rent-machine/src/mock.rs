@@ -253,8 +253,8 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
     let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
     let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
-    let sig = "181948e14e3e983734aac572ff2b9d58d4322d6546f29a2f8d5fa0b7c93e5c5c\
-                   fd17c13e8c618265824988e2654846c551433f25bf6b01e6f99a7513c4b4618c";
+    let sig = "b4084f70730b183127e9db78c6d8dcf79039f23466cd1ee8b536c40c3027a83d\
+                   ab040be4ed2db57b67eaac406817a69ce72a13f8ac11ba460e15d318b1504481";
 
     ext.execute_with(|| {
         run_to_block(1);

@@ -1226,7 +1226,7 @@ impl<T: Config> Pallet<T> {
                         _ => continue,
                     }
                 },
-                MachineStatus::ReporterReportOffline(offline_reason, status, reporter, committee) =>
+                MachineStatus::ReporterReportOffline(offline_reason, _status, _reporter, committee) =>
                     match offline_reason {
                         // 被举报时
                         OPSlashReason::RentedInaccessible(report_time) |
