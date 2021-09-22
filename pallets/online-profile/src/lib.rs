@@ -41,6 +41,8 @@ pub const BLOCK_PER_ERA: u64 = 2880;
 pub const REWARD_DURATION: u32 = 365 * 2;
 /// Rebond frequency, 1 year
 pub const REBOND_FREQUENCY: u32 = 365 * 2880;
+/// Max Slash Threshold: 120h, 5 era
+pub const MAX_SLASH_THRESHOLD: u32 = 2880 * 5;
 
 /// stash account overview self-status
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -526,6 +528,7 @@ pub mod pallet {
                     ErasMachinePoints::<T>::insert(current_era + 1, current_era_machine_snapshot);
                 }
             }
+            Self::check_offline_machine_duration();
             0
         }
 
@@ -1181,15 +1184,69 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // TODO: 主动惩罚超过下线阈值的机器
+    // 主动惩罚超过下线阈值的机器
     fn check_offline_machine_duration() {
         let live_machine = Self::live_machines();
+        let now = <frame_system::Module<T>>::block_number();
 
         for a_machine in live_machine.offline_machine {
             let machine_info = Self::machines_info(&a_machine);
             match machine_info.machine_status {
-                MachineStatus::StakerReportOffline(offline_time, status) => {},
-                MachineStatus::ReporterReportOffline(offline_reason, status, reporter, committee) => {},
+                MachineStatus::StakerReportOffline(offline_time, status) => {
+                    if now - offline_time < MAX_SLASH_THRESHOLD.into() {
+                        continue
+                    }
+
+                    match *status {
+                        MachineStatus::Online => {
+                            if now - offline_time < MAX_SLASH_THRESHOLD.into() {
+                                continue
+                            }
+                            Self::add_offline_slash(
+                                50,
+                                a_machine,
+                                machine_info.last_machine_renter,
+                                None,
+                                OPSlashReason::OnlineReportOffline(offline_time),
+                            );
+                        },
+
+                        MachineStatus::Rented => {
+                            if now - offline_time < (2 * MAX_SLASH_THRESHOLD).into() {
+                                continue
+                            }
+                            Self::add_offline_slash(
+                                80,
+                                a_machine,
+                                None,
+                                None,
+                                OPSlashReason::RentedReportOffline(offline_time),
+                            );
+                        },
+                        _ => continue,
+                    }
+                },
+                MachineStatus::ReporterReportOffline(offline_reason, status, reporter, committee) =>
+                    match offline_reason {
+                        // 被举报时
+                        OPSlashReason::RentedInaccessible(report_time) |
+                        OPSlashReason::RentedHardwareCounterfeit(report_time) |
+                        OPSlashReason::RentedHardwareMalfunction(report_time) |
+                        OPSlashReason::OnlineRentFailed(report_time) => {
+                            if now - report_time < MAX_SLASH_THRESHOLD.into() {
+                                continue
+                            }
+                            Self::add_offline_slash(
+                                100,
+                                a_machine,
+                                machine_info.last_machine_renter,
+                                Some(committee),
+                                offline_reason,
+                            );
+                        },
+
+                        _ => continue,
+                    },
                 _ => continue,
             }
         }

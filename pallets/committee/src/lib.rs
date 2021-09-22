@@ -6,6 +6,7 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{BalanceStatus, Currency, EnsureOrigin, OnUnbalanced, ReservableCurrency},
+    weights::Weight,
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
@@ -138,6 +139,15 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            let mut committee_list = Self::committee();
+            for a_committee in committee_list.chill_list.clone() {
+                CommitteeList::rm_one(&mut committee_list.normal, &a_committee);
+            }
+            Committee::<T>::put(committee_list);
+            0
+        }
+
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
             let _ = Self::check_and_exec_slash();
             0
@@ -230,12 +240,10 @@ pub mod pallet {
             committee_stake.box_pubkey = box_pubkey;
             committee_stake.staked_amount = committee_stake_params.stake_baseline;
 
-            if committee_list.waiting_box_pubkey.binary_search(&committee).is_ok() {
-                CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
-                CommitteeList::add_one(&mut committee_list.normal, committee.clone());
-                Committee::<T>::put(committee_list);
-            }
+            CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
+            CommitteeList::add_one(&mut committee_list.normal, committee.clone());
 
+            Committee::<T>::put(committee_list);
             CommitteeStake::<T>::insert(&committee, committee_stake);
 
             Self::deposit_event(Event::StakeAdded(committee.clone(), committee_stake_params.stake_baseline));
@@ -344,11 +352,17 @@ pub mod pallet {
             let committee = ensure_signed(origin)?;
             let mut committee_list = Self::committee();
 
+            if committee_list.fulfilling_list.binary_search(&committee).is_ok() {
+                return Ok(().into())
+            }
+
             ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
             // waiting_box_pubkey不能执行该操作
             ensure!(committee_list.waiting_box_pubkey.binary_search(&committee).is_err(), Error::<T>::PubkeyNotSet);
 
+            // Allow normal & fulfilling committee to chill
             CommitteeList::rm_one(&mut committee_list.normal, &committee);
+            CommitteeList::rm_one(&mut committee_list.fulfilling_list, &committee);
             CommitteeList::add_one(&mut committee_list.chill_list, committee.clone());
 
             Committee::<T>::put(committee_list);
@@ -607,11 +621,11 @@ impl<T: Config> ManageCommittee for Pallet<T> {
 
     // 检查委员会是否有足够的质押,返回有可以抢单的机器列表
     // 在每个区块以及每次分配一个机器之后，都需要检查
-    fn available_committee() -> Result<Vec<T::AccountId>, ()> {
+    fn available_committee() -> Option<Vec<T::AccountId>> {
         let committee_list = Self::committee();
         let normal_committee = committee_list.normal.clone();
 
-        let stake_params = Self::committee_stake_params().ok_or(())?;
+        let stake_params = Self::committee_stake_params()?;
 
         let mut out = Vec::new();
         // 如果free_balance足够，则复制到out列表中
@@ -622,10 +636,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
             }
         }
 
-        if out.len() > 0 {
-            return Ok(out)
-        }
-        return Err(())
+        (out.len() > 0).then(|| out)
     }
 
     // 改变委员会使用的质押数量
