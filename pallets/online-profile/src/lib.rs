@@ -1199,9 +1199,6 @@ impl<T: Config> Pallet<T> {
 
                     match *status {
                         MachineStatus::Online => {
-                            if now - offline_time < MAX_SLASH_THRESHOLD.into() {
-                                continue
-                            }
                             Self::add_offline_slash(
                                 50,
                                 a_machine,
