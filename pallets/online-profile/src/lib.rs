@@ -501,54 +501,6 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            // 更新质押
-            let live_machine = Self::live_machines();
-            for a_machine in live_machine.online_machine {
-                let mut machine_info = Self::machines_info(&a_machine);
-
-                let stake_need = machine_info
-                    .init_stake_per_gpu
-                    .checked_mul(
-                        &machine_info
-                            .machine_info_detail
-                            .committee_upload_info
-                            .gpu_num
-                            .saturated_into::<BalanceOf<T>>(),
-                    )
-                    .unwrap_or_default();
-
-                // 当出现需要补交质押时
-                if machine_info.stake_amount < stake_need {
-                    let extra_stake = stake_need - machine_info.stake_amount;
-                    let _ = Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true);
-                    machine_info.stake_amount = stake_need;
-                    MachinesInfo::<T>::insert(a_machine, machine_info);
-                }
-            }
-
-            for a_machine in live_machine.rented_machine {
-                let mut machine_info = Self::machines_info(&a_machine);
-
-                let stake_need = machine_info
-                    .init_stake_per_gpu
-                    .checked_mul(
-                        &machine_info
-                            .machine_info_detail
-                            .committee_upload_info
-                            .gpu_num
-                            .saturated_into::<BalanceOf<T>>(),
-                    )
-                    .unwrap_or_default();
-
-                // 当出现需要补交质押时
-                if machine_info.stake_amount < stake_need {
-                    let extra_stake = stake_need - machine_info.stake_amount;
-                    let _ = Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true);
-                    machine_info.stake_amount = stake_need;
-                    MachinesInfo::<T>::insert(a_machine, machine_info);
-                }
-            }
-
             0
         }
 

@@ -176,11 +176,32 @@ fn report_machine_fault_works() {
 
         assert_eq!(&MaintainCommittee::committee_ops(&committee1, 0), &committee_ops);
 
+        assert_eq!(
+            &MaintainCommittee::live_report(),
+            &super::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
+        );
+
+        assert!(match MaintainCommittee::summary_report(0) {
+            super::ReportConfirmStatus::Confirmed(..) => true,
+            _ => false,
+        });
+
+        // assert_eq!(&super::ReportConfirmStatus::Confirmed(_, _, _), MaintainCommittee::summary_report(0));
+
         run_to_block(360 + 14);
 
-        // heart_beat will change LiveReport,
-        // report_info.report_status = super::ReportStatus::CommitteeConfirmed; // TODO: should be cleaned
-        assert_eq!(&MaintainCommittee::report_info(0), &report_info);
+        // summary_fault_case -> summary_waiting_raw -> Confirmed -> mt_machine_offline
+        // - Writes:
+        // committee_stake; committee_order; LiveReport;
+        // report_info.report_status = super::ReportStatus::CommitteeConfirmed;
+        assert_eq!(Committee::committee_stake(committee1).used_stake, 0);
+        assert_eq!(
+            MaintainCommittee::committee_order(committee1),
+            super::MTCommitteeOrderList { finished_report: vec![0], ..Default::default() }
+        );
+        // TODO: check here
+        // assert_eq!(&MachineCommittee::report_info(0), &super::MTReportInfoDetail { ..Default::default() });
+        // assert_eq!(&MaintainCommittee::report_info(0), &report_info);
         assert_eq!(
             &MaintainCommittee::live_report(),
             &super::MTLiveReportList { finished_report: vec![0], ..Default::default() }
@@ -190,8 +211,6 @@ fn report_machine_fault_works() {
         // - Writes:
         // MachineInfo, LiveMachine, current_era_stash_snap, next_era_stash_snap, current_era_machine_snap, next_era_machine_snap
         // SysInfo, SatshMachine, PosGPUInfo
-
-        // TODO: check status
 
         assert_eq!(
             &MaintainCommittee::live_report(),
@@ -522,4 +541,10 @@ fn test_heart_beat3() {
             }
         );
     })
+}
+
+// TODO: 1. 被人举报，委员会主动上线，惩罚被增加
+#[test]
+fn test_report_and_slash() {
+    new_test_with_init_params_ext().execute_with(|| {})
 }

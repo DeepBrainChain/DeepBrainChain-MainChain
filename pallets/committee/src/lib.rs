@@ -140,11 +140,6 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            let mut committee_list = Self::committee();
-            for a_committee in committee_list.chill_list.clone() {
-                CommitteeList::rm_one(&mut committee_list.normal, &a_committee);
-            }
-            Committee::<T>::put(committee_list);
             0
         }
 

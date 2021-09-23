@@ -1001,7 +1001,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
-        return blake2_128(raw_str)
+        blake2_128(raw_str)
     }
 
     // rm from committee_order
