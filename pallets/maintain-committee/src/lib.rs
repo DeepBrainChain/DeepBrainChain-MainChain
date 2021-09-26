@@ -280,6 +280,7 @@ pub mod pallet {
             FaultType = online_profile::OPSlashReason<Self::BlockNumber>,
         >;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
     }
 
     #[pallet::pallet]
@@ -855,6 +856,15 @@ pub mod pallet {
             ReportInfo::<T>::insert(&report_id, report_info);
 
             Self::deposit_event(Event::RawInfoSubmited(report_id, committee));
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        pub fn cancel_reporter_slash(origin: OriginFor<T>, _report_id: ReportId) -> DispatchResultWithPostInfo {
+            T::CancelSlashOrigin::ensure_origin(origin)?;
+
+            // TODO: 退还质押, 删掉惩罚信息
+
             Ok(().into())
         }
     }

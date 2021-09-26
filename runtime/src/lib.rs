@@ -258,18 +258,18 @@ impl InstanceFilter<Call> for ProxyType {
             ProxyType::Any => true,
             ProxyType::NonTransfer => !matches!(
                 c,
-                Call::Balances(..)
-                    | Call::Vesting(pallet_vesting::Call::vested_transfer(..))
-                    | Call::Indices(pallet_indices::Call::transfer(..))
+                Call::Balances(..) |
+                    Call::Vesting(pallet_vesting::Call::vested_transfer(..)) |
+                    Call::Indices(pallet_indices::Call::transfer(..))
             ),
             ProxyType::Governance => matches!(
                 c,
-                Call::Democracy(..)
-                    | Call::Council(..)
-                    | Call::Society(..)
-                    | Call::TechnicalCommittee(..)
-                    | Call::Elections(..)
-                    | Call::Treasury(..)
+                Call::Democracy(..) |
+                    Call::Council(..) |
+                    Call::Society(..) |
+                    Call::TechnicalCommittee(..) |
+                    Call::Elections(..) |
+                    Call::Treasury(..)
             ),
             ProxyType::Staking => matches!(c, Call::Staking(..)),
         }
@@ -1016,7 +1016,7 @@ impl online_profile::Config for Runtime {
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
 }
 
 impl simple_rpc::Config for Runtime {
@@ -1028,7 +1028,7 @@ impl committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
 }
 
 impl online_committee::Config for Runtime {
@@ -1044,6 +1044,7 @@ impl maintain_committee::Config for Runtime {
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
     type Slash = Treasury;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
 }
 
 impl rent_machine::Config for Runtime {
