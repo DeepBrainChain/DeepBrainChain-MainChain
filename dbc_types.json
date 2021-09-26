@@ -281,10 +281,12 @@
   },
   "OPPendingSlashInfo": {
     "slash_who": "AccountId",
+    "machine_id": "MachineId",
     "slash_time": "BlockNumber",
     "slash_amount": "Balance",
-    "slash_exec_time": "Option<BlockNumber>",
-    "reward_to": "Option<Vec<AccountId>>",
+    "slash_exec_time": "BlockNumber",
+    "reward_to_reporter": "Option<AccountId>",
+    "reward_to_committee": "Option<Vec<AccountId>>",
     "slash_reason": "OPSlashReason"
   },
   "OPSlashReason": {
