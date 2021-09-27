@@ -291,10 +291,19 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
             },
         );
         // 设置奖励发放开始时间
-        assert_ok!(OnlineProfile::set_reward_start_era(RawOrigin::Root.into(), 0));
         // 设置每个Era奖励数量: 1,100,000
-        assert_ok!(OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 0, 1_100_000 * ONE_DBC));
-        assert_ok!(OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 1, 1_100_000 * ONE_DBC));
+        let _ = OnlineProfile::set_reward_info(
+            RawOrigin::Root.into(),
+            online_profile::PhaseRewardInfoDetail {
+                online_reward_start_era: 0,
+                first_phase_duration: 1095,
+                galaxy_on_era: 0,
+                phase_0_reward_per_era: 1_100_000 * ONE_DBC,
+                phase_1_reward_per_era: 550_000 * ONE_DBC,
+                phase_2_reward_per_era: 275_000 * ONE_DBC,
+            },
+        );
+
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
         assert_ok!(OnlineProfile::set_standard_gpu_point_price(
             RawOrigin::Root.into(),

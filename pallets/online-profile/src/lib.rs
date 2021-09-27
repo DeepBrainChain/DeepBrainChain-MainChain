@@ -266,6 +266,20 @@ pub struct UserReonlineStakeInfo<Balance, BlockNumber> {
     pub offline_time: BlockNumber,
 }
 
+// 365 day per year
+// Testnet start from 2021-07-18, after 3 years(365*3), in 2024-07-17, phase 1 should end.
+// If galxy is on, Reward is double in 60 eras. So, phase 1 should end in 2024-05-18 (365*3-60)
+// So, **first_phase_duration** should equal: 365 * 3 - 60 - (online_day - 2021-0718)
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct PhaseRewardInfoDetail<Balance> {
+    pub online_reward_start_era: EraIndex, // When online reward will start
+    pub first_phase_duration: EraIndex,
+    pub galaxy_on_era: EraIndex,         // When galaxy is on
+    pub phase_0_reward_per_era: Balance, // first 3 years
+    pub phase_1_reward_per_era: Balance, // next 5 years
+    pub phase_2_reward_per_era: Balance, // next 5 years
+}
+
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
@@ -441,10 +455,9 @@ pub mod pallet {
     pub(super) type ErasMachinePoints<T: Config> =
         StorageMap<_, Blake2_128Concat, EraIndex, BTreeMap<MachineId, MachineGradeStatus>>;
 
-    /// 在线奖励开始时间
     #[pallet::storage]
-    #[pallet::getter(fn reward_start_era)]
-    pub(super) type RewardStartEra<T: Config> = StorageValue<_, EraIndex>;
+    #[pallet::getter(fn phase_reward_info)]
+    pub(super) type PhaseRewardInfo<T: Config> = StorageValue<_, PhaseRewardInfoDetail<BalanceOf<T>>>;
 
     #[pallet::storage]
     #[pallet::getter(fn era_reward)]
@@ -473,11 +486,6 @@ pub mod pallet {
     #[pallet::getter(fn eras_stash_released_reward)]
     pub(super) type ErasStashReleasedReward<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
-
-    /// 不同阶段不同奖励
-    #[pallet::storage]
-    #[pallet::getter(fn phase_n_reward_per_era)]
-    pub(super) type PhaseNRewardPerEra<T: Config> = StorageMap<_, Blake2_128Concat, u32, BalanceOf<T>>;
 
     /// 资金账户的质押总计
     #[pallet::storage]
@@ -549,23 +557,12 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// When reward start to distribute
         #[pallet::weight(0)]
-        pub fn set_reward_start_era(origin: OriginFor<T>, reward_start_era: EraIndex) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            RewardStartEra::<T>::put(reward_start_era);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn set_phase_n_reward_per_era(
+        pub fn set_reward_info(
             origin: OriginFor<T>,
-            phase: u32,
-            reward_per_era: BalanceOf<T>,
+            reward_info: PhaseRewardInfoDetail<BalanceOf<T>>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            match phase {
-                0..=5 => PhaseNRewardPerEra::<T>::insert(phase, reward_per_era),
-                _ => return Err(Error::<T>::RewardPhaseOutOfRange.into()),
-            }
+            <PhaseRewardInfo<T>>::put(reward_info);
             Ok(().into())
         }
 
@@ -1546,7 +1543,7 @@ impl<T: Config> Pallet<T> {
             NextSlashId::<T>::put(slash_id + 1);
         };
 
-        return slash_id
+        slash_id
     }
 
     fn do_pending_slash() -> Result<(), ()> {
@@ -1745,30 +1742,28 @@ impl<T: Config> Pallet<T> {
             .checked_div(10_000)
     }
 
-    /// TODO: 计算当前Era在线奖励数量
+    /// 计算当前Era在线奖励数量
     fn current_era_reward() -> Option<BalanceOf<T>> {
         let current_era = Self::current_era() as u64;
-        let reward_start_era = Self::reward_start_era()? as u64;
+        let phase_reward_info = Self::phase_reward_info()?;
 
-        if current_era < reward_start_era {
-            return None
-        }
+        let reward_start_era = phase_reward_info.online_reward_start_era as u64;
+        let era_duration = (current_era >= reward_start_era).then(|| current_era - reward_start_era)?;
 
-        let era_duration = current_era - reward_start_era;
-
-        let phase_index = if era_duration < 30 {
-            0
-        } else if era_duration < 30 + 730 {
-            1
-        } else if era_duration < 30 + 730 + 270 {
-            2
-        } else if era_duration < 30 + 730 + 270 + 1825 {
-            3
+        let era_reward = if era_duration < phase_reward_info.first_phase_duration as u64 {
+            phase_reward_info.phase_0_reward_per_era
+        } else if era_duration < phase_reward_info.first_phase_duration as u64 + 1825 {
+            // 365 * 5
+            phase_reward_info.phase_1_reward_per_era
         } else {
-            4
+            phase_reward_info.phase_2_reward_per_era
         };
 
-        Self::phase_n_reward_per_era(phase_index)
+        if Self::galaxy_is_on() && current_era < phase_reward_info.galaxy_on_era as u64 + 60 {
+            Some(era_reward.checked_mul(&2u32.saturated_into::<BalanceOf<T>>())?)
+        } else {
+            Some(era_reward)
+        }
     }
 
     fn slash_and_reward(

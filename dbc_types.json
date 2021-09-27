@@ -279,6 +279,14 @@
     "online_stake_usd_limit": "u64",
     "reonline_stake": "u64"
   },
+  "PhaseRewardInfoDetail": {
+    "online_reward_start_era": "EraIndex",
+    "first_phase_duration": "EraIndex",
+    "galaxy_on_era": "EraIndex",
+    "phase_0_reward_per_era": "Balance",
+    "phase_1_reward_per_era": "Balance",
+    "phase_2_reward_per_era": "Balance"
+  },
   "OPPendingSlashInfo": {
     "slash_who": "AccountId",
     "machine_id": "MachineId",

@@ -209,6 +209,7 @@ impl maintain_committee::Config for TestRuntime {
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
     type Slash = Treasury;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
 }
 
 // Configure a mock runtime to test the pallet.
@@ -303,10 +304,18 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         // 操作时的固定费率: 10 DBC
         let _ = GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10 * ONE_DBC);
         // 设置奖励发放开始时间
-        let _ = OnlineProfile::set_reward_start_era(RawOrigin::Root.into(), 0);
         // 设置每个Era奖励数量: 1,100,000
-        let _ = OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 0, 1_100_000 * ONE_DBC);
-        let _ = OnlineProfile::set_phase_n_reward_per_era(RawOrigin::Root.into(), 1, 1_100_000 * ONE_DBC);
+        let _ = OnlineProfile::set_reward_info(
+            RawOrigin::Root.into(),
+            online_profile::PhaseRewardInfoDetail {
+                online_reward_start_era: 0,
+                first_phase_duration: 1095,
+                galaxy_on_era: 0,
+                phase_0_reward_per_era: 1_100_000 * ONE_DBC,
+                phase_1_reward_per_era: 550_000 * ONE_DBC,
+                phase_2_reward_per_era: 275_000 * ONE_DBC,
+            },
+        );
 
         // 设置单卡质押上限： 7700_000_000, 每张GPU质押数量: 100,000 DBC
         let _ = OnlineProfile::set_online_stake_params(
