@@ -8,6 +8,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
+use generic_func::ItemList;
 use online_profile_machine::{MTOps, ManageCommittee};
 use sp_io::hashing::blake2_128;
 use sp_runtime::{
@@ -53,27 +54,6 @@ pub struct MTLiveReportList {
     pub waiting_raw_report: Vec<ReportId>,
     /// 等待48小时后执行的报告, 此期间可以申述，由技术委员会审核
     pub finished_report: Vec<ReportId>,
-}
-
-pub struct ItemList;
-impl ItemList {
-    fn add_item<T>(a_field: &mut Vec<T>, a_item: T)
-    where
-        T: Ord,
-    {
-        if let Err(index) = a_field.binary_search(&a_item) {
-            a_field.insert(index, a_item);
-        }
-    }
-
-    fn rm_item<T>(a_field: &mut Vec<T>, a_item: &T)
-    where
-        T: Ord,
-    {
-        if let Ok(index) = a_field.binary_search(a_item) {
-            a_field.remove(index);
-        }
-    }
 }
 
 /// 报告人的报告记录

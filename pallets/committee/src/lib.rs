@@ -10,6 +10,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
+use generic_func::ItemList;
 use online_profile_machine::ManageCommittee;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -73,6 +74,15 @@ pub struct CommitteeList<AccountId: Ord> {
     pub fulfilling_list: Vec<AccountId>,
 }
 
+impl<AccountId: Ord> CommitteeList<AccountId> {
+    fn is_in_committee(&self, who: &AccountId) -> bool {
+        self.normal.binary_search(who).is_ok() ||
+            self.chill_list.binary_search(who).is_ok() ||
+            self.waiting_box_pubkey.binary_search(who).is_ok() ||
+            self.fulfilling_list.binary_search(who).is_ok()
+    }
+}
+
 /// 与委员会质押基本参数
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct CommitteeStakeParamsInfo<Balance> {
@@ -92,31 +102,6 @@ pub struct CommitteeStakeInfo<Balance> {
     pub used_stake: Balance,
     pub can_claim_reward: Balance,
     pub claimed_reward: Balance,
-}
-
-impl<AccountId: Ord> CommitteeList<AccountId> {
-    fn is_in_committee(&self, who: &AccountId) -> bool {
-        if self.normal.binary_search(who).is_ok() ||
-            self.chill_list.binary_search(who).is_ok() ||
-            self.waiting_box_pubkey.binary_search(who).is_ok() ||
-            self.fulfilling_list.binary_search(who).is_ok()
-        {
-            return true
-        }
-        false
-    }
-
-    fn add_one(a_field: &mut Vec<AccountId>, who: AccountId) {
-        if let Err(index) = a_field.binary_search(&who) {
-            a_field.insert(index, who);
-        }
-    }
-
-    fn rm_one(a_field: &mut Vec<AccountId>, who: &AccountId) {
-        if let Ok(index) = a_field.binary_search(who) {
-            a_field.remove(index);
-        }
-    }
 }
 
 pub use pallet::*;
@@ -200,7 +185,7 @@ pub mod pallet {
             // 确保用户还未加入到本模块
             ensure!(!committee.is_in_committee(&member), Error::<T>::AccountAlreadyExist);
             // 将用户添加到waiting_box_pubkey列表中
-            CommitteeList::add_one(&mut committee.waiting_box_pubkey, member.clone());
+            ItemList::add_item(&mut committee.waiting_box_pubkey, member.clone());
 
             Committee::<T>::put(committee);
             Self::deposit_event(Event::CommitteeAdded(member));
@@ -235,8 +220,8 @@ pub mod pallet {
             committee_stake.box_pubkey = box_pubkey;
             committee_stake.staked_amount = committee_stake_params.stake_baseline;
 
-            CommitteeList::rm_one(&mut committee_list.waiting_box_pubkey, &committee);
-            CommitteeList::add_one(&mut committee_list.normal, committee.clone());
+            ItemList::rm_item(&mut committee_list.waiting_box_pubkey, &committee);
+            ItemList::add_item(&mut committee_list.normal, committee.clone());
 
             Committee::<T>::put(committee_list);
             CommitteeStake::<T>::insert(&committee, committee_stake);
@@ -273,16 +258,13 @@ pub mod pallet {
             <T as pallet::Config>::Currency::reserve(&committee, committee_stake_params.stake_baseline)
                 .map_err(|_| Error::<T>::GetStakeParamsFailed)?;
 
-            if let Ok(index) = committee_list.fulfilling_list.binary_search(&committee) {
-                committee_list.fulfilling_list.remove(index);
-                if let Err(index) = committee_list.normal.binary_search(&committee) {
-                    committee_list.normal.insert(index, committee.clone());
-                    Committee::<T>::put(committee_list);
-                }
+            if committee_list.fulfilling_list.binary_search(&committee).is_ok() {
+                ItemList::rm_item(&mut committee_list.fulfilling_list, &committee);
+                ItemList::add_item(&mut committee_list.fulfilling_list, committee.clone());
+                Committee::<T>::put(committee_list);
             }
 
             CommitteeStake::<T>::insert(&committee, committee_stake);
-
             Self::deposit_event(Event::StakeAdded(committee, amount));
             Ok(().into())
         }
@@ -356,9 +338,9 @@ pub mod pallet {
             ensure!(committee_list.waiting_box_pubkey.binary_search(&committee).is_err(), Error::<T>::PubkeyNotSet);
 
             // Allow normal & fulfilling committee to chill
-            CommitteeList::rm_one(&mut committee_list.normal, &committee);
-            CommitteeList::rm_one(&mut committee_list.fulfilling_list, &committee);
-            CommitteeList::add_one(&mut committee_list.chill_list, committee.clone());
+            ItemList::rm_item(&mut committee_list.normal, &committee);
+            ItemList::rm_item(&mut committee_list.fulfilling_list, &committee);
+            ItemList::add_item(&mut committee_list.chill_list, committee.clone());
 
             Committee::<T>::put(committee_list);
             Self::deposit_event(Event::Chill(committee));
@@ -373,8 +355,8 @@ pub mod pallet {
 
             ensure!(committee_list.chill_list.binary_search(&committee).is_ok(), Error::<T>::NotInChillList);
 
-            CommitteeList::rm_one(&mut committee_list.chill_list, &committee);
-            CommitteeList::add_one(&mut committee_list.normal, committee.clone());
+            ItemList::rm_item(&mut committee_list.chill_list, &committee);
+            ItemList::add_item(&mut committee_list.normal, committee.clone());
 
             let _ = Self::change_committee_status_when_stake_changed(
                 committee.clone(),
@@ -397,7 +379,7 @@ pub mod pallet {
             ensure!(committee_stake.used_stake == Zero::zero(), Error::<T>::JobNotDone);
             ensure!(committee_list.chill_list.binary_search(&committee).is_ok(), Error::<T>::StatusNotFeat);
 
-            CommitteeList::rm_one(&mut committee_list.chill_list, &committee);
+            ItemList::rm_item(&mut committee_list.chill_list, &committee);
             let _ = <T as pallet::Config>::Currency::unreserve(&committee, committee_stake.staked_amount);
 
             committee_stake.staked_amount = Zero::zero();
@@ -581,26 +563,19 @@ impl<T: Config> Pallet<T> {
         let committee_stake_params = Self::committee_stake_params().unwrap_or_default();
         let is_free_stake_enough = committee_stake.staked_amount - committee_stake.used_stake >=
             committee_stake_params.min_free_stake_percent * committee_stake.staked_amount;
+        let mut is_committee_list_changed = false;
 
-        if is_free_stake_enough {
-            if let Ok(index) = committee_list.fulfilling_list.binary_search(&committee) {
-                committee_list.fulfilling_list.remove(index);
-                if let Err(index) = committee_list.normal.binary_search(&committee) {
-                    committee_list.normal.insert(index, committee);
-                    return true
-                }
-            }
-        } else {
-            if let Ok(index) = committee_list.normal.binary_search(&committee) {
-                committee_list.normal.remove(index);
-                if let Err(index) = committee_list.fulfilling_list.binary_search(&committee) {
-                    committee_list.fulfilling_list.insert(index, committee);
-                    return true
-                }
-            }
+        if is_free_stake_enough && committee_list.fulfilling_list.binary_search(&committee).is_ok() {
+            ItemList::rm_item(&mut committee_list.fulfilling_list, &committee);
+            ItemList::add_item(&mut committee_list.normal, committee);
+            is_committee_list_changed = true;
+        } else if committee_list.normal.binary_search(&committee).is_ok() {
+            ItemList::rm_item(&mut committee_list.normal, &committee);
+            ItemList::add_item(&mut committee_list.fulfilling_list, committee);
+            is_committee_list_changed = true;
         }
 
-        false
+        is_committee_list_changed
     }
 }
 

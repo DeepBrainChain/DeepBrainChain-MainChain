@@ -11,6 +11,7 @@ use frame_support::{
     IterableStorageDoubleMap, IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
+use generic_func::ItemList;
 use online_profile_machine::{DbcPrice, MTOps, ManageCommittee, OCOps, OPRPCQuery, RTOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -220,27 +221,6 @@ impl LiveMachine {
             self.rented_machine.binary_search(machine_id).is_ok() ||
             self.offline_machine.binary_search(machine_id).is_ok() ||
             self.refused_mut_hardware_machine.binary_search(machine_id).is_ok()
-    }
-}
-
-pub struct ItemList;
-impl ItemList {
-    fn add_item<T>(a_field: &mut Vec<T>, a_item: T)
-    where
-        T: Ord,
-    {
-        if let Err(index) = a_field.binary_search(&a_item) {
-            a_field.insert(index, a_item);
-        }
-    }
-
-    fn rm_item<T>(a_field: &mut Vec<T>, a_item: &T)
-    where
-        T: Ord,
-    {
-        if let Ok(index) = a_field.binary_search(a_item) {
-            a_field.remove(index);
-        }
     }
 }
 

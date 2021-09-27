@@ -7,6 +7,7 @@ use frame_support::{
     traits::{Currency, LockableCurrency},
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
+use generic_func::ItemList;
 use online_profile::CommitteeUploadInfo;
 use online_profile_machine::{ManageCommittee, OCOps};
 #[cfg(feature = "std")]
@@ -51,14 +52,6 @@ pub struct OCCommitteeMachineList {
     pub confirmed_machine: Vec<MachineId>,
     /// machines, online successfully
     pub online_machine: Vec<MachineId>,
-}
-
-impl OCCommitteeMachineList {
-    fn rm_one(a_field: &mut Vec<MachineId>, machine_id: &MachineId) {
-        if let Ok(index) = a_field.binary_search(machine_id) {
-            a_field.remove(index);
-        }
-    }
 }
 
 /// Machines' verifying committee
@@ -244,27 +237,18 @@ pub mod pallet {
             );
 
             // 记录该机器出现过的Hash
-            if let Err(index) = machine_submited_hash.binary_search(&hash) {
-                machine_submited_hash.insert(index, hash.clone());
-            } else {
-                return Err(Error::<T>::DuplicateHash.into())
-            }
+            ensure!(machine_submited_hash.binary_search(&hash).is_err(), Error::<T>::DuplicateHash);
+            ItemList::add_item(&mut machine_submited_hash, hash.clone());
 
             let mut committee_ops = Self::committee_ops(&committee, &machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
 
             // 在机器信息中，记录上委员
-            if let Err(index) = machine_committee.hashed_committee.binary_search(&committee) {
-                machine_committee.hashed_committee.insert(index, committee.clone());
-            }
+            ItemList::add_item(&mut machine_committee.hashed_committee, committee.clone());
             // 从委员的任务中，删除该机器的任务
-            if let Ok(index) = committee_machine.booked_machine.binary_search(&machine_id) {
-                committee_machine.booked_machine.remove(index);
-            }
+            ItemList::rm_item(&mut committee_machine.booked_machine, &machine_id);
             // 委员会hashedmachine添加上该机器
-            if let Err(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
-                committee_machine.hashed_machine.insert(index, machine_id.clone());
-            }
+            ItemList::add_item(&mut committee_machine.hashed_machine, machine_id.clone());
 
             // 添加用户对机器的操作记录
             committee_ops.machine_status = OCMachineStatus::Hashed;
@@ -323,16 +307,9 @@ pub mod pallet {
             ensure!(info_hash == machine_ops.confirm_hash, Error::<T>::InfoNotFeatHash);
 
             // 修改存储
-            if let Ok(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
-                committee_machine.hashed_machine.remove(index);
-            }
-            if let Err(index) = committee_machine.confirmed_machine.binary_search(&machine_id) {
-                committee_machine.confirmed_machine.insert(index, machine_id.clone());
-            }
-
-            if let Err(index) = machine_committee.confirmed_committee.binary_search(&committee) {
-                machine_committee.confirmed_committee.insert(index, committee.clone());
-            }
+            ItemList::rm_item(&mut committee_machine.hashed_machine, &machine_id);
+            ItemList::add_item(&mut committee_machine.confirmed_machine, machine_id.clone());
+            ItemList::add_item(&mut machine_committee.confirmed_committee, committee.clone());
 
             // machine_ops.confirm_raw = confirm_raw.clone();
             machine_ops.confirm_time = now;
@@ -422,16 +399,12 @@ impl<T: Config> Pallet<T> {
         let mut machine_committee = Self::machine_committee(&machine_id);
         machine_committee.book_time = now;
 
-        if let Err(index) = machine_committee.booked_committee.binary_search(&work_time.0) {
-            machine_committee.booked_committee.insert(index, work_time.0.clone());
-        }
+        ItemList::add_item(&mut machine_committee.booked_committee, work_time.0.clone());
         machine_committee.confirm_start_time = confirm_start;
 
         // 修改委员会对应的machine
         let mut committee_machine = Self::committee_machine(&work_time.0);
-        if let Err(index) = committee_machine.booked_machine.binary_search(&machine_id) {
-            committee_machine.booked_machine.insert(index, machine_id.clone());
-        }
+        ItemList::add_item(&mut committee_machine.booked_machine, machine_id.clone());
 
         // 修改委员会的操作
         let mut committee_ops = OCCommitteeOps { ..Default::default() };
@@ -507,9 +480,7 @@ impl<T: Config> Pallet<T> {
                         for a_committee in valid_support {
                             // 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
                             let mut committee_machine = Self::committee_machine(&a_committee);
-                            if let Err(index) = committee_machine.online_machine.binary_search(&machine_id) {
-                                committee_machine.online_machine.insert(index, machine_id.clone());
-                            }
+                            ItemList::add_item(&mut committee_machine.online_machine, machine_id.clone());
                             CommitteeMachine::<T>::insert(&a_committee, committee_machine);
                         }
 
@@ -567,9 +538,9 @@ impl<T: Config> Pallet<T> {
 
                 // 改变committee_machine
                 let mut committee_machine = Self::committee_machine(&a_committee);
-                OCCommitteeMachineList::rm_one(&mut committee_machine.booked_machine, &machine_id);
-                OCCommitteeMachineList::rm_one(&mut committee_machine.hashed_machine, &machine_id);
-                OCCommitteeMachineList::rm_one(&mut committee_machine.confirmed_machine, &machine_id);
+                ItemList::rm_item(&mut committee_machine.booked_machine, &machine_id);
+                ItemList::rm_item(&mut committee_machine.hashed_machine, &machine_id);
+                ItemList::rm_item(&mut committee_machine.confirmed_machine, &machine_id);
 
                 CommitteeMachine::<T>::insert(&a_committee, committee_machine);
             }
@@ -587,15 +558,9 @@ impl<T: Config> Pallet<T> {
             CommitteeOps::<T>::remove(&booked_committee, &machine_id);
 
             let mut committee_machine = Self::committee_machine(&booked_committee);
-            if let Ok(index) = committee_machine.booked_machine.binary_search(&machine_id) {
-                committee_machine.booked_machine.remove(index);
-            }
-            if let Ok(index) = committee_machine.hashed_machine.binary_search(&machine_id) {
-                committee_machine.hashed_machine.remove(index);
-            }
-            if let Ok(index) = committee_machine.confirmed_machine.binary_search(&machine_id) {
-                committee_machine.confirmed_machine.remove(index);
-            }
+            ItemList::rm_item(&mut committee_machine.booked_machine, &machine_id);
+            ItemList::rm_item(&mut committee_machine.hashed_machine, &machine_id);
+            ItemList::rm_item(&mut committee_machine.confirmed_machine, &machine_id);
             CommitteeMachine::<T>::insert(booked_committee, committee_machine);
         }
 
