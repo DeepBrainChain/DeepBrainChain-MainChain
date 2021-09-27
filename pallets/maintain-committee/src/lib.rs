@@ -509,15 +509,13 @@ pub mod pallet {
             );
 
             // 记录预订订单的委员会
-            if let Err(index) = report_info.booked_committee.binary_search(&committee) {
-                report_info.booked_committee.insert(index, committee.clone());
-                // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
-                if report_info.booked_committee.len() == 1 {
-                    report_info.first_book_time = now;
-                    report_info.confirm_start = now + THREE_HOUR.into();
-                }
-            } else {
-                return Err(Error::<T>::AlreadyBooked.into())
+            ensure!(report_info.booked_committee.binary_search(&committee).is_err(), Error::<T>::AlreadyBooked);
+
+            ItemList::add_item(&mut report_info.booked_committee, committee.clone());
+            // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
+            if report_info.booked_committee.len() == 1 {
+                report_info.first_book_time = now;
+                report_info.confirm_start = now + THREE_HOUR.into();
             }
 
             // 添加委员会对于机器的操作记录
@@ -533,12 +531,9 @@ pub mod pallet {
                     ops_detail.order_status = MTOrderStatus::Verifying;
                     // WaitingBook状态允许其他委员会继续抢单
                     report_info.report_status = if report_info.booked_committee.len() == 3 {
-                        if let Ok(index) = live_report.bookable_report.binary_search(&report_id) {
-                            live_report.bookable_report.remove(index);
-                            if let Err(index) = live_report.verifying_report.binary_search(&report_id) {
-                                live_report.verifying_report.insert(index, report_id);
-                            }
-                        }
+                        ItemList::rm_item(&mut live_report.bookable_report, &report_id);
+                        ItemList::add_item(&mut live_report.verifying_report, report_id);
+
                         is_live_report_changed = true;
                         ReportStatus::Verifying
                     } else {
@@ -731,9 +726,7 @@ pub mod pallet {
             ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
 
             // 添加到Report的已提交Raw的列表
-            if let Err(index) = report_info.confirmed_committee.binary_search(&committee) {
-                report_info.confirmed_committee.insert(index, committee.clone());
-            }
+            ItemList::add_item(&mut report_info.confirmed_committee, committee.clone());
 
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
 
@@ -759,13 +752,9 @@ pub mod pallet {
 
             // 将委员会插入到是否支持的委员会列表
             if support_report {
-                if let Err(index) = report_info.support_committee.binary_search(&committee) {
-                    report_info.support_committee.insert(index, committee.clone())
-                }
+                ItemList::add_item(&mut report_info.support_committee, committee.clone());
             } else {
-                if let Err(index) = report_info.support_committee.binary_search(&committee) {
-                    report_info.against_committee.insert(index, committee.clone())
-                }
+                ItemList::add_item(&mut report_info.against_committee, committee.clone());
             }
 
             report_info.machine_id = machine_id;
@@ -804,9 +793,7 @@ pub mod pallet {
             ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
 
             // 添加到Report的已提交Raw的列表
-            if let Err(index) = report_info.confirmed_committee.binary_search(&committee) {
-                report_info.confirmed_committee.insert(index, committee.clone());
-            }
+            ItemList::add_item(&mut report_info.confirmed_committee, committee.clone());
 
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
             // 计算Hash
@@ -820,13 +807,9 @@ pub mod pallet {
 
             // 将委员会插入到是否支持的委员会列表
             if is_support {
-                if let Err(index) = report_info.support_committee.binary_search(&committee) {
-                    report_info.support_committee.insert(index, committee.clone())
-                }
+                ItemList::add_item(&mut report_info.support_committee, committee.clone());
             } else {
-                if let Err(index) = report_info.support_committee.binary_search(&committee) {
-                    report_info.against_committee.insert(index, committee.clone())
-                }
+                ItemList::add_item(&mut report_info.against_committee, committee.clone());
             }
 
             committee_ops.confirm_time = now;
@@ -1193,13 +1176,9 @@ impl<T: Config> Pallet<T> {
                         MTReporterSlashReason::NotSubmitEncryptedInfo,
                     );
 
-                    if let Ok(index) = reporter_report.processing_report.binary_search(&report_id) {
-                        reporter_report.processing_report.remove(index);
-                        if let Err(index) = reporter_report.failed_report.binary_search(&report_id) {
-                            reporter_report.failed_report.insert(index, report_id);
-                            ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
-                        }
-                    }
+                    ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
+                    ItemList::add_item(&mut reporter_report.failed_report, report_id);
+                    ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
 
                     // 清理存储: CommitteeOps, LiveReport, CommitteeOrder, ReporterRecord
                     for a_committee in report_info.booked_committee {

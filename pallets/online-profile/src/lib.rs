@@ -211,7 +211,7 @@ pub struct LiveMachine {
 impl LiveMachine {
     /// Check if machine_id exist
     fn machine_id_exist(&self, machine_id: &MachineId) -> bool {
-        if self.bonding_machine.binary_search(machine_id).is_ok() ||
+        self.bonding_machine.binary_search(machine_id).is_ok() ||
             self.confirmed_machine.binary_search(machine_id).is_ok() ||
             self.booked_machine.binary_search(machine_id).is_ok() ||
             self.online_machine.binary_search(machine_id).is_ok() ||
@@ -220,22 +220,25 @@ impl LiveMachine {
             self.rented_machine.binary_search(machine_id).is_ok() ||
             self.offline_machine.binary_search(machine_id).is_ok() ||
             self.refused_mut_hardware_machine.binary_search(machine_id).is_ok()
-        {
-            return true
+    }
+}
+
+pub struct ItemList;
+impl ItemList {
+    fn add_item<T>(a_field: &mut Vec<T>, a_item: T)
+    where
+        T: Ord,
+    {
+        if let Err(index) = a_field.binary_search(&a_item) {
+            a_field.insert(index, a_item);
         }
-        false
     }
 
-    /// Add machine_id to one field of LiveMachine
-    fn add_machine_id(a_field: &mut Vec<MachineId>, machine_id: MachineId) {
-        if let Err(index) = a_field.binary_search(&machine_id) {
-            a_field.insert(index, machine_id);
-        }
-    }
-
-    /// Delete machine_id from one field of LiveMachine
-    fn rm_machine_id(a_field: &mut Vec<MachineId>, machine_id: &MachineId) {
-        if let Ok(index) = a_field.binary_search(machine_id) {
+    fn rm_item<T>(a_field: &mut Vec<T>, a_item: &T)
+    where
+        T: Ord,
+    {
+        if let Ok(index) = a_field.binary_search(a_item) {
             a_field.remove(index);
         }
     }
@@ -621,16 +624,11 @@ pub mod pallet {
             machine_info.controller = new_controller.clone();
 
             // Change controller_machines
-            if let Ok(index) = old_controller_machines.binary_search(&machine_id) {
-                old_controller_machines.remove(index);
+            ItemList::rm_item(&mut old_controller_machines, &machine_id);
+            ItemList::add_item(&mut new_controller_machines, machine_id.clone());
 
-                if let Err(index) = new_controller_machines.binary_search(&machine_id) {
-                    new_controller_machines.insert(index, machine_id.clone());
-                    ControllerMachines::<T>::insert(&old_controller, old_controller_machines);
-                    ControllerMachines::<T>::insert(&new_controller, new_controller_machines);
-                }
-            }
-
+            ControllerMachines::<T>::insert(&old_controller, old_controller_machines);
+            ControllerMachines::<T>::insert(&new_controller, new_controller_machines);
             MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
             Self::deposit_event(Event::MachineControllerChanged(machine_id, old_controller, new_controller));
             Ok(().into())
@@ -662,8 +660,8 @@ pub mod pallet {
 
             machine_info.machine_status = MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
-            LiveMachine::rm_machine_id(&mut live_machines.online_machine, &machine_id);
-            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
+            ItemList::rm_item(&mut live_machines.online_machine, &machine_id);
+            ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
 
             Self::change_user_total_stake(machine_info.machine_stash.clone(), stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
@@ -716,15 +714,11 @@ pub mod pallet {
             // 扣除10个Dbc作为交易手续费
             <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
-            if let Err(index) = stash_machines.total_machine.binary_search(&machine_id) {
-                stash_machines.total_machine.insert(index, machine_id.clone());
-            }
-            if let Err(index) = controller_machines.binary_search(&machine_id) {
-                controller_machines.insert(index, machine_id.clone());
-            }
+            ItemList::add_item(&mut stash_machines.total_machine, machine_id.clone());
+            ItemList::add_item(&mut controller_machines, machine_id.clone());
 
             // 添加到LiveMachine的bonding_machine字段
-            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
+            ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
 
             // 初始化MachineInfo, 并添加到MachinesInfo
             let machine_info = MachineInfo {
@@ -759,9 +753,7 @@ pub mod pallet {
 
             let mut stash_server_rooms = Self::stash_server_rooms(&stash);
             let new_server_room = <generic_func::Module<T>>::random_server_room();
-            if let Err(index) = stash_server_rooms.binary_search(&new_server_room) {
-                stash_server_rooms.insert(index, new_server_room);
-            }
+            ItemList::add_item(&mut stash_server_rooms, new_server_room);
 
             StashServerRooms::<T>::insert(&stash, stash_server_rooms);
             Self::deposit_event(Event::ServerRoomGenerated(controller.clone(), new_server_room));
@@ -800,15 +792,14 @@ pub mod pallet {
             }
 
             let mut live_machines = Self::live_machines();
-            if let Ok(index) = live_machines.bonding_machine.binary_search(&machine_id) {
-                live_machines.bonding_machine.remove(index);
-                if let Err(index) = live_machines.confirmed_machine.binary_search(&machine_id) {
-                    live_machines.confirmed_machine.insert(index, machine_id.clone());
-                }
-                LiveMachines::<T>::put(live_machines);
 
+            if live_machines.bonding_machine.binary_search(&machine_id).is_ok() {
+                ItemList::rm_item(&mut live_machines.bonding_machine, &machine_id);
+                ItemList::add_item(&mut live_machines.confirmed_machine, machine_id.clone());
+                LiveMachines::<T>::put(live_machines);
                 machine_info.machine_status = MachineStatus::DistributingOrder;
             }
+
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Self::deposit_event(Event::MachineInfoAdded(machine_id));
@@ -876,8 +867,8 @@ pub mod pallet {
             Self::change_pos_gpu_by_online(&machine_id, true);
             Self::update_snap_by_online_status(machine_id.clone(), true);
 
-            LiveMachine::rm_machine_id(&mut live_machine.fulfilling_machine, &machine_id);
-            LiveMachine::add_machine_id(&mut live_machine.online_machine, machine_id.clone());
+            ItemList::rm_item(&mut live_machine.fulfilling_machine, &machine_id);
+            ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
 
             LiveMachines::<T>::put(live_machine);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -971,9 +962,8 @@ pub mod pallet {
                                 stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
                             sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
-                            if let Err(index) = stash_machine.online_machine.binary_search(&machine_id) {
-                                stash_machine.online_machine.insert(index, machine_id.clone());
-                            }
+                            ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
+
                             stash_machine.total_gpu_num += gpu_num;
                         },
                         _ => {},
@@ -1025,13 +1015,13 @@ pub mod pallet {
 
             machine_info.last_online_height = now;
 
-            LiveMachine::rm_machine_id(&mut live_machine.offline_machine, &machine_id);
+            ItemList::rm_item(&mut live_machine.offline_machine, &machine_id);
             match machine_info.machine_status {
                 MachineStatus::WaitingFulfill => {
-                    LiveMachine::add_machine_id(&mut live_machine.fulfilling_machine, machine_id.clone());
+                    ItemList::add_item(&mut live_machine.fulfilling_machine, machine_id.clone());
                 },
                 _ => {
-                    LiveMachine::add_machine_id(&mut live_machine.online_machine, machine_id.clone());
+                    ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
                 },
             }
 
@@ -1602,8 +1592,8 @@ impl<T: Config> Pallet<T> {
         Self::change_pos_gpu_by_online(&machine_id, false);
         Self::update_snap_by_online_status(machine_id.clone(), false);
 
-        LiveMachine::rm_machine_id(&mut live_machine.online_machine, &machine_id);
-        LiveMachine::add_machine_id(&mut live_machine.offline_machine, machine_id.clone());
+        ItemList::rm_item(&mut live_machine.online_machine, &machine_id);
+        ItemList::add_item(&mut live_machine.offline_machine, machine_id.clone());
 
         // After re-online, machine status is same as former
         machine_info.machine_status = machine_status;
@@ -1638,13 +1628,9 @@ impl<T: Config> Pallet<T> {
         let mut server_room_machines = Self::server_room_machines(server_room).unwrap_or_default();
 
         if is_online {
-            if let Err(index) = server_room_machines.binary_search(machine_id) {
-                server_room_machines.insert(index, machine_id.to_vec());
-            }
+            ItemList::add_item(&mut server_room_machines, machine_id.to_vec());
         } else {
-            if let Ok(index) = server_room_machines.binary_search(machine_id) {
-                server_room_machines.remove(index);
-            }
+            ItemList::rm_item(&mut server_room_machines, machine_id);
         }
 
         ServerRoomMachines::<T>::insert(server_room, server_room_machines);
@@ -1894,9 +1880,7 @@ impl<T: Config> Pallet<T> {
                 },
             );
 
-            if let Err(index) = stash_machine.online_machine.binary_search(&machine_id) {
-                stash_machine.online_machine.insert(index, machine_id.clone());
-            }
+            ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
             stash_machine.total_gpu_num += machine_base_info.gpu_num as u64;
             sys_info.total_gpu_num += machine_base_info.gpu_num as u64;
         } else {
@@ -1911,10 +1895,7 @@ impl<T: Config> Pallet<T> {
             current_era_machine_snapshot.remove(&machine_id);
             next_era_machine_snapshot.remove(&machine_id);
 
-            if let Ok(index) = stash_machine.online_machine.binary_search(&machine_id) {
-                stash_machine.online_machine.remove(index);
-            }
-
+            ItemList::rm_item(&mut stash_machine.online_machine, &machine_id);
             stash_machine.total_gpu_num -= machine_base_info.gpu_num as u64;
             sys_info.total_gpu_num -= machine_base_info.gpu_num as u64;
         }
@@ -2163,8 +2144,8 @@ impl<T: Config> OCOps for Pallet<T> {
     fn oc_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
-        LiveMachine::rm_machine_id(&mut live_machines.confirmed_machine, &id);
-        LiveMachine::add_machine_id(&mut live_machines.booked_machine, id.clone());
+        ItemList::rm_item(&mut live_machines.confirmed_machine, &id);
+        ItemList::add_item(&mut live_machines.booked_machine, id.clone());
 
         let mut machine_info = Self::machines_info(&id);
         machine_info.machine_status = MachineStatus::CommitteeVerifying;
@@ -2177,8 +2158,8 @@ impl<T: Config> OCOps for Pallet<T> {
     fn oc_revert_booked_machine(id: MachineId) {
         let mut live_machines = Self::live_machines();
 
-        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &id);
-        LiveMachine::add_machine_id(&mut live_machines.confirmed_machine, id.clone());
+        ItemList::rm_item(&mut live_machines.booked_machine, &id);
+        ItemList::add_item(&mut live_machines.confirmed_machine, id.clone());
 
         let mut machine_info = Self::machines_info(&id);
         machine_info.machine_status = MachineStatus::DistributingOrder;
@@ -2202,7 +2183,7 @@ impl<T: Config> OCOps for Pallet<T> {
         let is_reonline =
             UserReonlineStake::<T>::contains_key(&machine_info.machine_stash, &committee_upload_info.machine_id);
 
-        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &committee_upload_info.machine_id);
+        ItemList::rm_item(&mut live_machines.booked_machine, &committee_upload_info.machine_id);
 
         machine_info.machine_info_detail.committee_upload_info = committee_upload_info.clone();
 
@@ -2217,10 +2198,7 @@ impl<T: Config> OCOps for Pallet<T> {
             .ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
             if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true).is_ok() {
-                LiveMachine::add_machine_id(
-                    &mut live_machines.online_machine,
-                    committee_upload_info.machine_id.clone(),
-                );
+                ItemList::add_item(&mut live_machines.online_machine, committee_upload_info.machine_id.clone());
                 machine_info.stake_amount = stake_need;
                 machine_info.machine_status = MachineStatus::Online;
                 machine_info.last_online_height = now;
@@ -2231,14 +2209,11 @@ impl<T: Config> OCOps for Pallet<T> {
                     machine_info.reward_deadline = current_era + REWARD_DURATION;
                 }
             } else {
-                LiveMachine::add_machine_id(
-                    &mut live_machines.fulfilling_machine,
-                    committee_upload_info.machine_id.clone(),
-                );
+                ItemList::add_item(&mut live_machines.fulfilling_machine, committee_upload_info.machine_id.clone());
                 machine_info.machine_status = MachineStatus::WaitingFulfill;
             }
         } else {
-            LiveMachine::add_machine_id(&mut live_machines.online_machine, committee_upload_info.machine_id.clone());
+            ItemList::add_item(&mut live_machines.online_machine, committee_upload_info.machine_id.clone());
             machine_info.machine_status = MachineStatus::Online;
             if !is_reonline {
                 machine_info.reward_deadline = current_era + REWARD_DURATION;
@@ -2312,8 +2287,8 @@ impl<T: Config> OCOps for Pallet<T> {
             };
             PendingSlash::<T>::insert(slash_id, slash_info);
 
-            LiveMachine::rm_machine_id(&mut live_machines.refused_mut_hardware_machine, &machine_id);
-            LiveMachine::add_machine_id(&mut live_machines.bonding_machine, machine_id.clone());
+            ItemList::rm_item(&mut live_machines.refused_mut_hardware_machine, &machine_id);
+            ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
 
             LiveMachines::<T>::put(live_machines);
             return Ok(())
@@ -2348,16 +2323,12 @@ impl<T: Config> OCOps for Pallet<T> {
         };
 
         // Clean storage
-        if let Ok(index) = controller_machines.binary_search(&machine_id) {
-            controller_machines.remove(index);
-        }
-        if let Ok(index) = stash_machines.total_machine.binary_search(&machine_id) {
-            stash_machines.total_machine.remove(index);
-        }
+        ItemList::rm_item(&mut controller_machines, &machine_id);
+        ItemList::rm_item(&mut stash_machines.total_machine, &machine_id);
 
         let mut live_machines = Self::live_machines();
-        LiveMachine::rm_machine_id(&mut live_machines.booked_machine, &machine_id);
-        LiveMachine::add_machine_id(&mut live_machines.refused_machine, machine_id.clone());
+        ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
+        ItemList::add_item(&mut live_machines.refused_machine, machine_id.clone());
 
         StashStake::<T>::insert(&machine_info.machine_stash, stash_stake);
         LiveMachines::<T>::put(live_machines);
@@ -2395,13 +2366,9 @@ impl<T: Config> RTOps for Pallet<T> {
                 // 机器创建成功
                 Self::update_snap_by_rent_status(machine_id.to_vec(), true);
 
-                if let Ok(index) = live_machines.online_machine.binary_search(&machine_id) {
-                    live_machines.online_machine.remove(index);
-                    if let Err(index) = live_machines.rented_machine.binary_search(&machine_id) {
-                        live_machines.rented_machine.insert(index, machine_id.clone());
-                        LiveMachines::<T>::put(live_machines);
-                    }
-                }
+                ItemList::rm_item(&mut live_machines.online_machine, &machine_id);
+                ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
+                LiveMachines::<T>::put(live_machines);
 
                 Self::change_pos_gpu_by_rent(machine_id, true);
             },
@@ -2412,13 +2379,9 @@ impl<T: Config> RTOps for Pallet<T> {
                     // 租用结束
                     Self::update_snap_by_rent_status(machine_id.to_vec(), false);
 
-                    if let Ok(index) = live_machines.rented_machine.binary_search(&machine_id) {
-                        live_machines.rented_machine.remove(index);
-                        if let Err(index) = live_machines.online_machine.binary_search(&machine_id) {
-                            live_machines.online_machine.insert(index, machine_id.clone());
-                            LiveMachines::<T>::put(live_machines);
-                        }
-                    }
+                    ItemList::rm_item(&mut live_machines.rented_machine, &machine_id);
+                    ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
+                    LiveMachines::<T>::put(live_machines);
 
                     Self::change_pos_gpu_by_rent(machine_id, false);
                 }
