@@ -212,14 +212,10 @@ pub mod pallet {
 
             // 不能超过30分钟
             let machine_start_duration = now.checked_sub(&order_info.rent_start).ok_or(Error::<T>::Overflow)?;
-            if machine_start_duration.saturated_into::<u64>() > CONFIRMING_DELAY {
-                return Err(Error::<T>::ExpiredConfirm.into())
-            }
+            ensure!(machine_start_duration.saturated_into::<u64>() <= CONFIRMING_DELAY, Error::<T>::ExpiredConfirm);
 
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-            if machine_info.machine_status != MachineStatus::Creating {
-                return Err(Error::<T>::StatusNotAllowed.into())
-            }
+            ensure!(machine_info.machine_status == MachineStatus::Creating, Error::<T>::StatusNotAllowed);
 
             // 质押转到特定账户
             Self::reduce_total_stake(&renter, order_info.stake_amount).map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;

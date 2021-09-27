@@ -55,17 +55,22 @@ pub struct MTLiveReportList {
     pub finished_report: Vec<ReportId>,
 }
 
-impl MTLiveReportList {
-    /// Add machine_id to one field of LiveMachine
-    fn add_report_id(a_field: &mut Vec<ReportId>, report_id: ReportId) {
-        if let Err(index) = a_field.binary_search(&report_id) {
-            a_field.insert(index, report_id);
+pub struct ItemList;
+impl ItemList {
+    fn add_item<T>(a_field: &mut Vec<T>, a_item: T)
+    where
+        T: Ord,
+    {
+        if let Err(index) = a_field.binary_search(&a_item) {
+            a_field.insert(index, a_item);
         }
     }
 
-    /// Delete machine_id from one field of LiveMachine
-    fn rm_report_id(a_field: &mut Vec<ReportId>, report_id: ReportId) {
-        if let Ok(index) = a_field.binary_search(&report_id) {
+    fn rm_item<T>(a_field: &mut Vec<T>, a_item: T)
+    where
+        T: Ord,
+    {
+        if let Ok(index) = a_field.binary_search(&a_item) {
             a_field.remove(index);
         }
     }
@@ -408,6 +413,8 @@ pub mod pallet {
             let reporter = ensure_signed(origin)?;
             let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
             let mut reporter_stake = Self::reporter_stake(&reporter);
+
+            ensure!(<T as Config>::Currency::can_reserve(&reporter, amount), Error::<T>::BalanceNotEnough);
             reporter_stake.staked_amount += amount;
 
             ensure!(
@@ -415,7 +422,6 @@ pub mod pallet {
                     stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                 Error::<T>::StakeNotEnough
             );
-            ensure!(<T as Config>::Currency::can_reserve(&reporter, amount), Error::<T>::BalanceNotEnough);
 
             <T as pallet::Config>::Currency::reserve(&reporter, amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
             ReporterStake::<T>::insert(&reporter, reporter_stake);
@@ -427,8 +433,8 @@ pub mod pallet {
         pub fn reporter_reduce_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
-
             let mut reporter_stake = Self::reporter_stake(&reporter);
+
             ensure!(reporter_stake.staked_amount >= amount, Error::<T>::BalanceNotEnough);
             reporter_stake.staked_amount -= amount;
 
@@ -455,17 +461,11 @@ pub mod pallet {
 
             // 清理存储
             let mut live_report = Self::live_report();
-            if let Ok(index) = live_report.bookable_report.binary_search(&report_id) {
-                live_report.bookable_report.remove(index);
-            }
+            ItemList::rm_item(&mut live_report.bookable_report, report_id);
 
             let mut reporter_report = Self::reporter_report(&reporter);
-            if let Ok(index) = reporter_report.processing_report.binary_search(&report_id) {
-                reporter_report.processing_report.remove(index);
-            }
-            if let Err(index) = reporter_report.canceled_report.binary_search(&report_id) {
-                reporter_report.canceled_report.insert(index, report_id);
-            }
+            ItemList::rm_item(&mut reporter_report.processing_report, report_id);
+            ItemList::add_item(&mut reporter_report.canceled_report, report_id);
 
             let mut reporter_stake = Self::reporter_stake(&reporter);
             reporter_stake.used_stake = reporter_stake
@@ -565,12 +565,9 @@ pub mod pallet {
                     report_info.report_status = ReportStatus::Verifying;
 
                     // 从bookable_report移动到verifying_report
-                    if let Ok(index) = live_report.bookable_report.binary_search(&report_id) {
-                        live_report.bookable_report.remove(index);
-                    }
-                    if let Err(index) = live_report.verifying_report.binary_search(&report_id) {
-                        live_report.verifying_report.insert(index, report_id);
-                    }
+                    ItemList::rm_item(&mut live_report.bookable_report, report_id);
+                    ItemList::add_item(&mut live_report.verifying_report, report_id);
+
                     is_live_report_changed = true;
                 },
             }
@@ -580,9 +577,7 @@ pub mod pallet {
 
             // 添加到委员会自己的存储中
             let mut committee_order = Self::committee_order(&committee);
-            if let Err(index) = committee_order.booked_report.binary_search(&report_id) {
-                committee_order.booked_report.insert(index, report_id);
-            }
+            ItemList::add_item(&mut committee_order.booked_report, report_id);
 
             if is_live_report_changed {
                 LiveReport::<T>::put(live_report);
@@ -676,21 +671,14 @@ pub mod pallet {
             // 判断是否已经有3个了
             if report_info.hashed_committee.len() == committee_limit as usize {
                 // 满足要求的Hash已镜提交，则进入提交raw的阶段
-                if let Ok(index) = live_report.verifying_report.binary_search(&report_id) {
-                    live_report.verifying_report.remove(index);
-                }
-                if let Err(index) = live_report.waiting_raw_report.binary_search(&report_id) {
-                    live_report.waiting_raw_report.insert(index, report_id);
-                }
+                ItemList::rm_item(&mut live_report.verifying_report, report_id);
+                ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
 
                 report_info.report_status = ReportStatus::SubmittingRaw;
             } else {
-                if let Ok(index) = live_report.verifying_report.binary_search(&report_id) {
-                    live_report.verifying_report.remove(index);
-                }
-                if let Err(index) = live_report.bookable_report.binary_search(&report_id) {
-                    live_report.bookable_report.insert(index, report_id);
-                }
+                ItemList::rm_item(&mut live_report.verifying_report, report_id);
+                ItemList::add_item(&mut live_report.bookable_report, report_id);
+
                 report_info.report_status = ReportStatus::WaitingBook;
             }
 
@@ -702,12 +690,8 @@ pub mod pallet {
             committee_ops.hash_time = now;
 
             // 将订单从委员会已预订移动到已Hash
-            if let Ok(index) = committee_order.booked_report.binary_search(&report_id) {
-                committee_order.booked_report.remove(index);
-            }
-            if let Err(index) = committee_order.hashed_report.binary_search(&report_id) {
-                committee_order.hashed_report.insert(index, report_id);
-            }
+            ItemList::rm_item(&mut committee_order.booked_report, report_id);
+            ItemList::add_item(&mut committee_order.hashed_report, report_id);
 
             LiveReport::<T>::put(live_report);
             CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
@@ -943,23 +927,19 @@ impl<T: Config> Pallet<T> {
             reporter_stake.used_stake = stake_params.stake_per_report;
         } else {
             reporter_stake.used_stake += stake_params.stake_per_report;
-            if reporter_stake.staked_amount - reporter_stake.used_stake <
-                stake_params.min_free_stake_percent * reporter_stake.staked_amount
-            {
-                return Err(Error::<T>::StakeNotEnough.into())
-            }
+            ensure!(
+                reporter_stake.staked_amount - reporter_stake.used_stake >=
+                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                Error::<T>::StakeNotEnough
+            );
         }
 
         let mut live_report = Self::live_report();
-        if let Err(index) = live_report.bookable_report.binary_search(&report_id) {
-            live_report.bookable_report.insert(index, report_id);
-        }
+        ItemList::add_item(&mut live_report.bookable_report, report_id);
 
         // 记录到报告人的存储中
         let mut reporter_report = Self::reporter_report(&reporter);
-        if let Err(index) = reporter_report.processing_report.binary_search(&report_id) {
-            reporter_report.processing_report.insert(index, report_id);
-        }
+        ItemList::add_item(&mut reporter_report.processing_report, report_id);
 
         ReporterStake::<T>::insert(&reporter, reporter_stake);
         ReportInfo::<T>::insert(&report_id, report_info);
@@ -1015,23 +995,17 @@ impl<T: Config> Pallet<T> {
     }
 
     // rm from committee_order
-    fn rm_from_committee_order(committee_order: &mut MTCommitteeOrderList, report_id: &ReportId) {
-        if let Ok(index) = committee_order.booked_report.binary_search(report_id) {
-            committee_order.booked_report.remove(index);
-        }
-        if let Ok(index) = committee_order.hashed_report.binary_search(report_id) {
-            committee_order.hashed_report.remove(index);
-        }
-        if let Ok(index) = committee_order.confirmed_report.binary_search(report_id) {
-            committee_order.confirmed_report.remove(index);
-        }
+    fn rm_from_committee_order(committee_order: &mut MTCommitteeOrderList, report_id: ReportId) {
+        ItemList::rm_item(&mut committee_order.booked_report, report_id);
+        ItemList::rm_item(&mut committee_order.hashed_report, report_id);
+        ItemList::rm_item(&mut committee_order.confirmed_report, report_id);
     }
 
     // rm from live_report
     fn rm_from_live_report(live_report: &mut MTLiveReportList, report_id: ReportId) {
-        MTLiveReportList::rm_report_id(&mut live_report.bookable_report, report_id);
-        MTLiveReportList::rm_report_id(&mut live_report.verifying_report, report_id);
-        MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, report_id);
+        ItemList::rm_item(&mut live_report.bookable_report, report_id);
+        ItemList::rm_item(&mut live_report.verifying_report, report_id);
+        ItemList::rm_item(&mut live_report.waiting_raw_report, report_id);
     }
 
     // fn clean_finished_order
@@ -1108,7 +1082,7 @@ impl<T: Config> Pallet<T> {
                     }
 
                     CommitteeOps::<T>::remove(&a_committee, report_id);
-                    Self::rm_from_committee_order(&mut committee_order, &report_id);
+                    Self::rm_from_committee_order(&mut committee_order, report_id);
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
 
@@ -1127,15 +1101,13 @@ impl<T: Config> Pallet<T> {
                     ReportInfo::<T>::insert(report_id, report_info);
 
                     // 尝试删除 && 尝试添加
-                    MTLiveReportList::rm_report_id(&mut live_report.verifying_report, report_id);
-                    MTLiveReportList::add_report_id(&mut live_report.bookable_report, report_id);
+                    ItemList::rm_item(&mut live_report.verifying_report, report_id);
+                    ItemList::add_item(&mut live_report.bookable_report, report_id);
 
                     continue
                 }
 
-                if let Ok(index) = reporter_report.processing_report.binary_search(&report_id) {
-                    reporter_report.processing_report.remove(index);
-                }
+                ItemList::rm_item(&mut reporter_report.processing_report, report_id);
 
                 if report_info.support_committee >= report_info.against_committee {
                     // 此时，应该支持报告人，惩罚反对的委员会
@@ -1155,9 +1127,7 @@ impl<T: Config> Pallet<T> {
                         );
                     }
 
-                    if let Err(index) = reporter_report.succeed_report.binary_search(&report_id) {
-                        reporter_report.succeed_report.insert(index, report_id);
-                    }
+                    ItemList::add_item(&mut reporter_report.succeed_report, report_id);
                 } else {
                     // 此时，应该否决报告人，处理委员会
                     Self::add_slash(
@@ -1176,16 +1146,14 @@ impl<T: Config> Pallet<T> {
                         );
                     }
 
-                    if let Err(index) = reporter_report.failed_report.binary_search(&report_id) {
-                        reporter_report.failed_report.insert(index, report_id);
-                    }
+                    ItemList::add_item(&mut reporter_report.failed_report, report_id);
                 }
 
                 ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
 
                 // 支持或反对，该报告都变为完成状态
                 Self::rm_from_live_report(&mut live_report, report_id);
-                MTLiveReportList::add_report_id(&mut live_report.finished_report, report_id);
+                ItemList::add_item(&mut live_report.finished_report, report_id);
             }
         }
 
@@ -1204,8 +1172,8 @@ impl<T: Config> Pallet<T> {
         verifying_report.extend(live_report.bookable_report.clone());
         let submitting_raw_report = live_report.waiting_raw_report.clone();
 
-        for a_report in verifying_report {
-            let mut report_info = Self::report_info(&a_report);
+        for report_id in verifying_report {
+            let mut report_info = Self::report_info(&report_id);
             let mut reporter_report = Self::reporter_report(&report_info.reporter);
 
             // 忽略掉线的类型
@@ -1220,7 +1188,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 let verifying_committee = report_info.verifying_committee.ok_or(())?;
-                let committee_ops = Self::committee_ops(&verifying_committee, &a_report);
+                let committee_ops = Self::committee_ops(&verifying_committee, &report_id);
 
                 // 1. 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
                 if committee_ops.encrypted_err_info.is_none() && now - committee_ops.booked_time >= HALF_HOUR.into() {
@@ -1231,30 +1199,30 @@ impl<T: Config> Pallet<T> {
                         MTReporterSlashReason::NotSubmitEncryptedInfo,
                     );
 
-                    if let Ok(index) = reporter_report.processing_report.binary_search(&a_report) {
+                    if let Ok(index) = reporter_report.processing_report.binary_search(&report_id) {
                         reporter_report.processing_report.remove(index);
-                        if let Err(index) = reporter_report.failed_report.binary_search(&a_report) {
-                            reporter_report.failed_report.insert(index, a_report);
+                        if let Err(index) = reporter_report.failed_report.binary_search(&report_id) {
+                            reporter_report.failed_report.insert(index, report_id);
                             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
                         }
                     }
 
                     // 清理存储: CommitteeOps, LiveReport, CommitteeOrder, ReporterRecord
                     for a_committee in report_info.booked_committee {
-                        let committee_ops = Self::committee_ops(&a_committee, &a_report);
+                        let committee_ops = Self::committee_ops(&a_committee, &report_id);
                         let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
                             a_committee.clone(),
                             committee_ops.staked_balance,
                             false,
                         );
-                        CommitteeOps::<T>::remove(&a_committee, a_report);
+                        CommitteeOps::<T>::remove(&a_committee, report_id);
 
                         let mut committee_order = Self::committee_order(&a_committee);
-                        Self::rm_from_committee_order(&mut committee_order, &a_report);
+                        Self::rm_from_committee_order(&mut committee_order, report_id);
                         CommitteeOrder::<T>::insert(&a_committee, committee_order);
                     }
 
-                    MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
+                    ItemList::rm_item(&mut live_report.verifying_report, report_id);
                     live_report_is_changed = true;
 
                     continue
@@ -1279,8 +1247,8 @@ impl<T: Config> Pallet<T> {
                         report_info.report_status = ReportStatus::WaitingBook
                     };
 
-                    MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
-                    MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
+                    ItemList::rm_item(&mut live_report.verifying_report, report_id);
+                    ItemList::add_item(&mut live_report.bookable_report, report_id);
                     live_report_is_changed = true;
 
                     // slash committee
@@ -1292,33 +1260,31 @@ impl<T: Config> Pallet<T> {
                     );
 
                     let mut committee_order = Self::committee_order(&verifying_committee);
-                    if let Ok(index) = committee_order.booked_report.binary_search(&a_report) {
-                        committee_order.booked_report.remove(index);
-                    }
+                    ItemList::rm_item(&mut committee_order.booked_report, report_id);
 
                     CommitteeOrder::<T>::insert(&verifying_committee, committee_order);
-                    ReportInfo::<T>::insert(a_report, report_info);
-                    CommitteeOps::<T>::remove(&verifying_committee, &a_report);
+                    ReportInfo::<T>::insert(report_id, report_info);
+                    CommitteeOps::<T>::remove(&verifying_committee, &report_id);
 
                     continue
                 }
             }
             // 已经到3个小时
             else {
-                Self::rm_from_live_report(&mut live_report, a_report);
-                MTLiveReportList::add_report_id(&mut live_report.waiting_raw_report, a_report);
+                Self::rm_from_live_report(&mut live_report, report_id);
+                ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
                 live_report_is_changed = true;
 
                 if let ReportStatus::WaitingBook = report_info.report_status {
                     report_info.report_status = ReportStatus::SubmittingRaw;
 
-                    ReportInfo::<T>::insert(a_report, report_info);
+                    ReportInfo::<T>::insert(report_id, report_info);
                     continue
                 }
 
                 // 但是最后一个委员会订阅时间小于1个小时
                 let verifying_committee = report_info.verifying_committee.ok_or(())?;
-                let committee_ops = Self::committee_ops(&verifying_committee, &a_report);
+                let committee_ops = Self::committee_ops(&verifying_committee, &report_id);
 
                 if now - committee_ops.booked_time < ONE_HOUR.into() {
                     // 将最后一个委员会移除，不惩罚
@@ -1333,7 +1299,7 @@ impl<T: Config> Pallet<T> {
 
                     // 从最后一个委员会的存储中删除,并退还质押
                     let mut committee_order = Self::committee_order(&verifying_committee);
-                    Self::rm_from_committee_order(&mut committee_order, &a_report);
+                    Self::rm_from_committee_order(&mut committee_order, report_id);
                     CommitteeOrder::<T>::insert(&verifying_committee, committee_order);
 
                     let _ = T::ManageCommittee::change_used_stake(
@@ -1342,8 +1308,8 @@ impl<T: Config> Pallet<T> {
                         false,
                     );
 
-                    CommitteeOps::<T>::remove(&verifying_committee, a_report);
-                    ReportInfo::<T>::insert(a_report, report_info);
+                    CommitteeOps::<T>::remove(&verifying_committee, report_id);
+                    ReportInfo::<T>::insert(report_id, report_info);
 
                     continue
                 }
@@ -1351,8 +1317,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // 正在提交原始值的
-        for a_report in submitting_raw_report {
-            live_report_is_changed = Self::summary_waiting_raw(a_report, &mut live_report) || live_report_is_changed;
+        for report_id in submitting_raw_report {
+            live_report_is_changed = Self::summary_waiting_raw(report_id, &mut live_report) || live_report_is_changed;
         }
 
         if live_report_is_changed {
@@ -1361,9 +1327,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn summary_waiting_raw(a_report: ReportId, live_report: &mut MTLiveReportList) -> bool {
+    fn summary_waiting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) -> bool {
         let now = <frame_system::Module<T>>::block_number();
-        let mut report_info = Self::report_info(&a_report);
+        let mut report_info = Self::report_info(&report_id);
         let mut live_report_is_changed = false;
 
         // 未全部提交了原始信息且未达到了四个小时
@@ -1372,11 +1338,11 @@ impl<T: Config> Pallet<T> {
         {
             return false
         }
-        match Self::summary_report(a_report) {
+        match Self::summary_report(report_id) {
             ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
                 // Slash against_committee and release support committee stake
                 for a_committee in against_committee.clone() {
-                    let committee_ops = Self::committee_ops(&a_committee, a_report);
+                    let committee_ops = Self::committee_ops(&a_committee, report_id);
                     T::ManageCommittee::add_slash(
                         report_info.reporter.clone(),
                         committee_ops.staked_balance,
@@ -1386,25 +1352,23 @@ impl<T: Config> Pallet<T> {
 
                     // 改变committee_order
                     let mut committee_order = Self::committee_order(&a_committee);
-                    Self::rm_from_committee_order(&mut committee_order, &a_report);
+                    Self::rm_from_committee_order(&mut committee_order, report_id);
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
                 for a_committee in support_committees.clone() {
-                    let committee_ops = Self::committee_ops(&a_committee, a_report);
+                    let committee_ops = Self::committee_ops(&a_committee, report_id);
                     let _ =
                         T::ManageCommittee::change_used_stake(a_committee.clone(), committee_ops.staked_balance, false);
 
                     // 改变committee_order
                     let mut committee_order = Self::committee_order(&a_committee);
-                    Self::rm_from_committee_order(&mut committee_order, &a_report);
-                    if let Err(index) = committee_order.finished_report.binary_search(&a_report) {
-                        committee_order.finished_report.insert(index, a_report);
-                    }
+                    Self::rm_from_committee_order(&mut committee_order, report_id);
+                    ItemList::add_item(&mut committee_order.finished_report, report_id);
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
 
-                MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
-                MTLiveReportList::add_report_id(&mut live_report.finished_report, a_report);
+                ItemList::rm_item(&mut live_report.waiting_raw_report, report_id);
+                ItemList::add_item(&mut live_report.finished_report, report_id);
                 live_report_is_changed = true;
 
                 // 根据错误类型，调用不同的处理函数
@@ -1428,7 +1392,7 @@ impl<T: Config> Pallet<T> {
             ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                 // Slash support committee and release against committee stake
                 for a_committee in support_committee {
-                    let committee_ops = Self::committee_ops(&a_committee, a_report);
+                    let committee_ops = Self::committee_ops(&a_committee, report_id);
                     T::ManageCommittee::add_slash(
                         a_committee,
                         committee_ops.staked_balance,
@@ -1437,7 +1401,7 @@ impl<T: Config> Pallet<T> {
                     );
                 }
                 for a_committee in against_committee.clone() {
-                    let committee_ops = Self::committee_ops(&a_committee, a_report);
+                    let committee_ops = Self::committee_ops(&a_committee, report_id);
                     let _ =
                         T::ManageCommittee::change_used_stake(a_committee.clone(), committee_ops.staked_balance, false);
                 }
@@ -1457,19 +1421,15 @@ impl<T: Config> Pallet<T> {
                 // 仅在没有人提交原始值时才无共识，因此所有booked_committee都应该被惩罚
                 for a_committee in report_info.booked_committee.clone() {
                     // clean from committee storage
-                    CommitteeOps::<T>::remove(&a_committee, a_report);
+                    CommitteeOps::<T>::remove(&a_committee, report_id);
 
                     // 从committee_order中删除
                     let mut committee_order = Self::committee_order(&a_committee);
-                    if let Ok(index) = committee_order.booked_report.binary_search(&a_report) {
-                        committee_order.booked_report.remove(index);
-                    }
-                    if let Ok(index) = committee_order.hashed_report.binary_search(&a_report) {
-                        committee_order.hashed_report.remove(index);
-                    }
+                    ItemList::rm_item(&mut committee_order.booked_report, report_id);
+                    ItemList::rm_item(&mut committee_order.hashed_report, report_id);
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
 
-                    let committee_ops = Self::committee_ops(&a_committee, a_report);
+                    let committee_ops = Self::committee_ops(&a_committee, report_id);
                     T::ManageCommittee::add_slash(
                         a_committee,
                         committee_ops.staked_balance,
@@ -1489,14 +1449,14 @@ impl<T: Config> Pallet<T> {
                 };
 
                 // 放到live_report的bookable字段
-                MTLiveReportList::rm_report_id(&mut live_report.waiting_raw_report, a_report);
-                MTLiveReportList::rm_report_id(&mut live_report.verifying_report, a_report);
-                MTLiveReportList::add_report_id(&mut live_report.bookable_report, a_report);
+                ItemList::rm_item(&mut live_report.waiting_raw_report, report_id);
+                ItemList::rm_item(&mut live_report.verifying_report, report_id);
+                ItemList::add_item(&mut live_report.bookable_report, report_id);
                 live_report_is_changed = true;
             },
         }
 
-        ReportInfo::<T>::insert(a_report, report_info);
+        ReportInfo::<T>::insert(report_id, report_info);
         live_report_is_changed
     }
 
