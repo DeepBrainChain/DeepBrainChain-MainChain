@@ -696,15 +696,14 @@ pub mod pallet {
             }
 
             let reporter_hash = match report_info.machine_fault_type {
-                MachineFaultType::RentedInaccessible(..) => return Err(Error::<T>::OrderStatusNotFeat.into()),
-                MachineFaultType::RentedHardwareMalfunction(hash, _) => hash,
-                MachineFaultType::RentedHardwareCounterfeit(hash, _) => hash,
+                MachineFaultType::RentedHardwareMalfunction(hash, _) |
+                MachineFaultType::RentedHardwareCounterfeit(hash, _) |
                 MachineFaultType::OnlineRentFailed(hash, _) => hash,
+                MachineFaultType::RentedInaccessible(..) => return Err(Error::<T>::OrderStatusNotFeat.into()),
             };
 
             // 检查是否提交了该订单的hash
             ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
-
             // 添加到Report的已提交Raw的列表
             ItemList::add_item(&mut report_info.confirmed_committee, committee.clone());
 
@@ -739,10 +738,13 @@ pub mod pallet {
 
             report_info.machine_id = machine_id;
             report_info.err_info = err_reason;
-            committee_ops.confirm_time = now;
-            committee_ops.confirm_result = support_report;
-            committee_ops.extra_err_info = extra_err_info;
-            committee_ops.order_status = MTOrderStatus::Finished;
+            committee_ops = MTCommitteeOpsDetail {
+                confirm_time: now,
+                confirm_result: support_report,
+                extra_err_info,
+                order_status: MTOrderStatus::Finished,
+                ..committee_ops
+            };
 
             CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
             ReportInfo::<T>::insert(&report_id, report_info);
