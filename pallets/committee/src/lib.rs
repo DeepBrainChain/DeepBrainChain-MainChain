@@ -88,10 +88,18 @@ impl<AccountId: Ord> CommitteeList<AccountId> {
 pub struct CommitteeStakeParamsInfo<Balance> {
     /// 第一次委员会质押的基准数值
     pub stake_baseline: Balance,
-    /// 每次订单使用的质押数量
+    /// 每次订单使用的质押数量 & apply_slash_review stake amount
     pub stake_per_order: Balance,
     /// 当剩余的质押数量到阈值时，需要补质押
     pub min_free_stake_percent: Perbill,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct CMPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
+    pub applicant: AccountId,
+    pub staked_amount: Balance,
+    pub apply_time: BlockNumber,
+    pub expire_time: BlockNumber,
 }
 
 /// 委员会质押的状况
@@ -132,6 +140,10 @@ pub mod pallet {
             let _ = Self::check_and_exec_slash();
             0
         }
+
+        fn on_finalize(_n: BlockNumberFor<T>) {
+            let _ = Self::check_and_exec_review();
+        }
     }
 
     #[pallet::storage]
@@ -145,6 +157,16 @@ pub mod pallet {
         Blake2_128Concat,
         SlashId,
         CMPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash_review)]
+    pub(super) type PendingSlashReview<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        SlashId,
+        CMPendingSlashReviewInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
         ValueQuery,
     >;
 
@@ -276,7 +298,7 @@ pub mod pallet {
             let committee_list = Self::committee();
             let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
 
-            // ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
+            // ensure!(committee_list.is_in_committee(&committee), lrror::<T>::NotCommittee);
             ensure!(committee_list.normal.binary_search(&committee).is_ok(), Error::<T>::NotInNormalList);
 
             committee_stake.staked_amount =
@@ -387,21 +409,62 @@ pub mod pallet {
             CommitteeStake::<T>::insert(&committee, committee_stake);
             Committee::<T>::put(committee_list);
             Self::deposit_event(Event::ExitFromCandidacy(committee));
-            return Ok(().into())
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn apply_slash_review(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+
+            let now = <frame_system::Module<T>>::block_number();
+            let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
+            let mut committee_stake = Self::committee_stake(&committee);
+
+            let slash_info = Self::pending_slash(slash_id);
+            ensure!(slash_info.slash_who == committee, Error::<T>::NotSlashed);
+            ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
+
+            committee_stake.staked_amount = committee_stake
+                .staked_amount
+                .checked_sub(&committee_stake_params.stake_per_order)
+                .ok_or(Error::<T>::BalanceNotEnough)?;
+            ensure!(
+                committee_stake.staked_amount - committee_stake.used_stake >
+                    committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
+                Error::<T>::StakeNotEnough
+            );
+
+            CommitteeStake::<T>::insert(&committee, committee_stake);
+            PendingSlashReview::<T>::insert(
+                slash_id,
+                CMPendingSlashReviewInfo {
+                    applicant: committee.clone(),
+                    staked_amount: committee_stake_params.stake_per_order,
+                    apply_time: now,
+                    expire_time: slash_info.slash_exec_time,
+                },
+            );
+            Self::deposit_event(Event::StakeAdded(committee, committee_stake_params.stake_per_order));
+            Self::deposit_event(Event::ApplySlashReview(slash_id));
+            Ok(().into())
         }
 
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
             ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIDNotExist);
+            ensure!(PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::NotPendingReviewSlash);
 
             let slash_info = Self::pending_slash(slash_id);
+            let slash_review_info = Self::pending_slash_review(slash_id);
             let mut committee_stake = Self::committee_stake(&slash_info.slash_who);
             let mut committee_list = Self::committee();
 
             committee_stake.used_stake = committee_stake
                 .used_stake
                 .checked_sub(&slash_info.slash_amount)
+                .ok_or(Error::<T>::CancelSlashFailed)?
+                .checked_sub(&slash_review_info.staked_amount)
                 .ok_or(Error::<T>::CancelSlashFailed)?;
 
             let is_committee_list_changed = Self::change_committee_status_when_stake_changed(
@@ -410,14 +473,20 @@ pub mod pallet {
                 &committee_stake,
             );
 
-            let _ = <T as pallet::Config>::Currency::unreserve(&slash_info.slash_who, slash_info.slash_amount);
+            let _ = <T as pallet::Config>::Currency::unreserve(
+                &slash_info.slash_who,
+                slash_info.slash_amount + slash_review_info.staked_amount,
+            );
 
             CommitteeStake::<T>::insert(&slash_info.slash_who, committee_stake);
             if is_committee_list_changed {
                 Committee::<T>::put(committee_list);
             }
-            PendingSlash::<T>::remove(slash_id);
 
+            // TODO: should slash reward_to to origin slashd one
+
+            PendingSlash::<T>::remove(slash_id);
+            PendingSlashReview::<T>::remove(slash_id);
             Self::deposit_event(Event::StakeReduced(slash_info.slash_who.clone(), slash_info.slash_amount));
             Self::deposit_event(Event::SlashCanceled(slash_id, slash_info.slash_who, slash_info.slash_amount));
             Ok(().into())
@@ -442,6 +511,8 @@ pub mod pallet {
         StakeReduced(T::AccountId, BalanceOf<T>),
         ClaimReward(T::AccountId, BalanceOf<T>),
         SlashCanceled(u64, T::AccountId, BalanceOf<T>),
+        ApplySlashReview(SlashId),
+        SlashReviewFailed(SlashId, T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -463,6 +534,9 @@ pub mod pallet {
         CancelSlashFailed,
         SlashIDNotExist,
         StatusNotFeat,
+        NotSlashed,
+        ExpiredSlash,
+        NotPendingReviewSlash,
     }
 }
 
@@ -541,6 +615,47 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    fn check_and_exec_review() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+        let all_review_id = <PendingSlashReview<T> as IterableStorageMap<SlashId, _>>::iter()
+            .map(|(slash_id, _)| slash_id)
+            .collect::<BTreeSet<_>>();
+
+        for a_id in all_review_id {
+            let review_info = Self::pending_slash_review(a_id);
+            ensure!(now >= review_info.expire_time, ());
+
+            let mut committee_stake = Self::committee_stake(&review_info.applicant);
+            let mut committee_list = Self::committee();
+
+            committee_stake.used_stake =
+                committee_stake.used_stake.checked_sub(&review_info.staked_amount).unwrap_or_default();
+            committee_stake.staked_amount =
+                committee_stake.staked_amount.checked_sub(&review_info.staked_amount).unwrap_or_default();
+
+            let is_committee_list_changed = Self::change_committee_status_when_stake_changed(
+                review_info.applicant.clone(),
+                &mut committee_list,
+                &committee_stake,
+            );
+
+            // reserved to treasury and change committee total_stake & used stake
+            if <T as pallet::Config>::Currency::reserved_balance(&review_info.applicant) >= review_info.staked_amount {
+                let (imbalance, _missing) =
+                    <T as pallet::Config>::Currency::slash_reserved(&review_info.applicant, review_info.staked_amount);
+                <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+            }
+
+            if is_committee_list_changed {
+                Committee::<T>::put(committee_list);
+            }
+            PendingSlashReview::<T>::remove(a_id);
+            Self::deposit_event(Event::SlashReviewFailed(a_id, review_info.applicant, review_info.staked_amount));
+        }
+
+        Ok(())
+    }
+
     // 获得所有被惩罚的订单列表
     fn get_slash_id() -> BTreeSet<SlashId> {
         <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
@@ -598,10 +713,9 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     fn available_committee() -> Option<Vec<T::AccountId>> {
         let committee_list = Self::committee();
         let normal_committee = committee_list.normal.clone();
-
         let stake_params = Self::committee_stake_params()?;
-
         let mut out = Vec::new();
+
         // 如果free_balance足够，则复制到out列表中
         for a_committee in normal_committee {
             // 当委员会质押不够时，将委员会移动到fulfill_list中

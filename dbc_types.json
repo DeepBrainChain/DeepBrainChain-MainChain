@@ -274,6 +274,12 @@
       "MCInconsistentSubmit"
     ]
   },
+  "CMPendingSlashReviewInfo":{
+    "applicant": "AccountId",
+    "staked_amount": "Balance",
+    "apply_time": "BlockNumber",
+    "expire_time": "BlockNumber"
+  },
   "OnlineStakeParamsInfo": {
     "online_stake_per_gpu": "Balance",
     "online_stake_usd_limit": "u64",
