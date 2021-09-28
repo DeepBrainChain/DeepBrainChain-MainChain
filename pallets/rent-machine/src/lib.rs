@@ -18,13 +18,9 @@ use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// 等待60个块，用户确认是否租用成功
-pub const WAITING_CONFIRMING: u64 = 60;
+pub const WAITING_CONFIRMING_DELAY: u32 = 60;
 /// 1天按照2880个块
-pub const BLOCK_PER_DAY: u64 = 2880;
-/// 每个月30天计算租金
-pub const DAY_PER_MONTH: u64 = 30;
-/// 租用之后60个块内确认机器租用成功
-pub const CONFIRMING_DELAY: u64 = 60;
+pub const BLOCK_PER_DAY: u32 = 2880;
 
 pub use pallet::*;
 
@@ -168,8 +164,9 @@ pub mod pallet {
                 <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value).ok_or(Error::<T>::Overflow)?;
 
             // 获取用户租用的结束时间
+            // rent_end = block_per_day * duration + now
             let rent_end = BLOCK_PER_DAY
-                .checked_mul(duration as u64)
+                .checked_mul(duration)
                 .ok_or(Error::<T>::Overflow)?
                 .saturated_into::<T::BlockNumber>()
                 .checked_add(&now)
@@ -211,7 +208,7 @@ pub mod pallet {
 
             // 不能超过30分钟
             let machine_start_duration = now.checked_sub(&order_info.rent_start).ok_or(Error::<T>::Overflow)?;
-            ensure!(machine_start_duration.saturated_into::<u64>() <= CONFIRMING_DELAY, Error::<T>::ExpiredConfirm);
+            ensure!(machine_start_duration <= WAITING_CONFIRMING_DELAY.into(), Error::<T>::ExpiredConfirm);
 
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
             ensure!(machine_info.machine_status == MachineStatus::Creating, Error::<T>::StatusNotAllowed);
@@ -257,7 +254,15 @@ pub mod pallet {
             ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
 
             Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_fee)?;
-            order_info.rent_end += add_duration.saturated_into::<T::BlockNumber>();
+            // 获取用户租用的结束时间
+            // rent_end = block_per_day * rent_duration + rent_end
+            order_info.rent_end = BLOCK_PER_DAY
+                .checked_mul(add_duration)
+                .ok_or(Error::<T>::Overflow)?
+                .saturated_into::<T::BlockNumber>()
+                .checked_add(&order_info.rent_end)
+                .ok_or(Error::<T>::Overflow)?;
+
             RentOrder::<T>::insert(&renter, &machine_id, order_info);
 
             Ok(().into())
@@ -315,9 +320,9 @@ impl<T: Config> Pallet<T> {
                 continue
             }
             let rent_order = rent_order.unwrap();
-            let duration = now.checked_sub(&rent_order.rent_start).unwrap_or(0u64.saturated_into());
+            let duration = now.checked_sub(&rent_order.rent_start).unwrap_or_default();
 
-            if duration > WAITING_CONFIRMING.saturated_into() {
+            if duration > WAITING_CONFIRMING_DELAY.into() {
                 // 超过了60个块，也就是30分钟
                 Self::clean_order(&renter, &machine_id);
                 T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None);
