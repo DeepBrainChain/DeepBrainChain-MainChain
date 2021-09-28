@@ -542,6 +542,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     // 检查并执行slash
+    // TODO: after slash is done, should unreserve balance of committee,
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let pending_slash_id = Self::get_slash_id();
