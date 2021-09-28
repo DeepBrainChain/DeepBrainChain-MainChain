@@ -804,7 +804,18 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Reporter apply technical committee review
         #[pallet::weight(10000)]
+        pub fn apply_slash_review(
+            origin: OriginFor<T>,
+            slash_id: SlashId,
+            reason: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            // TODO:
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
         pub fn cancel_reporter_slash(origin: OriginFor<T>, _report_id: ReportId) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
 

@@ -100,6 +100,7 @@ pub struct CMPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
     pub staked_amount: Balance,
     pub apply_time: BlockNumber,
     pub expire_time: BlockNumber,
+    pub reason: Vec<u8>,
 }
 
 /// 委员会质押的状况
@@ -412,8 +413,12 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
-        pub fn apply_slash_review(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
+        #[pallet::weight(10000)]
+        pub fn apply_slash_review(
+            origin: OriginFor<T>,
+            slash_id: SlashId,
+            reason: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
 
             let now = <frame_system::Module<T>>::block_number();
@@ -442,6 +447,7 @@ pub mod pallet {
                     staked_amount: committee_stake_params.stake_per_order,
                     apply_time: now,
                     expire_time: slash_info.slash_exec_time,
+                    reason,
                 },
             );
             Self::deposit_event(Event::StakeAdded(committee, committee_stake_params.stake_per_order));
@@ -543,6 +549,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     // 检查并执行slash
     // TODO: after slash is done, should unreserve balance of committee,
+    // NOTE: Should be careful, in case two is slashed, may result in cancel reserved_balance twice
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let pending_slash_id = Self::get_slash_id();

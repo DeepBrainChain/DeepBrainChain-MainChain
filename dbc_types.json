@@ -278,7 +278,8 @@
     "applicant": "AccountId",
     "staked_amount": "Balance",
     "apply_time": "BlockNumber",
-    "expire_time": "BlockNumber"
+    "expire_time": "BlockNumber",
+    "reason": "Vec<u8>"
   },
   "OnlineStakeParamsInfo": {
     "online_stake_per_gpu": "Balance",

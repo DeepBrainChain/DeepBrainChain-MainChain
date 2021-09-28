@@ -1077,6 +1077,12 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(10000)]
+        pub fn apply_slash_review(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
+            // TODO
+            Ok(().into())
+        }
+
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
