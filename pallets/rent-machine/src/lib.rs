@@ -9,9 +9,10 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
+use generic_func::ItemList;
 pub use online_profile::{EraIndex, MachineId, MachineStatus};
 use online_profile_machine::{DbcPrice, RTOps};
-use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -190,9 +191,7 @@ pub mod pallet {
             );
 
             let mut user_rented = Self::user_rented(&renter);
-            if let Err(index) = user_rented.binary_search(&machine_id) {
-                user_rented.insert(index, machine_id.clone());
-            }
+            ItemList::add_item(&mut user_rented, machine_id.clone());
             UserRented::<T>::insert(&renter, user_rented);
 
             // 改变online_profile状态，影响机器佣金
@@ -219,11 +218,10 @@ pub mod pallet {
 
             // 质押转到特定账户
             Self::reduce_total_stake(&renter, order_info.stake_amount).map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
-
-            Self::pay_rent_fee(&renter, machine_id.clone(), &machine_info.machine_stash, order_info.stake_amount)?;
+            Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, order_info.stake_amount)?;
 
             order_info.confirm_rent = now;
-            order_info.stake_amount = 0u64.saturated_into::<BalanceOf<T>>();
+            order_info.stake_amount = Zero::zero();
             order_info.rent_status = RentStatus::Renting;
             RentOrder::<T>::insert(&renter, &machine_id, order_info);
 
@@ -245,9 +243,7 @@ pub mod pallet {
             let renter = ensure_signed(origin)?;
 
             let mut order_info = Self::rent_order(&renter, &machine_id).ok_or(Error::<T>::NoOrderExist)?;
-
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-
             let machine_price = <online_profile::Module<T>>::calc_machine_price(
                 machine_info.machine_info_detail.committee_upload_info.calc_point,
             )
@@ -260,8 +256,7 @@ pub mod pallet {
             let user_balance = <T as pallet::Config>::Currency::free_balance(&renter);
             ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
 
-            Self::pay_rent_fee(&renter, machine_id.clone(), &machine_info.machine_stash, rent_fee)?;
-
+            Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_fee)?;
             order_info.rent_end += add_duration.saturated_into::<T::BlockNumber>();
             RentOrder::<T>::insert(&renter, &machine_id, order_info);
 
@@ -298,18 +293,15 @@ impl<T: Config> Pallet<T> {
     fn pay_rent_fee(
         renter: &T::AccountId,
         machine_id: MachineId,
-        machine_stash: &T::AccountId,
+        machine_stash: T::AccountId,
         fee_amount: BalanceOf<T>,
     ) -> DispatchResult {
         let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
         let galaxy_is_on = <online_profile::Module<T>>::galaxy_is_on();
-        if galaxy_is_on {
-            <T as pallet::Config>::Currency::transfer(renter, &rent_fee_pot, fee_amount, KeepAlive)?;
-            T::RTOps::change_machine_rent_fee(fee_amount, machine_id.clone(), true);
-        } else {
-            <T as pallet::Config>::Currency::transfer(renter, machine_stash, fee_amount, KeepAlive)?;
-            T::RTOps::change_machine_rent_fee(fee_amount, machine_id, false);
-        }
+        let rent_fee_to = if galaxy_is_on { rent_fee_pot } else { machine_stash };
+
+        <T as pallet::Config>::Currency::transfer(renter, &rent_fee_to, fee_amount, KeepAlive)?;
+        T::RTOps::change_machine_rent_fee(fee_amount, machine_id, galaxy_is_on);
         Ok(())
     }
 
@@ -319,7 +311,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         for (machine_id, renter) in pending_confirming {
             let rent_order = Self::rent_order(&renter, &machine_id);
-            if let None = rent_order {
+            if rent_order.is_none() {
                 continue
             }
             let rent_order = rent_order.unwrap();
@@ -328,7 +320,6 @@ impl<T: Config> Pallet<T> {
             if duration > WAITING_CONFIRMING.saturated_into() {
                 // 超过了60个块，也就是30分钟
                 Self::clean_order(&renter, &machine_id);
-
                 T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None);
                 continue
             }
@@ -337,9 +328,7 @@ impl<T: Config> Pallet<T> {
 
     fn clean_order(who: &T::AccountId, machine_id: &MachineId) {
         let mut rent_machine_list = Self::user_rented(who);
-        if let Ok(index) = rent_machine_list.binary_search(machine_id) {
-            rent_machine_list.remove(index);
-        }
+        ItemList::rm_item(&mut rent_machine_list, machine_id);
 
         let rent_info = Self::rent_order(who, machine_id);
         if let Some(rent_info) = rent_info {
@@ -361,13 +350,8 @@ impl<T: Config> Pallet<T> {
     fn add_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let current_stake = Self::user_total_stake(who);
         let next_stake = current_stake.checked_add(&amount).ok_or(())?;
-
-        if <T as pallet::Config>::Currency::can_reserve(who, amount) {
-            <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
-        } else {
-            return Err(())
-        }
-
+        ensure!(<T as pallet::Config>::Currency::can_reserve(who, amount), ());
+        <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
         UserTotalStake::<T>::insert(who, next_stake);
         Ok(())
     }
@@ -377,7 +361,6 @@ impl<T: Config> Pallet<T> {
         let next_stake = current_stake.checked_sub(&amount).ok_or(())?;
 
         let _ = <T as pallet::Config>::Currency::unreserve(&who, amount);
-
         UserTotalStake::<T>::insert(who, next_stake);
         Ok(())
     }

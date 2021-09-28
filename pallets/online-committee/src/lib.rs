@@ -243,11 +243,8 @@ pub mod pallet {
             let mut committee_ops = Self::committee_ops(&committee, &machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
 
-            // 在机器信息中，记录上委员
             ItemList::add_item(&mut machine_committee.hashed_committee, committee.clone());
-            // 从委员的任务中，删除该机器的任务
             ItemList::rm_item(&mut committee_machine.booked_machine, &machine_id);
-            // 委员会hashedmachine添加上该机器
             ItemList::add_item(&mut committee_machine.hashed_machine, machine_id.clone());
 
             // 添加用户对机器的操作记录
@@ -292,11 +289,8 @@ pub mod pallet {
                 ensure!(now <= machine_committee.book_time + SUBMIT_RAW_END.into(), Error::<T>::TimeNotAllow);
             }
 
-            // 该用户已经给机器提交过Hash
             ensure!(machine_committee.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotSubmitHash);
-            // 机器ID存在于用户已经Hash的机器里
             ensure!(committee_machine.hashed_machine.binary_search(&machine_id).is_ok(), Error::<T>::NotSubmitHash);
-            // 用户还未提交过原始信息
             ensure!(
                 committee_machine.confirmed_machine.binary_search(&machine_id).is_err(),
                 Error::<T>::AlreadySubmitRaw
@@ -357,30 +351,49 @@ impl<T: Config> Pallet<T> {
     // 获取所有新加入的机器，并进行分派给委员会
     pub fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
+        let now = <frame_system::Module<T>>::block_number();
+        let confirm_start = now + SUBMIT_RAW_START.into();
+
         for a_machine_id in live_machines.confirmed_machine {
             // 重新分配: 必须清空该状态
             if MachineCommittee::<T>::contains_key(&a_machine_id) {
                 MachineCommittee::<T>::remove(&a_machine_id);
             }
 
-            let _ = Self::distribute_one_machine(&a_machine_id);
+            if let Some(committee_workflow) = Self::committee_workflow() {
+                for a_committee_workflow in committee_workflow {
+                    if Self::book_one(a_machine_id.to_vec(), confirm_start, now, a_committee_workflow.clone()).is_err()
+                    {
+                        continue
+                    };
+                }
+                // 将机器状态从ocw_confirmed_machine改为booked_machine
+                T::OCOperations::oc_booked_machine(a_machine_id.clone());
+            };
         }
     }
 
-    pub fn distribute_one_machine(machine_id: &MachineId) -> Result<(), ()> {
-        let committee_workflow = Self::committee_workflow().ok_or(())?;
+    // 分派一个machineId给随机的委员会
+    // 返回Distribution(9)个随机顺序的账户列表
+    pub fn committee_workflow() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
+        let mut committee = <committee::Module<T>>::available_committee()?;
+        // Require committee_num at lease 3
+        let lucky_committee_num = if committee.len() < 3 { return None } else { 3 };
+        // 选出lucky_committee_num个委员会
+        let mut lucky_committee = Vec::new();
 
-        // 每个添加4个小时
-        let now = <frame_system::Module<T>>::block_number();
-        let confirm_start = now + SUBMIT_RAW_START.into(); // 添加确认信息时间为分发之后的36小时
-
-        for a_committee_workflow in committee_workflow {
-            Self::book_one(machine_id.to_vec(), confirm_start, now, a_committee_workflow.clone())?;
+        for _ in 0..lucky_committee_num {
+            let lucky_index = <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+            lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
+            committee.remove(lucky_index);
         }
 
-        // 将机器状态从ocw_confirmed_machine改为booked_machine
-        T::OCOperations::oc_booked_machine(machine_id.clone());
-        Ok(())
+        for i in 0..DISTRIBUTION as usize {
+            let index = i % lucky_committee_num;
+            lucky_committee[index].1.push(i);
+        }
+
+        Some(lucky_committee)
     }
 
     // 一个委员会进行操作
@@ -393,6 +406,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         // 增加质押：由committee执行
         let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
+        // In fact, change committee usedstake should nerver fail after set proper params
         <T as pallet::Config>::ManageCommittee::change_used_stake(work_time.0.clone(), stake_need, true)?;
 
         // 修改machine对应的委员会
@@ -423,49 +437,22 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // 分派一个machineId给随机的委员会
-    // 返回Distribution(9)个随机顺序的账户列表
-    pub fn committee_workflow() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
-        let mut committee = <committee::Module<T>>::available_committee()?;
-        // Require committee_num at lease 3
-        let lucky_committee_num = if committee.len() < 3 { return None } else { 3 };
-
-        // 选出lucky_committee_num个委员会
-        let mut lucky_committee = Vec::new();
-
-        for _ in 0..lucky_committee_num {
-            let lucky_index = <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
-            lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
-            committee.remove(lucky_index);
-        }
-
-        for i in 0..DISTRIBUTION as usize {
-            let index = i % lucky_committee_num;
-            lucky_committee[index].1.push(i);
-        }
-
-        Some(lucky_committee)
-    }
-
     fn statistic_result() {
+        let now = <frame_system::Module<T>>::block_number();
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         let booked_machine = live_machines.booked_machine;
-        let now = <frame_system::Module<T>>::block_number();
 
         for machine_id in booked_machine {
             let machine_committee = Self::machine_committee(machine_id.clone());
             // 当不为Summary状态时查看是否到了48小时，如果不到则返回
-            if machine_committee.status != OCVerifyStatus::Summarizing {
-                if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
-                    continue
-                }
+            if machine_committee.status != OCVerifyStatus::Summarizing &&
+                now < machine_committee.book_time + SUBMIT_RAW_END.into()
+            {
+                continue
             }
 
-            // committee, that should be slashed
             let mut slash_committee = Vec::new();
-            // committee, that should be reward to
             let mut reward_committee = Vec::new();
-            // committee, that finished his work, and should return his stake back
             let mut unstake_committee = Vec::new();
 
             match Self::summary_confirmation(&machine_id) {
