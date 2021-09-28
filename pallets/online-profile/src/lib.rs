@@ -1496,9 +1496,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // 执行惩罚
-        if <T as pallet::Config>::Currency::can_slash(&machine_info.machine_stash, slash_to_treasury) {
+        if <T as pallet::Config>::Currency::reserved_balance(&machine_info.machine_stash) >= slash_to_treasury {
             let (imbalance, _missing) =
-                <T as pallet::Config>::Currency::slash(&machine_info.machine_stash, slash_to_treasury);
+                <T as pallet::Config>::Currency::slash_reserved(&machine_info.machine_stash, slash_to_treasury);
             // Self::deposit_event(Event::Slash(machine_info.machine_stash.clone(), slash_amount, SlashReason::));
             <T as pallet::Config>::Slash::on_unbalanced(imbalance);
         }
@@ -1747,10 +1747,10 @@ impl<T: Config> Pallet<T> {
         let mut left_reward = slash_amount;
         let reward_each_get = Perbill::from_rational_approximation(1u32, reward_to.len() as u32) * slash_amount;
 
-        ensure!(<T as pallet::Config>::Currency::can_slash(&slash_who, slash_amount), ());
+        ensure!(<T as pallet::Config>::Currency::reserved_balance(&slash_who) >= slash_amount, ());
 
         if reward_to.len() == 0 {
-            let (imbalance, _missing) = <T as pallet::Config>::Currency::slash(&slash_who, slash_amount);
+            let (imbalance, _missing) = <T as pallet::Config>::Currency::slash_reserved(&slash_who, slash_amount);
             <T as pallet::Config>::Slash::on_unbalanced(imbalance);
             Self::deposit_event(Event::Slash(slash_who.clone(), slash_amount, slash_reason));
         } else {

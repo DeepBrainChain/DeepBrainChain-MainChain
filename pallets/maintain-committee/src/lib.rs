@@ -896,10 +896,10 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut live_report = Self::live_report();
-        ItemList::add_item(&mut live_report.bookable_report, report_id);
-
-        // 记录到报告人的存储中
         let mut reporter_report = Self::reporter_report(&reporter);
+
+        // Record to live_report & reporter_report
+        ItemList::add_item(&mut live_report.bookable_report, report_id);
         ItemList::add_item(&mut reporter_report.processing_report, report_id);
 
         ReporterStake::<T>::insert(&reporter, reporter_stake);
@@ -931,6 +931,16 @@ impl<T: Config> Pallet<T> {
         slash_id
     }
 
+    fn get_all_slash_id() -> BTreeSet<SlashId> {
+        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
+            .map(|(slash_id, _)| slash_id)
+            .collect::<BTreeSet<_>>()
+    }
+
+    fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
+        blake2_128(raw_str)
+    }
+
     fn add_slash(
         who: T::AccountId,
         amount: BalanceOf<T>,
@@ -951,33 +961,22 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
-        blake2_128(raw_str)
-    }
-
-    // rm from committee_order
     fn rm_from_committee_order(committee_order: &mut MTCommitteeOrderList, report_id: &ReportId) {
         ItemList::rm_item(&mut committee_order.booked_report, report_id);
         ItemList::rm_item(&mut committee_order.hashed_report, report_id);
         ItemList::rm_item(&mut committee_order.confirmed_report, report_id);
     }
 
-    // rm from live_report
     fn rm_from_live_report(live_report: &mut MTLiveReportList, report_id: &ReportId) {
         ItemList::rm_item(&mut live_report.bookable_report, report_id);
         ItemList::rm_item(&mut live_report.verifying_report, report_id);
         ItemList::rm_item(&mut live_report.waiting_raw_report, report_id);
     }
 
-    // fn clean_finished_order
-    // - Writes:
-    // NOTE: ==CommitteeOps, MTCommitteeOrderList, MTLiveReportList==
-    // NOTE: MTReportInfoDetail 不清理
-
-    // Summary committee's handle result
+    // Summary committee's handle result depend on support & against votes
     fn summary_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {
         let report_info = Self::report_info(&report_id);
-        // If no committee submit raw info, NoConsensus
+
         if report_info.confirmed_committee.len() == 0 {
             return ReportConfirmStatus::NoConsensus
         }
@@ -986,14 +985,13 @@ impl<T: Config> Pallet<T> {
             return ReportConfirmStatus::Confirmed(
                 report_info.support_committee,
                 report_info.against_committee,
-                report_info.err_info.clone(),
+                report_info.err_info,
             )
         }
-
         return ReportConfirmStatus::Refuse(report_info.support_committee, report_info.against_committee)
     }
 
-    // 惩罚掉线的机器
+    // Slash offline machine
     fn summary_offline_case() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let mut live_report = Self::live_report();
@@ -1005,16 +1003,14 @@ impl<T: Config> Pallet<T> {
             let mut report_info = Self::report_info(&report_id);
             let mut reporter_report = Self::reporter_report(&report_info.reporter);
 
+            // 仅处理Offline的情况
             match report_info.machine_fault_type {
-                // 仅处理Offline的情况
                 MachineFaultType::RentedInaccessible(..) => {},
                 _ => continue,
             }
 
             // 当大于等于5分钟或者hashed的委员会已经达到3人，则更改报告状态，允许提交原始值
             if now - report_info.first_book_time >= FIVE_MINUTE.into() || report_info.hashed_committee.len() == 3 {
-                // report_info.report_status == ReportStatus::Verifying(when booked.len() == 3) ||
-                // == ReportStatus.WaitingBook
                 report_info.report_status = ReportStatus::SubmittingRaw;
                 ReportInfo::<T>::insert(report_id, report_info);
                 continue
@@ -1028,7 +1024,9 @@ impl<T: Config> Pallet<T> {
                 for a_committee in report_info.booked_committee {
                     let mut committee_order = Self::committee_order(&a_committee);
 
-                    if report_info.confirmed_committee.binary_search(&a_committee).is_err() {
+                    if report_info.confirmed_committee.binary_search(&a_committee).is_ok() {
+                        ItemList::add_item(&mut committee_order.finished_report, report_id);
+                    } else {
                         let committee_ops = Self::committee_ops(&a_committee, report_id);
                         <T as pallet::Config>::ManageCommittee::add_slash(
                             a_committee.clone(),
@@ -1036,8 +1034,6 @@ impl<T: Config> Pallet<T> {
                             Vec::new(),
                             committee::CMSlashReason::MCNotSubmitRaw,
                         );
-                    } else {
-                        ItemList::add_item(&mut committee_order.finished_report, report_id);
                     }
 
                     CommitteeOps::<T>::remove(&a_committee, report_id);
@@ -1117,7 +1113,6 @@ impl<T: Config> Pallet<T> {
         }
 
         LiveReport::<T>::put(live_report);
-
         Ok(())
     }
 
@@ -1409,13 +1404,6 @@ impl<T: Config> Pallet<T> {
         live_report_is_changed
     }
 
-    // Get all pending slash id
-    fn get_all_slash_id() -> BTreeSet<SlashId> {
-        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
-            .map(|(slash_id, _)| slash_id)
-            .collect::<BTreeSet<_>>()
-    }
-
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let pending_slash_id = Self::get_all_slash_id();
@@ -1433,9 +1421,13 @@ impl<T: Config> Pallet<T> {
 
                 if reward_to_num == 0 {
                     // Slash to Treasury
-                    if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
-                        let (imbalance, _missing) =
-                            <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
+                    if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >=
+                        slash_info.slash_amount
+                    {
+                        let (imbalance, _missing) = <T as pallet::Config>::Currency::slash_reserved(
+                            &slash_info.slash_who,
+                            slash_info.slash_amount,
+                        );
                         <T as pallet::Config>::Slash::on_unbalanced(imbalance);
 
                         PendingSlash::<T>::remove(slash_id);
@@ -1446,7 +1438,7 @@ impl<T: Config> Pallet<T> {
                     let mut left_reward = slash_info.slash_amount;
 
                     for a_committee in slash_info.reward_to {
-                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, left_reward) {
+                        if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >= left_reward {
                             if left_reward >= reward_each_get {
                                 let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                                     &slash_info.slash_who,

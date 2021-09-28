@@ -493,9 +493,13 @@ impl<T: Config> Pallet<T> {
                 );
 
                 if reward_to_num == 0 {
-                    if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, slash_info.slash_amount) {
-                        let (imbalance, _missing) =
-                            <T as pallet::Config>::Currency::slash(&slash_info.slash_who, slash_info.slash_amount);
+                    if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >=
+                        slash_info.slash_amount
+                    {
+                        let (imbalance, _missing) = <T as pallet::Config>::Currency::slash_reserved(
+                            &slash_info.slash_who,
+                            slash_info.slash_amount,
+                        );
                         <T as pallet::Config>::Slash::on_unbalanced(imbalance);
 
                         PendingSlash::<T>::remove(slash_id);
@@ -506,7 +510,7 @@ impl<T: Config> Pallet<T> {
                     let mut left_reward = slash_info.slash_amount;
 
                     for a_committee in slash_info.reward_to {
-                        if <T as pallet::Config>::Currency::can_slash(&slash_info.slash_who, left_reward) {
+                        if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >= left_reward {
                             if left_reward >= reward_each_get {
                                 let _ = <T as pallet::Config>::Currency::repatriate_reserved(
                                     &slash_info.slash_who,
