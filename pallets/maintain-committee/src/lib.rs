@@ -1045,14 +1045,9 @@ impl<T: Config> Pallet<T> {
 
                     if report_info.confirmed_committee.binary_search(&a_committee).is_ok() {
                         ItemList::add_item(&mut committee_order.finished_report, report_id);
+                        ItemList::add_item(&mut &mut reward_committee, a_committee.clone());
                     } else {
-                        // let committee_ops = Self::committee_ops(&a_committee, report_id);
-                        <T as pallet::Config>::ManageCommittee::add_slash(
-                            a_committee.clone(),
-                            committee_ops.staked_balance,
-                            Vec::new(),
-                            committee::CMSlashReason::MCNotSubmitRaw,
-                        );
+                        ItemList::add_item(&mut &mut unruly_committee, a_committee.clone());
                     }
 
                     CommitteeOps::<T>::remove(&a_committee, report_id);
@@ -1093,12 +1088,7 @@ impl<T: Config> Pallet<T> {
                     );
                     for a_committee in report_info.against_committee {
                         let committee_ops = Self::committee_ops(&a_committee, report_id);
-                        <T as pallet::Config>::ManageCommittee::add_slash(
-                            a_committee.clone(),
-                            committee_ops.staked_balance,
-                            Vec::new(),
-                            committee::CMSlashReason::MCInconsistentSubmit,
-                        );
+                        ItemList::add_item(&mut &mut inconsistent_committee, a_committee);
                     }
 
                     ItemList::add_item(&mut reporter_report.succeed_report, report_id);
@@ -1112,12 +1102,7 @@ impl<T: Config> Pallet<T> {
                     );
                     for a_committee in report_info.support_committee {
                         let committee_ops = Self::committee_ops(&a_committee, report_id);
-                        <T as pallet::Config>::ManageCommittee::add_slash(
-                            a_committee.clone(),
-                            committee_ops.staked_balance,
-                            report_info.against_committee.clone(),
-                            committee::CMSlashReason::MCInconsistentSubmit,
-                        );
+                        ItemList::add_item(&mut inconsistent_committee, a_committee);
                     }
 
                     ItemList::add_item(&mut reporter_report.failed_report, report_id);
@@ -1129,6 +1114,14 @@ impl<T: Config> Pallet<T> {
                 Self::rm_from_live_report(&mut live_report, &report_id);
                 ItemList::add_item(&mut live_report.finished_report, report_id);
             }
+
+            // let committee_ops = Self::committee_ops(&a_committee, report_id);
+            <T as pallet::Config>::ManageCommittee::add_slash(
+                inconsistent_committee,
+                unruly_committee,
+                reward_committee,
+                committee::CMSlashReason::MaintainCommittee(report_id),
+            );
         }
 
         LiveReport::<T>::put(live_report);
@@ -1165,12 +1158,13 @@ impl<T: Config> Pallet<T> {
 
                 // 1. 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
                 if committee_ops.encrypted_err_info.is_none() && now - committee_ops.booked_time >= HALF_HOUR.into() {
-                    Self::add_slash(
-                        report_info.reporter.clone(),
-                        report_info.reporter_stake,
-                        Vec::new(),
-                        MTReporterSlashReason::NotSubmitEncryptedInfo,
-                    );
+                    // TODO: handle this
+                    // Self::add_slash(
+                    //     report_info.reporter.clone(),
+                    //     report_info.reporter_stake,
+                    //     Vec::new(),
+                    //     MTReporterSlashReason::NotSubmitEncryptedInfo,
+                    // );
 
                     ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
                     ItemList::add_item(&mut reporter_report.failed_report, report_id);
@@ -1217,13 +1211,14 @@ impl<T: Config> Pallet<T> {
                     ItemList::add_item(&mut live_report.bookable_report, report_id);
                     live_report_is_changed = true;
 
+                    // TODO: handle this
                     // slash committee
-                    <T as pallet::Config>::ManageCommittee::add_slash(
-                        verifying_committee.clone(),
-                        committee_ops.staked_balance,
-                        Vec::new(),
-                        committee::CMSlashReason::MCNotSubmitHash,
-                    );
+                    // <T as pallet::Config>::ManageCommittee::add_slash(
+                    //     verifying_committee.clone(),
+                    //     committee_ops.staked_balance,
+                    //     Vec::new(),
+                    //     committee::CMSlashReason::MCNotSubmitHash,
+                    // );
 
                     let mut committee_order = Self::committee_order(&verifying_committee);
                     ItemList::rm_item(&mut committee_order.booked_report, &report_id);
@@ -1306,12 +1301,14 @@ impl<T: Config> Pallet<T> {
                 // Slash against_committee and release support committee stake
                 for a_committee in against_committee.clone() {
                     let committee_ops = Self::committee_ops(&a_committee, report_id);
-                    T::ManageCommittee::add_slash(
-                        report_info.reporter.clone(),
-                        committee_ops.staked_balance,
-                        Vec::new(),
-                        committee::CMSlashReason::MCInconsistentSubmit,
-                    );
+
+                    // TODO: handle this
+                    // T::ManageCommittee::add_slash(
+                    //     report_info.reporter.clone(),
+                    //     committee_ops.staked_balance,
+                    //     Vec::new(),
+                    //     committee::CMSlashReason::MCInconsistentSubmit,
+                    // );
 
                     // 改变committee_order
                     let mut committee_order = Self::committee_order(&a_committee);
@@ -1356,12 +1353,14 @@ impl<T: Config> Pallet<T> {
                 // Slash support committee and release against committee stake
                 for a_committee in support_committee {
                     let committee_ops = Self::committee_ops(&a_committee, report_id);
-                    T::ManageCommittee::add_slash(
-                        a_committee,
-                        committee_ops.staked_balance,
-                        against_committee.clone(),
-                        committee::CMSlashReason::MCInconsistentSubmit,
-                    );
+
+                    // TODO: handle this
+                    // T::ManageCommittee::add_slash(
+                    //     a_committee,
+                    //     committee_ops.staked_balance,
+                    //     against_committee.clone(),
+                    //     committee::CMSlashReason::MCInconsistentSubmit,
+                    // );
                 }
                 for a_committee in against_committee.clone() {
                     let committee_ops = Self::committee_ops(&a_committee, report_id);
@@ -1391,14 +1390,6 @@ impl<T: Config> Pallet<T> {
                     ItemList::rm_item(&mut committee_order.booked_report, &report_id);
                     ItemList::rm_item(&mut committee_order.hashed_report, &report_id);
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
-
-                    let committee_ops = Self::committee_ops(&a_committee, report_id);
-                    T::ManageCommittee::add_slash(
-                        a_committee,
-                        committee_ops.staked_balance,
-                        vec![],
-                        committee::CMSlashReason::MCNotSubmitRaw,
-                    );
                 }
 
                 // All info of report should be cleaned, and so allow report be booked or canceled
@@ -1418,6 +1409,15 @@ impl<T: Config> Pallet<T> {
                 live_report_is_changed = true;
             },
         }
+
+        // TODO: add slash
+        // let committee_ops = Self::committee_ops(&a_committee, report_id);
+        // T::ManageCommittee::add_slash(
+        //     a_committee,
+        //     committee_ops.staked_balance,
+        //     vec![],
+        //     committee::CMSlashReason::MCNotSubmitRaw,
+        // );
 
         ReportInfo::<T>::insert(report_id, report_info);
         live_report_is_changed
