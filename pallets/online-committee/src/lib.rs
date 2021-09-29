@@ -451,16 +451,16 @@ impl<T: Config> Pallet<T> {
                 continue
             }
 
-            let mut slash_committee = Vec::new();
+            let mut inconsistent_committee = Vec::new();
+            let mut unruly_committee = Vec::new();
             let mut reward_committee = Vec::new();
-            let mut unstake_committee = Vec::new();
 
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
-                    slash_committee.extend(summary.unruly.clone());
-                    slash_committee.extend(summary.against);
-                    slash_committee.extend(summary.invalid_support);
-                    unstake_committee.extend(summary.valid_support.clone());
+                    unruly_committee.extend(summary.unruly.clone());
+                    inconsistent_committee.extend(summary.against);
+                    inconsistent_committee.extend(summary.invalid_support);
+                    reward_committee.extend(summary.valid_support.clone());
                     if T::OCOperations::oc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap()).is_ok()
                     {
                         let valid_support = summary.valid_support.clone();
@@ -478,45 +478,50 @@ impl<T: Config> Pallet<T> {
                     }
                 },
                 MachineConfirmStatus::Refuse(summary) => {
-                    slash_committee.extend(summary.unruly.clone());
-                    slash_committee.extend(summary.invalid_support);
+                    unruly_committee.extend(summary.unruly.clone());
+                    inconsistent_committee.extend(summary.invalid_support);
                     reward_committee.extend(summary.against.clone());
-                    unstake_committee.extend(summary.against.clone());
 
                     let mut machine_committee = Self::machine_committee(&machine_id);
                     machine_committee.status = OCVerifyStatus::Finished;
                     MachineCommittee::<T>::insert(&machine_id, machine_committee);
 
-                    let _ = T::OCOperations::oc_refuse_machine(machine_id.clone(), reward_committee);
+                    let _ = T::OCOperations::oc_refuse_machine(machine_id.clone(), reward_committee.clone());
                 },
                 MachineConfirmStatus::NoConsensus(summary) => {
-                    slash_committee.extend(summary.unruly.clone());
-                    unstake_committee.extend(machine_committee.confirmed_committee.clone());
+                    unruly_committee.extend(summary.unruly.clone());
                     let _ = Self::revert_book(machine_id.clone());
 
                     T::OCOperations::oc_revert_booked_machine(machine_id.clone());
                 },
             }
 
-            // 惩罚没有提交信息的委员会
-            for a_committee in slash_committee {
-                let committee_ops = Self::committee_ops(&a_committee, &machine_id);
-                <T as pallet::Config>::ManageCommittee::add_slash(
-                    a_committee,
-                    committee_ops.staked_dbc,
-                    vec![],
-                    committee::CMSlashReason::OCNotSubmitRaw,
-                );
-            }
+            <T as pallet::Config>::ManageCommittee::add_slash(
+                inconsistent_committee,
+                unruly_committee,
+                reward_committee,
+                committee::CMSlashReason::OnlineCommittee(machine_id.clone()),
+            );
 
-            for a_committee in unstake_committee {
-                let committee_ops = Self::committee_ops(&a_committee, &machine_id);
-                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
-                    a_committee.clone(),
-                    committee_ops.staked_dbc,
-                    false,
-                );
-            }
+            // 惩罚没有提交信息的委员会
+            // for a_committee in slash_committee {
+            //     let committee_ops = Self::committee_ops(&a_committee, &machine_id);
+            //     <T as pallet::Config>::ManageCommittee::add_slash(
+            //         a_committee,
+            //         committee_ops.staked_dbc,
+            //         vec![],
+            //         committee::CMSlashReason::OnlineCommittee(machine_id.clone()),
+            //     );
+            // }
+
+            // for a_committee in unstake_committee {
+            //     let committee_ops = Self::committee_ops(&a_committee, &machine_id);
+            //     let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+            //         a_committee.clone(),
+            //         committee_ops.staked_dbc,
+            //         false,
+            //     );
+            // }
 
             // Do cleaning
             for a_committee in machine_committee.booked_committee {

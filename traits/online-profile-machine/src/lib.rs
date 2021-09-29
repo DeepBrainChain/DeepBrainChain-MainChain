@@ -51,9 +51,9 @@ pub trait ManageCommittee {
     fn stake_per_order() -> Option<Self::BalanceOf>;
     fn add_reward(committee: Self::AccountId, reward: Self::BalanceOf);
     fn add_slash(
-        who: Self::AccountId,
-        amount: Self::BalanceOf,
-        reward_to: Vec<Self::AccountId>,
+        inconsistent_slash_who: Vec<Self::AccountId>,
+        unruly_slash_who: Vec<Self::AccountId>,
+        reward_who: Vec<Self::AccountId>,
         slash_reason: Self::SlashReason,
     );
 }

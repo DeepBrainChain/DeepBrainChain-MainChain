@@ -804,25 +804,26 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Reporter apply technical committee review
-        #[pallet::weight(10000)]
-        pub fn apply_slash_review(
-            origin: OriginFor<T>,
-            slash_id: SlashId,
-            reason: Vec<u8>,
-        ) -> DispatchResultWithPostInfo {
-            // TODO:
-            Ok(().into())
-        }
+        // /// Reporter apply technical committee review
+        // /// TODO: reporter must apply in CommitteeModule
+        // #[pallet::weight(10000)]
+        // pub fn apply_slash_review(
+        //     origin: OriginFor<T>,
+        //     slash_id: SlashId,
+        //     reason: Vec<u8>,
+        // ) -> DispatchResultWithPostInfo {
+        //     // TODO:
+        //     Ok(().into())
+        // }
 
-        #[pallet::weight(0)]
-        pub fn cancel_reporter_slash(origin: OriginFor<T>, _report_id: ReportId) -> DispatchResultWithPostInfo {
-            T::CancelSlashOrigin::ensure_origin(origin)?;
+        // #[pallet::weight(0)]
+        // pub fn cancel_reporter_slash(origin: OriginFor<T>, _report_id: ReportId) -> DispatchResultWithPostInfo {
+        //     T::CancelSlashOrigin::ensure_origin(origin)?;
 
-            // TODO: 退还质押, 删掉惩罚信息
+        //     // TODO: 退还质押, 删掉惩罚信息
 
-            Ok(().into())
-        }
+        //     Ok(().into())
+        // }
     }
 
     #[pallet::event]
@@ -1021,11 +1022,18 @@ impl<T: Config> Pallet<T> {
             }
 
             // 当大于等于5分钟或者hashed的委员会已经达到3人，则更改报告状态，允许提交原始值
+            // FIXME: bugs
             if now - report_info.first_book_time >= FIVE_MINUTE.into() || report_info.hashed_committee.len() == 3 {
-                report_info.report_status = ReportStatus::SubmittingRaw;
-                ReportInfo::<T>::insert(report_id, report_info);
-                continue
+                if report_info.report_status != ReportStatus::SubmittingRaw {
+                    report_info.report_status = ReportStatus::SubmittingRaw;
+                    ReportInfo::<T>::insert(report_id, report_info);
+                    continue
+                }
             }
+
+            let mut inconsistent_committee = Vec::new();
+            let mut unruly_committee = Vec::new();
+            let mut reward_committee = Vec::new();
 
             // 当大于等于10分钟，或者提交确认的委员会等于提交了hash的委员会，需要执行后面的逻辑，来确认
             if now - report_info.first_book_time >= TEN_MINUTE.into() ||
@@ -1038,7 +1046,7 @@ impl<T: Config> Pallet<T> {
                     if report_info.confirmed_committee.binary_search(&a_committee).is_ok() {
                         ItemList::add_item(&mut committee_order.finished_report, report_id);
                     } else {
-                        let committee_ops = Self::committee_ops(&a_committee, report_id);
+                        // let committee_ops = Self::committee_ops(&a_committee, report_id);
                         <T as pallet::Config>::ManageCommittee::add_slash(
                             a_committee.clone(),
                             committee_ops.staked_balance,
@@ -1418,6 +1426,9 @@ impl<T: Config> Pallet<T> {
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let pending_slash_id = Self::get_all_slash_id();
+
+        // TODO: add interface to query from CommitteeModule if slash is cancled!
+        // TODO: must know if slash_id == report_id
 
         for slash_id in pending_slash_id {
             let slash_info = Self::pending_slash(&slash_id);

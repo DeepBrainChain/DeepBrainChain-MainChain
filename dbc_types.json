@@ -257,24 +257,21 @@
     }
   },
   "CMPendingSlashInfo": {
-    "slash_who": "AccountId",
+    "inconsistent_slash_who": "Vec<AccountId>",
+    "unruly_slash_who": "Vec<AccountId>",
+    "committee_stake_amount": "Balance",
     "slash_time": "BlockNumber",
-    "slash_amount": "Balance",
     "slash_exec_time": "BlockNumber",
-    "reward_to": "Vec<AccountId>",
+    "reward_who": "Vec<AccountId>",
     "slash_reason": "CMSlashReason"
   },
   "CMSlashReason": {
-    "_enum": [
-      "OCNotSubmitHash",
-      "OCNotSubmitRaw",
-      "OCInconsistentSubmit",
-      "MCNotSubmitHash",
-      "MCNotSubmitRaw",
-      "MCInconsistentSubmit"
-    ]
+    "_enum": {
+      "OnlineCommittee": "MachineId",
+      "MaintainCommittee": "ReportId"
+    }
   },
-  "CMPendingSlashReviewInfo":{
+  "CMPendingSlashReviewInfo": {
     "applicant": "AccountId",
     "staked_amount": "Balance",
     "apply_time": "BlockNumber",
