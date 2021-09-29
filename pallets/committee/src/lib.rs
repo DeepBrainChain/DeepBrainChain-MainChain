@@ -428,6 +428,13 @@ pub mod pallet {
             let slash_info = Self::pending_slash(slash_id);
             ensure!(slash_info.slash_who == committee, Error::<T>::NotSlashed);
             ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
+            match slash_info.slash_reason {
+                CMSlashReason::OCNotSubmitHash |
+                CMSlashReason::OCNotSubmitRaw |
+                CMSlashReason::MCNotSubmitHash |
+                CMSlashReason::MCNotSubmitRaw => return Err(Error::<T>::NotAllowedSlashReason.into()),
+                CMSlashReason::MCInconsistentSubmit | CMSlashReason::OCInconsistentSubmit => {},
+            }
 
             committee_stake.staked_amount = committee_stake
                 .staked_amount
@@ -473,7 +480,7 @@ pub mod pallet {
                 .checked_sub(&slash_review_info.staked_amount)
                 .ok_or(Error::<T>::CancelSlashFailed)?;
 
-            let is_committee_list_changed = Self::change_committee_status_when_stake_changed(
+            let mut is_committee_list_changed = Self::change_committee_status_when_stake_changed(
                 slash_info.slash_who.clone(),
                 &mut committee_list,
                 &committee_stake,
@@ -485,12 +492,38 @@ pub mod pallet {
             );
 
             CommitteeStake::<T>::insert(&slash_info.slash_who, committee_stake);
+
+            // Should slash reward_to to origin slashd one
+            for a_committee in slash_info.reward_to {
+                let mut a_committee_stake = Self::committee_stake(&a_committee);
+                a_committee_stake.used_stake = a_committee_stake
+                    .used_stake
+                    .checked_sub(&slash_info.slash_amount)
+                    .ok_or(Error::<T>::CancelSlashFailed)?;
+                a_committee_stake.staked_amount = a_committee_stake
+                    .staked_amount
+                    .checked_sub(&slash_info.slash_amount)
+                    .ok_or(Error::<T>::CancelSlashFailed)?;
+
+                is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
+                    slash_info.slash_who.clone(),
+                    &mut committee_list,
+                    &a_committee_stake,
+                );
+
+                <T as pallet::Config>::Currency::repatriate_reserved(
+                    &a_committee,
+                    &slash_info.slash_who,
+                    slash_info.slash_amount,
+                    BalanceStatus::Free,
+                )
+                .map_err(|_| Error::<T>::CancelSlashFailed)?;
+                CommitteeStake::<T>::insert(&a_committee, a_committee_stake);
+            }
+
             if is_committee_list_changed {
                 Committee::<T>::put(committee_list);
             }
-
-            // TODO: should slash reward_to to origin slashd one
-
             PendingSlash::<T>::remove(slash_id);
             PendingSlashReview::<T>::remove(slash_id);
             Self::deposit_event(Event::StakeReduced(slash_info.slash_who.clone(), slash_info.slash_amount));
@@ -543,6 +576,7 @@ pub mod pallet {
         NotSlashed,
         ExpiredSlash,
         NotPendingReviewSlash,
+        NotAllowedSlashReason,
     }
 }
 
