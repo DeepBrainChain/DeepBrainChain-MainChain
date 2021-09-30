@@ -5,7 +5,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::{BalanceStatus, Currency, EnsureOrigin, OnUnbalanced, ReservableCurrency},
+    traits::{Currency, EnsureOrigin, OnUnbalanced, ReservableCurrency},
     weights::Weight,
     IterableStorageMap,
 };
