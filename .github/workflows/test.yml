@@ -6,9 +6,9 @@ name: CI
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ alpha-v2.1 ]
+    branches: [alpha-v2.1]
   pull_request:
-    branches: [ alpha-v2.1 ]
+    branches: [alpha-v2.1]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -29,8 +29,8 @@ jobs:
       # - name: Run check
       #   run: cargo check
 
-#       - name: Run build release
-#         run: cargo build --release
+      # - name: Run build release
+      #   run: cargo build --release
 
       - name: Run machine online tests
         run: cargo test -p online-committee
@@ -38,5 +38,5 @@ jobs:
       - name: Run rent machine tests
         run: cargo test -p rent-machine
 
-      - name: Run maintain committee tests
+      - name: Run maintain machine tests
         run: cargo test -p maintain-committee

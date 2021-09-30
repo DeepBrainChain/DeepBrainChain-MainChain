@@ -362,7 +362,6 @@ impl<T: Config> Pallet<T> {
     // 分派一个machineId给随机的委员会
     // 返回Distribution(9)个随机顺序的账户列表
     pub fn committee_workflow() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
-        // FIXME: cannot get any committee
         let mut committee = <committee::Module<T>>::available_committee()?;
         // Require committee_num at lease 3
         let lucky_committee_num = if committee.len() < 3 { return None } else { 3 };
