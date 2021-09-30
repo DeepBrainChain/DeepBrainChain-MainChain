@@ -1410,7 +1410,7 @@ impl<T: Config> Pallet<T> {
         live_report_is_changed
     }
 
-    // TODO: add interface to query from CommitteeModule if slash is cancled!
+    // TODO: add interface to query from CommitteeModule if slash is canceled!
     // TODO: must know if slash_id == report_id
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();

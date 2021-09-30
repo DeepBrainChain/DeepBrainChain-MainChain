@@ -465,35 +465,16 @@ pub mod pallet {
 
             let slash_info = Self::pending_slash(slash_id);
             let slash_review_info = Self::pending_slash_review(slash_id);
+            let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
             let mut committee_list = Self::committee();
             let mut is_committee_list_changed = false;
 
-            // cancle inconsistent slash
-            for a_committee in slash_info.inconsistent_slash_who {
-                let mut committee_stake = Self::committee_stake(&a_committee);
-                committee_stake.used_stake = committee_stake
-                    .used_stake
-                    .checked_sub(&slash_info.committee_stake_amount)
-                    .ok_or(Error::<T>::CancelSlashFailed)?;
+            let mut all_should_slash = vec![];
+            all_should_slash.extend(slash_info.unruly_slash_who);
+            all_should_slash.extend(slash_info.reward_who.clone());
 
-                if &a_committee == &slash_review_info.applicant {
-                    committee_stake.used_stake = committee_stake
-                        .used_stake
-                        .checked_sub(&slash_review_info.staked_amount)
-                        .ok_or(Error::<T>::CancelSlashFailed)?;
-                }
-
-                is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
-                    a_committee.clone(),
-                    &mut committee_list,
-                    &committee_stake,
-                );
-                CommitteeStake::<T>::insert(&a_committee, committee_stake);
-            }
-
-            // exec unruly slash
-            for a_committee in slash_info.unruly_slash_who {
-                let mut committee_stake = Self::committee_stake(&a_committee);
+            for a_canceled_slash_person in all_should_slash.clone() {
+                let mut committee_stake = Self::committee_stake(&a_canceled_slash_person);
                 committee_stake.staked_amount = committee_stake
                     .staked_amount
                     .checked_sub(&slash_info.committee_stake_amount)
@@ -503,16 +484,23 @@ pub mod pallet {
                     .checked_sub(&slash_info.committee_stake_amount)
                     .ok_or(Error::<T>::CancelSlashFailed)?;
 
+                if &a_canceled_slash_person == &slash_review_info.applicant {
+                    committee_stake.used_stake = committee_stake
+                        .used_stake
+                        .checked_sub(&slash_review_info.staked_amount)
+                        .ok_or(Error::<T>::CancelSlashFailed)?;
+                }
+
                 is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
-                    a_committee.clone(),
+                    a_canceled_slash_person.clone(),
                     &mut committee_list,
                     &committee_stake,
                 );
-                CommitteeStake::<T>::insert(&a_committee, committee_stake);
+                CommitteeStake::<T>::insert(&a_canceled_slash_person, committee_stake);
             }
 
             // Should slash reward_to to origin slashd one
-            for a_committee in slash_info.reward_who {
+            for a_committee in slash_info.reward_who.clone() {
                 let mut a_committee_stake = Self::committee_stake(&a_committee);
                 a_committee_stake.used_stake = a_committee_stake
                     .used_stake
@@ -529,16 +517,13 @@ pub mod pallet {
                     &a_committee_stake,
                 );
 
-                // FIXME: reward to inconsistent_slash_who
-                // <T as pallet::Config>::Currency::repatriate_reserved(
-                //     &a_committee,
-                //     &,
-                //     slash_info.slash_amount,
-                //     BalanceStatus::Free,
-                // )
-                // .map_err(|_| Error::<T>::CancelSlashFailed)?;
                 CommitteeStake::<T>::insert(&a_committee, a_committee_stake);
             }
+            let _ = T::SlashAndReward::slash_and_reward(
+                slash_info.reward_who,
+                committee_stake_params.stake_per_order,
+                all_should_slash,
+            );
 
             if is_committee_list_changed {
                 Committee::<T>::put(committee_list);
@@ -672,12 +657,11 @@ impl<T: Config> Pallet<T> {
                 &committee_stake,
             );
 
-            // reserved to treasury and change committee total_stake & used stake
-            if <T as pallet::Config>::Currency::reserved_balance(&review_info.applicant) >= review_info.staked_amount {
-                let (imbalance, _missing) =
-                    <T as pallet::Config>::Currency::slash_reserved(&review_info.applicant, review_info.staked_amount);
-                <T as pallet::Config>::Slash::on_unbalanced(imbalance);
-            }
+            let _ = T::SlashAndReward::slash_and_reward(
+                vec![review_info.applicant.clone()],
+                review_info.staked_amount,
+                vec![],
+            );
 
             if is_committee_list_changed {
                 Committee::<T>::put(committee_list);
