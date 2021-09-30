@@ -1409,67 +1409,62 @@ impl<T: Config> Pallet<T> {
         live_report_is_changed
     }
 
+    // TODO: add interface to query from CommitteeModule if slash is cancled!
+    // TODO: must know if slash_id == report_id
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let pending_slash_id = Self::get_all_slash_id();
 
-        // TODO: add interface to query from CommitteeModule if slash is cancled!
-        // TODO: must know if slash_id == report_id
-
         for slash_id in pending_slash_id {
             let slash_info = Self::pending_slash(&slash_id);
-            if now >= slash_info.slash_exec_time {
-                // 如果reward_to为0，则将币转到国库
-                let reward_to_num = slash_info.reward_to.len() as u32;
+            if now < slash_info.slash_exec_time {
+                continue
+            }
 
-                let mut reporter_stake = Self::reporter_stake(&slash_info.slash_who);
-                reporter_stake.used_stake = reporter_stake.used_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
-                reporter_stake.staked_amount =
-                    reporter_stake.staked_amount.checked_sub(&slash_info.slash_amount).ok_or(())?;
+            // 如果reward_to为0，则将币转到国库
+            let reward_to_num = slash_info.reward_to.len() as u32;
 
-                if reward_to_num == 0 {
-                    // Slash to Treasury
-                    if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >=
-                        slash_info.slash_amount
-                    {
-                        let (imbalance, _missing) = <T as pallet::Config>::Currency::slash_reserved(
-                            &slash_info.slash_who,
-                            slash_info.slash_amount,
-                        );
-                        <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+            let mut reporter_stake = Self::reporter_stake(&slash_info.slash_who);
+            reporter_stake.staked_amount =
+                reporter_stake.staked_amount.checked_sub(&slash_info.slash_amount).ok_or(())?;
+            reporter_stake.used_stake = reporter_stake.used_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
 
-                        PendingSlash::<T>::remove(slash_id);
-                    }
-                } else {
-                    let reward_each_get =
-                        Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
-                    let mut left_reward = slash_info.slash_amount;
+            if reward_to_num == 0 {
+                // Slash to Treasury
+                if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >= slash_info.slash_amount {
+                    let (imbalance, _missing) =
+                        <T as pallet::Config>::Currency::slash_reserved(&slash_info.slash_who, slash_info.slash_amount);
+                    <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+                }
+            } else {
+                let reward_each_get =
+                    Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
+                let mut left_reward = slash_info.slash_amount;
 
-                    for a_committee in slash_info.reward_to {
-                        if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >= left_reward {
-                            if left_reward >= reward_each_get {
-                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                                    &slash_info.slash_who,
-                                    &a_committee,
-                                    reward_each_get,
-                                    BalanceStatus::Free,
-                                );
-                                left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
-                            } else {
-                                let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-                                    &slash_info.slash_who,
-                                    &a_committee,
-                                    left_reward,
-                                    BalanceStatus::Free,
-                                );
-                            }
+                for a_committee in slash_info.reward_to {
+                    if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >= left_reward {
+                        if left_reward >= reward_each_get {
+                            let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                                &slash_info.slash_who,
+                                &a_committee,
+                                reward_each_get,
+                                BalanceStatus::Free,
+                            );
+                            left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
+                        } else {
+                            let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                                &slash_info.slash_who,
+                                &a_committee,
+                                left_reward,
+                                BalanceStatus::Free,
+                            );
                         }
                     }
                 }
-
-                ReporterStake::<T>::insert(&slash_info.slash_who, reporter_stake);
-                PendingSlash::<T>::remove(slash_id);
             }
+
+            ReporterStake::<T>::insert(&slash_info.slash_who, reporter_stake);
+            PendingSlash::<T>::remove(slash_id);
         }
         Ok(())
     }
