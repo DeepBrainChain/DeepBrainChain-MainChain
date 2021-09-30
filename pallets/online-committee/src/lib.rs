@@ -215,7 +215,6 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // 添加确认hash
         #[pallet::weight(10000)]
         pub fn submit_confirm_hash(
             origin: OriginFor<T>,
@@ -228,15 +227,11 @@ pub mod pallet {
             let mut machine_committee = Self::machine_committee(&machine_id);
             let mut machine_submited_hash = Self::machine_submited_hash(&machine_id);
 
-            // 从机器信息列表中有该委员会
             ensure!(machine_committee.booked_committee.binary_search(&committee).is_ok(), Error::<T>::NotInBookList);
-            // 该委员会没有提交过Hash
             ensure!(
                 machine_committee.hashed_committee.binary_search(&committee).is_err(),
                 Error::<T>::AlreadySubmitHash
             );
-
-            // 记录该机器出现过的Hash
             ensure!(machine_submited_hash.binary_search(&hash).is_err(), Error::<T>::DuplicateHash);
             ItemList::add_item(&mut machine_submited_hash, hash.clone());
 
@@ -267,7 +262,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 委员会提交的原始信息
         #[pallet::weight(10000)]
         pub fn submit_confirm_raw(
             origin: OriginFor<T>,
@@ -275,20 +269,16 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
-
             let machine_id = machine_info_detail.machine_id.clone();
 
             let mut machine_committee = Self::machine_committee(&machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
             let mut machine_ops = Self::committee_ops(&committee, &machine_id);
 
-            // 如果所有人都提交了，则直接可以提交Hash
             if machine_committee.status != OCVerifyStatus::SubmittingRaw {
-                // 查询是否已经到了提交hash的时间 必须在36 ~ 48小时之间
                 ensure!(now >= machine_committee.confirm_start_time, Error::<T>::TimeNotAllow);
                 ensure!(now <= machine_committee.book_time + SUBMIT_RAW_END.into(), Error::<T>::TimeNotAllow);
             }
-
             ensure!(machine_committee.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotSubmitHash);
             ensure!(committee_machine.hashed_machine.binary_search(&machine_id).is_ok(), Error::<T>::NotSubmitHash);
             ensure!(
@@ -296,22 +286,18 @@ pub mod pallet {
                 Error::<T>::AlreadySubmitRaw
             );
 
-            // 检查提交的raw与已提交的Hash一致
             let info_hash = machine_info_detail.hash();
             ensure!(info_hash == machine_ops.confirm_hash, Error::<T>::InfoNotFeatHash);
 
-            // 修改存储
             ItemList::rm_item(&mut committee_machine.hashed_machine, &machine_id);
             ItemList::add_item(&mut committee_machine.confirmed_machine, machine_id.clone());
             ItemList::add_item(&mut machine_committee.confirmed_committee, committee.clone());
 
-            // machine_ops.confirm_raw = confirm_raw.clone();
             machine_ops.confirm_time = now;
             machine_ops.machine_status = OCMachineStatus::Confirmed;
             machine_ops.machine_info = machine_info_detail.clone();
             machine_ops.machine_info.rand_str = Vec::new();
 
-            // 如果全部都提交完了原始信息，则允许进入summary
             if machine_committee.confirmed_committee.len() == machine_committee.hashed_committee.len() {
                 machine_committee.status = OCVerifyStatus::Summarizing;
             }
@@ -444,7 +430,7 @@ impl<T: Config> Pallet<T> {
 
         for machine_id in booked_machine {
             let machine_committee = Self::machine_committee(machine_id.clone());
-            // 当不为Summary状态时查看是否到了48小时，如果不到则返回
+            // 当不为Summary状态时查看是否到了48小时，则还需要继续等待
             if machine_committee.status != OCVerifyStatus::Summarizing &&
                 now < machine_committee.book_time + SUBMIT_RAW_END.into()
             {
@@ -457,10 +443,19 @@ impl<T: Config> Pallet<T> {
 
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
-                    unruly_committee.extend(summary.unruly.clone());
-                    inconsistent_committee.extend(summary.against);
-                    inconsistent_committee.extend(summary.invalid_support);
-                    reward_committee.extend(summary.valid_support.clone());
+                    for a_committee in summary.unruly {
+                        ItemList::add_item(&mut unruly_committee, a_committee);
+                    }
+                    for a_committee in summary.against {
+                        ItemList::add_item(&mut inconsistent_committee, a_committee);
+                    }
+                    for a_committee in summary.invalid_support {
+                        ItemList::add_item(&mut inconsistent_committee, a_committee);
+                    }
+                    for a_committee in summary.valid_support.clone() {
+                        ItemList::add_item(&mut reward_committee, a_committee);
+                    }
+
                     if T::OCOperations::oc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap()).is_ok()
                     {
                         let valid_support = summary.valid_support.clone();
@@ -478,9 +473,15 @@ impl<T: Config> Pallet<T> {
                     }
                 },
                 MachineConfirmStatus::Refuse(summary) => {
-                    unruly_committee.extend(summary.unruly.clone());
-                    inconsistent_committee.extend(summary.invalid_support);
-                    reward_committee.extend(summary.against.clone());
+                    for a_committee in summary.unruly {
+                        ItemList::add_item(&mut unruly_committee, a_committee);
+                    }
+                    for a_committee in summary.invalid_support {
+                        ItemList::add_item(&mut inconsistent_committee, a_committee);
+                    }
+                    for a_committee in summary.against {
+                        ItemList::add_item(&mut reward_committee, a_committee);
+                    }
 
                     let mut machine_committee = Self::machine_committee(&machine_id);
                     machine_committee.status = OCVerifyStatus::Finished;
@@ -489,9 +490,11 @@ impl<T: Config> Pallet<T> {
                     let _ = T::OCOperations::oc_refuse_machine(machine_id.clone(), reward_committee.clone());
                 },
                 MachineConfirmStatus::NoConsensus(summary) => {
-                    unruly_committee.extend(summary.unruly.clone());
-                    let _ = Self::revert_book(machine_id.clone());
+                    for a_committee in summary.unruly {
+                        ItemList::add_item(&mut unruly_committee, a_committee);
+                    }
 
+                    let _ = Self::revert_book(machine_id.clone());
                     T::OCOperations::oc_revert_booked_machine(machine_id.clone());
                 },
             }
@@ -502,26 +505,6 @@ impl<T: Config> Pallet<T> {
                 reward_committee,
                 committee::CMSlashReason::OnlineCommittee(machine_id.clone()),
             );
-
-            // 惩罚没有提交信息的委员会
-            // for a_committee in slash_committee {
-            //     let committee_ops = Self::committee_ops(&a_committee, &machine_id);
-            //     <T as pallet::Config>::ManageCommittee::add_slash(
-            //         a_committee,
-            //         committee_ops.staked_dbc,
-            //         vec![],
-            //         committee::CMSlashReason::OnlineCommittee(machine_id.clone()),
-            //     );
-            // }
-
-            // for a_committee in unstake_committee {
-            //     let committee_ops = Self::committee_ops(&a_committee, &machine_id);
-            //     let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
-            //         a_committee.clone(),
-            //         committee_ops.staked_dbc,
-            //         false,
-            //     );
-            // }
 
             // Do cleaning
             for a_committee in machine_committee.booked_committee {
