@@ -705,7 +705,7 @@ impl<T: Config> Pallet<T> {
             ItemList::rm_item(&mut committee_list.fulfilling_list, &committee);
             ItemList::add_item(&mut committee_list.normal, committee);
             is_committee_list_changed = true;
-        } else if committee_list.normal.binary_search(&committee).is_ok() {
+        } else if !is_free_stake_enough && committee_list.normal.binary_search(&committee).is_ok() {
             ItemList::rm_item(&mut committee_list.normal, &committee);
             ItemList::add_item(&mut committee_list.fulfilling_list, committee);
             is_committee_list_changed = true;
@@ -729,19 +729,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     // 在每个区块以及每次分配一个机器之后，都需要检查
     fn available_committee() -> Option<Vec<T::AccountId>> {
         let committee_list = Self::committee();
-        let normal_committee = committee_list.normal.clone();
-        let stake_params = Self::committee_stake_params()?;
-        let mut out = Vec::new();
-
-        // 如果free_balance足够，则复制到out列表中
-        for a_committee in normal_committee {
-            // 当委员会质押不够时，将委员会移动到fulfill_list中
-            if <T as Config>::Currency::free_balance(&a_committee) > stake_params.stake_per_order {
-                out.push(a_committee.clone());
-            }
-        }
-
-        (out.len() > 0).then(|| out)
+        (committee_list.normal.len() > 0).then(|| committee_list.normal)
     }
 
     // 改变委员会使用的质押数量

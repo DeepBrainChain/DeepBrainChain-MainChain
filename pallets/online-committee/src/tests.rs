@@ -769,18 +769,19 @@ fn committee_not_submit_hash_slash_works() {
             online_profile::LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
-        // Committee 记录到了惩罚信息
         assert_eq!(
             Committee::pending_slash(0),
             committee::CMPendingSlashInfo {
-                slash_who: committee4,
+                inconsistent_slash_who: vec![],
+                unruly_slash_who: vec![committee4],
+                committee_stake_amount: 1000 * ONE_DBC,
                 slash_time: 4327,
-                slash_amount: 1000 * ONE_DBC,
-                slash_exec_time: 4327 + 2880 * 2, // 2day
-                reward_to: vec![],
-                slash_reason: committee::CMSlashReason::OCNotSubmitRaw,
+                slash_exec_time: 4327 + 2880 * 2,
+                reward_who: vec![committee2, committee1],
+                slash_reason: committee::CMSlashReason::OnlineCommittee(machine_id),
             }
         );
+
         // 惩罚
         run_to_block(4327 + 2880 * 2 + 1);
     })
@@ -918,6 +919,10 @@ fn committee_not_equal_then_redistribute_works() {
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey.clone()));
 
         run_to_block(16);
+        assert_eq!(
+            OnlineProfile::live_machines(),
+            online_profile::LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
+        );
 
         machine_info.machine_status = online_profile::MachineStatus::CommitteeVerifying;
 
@@ -960,6 +965,20 @@ fn committee_not_equal_then_redistribute_works() {
                 status: super::OCVerifyStatus::Summarizing,
                 ..Default::default()
             }
+        );
+
+        assert_eq!(
+            Committee::committee_stake(committee1),
+            committee::CommitteeStakeInfo {
+                box_pubkey: committee1_box_pubkey,
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 1000 * ONE_DBC,
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            Committee::committee(),
+            committee::CommitteeList { normal: vec![committee3, committee1, committee2], ..Default::default() }
         );
 
         run_to_block(17);

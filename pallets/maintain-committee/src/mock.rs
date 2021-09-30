@@ -117,6 +117,7 @@ impl generic_func::Config for TestRuntime {
     type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
     type FixedTxFee = Treasury;
+    type Slash = Treasury;
 }
 
 parameter_types! {
@@ -145,17 +146,6 @@ impl pallet_treasury::Config for TestRuntime {
     type SpendFunds = ();
 }
 
-// parameter_types! {
-//     pub const MinimumPeriod: u64 = 5;
-// }
-
-// impl pallet_timestamp::Config for TestRuntime {
-//     type Moment = u64;
-//     type OnTimestampSet = ();
-//     type MinimumPeriod = MinimumPeriod;
-//     type WeightInfo = ();
-// }
-
 parameter_types! {
     pub const CouncilMotionDuration: u32 = 5 * 2880;
     pub const CouncilMaxProposals: u32 = 100;
@@ -179,6 +169,7 @@ impl committee::Config for TestRuntime {
     type Event = Event;
     type Slash = Treasury;
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
 }
 
 impl online_committee::Config for TestRuntime {
@@ -201,6 +192,7 @@ impl online_profile::Config for TestRuntime {
     type ManageCommittee = Committee;
     type Slash = Treasury;
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
 }
 
 impl maintain_committee::Config for TestRuntime {
@@ -210,6 +202,7 @@ impl maintain_committee::Config for TestRuntime {
     type MTOps = OnlineProfile;
     type Slash = Treasury;
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
 }
 
 // Configure a mock runtime to test the pallet.

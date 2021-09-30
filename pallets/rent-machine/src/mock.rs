@@ -83,6 +83,7 @@ impl generic_func::Config for TestRuntime {
     type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
     type FixedTxFee = Treasury;
+    type Slash = Treasury;
 }
 
 parameter_types! {
@@ -139,6 +140,7 @@ impl committee::Config for TestRuntime {
     type Event = Event;
     type Slash = Treasury;
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
 }
 
 impl online_profile::Config for TestRuntime {
@@ -150,6 +152,7 @@ impl online_profile::Config for TestRuntime {
     type ManageCommittee = Committee;
     type Slash = Treasury;
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
 }
 
 impl dbc_price_ocw::Config for TestRuntime {

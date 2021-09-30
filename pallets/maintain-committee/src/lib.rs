@@ -766,6 +766,7 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let mut report_info = Self::report_info(report_id);
+            // println!("");
             ensure!(report_info.report_status == ReportStatus::SubmittingRaw, Error::<T>::OrderStatusNotFeat);
             match report_info.machine_fault_type {
                 MachineFaultType::RentedInaccessible(..) => {},
@@ -1030,8 +1031,8 @@ impl<T: Config> Pallet<T> {
                     {
                         report_info.report_status = ReportStatus::SubmittingRaw;
                         ReportInfo::<T>::insert(report_id, report_info);
-                        continue
                     }
+                    continue
                 },
                 ReportStatus::SubmittingRaw => {
                     if now - report_info.first_book_time < TEN_MINUTE.into() &&

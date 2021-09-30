@@ -423,17 +423,22 @@ fn test_heart_beat2() {
                 ..Default::default()
             }
         );
+
         assert_eq!(
             Committee::pending_slash(0),
             committee::CMPendingSlashInfo {
-                slash_who: committee1.clone(),
-                slash_time: 11 + 120,
-                slash_amount: 1000 * ONE_DBC,
-                slash_exec_time: 11 + 120 + 2880 * 2,
-                reward_to: vec![],
-                slash_reason: committee::CMSlashReason::MCNotSubmitHash,
+                inconsistent_slash_who: vec![],
+                unruly_slash_who: vec![committee1],
+                committee_stake_amount: 1000 * ONE_DBC,
+                slash_time: 4327,
+                slash_exec_time: 4327 + 2880 * 2,
+                reward_who: vec![],
+                slash_reason: committee::CMSlashReason::MaintainCommittee(0),
             }
         );
+
+        // 惩罚
+        run_to_block(132 + 2880 * 2 + 1);
     })
 }
 

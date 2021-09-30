@@ -362,6 +362,7 @@ impl<T: Config> Pallet<T> {
     // 分派一个machineId给随机的委员会
     // 返回Distribution(9)个随机顺序的账户列表
     pub fn committee_workflow() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
+        // FIXME: cannot get any committee
         let mut committee = <committee::Module<T>>::available_committee()?;
         // Require committee_num at lease 3
         let lucky_committee_num = if committee.len() < 3 { return None } else { 3 };
@@ -500,12 +501,19 @@ impl<T: Config> Pallet<T> {
                 },
             }
 
-            <T as pallet::Config>::ManageCommittee::add_slash(
-                inconsistent_committee,
-                unruly_committee,
-                reward_committee,
-                committee::CMSlashReason::OnlineCommittee(machine_id.clone()),
-            );
+            if inconsistent_committee.len() == 0 && unruly_committee.len() == 0 {
+                let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
+                for a_committee in reward_committee {
+                    let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(a_committee, stake_need, false);
+                }
+            } else {
+                <T as pallet::Config>::ManageCommittee::add_slash(
+                    inconsistent_committee,
+                    unruly_committee,
+                    reward_committee,
+                    committee::CMSlashReason::OnlineCommittee(machine_id.clone()),
+                );
+            }
 
             // Do cleaning
             for a_committee in machine_committee.booked_committee {
@@ -537,6 +545,7 @@ impl<T: Config> Pallet<T> {
             ItemList::rm_item(&mut committee_machine.booked_machine, &machine_id);
             ItemList::rm_item(&mut committee_machine.hashed_machine, &machine_id);
             ItemList::rm_item(&mut committee_machine.confirmed_machine, &machine_id);
+
             CommitteeMachine::<T>::insert(booked_committee, committee_machine);
         }
 
