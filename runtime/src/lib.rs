@@ -1007,6 +1007,7 @@ impl generic_func::Config for Runtime {
     type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
     type FixedTxFee = Treasury;
+    type Slash = Treasury;
 }
 
 impl online_profile::Config for Runtime {
@@ -1017,6 +1018,7 @@ impl online_profile::Config for Runtime {
     type ManageCommittee = Committee;
     type Slash = Treasury;
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
 }
 
 impl simple_rpc::Config for Runtime {
@@ -1045,6 +1047,7 @@ impl maintain_committee::Config for Runtime {
     type MTOps = OnlineProfile;
     type Slash = Treasury;
     type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
 }
 
 impl rent_machine::Config for Runtime {

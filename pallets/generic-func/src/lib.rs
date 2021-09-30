@@ -2,11 +2,15 @@
 
 use frame_support::{
     pallet_prelude::*,
-    traits::{Currency, LockableCurrency, OnUnbalanced, Randomness},
+    traits::{BalanceStatus, Currency, OnUnbalanced, Randomness, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
+use online_profile_machine::GNOps;
 use sp_core::H256;
-use sp_runtime::{traits::BlakeTwo256, RandomNumberGenerator};
+use sp_runtime::{
+    traits::{BlakeTwo256, CheckedSub, Zero},
+    Perbill, RandomNumberGenerator,
+};
 use sp_std::prelude::*;
 
 pub use pallet::*;
@@ -45,11 +49,12 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: ReservableCurrency<Self::AccountId>;
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type BlockPerEra: Get<u32>;
         type RandomnessSource: Randomness<H256>;
         type FixedTxFee: OnUnbalanced<NegativeImbalanceOf<Self>>;
+        type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -157,5 +162,63 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::TxFeeToTreasury(who, fixed_tx_fee));
         Ok(())
+    }
+}
+
+impl<T: Config> GNOps for Pallet<T> {
+    type AccountId = T::AccountId;
+    type BalanceOf = BalanceOf<T>;
+
+    fn slash_and_reward(
+        slash_who: Vec<T::AccountId>,
+        each_slash: BalanceOf<T>,
+        reward_who: Vec<T::AccountId>,
+    ) -> Result<(), ()> {
+        if slash_who.len() == 0 || each_slash == Zero::zero() {
+            return Ok(())
+        }
+
+        // 如果reward_to为0，则将币转到国库
+        let reward_to_num = reward_who.len() as u32;
+
+        if reward_to_num == 0 {
+            // Slash to Treasury
+            for a_slash_person in slash_who {
+                if <T as pallet::Config>::Currency::reserved_balance(&a_slash_person) >= each_slash {
+                    let (imbalance, _missing) =
+                        <T as pallet::Config>::Currency::slash_reserved(&a_slash_person, each_slash);
+                    <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+                }
+            }
+            return Ok(())
+        }
+
+        for a_slash_person in slash_who {
+            let reward_each_get = Perbill::from_rational_approximation(1u32, reward_to_num) * each_slash;
+            let mut left_reward = each_slash;
+
+            for a_committee in &reward_who {
+                if <T as pallet::Config>::Currency::reserved_balance(&a_slash_person) >= left_reward {
+                    if left_reward >= reward_each_get {
+                        let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                            &a_slash_person,
+                            a_committee,
+                            reward_each_get,
+                            BalanceStatus::Free,
+                        );
+                        left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
+                    } else {
+                        let _ = <T as pallet::Config>::Currency::repatriate_reserved(
+                            &a_slash_person,
+                            a_committee,
+                            left_reward,
+                            BalanceStatus::Free,
+                        );
+                    }
+                }
+            }
+        }
+
+        return Ok(())
     }
 }

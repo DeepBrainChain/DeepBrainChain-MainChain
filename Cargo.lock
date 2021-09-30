@@ -2145,6 +2145,7 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "online-profile-machine",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "serde",

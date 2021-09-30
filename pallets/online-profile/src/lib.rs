@@ -12,7 +12,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use generic_func::ItemList;
-use online_profile_machine::{DbcPrice, MTOps, ManageCommittee, OCOps, OPRPCQuery, RTOps};
+use online_profile_machine::{DbcPrice, GNOps, MTOps, ManageCommittee, OCOps, OPRPCQuery, RTOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::{crypto::Public, H256};
@@ -336,6 +336,7 @@ pub mod pallet {
         type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
+        type SlashAndReward: GNOps<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -1750,34 +1751,7 @@ impl<T: Config> Pallet<T> {
         sys_info.total_stake = sys_info.total_stake.checked_sub(&slash_amount).ok_or(())?;
         stash_stake = stash_stake.checked_sub(&slash_amount).ok_or(())?;
 
-        let mut left_reward = slash_amount;
-        let reward_each_get = Perbill::from_rational_approximation(1u32, reward_to.len() as u32) * slash_amount;
-
-        ensure!(<T as pallet::Config>::Currency::reserved_balance(&slash_who) >= slash_amount, ());
-
-        if reward_to.len() == 0 {
-            let (imbalance, _missing) = <T as pallet::Config>::Currency::slash_reserved(&slash_who, slash_amount);
-            <T as pallet::Config>::Slash::on_unbalanced(imbalance);
-            Self::deposit_event(Event::Slash(slash_who.clone(), slash_amount, slash_reason));
-        } else {
-            for a_committee in reward_to.clone() {
-                let a_slash = if left_reward >= reward_each_get { reward_each_get } else { left_reward };
-                <T as pallet::Config>::Currency::repatriate_reserved(
-                    &slash_who,
-                    &a_committee,
-                    a_slash,
-                    BalanceStatus::Free,
-                )
-                .map_err(|_| ())?;
-                Self::deposit_event(Event::SlashAndReward(
-                    slash_who.clone(),
-                    a_committee,
-                    a_slash,
-                    slash_reason.clone(),
-                ));
-                left_reward -= a_slash;
-            }
-        }
+        let _ = T::SlashAndReward::slash_and_reward(vec![slash_who.clone()], slash_amount, reward_to);
 
         StashStake::<T>::insert(&slash_who, stash_stake);
         SysInfo::<T>::put(sys_info);

@@ -76,3 +76,14 @@ pub trait MTOps {
         fault_type: Self::FaultType,
     );
 }
+
+pub trait GNOps {
+    type AccountId;
+    type BalanceOf;
+
+    fn slash_and_reward(
+        slash_who: Vec<Self::AccountId>,
+        each_slash: Self::BalanceOf,
+        reward_who: Vec<Self::AccountId>,
+    ) -> Result<(), ()>;
+}
