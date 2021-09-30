@@ -11,7 +11,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use generic_func::ItemList;
-use online_profile_machine::ManageCommittee;
+use online_profile_machine::{GNOps, ManageCommittee};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
@@ -124,6 +124,7 @@ pub mod pallet {
         type Currency: ReservableCurrency<Self::AccountId>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
+        type SlashAndReward: GNOps<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -138,7 +139,7 @@ pub mod pallet {
 
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
             // TODO: FIXME
-            // let _ = Self::check_and_exec_slash();
+            let _ = Self::check_and_exec_slash();
             0
         }
 
@@ -601,78 +602,51 @@ impl<T: Config> Pallet<T> {
     // TODO: after slash is done, should unreserve balance of committee,
     // NOTE: Should be careful, in case two is slashed, may result in cancel reserved_balance twice
     // TODO: FIXME
-    // fn check_and_exec_slash() -> Result<(), ()> {
-    //     let now = <frame_system::Module<T>>::block_number();
-    //     let pending_slash_id = Self::get_slash_id();
+    fn check_and_exec_slash() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+        let pending_slash_id = Self::get_slash_id();
+        let mut committee_list = Self::committee();
+        let mut is_committee_list_changed = false;
+        let committee_stake_params = Self::committee_stake_params().ok_or(())?;
 
-    //     for slash_id in pending_slash_id {
-    //         let slash_info = Self::pending_slash(&slash_id);
-    //         if now >= slash_info.slash_exec_time {
-    //             // 如果reward_to为0，则将币转到国库
-    //             let reward_to_num = slash_info.reward_to.len() as u32;
+        for slash_id in pending_slash_id {
+            let slash_info = Self::pending_slash(&slash_id);
+            if now < slash_info.slash_exec_time {
+                continue
+            }
 
-    //             let mut committee_stake = Self::committee_stake(&slash_info.slash_who);
-    //             let mut committee_list = Self::committee();
+            let mut all_should_slash = vec![];
+            all_should_slash.extend(slash_info.inconsistent_slash_who);
+            all_should_slash.extend(slash_info.unruly_slash_who);
 
-    //             committee_stake.used_stake =
-    //                 committee_stake.used_stake.checked_sub(&slash_info.slash_amount).ok_or(())?;
-    //             committee_stake.staked_amount =
-    //                 committee_stake.staked_amount.checked_sub(&slash_info.slash_amount).ok_or(())?;
+            let _ = T::SlashAndReward::slash_and_reward(
+                all_should_slash.clone(),
+                committee_stake_params.stake_per_order,
+                slash_info.reward_who,
+            );
 
-    //             let is_committee_list_changed = Self::change_committee_status_when_stake_changed(
-    //                 slash_info.slash_who.clone(),
-    //                 &mut committee_list,
-    //                 &committee_stake,
-    //             );
+            for a_slash_person in all_should_slash {
+                let mut committee_stake = Self::committee_stake(&a_slash_person);
 
-    //             if reward_to_num == 0 {
-    //                 if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >=
-    //                     slash_info.slash_amount
-    //                 {
-    //                     let (imbalance, _missing) = <T as pallet::Config>::Currency::slash_reserved(
-    //                         &slash_info.slash_who,
-    //                         slash_info.slash_amount,
-    //                     );
-    //                     <T as pallet::Config>::Slash::on_unbalanced(imbalance);
+                committee_stake.used_stake =
+                    committee_stake.used_stake.checked_sub(&slash_info.committee_stake_amount).ok_or(())?;
+                committee_stake.staked_amount =
+                    committee_stake.staked_amount.checked_sub(&slash_info.committee_stake_amount).ok_or(())?;
 
-    //                     PendingSlash::<T>::remove(slash_id);
-    //                 }
-    //             } else {
-    //                 let reward_each_get =
-    //                     Perbill::from_rational_approximation(1u32, reward_to_num) * slash_info.slash_amount;
-    //                 let mut left_reward = slash_info.slash_amount;
-
-    //                 for a_committee in slash_info.reward_to {
-    //                     if <T as pallet::Config>::Currency::reserved_balance(&slash_info.slash_who) >= left_reward {
-    //                         if left_reward >= reward_each_get {
-    //                             let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-    //                                 &slash_info.slash_who,
-    //                                 &a_committee,
-    //                                 reward_each_get,
-    //                                 BalanceStatus::Free,
-    //                             );
-    //                             left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
-    //                         } else {
-    //                             let _ = <T as pallet::Config>::Currency::repatriate_reserved(
-    //                                 &slash_info.slash_who,
-    //                                 &a_committee,
-    //                                 left_reward,
-    //                                 BalanceStatus::Free,
-    //                             );
-    //                         }
-    //                     }
-    //                 }
-    //             }
-
-    //             if is_committee_list_changed {
-    //                 Committee::<T>::put(committee_list);
-    //             }
-    //             CommitteeStake::<T>::insert(&slash_info.slash_who, committee_stake);
-    //             PendingSlash::<T>::remove(slash_id);
-    //         }
-    //     }
-    //     Ok(())
-    // }
+                is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
+                    a_slash_person.clone(),
+                    &mut committee_list,
+                    &committee_stake,
+                );
+                CommitteeStake::<T>::insert(&a_slash_person, committee_stake);
+                PendingSlash::<T>::remove(slash_id);
+            }
+        }
+        if is_committee_list_changed {
+            Committee::<T>::put(committee_list);
+        }
+        Ok(())
+    }
 
     fn check_and_exec_review() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
