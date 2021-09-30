@@ -1007,7 +1007,6 @@ impl<T: Config> Pallet<T> {
     fn summary_offline_case() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let mut live_report = Self::live_report();
-
         let mut verifying_report = live_report.verifying_report.clone();
         verifying_report.extend(live_report.bookable_report.clone());
 
@@ -1021,14 +1020,25 @@ impl<T: Config> Pallet<T> {
                 _ => continue,
             }
 
-            // 当大于等于5分钟或者hashed的委员会已经达到3人，则更改报告状态，允许提交原始值
-            // FIXME: bugs
-            if now - report_info.first_book_time >= FIVE_MINUTE.into() || report_info.hashed_committee.len() == 3 {
-                if report_info.report_status != ReportStatus::SubmittingRaw {
-                    report_info.report_status = ReportStatus::SubmittingRaw;
-                    ReportInfo::<T>::insert(report_id, report_info);
-                    continue
-                }
+            match report_info.report_status {
+                ReportStatus::Reported | ReportStatus::CommitteeConfirmed => continue,
+                ReportStatus::WaitingBook | ReportStatus::Verifying => {
+                    // 当大于等于5分钟或者hashed的委员会已经达到3人，则更改报告状态，允许提交原始值
+                    if now - report_info.first_book_time >= FIVE_MINUTE.into() ||
+                        report_info.hashed_committee.len() == 3
+                    {
+                        report_info.report_status = ReportStatus::SubmittingRaw;
+                        ReportInfo::<T>::insert(report_id, report_info);
+                        continue
+                    }
+                },
+                ReportStatus::SubmittingRaw => {
+                    if now - report_info.first_book_time < TEN_MINUTE.into() &&
+                        report_info.confirmed_committee.len() < report_info.hashed_committee.len()
+                    {
+                        continue
+                    }
+                },
             }
 
             let mut inconsistent_committee = Vec::new();
@@ -1036,82 +1046,80 @@ impl<T: Config> Pallet<T> {
             let mut reward_committee = Vec::new();
 
             // 当大于等于10分钟，或者提交确认的委员会等于提交了hash的委员会，需要执行后面的逻辑，来确认
-            if now - report_info.first_book_time >= TEN_MINUTE.into() ||
-                report_info.confirmed_committee.len() == report_info.hashed_committee.len()
-            {
-                // 统计预订了但没有提交确认的委员会
-                for a_committee in report_info.booked_committee {
-                    let mut committee_order = Self::committee_order(&a_committee);
+            // 统计预订了但没有提交确认的委员会
+            for a_committee in report_info.booked_committee {
+                let mut committee_order = Self::committee_order(&a_committee);
 
-                    if report_info.confirmed_committee.binary_search(&a_committee).is_ok() {
-                        ItemList::add_item(&mut committee_order.finished_report, report_id);
-                        ItemList::add_item(&mut &mut reward_committee, a_committee.clone());
-                    } else {
-                        ItemList::add_item(&mut &mut unruly_committee, a_committee.clone());
-                    }
-
-                    CommitteeOps::<T>::remove(&a_committee, report_id);
-                    Self::rm_from_committee_order(&mut committee_order, &report_id);
-                    CommitteeOrder::<T>::insert(&a_committee, committee_order);
-                }
-
-                if report_info.confirmed_committee.len() == 0 {
-                    // 未提交确认值的惩罚已经在前面执行了，需要将该报告重置，并允许再次抢单
-                    report_info = MTReportInfoDetail {
-                        reporter: report_info.reporter,
-                        report_time: report_info.report_time,
-                        reporter_stake: report_info.reporter_stake,
-                        machine_id: report_info.machine_id,
-                        report_status: ReportStatus::Reported,
-                        machine_fault_type: report_info.machine_fault_type,
-
-                        ..Default::default()
-                    };
-                    ReportInfo::<T>::insert(report_id, report_info);
-
-                    // 尝试删除 && 尝试添加
-                    ItemList::rm_item(&mut live_report.verifying_report, &report_id);
-                    ItemList::add_item(&mut live_report.bookable_report, report_id);
-
-                    continue
-                }
-
-                ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
-
-                if report_info.support_committee >= report_info.against_committee {
-                    // 此时，应该支持报告人，惩罚反对的委员会
-                    T::MTOps::mt_machine_offline(
-                        report_info.reporter.clone(),
-                        report_info.support_committee,
-                        report_info.machine_id.clone(),
-                        online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
-                    );
-                    for a_committee in report_info.against_committee {
-                        ItemList::add_item(&mut &mut inconsistent_committee, a_committee);
-                    }
-
-                    ItemList::add_item(&mut reporter_report.succeed_report, report_id);
+                if report_info.confirmed_committee.binary_search(&a_committee).is_ok() {
+                    ItemList::add_item(&mut committee_order.finished_report, report_id);
                 } else {
-                    // 此时，应该否决报告人，处理委员会
-                    Self::add_slash(
-                        report_info.reporter.clone(),
-                        report_info.reporter_stake,
-                        report_info.against_committee.clone(),
-                        MTReporterSlashReason::ReportRefused,
-                    );
-                    for a_committee in report_info.support_committee {
-                        ItemList::add_item(&mut inconsistent_committee, a_committee);
-                    }
-
-                    ItemList::add_item(&mut reporter_report.failed_report, report_id);
+                    ItemList::add_item(&mut &mut unruly_committee, a_committee.clone());
                 }
 
-                ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
-
-                // 支持或反对，该报告都变为完成状态
-                Self::rm_from_live_report(&mut live_report, &report_id);
-                ItemList::add_item(&mut live_report.finished_report, report_id);
+                CommitteeOps::<T>::remove(&a_committee, report_id);
+                Self::rm_from_committee_order(&mut committee_order, &report_id);
+                CommitteeOrder::<T>::insert(&a_committee, committee_order);
             }
+
+            if report_info.confirmed_committee.len() == 0 {
+                // 未提交确认值的惩罚已经在前面执行了，需要将该报告重置，并允许再次抢单
+                report_info = MTReportInfoDetail {
+                    reporter: report_info.reporter,
+                    report_time: report_info.report_time,
+                    reporter_stake: report_info.reporter_stake,
+                    machine_id: report_info.machine_id,
+                    report_status: ReportStatus::Reported,
+                    machine_fault_type: report_info.machine_fault_type,
+                    ..Default::default()
+                };
+
+                ItemList::rm_item(&mut live_report.verifying_report, &report_id);
+                ItemList::add_item(&mut live_report.bookable_report, report_id);
+
+                ReportInfo::<T>::insert(report_id, report_info);
+                continue
+            }
+
+            ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
+            if report_info.support_committee >= report_info.against_committee {
+                // 此时，应该支持报告人，惩罚反对的委员会
+                T::MTOps::mt_machine_offline(
+                    report_info.reporter.clone(),
+                    report_info.support_committee.clone(),
+                    report_info.machine_id.clone(),
+                    online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
+                );
+                for a_committee in report_info.against_committee {
+                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                }
+                for a_committee in report_info.support_committee {
+                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                }
+
+                ItemList::add_item(&mut reporter_report.succeed_report, report_id);
+            } else {
+                // 此时，应该否决报告人，处理委员会
+                Self::add_slash(
+                    report_info.reporter.clone(),
+                    report_info.reporter_stake,
+                    report_info.against_committee.clone(),
+                    MTReporterSlashReason::ReportRefused,
+                );
+                for a_committee in report_info.support_committee {
+                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                }
+                for a_committee in report_info.against_committee {
+                    ItemList::add_item(&mut reward_committee, a_committee);
+                }
+
+                ItemList::add_item(&mut reporter_report.failed_report, report_id);
+            }
+
+            ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
+
+            // 支持或反对，该报告都变为完成状态
+            Self::rm_from_live_report(&mut live_report, &report_id);
+            ItemList::add_item(&mut live_report.finished_report, report_id);
 
             <T as pallet::Config>::ManageCommittee::add_slash(
                 inconsistent_committee,

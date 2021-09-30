@@ -487,6 +487,7 @@ impl<T: Config> Pallet<T> {
                     machine_committee.status = OCVerifyStatus::Finished;
                     MachineCommittee::<T>::insert(&machine_id, machine_committee);
 
+                    // FIXME: should cancel machine_stash slash when slashed committee apply review
                     let _ = T::OCOperations::oc_refuse_machine(machine_id.clone(), reward_committee.clone());
                 },
                 MachineConfirmStatus::NoConsensus(summary) => {
