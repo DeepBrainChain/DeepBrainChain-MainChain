@@ -766,7 +766,7 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let mut report_info = Self::report_info(report_id);
-            // println!("");
+
             ensure!(report_info.report_status == ReportStatus::SubmittingRaw, Error::<T>::OrderStatusNotFeat);
             match report_info.machine_fault_type {
                 MachineFaultType::RentedInaccessible(..) => {},
@@ -1230,6 +1230,13 @@ impl<T: Config> Pallet<T> {
                     ReportInfo::<T>::insert(report_id, report_info);
                     CommitteeOps::<T>::remove(&verifying_committee, &report_id);
 
+                    <T as pallet::Config>::ManageCommittee::add_slash(
+                        vec![],
+                        unruly_committee,
+                        vec![],
+                        committee::CMSlashReason::MaintainCommittee(report_id),
+                    );
+
                     continue
                 }
             }
@@ -1400,12 +1407,23 @@ impl<T: Config> Pallet<T> {
         }
 
         // TODO: add slash
-        <T as pallet::Config>::ManageCommittee::add_slash(
-            inconsistent_committee,
-            unruly_committee,
-            reward_committee,
-            committee::CMSlashReason::MaintainCommittee(report_id),
-        );
+        if unruly_committee.len() > 0 || inconsistent_committee.len() > 0 {
+            <T as pallet::Config>::ManageCommittee::add_slash(
+                inconsistent_committee,
+                unruly_committee,
+                reward_committee,
+                committee::CMSlashReason::MaintainCommittee(report_id),
+            );
+        } else {
+            let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
+            for a_committee in reward_committee {
+                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                    a_committee.clone(),
+                    committee_order_stake,
+                    false,
+                );
+            }
+        }
 
         ReportInfo::<T>::insert(report_id, report_info);
         live_report_is_changed

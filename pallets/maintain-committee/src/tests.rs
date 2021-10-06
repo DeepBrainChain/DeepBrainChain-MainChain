@@ -430,8 +430,8 @@ fn test_heart_beat2() {
                 inconsistent_slash_who: vec![],
                 unruly_slash_who: vec![committee1],
                 committee_stake_amount: 1000 * ONE_DBC,
-                slash_time: 4327,
-                slash_exec_time: 4327 + 2880 * 2,
+                slash_time: 131,
+                slash_exec_time: 131 + 2880 * 2,
                 reward_who: vec![],
                 slash_reason: committee::CMSlashReason::MaintainCommittee(0),
             }

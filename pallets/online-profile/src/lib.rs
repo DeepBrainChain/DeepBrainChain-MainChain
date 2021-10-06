@@ -4,9 +4,7 @@ use codec::EncodeLike;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
-    traits::{
-        BalanceStatus, Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced, ReservableCurrency,
-    },
+    traits::{Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced, ReservableCurrency},
     weights::Weight,
     IterableStorageDoubleMap, IterableStorageMap,
 };
@@ -1197,7 +1195,7 @@ impl<T: Config> Pallet<T> {
                         _ => continue,
                     }
                 },
-                MachineStatus::ReporterReportOffline(offline_reason, _status, _reporter, committee) =>
+                MachineStatus::ReporterReportOffline(offline_reason, _status, _reporter, committee) => {
                     match offline_reason {
                         // 被举报时
                         OPSlashReason::RentedInaccessible(report_time) |
@@ -1217,7 +1215,8 @@ impl<T: Config> Pallet<T> {
                         },
 
                         _ => continue,
-                    },
+                    }
+                },
                 _ => continue,
             }
         }
