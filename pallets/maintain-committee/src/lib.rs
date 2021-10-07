@@ -12,7 +12,7 @@ use generic_func::ItemList;
 use online_profile_machine::{GNOps, MTOps, ManageCommittee};
 use sp_io::hashing::blake2_128;
 use sp_runtime::{
-    traits::{CheckedSub, Zero},
+    traits::{CheckedAdd, CheckedSub, Zero},
     Perbill, RuntimeDebug,
 };
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
@@ -246,6 +246,15 @@ impl Default for MTReporterSlashReason {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct MTPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
+    pub applicant: AccountId,
+    pub staked_amount: Balance,
+    pub apply_time: BlockNumber,
+    pub expire_time: BlockNumber,
+    pub reason: Vec<u8>,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -364,6 +373,16 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash_review)]
+    pub(super) type PendingSlashReview<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        SlashId,
+        MTPendingSlashReviewInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
+        ValueQuery,
+    >;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
@@ -439,6 +458,7 @@ pub mod pallet {
 
             let report_info = Self::report_info(&report_id);
             ensure!(report_info.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancel);
+            ensure!(report_info.reporter == reporter, Error::<T>::NotReporter);
 
             // 清理存储
             let mut live_report = Self::live_report();
@@ -806,26 +826,58 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // /// Reporter apply technical committee review
-        // /// TODO: reporter must apply in CommitteeModule
-        // #[pallet::weight(10000)]
-        // pub fn apply_slash_review(
-        //     origin: OriginFor<T>,
-        //     slash_id: SlashId,
-        //     reason: Vec<u8>,
-        // ) -> DispatchResultWithPostInfo {
-        //     // TODO:
-        //     Ok(().into())
-        // }
+        /// Reporter apply technical committee review
+        /// TODO: reporter must apply in CommitteeModule
+        #[pallet::weight(10000)]
+        pub fn apply_slash_review(
+            origin: OriginFor<T>,
+            slash_id: SlashId,
+            reason: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            // TODO:
+            let reporter = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+            let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            let mut reporter_stake = Self::reporter_stake(&reporter);
 
-        // #[pallet::weight(0)]
-        // pub fn cancel_reporter_slash(origin: OriginFor<T>, _report_id: ReportId) -> DispatchResultWithPostInfo {
-        //     T::CancelSlashOrigin::ensure_origin(origin)?;
+            let slash_info = Self::pending_slash(slash_id);
+            ensure!(slash_info.slash_who == reporter, Error::<T>::NotReporter);
+            ensure!(now < slash_info.slash_exec_time, Error::<T>::TimeNotAllowed);
 
-        //     // TODO: 退还质押, 删掉惩罚信息
+            reporter_stake.used_stake = reporter_stake
+                .used_stake
+                .checked_add(&reporter_stake_params.stake_per_report)
+                .ok_or(Error::<T>::BalanceNotEnough)?;
+            ensure!(
+                reporter_stake.staked_amount - reporter_stake.used_stake >
+                    reporter_stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                Error::<T>::StakeNotEnough
+            );
 
-        //     Ok(().into())
-        // }
+            ReporterStake::<T>::insert(&reporter, reporter_stake);
+            PendingSlashReview::<T>::insert(
+                slash_id,
+                MTPendingSlashReviewInfo {
+                    applicant: reporter,
+                    staked_amount: reporter_stake_params.stake_per_report,
+                    apply_time: now,
+                    expire_time: slash_info.slash_exec_time,
+                    reason,
+                },
+            );
+
+            // TODO: add event
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn cancel_reporter_slash(origin: OriginFor<T>, _report_id: ReportId) -> DispatchResultWithPostInfo {
+            T::CancelSlashOrigin::ensure_origin(origin)?;
+
+            // TODO: 退还质押, 删掉惩罚信息
+
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -864,6 +916,8 @@ pub mod pallet {
         BalanceNotEnough,
         StakeNotEnough,
         BoxPubkeyIsNoneInFirstReport,
+        NotReporter,
+        TimeNotAllowed,
     }
 }
 

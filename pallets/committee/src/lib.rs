@@ -27,8 +27,7 @@ type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_sys
 type NegativeImbalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
-// FIXME: if two is slashed and one is rewarded, then rewarded one will be released twice
-// NOTE: if slash is from maintain committee, and reporter is slashed, but when
+// NOTE: If slash is from maintain committee, and reporter is slashed, but when
 // committee support the reporter's slash is canceled, reporter's slash is not canceled at the same time.
 // Mainwhile, if reporter's slash is canceled..
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -138,7 +137,6 @@ pub mod pallet {
         }
 
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
-            // TODO: FIXME
             let _ = Self::check_and_exec_slash();
             0
         }
@@ -431,9 +429,9 @@ pub mod pallet {
             ensure!(slash_info.unruly_slash_who.binary_search(&committee).is_err(), Error::<T>::NotAllowedSlashReason);
             ensure!(slash_info.inconsistent_slash_who.binary_search(&committee).is_ok(), Error::<T>::NotSlashed);
 
-            committee_stake.staked_amount = committee_stake
-                .staked_amount
-                .checked_sub(&committee_stake_params.stake_per_order)
+            committee_stake.used_stake = committee_stake
+                .used_stake
+                .checked_add(&committee_stake_params.stake_per_order)
                 .ok_or(Error::<T>::BalanceNotEnough)?;
             ensure!(
                 committee_stake.staked_amount - committee_stake.used_stake >
@@ -584,9 +582,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     // 检查并执行slash
-    // TODO: after slash is done, should unreserve balance of committee,
     // NOTE: Should be careful, in case two is slashed, may result in cancel reserved_balance twice
-    // TODO: FIXME
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let pending_slash_id = Self::get_slash_id();
@@ -607,7 +603,7 @@ impl<T: Config> Pallet<T> {
             let _ = T::SlashAndReward::slash_and_reward(
                 all_should_slash.clone(),
                 committee_stake_params.stake_per_order,
-                slash_info.reward_who,
+                slash_info.reward_who.clone(),
             );
 
             for a_slash_person in all_should_slash {
@@ -624,8 +620,22 @@ impl<T: Config> Pallet<T> {
                     &committee_stake,
                 );
                 CommitteeStake::<T>::insert(&a_slash_person, committee_stake);
-                PendingSlash::<T>::remove(slash_id);
             }
+            for a_reward_person in slash_info.reward_who {
+                // After slash is done, should unreserve balance of committee,
+                let mut committee_stake = Self::committee_stake(&a_reward_person);
+
+                committee_stake.used_stake =
+                    committee_stake.used_stake.checked_sub(&slash_info.committee_stake_amount).ok_or(())?;
+                is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
+                    a_reward_person.clone(),
+                    &mut committee_list,
+                    &committee_stake,
+                );
+                CommitteeStake::<T>::insert(&a_reward_person, committee_stake);
+            }
+
+            PendingSlash::<T>::remove(slash_id);
         }
         if is_committee_list_changed {
             Committee::<T>::put(committee_list);

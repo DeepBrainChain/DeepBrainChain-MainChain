@@ -239,6 +239,13 @@
     "report_status": "ReportStatus",
     "machine_fault_type": "MachineFaultType"
   },
+  "MTPendingSlashReviewInfo": {
+    "applicant": "AccountId",
+    "staked_amount": "Balance",
+    "apply_time": "BlockNumber",
+    "expire_time": "BlockNumber",
+    "reason": "Vec<u8>"
+  },
   "ReportStatus": {
     "_enum": [
       "Reported",
