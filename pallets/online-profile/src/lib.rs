@@ -1077,7 +1077,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        pub fn apply_slash_review(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
+        pub fn apply_slash_review(_origin: OriginFor<T>, _slash_id: u64) -> DispatchResultWithPostInfo {
             // TODO
             Ok(().into())
         }
@@ -1741,7 +1741,7 @@ impl<T: Config> Pallet<T> {
     fn slash_and_reward(
         slash_who: T::AccountId,
         slash_amount: BalanceOf<T>,
-        slash_reason: OPSlashReason<T::BlockNumber>,
+        _slash_reason: OPSlashReason<T::BlockNumber>,
         reward_to: Vec<T::AccountId>,
     ) -> Result<(), ()> {
         let mut stash_stake = Self::stash_stake(&slash_who);
