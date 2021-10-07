@@ -288,7 +288,8 @@
   "OnlineStakeParamsInfo": {
     "online_stake_per_gpu": "Balance",
     "online_stake_usd_limit": "u64",
-    "reonline_stake": "u64"
+    "reonline_stake": "u64",
+    "slash_review_stake": "Balance"
   },
   "PhaseRewardInfoDetail": {
     "online_reward_start_era": "EraIndex",
@@ -320,6 +321,13 @@
       "CommitteeRefusedMutHardware": null,
       "ReonlineShouldReward": null
     }
+  },
+  "OPPendingSlashReviewInfo": {
+    "applicant": "AccountId",
+    "staked_amount": "Balance",
+    "apply_time": "BlockNumber",
+    "expire_time": "BlockNumber",
+    "reason": "Vec<u8>"
   },
   "RentOrderDetail": {
     "renter": "AccountId",

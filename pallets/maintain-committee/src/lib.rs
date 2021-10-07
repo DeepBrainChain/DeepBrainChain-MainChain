@@ -834,7 +834,6 @@ pub mod pallet {
             slash_id: SlashId,
             reason: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            // TODO:
             let reporter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
             let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
@@ -866,13 +865,19 @@ pub mod pallet {
                 },
             );
 
-            // TODO: add event
+            Self::deposit_event(Event::ApplySlashReview(slash_id));
             Ok(().into())
         }
 
         #[pallet::weight(0)]
-        pub fn cancel_reporter_slash(origin: OriginFor<T>, _report_id: ReportId) -> DispatchResultWithPostInfo {
+        pub fn cancel_reporter_slash(origin: OriginFor<T>, slash_id: ReportId) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
+            ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIdNotExist);
+            ensure!(PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::NotPendingReviewSlash);
+
+            let slash_info = Self::pending_slash(slash_id);
+            let slash_review_info = Self::pending_slash_review(slash_id);
+            let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // TODO: 退还质押, 删掉惩罚信息
 
@@ -891,6 +896,7 @@ pub mod pallet {
         RawInfoSubmited(ReportId, T::AccountId),
         ReporterAddStake(T::AccountId, BalanceOf<T>),
         ReporterReduceStake(T::AccountId, BalanceOf<T>),
+        ApplySlashReview(SlashId),
     }
 
     #[pallet::error]
@@ -918,6 +924,8 @@ pub mod pallet {
         BoxPubkeyIsNoneInFirstReport,
         NotReporter,
         TimeNotAllowed,
+        SlashIdNotExist,
+        NotPendingReviewSlash,
     }
 }
 

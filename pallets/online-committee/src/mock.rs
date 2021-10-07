@@ -315,6 +315,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
                 // 设置重新上线绑定的金额: 47美元；这里为了方便计算，设置为24美元
                 // 等值2000DBC
                 reonline_stake: 24_000_000,
+                slash_review_stake: 1000 * ONE_DBC,
             },
         );
         // 设置奖励发放开始时间

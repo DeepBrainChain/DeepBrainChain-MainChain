@@ -317,6 +317,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
                 online_stake_per_gpu: 100000 * ONE_DBC,
                 online_stake_usd_limit: 7700_000_000,
                 reonline_stake: 46_000_000,
+                slash_review_stake: 1000 * ONE_DBC,
             },
         );
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};

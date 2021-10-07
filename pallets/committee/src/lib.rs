@@ -419,7 +419,6 @@ pub mod pallet {
             reason: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-
             let now = <frame_system::Module<T>>::block_number();
             let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
             let mut committee_stake = Self::committee_stake(&committee);
@@ -428,6 +427,7 @@ pub mod pallet {
 
             ensure!(slash_info.unruly_slash_who.binary_search(&committee).is_err(), Error::<T>::NotAllowedSlashReason);
             ensure!(slash_info.inconsistent_slash_who.binary_search(&committee).is_ok(), Error::<T>::NotSlashed);
+            ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
 
             committee_stake.used_stake = committee_stake
                 .used_stake

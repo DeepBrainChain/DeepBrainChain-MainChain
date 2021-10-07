@@ -34,6 +34,8 @@ pub use rpc_types::*;
 
 pub use pallet::*;
 
+pub type SlashId = u64;
+
 /// 2880 blocks per era
 pub const BLOCK_PER_ERA: u64 = 2880;
 /// Reward duration for committee (Era)
@@ -230,6 +232,8 @@ pub struct OnlineStakeParamsInfo<Balance> {
     pub online_stake_usd_limit: u64,
     /// How much should stake when want reonline (change hardware info). USD*10^6
     pub reonline_stake: u64,
+    /// How much should stake when apply_slash_review
+    pub slash_review_stake: Balance,
 }
 
 /// Standard GPU rent price Per Era
@@ -319,6 +323,15 @@ pub struct OPPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub reward_to_committee: Option<Vec<AccountId>>,
     /// Why one is slashed
     pub slash_reason: OPSlashReason<BlockNumber>,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct OPPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
+    pub applicant: AccountId,
+    pub staked_amount: Balance,
+    pub apply_time: BlockNumber,
+    pub expire_time: BlockNumber,
+    pub reason: Vec<u8>,
 }
 
 #[frame_support::pallet]
@@ -485,6 +498,16 @@ pub mod pallet {
         Blake2_128Concat,
         u64,
         OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash_review)]
+    pub(super) type PendingSlashReview<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        SlashId,
+        OPPendingSlashReviewInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
         ValueQuery,
     >;
 
@@ -1077,8 +1100,41 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        pub fn apply_slash_review(_origin: OriginFor<T>, _slash_id: u64) -> DispatchResultWithPostInfo {
-            // TODO
+        pub fn apply_slash_review(
+            origin: OriginFor<T>,
+            slash_id: SlashId,
+            reason: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+
+            let slash_info = Self::pending_slash(slash_id);
+            let machine_info = Self::machines_info(&slash_info.machine_id);
+            let online_stake_params = Self::online_stake_params().ok_or(Error::<T>::GetReonlineStakeFailed)?;
+
+            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+            ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
+
+            // 补交质押
+            Self::change_user_total_stake(
+                machine_info.machine_stash.clone(),
+                online_stake_params.slash_review_stake,
+                true,
+            )
+            .map_err(|_| Error::<T>::BalanceNotEnough)?;
+
+            PendingSlashReview::<T>::insert(
+                slash_id,
+                OPPendingSlashReviewInfo {
+                    applicant: controller,
+                    staked_amount: online_stake_params.slash_review_stake,
+                    apply_time: now,
+                    expire_time: slash_info.slash_exec_time,
+                    reason,
+                },
+            );
+
+            Self::deposit_event(Event::ApplySlashReview(slash_id));
             Ok(().into())
         }
 
@@ -1120,6 +1176,7 @@ pub mod pallet {
         MachineExit(MachineId),
         // Slash_who, reward_who, reward_amount
         SlashAndReward(T::AccountId, T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
+        ApplySlashReview(SlashId),
     }
 
     #[pallet::error]
@@ -1152,6 +1209,7 @@ pub mod pallet {
         GetReonlineStakeFailed,
         SlashIdNotExist,
         TimeNotAllowed,
+        ExpiredSlash,
     }
 }
 

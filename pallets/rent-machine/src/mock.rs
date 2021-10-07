@@ -291,6 +291,7 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
                 online_stake_per_gpu: 100000 * ONE_DBC,
                 online_stake_usd_limit: 7700_000_000,
                 reonline_stake: 46_000_000,
+                slash_review_stake: 1000 * ONE_DBC,
             },
         );
         // 设置奖励发放开始时间
