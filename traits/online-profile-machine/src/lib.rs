@@ -43,6 +43,7 @@ pub trait ManageCommittee {
     type AccountId;
     type BalanceOf;
     type SlashReason;
+    type ReportId;
 
     fn is_valid_committee(who: &Self::AccountId) -> bool;
 
@@ -56,6 +57,7 @@ pub trait ManageCommittee {
         reward_who: Vec<Self::AccountId>,
         slash_reason: Self::SlashReason,
     );
+    fn take_canceled_slashed_report_id() -> Vec<Self::ReportId>;
 }
 
 pub trait DbcPrice {

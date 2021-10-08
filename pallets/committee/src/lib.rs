@@ -185,6 +185,10 @@ pub mod pallet {
     pub(super) type CommitteeStake<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeStakeInfo<BalanceOf<T>>, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn canceled_slash)]
+    pub(super) type CanceledSlash<T: Config> = StorageValue<_, Vec<ReportId>, ValueQuery>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置committee每次操作需要质押数量
@@ -456,7 +460,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn cancel_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
+        pub fn cancel_committee_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
             ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIDNotExist);
             ensure!(PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::NotPendingReviewSlash);
@@ -729,6 +733,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     type AccountId = T::AccountId;
     type BalanceOf = BalanceOf<T>;
     type SlashReason = CMSlashReason;
+    type ReportId = ReportId;
 
     // 检查是否为状态正常的委员会
     fn is_valid_committee(who: &T::AccountId) -> bool {
@@ -798,6 +803,15 @@ impl<T: Config> ManageCommittee for Pallet<T> {
             },
         );
     }
+
+    fn take_canceled_slashed_report_id() -> Vec<ReportId> {
+        let empty_report_id: Vec<ReportId> = Vec::new();
+        let out_report_id = Self::canceled_slash();
+        CanceledSlash::<T>::put(empty_report_id);
+        out_report_id
+    }
+
+    // TODO: add cancel slash for maintain committee to call
 }
 
 // RPC
