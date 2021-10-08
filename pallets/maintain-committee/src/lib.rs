@@ -1085,7 +1085,6 @@ impl<T: Config> Pallet<T> {
         let mut live_report = Self::live_report();
         let mut verifying_report = live_report.verifying_report.clone();
         verifying_report.extend(live_report.bookable_report.clone());
-
         let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
 
         for report_id in verifying_report {
@@ -1119,8 +1118,18 @@ impl<T: Config> Pallet<T> {
                 },
             }
 
-            let mut inconsistent_committee = Vec::new();
-            let mut unruly_committee = Vec::new();
+            let mut report_result = Self::report_result(report_id);
+            // 此时，应该否决报告人，处理委员会
+            report_result = MTReportResultInfo {
+                report_id,
+                reporter: report_info.reporter.clone(),
+                reporter_stake: report_info.reporter_stake,
+                committee_stake: committee_order_stake,
+                slash_time: now,
+                slash_exec_time: now + TWO_DAY.into(),
+                slash_result: MCSlashResult::Pending,
+                ..report_result
+            };
 
             // 当大于等于10分钟，或者提交确认的委员会等于提交了hash的委员会，需要执行后面的逻辑，来确认
             // 统计预订了但没有提交确认的委员会
@@ -1130,7 +1139,7 @@ impl<T: Config> Pallet<T> {
                 if report_info.confirmed_committee.binary_search(&a_committee).is_ok() {
                     ItemList::add_item(&mut committee_order.finished_report, report_id);
                 } else {
-                    ItemList::add_item(&mut &mut unruly_committee, a_committee.clone());
+                    ItemList::add_item(&mut &mut report_result.unruly_committee, a_committee.clone());
                 }
 
                 CommitteeOps::<T>::remove(&a_committee, report_id);
@@ -1138,8 +1147,8 @@ impl<T: Config> Pallet<T> {
                 CommitteeOrder::<T>::insert(&a_committee, committee_order);
             }
 
+            // 无共识：未提交确认值的惩罚已经在前面执行了，需要将该报告重置，并允许再次抢单
             if report_info.confirmed_committee.len() == 0 {
-                // 未提交确认值的惩罚已经在前面执行了，需要将该报告重置，并允许再次抢单
                 report_info = MTReportInfoDetail {
                     reporter: report_info.reporter,
                     report_time: report_info.report_time,
@@ -1154,6 +1163,11 @@ impl<T: Config> Pallet<T> {
                 ItemList::add_item(&mut live_report.bookable_report, report_id);
 
                 ReportInfo::<T>::insert(report_id, report_info);
+                report_result.report_result = ReportResultType::NoConsensus;
+                // Should do slash at once
+                if report_result.unruly_committee.len() > 0 {
+                    ReportResult::<T>::insert(report_id, report_result);
+                }
                 continue
             }
 
@@ -1167,32 +1181,15 @@ impl<T: Config> Pallet<T> {
                     online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
                 );
                 for a_committee in report_info.against_committee {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                    ItemList::add_item(&mut report_result.inconsistent_committee, a_committee);
                 }
                 for a_committee in report_info.support_committee {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                    ItemList::add_item(&mut report_result.inconsistent_committee, a_committee);
                 }
 
                 ItemList::add_item(&mut reporter_report.succeed_report, report_id);
+                report_result.report_result = ReportResultType::ReportSucceed;
             } else {
-                // 此时，应该否决报告人，处理委员会
-                let mut report_result = MTReportResultInfo {
-                    report_id,
-                    reporter: report_info.reporter.clone(),
-                    reporter_stake: report_info.reporter_stake,
-
-                    unruly_committee: vec![], // TODO: handle this
-                    committee_stake: committee_order_stake,
-
-                    slash_time: now,
-                    slash_exec_time: now + TWO_DAY.into(),
-
-                    report_result: ReportResultType::ReportRefused,
-                    slash_result: MCSlashResult::Pending,
-
-                    ..Default::default()
-                };
-
                 for a_committee in report_info.support_committee {
                     ItemList::add_item(&mut report_result.inconsistent_committee, a_committee);
                 }
@@ -1202,7 +1199,7 @@ impl<T: Config> Pallet<T> {
 
                 ItemList::add_item(&mut reporter_report.failed_report, report_id);
 
-                ReportResult::<T>::insert(report_id, report_result);
+                report_result.report_result = ReportResultType::ReportRefused;
             }
 
             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
@@ -1211,13 +1208,7 @@ impl<T: Config> Pallet<T> {
             Self::rm_from_live_report(&mut live_report, &report_id);
             ItemList::add_item(&mut live_report.finished_report, report_id);
 
-            // TODO: add slash in current module
-            // <T as pallet::Config>::ManageCommittee::add_slash(
-            //     inconsistent_committee,
-            //     unruly_committee,
-            //     reward_committee,
-            //     committee::CMSlashReason::MaintainCommittee(report_id),
-            // );
+            ReportResult::<T>::insert(report_id, report_result);
         }
 
         LiveReport::<T>::put(live_report);
@@ -1240,7 +1231,21 @@ impl<T: Config> Pallet<T> {
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
                 continue
             };
+
             let mut reporter_report = Self::reporter_report(&report_info.reporter);
+
+            let mut report_result = Self::report_result(report_id);
+            report_result = MTReportResultInfo {
+                report_id,
+                reporter: report_info.reporter.clone(),
+                reporter_stake: report_info.reporter_stake,
+
+                slash_time: now,
+                slash_exec_time: now + TWO_DAY.into(),
+                slash_result: MCSlashResult::Pending,
+
+                ..report_result
+            };
 
             // 不到验证截止时间时:
             if now - report_info.first_book_time < THREE_HOUR.into() {
@@ -1274,21 +1279,7 @@ impl<T: Config> Pallet<T> {
 
                     ItemList::rm_item(&mut live_report.verifying_report, &report_id);
                     live_report_is_changed = true;
-
-                    let mut report_result = Self::report_result(report_id);
-                    report_result = MTReportResultInfo {
-                        report_id,
-                        reporter: report_info.reporter,
-                        reporter_stake: report_info.reporter_stake,
-
-                        slash_time: now,
-                        slash_exec_time: now + TWO_DAY.into(),
-                        report_result: ReportResultType::ReporterNotSubmitEncryptedInfo,
-                        slash_result: MCSlashResult::Pending,
-
-                        ..report_result
-                    };
-
+                    report_result.report_result = ReportResultType::ReporterNotSubmitEncryptedInfo;
                     ReportResult::<T>::insert(report_id, report_result);
                     continue
                 }
@@ -1321,21 +1312,7 @@ impl<T: Config> Pallet<T> {
                     CommitteeOps::<T>::remove(&verifying_committee, &report_id);
 
                     // NOTE: should not insert directly when summary result, but should alert exist data
-                    let mut report_result = Self::report_result(report_id);
-                    report_result = MTReportResultInfo {
-                        report_id,
-                        reporter: report_info.reporter.clone(),
-                        reporter_stake: report_info.reporter_stake,
-
-                        slash_time: now,
-                        slash_exec_time: now + TWO_DAY.into(),
-
-                        report_result: ReportResultType::ReporterNotSubmitEncryptedInfo,
-                        slash_result: MCSlashResult::Pending,
-                        ..report_result
-                    };
                     ItemList::add_item(&mut report_result.unruly_committee, verifying_committee.clone());
-
                     ReportResult::<T>::insert(report_id, report_result);
                     continue
                 }
@@ -1399,11 +1376,8 @@ impl<T: Config> Pallet<T> {
         let mut report_info = Self::report_info(&report_id);
         let mut live_report_is_changed = false;
 
-        let mut inconsistent_committee = Vec::new();
-        let unruly_committee: Vec<T::AccountId> = Vec::new();
-        let mut reward_committee = Vec::new();
-
         let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
+        let mut report_result = Self::report_result(report_id);
 
         // 未全部提交了原始信息且未达到了四个小时
         if now - report_info.report_time < FOUR_HOUR.into() &&
@@ -1415,7 +1389,7 @@ impl<T: Config> Pallet<T> {
             ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
                 // Slash against_committee and release support committee stake
                 for a_committee in against_committee.clone() {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee.clone());
+                    ItemList::add_item(&mut report_result.inconsistent_committee, a_committee.clone());
 
                     // 改变committee_order
                     let mut committee_order = Self::committee_order(&a_committee);
@@ -1423,7 +1397,7 @@ impl<T: Config> Pallet<T> {
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
                 for a_committee in support_committees.clone() {
-                    ItemList::add_item(&mut reward_committee, a_committee.clone());
+                    ItemList::add_item(&mut report_result.reward_committee, a_committee.clone());
 
                     // 改变committee_order
                     let mut committee_order = Self::committee_order(&a_committee);
@@ -1457,10 +1431,10 @@ impl<T: Config> Pallet<T> {
             ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                 // Slash support committee and release against committee stake
                 for a_committee in support_committee.clone() {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                    ItemList::add_item(&mut report_result.inconsistent_committee, a_committee);
                 }
                 for a_committee in against_committee.clone() {
-                    ItemList::add_item(&mut reward_committee, a_committee);
+                    ItemList::add_item(&mut report_result.reward_committee, a_committee);
                 }
             },
             // No consensus, will clean record & as new report to handle
@@ -1468,7 +1442,6 @@ impl<T: Config> Pallet<T> {
             ReportConfirmStatus::NoConsensus => {
                 report_info.report_status = ReportStatus::Reported;
                 // 仅在没有人提交原始值时才无共识，因此所有booked_committee都应该被惩罚
-                // FIXME: no slash here
                 for a_committee in report_info.booked_committee.clone() {
                     // clean from committee storage
                     CommitteeOps::<T>::remove(&a_committee, report_id);
@@ -1498,18 +1471,13 @@ impl<T: Config> Pallet<T> {
             },
         }
 
-        if unruly_committee.len() > 0 || inconsistent_committee.len() > 0 {
-            let mut report_result = Self::report_result(report_id);
+        if report_result.unruly_committee.len() > 0 || report_result.inconsistent_committee.len() > 0 {
             report_result = MTReportResultInfo {
                 report_id,
                 reporter: report_info.reporter.clone(),
                 reporter_stake: report_info.reporter_stake,
 
-                inconsistent_committee,
-                unruly_committee,
-                reward_committee,
                 committee_stake: committee_order_stake,
-
                 slash_time: now,
                 slash_exec_time: now + TWO_DAY.into(),
 
@@ -1522,7 +1490,7 @@ impl<T: Config> Pallet<T> {
             ReportResult::<T>::insert(report_id, report_result);
         } else {
             let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
-            for a_committee in reward_committee {
+            for a_committee in report_result.reward_committee {
                 let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
                     a_committee.clone(),
                     committee_order_stake,
