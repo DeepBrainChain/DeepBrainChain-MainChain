@@ -277,28 +277,6 @@
       "OnlineRentFailed": "(ReportHash, BoxPubkey)"
     }
   },
-  "CMPendingSlashInfo": {
-    "inconsistent_slash_who": "Vec<AccountId>",
-    "unruly_slash_who": "Vec<AccountId>",
-    "committee_stake_amount": "Balance",
-    "slash_time": "BlockNumber",
-    "slash_exec_time": "BlockNumber",
-    "reward_who": "Vec<AccountId>",
-    "slash_reason": "CMSlashReason"
-  },
-  "CMSlashReason": {
-    "_enum": {
-      "OnlineCommittee": "MachineId",
-      "MaintainCommittee": "ReportId"
-    }
-  },
-  "CMPendingSlashReviewInfo": {
-    "applicant": "AccountId",
-    "staked_amount": "Balance",
-    "apply_time": "BlockNumber",
-    "expire_time": "BlockNumber",
-    "reason": "Vec<u8>"
-  },
   "OnlineStakeParamsInfo": {
     "online_stake_per_gpu": "Balance",
     "online_stake_usd_limit": "u64",

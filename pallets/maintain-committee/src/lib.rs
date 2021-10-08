@@ -5,7 +5,6 @@ use codec::{alloc::string::ToString, Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, OnUnbalanced, ReservableCurrency},
-    IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
 use generic_func::ItemList;
@@ -15,7 +14,7 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedSub, Zero},
     Perbill, RuntimeDebug,
 };
-use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
+use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;
 
@@ -915,9 +914,9 @@ pub mod pallet {
             ensure!(ReportResult::<T>::contains_key(slashed_report_id), Error::<T>::SlashIdNotExist);
             ensure!(PendingSlashReview::<T>::contains_key(slashed_report_id), Error::<T>::NotPendingReviewSlash);
 
-            let report_result_info = Self::report_result(slashed_report_id);
-            let slash_review_info = Self::pending_slash_review(slashed_report_id);
-            let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            // let report_result_info = Self::report_result(slashed_report_id);
+            // let slash_review_info = Self::pending_slash_review(slashed_report_id);
+            // let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // TODO: 退还质押, 删掉惩罚信息
             // NOTE: cancel slash here should also cancel slash in committee
@@ -1039,6 +1038,7 @@ impl<T: Config> Pallet<T> {
         report_id
     }
 
+    // TODO: is a hard thing
     // fn get_all_slash_id() -> BTreeSet<SlashId> {
     //     <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
     //         .map(|(slash_id, _)| slash_id)
@@ -1119,7 +1119,6 @@ impl<T: Config> Pallet<T> {
 
             let mut inconsistent_committee = Vec::new();
             let mut unruly_committee = Vec::new();
-            let mut reward_committee: Vec<T::AccountId> = Vec::new();
 
             // 当大于等于10分钟，或者提交确认的委员会等于提交了hash的委员会，需要执行后面的逻辑，来确认
             // 统计预订了但没有提交确认的委员会
@@ -1583,6 +1582,10 @@ impl<T: Config> Pallet<T> {
             // ReporterStake::<T>::insert(&slash_info.slash_who, reporter_stake);
             // ReportResult::<T>::remove(slash_id);
         }
+        Ok(())
+    }
+
+    fn check_and_exec_pending_review() -> Result<(), ()> {
         Ok(())
     }
 }
