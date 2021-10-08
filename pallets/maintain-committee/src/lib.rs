@@ -1219,6 +1219,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let mut live_report = Self::live_report();
         let mut live_report_is_changed = false;
+        let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
 
         // 需要检查的report可能是正在被委员会验证/仍然可以预订的状态
         let mut verifying_report = live_report.verifying_report.clone();
@@ -1239,7 +1240,7 @@ impl<T: Config> Pallet<T> {
                 report_id,
                 reporter: report_info.reporter.clone(),
                 reporter_stake: report_info.reporter_stake,
-
+                committee_stake: committee_order_stake,
                 slash_time: now,
                 slash_exec_time: now + TWO_DAY.into(),
                 slash_result: MCSlashResult::Pending,
