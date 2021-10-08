@@ -770,15 +770,20 @@ fn committee_not_submit_hash_slash_works() {
         );
 
         assert_eq!(
-            Committee::pending_slash(0),
-            committee::CMPendingSlashInfo {
-                inconsistent_slash_who: vec![],
-                unruly_slash_who: vec![committee4],
-                committee_stake_amount: 1000 * ONE_DBC,
+            OnlineCommittee::pending_slash(&machine_id),
+            super::OCPendingSlashInfo {
+                machine_id,
+                inconsistent_committee: vec![],
+                unruly_committee: vec![committee4],
+                reward_committee: vec![committee2, committee1],
+                committee_stake: 1000 * ONE_DBC,
+
                 slash_time: 4327,
                 slash_exec_time: 4327 + 2880 * 2,
-                reward_who: vec![committee2, committee1],
-                slash_reason: committee::CMSlashReason::OnlineCommittee(machine_id),
+
+                book_result: super::OCBookResultType::OnlineSucceed,
+                slash_result: super::OCSlashResult::Pending,
+                ..Default::default()
             }
         );
 

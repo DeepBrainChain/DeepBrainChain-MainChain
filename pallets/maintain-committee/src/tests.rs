@@ -334,14 +334,23 @@ fn test_heart_beat1() {
             }
         );
         assert_eq!(
-            MaintainCommittee::pending_slash(0),
-            super::MTPendingSlashInfo {
-                slash_who: reporter.clone(),
+            MaintainCommittee::report_result(0),
+            super::MTReportResultInfo {
+                report_id: 0,
+                reporter,
+                reporter_stake: 1000 * ONE_DBC,
+
+                inconsistent_committee: vec![],
+                unruly_committee: vec![],
+                reward_committee: vec![],
+
                 slash_time: 11 + 60,
-                slash_amount: 1000 * ONE_DBC,
                 slash_exec_time: 11 + 60 + 2880 * 2,
-                reward_to: vec![],
-                slash_reason: super::MTReporterSlashReason::NotSubmitEncryptedInfo
+
+                report_result: crate::ReportResultType::ReporterNotSubmitEncryptedInfo,
+                slash_result: crate::MCSlashResult::Pending,
+
+                ..Default::default()
             }
         );
 
@@ -425,15 +434,24 @@ fn test_heart_beat2() {
         );
 
         assert_eq!(
-            Committee::pending_slash(0),
-            committee::CMPendingSlashInfo {
-                inconsistent_slash_who: vec![],
-                unruly_slash_who: vec![committee1],
-                committee_stake_amount: 1000 * ONE_DBC,
-                slash_time: 131,
-                slash_exec_time: 131 + 2880 * 2,
-                reward_who: vec![],
-                slash_reason: committee::CMSlashReason::MaintainCommittee(0),
+            MaintainCommittee::report_result(0),
+            super::MTReportResultInfo {
+                report_id: 0,
+                reporter,
+                reporter_stake: 1000 * ONE_DBC,
+
+                inconsistent_committee: vec![],
+                unruly_committee: vec![],
+                reward_committee: vec![],
+                committee_stake: 1000 * ONE_DBC,
+
+                slash_time: 11 + 60,
+                slash_exec_time: 11 + 60 + 2880 * 2,
+
+                report_result: crate::ReportResultType::NoConsensus,
+                slash_result: crate::MCSlashResult::Pending,
+
+                ..Default::default()
             }
         );
 
