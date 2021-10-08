@@ -443,12 +443,11 @@ fn test_heart_beat2() {
                 inconsistent_committee: vec![],
                 unruly_committee: vec![],
                 reward_committee: vec![],
-                committee_stake: 1000 * ONE_DBC,
 
-                slash_time: 11 + 60,
-                slash_exec_time: 11 + 60 + 2880 * 2,
+                slash_time: 131,
+                slash_exec_time: 5891,
 
-                report_result: crate::ReportResultType::NoConsensus,
+                report_result: crate::ReportResultType::ReporterNotSubmitEncryptedInfo,
                 slash_result: crate::MCSlashResult::Pending,
 
                 ..Default::default()

@@ -1330,17 +1330,32 @@ impl<T: Config> Pallet<T> {
                     ItemList::rm_item(&mut committee_order.booked_report, &report_id);
 
                     CommitteeOrder::<T>::insert(&verifying_committee, committee_order);
-                    ReportInfo::<T>::insert(report_id, report_info);
+                    ReportInfo::<T>::insert(report_id, report_info.clone());
                     CommitteeOps::<T>::remove(&verifying_committee, &report_id);
 
-                    // TODO: add slash in current module
+                    // FIXME: should not insert directly, but should alert exist data
+                    ReportResult::<T>::insert(
+                        report_id,
+                        MTReportResultInfo {
+                            report_id,
+                            reporter: report_info.reporter.clone(),
+                            reporter_stake: report_info.reporter_stake,
 
-                    // <T as pallet::Config>::ManageCommittee::add_slash(
-                    //     vec![],
-                    //     unruly_committee,
-                    //     vec![],
-                    //     committee::CMSlashReason::MaintainCommittee(report_id),
-                    // );
+                            // TODO: if should reward committee have submit hash info
+                            inconsistent_committee: vec![],
+                            unruly_committee: vec![],
+                            reward_committee: vec![],
+                            committee_stake: Zero::zero(),
+
+                            slash_time: now,
+                            slash_exec_time: now + TWO_DAY.into(),
+
+                            report_result: ReportResultType::ReporterNotSubmitEncryptedInfo,
+                            slash_result: MCSlashResult::Pending,
+
+                            ..Default::default()
+                        },
+                    );
 
                     continue
                 }
