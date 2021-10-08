@@ -30,6 +30,7 @@ pub const DURATIONPERCOMMITTEE: u32 = 480;
 pub const SUBMIT_RAW_START: u32 = 4320;
 /// Summary committee's opinion after 48 hours
 pub const SUBMIT_RAW_END: u32 = 5760;
+const TWO_DAY: u32 = 5760;
 
 pub use pallet::*;
 
@@ -154,6 +155,54 @@ pub struct Summary<AccountId> {
     pub info: Option<CommitteeUploadInfo>,
 }
 
+// NOTE: If slash is from maintain committee, and reporter is slashed, but when
+// committee support the reporter's slash is canceled, reporter's slash is not canceled at the same time.
+// Mainwhile, if reporter's slash is canceled..
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
+    pub machine_id: MachineId,
+    pub machine_stash: AccountId,
+    pub stash_slash_amount: Balance,
+
+    pub inconsistent_committee: Vec<AccountId>,
+    pub unruly_committee: Vec<AccountId>,
+    pub reward_committee: Vec<AccountId>,
+    pub committee_stake: Balance,
+
+    pub slash_time: BlockNumber,
+    pub slash_exec_time: BlockNumber,
+
+    pub book_result: OCBookResultType,
+    pub slash_result: OCSlashResult,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum OCBookResultType {
+    OnlineSucceed,
+    OnlineRefused,
+    NoConsensus,
+    // TODO: add if is reonline
+}
+
+impl Default for OCBookResultType {
+    fn default() -> Self {
+        Self::OnlineRefused
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum OCSlashResult {
+    Pending,
+    Canceled,
+    Executed,
+}
+
+impl Default for OCSlashResult {
+    fn default() -> Self {
+        Self::Pending
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -167,11 +216,7 @@ pub mod pallet {
             MachineId = MachineId,
             CommitteeUploadInfo = CommitteeUploadInfo,
         >;
-        type ManageCommittee: ManageCommittee<
-            AccountId = Self::AccountId,
-            BalanceOf = BalanceOf<Self>,
-            SlashReason = committee::CMSlashReason,
-        >;
+        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -210,6 +255,16 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         OCCommitteeOps<T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash)]
+    pub(super) type PendingSlash<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        OCPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -427,6 +482,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let live_machines = <online_profile::Pallet<T>>::live_machines();
         let booked_machine = live_machines.booked_machine;
+        let committee_stake_per_order = <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         for machine_id in booked_machine {
             let machine_committee = Self::machine_committee(machine_id.clone());
@@ -441,6 +497,9 @@ impl<T: Config> Pallet<T> {
             let mut unruly_committee = Vec::new();
             let mut reward_committee = Vec::new();
 
+            let mut book_result = OCBookResultType::OnlineSucceed;
+
+            // TODO: add slash record here
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
                     for a_committee in summary.unruly {
@@ -489,6 +548,7 @@ impl<T: Config> Pallet<T> {
 
                     // FIXME: should cancel machine_stash slash when slashed committee apply review
                     let _ = T::OCOperations::oc_refuse_machine(machine_id.clone(), reward_committee.clone());
+                    book_result = OCBookResultType::OnlineRefused;
                 },
                 MachineConfirmStatus::NoConsensus(summary) => {
                     for a_committee in summary.unruly {
@@ -497,20 +557,37 @@ impl<T: Config> Pallet<T> {
 
                     let _ = Self::revert_book(machine_id.clone());
                     T::OCOperations::oc_revert_booked_machine(machine_id.clone());
+                    book_result = OCBookResultType::NoConsensus;
                 },
             }
 
             if inconsistent_committee.len() == 0 && unruly_committee.len() == 0 {
-                let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
                 for a_committee in reward_committee {
-                    let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(a_committee, stake_need, false);
+                    let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                        a_committee,
+                        committee_stake_per_order,
+                        false,
+                    );
                 }
             } else {
-                <T as pallet::Config>::ManageCommittee::add_slash(
-                    inconsistent_committee,
-                    unruly_committee,
-                    reward_committee,
-                    committee::CMSlashReason::OnlineCommittee(machine_id.clone()),
+                PendingSlash::<T>::insert(
+                    &machine_id,
+                    OCPendingSlashInfo {
+                        machine_id: machine_id.clone(),
+
+                        inconsistent_committee,
+                        unruly_committee,
+                        reward_committee,
+                        committee_stake: committee_stake_per_order,
+
+                        slash_time: now,
+                        slash_exec_time: now + TWO_DAY.into(),
+
+                        book_result,
+                        slash_result: OCSlashResult::Pending,
+
+                        ..Default::default()
+                    },
                 );
             }
 

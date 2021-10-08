@@ -231,13 +231,13 @@ pub struct MTReportResultInfo<AccountId, BlockNumber, Balance> {
     // TODO: add machine slash info
     pub machine_stash: AccountId,
     pub machine_id: MachineId,
-    pub slash_amount: Balance, // TODO: if should add this
+    pub stash_slash_amount: Balance, // TODO: if should add this
 
     pub slash_time: BlockNumber,
     pub slash_exec_time: BlockNumber,
 
     pub report_result: ReportResultType,
-    pub slash_result: SlashResult,
+    pub slash_result: MCSlashResult,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -255,13 +255,13 @@ impl Default for ReportResultType {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum SlashResult {
+pub enum MCSlashResult {
     Pending,
     Canceled,
     Executed,
 }
 
-impl Default for SlashResult {
+impl Default for MCSlashResult {
     fn default() -> Self {
         Self::Pending
     }
@@ -300,11 +300,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
-        type ManageCommittee: ManageCommittee<
-            AccountId = Self::AccountId,
-            BalanceOf = BalanceOf<Self>,
-            SlashReason = committee::CMSlashReason,
-        >;
+        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
         type MTOps: MTOps<
             AccountId = Self::AccountId,
             MachineId = MachineId,
@@ -1123,7 +1119,7 @@ impl<T: Config> Pallet<T> {
 
             let mut inconsistent_committee = Vec::new();
             let mut unruly_committee = Vec::new();
-            let mut reward_committee = Vec::new();
+            let mut reward_committee: Vec<T::AccountId> = Vec::new();
 
             // 当大于等于10分钟，或者提交确认的委员会等于提交了hash的委员会，需要执行后面的逻辑，来确认
             // 统计预订了但没有提交确认的委员会
@@ -1191,7 +1187,7 @@ impl<T: Config> Pallet<T> {
                     slash_exec_time: now + TWO_DAY.into(),
 
                     report_result: ReportResultType::ReportRefused,
-                    slash_result: SlashResult::Pending,
+                    slash_result: MCSlashResult::Pending,
 
                     ..Default::default()
                 };
@@ -1214,12 +1210,13 @@ impl<T: Config> Pallet<T> {
             Self::rm_from_live_report(&mut live_report, &report_id);
             ItemList::add_item(&mut live_report.finished_report, report_id);
 
-            <T as pallet::Config>::ManageCommittee::add_slash(
-                inconsistent_committee,
-                unruly_committee,
-                reward_committee,
-                committee::CMSlashReason::MaintainCommittee(report_id),
-            );
+            // TODO: add slash in current module
+            // <T as pallet::Config>::ManageCommittee::add_slash(
+            //     inconsistent_committee,
+            //     unruly_committee,
+            //     reward_committee,
+            //     committee::CMSlashReason::MaintainCommittee(report_id),
+            // );
         }
 
         LiveReport::<T>::put(live_report);
@@ -1277,7 +1274,7 @@ impl<T: Config> Pallet<T> {
                             slash_exec_time: now + TWO_DAY.into(),
 
                             report_result: ReportResultType::ReporterNotSubmitEncryptedInfo,
-                            slash_result: SlashResult::Pending,
+                            slash_result: MCSlashResult::Pending,
 
                             ..Default::default()
                         },
@@ -1337,12 +1334,14 @@ impl<T: Config> Pallet<T> {
                     ReportInfo::<T>::insert(report_id, report_info);
                     CommitteeOps::<T>::remove(&verifying_committee, &report_id);
 
-                    <T as pallet::Config>::ManageCommittee::add_slash(
-                        vec![],
-                        unruly_committee,
-                        vec![],
-                        committee::CMSlashReason::MaintainCommittee(report_id),
-                    );
+                    // TODO: add slash in current module
+
+                    // <T as pallet::Config>::ManageCommittee::add_slash(
+                    //     vec![],
+                    //     unruly_committee,
+                    //     vec![],
+                    //     committee::CMSlashReason::MaintainCommittee(report_id),
+                    // );
 
                     continue
                 }
@@ -1409,7 +1408,7 @@ impl<T: Config> Pallet<T> {
         let mut live_report_is_changed = false;
 
         let mut inconsistent_committee = Vec::new();
-        let unruly_committee = Vec::new();
+        let unruly_committee: Vec<T::AccountId> = Vec::new();
         let mut reward_committee = Vec::new();
 
         // 未全部提交了原始信息且未达到了四个小时
@@ -1487,7 +1486,7 @@ impl<T: Config> Pallet<T> {
                         slash_exec_time: now + TWO_DAY.into(),
 
                         report_result: ReportResultType::ReportRefused,
-                        slash_result: SlashResult::Pending,
+                        slash_result: MCSlashResult::Pending,
 
                         ..Default::default()
                     },
@@ -1530,12 +1529,13 @@ impl<T: Config> Pallet<T> {
 
         // TODO: add slash
         if unruly_committee.len() > 0 || inconsistent_committee.len() > 0 {
-            <T as pallet::Config>::ManageCommittee::add_slash(
-                inconsistent_committee,
-                unruly_committee,
-                reward_committee,
-                committee::CMSlashReason::MaintainCommittee(report_id),
-            );
+            // TODO: add shash in current module
+            // <T as pallet::Config>::ManageCommittee::add_slash(
+            //     inconsistent_committee,
+            //     unruly_committee,
+            //     reward_committee,
+            //     committee::CMSlashReason::MaintainCommittee(report_id),
+            // );
         } else {
             let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
             for a_committee in reward_committee {

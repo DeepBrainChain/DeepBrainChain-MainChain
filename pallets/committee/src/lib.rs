@@ -20,44 +20,44 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
-pub type SlashId = u64;
+// pub type SlashId = u64;
 pub type MachineId = Vec<u8>;
 pub type ReportId = u64;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
-// NOTE: If slash is from maintain committee, and reporter is slashed, but when
-// committee support the reporter's slash is canceled, reporter's slash is not canceled at the same time.
-// Mainwhile, if reporter's slash is canceled..
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CMPendingSlashInfo<AccountId, BlockNumber, Balance> {
-    // slash who submit inconsistent info
-    pub inconsistent_slash_who: Vec<AccountId>,
-    // slash who not submit all work
-    pub unruly_slash_who: Vec<AccountId>,
-    // How much each committee staked
-    pub committee_stake_amount: Balance,
-    pub slash_time: BlockNumber,
-    pub slash_exec_time: BlockNumber,
-    pub reward_who: Vec<AccountId>,
-    pub slash_reason: CMSlashReason,
-}
+// // NOTE: If slash is from maintain committee, and reporter is slashed, but when
+// // committee support the reporter's slash is canceled, reporter's slash is not canceled at the same time.
+// // Mainwhile, if reporter's slash is canceled..
+// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+// pub struct CMPendingSlashInfo<AccountId, BlockNumber, Balance> {
+//     // slash who submit inconsistent info
+//     pub inconsistent_slash_who: Vec<AccountId>,
+//     // slash who not submit all work
+//     pub unruly_slash_who: Vec<AccountId>,
+//     // How much each committee staked
+//     pub committee_stake_amount: Balance,
+//     pub slash_time: BlockNumber,
+//     pub slash_exec_time: BlockNumber,
+//     pub reward_who: Vec<AccountId>,
+//     pub slash_reason: CMSlashReason,
+// }
 
-// TODO: 在OC中，惩罚全部都是NotSubmitRaw，可能需要更精细区分
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum CMSlashReason {
-    OnlineCommittee(MachineId),
-    MaintainCommittee(ReportId),
-}
+// // // TODO: 在OC中，惩罚全部都是NotSubmitRaw，可能需要更精细区分
+// #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+// pub enum CMSlashReason {
+//     OnlineCommittee(MachineId),
+//     MaintainCommittee(ReportId),
+// }
 
-impl Default for CMSlashReason {
-    fn default() -> Self {
-        Self::OnlineCommittee(vec![])
-    }
-}
+// impl Default for CMSlashReason {
+//     fn default() -> Self {
+//         Self::OnlineCommittee(vec![])
+//     }
+// }
 
-// 处于不同状态的委员会的列表
+// // 处于不同状态的委员会的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -92,14 +92,14 @@ pub struct CommitteeStakeParamsInfo<Balance> {
     pub min_free_stake_percent: Perbill,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct CMPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
-    pub applicant: AccountId,
-    pub staked_amount: Balance,
-    pub apply_time: BlockNumber,
-    pub expire_time: BlockNumber,
-    pub reason: Vec<u8>,
-}
+// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+// pub struct CMPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
+//     pub applicant: AccountId,
+//     pub staked_amount: Balance,
+//     pub apply_time: BlockNumber,
+//     pub expire_time: BlockNumber,
+//     pub reason: Vec<u8>,
+// }
 
 /// 委员会质押的状况
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -137,38 +137,38 @@ pub mod pallet {
         }
 
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
-            let _ = Self::check_and_exec_slash();
+            // let _ = Self::check_and_exec_slash();
             0
         }
 
         fn on_finalize(_n: BlockNumberFor<T>) {
-            let _ = Self::check_and_exec_review();
+            // let _ = Self::check_and_exec_review();
         }
     }
 
-    #[pallet::storage]
-    #[pallet::getter(fn next_slash_id)]
-    pub(super) type NextSlashId<T: Config> = StorageValue<_, SlashId, ValueQuery>;
+    // #[pallet::storage]
+    // #[pallet::getter(fn next_slash_id)]
+    // pub(super) type NextSlashId<T: Config> = StorageValue<_, SlashId, ValueQuery>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn pending_slash)]
-    pub(super) type PendingSlash<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        SlashId,
-        CMPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ValueQuery,
-    >;
+    // #[pallet::storage]
+    // #[pallet::getter(fn pending_slash)]
+    // pub(super) type PendingSlash<T: Config> = StorageMap<
+    //     _,
+    //     Blake2_128Concat,
+    //     SlashId,
+    //     CMPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+    //     ValueQuery,
+    // >;
 
-    #[pallet::storage]
-    #[pallet::getter(fn pending_slash_review)]
-    pub(super) type PendingSlashReview<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        SlashId,
-        CMPendingSlashReviewInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
-        ValueQuery,
-    >;
+    // #[pallet::storage]
+    // #[pallet::getter(fn pending_slash_review)]
+    // pub(super) type PendingSlashReview<T: Config> = StorageMap<
+    //     _,
+    //     Blake2_128Concat,
+    //     SlashId,
+    //     CMPendingSlashReviewInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
+    //     ValueQuery,
+    // >;
 
     #[pallet::storage]
     #[pallet::getter(fn committee)]
@@ -185,9 +185,9 @@ pub mod pallet {
     pub(super) type CommitteeStake<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeStakeInfo<BalanceOf<T>>, ValueQuery>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn canceled_slash)]
-    pub(super) type CanceledSlash<T: Config> = StorageValue<_, Vec<ReportId>, ValueQuery>;
+    // #[pallet::storage]
+    // #[pallet::getter(fn canceled_slash)]
+    // pub(super) type CanceledSlash<T: Config> = StorageValue<_, Vec<ReportId>, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -416,124 +416,124 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(10000)]
-        pub fn apply_slash_review(
-            origin: OriginFor<T>,
-            slash_id: SlashId,
-            reason: Vec<u8>,
-        ) -> DispatchResultWithPostInfo {
-            let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
-            let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
-            let mut committee_stake = Self::committee_stake(&committee);
+        // #[pallet::weight(10000)]
+        // pub fn apply_slash_review(
+        //     origin: OriginFor<T>,
+        //     slash_id: SlashId,
+        //     reason: Vec<u8>,
+        // ) -> DispatchResultWithPostInfo {
+        //     let committee = ensure_signed(origin)?;
+        //     let now = <frame_system::Module<T>>::block_number();
+        //     let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
+        //     let mut committee_stake = Self::committee_stake(&committee);
 
-            let slash_info = Self::pending_slash(slash_id);
+        //     let slash_info = Self::pending_slash(slash_id);
 
-            ensure!(slash_info.unruly_slash_who.binary_search(&committee).is_err(), Error::<T>::NotAllowedSlashReason);
-            ensure!(slash_info.inconsistent_slash_who.binary_search(&committee).is_ok(), Error::<T>::NotSlashed);
-            ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
+        //     ensure!(slash_info.unruly_slash_who.binary_search(&committee).is_err(), Error::<T>::NotAllowedSlashReason);
+        //     ensure!(slash_info.inconsistent_slash_who.binary_search(&committee).is_ok(), Error::<T>::NotSlashed);
+        //     ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
 
-            committee_stake.used_stake = committee_stake
-                .used_stake
-                .checked_add(&committee_stake_params.stake_per_order)
-                .ok_or(Error::<T>::BalanceNotEnough)?;
-            ensure!(
-                committee_stake.staked_amount - committee_stake.used_stake >
-                    committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
-                Error::<T>::StakeNotEnough
-            );
+        //     committee_stake.used_stake = committee_stake
+        //         .used_stake
+        //         .checked_add(&committee_stake_params.stake_per_order)
+        //         .ok_or(Error::<T>::BalanceNotEnough)?;
+        //     ensure!(
+        //         committee_stake.staked_amount - committee_stake.used_stake >
+        //             committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
+        //         Error::<T>::StakeNotEnough
+        //     );
 
-            CommitteeStake::<T>::insert(&committee, committee_stake);
-            PendingSlashReview::<T>::insert(
-                slash_id,
-                CMPendingSlashReviewInfo {
-                    applicant: committee.clone(),
-                    staked_amount: committee_stake_params.stake_per_order,
-                    apply_time: now,
-                    expire_time: slash_info.slash_exec_time,
-                    reason,
-                },
-            );
-            Self::deposit_event(Event::StakeAdded(committee, committee_stake_params.stake_per_order));
-            Self::deposit_event(Event::ApplySlashReview(slash_id));
-            Ok(().into())
-        }
+        //     CommitteeStake::<T>::insert(&committee, committee_stake);
+        //     PendingSlashReview::<T>::insert(
+        //         slash_id,
+        //         CMPendingSlashReviewInfo {
+        //             applicant: committee.clone(),
+        //             staked_amount: committee_stake_params.stake_per_order,
+        //             apply_time: now,
+        //             expire_time: slash_info.slash_exec_time,
+        //             reason,
+        //         },
+        //     );
+        //     Self::deposit_event(Event::StakeAdded(committee, committee_stake_params.stake_per_order));
+        //     Self::deposit_event(Event::ApplySlashReview(slash_id));
+        //     Ok(().into())
+        // }
 
-        #[pallet::weight(0)]
-        pub fn cancel_committee_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
-            T::CancelSlashOrigin::ensure_origin(origin)?;
-            ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIDNotExist);
-            ensure!(PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::NotPendingReviewSlash);
+        // #[pallet::weight(0)]
+        // pub fn cancel_committee_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
+        //     T::CancelSlashOrigin::ensure_origin(origin)?;
+        //     ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIDNotExist);
+        //     ensure!(PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::NotPendingReviewSlash);
 
-            let slash_info = Self::pending_slash(slash_id);
-            let slash_review_info = Self::pending_slash_review(slash_id);
-            let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
-            let mut committee_list = Self::committee();
-            let mut is_committee_list_changed = false;
+        //     let slash_info = Self::pending_slash(slash_id);
+        //     let slash_review_info = Self::pending_slash_review(slash_id);
+        //     let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
+        //     let mut committee_list = Self::committee();
+        //     let mut is_committee_list_changed = false;
 
-            let mut all_should_slash = vec![];
-            all_should_slash.extend(slash_info.unruly_slash_who);
-            all_should_slash.extend(slash_info.reward_who.clone());
+        //     let mut all_should_slash = vec![];
+        //     all_should_slash.extend(slash_info.unruly_slash_who);
+        //     all_should_slash.extend(slash_info.reward_who.clone());
 
-            for a_canceled_slash_person in all_should_slash.clone() {
-                let mut committee_stake = Self::committee_stake(&a_canceled_slash_person);
-                committee_stake.staked_amount = committee_stake
-                    .staked_amount
-                    .checked_sub(&slash_info.committee_stake_amount)
-                    .ok_or(Error::<T>::CancelSlashFailed)?;
-                committee_stake.used_stake = committee_stake
-                    .used_stake
-                    .checked_sub(&slash_info.committee_stake_amount)
-                    .ok_or(Error::<T>::CancelSlashFailed)?;
+        //     for a_canceled_slash_person in all_should_slash.clone() {
+        //         let mut committee_stake = Self::committee_stake(&a_canceled_slash_person);
+        //         committee_stake.staked_amount = committee_stake
+        //             .staked_amount
+        //             .checked_sub(&slash_info.committee_stake_amount)
+        //             .ok_or(Error::<T>::CancelSlashFailed)?;
+        //         committee_stake.used_stake = committee_stake
+        //             .used_stake
+        //             .checked_sub(&slash_info.committee_stake_amount)
+        //             .ok_or(Error::<T>::CancelSlashFailed)?;
 
-                if &a_canceled_slash_person == &slash_review_info.applicant {
-                    committee_stake.used_stake = committee_stake
-                        .used_stake
-                        .checked_sub(&slash_review_info.staked_amount)
-                        .ok_or(Error::<T>::CancelSlashFailed)?;
-                }
+        //         if &a_canceled_slash_person == &slash_review_info.applicant {
+        //             committee_stake.used_stake = committee_stake
+        //                 .used_stake
+        //                 .checked_sub(&slash_review_info.staked_amount)
+        //                 .ok_or(Error::<T>::CancelSlashFailed)?;
+        //         }
 
-                is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
-                    a_canceled_slash_person.clone(),
-                    &mut committee_list,
-                    &committee_stake,
-                );
-                CommitteeStake::<T>::insert(&a_canceled_slash_person, committee_stake);
-            }
+        //         is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
+        //             a_canceled_slash_person.clone(),
+        //             &mut committee_list,
+        //             &committee_stake,
+        //         );
+        //         CommitteeStake::<T>::insert(&a_canceled_slash_person, committee_stake);
+        //     }
 
-            // Should slash reward_to to origin slashd one
-            for a_committee in slash_info.reward_who.clone() {
-                let mut a_committee_stake = Self::committee_stake(&a_committee);
-                a_committee_stake.used_stake = a_committee_stake
-                    .used_stake
-                    .checked_sub(&slash_info.committee_stake_amount)
-                    .ok_or(Error::<T>::CancelSlashFailed)?;
-                a_committee_stake.staked_amount = a_committee_stake
-                    .staked_amount
-                    .checked_sub(&slash_info.committee_stake_amount)
-                    .ok_or(Error::<T>::CancelSlashFailed)?;
+        //     // Should slash reward_to to origin slashd one
+        //     for a_committee in slash_info.reward_who.clone() {
+        //         let mut a_committee_stake = Self::committee_stake(&a_committee);
+        //         a_committee_stake.used_stake = a_committee_stake
+        //             .used_stake
+        //             .checked_sub(&slash_info.committee_stake_amount)
+        //             .ok_or(Error::<T>::CancelSlashFailed)?;
+        //         a_committee_stake.staked_amount = a_committee_stake
+        //             .staked_amount
+        //             .checked_sub(&slash_info.committee_stake_amount)
+        //             .ok_or(Error::<T>::CancelSlashFailed)?;
 
-                is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
-                    a_committee.clone(),
-                    &mut committee_list,
-                    &a_committee_stake,
-                );
+        //         is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
+        //             a_committee.clone(),
+        //             &mut committee_list,
+        //             &a_committee_stake,
+        //         );
 
-                CommitteeStake::<T>::insert(&a_committee, a_committee_stake);
-            }
-            let _ = T::SlashAndReward::slash_and_reward(
-                slash_info.reward_who,
-                committee_stake_params.stake_per_order,
-                all_should_slash,
-            );
+        //         CommitteeStake::<T>::insert(&a_committee, a_committee_stake);
+        //     }
+        //     let _ = T::SlashAndReward::slash_and_reward(
+        //         slash_info.reward_who,
+        //         committee_stake_params.stake_per_order,
+        //         all_should_slash,
+        //     );
 
-            if is_committee_list_changed {
-                Committee::<T>::put(committee_list);
-            }
-            PendingSlash::<T>::remove(slash_id);
-            PendingSlashReview::<T>::remove(slash_id);
-            Ok(().into())
-        }
+        //     if is_committee_list_changed {
+        //         Committee::<T>::put(committee_list);
+        //     }
+        //     PendingSlash::<T>::remove(slash_id);
+        //     PendingSlashReview::<T>::remove(slash_id);
+        //     Ok(().into())
+        // }
     }
 
     #[pallet::event]
@@ -554,8 +554,8 @@ pub mod pallet {
         StakeReduced(T::AccountId, BalanceOf<T>),
         ClaimReward(T::AccountId, BalanceOf<T>),
         SlashCanceled(u64, T::AccountId, BalanceOf<T>),
-        ApplySlashReview(SlashId),
-        SlashReviewFailed(SlashId, T::AccountId, BalanceOf<T>),
+        // ApplySlashReview(SlashId),
+        // SlashReviewFailed(SlashId, T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -585,124 +585,124 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // 检查并执行slash
-    // NOTE: Should be careful, in case two is slashed, may result in cancel reserved_balance twice
-    fn check_and_exec_slash() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
-        let pending_slash_id = Self::get_slash_id();
-        let mut committee_list = Self::committee();
-        let mut is_committee_list_changed = false;
-        let committee_stake_params = Self::committee_stake_params().ok_or(())?;
+    // // 检查并执行slash
+    // // NOTE: Should be careful, in case two is slashed, may result in cancel reserved_balance twice
+    // fn check_and_exec_slash() -> Result<(), ()> {
+    //     let now = <frame_system::Module<T>>::block_number();
+    //     let pending_slash_id = Self::get_slash_id();
+    //     let mut committee_list = Self::committee();
+    //     let mut is_committee_list_changed = false;
+    //     let committee_stake_params = Self::committee_stake_params().ok_or(())?;
 
-        for slash_id in pending_slash_id {
-            let slash_info = Self::pending_slash(&slash_id);
-            if now < slash_info.slash_exec_time {
-                continue
-            }
+    //     for slash_id in pending_slash_id {
+    //         let slash_info = Self::pending_slash(&slash_id);
+    //         if now < slash_info.slash_exec_time {
+    //             continue
+    //         }
 
-            let mut all_should_slash = vec![];
-            all_should_slash.extend(slash_info.inconsistent_slash_who);
-            all_should_slash.extend(slash_info.unruly_slash_who);
+    //         let mut all_should_slash = vec![];
+    //         all_should_slash.extend(slash_info.inconsistent_slash_who);
+    //         all_should_slash.extend(slash_info.unruly_slash_who);
 
-            let _ = T::SlashAndReward::slash_and_reward(
-                all_should_slash.clone(),
-                committee_stake_params.stake_per_order,
-                slash_info.reward_who.clone(),
-            );
+    //         let _ = T::SlashAndReward::slash_and_reward(
+    //             all_should_slash.clone(),
+    //             committee_stake_params.stake_per_order,
+    //             slash_info.reward_who.clone(),
+    //         );
 
-            for a_slash_person in all_should_slash {
-                let mut committee_stake = Self::committee_stake(&a_slash_person);
+    //         for a_slash_person in all_should_slash {
+    //             let mut committee_stake = Self::committee_stake(&a_slash_person);
 
-                committee_stake.used_stake =
-                    committee_stake.used_stake.checked_sub(&slash_info.committee_stake_amount).ok_or(())?;
-                committee_stake.staked_amount =
-                    committee_stake.staked_amount.checked_sub(&slash_info.committee_stake_amount).ok_or(())?;
+    //             committee_stake.used_stake =
+    //                 committee_stake.used_stake.checked_sub(&slash_info.committee_stake_amount).ok_or(())?;
+    //             committee_stake.staked_amount =
+    //                 committee_stake.staked_amount.checked_sub(&slash_info.committee_stake_amount).ok_or(())?;
 
-                is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
-                    a_slash_person.clone(),
-                    &mut committee_list,
-                    &committee_stake,
-                );
-                CommitteeStake::<T>::insert(&a_slash_person, committee_stake);
-            }
-            for a_reward_person in slash_info.reward_who {
-                // After slash is done, should unreserve balance of committee,
-                let mut committee_stake = Self::committee_stake(&a_reward_person);
+    //             is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
+    //                 a_slash_person.clone(),
+    //                 &mut committee_list,
+    //                 &committee_stake,
+    //             );
+    //             CommitteeStake::<T>::insert(&a_slash_person, committee_stake);
+    //         }
+    //         for a_reward_person in slash_info.reward_who {
+    //             // After slash is done, should unreserve balance of committee,
+    //             let mut committee_stake = Self::committee_stake(&a_reward_person);
 
-                committee_stake.used_stake =
-                    committee_stake.used_stake.checked_sub(&slash_info.committee_stake_amount).ok_or(())?;
-                is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
-                    a_reward_person.clone(),
-                    &mut committee_list,
-                    &committee_stake,
-                );
-                CommitteeStake::<T>::insert(&a_reward_person, committee_stake);
-            }
+    //             committee_stake.used_stake =
+    //                 committee_stake.used_stake.checked_sub(&slash_info.committee_stake_amount).ok_or(())?;
+    //             is_committee_list_changed |= Self::change_committee_status_when_stake_changed(
+    //                 a_reward_person.clone(),
+    //                 &mut committee_list,
+    //                 &committee_stake,
+    //             );
+    //             CommitteeStake::<T>::insert(&a_reward_person, committee_stake);
+    //         }
 
-            PendingSlash::<T>::remove(slash_id);
-        }
-        if is_committee_list_changed {
-            Committee::<T>::put(committee_list);
-        }
-        Ok(())
-    }
+    //         PendingSlash::<T>::remove(slash_id);
+    //     }
+    //     if is_committee_list_changed {
+    //         Committee::<T>::put(committee_list);
+    //     }
+    //     Ok(())
+    // }
 
-    fn check_and_exec_review() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
-        let all_review_id = <PendingSlashReview<T> as IterableStorageMap<SlashId, _>>::iter()
-            .map(|(slash_id, _)| slash_id)
-            .collect::<BTreeSet<_>>();
+    // fn check_and_exec_review() -> Result<(), ()> {
+    //     let now = <frame_system::Module<T>>::block_number();
+    //     let all_review_id = <PendingSlashReview<T> as IterableStorageMap<SlashId, _>>::iter()
+    //         .map(|(slash_id, _)| slash_id)
+    //         .collect::<BTreeSet<_>>();
 
-        for a_id in all_review_id {
-            let review_info = Self::pending_slash_review(a_id);
-            ensure!(now >= review_info.expire_time, ());
+    //     for a_id in all_review_id {
+    //         let review_info = Self::pending_slash_review(a_id);
+    //         ensure!(now >= review_info.expire_time, ());
 
-            let mut committee_stake = Self::committee_stake(&review_info.applicant);
-            let mut committee_list = Self::committee();
+    //         let mut committee_stake = Self::committee_stake(&review_info.applicant);
+    //         let mut committee_list = Self::committee();
 
-            committee_stake.used_stake =
-                committee_stake.used_stake.checked_sub(&review_info.staked_amount).unwrap_or_default();
-            committee_stake.staked_amount =
-                committee_stake.staked_amount.checked_sub(&review_info.staked_amount).unwrap_or_default();
+    //         committee_stake.used_stake =
+    //             committee_stake.used_stake.checked_sub(&review_info.staked_amount).unwrap_or_default();
+    //         committee_stake.staked_amount =
+    //             committee_stake.staked_amount.checked_sub(&review_info.staked_amount).unwrap_or_default();
 
-            let is_committee_list_changed = Self::change_committee_status_when_stake_changed(
-                review_info.applicant.clone(),
-                &mut committee_list,
-                &committee_stake,
-            );
+    //         let is_committee_list_changed = Self::change_committee_status_when_stake_changed(
+    //             review_info.applicant.clone(),
+    //             &mut committee_list,
+    //             &committee_stake,
+    //         );
 
-            let _ = T::SlashAndReward::slash_and_reward(
-                vec![review_info.applicant.clone()],
-                review_info.staked_amount,
-                vec![],
-            );
+    //         let _ = T::SlashAndReward::slash_and_reward(
+    //             vec![review_info.applicant.clone()],
+    //             review_info.staked_amount,
+    //             vec![],
+    //         );
 
-            if is_committee_list_changed {
-                Committee::<T>::put(committee_list);
-            }
-            PendingSlashReview::<T>::remove(a_id);
-            Self::deposit_event(Event::SlashReviewFailed(a_id, review_info.applicant, review_info.staked_amount));
-        }
+    //         if is_committee_list_changed {
+    //             Committee::<T>::put(committee_list);
+    //         }
+    //         PendingSlashReview::<T>::remove(a_id);
+    //         Self::deposit_event(Event::SlashReviewFailed(a_id, review_info.applicant, review_info.staked_amount));
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    // 获得所有被惩罚的订单列表
-    fn get_slash_id() -> BTreeSet<SlashId> {
-        <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
-            .map(|(slash_id, _)| slash_id)
-            .collect::<BTreeSet<_>>()
-    }
+    // // 获得所有被惩罚的订单列表
+    // fn get_slash_id() -> BTreeSet<SlashId> {
+    //     <PendingSlash<T> as IterableStorageMap<SlashId, _>>::iter()
+    //         .map(|(slash_id, _)| slash_id)
+    //         .collect::<BTreeSet<_>>()
+    // }
 
-    fn get_new_slash_id() -> SlashId {
-        let slash_id = Self::next_slash_id();
-        if slash_id == u64::MAX {
-            NextSlashId::<T>::put(0);
-        } else {
-            NextSlashId::<T>::put(slash_id + 1);
-        };
-        slash_id
-    }
+    // fn get_new_slash_id() -> SlashId {
+    //     let slash_id = Self::next_slash_id();
+    //     if slash_id == u64::MAX {
+    //         NextSlashId::<T>::put(0);
+    //     } else {
+    //         NextSlashId::<T>::put(slash_id + 1);
+    //     };
+    //     slash_id
+    // }
 
     // 根据当前质押量，修改committee状态
     fn change_committee_status_when_stake_changed(
@@ -732,7 +732,7 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> ManageCommittee for Pallet<T> {
     type AccountId = T::AccountId;
     type BalanceOf = BalanceOf<T>;
-    type SlashReason = CMSlashReason;
+    // type SlashReason = CMSlashReason;
     type ReportId = ReportId;
 
     // 检查是否为状态正常的委员会
@@ -781,35 +781,35 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         CommitteeStake::<T>::insert(&committee, committee_stake);
     }
 
-    fn add_slash(
-        inconsistent_slash_who: Vec<T::AccountId>,
-        unruly_slash_who: Vec<T::AccountId>,
-        reward_who: Vec<T::AccountId>,
-        slash_reason: CMSlashReason,
-    ) {
-        let slash_id = Self::get_new_slash_id();
-        let now = <frame_system::Module<T>>::block_number();
-        let committee_stake_params = Self::committee_stake_params().unwrap_or_default();
-        PendingSlash::<T>::insert(
-            slash_id,
-            CMPendingSlashInfo {
-                inconsistent_slash_who,
-                unruly_slash_who,
-                committee_stake_amount: committee_stake_params.stake_per_order,
-                reward_who,
-                slash_reason,
-                slash_time: now,
-                slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
-            },
-        );
-    }
+    // fn add_slash(
+    //     inconsistent_slash_who: Vec<T::AccountId>,
+    //     unruly_slash_who: Vec<T::AccountId>,
+    //     reward_who: Vec<T::AccountId>,
+    //     slash_reason: CMSlashReason,
+    // ) {
+    //     let slash_id = Self::get_new_slash_id();
+    //     let now = <frame_system::Module<T>>::block_number();
+    //     let committee_stake_params = Self::committee_stake_params().unwrap_or_default();
+    //     PendingSlash::<T>::insert(
+    //         slash_id,
+    //         CMPendingSlashInfo {
+    //             inconsistent_slash_who,
+    //             unruly_slash_who,
+    //             committee_stake_amount: committee_stake_params.stake_per_order,
+    //             reward_who,
+    //             slash_reason,
+    //             slash_time: now,
+    //             slash_exec_time: now + 5760u32.saturated_into::<T::BlockNumber>(),
+    //         },
+    //     );
+    // }
 
-    fn take_canceled_slashed_report_id() -> Vec<ReportId> {
-        let empty_report_id: Vec<ReportId> = Vec::new();
-        let out_report_id = Self::canceled_slash();
-        CanceledSlash::<T>::put(empty_report_id);
-        out_report_id
-    }
+    // fn take_canceled_slashed_report_id() -> Vec<ReportId> {
+    //     let empty_report_id: Vec<ReportId> = Vec::new();
+    //     let out_report_id = Self::canceled_slash();
+    //     CanceledSlash::<T>::put(empty_report_id);
+    //     out_report_id
+    // }
 
     // TODO: add cancel slash for maintain committee to call
 }
