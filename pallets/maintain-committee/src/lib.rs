@@ -317,6 +317,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
+            // TODO: FIXME
             let _ = Self::check_and_exec_slash();
             // let _ = Self::handle_canceled_slash();
             0
@@ -867,7 +868,6 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
-            // let committee_stake_params =
 
             let report_result_info = Self::report_result(report_result_id);
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&applicant);
@@ -1086,6 +1086,8 @@ impl<T: Config> Pallet<T> {
         let mut verifying_report = live_report.verifying_report.clone();
         verifying_report.extend(live_report.bookable_report.clone());
 
+        let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
+
         for report_id in verifying_report {
             let mut report_info = Self::report_info(&report_id);
             let mut reporter_report = Self::reporter_report(&report_info.reporter);
@@ -1180,7 +1182,7 @@ impl<T: Config> Pallet<T> {
                     reporter_stake: report_info.reporter_stake,
 
                     unruly_committee: vec![], // TODO: handle this
-                    committee_stake: Zero::zero(),
+                    committee_stake: committee_order_stake,
 
                     slash_time: now,
                     slash_exec_time: now + TWO_DAY.into(),
@@ -1234,16 +1236,11 @@ impl<T: Config> Pallet<T> {
 
         for report_id in verifying_report {
             let mut report_info = Self::report_info(&report_id);
-            let mut reporter_report = Self::reporter_report(&report_info.reporter);
-
-            // let mut inconsistent_committee = Vec::new();
-            let mut unruly_committee = Vec::new();
-            // let mut reward_committee = Vec::new();
-
             // 忽略掉线的类型
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
                 continue
             };
+            let mut reporter_report = Self::reporter_report(&report_info.reporter);
 
             // 不到验证截止时间时:
             if now - report_info.first_book_time < THREE_HOUR.into() {
@@ -1256,29 +1253,6 @@ impl<T: Config> Pallet<T> {
 
                 // 1. 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
                 if committee_ops.encrypted_err_info.is_none() && now - committee_ops.booked_time >= HALF_HOUR.into() {
-                    ReportResult::<T>::insert(
-                        report_id,
-                        MTReportResultInfo {
-                            report_id,
-                            reporter: report_info.reporter.clone(),
-                            reporter_stake: report_info.reporter_stake,
-
-                            // TODO: if should reward committee have submit hash info
-                            inconsistent_committee: vec![],
-                            unruly_committee: vec![],
-                            reward_committee: vec![],
-                            committee_stake: Zero::zero(),
-
-                            slash_time: now,
-                            slash_exec_time: now + TWO_DAY.into(),
-
-                            report_result: ReportResultType::ReporterNotSubmitEncryptedInfo,
-                            slash_result: MCSlashResult::Pending,
-
-                            ..Default::default()
-                        },
-                    );
-
                     ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
                     ItemList::add_item(&mut reporter_report.failed_report, report_id);
                     ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
@@ -1301,6 +1275,21 @@ impl<T: Config> Pallet<T> {
                     ItemList::rm_item(&mut live_report.verifying_report, &report_id);
                     live_report_is_changed = true;
 
+                    let mut report_result = Self::report_result(report_id);
+                    report_result = MTReportResultInfo {
+                        report_id,
+                        reporter: report_info.reporter,
+                        reporter_stake: report_info.reporter_stake,
+
+                        slash_time: now,
+                        slash_exec_time: now + TWO_DAY.into(),
+                        report_result: ReportResultType::ReporterNotSubmitEncryptedInfo,
+                        slash_result: MCSlashResult::Pending,
+
+                        ..report_result
+                    };
+
+                    ReportResult::<T>::insert(report_id, report_result);
                     continue
                 }
 
@@ -1324,8 +1313,6 @@ impl<T: Config> Pallet<T> {
                     ItemList::add_item(&mut live_report.bookable_report, report_id);
                     live_report_is_changed = true;
 
-                    ItemList::add_item(&mut &mut unruly_committee, verifying_committee.clone());
-
                     let mut committee_order = Self::committee_order(&verifying_committee);
                     ItemList::rm_item(&mut committee_order.booked_report, &report_id);
 
@@ -1333,30 +1320,23 @@ impl<T: Config> Pallet<T> {
                     ReportInfo::<T>::insert(report_id, report_info.clone());
                     CommitteeOps::<T>::remove(&verifying_committee, &report_id);
 
-                    // FIXME: should not insert directly, but should alert exist data
-                    ReportResult::<T>::insert(
+                    // NOTE: should not insert directly when summary result, but should alert exist data
+                    let mut report_result = Self::report_result(report_id);
+                    report_result = MTReportResultInfo {
                         report_id,
-                        MTReportResultInfo {
-                            report_id,
-                            reporter: report_info.reporter.clone(),
-                            reporter_stake: report_info.reporter_stake,
+                        reporter: report_info.reporter.clone(),
+                        reporter_stake: report_info.reporter_stake,
 
-                            // TODO: if should reward committee have submit hash info
-                            inconsistent_committee: vec![],
-                            unruly_committee: vec![],
-                            reward_committee: vec![],
-                            committee_stake: Zero::zero(),
+                        slash_time: now,
+                        slash_exec_time: now + TWO_DAY.into(),
 
-                            slash_time: now,
-                            slash_exec_time: now + TWO_DAY.into(),
+                        report_result: ReportResultType::ReporterNotSubmitEncryptedInfo,
+                        slash_result: MCSlashResult::Pending,
+                        ..report_result
+                    };
+                    ItemList::add_item(&mut report_result.unruly_committee, verifying_committee.clone());
 
-                            report_result: ReportResultType::ReporterNotSubmitEncryptedInfo,
-                            slash_result: MCSlashResult::Pending,
-
-                            ..Default::default()
-                        },
-                    );
-
+                    ReportResult::<T>::insert(report_id, report_result);
                     continue
                 }
             }
@@ -1368,7 +1348,6 @@ impl<T: Config> Pallet<T> {
 
                 if let ReportStatus::WaitingBook = report_info.report_status {
                     report_info.report_status = ReportStatus::SubmittingRaw;
-
                     ReportInfo::<T>::insert(report_id, report_info);
                     continue
                 }
@@ -1406,7 +1385,6 @@ impl<T: Config> Pallet<T> {
 
         // 正在提交原始值的
         for report_id in submitting_raw_report {
-            // FIXME: bugs: committee info is get in the following
             live_report_is_changed = Self::summary_waiting_raw(report_id, &mut live_report) || live_report_is_changed;
         }
 
@@ -1424,6 +1402,8 @@ impl<T: Config> Pallet<T> {
         let mut inconsistent_committee = Vec::new();
         let unruly_committee: Vec<T::AccountId> = Vec::new();
         let mut reward_committee = Vec::new();
+
+        let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
 
         // 未全部提交了原始信息且未达到了四个小时
         if now - report_info.report_time < FOUR_HOUR.into() &&
@@ -1482,29 +1462,6 @@ impl<T: Config> Pallet<T> {
                 for a_committee in against_committee.clone() {
                     ItemList::add_item(&mut reward_committee, a_committee);
                 }
-
-                ReportResult::<T>::insert(
-                    report_id,
-                    MTReportResultInfo {
-                        report_id,
-                        reporter: report_info.reporter.clone(),
-                        reporter_stake: report_info.reporter_stake,
-
-                        // TODO: if should reward committee have submit hash info
-                        inconsistent_committee: support_committee,
-                        unruly_committee: vec![],
-                        reward_committee: against_committee,
-                        committee_stake: Zero::zero(), // TODO: add this
-
-                        slash_time: now,
-                        slash_exec_time: now + TWO_DAY.into(),
-
-                        report_result: ReportResultType::ReportRefused,
-                        slash_result: MCSlashResult::Pending,
-
-                        ..Default::default()
-                    },
-                );
             },
             // No consensus, will clean record & as new report to handle
             // In this case, no raw info is submitted, so committee record should be None
@@ -1541,15 +1498,28 @@ impl<T: Config> Pallet<T> {
             },
         }
 
-        // TODO: add slash
         if unruly_committee.len() > 0 || inconsistent_committee.len() > 0 {
-            // TODO: add shash in current module
-            // <T as pallet::Config>::ManageCommittee::add_slash(
-            //     inconsistent_committee,
-            //     unruly_committee,
-            //     reward_committee,
-            //     committee::CMSlashReason::MaintainCommittee(report_id),
-            // );
+            let mut report_result = Self::report_result(report_id);
+            report_result = MTReportResultInfo {
+                report_id,
+                reporter: report_info.reporter.clone(),
+                reporter_stake: report_info.reporter_stake,
+
+                inconsistent_committee,
+                unruly_committee,
+                reward_committee,
+                committee_stake: committee_order_stake,
+
+                slash_time: now,
+                slash_exec_time: now + TWO_DAY.into(),
+
+                report_result: ReportResultType::ReportRefused,
+                slash_result: MCSlashResult::Pending,
+
+                ..report_result
+            };
+
+            ReportResult::<T>::insert(report_id, report_result);
         } else {
             let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
             for a_committee in reward_committee {
@@ -1566,7 +1536,6 @@ impl<T: Config> Pallet<T> {
     }
 
     // TODO: add interface to query from CommitteeModule if slash is canceled!
-    // TODO: must know if slash_id == report_id
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         // FIXME
