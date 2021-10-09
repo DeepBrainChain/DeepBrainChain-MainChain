@@ -168,8 +168,6 @@ impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
-    type SlashAndReward = GenericFunc;
 }
 
 impl online_committee::Config for TestRuntime {
@@ -177,6 +175,8 @@ impl online_committee::Config for TestRuntime {
     type Currency = Balances;
     type OCOperations = OnlineProfile;
     type ManageCommittee = Committee;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
 }
 
 parameter_types! {

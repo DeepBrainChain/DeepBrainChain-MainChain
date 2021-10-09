@@ -770,7 +770,7 @@ fn committee_not_submit_hash_slash_works() {
         );
 
         assert_eq!(
-            OnlineCommittee::pending_slash(&machine_id),
+            OnlineCommittee::pending_slash(0),
             super::OCPendingSlashInfo {
                 machine_id,
                 inconsistent_committee: vec![],

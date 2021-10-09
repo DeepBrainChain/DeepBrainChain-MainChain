@@ -44,6 +44,7 @@ pub const REWARD_DURATION: u32 = 365 * 2;
 pub const REBOND_FREQUENCY: u32 = 365 * 2880;
 /// Max Slash Threshold: 120h, 5 era
 pub const MAX_SLASH_THRESHOLD: u32 = 2880 * 5;
+const TWO_DAY: u32 = 5760;
 
 /// stash account overview self-status
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -936,7 +937,7 @@ pub mod pallet {
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
             ensure!(
-                now - machine_info.last_online_height > (BLOCK_PER_ERA as u32).saturated_into::<T::BlockNumber>(),
+                now - machine_info.last_online_height > (BLOCK_PER_ERA as u32).into(),
                 Error::<T>::CannotOnlineTwiceOneDay
             );
 
@@ -1500,7 +1501,7 @@ impl<T: Config> Pallet<T> {
             machine_id,
             slash_time: now,
             slash_amount,
-            slash_exec_time: now + (2880u32 * 2).saturated_into::<T::BlockNumber>(),
+            slash_exec_time: now + TWO_DAY.into(),
             reward_to_reporter: reporter,
             reward_to_committee: committee,
             slash_reason,
@@ -2287,6 +2288,7 @@ impl<T: Config> OCOps for Pallet<T> {
 
         // In case this offline is for change hardware info, when reonline is refused, reward to committee and
         // machine info should not be deleted
+        // FIXME: bugs, will be false always
         let is_mut_hardware = live_machines.refused_mut_hardware_machine.binary_search(&machine_id).is_ok();
         if is_mut_hardware {
             let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);

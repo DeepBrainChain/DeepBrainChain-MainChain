@@ -343,6 +343,7 @@ fn test_heart_beat1() {
                 inconsistent_committee: vec![],
                 unruly_committee: vec![],
                 reward_committee: vec![],
+                committee_stake: 1000 * ONE_DBC,
 
                 slash_time: 11 + 60,
                 slash_exec_time: 11 + 60 + 2880 * 2,

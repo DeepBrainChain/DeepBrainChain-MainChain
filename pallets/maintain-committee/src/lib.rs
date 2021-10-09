@@ -860,6 +860,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // TODO: allow machine stash apply
         /// Reporter and committee apply technical committee review
         #[pallet::weight(10000)]
         pub fn apply_slash_review(
@@ -878,6 +879,7 @@ pub mod pallet {
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&applicant);
             let is_slashed_committee = report_result_info.is_slashed_committee(&applicant);
 
+            ensure!(!PendingSlashReview::<T>::contains_key(report_result_id), Error::<T>::AlreadyApplied);
             ensure!(is_slashed_reporter || is_slashed_committee, Error::<T>::NotSlashed);
             ensure!(now < report_result_info.slash_exec_time, Error::<T>::TimeNotAllowed);
 
@@ -1036,6 +1038,7 @@ pub mod pallet {
         SlashIdNotExist,
         NotPendingReviewSlash,
         NotSlashed,
+        AlreadyApplied,
     }
 }
 

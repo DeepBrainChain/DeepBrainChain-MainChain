@@ -1030,8 +1030,6 @@ impl committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
-    type SlashAndReward = GenericFunc;
 }
 
 impl online_committee::Config for Runtime {
@@ -1039,6 +1037,8 @@ impl online_committee::Config for Runtime {
     type Event = Event;
     type OCOperations = OnlineProfile;
     type ManageCommittee = Committee;
+    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
 }
 
 impl maintain_committee::Config for Runtime {

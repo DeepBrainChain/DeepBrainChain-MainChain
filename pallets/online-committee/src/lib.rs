@@ -9,7 +9,7 @@ use frame_support::{
 use frame_system::{ensure_signed, pallet_prelude::*};
 use generic_func::ItemList;
 use online_profile::CommitteeUploadInfo;
-use online_profile_machine::{ManageCommittee, OCOps};
+use online_profile_machine::{GNOps, ManageCommittee, OCOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
@@ -18,6 +18,7 @@ use sp_std::{prelude::*, str, vec::Vec};
 mod rpc_types;
 pub use rpc_types::RpcOCCommitteeOps;
 
+pub type SlashId = u64;
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -162,8 +163,10 @@ pub struct Summary<AccountId> {
 pub struct OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub machine_id: MachineId,
     pub machine_stash: AccountId,
-    pub stash_slash_amount: Balance,
+    pub stash_slash_amount: Balance, // TODO: should be used and record
 
+    // TODO: maybe should record slash_reason: refuse online refused or change hardware
+    // TODO: info refused, maybe slash amount is different
     pub inconsistent_committee: Vec<AccountId>,
     pub unruly_committee: Vec<AccountId>,
     pub reward_committee: Vec<AccountId>,
@@ -203,6 +206,15 @@ impl Default for OCSlashResult {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct OCPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
+    pub applicant: AccountId,
+    pub staked_amount: Balance,
+    pub apply_time: BlockNumber,
+    pub expire_time: BlockNumber,
+    pub reason: Vec<u8>,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -217,6 +229,8 @@ pub mod pallet {
             CommitteeUploadInfo = CommitteeUploadInfo,
         >;
         type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
+        type SlashAndReward: GNOps<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -259,12 +273,26 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
+    #[pallet::getter(fn next_slash_id)]
+    pub(super) type NextSlashId<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::storage]
     #[pallet::getter(fn pending_slash)]
     pub(super) type PendingSlash<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        MachineId,
+        SlashId,
         OCPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash_review)]
+    pub(super) type PendingSlashReview<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        SlashId,
+        OCPendingSlashReviewInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
         ValueQuery,
     >;
 
@@ -364,6 +392,32 @@ pub mod pallet {
             Self::deposit_event(Event::AddConfirmRaw(committee, machine_id));
             Ok(().into())
         }
+
+        #[pallet::weight(10000)]
+        pub fn apply_slash_review(
+            origin: OriginFor<T>,
+            slash_id: SlashId,
+            reason: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            let applicant = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+
+            let committee_order_stake =
+                <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
+
+            ensure!(!PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::AlreadyApplied);
+
+            let slash_info = Self::pending_slash(slash_id);
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn cancel_slash(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            <T as pallet::Config>::CancelSlashOrigin::ensure_origin(origin)?;
+
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -385,6 +439,8 @@ pub mod pallet {
         AlreadySubmitRaw,
         InfoNotFeatHash,
         DuplicateHash,
+        GetStakeAmountFailed,
+        AlreadyApplied,
     }
 }
 
@@ -435,6 +491,18 @@ impl<T: Config> Pallet<T> {
         }
 
         Some(lucky_committee)
+    }
+
+    fn get_new_slash_id() -> u64 {
+        let slash_id = Self::next_slash_id();
+
+        if slash_id == u64::MAX {
+            NextSlashId::<T>::put(0);
+        } else {
+            NextSlashId::<T>::put(slash_id + 1);
+        };
+
+        slash_id
     }
 
     // 一个委员会进行操作
@@ -570,8 +638,9 @@ impl<T: Config> Pallet<T> {
                     );
                 }
             } else {
+                let slash_id = Self::get_new_slash_id();
                 PendingSlash::<T>::insert(
-                    &machine_id,
+                    slash_id,
                     OCPendingSlashInfo {
                         machine_id: machine_id.clone(),
 

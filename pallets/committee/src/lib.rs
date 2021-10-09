@@ -5,12 +5,12 @@ use codec::{Decode, Encode};
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::{Currency, EnsureOrigin, OnUnbalanced, ReservableCurrency},
+    traits::{Currency, OnUnbalanced, ReservableCurrency},
     weights::Weight,
 };
 use frame_system::pallet_prelude::*;
 use generic_func::ItemList;
-use online_profile_machine::{GNOps, ManageCommittee};
+use online_profile_machine::ManageCommittee;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
@@ -82,8 +82,6 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
-        type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
-        type SlashAndReward: GNOps<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
