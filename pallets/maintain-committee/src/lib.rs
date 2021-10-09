@@ -5,6 +5,7 @@ use codec::{alloc::string::ToString, Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, OnUnbalanced, ReservableCurrency},
+    IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
 use generic_func::ItemList;
@@ -317,9 +318,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
-            // TODO: FIXME
+            let _ = Self::check_and_exec_pending_review();
             let _ = Self::check_and_exec_slash();
-            // let _ = Self::handle_canceled_slash();
             0
         }
 
@@ -860,8 +860,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Reporter apply technical committee review
-        /// TODO: reporter must apply in CommitteeModule
+        /// Reporter and committee apply technical committee review
         #[pallet::weight(10000)]
         pub fn apply_slash_review(
             origin: OriginFor<T>,
@@ -872,6 +871,8 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            let committee_order_stake =
+                T::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             let report_result_info = Self::report_result(report_result_id);
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&applicant);
@@ -894,14 +895,23 @@ pub mod pallet {
                 );
                 ReporterStake::<T>::insert(&applicant, reporter_stake);
             } else {
-                // TODO: change committee stake
+                // Change committee stake
+                <T as pallet::Config>::ManageCommittee::change_used_stake(
+                    applicant.clone(),
+                    committee_order_stake,
+                    true,
+                )
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
             }
+
+            let stake_need =
+                if is_slashed_reporter { reporter_stake_params.stake_per_report } else { committee_order_stake };
 
             PendingSlashReview::<T>::insert(
                 report_result_id,
                 MTPendingSlashReviewInfo {
                     applicant,
-                    staked_amount: reporter_stake_params.stake_per_report,
+                    staked_amount: stake_need,
                     apply_time: now,
                     expire_time: report_result_info.slash_exec_time,
                     reason,
@@ -918,13 +928,68 @@ pub mod pallet {
             ensure!(ReportResult::<T>::contains_key(slashed_report_id), Error::<T>::SlashIdNotExist);
             ensure!(PendingSlashReview::<T>::contains_key(slashed_report_id), Error::<T>::NotPendingReviewSlash);
 
-            // let report_result_info = Self::report_result(slashed_report_id);
-            // let slash_review_info = Self::pending_slash_review(slashed_report_id);
-            // let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            let mut report_result_info = Self::report_result(slashed_report_id);
+            let slash_review_info = Self::pending_slash_review(slashed_report_id);
 
-            // TODO: 退还质押, 删掉惩罚信息
-            // NOTE: cancel slash here should also cancel slash in committee
+            let is_slashed_reporter = report_result_info.is_slashed_reporter(&slash_review_info.applicant);
+            // let is_slashed_committee = report_result_info.is_slashed_committee(&slash_review_info.applicant);
 
+            // Return reserved balance when apply for review
+            if is_slashed_reporter {
+                let _ =
+                    Self::change_reporter_stake(&slash_review_info.applicant, slash_review_info.staked_amount, false);
+            } else {
+                let _ = Self::change_committee_stake(
+                    vec![slash_review_info.applicant],
+                    slash_review_info.staked_amount,
+                    false,
+                );
+            }
+
+            // revert reward and slash
+            let is_reporter_slashed = match report_result_info.report_result {
+                ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo => true,
+                _ => false,
+            };
+
+            let mut should_slash = report_result_info.reward_committee.clone();
+            for a_committee in report_result_info.unruly_committee.clone() {
+                ItemList::add_item(&mut should_slash, a_committee)
+            }
+            let mut should_reward = report_result_info.inconsistent_committee.clone();
+
+            if is_reporter_slashed {
+                let _ =
+                    Self::change_reporter_stake(&report_result_info.reporter, report_result_info.reporter_stake, false);
+
+                ItemList::add_item(&mut should_reward, report_result_info.reporter.clone());
+            } else {
+                let _ =
+                    Self::change_reporter_stake(&report_result_info.reporter, report_result_info.reporter_stake, true);
+
+                // slash reporter
+                let _ = T::SlashAndReward::slash_and_reward(
+                    vec![report_result_info.reporter.clone()],
+                    report_result_info.reporter_stake,
+                    should_reward.clone(),
+                );
+            }
+
+            let _ = T::SlashAndReward::slash_and_reward(
+                should_slash,
+                report_result_info.committee_stake,
+                should_reward.clone(),
+            );
+
+            // remove from unhandled report result
+            let mut unhandled_report_result = Self::unhandled_report_result();
+            ItemList::rm_item(&mut unhandled_report_result, &slashed_report_id);
+
+            report_result_info.slash_result = MCSlashResult::Canceled;
+
+            UnhandledReportResult::<T>::put(unhandled_report_result);
+            ReportResult::<T>::insert(slashed_report_id, report_result_info);
+            PendingSlashReview::<T>::remove(slashed_report_id);
             Ok(().into())
         }
     }
@@ -1547,21 +1612,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn slash_and_reward() -> Result<(), ()> {
-        // TODO: if slash committee, change committee stake
-
-        // TODO: if slash reporter, change reporter stake
-
-        Ok(())
-    }
-
     // TODO: add interface to query from CommitteeModule if slash is canceled!
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let mut pending_unhandled_id = Self::unhandled_report_result();
 
         for slashed_report_id in pending_unhandled_id.clone() {
-            let report_result_info = Self::report_result(&slashed_report_id);
+            let mut report_result_info = Self::report_result(&slashed_report_id);
             if now < report_result_info.slash_exec_time {
                 continue
             }
@@ -1571,7 +1628,7 @@ impl<T: Config> Pallet<T> {
                 ReportResultType::ReportSucceed => {
                     // slash unruly & inconsistent, reward to reward_committee & reporter
                     let mut slash_who = report_result_info.unruly_committee.clone();
-                    for a_inconsistent in report_result_info.inconsistent_committee {
+                    for a_inconsistent in report_result_info.inconsistent_committee.clone() {
                         ItemList::add_item(&mut slash_who, a_inconsistent);
                     }
 
@@ -1590,7 +1647,7 @@ impl<T: Config> Pallet<T> {
                     );
 
                     let _ = Self::change_committee_stake(
-                        report_result_info.reward_committee,
+                        report_result_info.reward_committee.clone(),
                         report_result_info.committee_stake,
                         false,
                     );
@@ -1607,7 +1664,7 @@ impl<T: Config> Pallet<T> {
 
                     // TODO: ensure reporter & other committee is unreserved before
                     let _ = Self::change_committee_stake(
-                        report_result_info.unruly_committee,
+                        report_result_info.unruly_committee.clone(),
                         report_result_info.committee_stake,
                         true,
                     );
@@ -1621,7 +1678,7 @@ impl<T: Config> Pallet<T> {
                     );
 
                     let mut slash_who = report_result_info.unruly_committee.clone();
-                    for a_inconsistent in report_result_info.inconsistent_committee {
+                    for a_inconsistent in report_result_info.inconsistent_committee.clone() {
                         ItemList::add_item(&mut slash_who, a_inconsistent);
                     }
 
@@ -1639,7 +1696,7 @@ impl<T: Config> Pallet<T> {
 
                     let _ = Self::change_committee_stake(slash_who, report_result_info.committee_stake, true);
                     let _ = Self::change_committee_stake(
-                        report_result_info.reward_committee,
+                        report_result_info.reward_committee.clone(),
                         report_result_info.committee_stake,
                         false,
                     );
@@ -1663,7 +1720,7 @@ impl<T: Config> Pallet<T> {
                         true,
                     );
                     let _ = Self::change_committee_stake(
-                        report_result_info.unruly_committee,
+                        report_result_info.unruly_committee.clone(),
                         report_result_info.committee_stake,
                         true,
                     );
@@ -1672,12 +1729,40 @@ impl<T: Config> Pallet<T> {
             }
 
             ItemList::rm_item(&mut pending_unhandled_id, &slashed_report_id);
+            report_result_info.slash_result = MCSlashResult::Executed;
+            ReportResult::<T>::insert(slashed_report_id, report_result_info);
         }
         UnhandledReportResult::<T>::put(pending_unhandled_id);
         Ok(())
     }
 
     fn check_and_exec_pending_review() -> Result<(), ()> {
+        let all_pending_review = <PendingSlashReview<T> as IterableStorageMap<ReportId, _>>::iter()
+            .map(|(renter, _)| renter)
+            .collect::<Vec<_>>();
+        let now = <frame_system::Module<T>>::block_number();
+
+        for a_pending_review in all_pending_review {
+            let review_info = Self::pending_slash_review(a_pending_review);
+            let report_result_info = Self::report_result(&a_pending_review);
+
+            if review_info.expire_time < now {
+                continue
+            }
+
+            let is_slashed_reporter = report_result_info.is_slashed_reporter(&review_info.applicant);
+
+            if is_slashed_reporter {
+                let _ = Self::change_reporter_stake(&review_info.applicant, review_info.staked_amount, true);
+            } else {
+                let _ =
+                    Self::change_committee_stake(vec![review_info.applicant.clone()], review_info.staked_amount, true);
+            }
+
+            let _ = T::SlashAndReward::slash_and_reward(vec![review_info.applicant], review_info.staked_amount, vec![]);
+
+            PendingSlashReview::<T>::remove(a_pending_review);
+        }
         Ok(())
     }
 }
