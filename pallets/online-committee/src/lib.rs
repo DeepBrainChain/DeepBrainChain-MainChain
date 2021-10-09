@@ -12,7 +12,7 @@ use online_profile::CommitteeUploadInfo;
 use online_profile_machine::{GNOps, ManageCommittee, OCOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::{prelude::*, str, vec::Vec};
 
 mod rpc_types;
@@ -296,6 +296,11 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    // TODO: when slash happened, store SlashId here
+    #[pallet::storage]
+    #[pallet::getter(fn unhandled_report_result)]
+    pub(super) type UnhandledReportResult<T: Config> = StorageValue<_, Vec<SlashId>, ValueQuery>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(10000)]
@@ -402,12 +407,34 @@ pub mod pallet {
             let applicant = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
+            ensure!(!PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::AlreadyApplied);
+
             let committee_order_stake =
                 <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
-            ensure!(!PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::AlreadyApplied);
-
             let slash_info = Self::pending_slash(slash_id);
+
+            let is_slashed_stash = &slash_info.machine_stash == &applicant;
+            let is_slashed_committee = { slash_info.inconsistent_committee.binary_search(&applicant).is_ok() };
+
+            ensure!(is_slashed_stash || is_slashed_committee, Error::<T>::NotSlashed);
+
+            if is_slashed_stash {
+                // TODO: machine stash should stake some balance
+            } else {
+                // TODO: committee should stake some balance
+            }
+
+            PendingSlashReview::<T>::insert(
+                slash_id,
+                OCPendingSlashReviewInfo {
+                    applicant,
+                    staked_amount: Zero::zero(), // TODO: add this storage
+                    apply_time: now,
+                    expire_time: slash_info.slash_exec_time,
+                    reason,
+                },
+            );
 
             Ok(().into())
         }
@@ -441,6 +468,7 @@ pub mod pallet {
         DuplicateHash,
         GetStakeAmountFailed,
         AlreadyApplied,
+        NotSlashed,
     }
 }
 
