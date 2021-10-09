@@ -459,6 +459,27 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         Ok(())
     }
 
+    fn change_total_stake(committee: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+        let mut committee_stake = Self::committee_stake(&committee);
+        let mut committee_list = Self::committee();
+
+        committee_stake.staked_amount = if is_add {
+            committee_stake.staked_amount.checked_add(&amount).ok_or(())?
+        } else {
+            committee_stake.staked_amount.checked_sub(&amount).ok_or(())?
+        };
+
+        let is_committee_list_changed =
+            Self::change_committee_status_when_stake_changed(committee.clone(), &mut committee_list, &committee_stake);
+
+        if is_committee_list_changed {
+            Committee::<T>::put(committee_list);
+        }
+
+        CommitteeStake::<T>::insert(&committee, committee_stake);
+        Ok(())
+    }
+
     fn stake_per_order() -> Option<BalanceOf<T>> {
         Some(Self::committee_stake_params()?.stake_per_order)
     }
