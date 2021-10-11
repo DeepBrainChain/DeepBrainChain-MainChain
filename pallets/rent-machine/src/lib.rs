@@ -74,9 +74,9 @@ pub mod pallet {
             MachineId = MachineId,
             MachineStatus = MachineStatus<Self::BlockNumber, Self::AccountId>,
             AccountId = Self::AccountId,
-            BalanceOf = BalanceOf<Self>,
+            Balance = BalanceOf<Self>,
         >;
-        type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
+        type DbcPrice: DbcPrice<Balance = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]

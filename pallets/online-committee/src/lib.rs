@@ -12,7 +12,7 @@ use online_profile::CommitteeUploadInfo;
 use online_profile_machine::{GNOps, ManageCommittee, OCOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, str, vec::Vec};
 
 mod rpc_types;
@@ -227,10 +227,11 @@ pub mod pallet {
             AccountId = Self::AccountId,
             MachineId = MachineId,
             CommitteeUploadInfo = CommitteeUploadInfo,
+            Balance = BalanceOf<Self>,
         >;
-        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
-        type SlashAndReward: GNOps<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -414,22 +415,34 @@ pub mod pallet {
 
             let slash_info = Self::pending_slash(slash_id);
 
-            let is_slashed_stash = &slash_info.machine_stash == &applicant;
+            let is_slashed_stash = match slash_info.book_result {
+                OCBookResultType::OnlineRefused => &slash_info.machine_stash == &applicant,
+                _ => false,
+            };
+
             let is_slashed_committee = { slash_info.inconsistent_committee.binary_search(&applicant).is_ok() };
 
             ensure!(is_slashed_stash || is_slashed_committee, Error::<T>::NotSlashed);
 
             if is_slashed_stash {
-                // TODO: machine stash should stake some balance
+                // TODO: Maybe stake some new balance is better
+                // TODO: how much should stake
+                T::OCOperations::oc_change_staked_balance(applicant.clone(), committee_order_stake, true)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else {
-                // TODO: committee should stake some balance
+                <T as pallet::Config>::ManageCommittee::change_used_stake(
+                    applicant.clone(),
+                    committee_order_stake,
+                    true,
+                )
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
             }
 
             PendingSlashReview::<T>::insert(
                 slash_id,
                 OCPendingSlashReviewInfo {
                     applicant,
-                    staked_amount: Zero::zero(), // TODO: add this storage
+                    staked_amount: committee_order_stake, // TODO: maybe different depend on `is_stash`
                     apply_time: now,
                     expire_time: slash_info.slash_exec_time,
                     reason,
@@ -440,8 +453,73 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn cancel_slash(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn cancel_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
             <T as pallet::Config>::CancelSlashOrigin::ensure_origin(origin)?;
+            ensure!(PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::NotPendingReviewSlash);
+
+            let now = <frame_system::Module<T>>::block_number();
+            let mut slash_info = Self::pending_slash(slash_id);
+            let slash_review_info = Self::pending_slash_review(slash_id);
+
+            ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
+
+            let is_slashed_stash = match slash_info.book_result {
+                OCBookResultType::OnlineRefused => &slash_info.machine_stash == &slash_review_info.applicant,
+                _ => false,
+            };
+
+            let committee_order_stake =
+                <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
+
+            // Return reserved balance when apply for review
+            if is_slashed_stash {
+                let _ = T::OCOperations::oc_change_staked_balance(
+                    slash_review_info.applicant.clone(),
+                    committee_order_stake,
+                    false,
+                );
+
+                // TODO: cancel stash slash in online-prpfile!
+            } else {
+                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                    slash_review_info.applicant.clone(),
+                    committee_order_stake,
+                    false,
+                );
+            }
+
+            let mut should_slash = slash_info.reward_committee.clone();
+            for a_committee in slash_info.unruly_committee.clone() {
+                ItemList::add_item(&mut should_slash, a_committee);
+            }
+            let mut should_reward = slash_info.inconsistent_committee.clone();
+
+            // do slash
+            if is_slashed_stash {
+                ItemList::add_item(&mut should_reward, slash_info.machine_stash.clone());
+                let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+                    should_slash,
+                    committee_order_stake,
+                    should_reward.clone(),
+                );
+            } else {
+                let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+                    should_slash,
+                    committee_order_stake,
+                    should_reward.clone(),
+                );
+                // TODO: slash stash, and reward should_reward
+            };
+
+            slash_info.slash_result = OCSlashResult::Canceled;
+
+            // remove from unhandled report result
+            let mut unhandled_report_result = Self::unhandled_report_result();
+            ItemList::rm_item(&mut unhandled_report_result, &slash_id);
+
+            UnhandledReportResult::<T>::put(unhandled_report_result);
+            PendingSlash::<T>::insert(slash_id, slash_info);
+            PendingSlashReview::<T>::remove(slash_id);
 
             Ok(().into())
         }
@@ -469,6 +547,9 @@ pub mod pallet {
         GetStakeAmountFailed,
         AlreadyApplied,
         NotSlashed,
+        BalanceNotEnough,
+        NotPendingReviewSlash,
+        ExpiredApply,
     }
 }
 

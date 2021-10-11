@@ -7,19 +7,21 @@ pub trait OCOps {
     type AccountId;
     type MachineId;
     type CommitteeUploadInfo;
+    type Balance;
 
     fn oc_booked_machine(id: Self::MachineId);
     fn oc_revert_booked_machine(id: Self::MachineId);
 
     fn oc_confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo) -> Result<(), ()>;
     fn oc_refuse_machine(machien_id: Self::MachineId, committee: Vec<Self::AccountId>) -> Result<(), ()>;
+    fn oc_change_staked_balance(stash: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
 }
 
 pub trait RTOps {
     type AccountId;
     type MachineId;
     type MachineStatus;
-    type BalanceOf;
+    type Balance;
 
     fn change_machine_status(
         machine_id: &Self::MachineId,
@@ -28,7 +30,7 @@ pub trait RTOps {
         rent_duration: Option<u64>, // 不为None时，表示租用结束
     );
 
-    fn change_machine_rent_fee(amount: Self::BalanceOf, machine_id: Self::MachineId, is_burn: bool);
+    fn change_machine_rent_fee(amount: Self::Balance, machine_id: Self::MachineId, is_burn: bool);
 }
 
 pub trait OPRPCQuery {
@@ -41,22 +43,22 @@ pub trait OPRPCQuery {
 
 pub trait ManageCommittee {
     type AccountId;
-    type BalanceOf;
+    type Balance;
     type ReportId;
 
     fn is_valid_committee(who: &Self::AccountId) -> bool;
 
     fn available_committee() -> Option<Vec<Self::AccountId>>;
-    fn change_used_stake(committee: Self::AccountId, amount: Self::BalanceOf, is_add: bool) -> Result<(), ()>;
-    fn change_total_stake(committee: Self::AccountId, amount: Self::BalanceOf, is_add: bool) -> Result<(), ()>;
-    fn stake_per_order() -> Option<Self::BalanceOf>;
-    fn add_reward(committee: Self::AccountId, reward: Self::BalanceOf);
+    fn change_used_stake(committee: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
+    fn change_total_stake(committee: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
+    fn stake_per_order() -> Option<Self::Balance>;
+    fn add_reward(committee: Self::AccountId, reward: Self::Balance);
 }
 
 pub trait DbcPrice {
-    type BalanceOf;
+    type Balance;
 
-    fn get_dbc_amount_by_value(value: u64) -> Option<Self::BalanceOf>;
+    fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance>;
 }
 
 pub trait MTOps {
@@ -74,11 +76,11 @@ pub trait MTOps {
 
 pub trait GNOps {
     type AccountId;
-    type BalanceOf;
+    type Balance;
 
     fn slash_and_reward(
         slash_who: Vec<Self::AccountId>,
-        each_slash: Self::BalanceOf,
+        each_slash: Self::Balance,
         reward_who: Vec<Self::AccountId>,
     ) -> Result<(), ()>;
 }

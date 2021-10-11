@@ -167,7 +167,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> GNOps for Pallet<T> {
     type AccountId = T::AccountId;
-    type BalanceOf = BalanceOf<T>;
+    type Balance = BalanceOf<T>;
 
     fn slash_and_reward(
         slash_who: Vec<T::AccountId>,

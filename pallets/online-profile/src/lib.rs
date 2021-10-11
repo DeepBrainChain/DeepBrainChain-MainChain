@@ -344,11 +344,11 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type BondingDuration: Get<EraIndex>;
-        type DbcPrice: DbcPrice<BalanceOf = BalanceOf<Self>>;
-        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type DbcPrice: DbcPrice<Balance = BalanceOf<Self>>;
+        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
-        type SlashAndReward: GNOps<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -2156,6 +2156,7 @@ impl<T: Config> OCOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
     type CommitteeUploadInfo = CommitteeUploadInfo;
+    type Balance = BalanceOf<T>;
 
     // 委员会订阅了一个机器ID
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
@@ -2360,13 +2361,18 @@ impl<T: Config> OCOps for Pallet<T> {
 
         Ok(())
     }
+
+    // TODO: stake some balance when apply for slash review
+    fn oc_change_staked_balance(stash: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+        Ok(())
+    }
 }
 
 impl<T: Config> RTOps for Pallet<T> {
     type MachineId = MachineId;
     type MachineStatus = MachineStatus<T::BlockNumber, T::AccountId>;
     type AccountId = T::AccountId;
-    type BalanceOf = BalanceOf<T>;
+    type Balance = BalanceOf<T>;
 
     fn change_machine_status(
         machine_id: &MachineId,

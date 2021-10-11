@@ -417,7 +417,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> ManageCommittee for Pallet<T> {
     type AccountId = T::AccountId;
-    type BalanceOf = BalanceOf<T>;
+    type Balance = BalanceOf<T>;
     // type SlashReason = CMSlashReason;
     type ReportId = ReportId;
 

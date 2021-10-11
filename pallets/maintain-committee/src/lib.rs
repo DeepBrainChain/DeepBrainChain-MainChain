@@ -300,7 +300,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
-        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
         type MTOps: MTOps<
             AccountId = Self::AccountId,
             MachineId = MachineId,
@@ -308,7 +308,7 @@ pub mod pallet {
         >;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
-        type SlashAndReward: GNOps<AccountId = Self::AccountId, BalanceOf = BalanceOf<Self>>;
+        type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -898,6 +898,7 @@ pub mod pallet {
                 ReporterStake::<T>::insert(&applicant, reporter_stake);
             } else {
                 // Change committee stake
+                // TODO: Maybe stake some new balance is better
                 <T as pallet::Config>::ManageCommittee::change_used_stake(
                     applicant.clone(),
                     committee_order_stake,
@@ -930,8 +931,11 @@ pub mod pallet {
             ensure!(ReportResult::<T>::contains_key(slashed_report_id), Error::<T>::SlashIdNotExist);
             ensure!(PendingSlashReview::<T>::contains_key(slashed_report_id), Error::<T>::NotPendingReviewSlash);
 
+            let now = <frame_system::Module<T>>::block_number();
             let mut report_result_info = Self::report_result(slashed_report_id);
             let slash_review_info = Self::pending_slash_review(slashed_report_id);
+
+            ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&slash_review_info.applicant);
             // let is_slashed_committee = report_result_info.is_slashed_committee(&slash_review_info.applicant);
@@ -1039,6 +1043,7 @@ pub mod pallet {
         NotPendingReviewSlash,
         NotSlashed,
         AlreadyApplied,
+        ExpiredApply,
     }
 }
 
