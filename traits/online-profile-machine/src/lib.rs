@@ -13,8 +13,9 @@ pub trait OCOps {
     fn oc_revert_booked_machine(id: Self::MachineId);
 
     fn oc_confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo) -> Result<(), ()>;
-    fn oc_refuse_machine(machien_id: Self::MachineId, committee: Vec<Self::AccountId>) -> Result<(), ()>;
+    fn oc_refuse_machine(machien_id: Self::MachineId) -> Option<(Self::AccountId, Self::Balance)>;
     fn oc_change_staked_balance(stash: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
+    fn oc_exec_slash(stash: Self::AccountId, amount: Self::Balance) -> Result<(), ()>;
 }
 
 pub trait RTOps {

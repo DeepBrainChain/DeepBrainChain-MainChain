@@ -424,7 +424,7 @@ impl<T: Config> Module<T> {
             return RpcRentOrderDetail { ..Default::default() }
         }
         let order_info = order_info.unwrap();
-        return RpcRentOrderDetail {
+        RpcRentOrderDetail {
             renter: order_info.renter,
             rent_start: order_info.rent_start,
             confirm_rent: order_info.confirm_rent,

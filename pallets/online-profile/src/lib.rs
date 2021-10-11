@@ -2281,11 +2281,10 @@ impl<T: Config> OCOps for Pallet<T> {
     }
 
     // When committees reach an agreement to refuse machine, change machine status and record refuse time
-    fn oc_refuse_machine(machine_id: MachineId, committee: Vec<T::AccountId>) -> Result<(), ()> {
+    fn oc_refuse_machine(machine_id: MachineId) -> Option<(T::AccountId, BalanceOf<T>)> {
         // Refuse controller bond machine, and clean storage
         let machine_info = Self::machines_info(&machine_id);
         let mut live_machines = Self::live_machines();
-        let mut stash_stake = Self::stash_stake(&machine_info.machine_stash);
 
         // In case this offline is for change hardware info, when reonline is refused, reward to committee and
         // machine info should not be deleted
@@ -2293,55 +2292,25 @@ impl<T: Config> OCOps for Pallet<T> {
         let is_mut_hardware = live_machines.refused_mut_hardware_machine.binary_search(&machine_id).is_ok();
         if is_mut_hardware {
             let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
-            let now = <frame_system::Module<T>>::block_number();
-
-            let slash_id = Self::get_new_slash_id();
-            let slash_info = OPPendingSlashInfo {
-                slash_who: machine_info.machine_stash,
-                machine_id: machine_id.clone(),
-                slash_time: now,
-                slash_amount: reonline_stake.stake_amount,
-                slash_exec_time: now + (2880u32 * 2).saturated_into::<T::BlockNumber>(),
-                reward_to_reporter: None,
-                reward_to_committee: Some(committee),
-                slash_reason: OPSlashReason::CommitteeRefusedMutHardware,
-            };
-            PendingSlash::<T>::insert(slash_id, slash_info);
 
             ItemList::rm_item(&mut live_machines.refused_mut_hardware_machine, &machine_id);
             ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
 
             LiveMachines::<T>::put(live_machines);
-            return Ok(())
+            return Some((machine_info.machine_stash, reonline_stake.stake_amount))
         }
 
-        let now = <frame_system::Module<T>>::block_number();
-        let mut sys_info = Self::sys_info();
+        // let mut sys_info = Self::sys_info();
         let mut stash_machines = Self::stash_machines(&machine_info.machine_stash);
         let mut controller_machines = Self::controller_machines(&machine_info.controller);
 
-        sys_info.total_stake = sys_info.total_stake.checked_sub(&machine_info.stake_amount).ok_or(())?;
-
         // Slash 5% of init stake(5% of one gpu stake)
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
-        let left_stake = machine_info.stake_amount.checked_sub(&slash).ok_or(())?;
+        let left_stake = machine_info.stake_amount.checked_sub(&slash)?;
 
+        // Remain 5% of init stake(5% of one gpu stake)
         // Return 95% left stake(95% of one gpu stake)
-        <T as pallet::Config>::Currency::unreserve(&machine_info.machine_stash, left_stake);
-        stash_stake = stash_stake.checked_sub(&left_stake).ok_or(())?;
-
-        // Add a pending slash
-        let slash_id = Self::get_new_slash_id();
-        let slash_info = OPPendingSlashInfo {
-            slash_who: machine_info.machine_stash.clone(),
-            machine_id: machine_id.clone(),
-            slash_time: now,
-            slash_amount: slash,
-            slash_exec_time: now + (2880u32 * 2).saturated_into::<T::BlockNumber>(),
-            reward_to_reporter: None,
-            reward_to_committee: None,
-            slash_reason: OPSlashReason::CommitteeRefusedOnline,
-        };
+        let _ = Self::change_user_total_stake(machine_info.machine_stash.clone(), left_stake, false);
 
         // Clean storage
         ItemList::rm_item(&mut controller_machines, &machine_id);
@@ -2351,19 +2320,29 @@ impl<T: Config> OCOps for Pallet<T> {
         ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
         ItemList::add_item(&mut live_machines.refused_machine, machine_id.clone());
 
-        StashStake::<T>::insert(&machine_info.machine_stash, stash_stake);
         LiveMachines::<T>::put(live_machines);
-        PendingSlash::<T>::insert(slash_id, slash_info);
         MachinesInfo::<T>::remove(&machine_id);
         ControllerMachines::<T>::insert(&machine_info.controller, controller_machines);
         StashMachines::<T>::insert(&machine_info.machine_stash, stash_machines);
-        SysInfo::<T>::put(sys_info);
 
-        Ok(())
+        Some((machine_info.machine_stash, slash))
     }
 
-    // TODO: stake some balance when apply for slash review
+    // stake some balance when apply for slash review
+    // Should stake some balance when apply for slash review
     fn oc_change_staked_balance(stash: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+        Self::change_user_total_stake(stash, amount, is_add)
+    }
+
+    fn oc_exec_slash(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        // just change stash_stake & sys_info, slash and reward should be execed in oc module
+        let mut stash_stake = Self::stash_stake(&stash);
+        let mut sys_info = Self::sys_info();
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
+        stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
+
+        StashStake::<T>::insert(&stash, stash_stake);
+        SysInfo::<T>::put(sys_info);
         Ok(())
     }
 }
@@ -2481,7 +2460,7 @@ impl<T: Config> MTOps for Pallet<T> {
 impl<T: Config> Module<T> {
     pub fn get_total_staker_num() -> u64 {
         let all_stash = Self::get_all_stash();
-        return all_stash.len() as u64
+        all_stash.len() as u64
     }
 
     pub fn get_op_info() -> SysInfoDetail<BalanceOf<T>> {

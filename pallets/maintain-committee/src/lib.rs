@@ -1146,7 +1146,7 @@ impl<T: Config> Pallet<T> {
                 report_info.err_info,
             )
         }
-        return ReportConfirmStatus::Refuse(report_info.support_committee, report_info.against_committee)
+        ReportConfirmStatus::Refuse(report_info.support_committee, report_info.against_committee)
     }
 
     // Slash offline machine

@@ -683,6 +683,9 @@ impl<T: Config> Pallet<T> {
 
             let mut book_result = OCBookResultType::OnlineSucceed;
 
+            // (who, amount)
+            let mut slash_info = None;
+
             // TODO: add slash record here
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
@@ -731,7 +734,7 @@ impl<T: Config> Pallet<T> {
                     MachineCommittee::<T>::insert(&machine_id, machine_committee);
 
                     // FIXME: should cancel machine_stash slash when slashed committee apply review
-                    let _ = T::OCOperations::oc_refuse_machine(machine_id.clone(), reward_committee.clone());
+                    slash_info = T::OCOperations::oc_refuse_machine(machine_id.clone());
                     book_result = OCBookResultType::OnlineRefused;
                 },
                 MachineConfirmStatus::NoConsensus(summary) => {
@@ -755,10 +758,13 @@ impl<T: Config> Pallet<T> {
                 }
             } else {
                 let slash_id = Self::get_new_slash_id();
+                let (machine_stash, stash_slash_amount) = slash_info.unwrap_or_default();
                 PendingSlash::<T>::insert(
                     slash_id,
                     OCPendingSlashInfo {
                         machine_id: machine_id.clone(),
+                        machine_stash,
+                        stash_slash_amount,
 
                         inconsistent_committee,
                         unruly_committee,
@@ -770,8 +776,6 @@ impl<T: Config> Pallet<T> {
 
                         book_result,
                         slash_result: OCSlashResult::Pending,
-
-                        ..Default::default()
                     },
                 );
             }

@@ -174,12 +174,12 @@ impl<T: Config> GNOps for Pallet<T> {
         each_slash: BalanceOf<T>,
         reward_who: Vec<T::AccountId>,
     ) -> Result<(), ()> {
+        // 如果reward_to为0，则将币转到国库
+        let reward_to_num = reward_who.len() as u32;
+
         if slash_who.len() == 0 || each_slash == Zero::zero() {
             return Ok(())
         }
-
-        // 如果reward_to为0，则将币转到国库
-        let reward_to_num = reward_who.len() as u32;
 
         if reward_to_num == 0 {
             // Slash to Treasury
@@ -219,6 +219,6 @@ impl<T: Config> GNOps for Pallet<T> {
             }
         }
 
-        return Ok(())
+        Ok(())
     }
 }

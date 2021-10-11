@@ -103,6 +103,6 @@ impl<T: Config> Module<T> {
             stash_list_info[index].index = index as u64;
         }
 
-        return stash_list_info[page_start..page_end].to_vec()
+        stash_list_info[page_start..page_end].to_vec()
     }
 }
