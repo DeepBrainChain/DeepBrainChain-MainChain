@@ -5,6 +5,7 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, LockableCurrency},
+    IterableStorageMap,
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use generic_func::ItemList;
@@ -240,6 +241,12 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
+            let _ = Self::check_and_exec_pending_review();
+
+            0
+        }
+
         fn on_finalize(_block_number: T::BlockNumber) {
             Self::statistic_result();
             Self::distribute_machines();
@@ -908,6 +915,61 @@ impl<T: Config> Pallet<T> {
                 return MachineConfirmStatus::NoConsensus(summary)
             },
         }
+    }
+
+    fn check_and_exec_pending_review() -> Result<(), ()> {
+        let all_pending_review = <PendingSlashReview<T> as IterableStorageMap<SlashId, _>>::iter()
+            .map(|(slash_id, _)| slash_id)
+            .collect::<Vec<_>>();
+
+        let now = <frame_system::Module<T>>::block_number();
+
+        for a_pending_review in all_pending_review {
+            let review_info = Self::pending_slash_review(a_pending_review);
+            let slash_info = Self::pending_slash(a_pending_review);
+
+            if review_info.expire_time < now {
+                continue
+            }
+
+            let is_slashed_stash = match slash_info.book_result {
+                OCBookResultType::OnlineRefused => &slash_info.machine_stash == &review_info.applicant,
+                _ => false,
+            };
+
+            if is_slashed_stash {
+                // TODO: slash stash
+            } else {
+                let _ =
+                    Self::change_committee_stake(vec![review_info.applicant.clone()], review_info.staked_amount, true);
+            }
+
+            let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+                vec![review_info.applicant],
+                review_info.staked_amount,
+                vec![],
+            );
+
+            PendingSlashReview::<T>::remove(a_pending_review);
+        }
+
+        Ok(())
+    }
+
+    fn change_committee_stake(
+        committee_list: Vec<T::AccountId>,
+        amount: BalanceOf<T>,
+        is_slash: bool,
+    ) -> Result<(), ()> {
+        for a_committee in committee_list {
+            if is_slash {
+                <T as pallet::Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false)?;
+            }
+
+            <T as pallet::Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
+        }
+
+        Ok(())
     }
 }
 
