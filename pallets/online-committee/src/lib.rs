@@ -13,7 +13,7 @@ use online_profile::CommitteeUploadInfo;
 use online_profile_machine::{GNOps, ManageCommittee, OCOps};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::{prelude::*, str, vec::Vec};
 
 mod rpc_types;
@@ -164,7 +164,7 @@ pub struct Summary<AccountId> {
 pub struct OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub machine_id: MachineId,
     pub machine_stash: AccountId,
-    pub stash_slash_amount: Balance, // TODO: should be used and record
+    pub stash_slash_amount: Balance,
 
     // TODO: maybe should record slash_reason: refuse online refused or change hardware
     // TODO: info refused, maybe slash amount is different
@@ -243,7 +243,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
             let _ = Self::check_and_exec_pending_review();
-
+            let _ = Self::check_and_exec_pending_slash();
             0
         }
 
@@ -733,7 +733,7 @@ impl<T: Config> Pallet<T> {
                     machine_committee.status = OCVerifyStatus::Finished;
                     MachineCommittee::<T>::insert(&machine_id, machine_committee);
 
-                    // FIXME: should cancel machine_stash slash when slashed committee apply review
+                    // should cancel machine_stash slash when slashed committee apply review
                     slash_info = T::OCOperations::oc_refuse_machine(machine_id.clone());
                     book_result = OCBookResultType::OnlineRefused;
                 },
@@ -942,12 +942,23 @@ impl<T: Config> Pallet<T> {
             };
 
             if is_slashed_stash {
-                // TODO: slash stash
+                // slash stash
+
+                // Change stake amount
+                // NOTE: should not change slash_info.slash_amount, because it will be done in check_and_exec_pending_slash
+                let _ = T::OCOperations::oc_exec_slash(slash_info.machine_stash.clone(), review_info.staked_amount);
+
+                let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+                    vec![slash_info.machine_stash],
+                    slash_info.stash_slash_amount,
+                    slash_info.reward_committee,
+                );
             } else {
                 let _ =
                     Self::change_committee_stake(vec![review_info.applicant.clone()], review_info.staked_amount, true);
             }
 
+            // Slash applicant to treasury
             let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
                 vec![review_info.applicant],
                 review_info.staked_amount,
@@ -957,6 +968,52 @@ impl<T: Config> Pallet<T> {
             PendingSlashReview::<T>::remove(a_pending_review);
         }
 
+        Ok(())
+    }
+
+    fn check_and_exec_pending_slash() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+        let mut pending_unhandled_id = Self::unhandled_report_result();
+
+        for slash_id in pending_unhandled_id.clone() {
+            let mut slash_info = Self::pending_slash(slash_id);
+            if now < slash_info.slash_exec_time {
+                continue
+            }
+
+            if !slash_info.stash_slash_amount.is_zero() {
+                // stash is slashed
+                let _ = T::OCOperations::oc_exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount);
+
+                let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+                    vec![slash_info.machine_stash.clone()],
+                    slash_info.stash_slash_amount,
+                    vec![],
+                );
+            }
+
+            // Change committee stake amount
+            let _ = Self::change_committee_stake(
+                slash_info.inconsistent_committee.clone(),
+                slash_info.committee_stake,
+                true,
+            );
+            let _ = Self::change_committee_stake(slash_info.unruly_committee.clone(), slash_info.committee_stake, true);
+            let _ =
+                Self::change_committee_stake(slash_info.reward_committee.clone(), slash_info.committee_stake, false);
+
+            let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+                slash_info.unruly_committee.clone(),
+                slash_info.committee_stake,
+                vec![],
+            );
+
+            slash_info.slash_result = OCSlashResult::Executed;
+            ItemList::rm_item(&mut pending_unhandled_id, &slash_id);
+            PendingSlash::<T>::insert(slash_id, slash_info);
+        }
+
+        UnhandledReportResult::<T>::put(pending_unhandled_id);
         Ok(())
     }
 
