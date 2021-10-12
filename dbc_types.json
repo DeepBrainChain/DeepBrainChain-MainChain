@@ -220,7 +220,6 @@
     "committee_stake": "Balance",
     "machine_stash": "AccountId",
     "machine_id": "MachineId",
-    "slash_amount": "Balance",
     "slash_time": "BlockNumber",
     "slash_exec_time": "BlockNumber",
     "report_result": "ReportResultType",

@@ -543,19 +543,18 @@ pub mod pallet {
                 }
             }
             Self::check_offline_machine_duration();
+
+            Self::do_pending_slash();
             0
         }
 
         fn on_finalize(block_number: T::BlockNumber) {
             let current_height = block_number.saturated_into::<u64>();
-
             // 在每个Era结束时执行奖励，发放到用户的Machine
             // 计算奖励，直接根据当前得分即可
             if current_height > 0 && current_height % BLOCK_PER_ERA == 0 {
                 Self::distribute_reward();
             }
-
-            let _ = Self::do_pending_slash();
         }
     }
 
@@ -883,6 +882,7 @@ pub mod pallet {
         pub fn claim_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let stash_account = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashAccount)?;
+
             ensure!(StashMachines::<T>::contains_key(&stash_account), Error::<T>::NotMachineController);
             let mut stash_machine = Self::stash_machines(&stash_account);
             let can_claim = stash_machine.can_claim_reward;
@@ -1054,8 +1054,11 @@ pub mod pallet {
             // 下线机器，并退还奖励
             Self::change_pos_gpu_by_online(&machine_id, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
-            Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
-                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+            ensure!(
+                Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
+                    .is_ok(),
+                Error::<T>::ReduceStakeFailed
+            );
             machine_info.stake_amount = Zero::zero();
             machine_info.machine_status = MachineStatus::Exit;
 
@@ -1092,8 +1095,10 @@ pub mod pallet {
             machine_info.stake_amount = stake_need;
             machine_info.last_machine_restake = now;
             machine_info.init_stake_per_gpu = stake_per_gpu;
-            Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false)
-                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+            ensure!(
+                Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false).is_ok(),
+                Error::<T>::ReduceStakeFailed
+            );
 
             MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
             Self::deposit_event(Event::MachineRestaked(machine_id, old_stake, machine_info.stake_amount));
@@ -1117,12 +1122,15 @@ pub mod pallet {
             ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
 
             // 补交质押
-            Self::change_user_total_stake(
-                machine_info.machine_stash.clone(),
-                online_stake_params.slash_review_stake,
-                true,
-            )
-            .map_err(|_| Error::<T>::BalanceNotEnough)?;
+            ensure!(
+                Self::change_user_total_stake(
+                    machine_info.machine_stash.clone(),
+                    online_stake_params.slash_review_stake,
+                    true,
+                )
+                .is_ok(),
+                Error::<T>::BalanceNotEnough
+            );
 
             PendingSlashReview::<T>::insert(
                 slash_id,
@@ -1582,14 +1590,12 @@ impl<T: Config> Pallet<T> {
         slash_id
     }
 
-    fn do_pending_slash() -> Result<(), ()> {
-        // 获得所有slashID
+    fn do_pending_slash() {
         let now = <frame_system::Module<T>>::block_number();
         let all_slash_id = <PendingSlash<T> as IterableStorageMap<u64, _>>::iter()
             .map(|(slash_id, _)| slash_id)
             .collect::<Vec<_>>();
 
-        // 判断是否已经超过2天，如果超过，则执行惩罚
         for slash_id in all_slash_id {
             let slash_info = Self::pending_slash(slash_id);
             if now < slash_info.slash_exec_time {
@@ -1598,12 +1604,12 @@ impl<T: Config> Pallet<T> {
 
             match slash_info.slash_reason {
                 OPSlashReason::CommitteeRefusedOnline | OPSlashReason::CommitteeRefusedMutHardware => {
-                    Self::slash_and_reward(
+                    let _ = Self::slash_and_reward(
                         slash_info.slash_who,
                         slash_info.slash_amount,
                         slash_info.slash_reason,
                         slash_info.reward_to_committee.unwrap_or_default(),
-                    )?;
+                    );
                 },
                 _ => {
                     Self::do_slash_deposit(&slash_info);
@@ -1613,8 +1619,6 @@ impl<T: Config> Pallet<T> {
 
             PendingSlash::<T>::remove(slash_id);
         }
-
-        Ok(())
     }
 
     // For upgrade
@@ -2334,10 +2338,11 @@ impl<T: Config> OCOps for Pallet<T> {
         Self::change_user_total_stake(stash, amount, is_add)
     }
 
+    // just change stash_stake & sys_info, slash and reward should be execed in oc module
     fn oc_exec_slash(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        // just change stash_stake & sys_info, slash and reward should be execed in oc module
         let mut stash_stake = Self::stash_stake(&stash);
         let mut sys_info = Self::sys_info();
+
         sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
         stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
 

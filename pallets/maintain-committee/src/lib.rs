@@ -229,14 +229,11 @@ pub struct MTReportResultInfo<AccountId, BlockNumber, Balance> {
     pub reward_committee: Vec<AccountId>,
     pub committee_stake: Balance,
 
-    // TODO: add machine slash info
     pub machine_stash: AccountId,
     pub machine_id: MachineId,
-    pub stash_slash_amount: Balance, // TODO: if should add this
 
     pub slash_time: BlockNumber,
     pub slash_exec_time: BlockNumber,
-
     pub report_result: ReportResultType,
     pub slash_result: MCSlashResult,
 }
@@ -817,7 +814,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: 与 committee_submit_confirm_raw合并
         #[pallet::weight(10000)]
         pub fn committee_submit_offline_raw(
             origin: OriginFor<T>,
@@ -869,7 +865,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: allow machine stash apply
         /// Reporter and committee apply technical committee review
         #[pallet::weight(10000)]
         pub fn apply_slash_review(
@@ -879,11 +874,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let applicant = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
-
             let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
-            // let committee_order_stake =
-            //     T::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
-
             let report_result_info = Self::report_result(report_result_id);
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&applicant);
             let is_slashed_committee = report_result_info.is_slashed_committee(&applicant);
@@ -1210,7 +1201,7 @@ impl<T: Config> Pallet<T> {
             }
 
             let mut report_result = Self::report_result(report_id);
-            // 此时，应该否决报告人，处理委员会
+            // 此时，应该否决报告人，处理委员会, because reporter not submit raw
             report_result = MTReportResultInfo {
                 report_id,
                 reporter: report_info.reporter.clone(),
@@ -1218,6 +1209,7 @@ impl<T: Config> Pallet<T> {
                 committee_stake: committee_order_stake,
                 slash_time: now,
                 slash_exec_time: now + TWO_DAY.into(),
+                report_result: ReportResultType::ReporterNotSubmitEncryptedInfo,
                 slash_result: MCSlashResult::Pending,
                 ..report_result
             };
@@ -1244,6 +1236,7 @@ impl<T: Config> Pallet<T> {
                     reporter: report_info.reporter,
                     report_time: report_info.report_time,
                     reporter_stake: report_info.reporter_stake,
+
                     machine_id: report_info.machine_id,
                     report_status: ReportStatus::Reported,
                     machine_fault_type: report_info.machine_fault_type,
@@ -1641,7 +1634,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // TODO: add interface to query from CommitteeModule if slash is canceled!
     fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let mut pending_unhandled_id = Self::unhandled_report_result();
@@ -1652,8 +1644,6 @@ impl<T: Config> Pallet<T> {
                 continue
             }
 
-            // TODO: refa code
-            // TODO: add handler if applicant is stash
             match report_result_info.report_result {
                 ReportResultType::ReportSucceed => {
                     // slash unruly & inconsistent, reward to reward_committee & reporter
@@ -1685,18 +1675,18 @@ impl<T: Config> Pallet<T> {
                     let _ = Self::change_committee_stake(slash_who, report_result_info.committee_stake, true);
                 },
                 ReportResultType::NoConsensus => {
+                    // FIXME: check here
+                    let _ = Self::change_committee_stake(
+                        report_result_info.unruly_committee.clone(),
+                        report_result_info.committee_stake,
+                        true,
+                    );
+
                     // only slash unruly_committee, no reward
                     let _ = T::SlashAndReward::slash_and_reward(
                         report_result_info.unruly_committee.clone(),
                         report_result_info.committee_stake,
                         vec![],
-                    );
-
-                    // TODO: ensure reporter & other committee is unreserved before
-                    let _ = Self::change_committee_stake(
-                        report_result_info.unruly_committee.clone(),
-                        report_result_info.committee_stake,
-                        true,
                     );
                 },
                 ReportResultType::ReportRefused => {

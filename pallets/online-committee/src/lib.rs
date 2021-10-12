@@ -431,6 +431,7 @@ pub mod pallet {
 
             ensure!(is_slashed_stash || is_slashed_committee, Error::<T>::NotSlashed);
 
+            // TODO: not add used stake but total stake
             if is_slashed_stash {
                 // TODO: Maybe stake some new balance is better
                 // TODO: how much should stake
