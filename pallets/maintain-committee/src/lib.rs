@@ -203,7 +203,8 @@ impl Default for MTOrderStatus {
 pub struct ReporterStakeParamsInfo<Balance> {
     /// First time when report
     pub stake_baseline: Balance,
-    /// How much stake will be used each report
+    /// How much stake will be used each report & how much should stake in this
+    /// module to apply for SlashReview(reporter, committee, stash stake the same)
     pub stake_per_report: Balance,
     /// 当剩余的质押数量到阈值时，需要补质押
     pub min_free_stake_percent: Perbill,
@@ -281,6 +282,13 @@ where
     fn is_slashed_committee(&self, who: &AccountId) -> bool {
         self.inconsistent_committee.binary_search(who).is_ok() || self.unruly_committee.binary_search(who).is_ok()
     }
+
+    fn is_slashed_stash(&self, who: &AccountId) -> bool {
+        match self.report_result {
+            ReportResultType::ReportSucceed => &self.machine_stash == who,
+            _ => false,
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -305,6 +313,7 @@ pub mod pallet {
             AccountId = Self::AccountId,
             MachineId = MachineId,
             FaultType = online_profile::OPSlashReason<Self::BlockNumber>,
+            Balance = BalanceOf<Self>,
         >;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
@@ -330,7 +339,7 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
-    pub fn CommitteeLimitDefault<T: Config>() -> u32 {
+    pub(super) fn CommitteeLimitDefault<T: Config>() -> u32 {
         3
     }
 
@@ -872,22 +881,29 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
-            let committee_order_stake =
-                T::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            // let committee_order_stake =
+            //     T::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             let report_result_info = Self::report_result(report_result_id);
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&applicant);
             let is_slashed_committee = report_result_info.is_slashed_committee(&applicant);
+            let is_slashed_stash = report_result_info.is_slashed_stash(&applicant);
 
             ensure!(!PendingSlashReview::<T>::contains_key(report_result_id), Error::<T>::AlreadyApplied);
-            ensure!(is_slashed_reporter || is_slashed_committee, Error::<T>::NotSlashed);
+            ensure!(is_slashed_reporter || is_slashed_committee || is_slashed_stash, Error::<T>::NotSlashed);
             ensure!(now < report_result_info.slash_exec_time, Error::<T>::TimeNotAllowed);
 
+            ensure!(
+                <T as Config>::Currency::can_reserve(&applicant, reporter_stake_params.stake_per_report),
+                Error::<T>::BalanceNotEnough
+            );
+
+            // Add stake when apply for review
+            // NOTE: here, should add total stake not add used stake
             if is_slashed_reporter {
                 let mut reporter_stake = Self::reporter_stake(&applicant);
-
-                reporter_stake.used_stake = reporter_stake
-                    .used_stake
+                reporter_stake.staked_amount = reporter_stake
+                    .staked_amount
                     .checked_add(&reporter_stake_params.stake_per_report)
                     .ok_or(Error::<T>::BalanceNotEnough)?;
                 ensure!(
@@ -895,26 +911,31 @@ pub mod pallet {
                         reporter_stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                     Error::<T>::StakeNotEnough
                 );
+                <T as pallet::Config>::Currency::reserve(&applicant, reporter_stake_params.stake_per_report)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
                 ReporterStake::<T>::insert(&applicant, reporter_stake);
-            } else {
+            } else if is_slashed_committee {
                 // Change committee stake
-                // TODO: Maybe stake some new balance is better
-                <T as pallet::Config>::ManageCommittee::change_used_stake(
+                <T as pallet::Config>::ManageCommittee::change_total_stake(
                     applicant.clone(),
-                    committee_order_stake,
+                    reporter_stake_params.stake_per_report,
                     true,
                 )
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
-            }
 
-            let stake_need =
-                if is_slashed_reporter { reporter_stake_params.stake_per_report } else { committee_order_stake };
+                <T as pallet::Config>::Currency::reserve(&applicant, reporter_stake_params.stake_per_report)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+            } else if is_slashed_stash {
+                // change stash stake
+                T::MTOps::mt_change_staked_balance(applicant.clone(), reporter_stake_params.stake_per_report, true)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+            }
 
             PendingSlashReview::<T>::insert(
                 report_result_id,
                 MTPendingSlashReviewInfo {
                     applicant,
-                    staked_amount: stake_need,
+                    staked_amount: reporter_stake_params.stake_per_report,
                     apply_time: now,
                     expire_time: report_result_info.slash_exec_time,
                     reason,
@@ -1632,6 +1653,7 @@ impl<T: Config> Pallet<T> {
             }
 
             // TODO: refa code
+            // TODO: add handler if applicant is stash
             match report_result_info.report_result {
                 ReportResultType::ReportSucceed => {
                     // slash unruly & inconsistent, reward to reward_committee & reporter
@@ -1759,12 +1781,16 @@ impl<T: Config> Pallet<T> {
             }
 
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&review_info.applicant);
+            let is_slashed_committee = report_result_info.is_slashed_committee(&review_info.applicant);
+            let is_slashed_stash = report_result_info.is_slashed_stash(&review_info.applicant);
 
             if is_slashed_reporter {
                 let _ = Self::change_reporter_stake(&review_info.applicant, review_info.staked_amount, true);
-            } else {
+            } else if is_slashed_committee {
                 let _ =
                     Self::change_committee_stake(vec![review_info.applicant.clone()], review_info.staked_amount, true);
+            } else if is_slashed_stash {
+                let _ = T::MTOps::mt_rm_stash_total_stake(review_info.applicant.clone(), review_info.staked_amount);
             }
 
             let _ = T::SlashAndReward::slash_and_reward(vec![review_info.applicant], review_info.staked_amount, vec![]);

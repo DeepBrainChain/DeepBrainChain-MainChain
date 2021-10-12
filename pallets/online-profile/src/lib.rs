@@ -2435,6 +2435,7 @@ impl<T: Config> MTOps for Pallet<T> {
     type MachineId = MachineId;
     type AccountId = T::AccountId;
     type FaultType = OPSlashReason<T::BlockNumber>;
+    type Balance = BalanceOf<T>;
 
     fn mt_machine_offline(
         reporter: T::AccountId,
@@ -2453,6 +2454,24 @@ impl<T: Config> MTOps for Pallet<T> {
                 committee,
             ),
         );
+    }
+
+    // stake some balance when apply for slash review
+    // Should stake some balance when apply for slash review
+    fn mt_change_staked_balance(stash: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+        Self::change_user_total_stake(stash, amount, is_add)
+    }
+
+    fn mt_rm_stash_total_stake(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        let mut stash_stake = Self::stash_stake(&stash);
+        let mut sys_info = Self::sys_info();
+
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
+        stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
+
+        StashStake::<T>::insert(&stash, stash_stake);
+        SysInfo::<T>::put(sys_info);
+        Ok(())
     }
 }
 
