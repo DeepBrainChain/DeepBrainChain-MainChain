@@ -304,7 +304,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    // TODO: when slash happened, store SlashId here
     #[pallet::storage]
     #[pallet::getter(fn unhandled_report_result)]
     pub(super) type UnhandledReportResult<T: Config> = StorageValue<_, Vec<SlashId>, ValueQuery>;
@@ -435,15 +434,19 @@ pub mod pallet {
             if is_slashed_stash {
                 // TODO: Maybe stake some new balance is better
                 // TODO: how much should stake
-                T::OCOperations::oc_change_staked_balance(applicant.clone(), committee_order_stake, true)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                ensure!(
+                    T::OCOperations::oc_change_staked_balance(applicant.clone(), committee_order_stake, true).is_ok(),
+                    Error::<T>::BalanceNotEnough
+                );
             } else {
-                <T as pallet::Config>::ManageCommittee::change_used_stake(
-                    applicant.clone(),
-                    committee_order_stake,
-                    true,
-                )
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                ensure!(
+                    <T as pallet::Config>::ManageCommittee::change_used_stake(
+                        applicant.clone(),
+                        committee_order_stake,
+                        true,
+                    ),
+                    Error::<T>::BalanceNotEnough
+                );
             }
 
             PendingSlashReview::<T>::insert(

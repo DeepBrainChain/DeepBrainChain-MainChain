@@ -1471,10 +1471,10 @@ impl<T: Config> Pallet<T> {
 
     fn summary_waiting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) -> bool {
         let now = <frame_system::Module<T>>::block_number();
-        let mut report_info = Self::report_info(&report_id);
-        let mut live_report_is_changed = false;
-
         let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
+
+        let mut live_report_is_changed = false;
+        let mut report_info = Self::report_info(&report_id);
         let mut report_result = Self::report_result(report_id);
 
         // 未全部提交了原始信息且未达到了四个小时
@@ -1757,10 +1757,10 @@ impl<T: Config> Pallet<T> {
     }
 
     fn check_and_exec_pending_review() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
         let all_pending_review = <PendingSlashReview<T> as IterableStorageMap<ReportId, _>>::iter()
             .map(|(renter, _)| renter)
             .collect::<Vec<_>>();
-        let now = <frame_system::Module<T>>::block_number();
 
         for a_pending_review in all_pending_review {
             let review_info = Self::pending_slash_review(a_pending_review);
