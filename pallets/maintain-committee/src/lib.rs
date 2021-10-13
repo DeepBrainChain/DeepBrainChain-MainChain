@@ -20,9 +20,8 @@ use sp_io::hashing::blake2_128;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
 use sp_std::{prelude::*, str, vec::Vec};
 
-use self::types::*;
-
 pub use pallet::*;
+use types::*;
 
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
