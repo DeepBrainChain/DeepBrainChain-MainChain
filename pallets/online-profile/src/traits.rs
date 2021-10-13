@@ -1,6 +1,6 @@
 use crate::{
-    op_types::*, types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachinesInfo, Pallet, StashMachines,
-    StashStake, SysInfo, UserReonlineStake,
+    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachinesInfo, Pallet, StashMachines, StashStake,
+    SysInfo, UserReonlineStake,
 };
 use frame_support::IterableStorageMap;
 use generic_func::{ItemList, MachineId};

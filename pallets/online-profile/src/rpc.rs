@@ -1,4 +1,4 @@
-use crate::{op_types::*, types::*};
+use crate::types::*;
 use frame_support::{IterableStorageDoubleMap, IterableStorageMap};
 use generic_func::MachineId;
 use sp_std::vec::Vec;

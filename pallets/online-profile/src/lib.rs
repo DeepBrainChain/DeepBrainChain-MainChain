@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod op_types;
 mod rpc;
 mod traits;
 mod types;
@@ -28,7 +27,6 @@ use sp_std::{
     vec::Vec,
 };
 
-pub use op_types::*;
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
