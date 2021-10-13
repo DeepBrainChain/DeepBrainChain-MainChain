@@ -444,7 +444,8 @@ pub mod pallet {
                         applicant.clone(),
                         committee_order_stake,
                         true,
-                    ),
+                    )
+                    .is_ok(),
                     Error::<T>::BalanceNotEnough
                 );
             }

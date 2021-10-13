@@ -167,7 +167,6 @@ impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
-    type Slash = Treasury;
 }
 
 impl online_committee::Config for TestRuntime {

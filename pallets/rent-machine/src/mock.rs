@@ -138,7 +138,6 @@ parameter_types! {
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
-    type Slash = Treasury;
 }
 
 impl online_profile::Config for TestRuntime {

@@ -1029,7 +1029,6 @@ impl simple_rpc::Config for Runtime {
 impl committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type Slash = Treasury;
 }
 
 impl online_committee::Config for Runtime {

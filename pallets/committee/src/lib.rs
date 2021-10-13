@@ -5,7 +5,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::{Currency, OnUnbalanced, ReservableCurrency},
+    traits::{Currency, ReservableCurrency},
     weights::Weight,
 };
 use frame_system::pallet_prelude::*;
@@ -19,12 +19,9 @@ use sp_runtime::{
 };
 use sp_std::{prelude::*, str, vec::Vec};
 
-// pub type SlashId = u64;
 pub type MachineId = Vec<u8>;
 pub type ReportId = u64;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 // // 处于不同状态的委员会的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -81,7 +78,6 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
-        type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -354,8 +350,6 @@ pub mod pallet {
         Chill(T::AccountId),
         CommitteeExit(T::AccountId),
         UndoChill(T::AccountId),
-        Slash(T::AccountId, BalanceOf<T>),
-        MissedSlash(T::AccountId, BalanceOf<T>),
         ExitFromCandidacy(T::AccountId),
         CommitteeSetBoxPubkey(T::AccountId, [u8; 32]),
         StakeAdded(T::AccountId, BalanceOf<T>),
@@ -379,13 +373,7 @@ pub mod pallet {
         StakeNotEnough,
         StatusNotAllowed,
         NotInNormalList,
-        CancelSlashFailed,
-        SlashIDNotExist,
         StatusNotFeat,
-        NotSlashed,
-        ExpiredSlash,
-        NotPendingReviewSlash,
-        NotAllowedSlashReason,
     }
 }
 
@@ -418,7 +406,6 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> ManageCommittee for Pallet<T> {
     type AccountId = T::AccountId;
     type Balance = BalanceOf<T>;
-    // type SlashReason = CMSlashReason;
     type ReportId = ReportId;
 
     // 检查是否为状态正常的委员会
