@@ -11,7 +11,6 @@ pub const THREE_HOUR: u32 = 360;
 pub const FOUR_HOUR: u32 = 480;
 pub const TWO_DAY: u32 = 5760;
 
-// pub type SlashId = u64;
 pub type ReportId = u64;
 pub type BoxPubkey = [u8; 32];
 pub type ReportHash = [u8; 16];

@@ -2,7 +2,8 @@ use codec::Codec;
 use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_committee::{OCCommitteeMachineList, OCMachineCommitteeList, RpcOCCommitteeOps};
+use online_committee::{OCCommitteeMachineList, OCMachineCommitteeList, rpc::RpcOCCommitteeOps};
+
 use online_committee_runtime_api::OcRpcApi as OcStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;

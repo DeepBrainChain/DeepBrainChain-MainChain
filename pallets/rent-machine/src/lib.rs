@@ -1,5 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod rpc;
+
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 use codec::{Decode, Encode};
 use frame_support::{
     dispatch::DispatchResult,
@@ -23,15 +30,7 @@ pub const WAITING_CONFIRMING_DELAY: u32 = 60;
 pub const BLOCK_PER_DAY: u32 = 2880;
 
 pub use pallet::*;
-
-#[cfg(test)]
-mod mock;
-
-#[cfg(test)]
-mod tests;
-
-mod rpc_types;
-pub use rpc_types::RpcRentOrderDetail;
+pub use rpc::RpcRentOrderDetail;
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
@@ -410,34 +409,5 @@ impl<T: Config> Pallet<T> {
             }
         }
         Ok(())
-    }
-}
-
-// RPC
-impl<T: Config> Module<T> {
-    pub fn get_rent_order(
-        renter: T::AccountId,
-        machine_id: MachineId,
-    ) -> RpcRentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        let order_info = Self::rent_order(&renter, &machine_id);
-        if let None = order_info {
-            return RpcRentOrderDetail { ..Default::default() }
-        }
-        let order_info = order_info.unwrap();
-        RpcRentOrderDetail {
-            renter: order_info.renter,
-            rent_start: order_info.rent_start,
-            confirm_rent: order_info.confirm_rent,
-            rent_end: order_info.rent_end,
-            stake_amount: order_info.stake_amount,
-        }
-    }
-
-    pub fn get_rent_list(renter: T::AccountId) -> Vec<MachineId> {
-        Self::user_rented(&renter)
-    }
-
-    pub fn get_machine_renter(machine_id: MachineId) -> Option<T::AccountId> {
-        Self::machine_renter(machine_id)
     }
 }

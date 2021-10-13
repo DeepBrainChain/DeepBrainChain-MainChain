@@ -4,7 +4,7 @@
 
 use codec::Codec;
 use generic_func::MachineId;
-use online_committee::{OCCommitteeMachineList, OCMachineCommitteeList, RpcOCCommitteeOps};
+use online_committee::{rpc::RpcOCCommitteeOps, OCCommitteeMachineList, OCMachineCommitteeList};
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 

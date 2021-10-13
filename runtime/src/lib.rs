@@ -1217,7 +1217,7 @@ impl_runtime_apis! {
             OnlineCommittee::get_committee_machine_list(committee)
         }
 
-        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> online_committee::RpcOCCommitteeOps<BlockNumber, Balance> {
+        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> online_committee::rpc::RpcOCCommitteeOps<BlockNumber, Balance> {
             OnlineCommittee::get_committee_ops(committee, machine_id)
         }
 
