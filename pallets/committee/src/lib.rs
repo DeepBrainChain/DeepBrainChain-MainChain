@@ -6,7 +6,6 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, ReservableCurrency},
-    weights::Weight,
 };
 use frame_system::pallet_prelude::*;
 use generic_func::ItemList;
@@ -85,17 +84,7 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            0
-        }
-
-        fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
-            0
-        }
-
-        fn on_finalize(_n: BlockNumberFor<T>) {}
-    }
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::storage]
     #[pallet::getter(fn committee)]

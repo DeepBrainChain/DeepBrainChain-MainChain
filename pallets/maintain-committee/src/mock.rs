@@ -231,7 +231,6 @@ pub fn run_to_block(n: BlockNumber) {
         // 当前块结束
         OnlineProfile::on_finalize(b);
         OnlineCommittee::on_finalize(b);
-        Committee::on_finalize(b);
         MaintainCommittee::on_finalize(b);
         System::on_finalize(b);
         RandomnessCollectiveFlip::on_finalize(b);
@@ -243,7 +242,6 @@ pub fn run_to_block(n: BlockNumber) {
         RandomnessCollectiveFlip::on_initialize(b + 1);
         System::on_initialize(b + 1);
         OnlineCommittee::on_initialize(b + 1);
-        Committee::on_initialize(b + 1);
         OnlineProfile::on_initialize(b + 1);
         RandomnessCollectiveFlip::on_initialize(b + 1);
     }
@@ -271,7 +269,6 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     .unwrap();
 
     let mut ext = sp_io::TestExternalities::from(storage);
-
     ext.execute_with(|| {
         // 初始化设置参数
         // 委员会每次抢单质押数量 (15$)
@@ -339,7 +336,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
 
         let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        // Bob pubkey
+        // use Bob pubkey
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
