@@ -5,11 +5,11 @@ use sp_std::vec::Vec;
 
 use codec::EncodeLike;
 
-use crate::{BalanceOf, Config, Module, PosGPUInfo, StashMachines};
+use crate::{BalanceOf, Config, Pallet, PosGPUInfo, StashMachines};
 
 type EraIndex = u32;
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     pub fn get_total_staker_num() -> u64 {
         let all_stash = <StashMachines<T> as IterableStorageMap<T::AccountId, _>>::iter()
             .map(|(staker, _)| staker)
