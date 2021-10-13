@@ -4,12 +4,12 @@ use crate::{
     ErasStashPoints, ErasStashReleasedReward, ErasStashReward, Pallet, StashMachines,
 };
 use generic_func::MachineId;
-use online_profile_machine::{DbcPrice, ManageCommittee};
+use online_profile_machine::{DbcPrice, ManageCommittee, OPRPCQuery};
 use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub},
     Perbill, SaturatedConversion,
 };
-use sp_std::{collections::btree_map::BTreeMap, vec};
+use sp_std::collections::btree_map::BTreeMap;
 
 impl<T: Config> Pallet<T> {
     pub fn update_snap_for_new_era(block_number: T::BlockNumber) {
@@ -80,8 +80,7 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_reward() {
         let current_era = Self::current_era();
         let start_era = if current_era > 150 { current_era - 150 } else { 0u32 };
-        // let all_stash = get_all_stash();
-        let all_stash = vec![];
+        let all_stash = Self::get_all_stash();
 
         for era_index in start_era..=current_era {
             let era_reward = Self::era_reward(era_index);
@@ -92,7 +91,7 @@ impl<T: Config> Pallet<T> {
                 let mut stash_machine = Self::stash_machines(a_stash);
 
                 for machine_id in stash_machine.total_machine.clone() {
-                    let _ = Self::distrubute_a_machine(
+                    let _ = Self::distribute_a_machine(
                         machine_id,
                         a_stash,
                         era_reward,
@@ -108,7 +107,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn distrubute_a_machine(
+    pub fn distribute_a_machine(
         machine_id: MachineId,
         a_stash: &T::AccountId,
         era_reward: BalanceOf<T>,
