@@ -12,7 +12,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use generic_func::ItemList;
+use generic_func::{ItemList, MachineId};
 use online_profile_machine::{DbcPrice, GNOps, MTOps, ManageCommittee, OCOps, OPRPCQuery, RTOps};
 use sp_core::{crypto::Public, H256};
 use sp_runtime::{

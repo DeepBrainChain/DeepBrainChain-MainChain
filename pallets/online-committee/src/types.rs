@@ -2,11 +2,10 @@ use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+use generic_func::MachineId;
 use online_profile::CommitteeUploadInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
-
-pub type MachineId = Vec<u8>;
 
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;

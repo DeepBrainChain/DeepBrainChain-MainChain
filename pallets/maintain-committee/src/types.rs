@@ -1,4 +1,5 @@
 use codec::{Decode, Encode};
+use generic_func::MachineId;
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{vec, vec::Vec};
 
@@ -11,7 +12,6 @@ pub const FOUR_HOUR: u32 = 480;
 pub const TWO_DAY: u32 = 5760;
 
 // pub type SlashId = u64;
-pub type MachineId = Vec<u8>;
 pub type ReportId = u64;
 pub type BoxPubkey = [u8; 32];
 pub type ReportHash = [u8; 16];

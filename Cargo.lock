@@ -4388,6 +4388,7 @@ dependencies = [
 name = "online-committee-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "generic-func",
  "online-committee",
  "parity-scale-codec",
  "sp-api",
@@ -4446,6 +4447,7 @@ dependencies = [
 name = "online-profile-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "generic-func",
  "online-profile",
  "parity-scale-codec",
  "sp-api",
@@ -6270,6 +6272,7 @@ dependencies = [
 name = "rent-machine-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "generic-func",
  "parity-scale-codec",
  "rent-machine",
  "sp-api",

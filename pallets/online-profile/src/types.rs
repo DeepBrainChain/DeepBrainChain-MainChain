@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use codec::{Decode, Encode};
+use generic_func::MachineId;
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::Box, vec::Vec};
 
@@ -18,7 +19,6 @@ pub const MAX_SLASH_THRESHOLD: u32 = 2880 * 5;
 /// PendingSlash will be exec in two days
 pub const TWO_DAY: u32 = 5760;
 
-type MachineId = Vec<u8>;
 type EraIndex = u32;
 
 /// stash account overview self-status

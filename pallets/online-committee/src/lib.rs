@@ -14,7 +14,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
-use generic_func::ItemList;
+use generic_func::{ItemList, MachineId, SlashId};
 use online_profile::CommitteeUploadInfo;
 use online_profile_machine::{GNOps, ManageCommittee, OCOps};
 use sp_runtime::traits::Zero;
@@ -22,9 +22,6 @@ use sp_std::{prelude::*, str, vec::Vec};
 
 pub use self::types::*;
 
-pub type SlashId = u64;
-pub type MachineId = Vec<u8>;
-pub type EraIndex = u32;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub use pallet::*;

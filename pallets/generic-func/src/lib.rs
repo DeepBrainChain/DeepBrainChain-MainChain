@@ -39,6 +39,10 @@ impl ItemList {
     }
 }
 
+pub type SlashId = u64;
+pub type MachineId = Vec<u8>;
+pub type EraIndex = u32;
+
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;

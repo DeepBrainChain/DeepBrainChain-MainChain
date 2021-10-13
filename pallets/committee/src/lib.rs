@@ -14,7 +14,6 @@ use online_profile_machine::ManageCommittee;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
 use sp_std::{prelude::*, str, vec::Vec};
 
-pub type MachineId = Vec<u8>;
 pub type ReportId = u64;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 

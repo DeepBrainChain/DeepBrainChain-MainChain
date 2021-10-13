@@ -3,7 +3,8 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use codec::Codec;
-use online_committee::{MachineId, OCCommitteeMachineList, OCMachineCommitteeList, RpcOCCommitteeOps};
+use generic_func::MachineId;
+use online_committee::{OCCommitteeMachineList, OCMachineCommitteeList, RpcOCCommitteeOps};
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 

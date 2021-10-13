@@ -26,6 +26,11 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dependencies.generic-func]
+default-features = false
+path = '../../../generic-func'
+package = 'generic-func'
+
 [features]
 default = ["std"]
 std = [
@@ -34,4 +39,5 @@ std = [
     "sp-api/std",
     "sp-runtime/std",
     "sp-std/std",
+    "generic-func/std",
 ]

@@ -71,6 +71,8 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
+use generic_func::MachineId;
+
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
 #[cfg(any(feature = "std", test))]
@@ -1173,7 +1175,7 @@ impl_runtime_apis! {
             OnlineProfile::get_machine_list()
         }
 
-        fn get_machine_info(machine_id: online_profile::MachineId) -> online_profile::MachineInfo<AccountId, BlockNumber, Balance> {
+        fn get_machine_info(machine_id: MachineId) -> online_profile::MachineInfo<AccountId, BlockNumber, Balance> {
             OnlineProfile::get_machine_info(machine_id)
         }
 
@@ -1181,11 +1183,11 @@ impl_runtime_apis! {
             OnlineProfile::get_pos_gpu_info()
         }
 
-        fn get_machine_era_reward(machine_id: online_profile::MachineId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_machine_era_reward(machine_id: MachineId, era_index: online_profile::EraIndex) -> Balance {
             OnlineProfile::get_machine_era_reward(machine_id, era_index)
         }
 
-        fn get_machine_era_released_reward(machine_id: online_profile::MachineId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_machine_era_released_reward(machine_id: MachineId, era_index: online_profile::EraIndex) -> Balance {
             OnlineProfile::get_machine_era_released_reward(machine_id, era_index)
         }
 
@@ -1215,25 +1217,25 @@ impl_runtime_apis! {
             OnlineCommittee::get_committee_machine_list(committee)
         }
 
-        fn get_committee_ops(committee: AccountId, machine_id: online_profile::MachineId) -> online_committee::RpcOCCommitteeOps<BlockNumber, Balance> {
+        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> online_committee::RpcOCCommitteeOps<BlockNumber, Balance> {
             OnlineCommittee::get_committee_ops(committee, machine_id)
         }
 
-        fn get_machine_committee_list(machine_id: online_profile::MachineId) -> online_committee::OCMachineCommitteeList<AccountId, BlockNumber> {
+        fn get_machine_committee_list(machine_id: MachineId) -> online_committee::OCMachineCommitteeList<AccountId, BlockNumber> {
             OnlineCommittee::get_machine_committee_list(machine_id)
         }
     }
 
     impl rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_rent_order(renter: AccountId, machine_id: online_profile::MachineId) -> rent_machine::RpcRentOrderDetail<AccountId, BlockNumber, Balance> {
+        fn get_rent_order(renter: AccountId, machine_id: MachineId) -> rent_machine::RpcRentOrderDetail<AccountId, BlockNumber, Balance> {
             RentMachine::get_rent_order(renter, machine_id)
         }
 
-        fn get_rent_list(renter: AccountId) -> Vec<online_profile::MachineId> {
+        fn get_rent_list(renter: AccountId) -> Vec<MachineId> {
             RentMachine::get_rent_list(renter)
         }
 
-        fn get_machine_renter(machine_id: online_profile::MachineId) -> Option<AccountId>
+        fn get_machine_renter(machine_id: MachineId) -> Option<AccountId>
         {
             RentMachine::get_machine_renter(machine_id)
         }

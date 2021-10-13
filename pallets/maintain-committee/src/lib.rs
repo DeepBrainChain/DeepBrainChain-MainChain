@@ -14,7 +14,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use generic_func::ItemList;
+use generic_func::{ItemList, MachineId};
 use online_profile_machine::{GNOps, MTOps, ManageCommittee};
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};

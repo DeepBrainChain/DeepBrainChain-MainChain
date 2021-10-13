@@ -1,8 +1,8 @@
 use codec::Codec;
-use generic_func::RpcBalance;
+use generic_func::{MachineId, RpcBalance};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use rent_machine::{MachineId, RpcRentOrderDetail};
+use rent_machine::RpcRentOrderDetail;
 use rent_machine_runtime_api::RmRpcApi as RmStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;

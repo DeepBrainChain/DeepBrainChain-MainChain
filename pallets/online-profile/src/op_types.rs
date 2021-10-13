@@ -1,4 +1,5 @@
 use codec::{alloc::string::ToString, Decode, Encode};
+use generic_func::MachineId;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
@@ -6,7 +7,6 @@ use sp_io::hashing::blake2_128;
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
-pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
 pub type TelecomName = Vec<u8>;
 

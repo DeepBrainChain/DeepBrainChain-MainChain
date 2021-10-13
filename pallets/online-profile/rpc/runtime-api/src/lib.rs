@@ -3,8 +3,9 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use codec::Codec;
+use generic_func::MachineId;
 pub use online_profile::{
-    EraIndex, Latitude, LiveMachine, Longitude, MachineId, MachineInfo, PosInfo, RpcStakerInfo, SysInfoDetail,
+    EraIndex, Latitude, LiveMachine, Longitude, MachineInfo, PosInfo, RpcStakerInfo, SysInfoDetail,
 };
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;

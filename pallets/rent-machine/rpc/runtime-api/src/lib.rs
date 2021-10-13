@@ -3,7 +3,8 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use codec::Codec;
-use rent_machine::{MachineId, RpcRentOrderDetail};
+use generic_func::MachineId;
+use rent_machine::RpcRentOrderDetail;
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 

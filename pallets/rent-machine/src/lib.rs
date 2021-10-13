@@ -9,8 +9,8 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use generic_func::ItemList;
-pub use online_profile::{EraIndex, MachineId, MachineStatus};
+use generic_func::{ItemList, MachineId};
+pub use online_profile::{EraIndex, MachineStatus};
 use online_profile_machine::{DbcPrice, RTOps};
 use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};

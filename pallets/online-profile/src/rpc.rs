@@ -1,12 +1,12 @@
 use crate::{op_types::*, types::*};
 use frame_support::{IterableStorageDoubleMap, IterableStorageMap};
+use generic_func::MachineId;
 use sp_std::vec::Vec;
 
 use codec::EncodeLike;
 
 use crate::{BalanceOf, Config, Module, PosGPUInfo, StashMachines};
 
-type MachineId = Vec<u8>;
 type EraIndex = u32;
 
 impl<T: Config> Module<T> {
