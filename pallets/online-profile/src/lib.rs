@@ -12,7 +12,6 @@ use frame_support::{
     pallet_prelude::*,
     traits::{Currency, EnsureOrigin, Get, OnUnbalanced, ReservableCurrency},
     weights::Weight,
-    IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
 use generic_func::{ItemList, MachineId, SlashId};
@@ -347,7 +346,7 @@ pub mod pallet {
                 &machine_id,
                 UserReonlineStakeInfo { stake_amount, offline_time: now },
             );
-            Self::change_pos_gpu_by_online(&machine_id, false);
+            Self::change_pos_gpu_by_online(&machine_info, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
             LiveMachines::<T>::put(live_machines);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -544,7 +543,7 @@ pub mod pallet {
             machine_info.last_online_height = now;
             machine_info.last_machine_restake = now;
 
-            Self::change_pos_gpu_by_online(&machine_id, true);
+            Self::change_pos_gpu_by_online(&machine_info, true);
             Self::update_snap_by_online_status(machine_id.clone(), true);
 
             ItemList::rm_item(&mut live_machine.fulfilling_machine, &machine_id);
@@ -636,7 +635,7 @@ pub mod pallet {
                             let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
                             Self::update_snap_by_online_status(machine_id.clone(), true);
-                            Self::change_pos_gpu_by_online(&machine_id, true);
+                            Self::change_pos_gpu_by_online(&machine_info, true);
 
                             let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
                             stash_machine.total_calc_points =
@@ -664,7 +663,7 @@ pub mod pallet {
                         },
                         MachineStatus::Rented => {
                             Self::update_snap_by_rent_status(machine_id.clone(), true);
-                            Self::change_pos_gpu_by_rent(&machine_id, true);
+                            Self::update_pos_gpu_by_rent(&machine_id, true);
 
                             // 机器在被租用状态下线，会被惩罚
                             slash_amount = Self::slash_when_report_offline(
@@ -730,7 +729,7 @@ pub mod pallet {
             ensure!(now - machine_info.last_online_height >= 28800u32.into(), Error::<T>::TimeNotAllowed);
 
             // 下线机器，并退还奖励
-            Self::change_pos_gpu_by_online(&machine_id, false);
+            Self::change_pos_gpu_by_online(&machine_info, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
             ensure!(
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
@@ -902,13 +901,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // For upgrade
-    pub fn get_all_machine_id() -> Vec<MachineId> {
-        <MachinesInfo<T> as IterableStorageMap<MachineId, _>>::iter()
-            .map(|(machine_id, _)| machine_id)
-            .collect::<Vec<_>>()
-    }
-
     /// 下架机器
     fn machine_offline(machine_id: MachineId, machine_status: MachineStatus<T::BlockNumber, T::AccountId>) {
         let mut machine_info = Self::machines_info(&machine_id);
@@ -916,11 +908,11 @@ impl<T: Config> Pallet<T> {
 
         if let MachineStatus::Rented = machine_info.machine_status {
             Self::update_snap_by_rent_status(machine_id.clone(), false);
-            Self::change_pos_gpu_by_rent(&machine_id, false);
+            Self::update_pos_gpu_by_rent(&machine_id, false);
         }
 
         // When offline, pos_info will be removed
-        Self::change_pos_gpu_by_online(&machine_id, false);
+        Self::change_pos_gpu_by_online(&machine_info, false);
         Self::update_snap_by_online_status(machine_id.clone(), false);
 
         ItemList::rm_item(&mut live_machine.online_machine, &machine_id);
@@ -933,18 +925,8 @@ impl<T: Config> Pallet<T> {
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 
-    /// 特定位置GPU上线/下线
-    // - Writes:
-    // PosGPUInfo, ServerRoomMachines
-    fn change_pos_gpu_by_online(machine_id: &MachineId, is_online: bool) {
-        let machine_info = Self::machines_info(&machine_id);
-
-        let longitude = machine_info.machine_info_detail.staker_customize_info.longitude.clone();
-        let latitude = machine_info.machine_info_detail.staker_customize_info.latitude.clone();
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
-        let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
-
-        let mut pos_gpu_info = Self::pos_gpu_info(longitude.clone(), latitude.clone());
+    fn update_pos_gpu_info_online(pos: (&Longitude, &Latitude), gpu_num: u32, is_online: bool, calc_point: u64) {
+        let mut pos_gpu_info = Self::pos_gpu_info(pos.0, pos.1);
 
         if is_online {
             pos_gpu_info.online_gpu += gpu_num as u64;
@@ -955,7 +937,10 @@ impl<T: Config> Pallet<T> {
             pos_gpu_info.online_gpu_calc_points -= calc_point;
         }
 
-        let server_room = machine_info.machine_info_detail.staker_customize_info.server_room;
+        PosGPUInfo::<T>::insert(pos.0, pos.1, pos_gpu_info);
+    }
+
+    fn update_server_room_machines_online(server_room: H256, machine_id: &MachineId, is_online: bool) {
         let mut server_room_machines = Self::server_room_machines(server_room).unwrap_or_default();
 
         if is_online {
@@ -965,11 +950,28 @@ impl<T: Config> Pallet<T> {
         }
 
         ServerRoomMachines::<T>::insert(server_room, server_room_machines);
-        PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
+    }
+
+    /// 特定位置GPU上线/下线
+    // - Writes:
+    // PosGPUInfo, ServerRoomMachines
+    fn change_pos_gpu_by_online(
+        machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        is_online: bool,
+    ) {
+        let machine_id = &machine_info.machine_info_detail.committee_upload_info.machine_id;
+        let longitude = &machine_info.machine_info_detail.staker_customize_info.longitude;
+        let latitude = &machine_info.machine_info_detail.staker_customize_info.latitude;
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
+        let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
+        let server_room = machine_info.machine_info_detail.staker_customize_info.server_room;
+
+        Self::update_server_room_machines_online(server_room, machine_id, is_online);
+        Self::update_pos_gpu_info_online((longitude, latitude), gpu_num, is_online, calc_point);
     }
 
     /// 特定位置GPU被租用/租用结束
-    fn change_pos_gpu_by_rent(machine_id: &MachineId, is_rented: bool) {
+    fn update_pos_gpu_by_rent(machine_id: &MachineId, is_rented: bool) {
         let machine_info = Self::machines_info(machine_id);
 
         let longitude = machine_info.machine_info_detail.staker_customize_info.longitude.clone();

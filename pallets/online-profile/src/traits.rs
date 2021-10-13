@@ -118,7 +118,7 @@ impl<T: Config> OCOps for Pallet<T> {
 
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if let MachineStatus::Online = machine_info.machine_status {
-            Self::change_pos_gpu_by_online(&committee_upload_info.machine_id, true);
+            Self::change_pos_gpu_by_online(&machine_info, true);
             Self::update_snap_by_online_status(committee_upload_info.machine_id.clone(), true);
 
             if is_reonline {
@@ -249,7 +249,7 @@ impl<T: Config> RTOps for Pallet<T> {
                 ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
                 LiveMachines::<T>::put(live_machines);
 
-                Self::change_pos_gpu_by_rent(machine_id, true);
+                Self::update_pos_gpu_by_rent(machine_id, true);
             },
             // 租用结束 或 租用失败(半小时无确认)
             MachineStatus::Online => {
@@ -262,7 +262,7 @@ impl<T: Config> RTOps for Pallet<T> {
                     ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
                     LiveMachines::<T>::put(live_machines);
 
-                    Self::change_pos_gpu_by_rent(machine_id, false);
+                    Self::update_pos_gpu_by_rent(machine_id, false);
                 }
             },
             _ => {},
