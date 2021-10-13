@@ -154,10 +154,13 @@ pub mod pallet {
             // 检查machine_id状态是否可以租用
             ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineNotRentable,);
             // 获得machine_price
-            let machine_price = <online_profile::Module<T>>::calc_machine_price(
-                machine_info.machine_info_detail.committee_upload_info.calc_point,
-            )
-            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let machine_price =
+                T::RTOps::get_machine_price(machine_info.machine_info_detail.committee_upload_info.calc_point)
+                    .ok_or(Error::<T>::GetMachinePriceFailed)?;
+
+            // let machine_price = <online_profile::Module<T>>::calc_machine_price(
+            //     machine_info.machine_info_detail.committee_upload_info.calc_point,
+            // )
             let rent_fee_value = machine_price.checked_mul(duration as u64).ok_or(Error::<T>::Overflow)?;
             let rent_fee =
                 <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value).ok_or(Error::<T>::Overflow)?;
@@ -240,10 +243,11 @@ pub mod pallet {
 
             let mut order_info = Self::rent_order(&renter, &machine_id).ok_or(Error::<T>::NoOrderExist)?;
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-            let machine_price = <online_profile::Module<T>>::calc_machine_price(
-                machine_info.machine_info_detail.committee_upload_info.calc_point,
-            )
-            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+
+            let machine_price =
+                T::RTOps::get_machine_price(machine_info.machine_info_detail.committee_upload_info.calc_point)
+                    .ok_or(Error::<T>::GetMachinePriceFailed)?;
+
             let rent_fee_value = machine_price.checked_mul(add_duration as u64).ok_or(Error::<T>::Overflow)?;
             let rent_fee =
                 <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value).ok_or(Error::<T>::Overflow)?;

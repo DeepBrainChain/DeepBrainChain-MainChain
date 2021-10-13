@@ -991,36 +991,6 @@ impl<T: Config> Pallet<T> {
         T::AccountId::decode(&mut &account_id32[..]).ok()
     }
 
-    /// 根据GPU数量和该机器算力点数，计算该机器相比标准配置的租用价格
-    pub fn calc_machine_price(machine_point: u64) -> Option<u64> {
-        let standard_gpu_point_price = Self::standard_gpu_point_price()?;
-        standard_gpu_point_price
-            .gpu_price
-            .checked_mul(machine_point)?
-            .checked_mul(10_000)?
-            .checked_div(standard_gpu_point_price.gpu_point)?
-            .checked_div(10_000)
-    }
-
-    fn slash_and_reward(
-        slash_who: T::AccountId,
-        slash_amount: BalanceOf<T>,
-        _slash_reason: OPSlashReason<T::BlockNumber>,
-        reward_to: Vec<T::AccountId>,
-    ) -> Result<(), ()> {
-        let mut stash_stake = Self::stash_stake(&slash_who);
-        let mut sys_info = Self::sys_info();
-
-        sys_info.total_stake = sys_info.total_stake.checked_sub(&slash_amount).ok_or(())?;
-        stash_stake = stash_stake.checked_sub(&slash_amount).ok_or(())?;
-
-        let _ = T::SlashAndReward::slash_and_reward(vec![slash_who.clone()], slash_amount, reward_to);
-
-        StashStake::<T>::insert(&slash_who, stash_stake);
-        SysInfo::<T>::put(sys_info);
-        Ok(())
-    }
-
     fn change_user_total_stake(who: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let mut stash_stake = Self::stash_stake(&who);
         let mut sys_info = Self::sys_info();

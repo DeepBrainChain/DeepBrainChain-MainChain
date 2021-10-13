@@ -216,6 +216,17 @@ impl<T: Config> RTOps for Pallet<T> {
     type AccountId = T::AccountId;
     type Balance = BalanceOf<T>;
 
+    /// 根据GPU数量和该机器算力点数，计算该机器相比标准配置的租用价格
+    fn get_machine_price(machine_point: u64) -> Option<u64> {
+        let standard_gpu_point_price = Self::standard_gpu_point_price()?;
+        standard_gpu_point_price
+            .gpu_price
+            .checked_mul(machine_point)?
+            .checked_mul(10_000)?
+            .checked_div(standard_gpu_point_price.gpu_point)?
+            .checked_div(10_000)
+    }
+
     fn change_machine_status(
         machine_id: &MachineId,
         new_status: MachineStatus<T::BlockNumber, T::AccountId>,

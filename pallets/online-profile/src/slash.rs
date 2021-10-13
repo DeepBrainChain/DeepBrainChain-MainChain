@@ -1,14 +1,18 @@
 use crate::{
     types::{MachineStatus, OPPendingSlashInfo, OPSlashReason, MAX_SLASH_THRESHOLD, TWO_DAY},
-    BalanceOf, Config, NextSlashId, Pallet, PendingSlash,
+    BalanceOf, Config, NextSlashId, Pallet, PendingSlash, StashStake, SysInfo,
 };
 use frame_support::{
     traits::{Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency},
     IterableStorageMap,
 };
 use generic_func::MachineId;
-use sp_runtime::{traits::Zero, Perbill, SaturatedConversion};
-use sp_std::vec::Vec;
+use online_profile_machine::GNOps;
+use sp_runtime::{
+    traits::{CheckedSub, Zero},
+    Perbill, SaturatedConversion,
+};
+use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {
     pub fn get_new_slash_id() -> u64 {
@@ -21,6 +25,25 @@ impl<T: Config> Pallet<T> {
         };
 
         slash_id
+    }
+
+    pub fn slash_and_reward(
+        slash_who: T::AccountId,
+        slash_amount: BalanceOf<T>,
+        _slash_reason: OPSlashReason<T::BlockNumber>,
+        reward_to: Vec<T::AccountId>,
+    ) -> Result<(), ()> {
+        let mut stash_stake = Self::stash_stake(&slash_who);
+        let mut sys_info = Self::sys_info();
+
+        sys_info.total_stake = sys_info.total_stake.checked_sub(&slash_amount).ok_or(())?;
+        stash_stake = stash_stake.checked_sub(&slash_amount).ok_or(())?;
+
+        let _ = T::SlashAndReward::slash_and_reward(vec![slash_who.clone()], slash_amount, reward_to);
+
+        StashStake::<T>::insert(&slash_who, stash_stake);
+        SysInfo::<T>::put(sys_info);
+        Ok(())
     }
 
     pub fn do_pending_slash() {

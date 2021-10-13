@@ -24,6 +24,8 @@ pub trait RTOps {
     type MachineStatus;
     type Balance;
 
+    fn get_machine_price(machine_point: u64) -> Option<u64>;
+
     fn change_machine_status(
         machine_id: &Self::MachineId,
         new_status: Self::MachineStatus,
