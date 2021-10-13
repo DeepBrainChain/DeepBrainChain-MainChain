@@ -1,5 +1,5 @@
 use codec::{Decode, Encode};
-use generic_func::MachineId;
+use generic_func::{ItemList, MachineId};
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{vec, vec::Vec};
 
@@ -27,6 +27,14 @@ pub struct MTLiveReportList {
     pub waiting_raw_report: Vec<ReportId>,
     /// 等待48小时后执行的报告, 此期间可以申述，由技术委员会审核
     pub finished_report: Vec<ReportId>,
+}
+
+impl MTLiveReportList {
+    pub fn clean_unfinished_report(&mut self, report_id: &ReportId) {
+        ItemList::rm_item(&mut self.bookable_report, report_id);
+        ItemList::rm_item(&mut self.verifying_report, report_id);
+        ItemList::rm_item(&mut self.waiting_raw_report, report_id);
+    }
 }
 
 /// 报告人的报告记录
@@ -132,6 +140,14 @@ pub struct MTCommitteeOrderList {
     pub confirmed_report: Vec<ReportId>,
     /// 已经成功上线的机器
     pub finished_report: Vec<ReportId>,
+}
+
+impl MTCommitteeOrderList {
+    pub fn clean_unfinished_order(&mut self, report_id: &ReportId) {
+        ItemList::rm_item(&mut self.booked_report, report_id);
+        ItemList::rm_item(&mut self.hashed_report, report_id);
+        ItemList::rm_item(&mut self.confirmed_report, report_id);
+    }
 }
 
 /// 委员会对报告的操作信息

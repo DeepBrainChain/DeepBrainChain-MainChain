@@ -107,9 +107,11 @@ impl<T: Config> OCOps for Pallet<T> {
             // 根据质押，奖励给这些委员会
             let reonline_stake =
                 Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
-            let _ = Self::reward_reonline_committee(
+
+            let _ = Self::slash_and_reward(
                 machine_info.machine_stash.clone(),
                 reonline_stake.stake_amount,
+                OPSlashReason::ReonlineShouldReward,
                 reported_committee,
             );
         }

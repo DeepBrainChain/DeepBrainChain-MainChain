@@ -3,6 +3,7 @@
 mod rpc;
 mod traits;
 mod types;
+mod utils;
 
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
@@ -12,26 +13,19 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::pallet_prelude::*;
-use generic_func::{ItemList, MachineId};
+use generic_func::{ItemList, MachineId, SlashId};
 use online_profile_machine::{DbcPrice, GNOps, ManageCommittee, OPRPCQuery};
-use sp_core::{crypto::Public, H256};
+use sp_core::H256;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedMul, CheckedSub, Verify, Zero},
+    traits::{CheckedAdd, CheckedMul, CheckedSub, Zero},
     Perbill, SaturatedConversion,
 };
-use sp_std::{
-    collections::btree_map::BTreeMap,
-    convert::{From, TryFrom, TryInto},
-    prelude::*,
-    str,
-    vec::Vec,
-};
+use sp_std::{collections::btree_map::BTreeMap, convert::From, prelude::*, str, vec::Vec};
 
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
 
-pub type SlashId = u64;
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> =
     <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
@@ -405,7 +399,10 @@ pub mod pallet {
             ensure!(sig_stash_account == stash, Error::<T>::MachineStashNotEqualControllerStash);
 
             // 验证签名是否为MachineId发出
-            ensure!(Self::verify_sig(msg.clone(), sig.clone(), machine_id.clone()).is_some(), Error::<T>::BadSignature);
+            ensure!(
+                utils::verify_sig(msg.clone(), sig.clone(), machine_id.clone()).is_some(),
+                Error::<T>::BadSignature
+            );
 
             // 用户绑定机器需要质押一张显卡的DBC
             let stake_amount = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
@@ -1402,49 +1399,9 @@ impl<T: Config> Pallet<T> {
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
     }
 
-    // 接收到[u8; 64] -> str -> [u8; 32] -> pubkey
-    fn verify_sig(msg: Vec<u8>, sig: Vec<u8>, account: Vec<u8>) -> Option<()> {
-        let signature = sp_core::sr25519::Signature::try_from(&sig[..]).ok()?;
-        // let public = Self::get_public_from_str(&account)?;
-
-        let pubkey_str = str::from_utf8(&account).ok()?;
-        let pubkey_hex: Result<Vec<u8>, _> =
-            (0..pubkey_str.len()).step_by(2).map(|i| u8::from_str_radix(&pubkey_str[i..i + 2], 16)).collect();
-        let pubkey_hex = pubkey_hex.ok()?;
-
-        let account_id32: [u8; 32] = pubkey_hex.try_into().ok()?;
-        let public = sp_core::sr25519::Public::from_slice(&account_id32);
-
-        signature.verify(&msg[..], &public.into()).then(|| ())
-    }
-
-    // 参考：primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
-    // from_ss58check_with_version
-    fn get_accountid32(addr: &Vec<u8>) -> Option<[u8; 32]> {
-        let mut data: [u8; 35] = [0; 35];
-
-        let length = bs58::decode(addr).into(&mut data).ok()?;
-        if length != 35 {
-            return None
-        }
-
-        let (_prefix_len, _ident) = match data[0] {
-            0..=63 => (1, data[0] as u16),
-            _ => return None,
-        };
-
-        let account_id32: [u8; 32] = data[1..33].try_into().ok()?;
-        Some(account_id32)
-    }
-
     fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
-        let account_id32: [u8; 32] = Self::get_accountid32(addr)?;
+        let account_id32: [u8; 32] = utils::get_accountid32(addr)?;
         T::AccountId::decode(&mut &account_id32[..]).ok()
-    }
-
-    fn _get_public_from_str(addr: &Vec<u8>) -> Option<sp_core::sr25519::Public> {
-        let account_id32: [u8; 32] = Self::get_accountid32(addr)?;
-        Some(sp_core::sr25519::Public::from_slice(&account_id32))
     }
 
     // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
@@ -1543,14 +1500,6 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::StakeReduced(who, amount));
         }
         Ok(())
-    }
-
-    fn reward_reonline_committee(
-        who: T::AccountId,
-        amount: BalanceOf<T>,
-        committee: Vec<T::AccountId>,
-    ) -> Result<(), ()> {
-        Self::slash_and_reward(who, amount, OPSlashReason::ReonlineShouldReward, committee)
     }
 
     // 获取下一Era stash grade即为当前Era stash grade

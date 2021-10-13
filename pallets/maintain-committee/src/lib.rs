@@ -861,18 +861,6 @@ impl<T: Config> Pallet<T> {
         blake2_128(raw_str)
     }
 
-    fn rm_from_committee_order(committee_order: &mut MTCommitteeOrderList, report_id: &ReportId) {
-        ItemList::rm_item(&mut committee_order.booked_report, report_id);
-        ItemList::rm_item(&mut committee_order.hashed_report, report_id);
-        ItemList::rm_item(&mut committee_order.confirmed_report, report_id);
-    }
-
-    fn rm_from_live_report(live_report: &mut MTLiveReportList, report_id: &ReportId) {
-        ItemList::rm_item(&mut live_report.bookable_report, report_id);
-        ItemList::rm_item(&mut live_report.verifying_report, report_id);
-        ItemList::rm_item(&mut live_report.waiting_raw_report, report_id);
-    }
-
     // Summary committee's handle result depend on support & against votes
     fn summary_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {
         let report_info = Self::report_info(&report_id);
@@ -956,7 +944,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 CommitteeOps::<T>::remove(&a_committee, report_id);
-                Self::rm_from_committee_order(&mut committee_order, &report_id);
+                committee_order.clean_unfinished_order(&report_id);
                 CommitteeOrder::<T>::insert(&a_committee, committee_order);
             }
 
@@ -1022,7 +1010,7 @@ impl<T: Config> Pallet<T> {
             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
 
             // 支持或反对，该报告都变为完成状态
-            Self::rm_from_live_report(&mut live_report, &report_id);
+            live_report.clean_unfinished_report(&report_id);
             ItemList::add_item(&mut live_report.finished_report, report_id);
 
             ReportResult::<T>::insert(report_id, report_result);
@@ -1094,7 +1082,7 @@ impl<T: Config> Pallet<T> {
                         CommitteeOps::<T>::remove(&a_committee, report_id);
 
                         let mut committee_order = Self::committee_order(&a_committee);
-                        Self::rm_from_committee_order(&mut committee_order, &report_id);
+                        committee_order.clean_unfinished_order(&report_id);
                         CommitteeOrder::<T>::insert(&a_committee, committee_order);
                     }
 
@@ -1147,7 +1135,7 @@ impl<T: Config> Pallet<T> {
             }
             // 已经到3个小时
             else {
-                Self::rm_from_live_report(&mut live_report, &report_id);
+                live_report.clean_unfinished_report(&report_id);
                 ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
                 live_report_is_changed = true;
 
@@ -1171,7 +1159,7 @@ impl<T: Config> Pallet<T> {
 
                     // 从最后一个委员会的存储中删除,并退还质押
                     let mut committee_order = Self::committee_order(&verifying_committee);
-                    Self::rm_from_committee_order(&mut committee_order, &report_id);
+                    committee_order.clean_unfinished_order(&report_id);
                     CommitteeOrder::<T>::insert(&verifying_committee, committee_order);
 
                     let _ = T::ManageCommittee::change_used_stake(
@@ -1221,7 +1209,7 @@ impl<T: Config> Pallet<T> {
 
                     // 改变committee_order
                     let mut committee_order = Self::committee_order(&a_committee);
-                    Self::rm_from_committee_order(&mut committee_order, &report_id);
+                    committee_order.clean_unfinished_order(&report_id);
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
                 for a_committee in support_committees.clone() {
@@ -1229,7 +1217,7 @@ impl<T: Config> Pallet<T> {
 
                     // 改变committee_order
                     let mut committee_order = Self::committee_order(&a_committee);
-                    Self::rm_from_committee_order(&mut committee_order, &report_id);
+                    committee_order.clean_unfinished_order(&report_id);
                     ItemList::add_item(&mut committee_order.finished_report, report_id);
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
