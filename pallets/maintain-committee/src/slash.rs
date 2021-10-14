@@ -34,23 +34,27 @@ impl<T: Config> Pallet<T> {
                         reward_who,
                     );
 
-                    let _ = Self::change_reporter_stake(
+                    let _ = Self::change_reporter_stake_on_report_close(
                         &report_result_info.reporter,
                         report_result_info.reporter_stake,
                         false,
                     );
 
-                    let _ = Self::change_committee_stake(
+                    let _ = Self::change_committee_stake_on_report_close(
                         report_result_info.reward_committee.clone(),
                         report_result_info.committee_stake,
                         false,
                     );
 
-                    let _ = Self::change_committee_stake(slash_who, report_result_info.committee_stake, true);
+                    let _ = Self::change_committee_stake_on_report_close(
+                        slash_who,
+                        report_result_info.committee_stake,
+                        true,
+                    );
                 },
                 ReportResultType::NoConsensus => {
                     // FIXME: check here
-                    let _ = Self::change_committee_stake(
+                    let _ = Self::change_committee_stake_on_report_close(
                         report_result_info.unruly_committee.clone(),
                         report_result_info.committee_stake,
                         true,
@@ -82,14 +86,18 @@ impl<T: Config> Pallet<T> {
                         report_result_info.reward_committee.clone(),
                     );
 
-                    let _ = Self::change_reporter_stake(
+                    let _ = Self::change_reporter_stake_on_report_close(
                         &report_result_info.reporter,
                         report_result_info.reporter_stake,
                         true,
                     );
 
-                    let _ = Self::change_committee_stake(slash_who, report_result_info.committee_stake, true);
-                    let _ = Self::change_committee_stake(
+                    let _ = Self::change_committee_stake_on_report_close(
+                        slash_who,
+                        report_result_info.committee_stake,
+                        true,
+                    );
+                    let _ = Self::change_committee_stake_on_report_close(
                         report_result_info.reward_committee.clone(),
                         report_result_info.committee_stake,
                         false,
@@ -108,12 +116,12 @@ impl<T: Config> Pallet<T> {
                         vec![],
                     );
 
-                    let _ = Self::change_reporter_stake(
+                    let _ = Self::change_reporter_stake_on_report_close(
                         &report_result_info.reporter,
                         report_result_info.reporter_stake,
                         true,
                     );
-                    let _ = Self::change_committee_stake(
+                    let _ = Self::change_committee_stake_on_report_close(
                         report_result_info.unruly_committee.clone(),
                         report_result_info.committee_stake,
                         true,
@@ -149,10 +157,17 @@ impl<T: Config> Pallet<T> {
             let is_slashed_stash = report_result_info.is_slashed_stash(&review_info.applicant);
 
             if is_slashed_reporter {
-                let _ = Self::change_reporter_stake(&review_info.applicant, review_info.staked_amount, true);
+                let _ = Self::change_reporter_stake_on_report_close(
+                    &review_info.applicant,
+                    review_info.staked_amount,
+                    true,
+                );
             } else if is_slashed_committee {
-                let _ =
-                    Self::change_committee_stake(vec![review_info.applicant.clone()], review_info.staked_amount, true);
+                let _ = Self::change_committee_stake_on_report_close(
+                    vec![review_info.applicant.clone()],
+                    review_info.staked_amount,
+                    true,
+                );
             } else if is_slashed_stash {
                 let _ = T::MTOps::mt_rm_stash_total_stake(review_info.applicant.clone(), review_info.staked_amount);
             }

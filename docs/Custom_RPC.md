@@ -114,8 +114,6 @@
 
   其中， `machineId`字段为`Vec<u8>`，需要转为`String`类型
 
-  TODO
-
 #### 查询某个 Era（某一天）单台机器获得的奖励数量
 
 - 方法： `onlineProfile_getMachineEraReward`
@@ -329,8 +327,6 @@ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d  
     "id": 1
 }
 ```
-
-结果说明：TODO
 
 ### 查询委员会被分配的机器 ID
 

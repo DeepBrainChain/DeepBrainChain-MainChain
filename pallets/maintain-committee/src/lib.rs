@@ -2,6 +2,7 @@
 
 mod slash;
 mod types;
+mod utils;
 
 #[cfg(test)]
 mod mock;
@@ -16,8 +17,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use generic_func::{ItemList, MachineId};
 use online_profile_machine::{GNOps, MTOps, ManageCommittee};
-use sp_io::hashing::blake2_128;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
+use sp_runtime::traits::{CheckedAdd, Zero};
 use sp_std::{str, vec, vec::Vec};
 
 pub use pallet::*;
@@ -181,44 +181,13 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn reporter_add_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
-            let mut reporter_stake = Self::reporter_stake(&reporter);
-
-            ensure!(<T as Config>::Currency::can_reserve(&reporter, amount), Error::<T>::BalanceNotEnough);
-            reporter_stake.staked_amount += amount;
-
-            ensure!(
-                reporter_stake.staked_amount - reporter_stake.used_stake >
-                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
-                Error::<T>::StakeNotEnough
-            );
-
-            <T as pallet::Config>::Currency::reserve(&reporter, amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
-            ReporterStake::<T>::insert(&reporter, reporter_stake);
-            Self::deposit_event(Event::ReporterAddStake(reporter, amount));
-            Ok(().into())
+            Self::change_reporter_stake(reporter, amount, true)
         }
 
         #[pallet::weight(10000)]
         pub fn reporter_reduce_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
-            let mut reporter_stake = Self::reporter_stake(&reporter);
-
-            ensure!(reporter_stake.staked_amount >= amount, Error::<T>::BalanceNotEnough);
-            reporter_stake.staked_amount -= amount;
-
-            ensure!(
-                reporter_stake.staked_amount - reporter_stake.used_stake >
-                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
-                Error::<T>::StakeNotEnough
-            );
-
-            <T as pallet::Config>::Currency::unreserve(&reporter, amount);
-            ReporterStake::<T>::insert(&reporter, reporter_stake);
-
-            Self::deposit_event(Event::ReporterReduceStake(reporter, amount));
-            Ok(().into())
+            Self::change_reporter_stake(reporter, amount, false)
         }
 
         // 报告人可以在抢单之前取消该报告
@@ -228,9 +197,8 @@ pub mod pallet {
 
             let report_info = Self::report_info(&report_id);
             ensure!(report_info.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancel);
-            ensure!(report_info.reporter == reporter, Error::<T>::NotReporter);
+            ensure!(&report_info.reporter == &reporter, Error::<T>::NotReporter);
 
-            // 清理存储
             let mut live_report = Self::live_report();
             ItemList::rm_item(&mut live_report.bookable_report, &report_id);
 
@@ -238,15 +206,11 @@ pub mod pallet {
             ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
             ItemList::add_item(&mut reporter_report.canceled_report, report_id);
 
-            let mut reporter_stake = Self::reporter_stake(&reporter);
-            reporter_stake.used_stake = reporter_stake
-                .used_stake
-                .checked_sub(&report_info.reporter_stake)
-                .ok_or(Error::<T>::ReduceTotalStakeFailed)?;
+            ensure!(
+                Self::change_reporter_stake_on_report_close(&reporter, report_info.reporter_stake, false).is_ok(),
+                Error::<T>::ReduceTotalStakeFailed
+            );
 
-            let _ = <T as pallet::Config>::Currency::unreserve(&reporter, report_info.reporter_stake);
-
-            ReporterStake::<T>::insert(&reporter, reporter_stake);
             ReporterReport::<T>::insert(&reporter, reporter_report);
             LiveReport::<T>::put(live_report);
             ReportInfo::<T>::remove(&report_id);
@@ -684,10 +648,13 @@ pub mod pallet {
 
             // Return reserved balance when apply for review
             if is_slashed_reporter {
-                let _ =
-                    Self::change_reporter_stake(&slash_review_info.applicant, slash_review_info.staked_amount, false);
+                let _ = Self::change_reporter_stake_on_report_close(
+                    &slash_review_info.applicant,
+                    slash_review_info.staked_amount,
+                    false,
+                );
             } else {
-                let _ = Self::change_committee_stake(
+                let _ = Self::change_committee_stake_on_report_close(
                     vec![slash_review_info.applicant],
                     slash_review_info.staked_amount,
                     false,
@@ -707,13 +674,19 @@ pub mod pallet {
             let mut should_reward = report_result_info.inconsistent_committee.clone();
 
             if is_reporter_slashed {
-                let _ =
-                    Self::change_reporter_stake(&report_result_info.reporter, report_result_info.reporter_stake, false);
+                let _ = Self::change_reporter_stake_on_report_close(
+                    &report_result_info.reporter,
+                    report_result_info.reporter_stake,
+                    false,
+                );
 
                 ItemList::add_item(&mut should_reward, report_result_info.reporter.clone());
             } else {
-                let _ =
-                    Self::change_reporter_stake(&report_result_info.reporter, report_result_info.reporter_stake, true);
+                let _ = Self::change_reporter_stake_on_report_close(
+                    &report_result_info.reporter,
+                    report_result_info.reporter_stake,
+                    true,
+                );
 
                 // slash reporter
                 let _ = T::SlashAndReward::slash_and_reward(
@@ -730,12 +703,9 @@ pub mod pallet {
             );
 
             // remove from unhandled report result
-            let mut unhandled_report_result = Self::unhandled_report_result();
-            ItemList::rm_item(&mut unhandled_report_result, &slashed_report_id);
-
             report_result_info.slash_result = MCSlashResult::Canceled;
 
-            UnhandledReportResult::<T>::put(unhandled_report_result);
+            Self::update_unhandled_report(slashed_report_id, false);
             ReportResult::<T>::insert(slashed_report_id, report_result_info);
             PendingSlashReview::<T>::remove(slashed_report_id);
             Ok(().into())
@@ -790,12 +760,42 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    fn change_reporter_stake(reporter: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> DispatchResultWithPostInfo {
+        let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+        let mut reporter_stake = Self::reporter_stake(&reporter);
+
+        if is_add {
+            ensure!(<T as Config>::Currency::can_reserve(&reporter, amount), Error::<T>::BalanceNotEnough);
+            reporter_stake.staked_amount += amount;
+        } else {
+            ensure!(reporter_stake.staked_amount >= amount, Error::<T>::BalanceNotEnough);
+            reporter_stake.staked_amount -= amount;
+        }
+
+        ensure!(
+            reporter_stake.staked_amount - reporter_stake.used_stake >
+                stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+            Error::<T>::StakeNotEnough
+        );
+
+        if is_add {
+            <T as pallet::Config>::Currency::reserve(&reporter, amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
+            ReporterStake::<T>::insert(&reporter, reporter_stake);
+            Self::deposit_event(Event::ReporterAddStake(reporter, amount));
+        } else {
+            <T as pallet::Config>::Currency::unreserve(&reporter, amount);
+            ReporterStake::<T>::insert(&reporter, reporter_stake);
+            Self::deposit_event(Event::ReporterReduceStake(reporter, amount));
+        }
+
+        Ok(().into())
+    }
+
     pub fn report_handler(reporter: T::AccountId, machine_fault_type: MachineFaultType) -> DispatchResultWithPostInfo {
         let now = <frame_system::Module<T>>::block_number();
         let report_id = Self::get_new_report_id();
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
-        let mut reporter_stake = Self::reporter_stake(&reporter);
         let mut report_info = MTReportInfoDetail {
             reporter: reporter.clone(),
             report_time: now,
@@ -810,27 +810,6 @@ impl<T: Config> Pallet<T> {
             report_info.machine_id = machine_id;
         }
 
-        // 各种报告类型，都需要质押 1000 DBC
-        // 如果是第一次绑定，则需要质押2w DBC，其他情况:
-        if reporter_stake.staked_amount == Zero::zero() {
-            ensure!(
-                <T as Config>::Currency::can_reserve(&reporter, stake_params.stake_baseline),
-                Error::<T>::BalanceNotEnough
-            );
-
-            <T as pallet::Config>::Currency::reserve(&reporter, stake_params.stake_baseline)
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
-            reporter_stake.staked_amount = stake_params.stake_baseline;
-            reporter_stake.used_stake = stake_params.stake_per_report;
-        } else {
-            reporter_stake.used_stake += stake_params.stake_per_report;
-            ensure!(
-                reporter_stake.staked_amount - reporter_stake.used_stake >=
-                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
-                Error::<T>::StakeNotEnough
-            );
-        }
-
         let mut live_report = Self::live_report();
         let mut reporter_report = Self::reporter_report(&reporter);
 
@@ -838,27 +817,14 @@ impl<T: Config> Pallet<T> {
         ItemList::add_item(&mut live_report.bookable_report, report_id);
         ItemList::add_item(&mut reporter_report.processing_report, report_id);
 
-        ReporterStake::<T>::insert(&reporter, reporter_stake);
+        Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
+
         ReportInfo::<T>::insert(&report_id, report_info);
         LiveReport::<T>::put(live_report);
         ReporterReport::<T>::insert(&reporter, reporter_report);
 
         Self::deposit_event(Event::ReportMachineFault(reporter, machine_fault_type));
         Ok(().into())
-    }
-
-    fn get_new_report_id() -> ReportId {
-        let report_id = Self::next_report_id();
-        if report_id == u64::MAX {
-            NextReportId::<T>::put(0);
-        } else {
-            NextReportId::<T>::put(report_id + 1);
-        };
-        report_id
-    }
-
-    fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
-        blake2_128(raw_str)
     }
 
     // Summary committee's handle result depend on support & against votes
@@ -969,9 +935,7 @@ impl<T: Config> Pallet<T> {
                 // Should do slash at once
                 if report_result.unruly_committee.len() > 0 {
                     ReportResult::<T>::insert(report_id, report_result);
-                    let mut unhandled_report_result = Self::unhandled_report_result();
-                    ItemList::add_item(&mut unhandled_report_result, report_id);
-                    UnhandledReportResult::<T>::put(unhandled_report_result);
+                    Self::update_unhandled_report(report_id, true);
                 }
                 continue
             }
@@ -1014,9 +978,7 @@ impl<T: Config> Pallet<T> {
             ItemList::add_item(&mut live_report.finished_report, report_id);
 
             ReportResult::<T>::insert(report_id, report_result);
-            let mut unhandled_report_result = Self::unhandled_report_result();
-            ItemList::add_item(&mut unhandled_report_result, report_id);
-            UnhandledReportResult::<T>::put(unhandled_report_result);
+            Self::update_unhandled_report(report_id, true);
         }
 
         LiveReport::<T>::put(live_report);
@@ -1090,9 +1052,7 @@ impl<T: Config> Pallet<T> {
                     live_report_is_changed = true;
                     report_result.report_result = ReportResultType::ReporterNotSubmitEncryptedInfo;
                     ReportResult::<T>::insert(report_id, report_result);
-                    let mut unhandled_report_result = Self::unhandled_report_result();
-                    ItemList::add_item(&mut unhandled_report_result, report_id);
-                    UnhandledReportResult::<T>::put(unhandled_report_result);
+                    Self::update_unhandled_report(report_id, true);
 
                     continue
                 }
@@ -1127,9 +1087,8 @@ impl<T: Config> Pallet<T> {
                     // NOTE: should not insert directly when summary result, but should alert exist data
                     ItemList::add_item(&mut report_result.unruly_committee, verifying_committee.clone());
                     ReportResult::<T>::insert(report_id, report_result);
-                    let mut unhandled_report_result = Self::unhandled_report_result();
-                    ItemList::add_item(&mut unhandled_report_result, report_id);
-                    UnhandledReportResult::<T>::put(unhandled_report_result);
+                    Self::update_unhandled_report(report_id, true);
+
                     continue
                 }
             }
@@ -1304,9 +1263,7 @@ impl<T: Config> Pallet<T> {
             };
 
             ReportResult::<T>::insert(report_id, report_result);
-            let mut unhandled_report_result = Self::unhandled_report_result();
-            ItemList::add_item(&mut unhandled_report_result, report_id);
-            UnhandledReportResult::<T>::put(unhandled_report_result);
+            Self::update_unhandled_report(report_id, true);
         } else {
             let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
             for a_committee in report_result.reward_committee {
@@ -1320,35 +1277,5 @@ impl<T: Config> Pallet<T> {
 
         ReportInfo::<T>::insert(report_id, report_info);
         live_report_is_changed
-    }
-
-    // if is_slash, reduce both used_stake & total_stake
-    // else reduce only used_stake
-    fn change_reporter_stake(reporter: &T::AccountId, amount: BalanceOf<T>, is_slash: bool) -> Result<(), ()> {
-        let mut reporter_stake = Self::reporter_stake(reporter);
-        reporter_stake.used_stake = reporter_stake.used_stake.checked_sub(&amount).ok_or(())?;
-
-        if is_slash {
-            reporter_stake.staked_amount = reporter_stake.staked_amount.checked_sub(&amount).ok_or(())?;
-        }
-
-        ReporterStake::<T>::insert(reporter, reporter_stake);
-        Ok(())
-    }
-
-    fn change_committee_stake(
-        committee_list: Vec<T::AccountId>,
-        amount: BalanceOf<T>,
-        is_slash: bool,
-    ) -> Result<(), ()> {
-        for a_committee in committee_list {
-            if is_slash {
-                <T as pallet::Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false)?;
-            }
-
-            <T as pallet::Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
-        }
-
-        Ok(())
     }
 }
