@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod rpc;
+mod slash;
 mod types;
 
 #[cfg(test)]
@@ -12,13 +13,11 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, LockableCurrency},
-    IterableStorageMap,
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use generic_func::{ItemList, MachineId, SlashId};
 use online_profile::CommitteeUploadInfo;
 use online_profile_machine::{GNOps, ManageCommittee, OCOps};
-use sp_runtime::traits::Zero;
 use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;
@@ -424,18 +423,6 @@ impl<T: Config> Pallet<T> {
         Some(lucky_committee)
     }
 
-    fn get_new_slash_id() -> u64 {
-        let slash_id = Self::next_slash_id();
-
-        if slash_id == u64::MAX {
-            NextSlashId::<T>::put(0);
-        } else {
-            NextSlashId::<T>::put(slash_id + 1);
-        };
-
-        slash_id
-    }
-
     // 一个委员会进行操作
     // - Writes: MachineCommittee, CommitteeMachine, CommitteeOps
     fn book_one(
@@ -633,6 +620,18 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    fn get_new_slash_id() -> u64 {
+        let slash_id = Self::next_slash_id();
+
+        if slash_id == u64::MAX {
+            NextSlashId::<T>::put(0);
+        } else {
+            NextSlashId::<T>::put(slash_id + 1);
+        };
+
+        slash_id
+    }
+
     // 总结机器的确认情况: 检查机器是否被确认，并检查提交的信息是否一致
     // 返回三种状态：
     // 1. 无共识：处理办法：退还委员会质押，机器重新派单。
@@ -734,102 +733,6 @@ impl<T: Config> Pallet<T> {
                 return MachineConfirmStatus::NoConsensus(summary)
             },
         }
-    }
-
-    fn check_and_exec_pending_review() -> Result<(), ()> {
-        let all_pending_review = <PendingSlashReview<T> as IterableStorageMap<SlashId, _>>::iter()
-            .map(|(slash_id, _)| slash_id)
-            .collect::<Vec<_>>();
-
-        let now = <frame_system::Module<T>>::block_number();
-
-        for a_pending_review in all_pending_review {
-            let review_info = Self::pending_slash_review(a_pending_review);
-            let slash_info = Self::pending_slash(a_pending_review);
-
-            if review_info.expire_time < now {
-                continue
-            }
-
-            let is_slashed_stash = match slash_info.book_result {
-                OCBookResultType::OnlineRefused => &slash_info.machine_stash == &review_info.applicant,
-                _ => false,
-            };
-
-            if is_slashed_stash {
-                // slash stash
-
-                // Change stake amount
-                // NOTE: should not change slash_info.slash_amount, because it will be done in check_and_exec_pending_slash
-                let _ = T::OCOperations::oc_exec_slash(slash_info.machine_stash.clone(), review_info.staked_amount);
-
-                let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
-                    vec![slash_info.machine_stash],
-                    slash_info.stash_slash_amount,
-                    slash_info.reward_committee,
-                );
-            } else {
-                let _ =
-                    Self::change_committee_stake(vec![review_info.applicant.clone()], review_info.staked_amount, true);
-            }
-
-            // Slash applicant to treasury
-            let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
-                vec![review_info.applicant],
-                review_info.staked_amount,
-                vec![],
-            );
-
-            PendingSlashReview::<T>::remove(a_pending_review);
-        }
-
-        Ok(())
-    }
-
-    fn check_and_exec_pending_slash() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
-        let mut pending_unhandled_id = Self::unhandled_report_result();
-
-        for slash_id in pending_unhandled_id.clone() {
-            let mut slash_info = Self::pending_slash(slash_id);
-            if now < slash_info.slash_exec_time {
-                continue
-            }
-
-            if !slash_info.stash_slash_amount.is_zero() {
-                // stash is slashed
-                let _ = T::OCOperations::oc_exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount);
-
-                let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
-                    vec![slash_info.machine_stash.clone()],
-                    slash_info.stash_slash_amount,
-                    vec![],
-                );
-            }
-
-            // Change committee stake amount
-            let _ = Self::change_committee_stake(
-                slash_info.inconsistent_committee.clone(),
-                slash_info.committee_stake,
-                true,
-            );
-            let _ = Self::change_committee_stake(slash_info.unruly_committee.clone(), slash_info.committee_stake, true);
-            let _ =
-                Self::change_committee_stake(slash_info.reward_committee.clone(), slash_info.committee_stake, false);
-
-            let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
-                slash_info.unruly_committee.clone(),
-                slash_info.committee_stake,
-                vec![],
-            );
-
-            slash_info.slash_result = OCSlashResult::Executed;
-            ItemList::rm_item(&mut pending_unhandled_id, &slash_id);
-            PendingSlash::<T>::insert(slash_id, slash_info);
-        }
-
-        UnhandledReportResult::<T>::put(pending_unhandled_id);
-        Ok(())
     }
 
     fn change_committee_stake(

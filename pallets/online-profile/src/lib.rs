@@ -114,11 +114,6 @@ pub mod pallet {
     #[pallet::getter(fn stash_server_rooms)]
     pub(super) type StashServerRooms<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<H256>, ValueQuery>;
 
-    /// All machines in one server room
-    #[pallet::storage]
-    #[pallet::getter(fn server_room_machines)]
-    pub(super) type ServerRoomMachines<T: Config> = StorageMap<_, Blake2_128Concat, H256, Vec<MachineId>>;
-
     /// All machines controlled by controller
     #[pallet::storage]
     #[pallet::getter(fn controller_machines)]
@@ -346,7 +341,7 @@ pub mod pallet {
                 &machine_id,
                 UserReonlineStakeInfo { stake_amount, offline_time: now },
             );
-            Self::change_pos_gpu_by_online(&machine_info, false);
+            Self::change_pos_info_by_online(&machine_info, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
             LiveMachines::<T>::put(live_machines);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -543,7 +538,7 @@ pub mod pallet {
             machine_info.last_online_height = now;
             machine_info.last_machine_restake = now;
 
-            Self::change_pos_gpu_by_online(&machine_info, true);
+            Self::change_pos_info_by_online(&machine_info, true);
             Self::update_snap_by_online_status(machine_id.clone(), true);
 
             ItemList::rm_item(&mut live_machine.fulfilling_machine, &machine_id);
@@ -635,7 +630,7 @@ pub mod pallet {
                             let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
                             Self::update_snap_by_online_status(machine_id.clone(), true);
-                            Self::change_pos_gpu_by_online(&machine_info, true);
+                            Self::change_pos_info_by_online(&machine_info, true);
 
                             let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
                             stash_machine.total_calc_points =
@@ -663,7 +658,7 @@ pub mod pallet {
                         },
                         MachineStatus::Rented => {
                             Self::update_snap_by_rent_status(machine_id.clone(), true);
-                            Self::update_pos_gpu_by_rent(&machine_id, true);
+                            Self::change_pos_info_by_rent(&machine_info, true);
 
                             // 机器在被租用状态下线，会被惩罚
                             slash_amount = Self::slash_when_report_offline(
@@ -729,7 +724,7 @@ pub mod pallet {
             ensure!(now - machine_info.last_online_height >= 28800u32.into(), Error::<T>::TimeNotAllowed);
 
             // 下线机器，并退还奖励
-            Self::change_pos_gpu_by_online(&machine_info, false);
+            Self::change_pos_info_by_online(&machine_info, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
             ensure!(
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
@@ -908,11 +903,11 @@ impl<T: Config> Pallet<T> {
 
         if let MachineStatus::Rented = machine_info.machine_status {
             Self::update_snap_by_rent_status(machine_id.clone(), false);
-            Self::update_pos_gpu_by_rent(&machine_id, false);
+            Self::change_pos_info_by_rent(&machine_info, false);
         }
 
         // When offline, pos_info will be removed
-        Self::change_pos_gpu_by_online(&machine_info, false);
+        Self::change_pos_info_by_online(&machine_info, false);
         Self::update_snap_by_online_status(machine_id.clone(), false);
 
         ItemList::rm_item(&mut live_machine.online_machine, &machine_id);
@@ -925,72 +920,51 @@ impl<T: Config> Pallet<T> {
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 
-    fn update_pos_gpu_info_online(pos: (&Longitude, &Latitude), gpu_num: u32, is_online: bool, calc_point: u64) {
-        let mut pos_gpu_info = Self::pos_gpu_info(pos.0, pos.1);
-
-        if is_online {
-            pos_gpu_info.online_gpu += gpu_num as u64;
-            pos_gpu_info.online_gpu_calc_points += calc_point;
-        } else {
-            pos_gpu_info.online_gpu -= gpu_num as u64;
-            pos_gpu_info.offline_gpu += gpu_num as u64;
-            pos_gpu_info.online_gpu_calc_points -= calc_point;
-        }
-
-        PosGPUInfo::<T>::insert(pos.0, pos.1, pos_gpu_info);
-    }
-
-    fn update_server_room_machines_online(server_room: H256, machine_id: &MachineId, is_online: bool) {
-        let mut server_room_machines = Self::server_room_machines(server_room).unwrap_or_default();
-
-        if is_online {
-            ItemList::add_item(&mut server_room_machines, machine_id.to_vec());
-        } else {
-            ItemList::rm_item(&mut server_room_machines, machine_id);
-        }
-
-        ServerRoomMachines::<T>::insert(server_room, server_room_machines);
-    }
-
-    /// 特定位置GPU上线/下线
-    // - Writes:
-    // PosGPUInfo, ServerRoomMachines
-    fn change_pos_gpu_by_online(
+    /// GPU online/offline
+    // - Writes: PosGPUInfo
+    // NOTE: pos_gpu_info only record actual machine grades(reward grade not included)
+    fn change_pos_info_by_online(
         machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         is_online: bool,
     ) {
-        let machine_id = &machine_info.machine_info_detail.committee_upload_info.machine_id;
         let longitude = &machine_info.machine_info_detail.staker_customize_info.longitude;
         let latitude = &machine_info.machine_info_detail.staker_customize_info.latitude;
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
         let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
-        let server_room = machine_info.machine_info_detail.staker_customize_info.server_room;
 
-        Self::update_server_room_machines_online(server_room, machine_id, is_online);
-        Self::update_pos_gpu_info_online((longitude, latitude), gpu_num, is_online, calc_point);
-    }
+        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
 
-    /// 特定位置GPU被租用/租用结束
-    fn update_pos_gpu_by_rent(machine_id: &MachineId, is_rented: bool) {
-        let machine_info = Self::machines_info(machine_id);
-
-        let longitude = machine_info.machine_info_detail.staker_customize_info.longitude.clone();
-        let latitude = machine_info.machine_info_detail.staker_customize_info.latitude.clone();
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
-
-        let mut pos_gpu_info = Self::pos_gpu_info(longitude.clone(), latitude.clone());
-        if is_rented {
-            pos_gpu_info.rented_gpu += gpu_num as u64;
+        if is_online {
+            pos_gpu_info.online_gpu += gpu_num;
+            pos_gpu_info.online_gpu_calc_points += calc_point;
         } else {
-            pos_gpu_info.rented_gpu -= gpu_num as u64;
+            pos_gpu_info.online_gpu = pos_gpu_info.online_gpu.checked_sub(gpu_num).unwrap_or_default();
+            pos_gpu_info.offline_gpu += gpu_num;
+            pos_gpu_info.online_gpu_calc_points =
+                pos_gpu_info.online_gpu_calc_points.checked_sub(calc_point).unwrap_or_default();
         }
 
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
     }
 
-    fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
-        let account_id32: [u8; 32] = utils::get_accountid32(addr)?;
-        T::AccountId::decode(&mut &account_id32[..]).ok()
+    /// GPU rented/surrender
+    // - Writes: PosGPUInfo
+    fn change_pos_info_by_rent(
+        machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        is_rented: bool,
+    ) {
+        let longitude = &machine_info.machine_info_detail.staker_customize_info.longitude;
+        let latitude = &machine_info.machine_info_detail.staker_customize_info.latitude;
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+
+        let mut pos_gpu_info = Self::pos_gpu_info(longitude.clone(), latitude.clone());
+        if is_rented {
+            pos_gpu_info.rented_gpu += gpu_num;
+        } else {
+            pos_gpu_info.rented_gpu = pos_gpu_info.rented_gpu.checked_sub(gpu_num).unwrap_or_default();
+        }
+
+        PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
     }
 
     fn change_user_total_stake(who: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {

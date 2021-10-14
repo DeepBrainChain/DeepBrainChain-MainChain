@@ -3,15 +3,21 @@ use crate::{
     BalanceOf, Config, CurrentEra, EraReward, ErasMachinePoints, ErasMachineReleasedReward, ErasMachineReward,
     ErasStashPoints, ErasStashReleasedReward, ErasStashReward, Pallet, StashMachines,
 };
+use codec::Decode;
 use generic_func::MachineId;
 use online_profile_machine::{DbcPrice, ManageCommittee, OPRPCQuery};
 use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub},
     Perbill, SaturatedConversion,
 };
-use sp_std::collections::btree_map::BTreeMap;
+use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
 impl<T: Config> Pallet<T> {
+    pub fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
+        let account_id32: [u8; 32] = crate::utils::get_accountid32(addr)?;
+        T::AccountId::decode(&mut &account_id32[..]).ok()
+    }
+
     pub fn update_snap_for_new_era(block_number: T::BlockNumber) {
         let current_era: u32 = (block_number.saturated_into::<u64>() / BLOCK_PER_ERA) as u32;
         CurrentEra::<T>::put(current_era);
