@@ -248,7 +248,6 @@ fn report_machine_offline_works() {
         );
 
         // 首先提交Hash: 内容为 订单ID + 验证人自己的随机数 + 机器是否有问题
-        // 提交验证Hash: TODO: 更改Hash的内容
         // hash(0abcd1) => 0x73124a023f585b4018b9ed3593c7470a
         let offline_committee_hash: [u8; 16] =
             hex::decode("73124a023f585b4018b9ed3593c7470a").unwrap().try_into().unwrap();

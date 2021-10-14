@@ -95,7 +95,6 @@ pub mod pallet {
     #[pallet::getter(fn user_rented)]
     pub(super) type UserRented<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
 
-    // TODO: 机器被租用时改变该变量
     // 当前机器租用者
     #[pallet::storage]
     #[pallet::getter(fn machine_renter)]
@@ -158,15 +157,11 @@ pub mod pallet {
                 T::RTOps::get_machine_price(machine_info.machine_info_detail.committee_upload_info.calc_point)
                     .ok_or(Error::<T>::GetMachinePriceFailed)?;
 
-            // let machine_price = <online_profile::Module<T>>::calc_machine_price(
-            //     machine_info.machine_info_detail.committee_upload_info.calc_point,
-            // )
             let rent_fee_value = machine_price.checked_mul(duration as u64).ok_or(Error::<T>::Overflow)?;
             let rent_fee =
                 <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value).ok_or(Error::<T>::Overflow)?;
 
             // 获取用户租用的结束时间
-            // rent_end = block_per_day * duration + now
             let rent_end = BLOCK_PER_DAY
                 .checked_mul(duration)
                 .ok_or(Error::<T>::Overflow)?
@@ -175,7 +170,7 @@ pub mod pallet {
                 .ok_or(Error::<T>::Overflow)?;
 
             // 质押用户的资金，并修改机器状态
-            Self::add_user_total_stake(&renter, rent_fee).map_err(|_| Error::<T>::InsufficientValue)?;
+            Self::change_renter_total_stake(&renter, rent_fee, true).map_err(|_| Error::<T>::InsufficientValue)?;
 
             RentOrder::<T>::insert(
                 &renter,
@@ -195,6 +190,8 @@ pub mod pallet {
 
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, Some(renter.clone()), None);
+
+            MachineRenter::<T>::insert(&machine_id, renter.clone());
             PendingConfirming::<T>::insert(machine_id, renter);
 
             Ok(().into())
@@ -216,7 +213,8 @@ pub mod pallet {
             ensure!(machine_info.machine_status == MachineStatus::Creating, Error::<T>::StatusNotAllowed);
 
             // 质押转到特定账户
-            Self::reduce_total_stake(&renter, order_info.stake_amount).map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
+            Self::change_renter_total_stake(&renter, order_info.stake_amount, false)
+                .map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
             Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, order_info.stake_amount)?;
 
             order_info.confirm_rent = now;
@@ -315,21 +313,24 @@ impl<T: Config> Pallet<T> {
 
     // 定时检查机器是否30分钟没有上线
     fn check_machine_starting_status() {
-        let pending_confirming = Self::pending_confirming_order();
         let now = <frame_system::Module<T>>::block_number();
+
+        let pending_confirming = Self::get_pending_confirming_order();
         for (machine_id, renter) in pending_confirming {
             let rent_order = Self::rent_order(&renter, &machine_id);
-            if rent_order.is_none() {
-                continue
-            }
-            let rent_order = rent_order.unwrap();
-            let duration = now.checked_sub(&rent_order.rent_start).unwrap_or_default();
 
-            if duration > WAITING_CONFIRMING_DELAY.into() {
-                // 超过了60个块，也就是30分钟
-                Self::clean_order(&renter, &machine_id);
-                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None);
-                continue
+            match rent_order {
+                None => continue,
+                Some(rent_order) => {
+                    let duration = now.checked_sub(&rent_order.rent_start).unwrap_or_default();
+
+                    if duration > WAITING_CONFIRMING_DELAY.into() {
+                        // 超过了60个块，也就是30分钟
+                        Self::clean_order(&renter, &machine_id);
+                        T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None);
+                        continue
+                    }
+                },
             }
         }
     }
@@ -341,42 +342,41 @@ impl<T: Config> Pallet<T> {
         let rent_info = Self::rent_order(who, machine_id);
         if let Some(rent_info) = rent_info {
             // return back staked money!
-            let _ = Self::reduce_total_stake(who, rent_info.stake_amount);
+            let _ = Self::change_renter_total_stake(who, rent_info.stake_amount, false);
         }
 
+        MachineRenter::<T>::remove(machine_id);
         RentOrder::<T>::remove(who, machine_id);
         UserRented::<T>::insert(who, rent_machine_list);
         PendingConfirming::<T>::remove(machine_id);
-    }
-
-    fn pending_confirming_order() -> BTreeSet<(MachineId, T::AccountId)> {
-        <PendingConfirming<T> as IterableStorageMap<MachineId, T::AccountId>>::iter()
-            .map(|(machine, acct)| (machine, acct))
-            .collect::<BTreeSet<_>>()
-    }
-
-    fn add_user_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        let current_stake = Self::user_total_stake(who);
-        let next_stake = current_stake.checked_add(&amount).ok_or(())?;
-        ensure!(<T as pallet::Config>::Currency::can_reserve(who, amount), ());
-        <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
-        UserTotalStake::<T>::insert(who, next_stake);
-        Ok(())
-    }
-
-    fn reduce_total_stake(who: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
-        let current_stake = Self::user_total_stake(who);
-        let next_stake = current_stake.checked_sub(&amount).ok_or(())?;
-
-        let _ = <T as pallet::Config>::Currency::unreserve(&who, amount);
-        UserTotalStake::<T>::insert(who, next_stake);
-        Ok(())
     }
 
     fn get_all_renter() -> Vec<T::AccountId> {
         <UserRented<T> as IterableStorageMap<T::AccountId, _>>::iter()
             .map(|(renter, _)| renter)
             .collect::<Vec<_>>()
+    }
+
+    fn get_pending_confirming_order() -> BTreeSet<(MachineId, T::AccountId)> {
+        <PendingConfirming<T> as IterableStorageMap<MachineId, T::AccountId>>::iter()
+            .map(|(machine, acct)| (machine, acct))
+            .collect::<BTreeSet<_>>()
+    }
+
+    fn change_renter_total_stake(who: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+        let current_stake = Self::user_total_stake(who);
+
+        let new_stake = if is_add {
+            ensure!(<T as pallet::Config>::Currency::can_reserve(who, amount), ());
+            <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
+            current_stake.checked_add(&amount).ok_or(())?
+        } else {
+            ensure!(current_stake >= amount, ());
+            let _ = <T as pallet::Config>::Currency::unreserve(&who, amount);
+            current_stake.checked_sub(&amount).ok_or(())?
+        };
+        UserTotalStake::<T>::insert(who, new_stake);
+        Ok(())
     }
 
     // 检查机器是否已经下线，如果下线则改变机器状态

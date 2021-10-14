@@ -688,7 +688,7 @@ fn machine_online_works() {
     });
 }
 
-// TODO: 三个委员会两个正常工作，一个不提交Hash值，检查惩罚机制
+// 三个委员会两个正常工作，一个不提交Hash值，检查惩罚机制
 #[test]
 fn committee_not_submit_hash_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
@@ -791,7 +791,7 @@ fn committee_not_submit_hash_slash_works() {
     })
 }
 
-// TODO: 三个委员会两个正常工作，一个提交Hash之后，没有提交原始值，检查惩罚机制
+// 三个委员会两个正常工作，一个提交Hash之后，没有提交原始值，检查惩罚机制
 #[test]
 fn committee_not_wubmit_raw_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
