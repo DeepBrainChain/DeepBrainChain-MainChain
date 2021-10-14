@@ -586,6 +586,11 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
+            ensure!(
+                now - machine_info.last_online_height > (BLOCK_PER_ERA as u32).into(),
+                Error::<T>::CannotOnlineTwiceOneDay
+            );
+
             Self::machine_offline(
                 machine_id.clone(),
                 MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status)),
@@ -1091,6 +1096,7 @@ impl<T: Config> Pallet<T> {
 
     // - Writes:
     // ErasStashPoints, ErasMachinePoints, SysInfo, StashMachines
+    // TODO: refa: only change one_era is enough
     fn update_snap_by_rent_status(machine_id: MachineId, is_rented: bool) {
         let machine_info = Self::machines_info(&machine_id);
         let current_era = Self::current_era();

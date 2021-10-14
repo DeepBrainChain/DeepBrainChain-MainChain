@@ -18,8 +18,15 @@ impl<T: Config> Pallet<T> {
                 continue
             }
 
+            // TODO: refa
             match report_result_info.report_result {
                 ReportResultType::ReportSucceed => {
+                    let _ = Self::change_reporter_stake_on_report_close(
+                        &report_result_info.reporter,
+                        report_result_info.reporter_stake,
+                        false,
+                    );
+
                     // slash unruly & inconsistent, reward to reward_committee & reporter
                     let mut slash_who = report_result_info.unruly_committee.clone();
                     for a_inconsistent in report_result_info.inconsistent_committee.clone() {
@@ -34,12 +41,6 @@ impl<T: Config> Pallet<T> {
                         reward_who,
                     );
 
-                    let _ = Self::change_reporter_stake_on_report_close(
-                        &report_result_info.reporter,
-                        report_result_info.reporter_stake,
-                        false,
-                    );
-
                     let _ = Self::change_committee_stake_on_report_close(
                         report_result_info.reward_committee.clone(),
                         report_result_info.committee_stake,
@@ -52,8 +53,8 @@ impl<T: Config> Pallet<T> {
                         true,
                     );
                 },
+                // NoConsensus means no committee confirm confirmation, should be slashed all
                 ReportResultType::NoConsensus => {
-                    // FIXME: check here
                     let _ = Self::change_committee_stake_on_report_close(
                         report_result_info.unruly_committee.clone(),
                         report_result_info.committee_stake,
@@ -68,6 +69,12 @@ impl<T: Config> Pallet<T> {
                     );
                 },
                 ReportResultType::ReportRefused => {
+                    let _ = Self::change_reporter_stake_on_report_close(
+                        &report_result_info.reporter,
+                        report_result_info.reporter_stake,
+                        true,
+                    );
+
                     // slash reporter, slash committee
                     let _ = T::SlashAndReward::slash_and_reward(
                         vec![report_result_info.reporter.clone()],
@@ -86,12 +93,6 @@ impl<T: Config> Pallet<T> {
                         report_result_info.reward_committee.clone(),
                     );
 
-                    let _ = Self::change_reporter_stake_on_report_close(
-                        &report_result_info.reporter,
-                        report_result_info.reporter_stake,
-                        true,
-                    );
-
                     let _ = Self::change_committee_stake_on_report_close(
                         slash_who,
                         report_result_info.committee_stake,
@@ -104,6 +105,12 @@ impl<T: Config> Pallet<T> {
                     );
                 },
                 ReportResultType::ReporterNotSubmitEncryptedInfo => {
+                    let _ = Self::change_reporter_stake_on_report_close(
+                        &report_result_info.reporter,
+                        report_result_info.reporter_stake,
+                        true,
+                    );
+
                     // slash reporter, slash committee
                     let _ = T::SlashAndReward::slash_and_reward(
                         vec![report_result_info.reporter.clone()],
@@ -116,11 +123,6 @@ impl<T: Config> Pallet<T> {
                         vec![],
                     );
 
-                    let _ = Self::change_reporter_stake_on_report_close(
-                        &report_result_info.reporter,
-                        report_result_info.reporter_stake,
-                        true,
-                    );
                     let _ = Self::change_committee_stake_on_report_close(
                         report_result_info.unruly_committee.clone(),
                         report_result_info.committee_stake,
