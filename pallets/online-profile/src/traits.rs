@@ -66,7 +66,6 @@ impl<T: Config> OCOps for Pallet<T> {
         ItemList::rm_item(&mut live_machines.booked_machine, &committee_upload_info.machine_id);
 
         machine_info.machine_info_detail.committee_upload_info = committee_upload_info.clone();
-
         if !is_reonline {
             machine_info.reward_committee = reported_committee.clone();
         }

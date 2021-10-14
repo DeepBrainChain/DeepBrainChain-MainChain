@@ -294,7 +294,6 @@ fn machine_online_works() {
             ),
             online_profile::PosInfo { online_gpu: 4, online_gpu_calc_points: 59890, ..Default::default() }
         );
-        assert_eq!(OnlineProfile::server_room_machines(server_room[0]), Some(vec![machine_id.clone()]));
         assert_eq!(&OnlineProfile::sys_info(), &sys_info);
 
         let mut staker_statistic = BTreeMap::new();

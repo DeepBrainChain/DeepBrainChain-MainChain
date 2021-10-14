@@ -431,16 +431,15 @@ impl<T: Config> Pallet<T> {
         now: T::BlockNumber,
         work_time: (T::AccountId, Vec<usize>),
     ) -> Result<(), ()> {
-        // 增加质押：由committee执行
         let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
-        // In fact, change committee usedstake should nerver fail after set proper params
+        // Change committee usedstake will nerver fail after set proper params
         <T as pallet::Config>::ManageCommittee::change_used_stake(work_time.0.clone(), stake_need, true)?;
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
-        machine_committee.book_time = now;
 
         ItemList::add_item(&mut machine_committee.booked_committee, work_time.0.clone());
+        machine_committee.book_time = now;
         machine_committee.confirm_start_time = confirm_start;
 
         // 修改委员会对应的machine
@@ -449,9 +448,10 @@ impl<T: Config> Pallet<T> {
 
         // 修改委员会的操作
         let mut committee_ops = OCCommitteeOps { ..Default::default() };
-        committee_ops.staked_dbc = stake_need;
         let start_time: Vec<_> =
             work_time.1.into_iter().map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into()).collect();
+
+        committee_ops.staked_dbc = stake_need;
         committee_ops.verify_time = start_time;
         committee_ops.machine_status = OCMachineStatus::Booked;
 
@@ -485,23 +485,19 @@ impl<T: Config> Pallet<T> {
 
             let mut book_result = OCBookResultType::OnlineSucceed;
 
-            // (who, amount)
+            // type: (who, amount)
             let mut slash_info = None;
 
-            // TODO: add slash record here
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
-                    for a_committee in summary.unruly {
-                        ItemList::add_item(&mut unruly_committee, a_committee);
-                    }
+                    unruly_committee = summary.unruly.clone();
+                    reward_committee = summary.valid_support.clone();
+
                     for a_committee in summary.against {
                         ItemList::add_item(&mut inconsistent_committee, a_committee);
                     }
                     for a_committee in summary.invalid_support {
                         ItemList::add_item(&mut inconsistent_committee, a_committee);
-                    }
-                    for a_committee in summary.valid_support.clone() {
-                        ItemList::add_item(&mut reward_committee, a_committee);
                     }
 
                     if T::OCOperations::oc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap()).is_ok()
@@ -646,27 +642,11 @@ impl<T: Config> Pallet<T> {
         // 不同机器信息对应的委员会
         let mut committee_for_machine_info = Vec::new();
 
-        for a_committee in machine_committee.booked_committee {
-            // 记录没有提交原始信息的委员会
+        // 记录没有提交原始信息的委员会
+        for a_committee in machine_committee.booked_committee.clone() {
             if machine_committee.confirmed_committee.binary_search(&a_committee).is_err() {
-                summary.unruly.push(a_committee);
-                continue
+                ItemList::add_item(&mut summary.unruly, a_committee);
             }
-
-            let a_machine_info = Self::committee_ops(a_committee.clone(), machine_id).machine_info;
-            // 记录上反对上线的委员会
-            if a_machine_info.is_support == false {
-                summary.against.push(a_committee);
-                continue
-            }
-
-            match uniq_machine_info.iter().position(|r| r == &a_machine_info) {
-                None => {
-                    uniq_machine_info.push(a_machine_info.clone());
-                    committee_for_machine_info.push(vec![a_committee.clone()]);
-                },
-                Some(index) => committee_for_machine_info[index].push(a_committee),
-            };
         }
 
         // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
@@ -674,64 +654,87 @@ impl<T: Config> Pallet<T> {
             return MachineConfirmStatus::NoConsensus(summary)
         }
 
+        // 记录上反对上线的委员会
+        for a_committee in machine_committee.confirmed_committee.clone() {
+            let submit_machine_info = Self::committee_ops(a_committee.clone(), machine_id).machine_info;
+            if !submit_machine_info.is_support {
+                ItemList::add_item(&mut summary.against, a_committee);
+            } else {
+                match uniq_machine_info.iter().position(|r| r == &submit_machine_info) {
+                    None => {
+                        uniq_machine_info.push(submit_machine_info.clone());
+                        committee_for_machine_info.push(vec![a_committee.clone()]);
+                    },
+                    Some(index) => ItemList::add_item(&mut committee_for_machine_info[index], a_committee),
+                };
+            }
+        }
+
         // 统计committee_for_machine_info中有多少委员会站队最多
         let support_committee_num: Vec<usize> = committee_for_machine_info.iter().map(|item| item.len()).collect();
         // 最多多少个委员会达成一致意见
-        let max_support = support_committee_num.iter().max();
+        let max_support = support_committee_num.clone().into_iter().max();
+        if max_support.is_none() {
+            // 如果没有支持者，且有反对者，则拒绝接入。
+            if summary.against.len() > 0 {
+                return MachineConfirmStatus::Refuse(summary)
+            }
+            // 反对者支持者都为0
+            return MachineConfirmStatus::NoConsensus(summary)
+        }
 
-        match max_support {
-            None => {
-                // 如果没有支持者，且有反对者，则拒绝接入。
-                if summary.against.len() > 0 {
-                    return MachineConfirmStatus::Refuse(summary)
+        let max_support_num = max_support.unwrap();
+
+        // 多少个机器信息的支持等于最大的支持
+        let max_support_group = support_committee_num.clone().into_iter().filter(|n| n == &max_support_num).count();
+
+        if max_support_group == 1 {
+            let committee_group_index =
+                support_committee_num.clone().into_iter().position(|r| r == max_support_num).unwrap();
+
+            // 记录所有的无效支持
+            for index in 0..committee_for_machine_info.len() {
+                if index != committee_group_index {
+                    for a_committee in committee_for_machine_info[index].clone() {
+                        ItemList::add_item(&mut summary.invalid_support, a_committee);
+                    }
                 }
-                // 反对者支持者都为0
+            }
+
+            if summary.against.len() > max_support_num {
+                // 反对多于支持
+                for a_committee in committee_for_machine_info[committee_group_index].clone() {
+                    ItemList::add_item(&mut summary.invalid_support, a_committee);
+                }
+                return MachineConfirmStatus::Refuse(summary)
+            } else if summary.against.len() == max_support_num {
+                // 反对等于支持
+                for a_committee in committee_for_machine_info[committee_group_index].clone() {
+                    ItemList::add_item(&mut summary.invalid_support, a_committee);
+                }
+                summary.invalid_support = committee_for_machine_info[committee_group_index].clone();
                 return MachineConfirmStatus::NoConsensus(summary)
-            },
-            Some(max_support_num) => {
-                // 多少个机器信息的支持等于最大的支持
-                let max_support_group = support_committee_num.iter().filter(|n| n == &max_support_num).count();
-
-                if max_support_group == 1 {
-                    let committee_group_index =
-                        support_committee_num.iter().position(|r| r == max_support_num).unwrap();
-
-                    // 记录所有的无效支持
-                    for index in 0..committee_for_machine_info.len() {
-                        if index == committee_group_index {
-                            continue
-                        }
-                        summary.invalid_support.extend(committee_for_machine_info[index].clone());
-                    }
-
-                    if summary.against.len() > *max_support_num {
-                        // 反对多于支持
-                        summary.invalid_support = committee_for_machine_info[committee_group_index].clone();
-                        return MachineConfirmStatus::Refuse(summary)
-                    } else if summary.against.len() == *max_support_num {
-                        // 反对等于支持
-                        summary.invalid_support = committee_for_machine_info[committee_group_index].clone();
-                        return MachineConfirmStatus::NoConsensus(summary)
-                    } else {
-                        // 反对小于支持
-                        // 记录上所有的有效支持
-                        summary.valid_support = committee_for_machine_info[committee_group_index].clone();
-                        summary.info = Some(uniq_machine_info[committee_group_index].clone());
-                        return MachineConfirmStatus::Confirmed(summary)
-                    }
+            } else {
+                // 反对小于支持
+                // 记录上所有的有效支持
+                summary.valid_support = committee_for_machine_info[committee_group_index].clone();
+                summary.info = Some(uniq_machine_info[committee_group_index].clone());
+                return MachineConfirmStatus::Confirmed(summary)
+            }
+        } else {
+            // 如果多于两组是Max个委员会支, 则所有的支持都是无效的支持
+            for index in 0..committee_for_machine_info.len() {
+                for a_committee in committee_for_machine_info[index].clone() {
+                    ItemList::add_item(&mut summary.invalid_support, a_committee);
                 }
-
-                // 如果有两组都是Max个委员会支, 则所有的支持都是无效的支持
-                for index in 0..committee_for_machine_info.len() {
-                    summary.invalid_support.extend(committee_for_machine_info[index].clone())
-                }
-                if summary.against.len() > *max_support_num {
-                    return MachineConfirmStatus::Refuse(summary)
-                }
-
+            }
+            // Now will be Refuse or NoConsensus
+            if summary.against.len() > max_support_num {
+                return MachineConfirmStatus::Refuse(summary)
+            } else {
                 // against <= max_support 且 max_support_group > 1，且反对的不占多数
                 return MachineConfirmStatus::NoConsensus(summary)
-            },
+            }
         }
     }
 
