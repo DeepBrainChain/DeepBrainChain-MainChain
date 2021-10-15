@@ -1,6 +1,6 @@
 use crate::{
     types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachinesInfo, Pallet, StashMachines, StashStake,
-    SysInfo, UserReonlineStake,
+    SysInfo, UserMutHardwareStake,
 };
 use frame_support::IterableStorageMap;
 use generic_func::{ItemList, MachineId};
@@ -61,7 +61,7 @@ impl<T: Config> OCOps for Pallet<T> {
         let mut live_machines = Self::live_machines();
 
         let is_reonline =
-            UserReonlineStake::<T>::contains_key(&machine_info.machine_stash, &committee_upload_info.machine_id);
+            UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &committee_upload_info.machine_id);
 
         ItemList::rm_item(&mut live_machines.booked_machine, &committee_upload_info.machine_id);
 
@@ -105,7 +105,7 @@ impl<T: Config> OCOps for Pallet<T> {
         if is_reonline {
             // 根据质押，奖励给这些委员会
             let reonline_stake =
-                Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
+                Self::user_mut_hardware_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
 
             let _ = Self::slash_and_reward(
                 machine_info.machine_stash.clone(),
@@ -122,9 +122,9 @@ impl<T: Config> OCOps for Pallet<T> {
             if is_reonline {
                 // 仅在Oline成功时删掉reonline_stake记录，以便补充质押时惩罚时检查状态
                 let reonline_stake =
-                    Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
+                    Self::user_mut_hardware_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
 
-                UserReonlineStake::<T>::remove(&machine_info.machine_stash, &committee_upload_info.machine_id);
+                UserMutHardwareStake::<T>::remove(&machine_info.machine_stash, &committee_upload_info.machine_id);
 
                 // 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
                 let offline_duration = now - reonline_stake.offline_time;
@@ -148,10 +148,9 @@ impl<T: Config> OCOps for Pallet<T> {
 
         // In case this offline is for change hardware info, when reonline is refused, reward to committee and
         // machine info should not be deleted
-        // FIXME: bugs, will be false always
-        let is_mut_hardware = live_machines.refused_mut_hardware_machine.binary_search(&machine_id).is_ok();
+        let is_mut_hardware = UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
         if is_mut_hardware {
-            let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
+            let reonline_stake = Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
             ItemList::rm_item(&mut live_machines.refused_mut_hardware_machine, &machine_id);
             ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
@@ -166,11 +165,11 @@ impl<T: Config> OCOps for Pallet<T> {
 
         // Slash 5% of init stake(5% of one gpu stake)
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
-        let left_stake = machine_info.stake_amount.checked_sub(&slash)?;
+        // let left_stake = machine_info.stake_amount.checked_sub(&slash)?;
 
-        // Remain 5% of init stake(5% of one gpu stake)
-        // Return 95% left stake(95% of one gpu stake)
-        let _ = Self::change_user_total_stake(machine_info.machine_stash.clone(), left_stake, false);
+        // // Remain 5% of init stake(5% of one gpu stake)
+        // // Return 95% left stake(95% of one gpu stake)
+        // let _ = Self::change_user_total_stake(machine_info.machine_stash.clone(), left_stake, false);
 
         // Clean storage
         ItemList::rm_item(&mut controller_machines, &machine_id);

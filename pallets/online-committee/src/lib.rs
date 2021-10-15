@@ -250,13 +250,14 @@ pub mod pallet {
                     Error::<T>::BalanceNotEnough
                 );
             } else {
-                <T as pallet::Config>::Currency::reserve(&applicant, committee_order_stake)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
                 let _ =
                     <T as Config>::ManageCommittee::change_total_stake(applicant.clone(), committee_order_stake, true);
                 let _ =
                     <T as Config>::ManageCommittee::change_used_stake(applicant.clone(), committee_order_stake, true);
             }
+
+            <T as pallet::Config>::Currency::reserve(&applicant, committee_order_stake)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             PendingSlashReview::<T>::insert(
                 slash_id,
@@ -283,7 +284,12 @@ pub mod pallet {
 
             ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
-            let is_slashed_stash = match slash_info.book_result {
+            let _ = <T as pallet::Config>::Currency::unreserve(
+                &slash_review_info.applicant,
+                slash_review_info.staked_amount,
+            );
+
+            let is_applicant_slashed_stash = match slash_info.book_result {
                 OCBookResultType::OnlineRefused => &slash_info.machine_stash == &slash_review_info.applicant,
                 _ => false,
             };
@@ -292,14 +298,12 @@ pub mod pallet {
                 <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // Return reserved balance when apply for review
-            if is_slashed_stash {
+            if is_applicant_slashed_stash {
                 let _ = T::OCOperations::oc_change_staked_balance(
                     slash_review_info.applicant.clone(),
                     committee_order_stake,
                     false,
                 );
-
-                // TODO: cancel stash slash in online-prpfile!
             } else {
                 let _ = <T as Config>::ManageCommittee::change_total_stake(
                     slash_review_info.applicant.clone(),
@@ -311,8 +315,6 @@ pub mod pallet {
                     committee_order_stake,
                     false,
                 );
-
-                let _ = <T as pallet::Config>::Currency::unreserve(&slash_review_info.applicant, committee_order_stake);
             }
 
             let mut should_slash = slash_info.reward_committee.clone();
@@ -321,8 +323,10 @@ pub mod pallet {
             }
             let mut should_reward = slash_info.inconsistent_committee.clone();
 
-            // do slash
-            if is_slashed_stash {
+            // TODO: add here
+            let is_stash_slashed = false;
+
+            if is_stash_slashed {
                 ItemList::add_item(&mut should_reward, slash_info.machine_stash.clone());
                 let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
                     should_slash,
@@ -492,7 +496,7 @@ impl<T: Config> Pallet<T> {
             let mut book_result = OCBookResultType::OnlineSucceed;
 
             // type: (who, amount)
-            let mut slash_info = None;
+            let mut stash_slash_info = None;
 
             match Self::summary_confirmation(&machine_id) {
                 MachineConfirmStatus::Confirmed(summary) => {
@@ -538,7 +542,7 @@ impl<T: Config> Pallet<T> {
                     MachineCommittee::<T>::insert(&machine_id, machine_committee);
 
                     // should cancel machine_stash slash when slashed committee apply review
-                    slash_info = T::OCOperations::oc_refuse_machine(machine_id.clone());
+                    stash_slash_info = T::OCOperations::oc_refuse_machine(machine_id.clone());
                     book_result = OCBookResultType::OnlineRefused;
                 },
                 MachineConfirmStatus::NoConsensus(summary) => {
@@ -562,7 +566,7 @@ impl<T: Config> Pallet<T> {
                 }
             } else {
                 let slash_id = Self::get_new_slash_id();
-                let (machine_stash, stash_slash_amount) = slash_info.unwrap_or_default();
+                let (machine_stash, stash_slash_amount) = stash_slash_info.unwrap_or_default();
                 PendingSlash::<T>::insert(
                     slash_id,
                     OCPendingSlashInfo {

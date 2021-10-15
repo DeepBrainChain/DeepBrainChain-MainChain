@@ -223,7 +223,7 @@ pub struct StandardGpuPointPrice {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct UserReonlineStakeInfo<Balance, BlockNumber> {
+pub struct UserMutHardwareStakeInfo<Balance, BlockNumber> {
     pub stake_amount: Balance,
     pub offline_time: BlockNumber,
 }

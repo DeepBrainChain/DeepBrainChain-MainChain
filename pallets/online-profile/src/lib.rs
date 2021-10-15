@@ -62,14 +62,14 @@ pub mod pallet {
 
     /// Reonline to change hardware, should stake some balance
     #[pallet::storage]
-    #[pallet::getter(fn user_reonline_stake)]
-    pub(super) type UserReonlineStake<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn user_mut_hardware_stake)]
+    pub(super) type UserMutHardwareStake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
         Blake2_128Concat,
         MachineId,
-        UserReonlineStakeInfo<BalanceOf<T>, T::BlockNumber>,
+        UserMutHardwareStakeInfo<BalanceOf<T>, T::BlockNumber>,
         ValueQuery,
     >;
 
@@ -336,10 +336,10 @@ pub mod pallet {
 
             Self::change_user_total_stake(machine_info.machine_stash.clone(), stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
-            UserReonlineStake::<T>::insert(
+            UserMutHardwareStake::<T>::insert(
                 &machine_info.machine_stash,
                 &machine_id,
-                UserReonlineStakeInfo { stake_amount, offline_time: now },
+                UserMutHardwareStakeInfo { stake_amount, offline_time: now },
             );
             Self::change_pos_info_by_online(&machine_info, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
@@ -511,9 +511,9 @@ pub mod pallet {
             }
             machine_info.machine_status = MachineStatus::Online;
 
-            if UserReonlineStake::<T>::contains_key(&machine_info.machine_stash, &machine_id) {
+            if UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id) {
                 // 根据质押，奖励给这些委员会
-                let reonline_stake = Self::user_reonline_stake(&machine_info.machine_stash, &machine_id);
+                let reonline_stake = Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
                 // 根据下线时间，惩罚stash
                 let offline_duration = now - reonline_stake.offline_time;
@@ -529,7 +529,7 @@ pub mod pallet {
                 // 退还reonline_stake
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), reonline_stake.stake_amount, false)
                     .map_err(|_| Error::<T>::ReduceStakeFailed)?;
-                UserReonlineStake::<T>::remove(&machine_info.machine_stash, &machine_id);
+                UserMutHardwareStake::<T>::remove(&machine_info.machine_stash, &machine_id);
             } else {
                 machine_info.online_height = now;
                 machine_info.reward_deadline = current_era + REWARD_DURATION;
