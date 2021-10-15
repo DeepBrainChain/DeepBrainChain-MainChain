@@ -33,9 +33,9 @@ impl<T: Config> Pallet<T> {
             ErasMachinePoints::<T>::insert(1, init_value);
         } else {
             // 用当前的Era快照初始化下一个Era的信息
-            let current_era_stash_snapshot = Self::eras_stash_points(current_era).unwrap_or_default();
+            let current_era_stash_snapshot = Self::eras_stash_points(current_era);
             ErasStashPoints::<T>::insert(current_era + 1, current_era_stash_snapshot);
-            let current_era_machine_snapshot = Self::eras_machine_points(current_era).unwrap_or_default();
+            let current_era_machine_snapshot = Self::eras_machine_points(current_era);
             ErasMachinePoints::<T>::insert(current_era + 1, current_era_machine_snapshot);
         }
     }
@@ -90,8 +90,8 @@ impl<T: Config> Pallet<T> {
 
         for era_index in start_era..=current_era {
             let era_reward = Self::era_reward(era_index);
-            let era_machine_points = Self::eras_machine_points(era_index).unwrap_or_default();
-            let era_stash_points = Self::eras_stash_points(era_index).unwrap_or_default();
+            let era_machine_points = Self::eras_machine_points(era_index);
+            let era_stash_points = Self::eras_stash_points(era_index);
 
             for a_stash in &all_stash {
                 let mut stash_machine = Self::stash_machines(a_stash);

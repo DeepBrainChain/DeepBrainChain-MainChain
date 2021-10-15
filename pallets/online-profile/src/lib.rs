@@ -134,13 +134,13 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn eras_stash_points)]
     pub(super) type ErasStashPoints<T: Config> =
-        StorageMap<_, Blake2_128Concat, EraIndex, EraStashPoints<T::AccountId>>;
+        StorageMap<_, Blake2_128Concat, EraIndex, EraStashPoints<T::AccountId>, ValueQuery>;
 
     /// 每个Era机器的得分快照
     #[pallet::storage]
     #[pallet::getter(fn eras_machine_points)]
     pub(super) type ErasMachinePoints<T: Config> =
-        StorageMap<_, Blake2_128Concat, EraIndex, BTreeMap<MachineId, MachineGradeStatus>>;
+        StorageMap<_, Blake2_128Concat, EraIndex, BTreeMap<MachineId, MachineGradeStatus>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn phase_reward_info)]
@@ -1001,7 +1001,7 @@ impl<T: Config> Pallet<T> {
 
     // 获取下一Era stash grade即为当前Era stash grade
     fn get_stash_grades(era_index: EraIndex, stash: &T::AccountId) -> u64 {
-        let next_era_stash_snapshot = Self::eras_stash_points(era_index).unwrap_or_default();
+        let next_era_stash_snapshot = Self::eras_stash_points(era_index);
 
         if let Some(stash_snapshot) = next_era_stash_snapshot.staker_statistic.get(stash) {
             return stash_snapshot.total_grades().unwrap_or_default()
@@ -1020,17 +1020,17 @@ impl<T: Config> Pallet<T> {
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info.clone();
         let current_era = Self::current_era();
 
-        let mut current_era_stash_snapshot = Self::eras_stash_points(current_era).unwrap();
-        let mut next_era_stash_snapshot = Self::eras_stash_points(current_era + 1).unwrap();
-        let mut current_era_machine_snapshot = Self::eras_machine_points(current_era).unwrap();
-        let mut next_era_machine_snapshot = Self::eras_machine_points(current_era + 1).unwrap();
+        let mut current_era_stash_snap = Self::eras_stash_points(current_era);
+        let mut next_era_stash_snap = Self::eras_stash_points(current_era + 1);
+        let mut current_era_machine_snap = Self::eras_machine_points(current_era);
+        let mut next_era_machine_snap = Self::eras_machine_points(current_era + 1);
 
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
 
         let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
-        next_era_stash_snapshot.change_machine_online_status(
+        next_era_stash_snap.change_machine_online_status(
             machine_info.machine_stash.clone(),
             machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
             machine_info.machine_info_detail.committee_upload_info.calc_point,
@@ -1038,7 +1038,7 @@ impl<T: Config> Pallet<T> {
         );
 
         if is_online {
-            next_era_machine_snapshot.insert(
+            next_era_machine_snap.insert(
                 machine_id.clone(),
                 MachineGradeStatus {
                     basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
@@ -1052,14 +1052,14 @@ impl<T: Config> Pallet<T> {
         } else {
             // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
             // 一天内再次下线会造成再次清空
-            current_era_stash_snapshot.change_machine_online_status(
+            current_era_stash_snap.change_machine_online_status(
                 machine_info.machine_stash.clone(),
                 machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
                 machine_info.machine_info_detail.committee_upload_info.calc_point,
                 is_online,
             );
-            current_era_machine_snapshot.remove(&machine_id);
-            next_era_machine_snapshot.remove(&machine_id);
+            current_era_machine_snap.remove(&machine_id);
+            next_era_machine_snap.remove(&machine_id);
 
             ItemList::rm_item(&mut stash_machine.online_machine, &machine_id);
             stash_machine.total_gpu_num -= machine_base_info.gpu_num as u64;
@@ -1067,11 +1067,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // 机器上线或者下线都会影响下一era得分，而只有下线才影响当前era得分
-        ErasStashPoints::<T>::insert(current_era + 1, next_era_stash_snapshot);
-        ErasMachinePoints::<T>::insert(current_era + 1, next_era_machine_snapshot);
+        ErasStashPoints::<T>::insert(current_era + 1, next_era_stash_snap);
+        ErasMachinePoints::<T>::insert(current_era + 1, next_era_machine_snap);
         if !is_online {
-            ErasStashPoints::<T>::insert(current_era, current_era_stash_snapshot);
-            ErasMachinePoints::<T>::insert(current_era, current_era_machine_snapshot);
+            ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
+            ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
         }
 
         let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
@@ -1101,10 +1101,10 @@ impl<T: Config> Pallet<T> {
         let machine_info = Self::machines_info(&machine_id);
         let current_era = Self::current_era();
 
-        let mut current_era_stash_snap = Self::eras_stash_points(current_era).unwrap_or_default();
-        let mut next_era_stash_snap = Self::eras_stash_points(current_era + 1).unwrap_or_default();
-        let mut current_era_machine_snap = Self::eras_machine_points(current_era).unwrap_or_default();
-        let mut next_era_machine_snap = Self::eras_machine_points(current_era + 1).unwrap_or_default();
+        let mut current_era_stash_snap = Self::eras_stash_points(current_era);
+        let mut next_era_stash_snap = Self::eras_stash_points(current_era + 1);
+        let mut current_era_machine_snap = Self::eras_machine_points(current_era);
+        let mut next_era_machine_snap = Self::eras_machine_points(current_era + 1);
 
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
