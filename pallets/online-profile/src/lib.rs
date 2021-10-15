@@ -796,7 +796,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // FIXME: should cancel slash and slash reward
+        // TODO: should cancel slash and slash reward
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
