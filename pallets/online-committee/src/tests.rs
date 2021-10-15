@@ -6,7 +6,7 @@ use committee::CommitteeList;
 use frame_support::assert_ok;
 use online_profile::{
     CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineGradeStatus, MachineStatus, StakerCustomizeInfo,
-    UserReonlineStakeInfo,
+    UserMutHardwareStakeInfo,
 };
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
@@ -429,7 +429,7 @@ fn machine_online_works() {
         assert_ok!(OnlineProfile::offline_machine_change_hardware_info(Origin::signed(controller), machine_id.clone()));
 
         // - Writes:
-        // LiveMachines, MachineInfo, StashStake, UserReonlineStake, PosGPUInfo, StashMachine
+        // LiveMachines, MachineInfo, StashStake, UserMutHardwarestake, PosGPUInfo, StashMachine
         // CurrentEraStashPoints, NextEraStashPoints, CurrentEraMachinePoints, NextEraMachinePoints, SysInfo,
         assert_eq!(
             OnlineProfile::live_machines(),
@@ -439,8 +439,8 @@ fn machine_online_works() {
         assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
         assert_eq!(OnlineProfile::stash_stake(&stash), 2000 * ONE_DBC + 400000 * ONE_DBC);
         assert_eq!(
-            OnlineProfile::user_reonline_stake(&stash, &machine_id),
-            online_profile::UserReonlineStakeInfo { stake_amount: 2000 * ONE_DBC, offline_time: 2880 * 3 + 3 }
+            OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
+            online_profile::UserMutHardwareStakeInfo { stake_amount: 2000 * ONE_DBC, offline_time: 2880 * 3 + 3 }
         );
         assert_eq!(
             OnlineProfile::pos_gpu_info(
@@ -652,8 +652,8 @@ fn machine_online_works() {
             }
         );
         assert_eq!(
-            OnlineProfile::user_reonline_stake(&stash, &machine_id),
-            UserReonlineStakeInfo { ..Default::default() }
+            OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
+            UserMutHardwareStakeInfo { ..Default::default() }
         );
         assert_eq!(OnlineProfile::stash_stake(&stash), 800000 * ONE_DBC);
         // 检查分数
@@ -677,8 +677,8 @@ fn machine_online_works() {
         era_machine_points.insert(machine_id.clone(), MachineGradeStatus { basic_grade: 119780, is_rented: false });
         assert_eq!(OnlineProfile::eras_machine_points(4), era_machine_points);
         assert_eq!(
-            OnlineProfile::user_reonline_stake(&stash, &machine_id),
-            online_profile::UserReonlineStakeInfo { ..Default::default() }
+            OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
+            online_profile::UserMutHardwareStakeInfo { ..Default::default() }
         );
         // 奖励2000DBC
         assert_eq!(
