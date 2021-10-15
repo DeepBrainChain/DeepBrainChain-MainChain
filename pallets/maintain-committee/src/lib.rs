@@ -601,12 +601,22 @@ pub mod pallet {
                 ReporterStake::<T>::insert(&applicant, reporter_stake);
             } else if is_slashed_committee {
                 // Change committee stake
-                <T as pallet::Config>::ManageCommittee::change_stake_for_slash_review(
+                <T as pallet::Config>::ManageCommittee::change_total_stake(
                     applicant.clone(),
                     reporter_stake_params.stake_per_report,
                     true,
                 )
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
+
+                <T as pallet::Config>::ManageCommittee::change_used_stake(
+                    applicant.clone(),
+                    reporter_stake_params.stake_per_report,
+                    true,
+                )
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
+
+                <T as pallet::Config>::Currency::reserve(&applicant, reporter_stake_params.stake_per_report)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else if is_slashed_stash {
                 // change stash stake
                 T::MTOps::mt_change_staked_balance(applicant.clone(), reporter_stake_params.stake_per_report, true)
@@ -641,7 +651,6 @@ pub mod pallet {
             ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&slash_review_info.applicant);
-            // let is_slashed_committee = report_result_info.is_slashed_committee(&slash_review_info.applicant);
 
             // Return reserved balance when apply for review
             if is_slashed_reporter {

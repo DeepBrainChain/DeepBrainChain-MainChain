@@ -3,7 +3,7 @@
 use codec::EncodeLike;
 use frame_support::{
     pallet_prelude::*,
-    traits::{Currency, LockableCurrency},
+    traits::{Currency, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
 use online_profile::StashMachine;
@@ -23,7 +23,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_identity::Config {
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: ReservableCurrency<Self::AccountId>;
         type OPRpcQuery: OPRPCQuery<AccountId = Self::AccountId, StashMachine = StashMachine<BalanceOf<Self>>>;
     }
 

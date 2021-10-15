@@ -12,7 +12,7 @@ mod tests;
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::{Currency, LockableCurrency},
+    traits::{Currency, ReservableCurrency},
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use generic_func::{ItemList, MachineId, SlashId};
@@ -32,7 +32,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config + committee::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: ReservableCurrency<Self::AccountId>;
         type OCOperations: OCOps<
             AccountId = Self::AccountId,
             MachineId = MachineId,
@@ -239,18 +239,23 @@ pub mod pallet {
 
             ensure!(is_slashed_stash || is_slashed_committee, Error::<T>::NotSlashed);
 
+            ensure!(
+                <T as Config>::Currency::can_reserve(&applicant, committee_order_stake),
+                Error::<T>::BalanceNotEnough
+            );
+
             if is_slashed_stash {
                 ensure!(
                     T::OCOperations::oc_change_staked_balance(applicant.clone(), committee_order_stake, true).is_ok(),
                     Error::<T>::BalanceNotEnough
                 );
             } else {
-                <T as Config>::ManageCommittee::change_stake_for_slash_review(
-                    applicant.clone(),
-                    committee_order_stake,
-                    true,
-                )
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                <T as pallet::Config>::Currency::reserve(&applicant, committee_order_stake)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                let _ =
+                    <T as Config>::ManageCommittee::change_total_stake(applicant.clone(), committee_order_stake, true);
+                let _ =
+                    <T as Config>::ManageCommittee::change_used_stake(applicant.clone(), committee_order_stake, true);
             }
 
             PendingSlashReview::<T>::insert(
@@ -296,11 +301,18 @@ pub mod pallet {
 
                 // TODO: cancel stash slash in online-prpfile!
             } else {
-                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                let _ = <T as Config>::ManageCommittee::change_total_stake(
                     slash_review_info.applicant.clone(),
                     committee_order_stake,
                     false,
                 );
+                let _ = <T as Config>::ManageCommittee::change_used_stake(
+                    slash_review_info.applicant.clone(),
+                    committee_order_stake,
+                    false,
+                );
+
+                let _ = <T as pallet::Config>::Currency::unreserve(&slash_review_info.applicant, committee_order_stake);
             }
 
             let mut should_slash = slash_info.reward_committee.clone();

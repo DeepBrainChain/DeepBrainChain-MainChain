@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // use alt_serde::{Deserialize, Deserializer};
-use frame_support::traits::{Currency, LockableCurrency, Randomness};
+use frame_support::traits::{Currency, Randomness, ReservableCurrency};
 use frame_system::offchain::SubmitTransaction;
 use online_profile_machine::DbcPrice;
 use sp_core::H256;
@@ -32,7 +32,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> + generic_func::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type RandomnessSource: Randomness<H256>;
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: ReservableCurrency<Self::AccountId>;
     }
 
     #[pallet::pallet]
