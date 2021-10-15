@@ -50,9 +50,12 @@ pub trait ManageCommittee {
     type ReportId;
 
     fn is_valid_committee(who: &Self::AccountId) -> bool;
-
     fn available_committee() -> Option<Vec<Self::AccountId>>;
+    fn change_stake_for_slash_review(committee: Self::AccountId, amount: Self::Balance, is_add: bool)
+        -> Result<(), ()>;
+    // Only change stake record, not influence actual stake
     fn change_used_stake(committee: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
+    // Only change stake record, not influence actual stake
     fn change_total_stake(committee: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
     fn stake_per_order() -> Option<Self::Balance>;
     fn add_reward(committee: Self::AccountId, reward: Self::Balance);

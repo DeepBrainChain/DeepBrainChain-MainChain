@@ -601,15 +601,12 @@ pub mod pallet {
                 ReporterStake::<T>::insert(&applicant, reporter_stake);
             } else if is_slashed_committee {
                 // Change committee stake
-                <T as pallet::Config>::ManageCommittee::change_total_stake(
+                <T as pallet::Config>::ManageCommittee::change_stake_for_slash_review(
                     applicant.clone(),
                     reporter_stake_params.stake_per_report,
                     true,
                 )
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
-
-                <T as pallet::Config>::Currency::reserve(&applicant, reporter_stake_params.stake_per_report)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else if is_slashed_stash {
                 // change stash stake
                 T::MTOps::mt_change_staked_balance(applicant.clone(), reporter_stake_params.stake_per_report, true)

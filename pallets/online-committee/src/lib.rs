@@ -235,35 +235,29 @@ pub mod pallet {
                 _ => false,
             };
 
-            let is_slashed_committee = { slash_info.inconsistent_committee.binary_search(&applicant).is_ok() };
+            let is_slashed_committee = slash_info.inconsistent_committee.binary_search(&applicant).is_ok();
 
             ensure!(is_slashed_stash || is_slashed_committee, Error::<T>::NotSlashed);
 
-            // TODO: not add used stake but total stake
             if is_slashed_stash {
-                // TODO: Maybe stake some new balance is better
-                // TODO: how much should stake
                 ensure!(
                     T::OCOperations::oc_change_staked_balance(applicant.clone(), committee_order_stake, true).is_ok(),
                     Error::<T>::BalanceNotEnough
                 );
             } else {
-                ensure!(
-                    <T as pallet::Config>::ManageCommittee::change_used_stake(
-                        applicant.clone(),
-                        committee_order_stake,
-                        true,
-                    )
-                    .is_ok(),
-                    Error::<T>::BalanceNotEnough
-                );
+                <T as Config>::ManageCommittee::change_stake_for_slash_review(
+                    applicant.clone(),
+                    committee_order_stake,
+                    true,
+                )
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
             }
 
             PendingSlashReview::<T>::insert(
                 slash_id,
                 OCPendingSlashReviewInfo {
                     applicant,
-                    staked_amount: committee_order_stake, // TODO: maybe different depend on `is_stash`
+                    staked_amount: committee_order_stake,
                     apply_time: now,
                     expire_time: slash_info.slash_exec_time,
                     reason,

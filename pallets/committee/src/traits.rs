@@ -1,4 +1,5 @@
 use crate::{BalanceOf, Committee, CommitteeStake, Config, Pallet, ReportId};
+use frame_support::{ensure, traits::ReservableCurrency};
 use online_profile_machine::ManageCommittee;
 use sp_runtime::traits::{CheckedAdd, CheckedSub};
 use sp_std::vec::Vec;
@@ -18,6 +19,22 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     fn available_committee() -> Option<Vec<T::AccountId>> {
         let committee_list = Self::committee();
         (committee_list.normal.len() > 0).then(|| committee_list.normal)
+    }
+
+    fn change_stake_for_slash_review(committee: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+        let mut committee_stake = Self::committee_stake(&committee);
+
+        if is_add {
+            ensure!(<T as Config>::Currency::can_reserve(&committee, amount), ());
+            <T as Config>::Currency::reserve(&committee, amount).map_err(|_| ())?;
+            committee_stake.staked_amount = committee_stake.staked_amount.checked_add(&amount).ok_or(())?;
+        } else {
+            committee_stake.staked_amount = committee_stake.staked_amount.checked_sub(&amount).ok_or(())?;
+            let _ = <T as Config>::Currency::unreserve(&committee, amount);
+        }
+
+        CommitteeStake::<T>::insert(&committee, committee_stake);
+        Ok(())
     }
 
     // 改变委员会使用的质押数量
