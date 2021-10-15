@@ -306,16 +306,16 @@ fn machine_online_works() {
                 rent_extra_grade: 0,
             },
         );
-        assert_eq!(OnlineProfile::eras_stash_points(0), Some(EraStashPoints { ..Default::default() }));
+        assert_eq!(OnlineProfile::eras_stash_points(0), EraStashPoints { ..Default::default() });
         assert_eq!(
             OnlineProfile::eras_stash_points(1),
-            Some(EraStashPoints { total: 59914, staker_statistic: staker_statistic.clone() })
+            EraStashPoints { total: 59914, staker_statistic: staker_statistic.clone() }
         );
 
         let mut era_machine_points = BTreeMap::new();
-        assert_eq!(OnlineProfile::eras_machine_points(0), Some(BTreeMap::new()));
+        assert_eq!(OnlineProfile::eras_machine_points(0), BTreeMap::new());
         era_machine_points.insert(machine_id.clone(), MachineGradeStatus { basic_grade: 59890, is_rented: false });
-        assert_eq!(OnlineProfile::eras_machine_points(1), Some(era_machine_points));
+        assert_eq!(OnlineProfile::eras_machine_points(1), era_machine_points);
 
         // 过一个Era: 一天是2880个块
         run_to_block(2880 * 2 + 2);
@@ -461,10 +461,10 @@ fn machine_online_works() {
 
         // 当前Era为3
         assert_eq!(OnlineProfile::current_era(), 3);
-        assert_eq!(OnlineProfile::eras_stash_points(3), Some(EraStashPoints { ..Default::default() }));
-        assert_eq!(OnlineProfile::eras_stash_points(4), Some(EraStashPoints { ..Default::default() }));
-        assert_eq!(OnlineProfile::eras_machine_points(3), Some(BTreeMap::new()));
-        assert_eq!(OnlineProfile::eras_machine_points(4), Some(BTreeMap::new()));
+        assert_eq!(OnlineProfile::eras_stash_points(3), EraStashPoints { ..Default::default() });
+        assert_eq!(OnlineProfile::eras_stash_points(4), EraStashPoints { ..Default::default() });
+        assert_eq!(OnlineProfile::eras_machine_points(3), BTreeMap::new());
+        assert_eq!(OnlineProfile::eras_machine_points(4), BTreeMap::new());
 
         // 控制账户重新添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
@@ -670,12 +670,12 @@ fn machine_online_works() {
         );
         assert_eq!(
             OnlineProfile::eras_stash_points(4),
-            Some(EraStashPoints { total: 119876, staker_statistic: staker_statistic.clone() })
+            EraStashPoints { total: 119876, staker_statistic: staker_statistic.clone() }
         );
 
         let mut era_machine_points = BTreeMap::new();
         era_machine_points.insert(machine_id.clone(), MachineGradeStatus { basic_grade: 119780, is_rented: false });
-        assert_eq!(OnlineProfile::eras_machine_points(4), Some(era_machine_points));
+        assert_eq!(OnlineProfile::eras_machine_points(4), era_machine_points);
         assert_eq!(
             OnlineProfile::user_reonline_stake(&stash, &machine_id),
             online_profile::UserReonlineStakeInfo { ..Default::default() }

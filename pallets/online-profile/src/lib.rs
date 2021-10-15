@@ -586,11 +586,6 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
-            ensure!(
-                now - machine_info.last_online_height > (BLOCK_PER_ERA as u32).into(),
-                Error::<T>::CannotOnlineTwiceOneDay
-            );
-
             Self::machine_offline(
                 machine_id.clone(),
                 MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status)),
@@ -605,18 +600,11 @@ pub mod pallet {
         pub fn controller_report_online(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
-            let current_era = Self::current_era();
 
             let mut machine_info = Self::machines_info(&machine_id);
-            let mut sys_info = Self::sys_info();
-            let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
             let mut live_machine = Self::live_machines();
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-            ensure!(
-                now - machine_info.last_online_height > (BLOCK_PER_ERA as u32).into(),
-                Error::<T>::CannotOnlineTwiceOneDay
-            );
 
             let mut slash_amount = Zero::zero();
             // MachineStatus改为之前的状态
@@ -625,26 +613,12 @@ pub mod pallet {
                     let offline_duration = now - offline_time;
 
                     machine_info.machine_status = *status;
-                    let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+                    // let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
 
                     match machine_info.machine_status {
                         MachineStatus::Online | MachineStatus::Rented => {
-                            // Both status will change grades by online
-                            sys_info.total_gpu_num += gpu_num;
-
-                            let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
-
                             Self::update_snap_by_online_status(machine_id.clone(), true);
                             Self::change_pos_info_by_online(&machine_info, true);
-
-                            let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
-                            stash_machine.total_calc_points =
-                                stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
-                            sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
-
-                            ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
-
-                            stash_machine.total_gpu_num += gpu_num;
                         },
                         _ => {},
                     }
@@ -687,7 +661,6 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
-            SysInfo::<T>::put(sys_info); // Must before `change_user_total_stake`
             if slash_amount != Zero::zero() {
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), slash_amount, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
@@ -706,7 +679,6 @@ pub mod pallet {
             }
 
             LiveMachines::<T>::put(live_machine);
-            StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Self::deposit_event(Event::ControllerReportOnline(machine_id));
@@ -887,7 +859,6 @@ pub mod pallet {
         SigMachineIdNotEqualBondedMachineId,
         TelecomIsNull,
         MachineStatusNotAllowed,
-        CannotOnlineTwiceOneDay,
         ServerRoomNotFound,
         NotMachineStash,
         TooFastToReStake,
@@ -1029,6 +1000,7 @@ impl<T: Config> Pallet<T> {
         let mut sys_info = Self::sys_info();
 
         let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
+        let current_era_is_online = current_era_machine_snap.contains_key(&machine_id);
 
         next_era_stash_snap.change_machine_online_status(
             machine_info.machine_stash.clone(),
@@ -1050,16 +1022,18 @@ impl<T: Config> Pallet<T> {
             stash_machine.total_gpu_num += machine_base_info.gpu_num as u64;
             sys_info.total_gpu_num += machine_base_info.gpu_num as u64;
         } else {
-            // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
-            // 一天内再次下线会造成再次清空
-            current_era_stash_snap.change_machine_online_status(
-                machine_info.machine_stash.clone(),
-                machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
-                machine_info.machine_info_detail.committee_upload_info.calc_point,
-                is_online,
-            );
-            current_era_machine_snap.remove(&machine_id);
-            next_era_machine_snap.remove(&machine_id);
+            if current_era_is_online {
+                // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
+                // 一天内再次下线会造成再次清空
+                current_era_stash_snap.change_machine_online_status(
+                    machine_info.machine_stash.clone(),
+                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
+                    machine_info.machine_info_detail.committee_upload_info.calc_point,
+                    is_online,
+                );
+                current_era_machine_snap.remove(&machine_id);
+                next_era_machine_snap.remove(&machine_id);
+            }
 
             ItemList::rm_item(&mut stash_machine.online_machine, &machine_id);
             stash_machine.total_gpu_num -= machine_base_info.gpu_num as u64;
@@ -1096,7 +1070,6 @@ impl<T: Config> Pallet<T> {
 
     // - Writes:
     // ErasStashPoints, ErasMachinePoints, SysInfo, StashMachines
-    // TODO: refa: only change one_era is enough
     fn update_snap_by_rent_status(machine_id: MachineId, is_rented: bool) {
         let machine_info = Self::machines_info(&machine_id);
         let current_era = Self::current_era();
@@ -1108,6 +1081,14 @@ impl<T: Config> Pallet<T> {
 
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
+
+        let current_era_is_online = current_era_machine_snap.contains_key(&machine_id);
+        let current_era_is_rented = if current_era_is_online {
+            let machine_snap = current_era_machine_snap.get(&machine_id).unwrap();
+            machine_snap.is_rented
+        } else {
+            false
+        };
 
         let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
@@ -1125,11 +1106,13 @@ impl<T: Config> Pallet<T> {
         );
 
         if !is_rented {
-            current_era_stash_snap.change_machine_rent_status(
-                machine_info.machine_stash.clone(),
-                machine_info.machine_info_detail.committee_upload_info.calc_point,
-                is_rented,
-            );
+            if current_era_is_rented {
+                current_era_stash_snap.change_machine_rent_status(
+                    machine_info.machine_stash.clone(),
+                    machine_info.machine_info_detail.committee_upload_info.calc_point,
+                    is_rented,
+                );
+            }
 
             current_era_machine_snap.insert(
                 machine_id.clone(),
@@ -1146,6 +1129,7 @@ impl<T: Config> Pallet<T> {
         if !is_rented {
             ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
             ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
+
             sys_info.total_rented_gpu -= machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
             stash_machine.total_rented_gpu -= machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
         } else {

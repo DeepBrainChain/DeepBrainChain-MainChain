@@ -1,5 +1,5 @@
 use crate::mock::*;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 use sp_runtime::Perbill;
 
 #[test]
@@ -22,7 +22,7 @@ fn rent_machine_should_works() {
         // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
 
-        let era_grade_snap = OnlineProfile::eras_stash_points(1).unwrap();
+        let era_grade_snap = OnlineProfile::eras_stash_points(1);
         assert_eq!(era_grade_snap.total, 77881); // 59890 * 4/10000 + 59890 * 0.3 + 59890
         let staker_grade_snap = era_grade_snap.staker_statistic.get(&stash).unwrap();
 
@@ -76,7 +76,7 @@ fn rent_machine_should_works() {
 
         // 21 days later
         run_to_block(60530);
-        let era_grade_snap = OnlineProfile::eras_stash_points(21).unwrap();
+        let era_grade_snap = OnlineProfile::eras_stash_points(21);
         assert_eq!(era_grade_snap.total, 59914) // 59890 * 4 / 10000 + 59890
     })
 }
@@ -130,11 +130,6 @@ fn controller_report_offline_when_rented_should_work2() {
         // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
 
-        assert_noop!(
-            OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()),
-            online_profile::Error::<TestRuntime>::CannotOnlineTwiceOneDay
-        );
-
         run_to_block(51 + 2880);
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
     })
@@ -160,5 +155,36 @@ fn controller_report_offline_when_rented_should_work3() {
 
         // run_to_block(51 + 2880);
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+    })
+}
+
+#[test]
+fn controller_report_offline_after_online_should_work4() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+
+        let renter_dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+
+        run_to_block(2880 + 20);
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+
+        // Dave rent machine for 10 days
+        assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 2));
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+
+        run_to_block(2880 * 2 + 20);
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
     })
 }

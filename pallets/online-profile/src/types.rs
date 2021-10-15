@@ -470,6 +470,7 @@ where
     /// 增加一台在线的机器，gpu数量 + gpu的总得分
     /// NOTE: 只修改当前Era，调用下线逻辑前应检查机器存在
     /// TODO: 还应该改变机器快照
+    /// TODO: should depend eraMachinePoints to check if should reduce current era snap
     pub fn change_machine_online_status(&mut self, stash: AccountId, gpu_num: u64, basic_grade: u64, is_online: bool) {
         let mut staker_statistic = self
             .staker_statistic
