@@ -110,7 +110,6 @@ impl<T: Config> OCOps for Pallet<T> {
             let _ = Self::slash_and_reward(
                 machine_info.machine_stash.clone(),
                 reonline_stake.stake_amount,
-                OPSlashReason::ReonlineShouldReward,
                 reported_committee,
             );
         }
