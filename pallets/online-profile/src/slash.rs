@@ -150,8 +150,6 @@ impl<T: Config> Pallet<T> {
         reporter: Option<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
     ) -> BalanceOf<T> {
-        let machine_info = Self::machines_info(&machine_id);
-        let now = <frame_system::Module<T>>::block_number();
         match slash_reason {
             // 算工主动报告被租用的机器，主动下线
             OPSlashReason::RentedReportOffline(duration) =>
@@ -365,7 +363,7 @@ impl<T: Config> Pallet<T> {
         match duration {
             0 => return Zero::zero(),
             1..=480 => {
-                // 扣除6%质押币。10%给到用户，20%给到验证人，50%进入国库
+                // 扣除6%质押币。10%给到用户，20%给到验证人，70%进入国库
                 return Self::add_offline_slash(6, machine_id, reporter, committee, slash_reason)
             },
             481..=2880 => {
@@ -418,24 +416,16 @@ impl<T: Config> Pallet<T> {
     pub fn do_slash_deposit(slash_info: &OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
         let machine_info = Self::machines_info(&slash_info.machine_id);
 
-        let (slash_to_treasury, reward_to_reporter, reward_to_committee) =
-            if slash_info.reward_to_committee.clone().is_some() {
-                let percent_10 = Perbill::from_rational_approximation(10u32, 100u32);
-                let percent_20 = Perbill::from_rational_approximation(20u32, 100u32);
+        let mut reward_to_reporter = Zero::zero();
+        let mut reward_to_committee = Zero::zero();
 
-                if slash_info.reward_to_reporter.clone().is_none() {
-                    let reward_to_committee = percent_10 * slash_info.slash_amount;
-                    let slash_to_treasury = slash_info.slash_amount - reward_to_committee;
-                    (slash_to_treasury, Zero::zero(), reward_to_committee)
-                } else {
-                    let reward_to_reporter = percent_10 * slash_info.slash_amount;
-                    let reward_to_committee = percent_20 * slash_info.slash_amount;
-                    let slash_to_treasury = slash_info.slash_amount - reward_to_reporter - reward_to_committee;
-                    (slash_to_treasury, reward_to_reporter, reward_to_committee)
-                }
-            } else {
-                (slash_info.slash_amount, Zero::zero(), Zero::zero())
-            };
+        if slash_info.reward_to_reporter.is_some() {
+            reward_to_reporter = Perbill::from_rational_approximation(10u32, 100u32) * slash_info.slash_amount;
+        }
+        if slash_info.reward_to_committee.is_some() {
+            reward_to_committee = Perbill::from_rational_approximation(20u32, 100u32) * slash_info.slash_amount;
+        }
+        let slash_to_treasury = slash_info.slash_amount - reward_to_reporter - reward_to_committee;
 
         if <T as Config>::Currency::reserved_balance(&machine_info.machine_stash) < slash_info.slash_amount {
             return
@@ -457,6 +447,7 @@ impl<T: Config> Pallet<T> {
                 slash_info.reward_to_committee.clone().unwrap(),
             );
         }
+
         // slash to treasury
         let _ = Self::slash_and_reward(slash_info.slash_who.clone(), slash_to_treasury, vec![]);
     }

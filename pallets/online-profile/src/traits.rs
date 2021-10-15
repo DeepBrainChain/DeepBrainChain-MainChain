@@ -107,13 +107,12 @@ impl<T: Config> OCOps for Pallet<T> {
             let reonline_stake =
                 Self::user_reonline_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
 
-            // FIXME: should only add pending slash
-            // let _ = Self::slash_and_reward(
-            //     machine_info.machine_stash.clone(),
-            //     reonline_stake.stake_amount,
-            //     OPSlashReason::ReonlineShouldReward,
-            //     reported_committee,
-            // );
+            let _ = Self::slash_and_reward(
+                machine_info.machine_stash.clone(),
+                reonline_stake.stake_amount,
+                OPSlashReason::ReonlineShouldReward,
+                reported_committee,
+            );
         }
 
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
