@@ -836,6 +836,7 @@ pub mod pallet {
         // Slash_who, reward_who, reward_amount
         SlashAndReward(T::AccountId, T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
         ApplySlashReview(SlashId),
+        SlashExecuted(T::AccountId, MachineId, BalanceOf<T>),
     }
 
     #[pallet::error]
