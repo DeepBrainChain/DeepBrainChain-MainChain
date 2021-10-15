@@ -69,7 +69,6 @@ impl<T: Config> Pallet<T> {
                 },
                 _ => {
                     Self::do_slash_deposit(&slash_info);
-                    continue
                 },
             }
 
