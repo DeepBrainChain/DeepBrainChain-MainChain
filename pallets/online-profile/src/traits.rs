@@ -254,6 +254,7 @@ impl<T: Config> RTOps for Pallet<T> {
             MachineStatus::Online => {
                 if rent_duration.is_some() {
                     machine_info.total_rented_duration += rent_duration.unwrap_or_default();
+                    machine_info.last_online_height = <frame_system::Module<T>>::block_number();
                     // 租用结束
                     Self::update_snap_by_rent_status(machine_id.to_vec(), false);
 
