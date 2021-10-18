@@ -658,7 +658,7 @@ pub mod pallet {
                                 // 机器在被租用状态下线，会被惩罚
                                 slash_amount = Self::slash_when_report_offline(
                                     machine_id.clone(),
-                                    OPSlashReason::RentedReportOffline(offline_duration),
+                                    OPSlashReason::OnlineReportOffline(offline_duration),
                                     None,
                                     None,
                                 );

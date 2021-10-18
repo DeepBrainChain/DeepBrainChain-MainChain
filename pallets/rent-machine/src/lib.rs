@@ -391,22 +391,20 @@ impl<T: Config> Pallet<T> {
                 let rent_info = Self::rent_order(&a_renter, &a_machine).ok_or(())?;
                 if now > rent_info.rent_end {
                     let machine_info = <online_profile::Module<T>>::machines_info(&a_machine);
-                    let mut machine_status = MachineStatus::Online;
 
-                    if let MachineStatus::StakerReportOffline(offline_time, status) = machine_info.machine_status {
-                        // 如果是rented状态，则改为online
-                        if let MachineStatus::Rented = *status {
-                            machine_status =
-                                MachineStatus::StakerReportOffline(offline_time, Box::new(MachineStatus::Online));
-                        }
+                    // if machine is other status(Because machine is reported or offline by controller),
+                    // should not change to machine status.
+                    match machine_info.machine_status {
+                        MachineStatus::Rented => {},
+                        _ => continue,
                     }
 
-                    T::RTOps::change_machine_status(
-                        &a_machine,
-                        machine_status,
-                        None,
-                        Some((rent_info.rent_end - rent_info.rent_start).saturated_into()),
-                    );
+                    let rent_duration = (rent_info.rent_end - rent_info.rent_start)
+                        .saturated_into::<u64>()
+                        .checked_div(2880u64)
+                        .unwrap_or_default();
+
+                    T::RTOps::change_machine_status(&a_machine, MachineStatus::Online, None, Some(rent_duration));
 
                     Self::clean_order(&a_renter, &a_machine);
                 }

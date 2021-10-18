@@ -85,13 +85,44 @@ fn rent_machine_should_works() {
 fn controller_report_offline_when_online_should_work() {
     new_test_ext_after_machine_online().execute_with(|| {
         let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
-        // NOTE: 注意，一天内不能下线两次
-        // run_to_block(2880 + 50);
-
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+
+        let machine_info = OnlineProfile::machines_info(&machine_id);
+        assert_eq!(
+            machine_info.machine_status,
+            online_profile::MachineStatus::StakerReportOffline(11, Box::new(online_profile::MachineStatus::Online))
+        );
+
+        // Offline 20 block will result in slash
+        run_to_block(20);
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+
+        assert_eq!(
+            OnlineProfile::pending_slash(0),
+            online_profile::OPPendingSlashInfo {
+                slash_who: stash,
+                machine_id: machine_id.clone(),
+                slash_time: 21,
+                slash_amount: 8000 * ONE_DBC,
+                slash_exec_time: 21 + 2880 * 2,
+                reward_to_reporter: None,
+                reward_to_committee: None,
+                slash_reason: online_profile::OPSlashReason::OnlineReportOffline(10)
+            }
+        );
+        // Machine should be online now
+        let machine_info = OnlineProfile::machines_info(&machine_id);
+        assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
+
+        // check reserve balance
+        assert_eq!(Balances::reserved_balance(stash), 408000 * ONE_DBC);
+
+        run_to_block(22 + 2880 * 2);
+        assert_eq!(OnlineProfile::pending_slash(0), online_profile::OPPendingSlashInfo { ..Default::default() });
+        assert_eq!(Balances::reserved_balance(stash), 400000 * ONE_DBC);
     })
 }
 
@@ -99,40 +130,92 @@ fn controller_report_offline_when_online_should_work() {
 #[test]
 fn controller_report_offline_when_rented_should_work1() {
     new_test_ext_after_machine_online().execute_with(|| {
-        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let _machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
-        run_to_block(50);
+        let renter_dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 2));
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
 
-        // 机器报告下线，查询存储
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
 
-        // 机器报告上线，查询存储
+        run_to_block(20);
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+
+        assert_eq!(
+            OnlineProfile::pending_slash(0),
+            online_profile::OPPendingSlashInfo {
+                slash_who: stash,
+                machine_id: machine_id.clone(),
+                slash_time: 21,
+                slash_amount: 8000 * ONE_DBC,
+                slash_exec_time: 21 + 2880 * 2,
+                reward_to_reporter: None,
+                reward_to_committee: None,
+                slash_reason: online_profile::OPSlashReason::RentedReportOffline(10)
+            }
+        );
+
+        let machine_info = OnlineProfile::machines_info(&machine_id);
+        assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+
+        assert_eq!(Balances::reserved_balance(stash), 408000 * ONE_DBC);
+
+        run_to_block(22 + 2880 * 2);
+        assert_eq!(OnlineProfile::pending_slash(0), online_profile::OPPendingSlashInfo { ..Default::default() });
+        assert_eq!(Balances::reserved_balance(stash), 400000 * ONE_DBC);
     })
 }
 
-// Case2: after report online, machine is out of rent duration
+// when machine is rented, controller report offline,
+// when machine rent is finished, controller report online
 #[test]
-fn controller_report_offline_when_rented_should_work2() {
+fn rented_report_offline_rented_end_report_online() {
     new_test_ext_after_machine_online().execute_with(|| {
         let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
-        run_to_block(50);
-
         let renter_dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-
-        // Dave rent machine for 10 days
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 10));
-        run_to_block(51);
-
-        // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
+        assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 1));
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
 
-        run_to_block(51 + 2880);
+        // now, rent is 10 block left
+        run_to_block(2880);
+
+        let machine_info = OnlineProfile::machines_info(&machine_id);
+        assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
-    })
+        run_to_block(3000);
+
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_eq!(
+            OnlineProfile::pending_slash(0),
+            online_profile::OPPendingSlashInfo {
+                slash_who: stash,
+                machine_id: machine_id.clone(),
+                slash_time: 3001,
+                slash_amount: 16000 * ONE_DBC,
+                slash_exec_time: 3001 + 2880 * 2,
+                reward_to_reporter: None,
+                reward_to_committee: None,
+                slash_reason: online_profile::OPSlashReason::RentedReportOffline(120)
+            }
+        );
+
+        // rent-machine module will do check if rent finished after machine is reonline
+        run_to_block(3001);
+
+        let machine_info = OnlineProfile::machines_info(&machine_id);
+        assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
+        assert_eq!(machine_info.last_online_height, 3001);
+        assert_eq!(machine_info.total_rented_duration, 1);
+        assert_eq!(machine_info.total_rented_times, 1);
+
+        assert_eq!(1, 2);
+    });
 }
 
 #[test]
