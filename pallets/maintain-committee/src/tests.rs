@@ -571,5 +571,155 @@ fn test_report_and_slash() {
     new_test_with_init_params_ext().execute_with(|| {})
 }
 
+// OnlineRentFailed
 #[test]
-fn test_apply_slash_review() {}
+fn test_apply_slash_review() {
+    new_test_with_init_params_ext().execute_with(|| {
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
+
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let reporter_rand_str = "abcdef".as_bytes().to_vec();
+        let committee_rand_str = "fedcba".as_bytes().to_vec();
+        let err_reason = "它坏了".as_bytes().to_vec();
+        let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
+        let extra_err_info = Vec::new();
+
+        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+
+        assert_ok!(MaintainCommittee::report_machine_fault(
+            Origin::signed(reporter),
+            crate::MachineFaultType::OnlineRentFailed(report_hash, reporter_boxpubkey),
+        ));
+
+        // 委员会订阅机器故障报告
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
+        assert_eq!(
+            MaintainCommittee::live_report(),
+            crate::MTLiveReportList { verifying_report: vec![0], ..Default::default() }
+        );
+        assert_eq!(
+            MaintainCommittee::report_info(0),
+            crate::MTReportInfoDetail {
+                reporter,
+                report_time: 11,
+                reporter_stake: 1000 * ONE_DBC,
+                first_book_time: 11,
+                verifying_committee: Some(committee1),
+                booked_committee: vec![committee1],
+
+                confirm_start: 11 + 360,
+                report_status: crate::ReportStatus::Verifying,
+                machine_fault_type: crate::MachineFaultType::OnlineRentFailed(report_hash, reporter_boxpubkey),
+
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            MaintainCommittee::committee_ops(committee1, 0),
+            crate::MTCommitteeOpsDetail {
+                booked_time: 11,
+                staked_balance: 1000 * ONE_DBC,
+                order_status: crate::MTOrderStatus::WaitingEncrypt,
+                ..Default::default()
+            }
+        );
+
+        let encrypted_err_info: Vec<u8> = hex::decode("01405deeef2a8b0f4a09380d14431dd10fde1ad62b3c27b3fbea4701311d")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
+            Origin::signed(reporter),
+            0,
+            committee1,
+            encrypted_err_info.clone()
+        ));
+
+        // committee提交验证Hash
+        assert_ok!(MaintainCommittee::committee_submit_verify_hash(
+            Origin::signed(committee1),
+            0,
+            committee_hash.clone()
+        ));
+
+        // more than 1 hour later
+        run_to_block(11 + 130);
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee2), 0));
+
+        assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
+            Origin::signed(reporter),
+            0,
+            committee2,
+            encrypted_err_info.clone()
+        ));
+
+        // 3个小时之后才能提交：
+        run_to_block(360 + 13);
+
+        assert_ok!(MaintainCommittee::committee_submit_verify_raw(
+            Origin::signed(committee1),
+            0,
+            machine_id.clone(),
+            reporter_rand_str,
+            committee_rand_str,
+            err_reason.clone(),
+            extra_err_info,
+            true
+        ));
+
+        run_to_block(360 + 14);
+
+        assert_eq!(
+            MaintainCommittee::report_info(0),
+            super::MTReportInfoDetail {
+                reporter: reporter.clone(),
+                report_time: 11,
+                reporter_stake: 1000 * ONE_DBC,
+                first_book_time: 11,
+                machine_id: machine_id.clone(),
+                err_info: err_reason,
+                verifying_committee: None,
+                booked_committee: vec![committee2, committee1],
+                get_encrypted_info_committee: vec![committee2, committee1],
+                hashed_committee: vec![committee1],
+                confirm_start: 371,
+                confirmed_committee: vec![committee1],
+                support_committee: vec![committee1],
+                against_committee: vec![],
+                // TODO: should be committeeConfirmed
+                report_status: super::ReportStatus::SubmittingRaw,
+                machine_fault_type: crate::MachineFaultType::OnlineRentFailed(report_hash, reporter_boxpubkey),
+            }
+        );
+        // check report report result
+        assert_eq!(
+            MaintainCommittee::report_result(0),
+            super::MTReportResultInfo {
+                report_id: 0,
+                reporter,
+                reporter_stake: 1000 * ONE_DBC,
+                inconsistent_committee: vec![],
+                unruly_committee: vec![committee2],
+                reward_committee: vec![committee1],
+                committee_stake: 1000 * ONE_DBC,
+                // machine_stash: stash,
+                // machine_id: machine_id.clone(),
+                slash_time: 374,
+                slash_exec_time: 374 + 2880 * 2,
+                report_result: crate::ReportResultType::ReportSucceed,
+                slash_result: crate::MCSlashResult::Pending,
+                ..Default::default()
+            }
+        );
+        assert_eq!(1, 2);
+    })
+}

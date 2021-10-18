@@ -238,10 +238,10 @@ pub mod pallet {
             // 检查订单是否可以抢定
             ensure!(
                 report_info.report_status == ReportStatus::Reported ||
-                    report_info.report_status == ReportStatus::WaitingBook ||
-                    report_info.booked_committee.len() < 3,
+                    report_info.report_status == ReportStatus::WaitingBook,
                 Error::<T>::OrderNotAllowBook
             );
+            ensure!(report_info.booked_committee.len() < 3, Error::<T>::OrderNotAllowBook);
 
             // 记录预订订单的委员会
             ensure!(report_info.booked_committee.binary_search(&committee).is_err(), Error::<T>::AlreadyBooked);
@@ -445,10 +445,6 @@ pub mod pallet {
 
             let mut report_info = Self::report_info(report_id);
             ensure!(report_info.report_status == ReportStatus::SubmittingRaw, Error::<T>::OrderStatusNotFeat);
-
-            if let MachineFaultType::OnlineRentFailed(..) = report_info.machine_fault_type {
-                return Err(Error::<T>::OrderStatusNotFeat.into())
-            }
 
             let reporter_hash = match report_info.machine_fault_type {
                 MachineFaultType::RentedHardwareMalfunction(hash, _) |
@@ -1067,8 +1063,6 @@ impl<T: Config> Pallet<T> {
                 if now - committee_ops.booked_time >= ONE_HOUR.into() {
                     // 更改report_info
                     report_info.verifying_committee = None;
-                    ItemList::rm_item(&mut report_info.booked_committee, &verifying_committee);
-                    ItemList::rm_item(&mut report_info.get_encrypted_info_committee, &verifying_committee);
 
                     // 如果此时booked_committee.len() == 0；返回到最初始的状态，并允许取消报告
                     if report_info.booked_committee.len() == 0 {
@@ -1120,8 +1114,6 @@ impl<T: Config> Pallet<T> {
                     ItemList::rm_item(&mut report_info.booked_committee, &verifying_committee);
                     ItemList::rm_item(&mut report_info.get_encrypted_info_committee, &verifying_committee);
 
-                    report_info.report_status = ReportStatus::SubmittingRaw;
-
                     // 从最后一个委员会的存储中删除,并退还质押
                     let mut committee_order = Self::committee_order(&verifying_committee);
                     committee_order.clean_unfinished_order(&report_id);
@@ -1166,6 +1158,9 @@ impl<T: Config> Pallet<T> {
         {
             return false
         }
+
+        let is_report_succeed: bool;
+
         match Self::summary_report(report_id) {
             ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
                 // Slash against_committee and release support committee stake
@@ -1208,6 +1203,9 @@ impl<T: Config> Pallet<T> {
                     report_info.machine_id.clone(),
                     fault_type,
                 );
+
+                report_result.report_result = ReportResultType::ReportSucceed;
+                is_report_succeed = true;
             },
             ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                 // Slash support committee and release against committee stake
@@ -1217,6 +1215,9 @@ impl<T: Config> Pallet<T> {
                 for a_committee in against_committee.clone() {
                     ItemList::add_item(&mut report_result.reward_committee, a_committee);
                 }
+
+                report_result.report_result = ReportResultType::ReportRefused;
+                is_report_succeed = false;
             },
             // No consensus, will clean record & as new report to handle
             // In this case, no raw info is submitted, so committee record should be None
@@ -1249,38 +1250,37 @@ impl<T: Config> Pallet<T> {
                 ItemList::rm_item(&mut live_report.verifying_report, &report_id);
                 ItemList::add_item(&mut live_report.bookable_report, report_id);
                 live_report_is_changed = true;
+
+                report_result.report_result = ReportResultType::NoConsensus;
+                is_report_succeed = false;
             },
         }
 
-        if report_result.unruly_committee.len() > 0 || report_result.inconsistent_committee.len() > 0 {
-            report_result = MTReportResultInfo {
-                report_id,
-                reporter: report_info.reporter.clone(),
-                reporter_stake: report_info.reporter_stake,
+        report_result = MTReportResultInfo {
+            report_id,
+            reporter: report_info.reporter.clone(),
+            reporter_stake: report_info.reporter_stake,
 
-                committee_stake: committee_order_stake,
-                slash_time: now,
-                slash_exec_time: now + TWO_DAY.into(),
+            committee_stake: committee_order_stake,
+            slash_time: now,
+            slash_exec_time: now + TWO_DAY.into(),
 
-                report_result: ReportResultType::ReportRefused,
-                slash_result: MCSlashResult::Pending,
+            slash_result: MCSlashResult::Pending,
 
-                ..report_result
-            };
+            ..report_result
+        };
 
-            ReportResult::<T>::insert(report_id, report_result);
-            Self::update_unhandled_report(report_id, true);
+        if report_result.unruly_committee.len() == 0 &&
+            report_result.inconsistent_committee.len() == 0 &&
+            is_report_succeed
+        {
+            // committee is consistent
+            report_result.slash_result = MCSlashResult::Executed;
         } else {
-            let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
-            for a_committee in report_result.reward_committee {
-                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
-                    a_committee.clone(),
-                    committee_order_stake,
-                    false,
-                );
-            }
+            Self::update_unhandled_report(report_id, true);
         }
 
+        ReportResult::<T>::insert(report_id, report_result);
         ReportInfo::<T>::insert(report_id, report_info);
         live_report_is_changed
     }
