@@ -420,12 +420,19 @@ fn test_heart_beat2() {
             MaintainCommittee::committee_ops(&committee1, 0),
             super::MTCommitteeOpsDetail { ..Default::default() }
         );
+
+        // Because no committee book now, so revert this field
         assert_eq!(
             MaintainCommittee::report_info(0),
             super::MTReportInfoDetail {
                 reporter: reporter.clone(),
                 report_time: 11,
                 reporter_stake: 1000 * ONE_DBC,
+                first_book_time: 0,
+                verifying_committee: None,
+                booked_committee: vec![],
+                get_encrypted_info_committee: vec![],
+                confirm_start: 0,
                 report_status: super::ReportStatus::Reported,
                 machine_fault_type: super::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
                 ..Default::default()
@@ -557,7 +564,9 @@ fn test_heart_beat3() {
                 hashed_committee: vec![committee1],
                 confirm_start: 371,
                 reporter_stake: 1000 * ONE_DBC,
-                report_status: super::ReportStatus::SubmittingRaw,
+
+                report_status: super::ReportStatus::Verifying,
+                // report_status: super::ReportStatus::SubmittingRaw,
                 machine_fault_type: super::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
                 ..Default::default()
             }
@@ -577,9 +586,9 @@ fn test_apply_slash_review() {
     new_test_with_init_params_ext().execute_with(|| {
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
         let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
+        let _committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
 
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let reporter_rand_str = "abcdef".as_bytes().to_vec();
@@ -688,15 +697,14 @@ fn test_apply_slash_review() {
                 machine_id: machine_id.clone(),
                 err_info: err_reason,
                 verifying_committee: None,
-                booked_committee: vec![committee2, committee1],
-                get_encrypted_info_committee: vec![committee2, committee1],
+                booked_committee: vec![committee1],
+                get_encrypted_info_committee: vec![committee1],
                 hashed_committee: vec![committee1],
                 confirm_start: 371,
                 confirmed_committee: vec![committee1],
                 support_committee: vec![committee1],
                 against_committee: vec![],
-                // TODO: should be committeeConfirmed
-                report_status: super::ReportStatus::SubmittingRaw,
+                report_status: super::ReportStatus::CommitteeConfirmed,
                 machine_fault_type: crate::MachineFaultType::OnlineRentFailed(report_hash, reporter_boxpubkey),
             }
         );
@@ -720,6 +728,5 @@ fn test_apply_slash_review() {
                 ..Default::default()
             }
         );
-        assert_eq!(1, 2);
     })
 }

@@ -1052,6 +1052,7 @@ impl<T: Config> Pallet<T> {
 
                     ItemList::rm_item(&mut live_report.verifying_report, &report_id);
                     live_report_is_changed = true;
+                    // if report_info.
                     report_result.report_result = ReportResultType::ReporterNotSubmitEncryptedInfo;
                     ReportResult::<T>::insert(report_id, report_result);
                     Self::update_unhandled_report(report_id, true);
@@ -1063,6 +1064,9 @@ impl<T: Config> Pallet<T> {
                 if now - committee_ops.booked_time >= ONE_HOUR.into() {
                     // 更改report_info
                     report_info.verifying_committee = None;
+                    // 删除，以允许其他委员会进行抢单
+                    ItemList::rm_item(&mut report_info.booked_committee, &verifying_committee);
+                    ItemList::rm_item(&mut report_info.get_encrypted_info_committee, &verifying_committee);
 
                     // 如果此时booked_committee.len() == 0；返回到最初始的状态，并允许取消报告
                     if report_info.booked_committee.len() == 0 {
@@ -1276,10 +1280,20 @@ impl<T: Config> Pallet<T> {
         {
             // committee is consistent
             report_result.slash_result = MCSlashResult::Executed;
+            let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
+            for a_committee in report_result.reward_committee.clone() {
+                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                    a_committee.clone(),
+                    committee_order_stake,
+                    false,
+                );
+            }
         } else {
             Self::update_unhandled_report(report_id, true);
         }
-
+        if report_info.report_status != ReportStatus::Reported {
+            report_info.report_status = ReportStatus::CommitteeConfirmed;
+        }
         ReportResult::<T>::insert(report_id, report_result);
         ReportInfo::<T>::insert(report_id, report_info);
         live_report_is_changed
