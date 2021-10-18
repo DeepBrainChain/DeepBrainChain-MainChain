@@ -78,6 +78,15 @@ pub mod pallet {
     #[pallet::getter(fn galaxy_is_on)]
     pub(super) type GalaxyIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+    #[pallet::type_value]
+    pub(super) fn GalaxyOnGPUThresholdDefault<T: Config>() -> u32 {
+        5000
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn galaxy_on_gpu_threshold)]
+    pub(super) type GalaxyOnGPUThreshold<T: Config> = StorageValue<_, u32, ValueQuery, GalaxyOnGPUThresholdDefault<T>>;
+
     /// Statistics of gpu and stake
     #[pallet::storage]
     #[pallet::getter(fn sys_info)]
@@ -258,6 +267,26 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StandardGPUPointPrice::<T>::put(point_price);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_galaxy_on(origin: OriginFor<T>, is_on: bool) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            GalaxyIsOn::<T>::put(is_on);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_galaxy_on_gpu_threshold(origin: OriginFor<T>, gpu_threshold: u32) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            GalaxyOnGPUThreshold::<T>::put(gpu_threshold);
+
+            let sys_info = Self::sys_info();
+            // NOTE: 5000张卡开启银河竞赛
+            if !Self::galaxy_is_on() && sys_info.total_gpu_num > gpu_threshold as u64 {
+                GalaxyIsOn::<T>::put(true);
+            }
             Ok(().into())
         }
 
@@ -1053,7 +1082,7 @@ impl<T: Config> Pallet<T> {
         sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
         // NOTE: 5000张卡开启银河竞赛
-        if !Self::galaxy_is_on() && sys_info.total_gpu_num > 5000 {
+        if !Self::galaxy_is_on() && sys_info.total_gpu_num > Self::galaxy_on_gpu_threshold() as u64 {
             GalaxyIsOn::<T>::put(true);
         }
 

@@ -565,8 +565,11 @@ fn test_heart_beat3() {
     })
 }
 
-// TODO: 1. 被人举报，委员会主动上线，惩罚被增加
+// TODO: 被人举报，委员会主动上线，惩罚被增加
 #[test]
 fn test_report_and_slash() {
     new_test_with_init_params_ext().execute_with(|| {})
 }
+
+#[test]
+fn test_apply_slash_review() {}
