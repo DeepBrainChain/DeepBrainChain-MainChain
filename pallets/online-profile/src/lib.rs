@@ -796,7 +796,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: should cancel slash and slash reward
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
@@ -806,8 +805,8 @@ pub mod pallet {
 
             Self::change_user_total_stake(slash_info.slash_who.clone(), slash_info.slash_amount, false)
                 .map_err(|_| Error::<T>::ReduceStakeFailed)?;
-            PendingSlash::<T>::remove(slash_id);
 
+            PendingSlash::<T>::remove(slash_id);
             Self::deposit_event(Event::SlashCanceled(slash_id, slash_info.slash_who, slash_info.slash_amount));
             Ok(().into())
         }

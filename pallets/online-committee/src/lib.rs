@@ -323,9 +323,7 @@ pub mod pallet {
             }
             let mut should_reward = slash_info.inconsistent_committee.clone();
 
-            // TODO: add here
-            let is_stash_slashed = false;
-
+            let is_stash_slashed = slash_info.book_result == OCBookResultType::OnlineRefused;
             if is_stash_slashed {
                 ItemList::add_item(&mut should_reward, slash_info.machine_stash.clone());
                 let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
@@ -339,7 +337,6 @@ pub mod pallet {
                     committee_order_stake,
                     should_reward.clone(),
                 );
-                // TODO: slash stash, and reward should_reward
             };
 
             slash_info.slash_result = OCSlashResult::Canceled;

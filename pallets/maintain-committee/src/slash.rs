@@ -128,7 +128,6 @@ impl<T: Config> Pallet<T> {
                         report_result_info.committee_stake,
                         true,
                     );
-                    // TODO: ensure other committee has been unreserved
                 },
             }
 

@@ -199,7 +199,6 @@ fn report_machine_fault_works() {
             MaintainCommittee::committee_order(committee1),
             super::MTCommitteeOrderList { finished_report: vec![0], ..Default::default() }
         );
-        // TODO: check here
         // assert_eq!(&MachineCommittee::report_info(0), &super::MTReportInfoDetail { ..Default::default() });
         // assert_eq!(&MaintainCommittee::report_info(0), &report_info);
         assert_eq!(

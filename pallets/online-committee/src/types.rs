@@ -142,7 +142,7 @@ pub struct OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub stash_slash_amount: Balance,
 
     // TODO: maybe should record slash_reason: refuse online refused or change hardware
-    // TODO: info refused, maybe slash amount is different
+    // info refused, maybe slash amount is different
     pub inconsistent_committee: Vec<AccountId>,
     pub unruly_committee: Vec<AccountId>,
     pub reward_committee: Vec<AccountId>,
@@ -160,7 +160,7 @@ pub enum OCBookResultType {
     OnlineSucceed,
     OnlineRefused,
     NoConsensus,
-    // TODO: add if is reonline
+    // TODO: May add if is reonline
 }
 
 impl Default for OCBookResultType {

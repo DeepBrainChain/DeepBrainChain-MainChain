@@ -238,7 +238,6 @@ impl<T: Config> Pallet<T> {
             },
             _ => {
                 // TODO: 如果机器从首次上线时间起超过365天，剩下20%押金可以申请退回。
-
                 // 扣除80%质押币。质押币全部进入国库。
                 return Self::add_offline_slash(80, machine_id, None, None, slash_reason)
             },
