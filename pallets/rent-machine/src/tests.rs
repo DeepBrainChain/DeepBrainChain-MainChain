@@ -213,8 +213,6 @@ fn rented_report_offline_rented_end_report_online() {
         assert_eq!(machine_info.last_online_height, 3001);
         assert_eq!(machine_info.total_rented_duration, 1);
         assert_eq!(machine_info.total_rented_times, 1);
-
-        assert_eq!(1, 2);
     });
 }
 
