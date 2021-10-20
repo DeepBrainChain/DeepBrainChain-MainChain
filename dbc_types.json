@@ -48,6 +48,10 @@
     "stake_amount": "Balance",
     "offline_time": "BlockNumber"
   },
+  "UserMutHardwareStakeInfo": {
+    "stake_amount": "Balance",
+    "offline_time": "BlockNumber"
+  },
   "MachineInfo": {
     "controller": "AccountId",
     "machine_stash": "AccountId",
@@ -176,6 +180,32 @@
   },
   "OCVerifyStatus": {
     "_enum": ["SubmittingHash", "SubmittingRaw", "Summarizing", "Finished"]
+  },
+  "OCPendingSlashInfo": {
+    "machine_id": "MachineId",
+    "machine_stash": "AccountId",
+    "stash_slash_amount": "Balance",
+    "inconsistent_committee": "Vec<AccountId>",
+    "unruly_committee": "Vec<AccountId>",
+    "reward_committee": "Vec<AccountId>",
+    "committee_stake": "Balance",
+    "slash_time": "BlockNumber",
+    "slash_exec_time": "BlockNumber",
+    "book_result": "OCBookResultType",
+    "slash_result": "OCSlashResult"
+  },
+  "OCBookResultType": {
+    "_enum": ["OnlineSucceed", "OnlineRefused", "NoConsensus"]
+  },
+  "OCSlashResult": {
+    "_enum": ["Pending", "Canceled", "Executed"]
+  },
+  "OCPendingSlashReviewInfo": {
+    "applicant": "AccountId",
+    "staked_amount": "Balance",
+    "apply_time": "BlockNumber",
+    "expire_time": "BlockNumber",
+    "reason": "Vec<u8>"
   },
   "ReporterReportList": {
     "processing_report": "Vec<ReportId>",
