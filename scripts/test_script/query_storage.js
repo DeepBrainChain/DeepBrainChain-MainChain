@@ -61,6 +61,8 @@ async function main() {
   funcMap["rentMachine"] = {};
   funcMap["rentMachine"]["userTotalStake"] =
     api.query.rentMachine.userTotalStake;
+  funcMap["rentMachine"]["userRented"] = api.query.rentMachine.userRented;
+  funcMap["rentMachine"]["rentOrder"] = api.query.rentMachine.rentOrder;
 
   funcMap["maintainCommittee"] = {};
   funcMap["maintainCommittee"]["committeeOps"] =
@@ -76,7 +78,7 @@ async function main() {
 
 async function do_query(callFunc, heightHash, ...args) {
   const a = await callFunc(heightHash, ...args);
-  console.log(a.toJSON());
+  console.log(a.toString());
   // console.log(`${a.machine_info_detail.staker_customize_info}`);
   process.exit(0);
 }

@@ -95,6 +95,12 @@ impl<T: Config> Pallet<T> {
                 vec![],
             );
 
+            let _ = <T as Config>::SlashAndReward::slash_and_reward(
+                slash_info.inconsistent_committee.clone(),
+                slash_info.committee_stake,
+                vec![],
+            );
+
             slash_info.slash_result = OCSlashResult::Executed;
             ItemList::rm_item(&mut pending_unhandled_id, &slash_id);
             PendingSlash::<T>::insert(slash_id, slash_info);

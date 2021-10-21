@@ -165,11 +165,11 @@ impl<T: Config> OCOps for Pallet<T> {
 
         // Slash 5% of init stake(5% of one gpu stake)
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
-        // let left_stake = machine_info.stake_amount.checked_sub(&slash)?;
 
-        // // Remain 5% of init stake(5% of one gpu stake)
-        // // Return 95% left stake(95% of one gpu stake)
-        // let _ = Self::change_user_total_stake(machine_info.machine_stash.clone(), left_stake, false);
+        let left_stake = machine_info.stake_amount.checked_sub(&slash)?;
+        // Remain 5% of init stake(5% of one gpu stake)
+        // Return 95% left stake(95% of one gpu stake)
+        let _ = Self::change_user_total_stake(machine_info.machine_stash.clone(), left_stake, false);
 
         // Clean storage
         ItemList::rm_item(&mut controller_machines, &machine_id);
