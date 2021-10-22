@@ -57,54 +57,57 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn check_and_exec_pending_slash() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
         let mut pending_unhandled_id = Self::unhandled_slash();
 
         for slash_id in pending_unhandled_id.clone() {
-            let mut slash_info = Self::pending_slash(slash_id);
-            if now < slash_info.slash_exec_time {
+            if let Err(_) = Self::do_a_slash(slash_id, &mut pending_unhandled_id) {
                 continue
-            }
-
-            if !slash_info.stash_slash_amount.is_zero() {
-                // stash is slashed
-                let _ = T::OCOperations::oc_exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount);
-
-                let _ = <T as Config>::SlashAndReward::slash_and_reward(
-                    vec![slash_info.machine_stash.clone()],
-                    slash_info.stash_slash_amount,
-                    vec![],
-                );
-            }
-
-            // Change committee stake amount
-            let _ = Self::change_committee_stake(
-                slash_info.inconsistent_committee.clone(),
-                slash_info.committee_stake,
-                true,
-            );
-            let _ = Self::change_committee_stake(slash_info.unruly_committee.clone(), slash_info.committee_stake, true);
-            let _ =
-                Self::change_committee_stake(slash_info.reward_committee.clone(), slash_info.committee_stake, false);
-
-            let _ = <T as Config>::SlashAndReward::slash_and_reward(
-                slash_info.unruly_committee.clone(),
-                slash_info.committee_stake,
-                vec![],
-            );
-
-            let _ = <T as Config>::SlashAndReward::slash_and_reward(
-                slash_info.inconsistent_committee.clone(),
-                slash_info.committee_stake,
-                vec![],
-            );
-
-            slash_info.slash_result = OCSlashResult::Executed;
-            ItemList::rm_item(&mut pending_unhandled_id, &slash_id);
-            PendingSlash::<T>::insert(slash_id, slash_info);
+            };
         }
 
         UnhandledSlash::<T>::put(pending_unhandled_id);
+        Ok(())
+    }
+
+    fn do_a_slash(slash_id: SlashId, pending_unhandled_slash: &mut Vec<SlashId>) -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+        let mut slash_info = Self::pending_slash(slash_id);
+        if now < slash_info.slash_exec_time {
+            return Ok(())
+        }
+
+        if !slash_info.stash_slash_amount.is_zero() {
+            // stash is slashed
+            T::OCOperations::oc_exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount)?;
+
+            <T as Config>::SlashAndReward::slash_and_reward(
+                vec![slash_info.machine_stash.clone()],
+                slash_info.stash_slash_amount,
+                slash_info.reward_committee.clone(),
+            )?;
+        }
+
+        // Change committee stake amount
+        Self::change_committee_stake(slash_info.inconsistent_committee.clone(), slash_info.committee_stake, true)?;
+        Self::change_committee_stake(slash_info.unruly_committee.clone(), slash_info.committee_stake, true)?;
+        Self::change_committee_stake(slash_info.reward_committee.clone(), slash_info.committee_stake, false)?;
+
+        <T as Config>::SlashAndReward::slash_and_reward(
+            slash_info.unruly_committee.clone(),
+            slash_info.committee_stake,
+            vec![],
+        )?;
+
+        <T as Config>::SlashAndReward::slash_and_reward(
+            slash_info.inconsistent_committee.clone(),
+            slash_info.committee_stake,
+            vec![],
+        )?;
+
+        slash_info.slash_result = OCSlashResult::Executed;
+        ItemList::rm_item(pending_unhandled_slash, &slash_id);
+        PendingSlash::<T>::insert(slash_id, slash_info);
+
         Ok(())
     }
 }
