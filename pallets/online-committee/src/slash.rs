@@ -1,6 +1,4 @@
-use crate::{
-    types::OCSlashResult, Config, OCBookResultType, Pallet, PendingSlash, PendingSlashReview, UnhandledReportResult,
-};
+use crate::{types::OCSlashResult, Config, OCBookResultType, Pallet, PendingSlash, PendingSlashReview, UnhandledSlash};
 use frame_support::IterableStorageMap;
 use generic_func::{ItemList, SlashId};
 use online_profile_machine::{GNOps, OCOps};
@@ -60,7 +58,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn check_and_exec_pending_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
-        let mut pending_unhandled_id = Self::unhandled_report_result();
+        let mut pending_unhandled_id = Self::unhandled_slash();
 
         for slash_id in pending_unhandled_id.clone() {
             let mut slash_info = Self::pending_slash(slash_id);
@@ -106,7 +104,7 @@ impl<T: Config> Pallet<T> {
             PendingSlash::<T>::insert(slash_id, slash_info);
         }
 
-        UnhandledReportResult::<T>::put(pending_unhandled_id);
+        UnhandledSlash::<T>::put(pending_unhandled_id);
         Ok(())
     }
 }

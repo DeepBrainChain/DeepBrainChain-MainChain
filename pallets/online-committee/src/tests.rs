@@ -2141,7 +2141,7 @@ fn test_machine_online_succeed_slash_execed() {
                 ..Default::default()
             }
         );
-        assert_ok!(OnlineCommittee::unhandled_report_result().binary_search(&0));
+        assert_ok!(OnlineCommittee::unhandled_slash().binary_search(&0));
 
         // 检查三个委员会的质押
         assert_eq!(
@@ -2240,7 +2240,7 @@ fn test_machine_online_succeed_slash_execed() {
         assert_eq!(Balances::reserved_balance(&committee3), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&committee4), 19000 * ONE_DBC);
 
-        assert_eq!(OnlineCommittee::unhandled_report_result().binary_search(&0).is_err(), true);
+        assert_eq!(OnlineCommittee::unhandled_slash().binary_search(&0).is_err(), true);
     })
 }
 
@@ -2340,7 +2340,7 @@ fn test_machine_online_failed_slash_execed() {
                 slash_result: crate::OCSlashResult::Pending,
             }
         );
-        assert_ok!(OnlineCommittee::unhandled_report_result().binary_search(&0));
+        assert_ok!(OnlineCommittee::unhandled_slash().binary_search(&0));
 
         assert_eq!(
             OnlineProfile::live_machines(),
@@ -2424,7 +2424,7 @@ fn test_machine_online_failed_slash_execed() {
         assert_eq!(Balances::reserved_balance(&machine_stash), 0);
         assert_eq!(Balances::free_balance(&machine_stash), (10000000 - 5000) * ONE_DBC);
 
-        assert_eq!(OnlineCommittee::unhandled_report_result().binary_search(&0).is_err(), true);
+        assert_eq!(OnlineCommittee::unhandled_slash().binary_search(&0).is_err(), true);
     })
 }
 
@@ -2527,7 +2527,7 @@ fn test_machine_online_succeed_against_committee_apply_review() {
 
         // 设置technical committee
         // technical 什么也不做
-        // assert_ok!(OnlineCommittee::do_cancel_slash(0));
+        assert_ok!(OnlineCommittee::do_cancel_slash(0));
     })
 }
 

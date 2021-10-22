@@ -18,6 +18,7 @@ use frame_system::{ensure_signed, pallet_prelude::*};
 use generic_func::{ItemList, MachineId, SlashId};
 use online_profile::CommitteeUploadInfo;
 use online_profile_machine::{GNOps, ManageCommittee, OCOps};
+use sp_runtime::traits::Zero;
 use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;
@@ -114,8 +115,8 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    #[pallet::getter(fn unhandled_report_result)]
-    pub(super) type UnhandledReportResult<T: Config> = StorageValue<_, Vec<SlashId>, ValueQuery>;
+    #[pallet::getter(fn unhandled_slash)]
+    pub(super) type UnhandledSlash<T: Config> = StorageValue<_, Vec<SlashId>, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -512,9 +513,9 @@ impl<T: Config> Pallet<T> {
                         slash_result: OCSlashResult::Pending,
                     },
                 );
-                let mut unhandled_report_result = Self::unhandled_report_result();
-                ItemList::add_item(&mut unhandled_report_result, slash_id);
-                UnhandledReportResult::<T>::put(unhandled_report_result);
+                let mut unhandled_slash = Self::unhandled_slash();
+                ItemList::add_item(&mut unhandled_slash, slash_id);
+                UnhandledSlash::<T>::put(unhandled_slash);
             }
 
             // Do cleaning
@@ -699,19 +700,15 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let mut slash_info = Self::pending_slash(slash_id);
         let slash_review_info = Self::pending_slash_review(slash_id);
+        let committee_order_stake =
+            <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
         ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
-
-        let _ =
-            <T as pallet::Config>::Currency::unreserve(&slash_review_info.applicant, slash_review_info.staked_amount);
 
         let is_applicant_slashed_stash = match slash_info.book_result {
             OCBookResultType::OnlineRefused => &slash_info.machine_stash == &slash_review_info.applicant,
             _ => false,
         };
-
-        let committee_order_stake =
-            <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
         // Return reserved balance when apply for review
         if is_applicant_slashed_stash {
@@ -721,6 +718,10 @@ impl<T: Config> Pallet<T> {
                 false,
             );
         } else {
+            let _ = <T as pallet::Config>::Currency::unreserve(
+                &slash_review_info.applicant,
+                slash_review_info.staked_amount,
+            );
             let _ = <T as Config>::ManageCommittee::change_total_stake(
                 slash_review_info.applicant.clone(),
                 committee_order_stake,
@@ -734,34 +735,28 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut should_slash = slash_info.reward_committee.clone();
+        let mut should_reward = slash_info.inconsistent_committee.clone();
+
         for a_committee in slash_info.unruly_committee.clone() {
             ItemList::add_item(&mut should_slash, a_committee);
         }
-        let mut should_reward = slash_info.inconsistent_committee.clone();
-
-        let is_stash_slashed = slash_info.book_result == OCBookResultType::OnlineRefused;
-        if is_stash_slashed {
+        if let OCBookResultType::OnlineRefused = slash_info.book_result {
             ItemList::add_item(&mut should_reward, slash_info.machine_stash.clone());
-            let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
-                should_slash,
-                committee_order_stake,
-                should_reward.clone(),
-            );
-        } else {
-            let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
-                should_slash,
-                committee_order_stake,
-                should_reward.clone(),
-            );
-        };
+        }
+
+        let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+            should_slash,
+            committee_order_stake,
+            should_reward.clone(),
+        );
 
         slash_info.slash_result = OCSlashResult::Canceled;
 
         // remove from unhandled report result
-        let mut unhandled_report_result = Self::unhandled_report_result();
-        ItemList::rm_item(&mut unhandled_report_result, &slash_id);
+        let mut unhandled_slash = Self::unhandled_slash();
+        ItemList::rm_item(&mut unhandled_slash, &slash_id);
 
-        UnhandledReportResult::<T>::put(unhandled_report_result);
+        UnhandledSlash::<T>::put(unhandled_slash);
         PendingSlash::<T>::insert(slash_id, slash_info);
         PendingSlashReview::<T>::remove(slash_id);
 
