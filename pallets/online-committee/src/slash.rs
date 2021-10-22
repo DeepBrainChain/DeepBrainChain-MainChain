@@ -6,57 +6,60 @@ use sp_runtime::traits::Zero;
 use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {
-    pub fn check_and_exec_pending_review() -> Result<(), ()> {
+    pub fn check_and_exec_pending_review() {
         let all_pending_review = <PendingSlashReview<T> as IterableStorageMap<SlashId, _>>::iter()
             .map(|(slash_id, _)| slash_id)
             .collect::<Vec<_>>();
 
+        for a_pending_review in all_pending_review {
+            if let Err(_) = Self::do_a_pending_review(a_pending_review) {
+                continue
+            };
+        }
+    }
+
+    fn do_a_pending_review(a_pending_review: SlashId) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
 
-        for a_pending_review in all_pending_review {
-            let review_info = Self::pending_slash_review(a_pending_review);
-            let slash_info = Self::pending_slash(a_pending_review);
+        let review_info = Self::pending_slash_review(a_pending_review);
+        let slash_info = Self::pending_slash(a_pending_review);
 
-            if review_info.expire_time < now {
-                continue
-            }
-
-            let is_slashed_stash = match slash_info.book_result {
-                OCBookResultType::OnlineRefused => &slash_info.machine_stash == &review_info.applicant,
-                _ => false,
-            };
-
-            if is_slashed_stash {
-                // slash stash
-
-                // Change stake amount
-                // NOTE: should not change slash_info.slash_amount, because it will be done in check_and_exec_pending_slash
-                let _ = T::OCOperations::oc_exec_slash(slash_info.machine_stash.clone(), review_info.staked_amount);
-
-                let _ = <T as Config>::SlashAndReward::slash_and_reward(
-                    vec![slash_info.machine_stash],
-                    slash_info.stash_slash_amount,
-                    slash_info.reward_committee,
-                );
-            } else {
-                let _ =
-                    Self::change_committee_stake(vec![review_info.applicant.clone()], review_info.staked_amount, true);
-            }
-
-            // Slash applicant to treasury
-            let _ = <T as Config>::SlashAndReward::slash_and_reward(
-                vec![review_info.applicant],
-                review_info.staked_amount,
-                vec![],
-            );
-
-            PendingSlashReview::<T>::remove(a_pending_review);
+        if review_info.expire_time < now {
+            return Ok(())
         }
 
+        let is_slashed_stash = match slash_info.book_result {
+            OCBookResultType::OnlineRefused => &slash_info.machine_stash == &review_info.applicant,
+            _ => false,
+        };
+
+        if is_slashed_stash {
+            // slash stash
+            // Change stake amount
+            // NOTE: should not change slash_info.slash_amount, because it will be done in check_and_exec_pending_slash
+            T::OCOperations::oc_exec_slash(slash_info.machine_stash.clone(), review_info.staked_amount)?;
+
+            <T as Config>::SlashAndReward::slash_and_reward(
+                vec![slash_info.machine_stash],
+                slash_info.stash_slash_amount,
+                slash_info.reward_committee,
+            )?;
+        } else {
+            Self::change_committee_stake(vec![review_info.applicant.clone()], review_info.staked_amount, true)?;
+        }
+
+        // Slash applicant to treasury
+        <T as Config>::SlashAndReward::slash_and_reward(
+            vec![review_info.applicant],
+            review_info.staked_amount,
+            vec![],
+        )?;
+
+        PendingSlashReview::<T>::remove(a_pending_review);
         Ok(())
     }
 
-    pub fn check_and_exec_pending_slash() -> Result<(), ()> {
+    pub fn check_and_exec_pending_slash() {
         let mut pending_unhandled_id = Self::unhandled_slash();
 
         for slash_id in pending_unhandled_id.clone() {
@@ -64,9 +67,7 @@ impl<T: Config> Pallet<T> {
                 continue
             };
         }
-
         UnhandledSlash::<T>::put(pending_unhandled_id);
-        Ok(())
     }
 
     fn do_a_slash(slash_id: SlashId, pending_unhandled_slash: &mut Vec<SlashId>) -> Result<(), ()> {

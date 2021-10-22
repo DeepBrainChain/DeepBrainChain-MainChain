@@ -51,8 +51,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
-            let _ = Self::check_and_exec_pending_review();
-            let _ = Self::check_and_exec_pending_slash();
+            Self::check_and_exec_pending_review();
+            Self::check_and_exec_pending_slash();
             0
         }
 
