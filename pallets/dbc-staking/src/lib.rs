@@ -265,7 +265,7 @@
 //! - [Session](../pallet_session/index.html): Used to manage sessions. Also, a list of new
 //!   validators is stored in the Session module's `Validators` at the end of each era.
 
-#![recursion_limit = "128"]
+#![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -697,6 +697,26 @@ pub struct ElectionSize {
     pub nominators: NominatorIndex,
 }
 
+// foundation reward params
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct FoundationIssueRewards<AccountId: Ord, Balance> {
+    pub who: Vec<AccountId>,
+    pub left_reward_times: u32,
+    pub reward_start: EraIndex,
+    pub reward_interval: EraIndex,
+    pub reward_amount: Balance,
+}
+
+// Treasury issue params
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct TreasuryIssueRewards<AccountId, Balance> {
+    pub treasury_account: AccountId,
+    pub left_reward_times: u32,
+    pub reward_start: EraIndex,
+    pub reward_interval: EraIndex,
+    pub reward_amount: Balance,
+}
+
 impl<BlockNumber: PartialEq> ElectionStatus<BlockNumber> {
     pub fn is_open_at(&self, n: BlockNumber) -> bool {
         *self == Self::Open(n)
@@ -1086,6 +1106,9 @@ decl_storage! {
         pub CommitteeTeamRewardPerYear get(fn committee_team_reward_per_year): Vec<(T::AccountId, BalanceOf<T>)>;
         pub FirstCommitteeTeamReleaseEra get(fn first_committee_team_release_era): EraIndex;
         pub RewardTimes get(fn reward_times): u32 = 6;
+
+        pub FoundationReward get(fn foundation_reward): FoundationIssueRewards<T::AccountId, BalanceOf<T>>;
+        pub TreasuryReward get(fn treasury_reward): TreasuryIssueRewards<T::AccountId, BalanceOf<T>>;
 
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
@@ -2311,6 +2334,26 @@ decl_module! {
             CommitteeTeamRewardPerYear::<T>::put(committee_team_reward_per_year);
             Ok(())
         }
+
+        #[weight = 0]
+        pub fn set_foundation_params(
+            origin,
+            foundation_reward: FoundationIssueRewards<T::AccountId, BalanceOf<T>>
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            <FoundationReward<T>>::put(foundation_reward);
+            Ok(())
+        }
+
+        #[weight = 0]
+        pub fn set_treasury_params(
+            origin,
+            treasury_reward: TreasuryIssueRewards<T::AccountId, BalanceOf<T>>
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            <TreasuryReward<T>>::put(treasury_reward);
+            Ok(())
+        }
     }
 }
 
@@ -2806,6 +2849,8 @@ impl<T: Config> Module<T> {
                 Self::reward_to_committee_team();
             }
 
+            Self::issue_reward(active_era.index);
+
             let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
             let era_duration = now_as_millis_u64 - active_era_start;
 
@@ -2857,6 +2902,38 @@ impl<T: Config> Module<T> {
             T::Currency::deposit_creating(&dest_account, amount);
         }
         RewardTimes::put(reward_times - 1);
+    }
+
+    fn issue_reward(era_index: EraIndex) {
+        // release foundation reward && issue to treasury
+        let mut foundation_reward = Self::foundation_reward();
+        let mut treasury_reward = Self::treasury_reward();
+
+        if foundation_reward.reward_interval == 0 || treasury_reward.reward_interval == 0 {
+            return
+        }
+
+        if foundation_reward.left_reward_times > 0 &&
+            era_index > foundation_reward.reward_start &&
+            (era_index - foundation_reward.reward_start) % foundation_reward.reward_interval == 0
+        {
+            for a_foundation in foundation_reward.who.clone() {
+                T::Currency::deposit_creating(&a_foundation, foundation_reward.reward_amount);
+            }
+
+            foundation_reward.left_reward_times -= 1;
+            <FoundationReward<T>>::put(foundation_reward);
+        }
+
+        if treasury_reward.left_reward_times > 0 &&
+            era_index > treasury_reward.reward_start &&
+            (era_index - treasury_reward.reward_start) % treasury_reward.reward_interval == 0
+        {
+            T::Currency::deposit_creating(&treasury_reward.treasury_account, treasury_reward.reward_amount);
+
+            treasury_reward.left_reward_times -= 1;
+            <TreasuryReward<T>>::put(treasury_reward);
+        }
     }
 
     /// Plan a new era. Return the potential new staking set.
