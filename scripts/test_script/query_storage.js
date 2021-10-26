@@ -57,6 +57,8 @@ async function main() {
     api.query.onlineProfile.erasMachinePoints;
   funcMap["onlineProfile"]["erasStashPoints"] =
     api.query.onlineProfile.erasStashPoints;
+  funcMap["onlineProfile"]["erasMachineReward"] =
+    api.query.onlineProfile.erasMachineReward;
 
   funcMap["rentMachine"] = {};
   funcMap["rentMachine"]["userTotalStake"] =

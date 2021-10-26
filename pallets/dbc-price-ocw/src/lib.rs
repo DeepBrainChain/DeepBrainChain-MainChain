@@ -9,7 +9,7 @@ use sp_runtime::{
     offchain::{http, Duration},
     traits::{CheckedDiv, CheckedMul, SaturatedConversion},
 };
-use sp_std::{str, vec::Vec};
+use sp_std::{collections::vec_deque::VecDeque, str, vec::Vec};
 
 pub use pallet::*;
 pub mod parse_price;
@@ -41,7 +41,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn prices)]
-    pub type Prices<T> = StorageValue<_, Vec<u64>, ValueQuery>;
+    pub type Prices<T> = StorageValue<_, VecDeque<u64>, ValueQuery>;
 
     // https://min-api.cryptocompare.com/data/price?fsym=DBC&tsyms=USD
     #[pallet::storage]
@@ -184,11 +184,10 @@ impl<T: Config> Pallet<T> {
     // 存储获取到的价格
     pub fn add_price(price: u64) {
         let mut prices = Prices::<T>::get();
-        if prices.len() < MAX_LEN {
-            prices.push(price);
-        } else {
-            prices[price as usize % MAX_LEN] = price;
+        if prices.len() >= MAX_LEN {
+            prices.pop_front();
         }
+        prices.push_back(price);
 
         Prices::<T>::put(prices);
         Self::deposit_event(Event::AddNewPrice(price));

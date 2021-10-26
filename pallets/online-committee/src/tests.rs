@@ -2525,8 +2525,6 @@ fn test_machine_online_succeed_against_committee_apply_review() {
         // 检查commttee reserve
         assert_eq!(Balances::reserved_balance(&committee4), (20000 + 1000) * ONE_DBC);
 
-        // 设置technical committee
-        // technical 什么也不做
         assert_ok!(OnlineCommittee::do_cancel_slash(0));
     })
 }
