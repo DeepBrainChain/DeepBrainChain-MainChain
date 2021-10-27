@@ -14,28 +14,29 @@
 
      安装完成后，通过浏览器插件生成即可
 
-   + 方式2：通过网页钱包[https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts) ，点击`账户`--`添加账户`进行生成。
+   + 方式2：通过网页钱包[https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts](https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts) ，点击`账户`--`添加账户`进行生成。
 
    + 方式3：通过命令行方式生成
 
      ```bash
      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
      cargo install --force subkey --git https://github.com/paritytech/substrate --version 2.0.1 --locked
+     subkey generate --scheme sr25519
      ```
 
 2. 获取 dbc-chain 二进制
 
-   + **方式1**: 使用预编译版本（只支持ubuntu16.04）：
+   + **方式1**: 使用预编译版本（如果不能正常运行，请使用方式2进行编译）：
 
      ```bash
-     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v0.1/dbc_chain_ubuntu16.04.tar.gz
-     tar xf dbc_chain_ubuntu16.04.tar.gz && cd dbc_chain
+     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v1/dbc_chain_linux_x64.tar.gz
+     tar xf dbc_chain_linux_x64.tar.gz && cd dbc-chain-mainnet
      ```
      
-   + **方式2**：从源码进行编译
+   + **方式2**：从源码进行编译 (推荐)
 
      ```bash
-     # 安装依赖，rust，subkey
+     # 安装依赖
      curl https://getsubstrate.io -sSf | bash -s -- --fast
      source ~/.cargo/env
      
@@ -48,11 +49,11 @@
 3. 运行同步节点
 
    ```bash
-   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning archive --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNa5XXT8PXgS9aT6uKJanjbEHtP2z8vTMdKA8e1TqgRYv
+   ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --pruning archive --bootnodes /ip4/111.44.254.180/tcp/20337/p2p/12D3KooWNtUXjdy8Q9hvdJ35a1jWpPnVBRgpT7nP8LmEgBWGqTpm
    ```
 
    + 如果你是从源码进行编译，可执行文件路径为：`./target/release/dbc-chain`
-   + 同步完成后，`Control + C`关掉程序。你可以根据`target`与`best`的比较来判断是否同步已经完成。当target与best相差不大（如100以内）时，可以认为已经完成同步。![image-20210126021938613](join_dbc_testnet.assets/image-20210126021938613.png)
+   + 同步完成后，`Control + C`关掉程序。你可以根据`target`与`best`的比较来判断是否同步已经完成。当target与best相差不大（如100以内）时，可以认为已经完成同步。![image-20210126021938613](join_dbc_network.assets/image-20210126021938613.png)
 
    + **参数说明：**
      + `--base-path`：指定该区块链存储数据的目录。如果不指定，将使用默认路径。如果目录不存在，将会为你自动创建。如果该目录已经有了区块链数据，将会报错，这时应该选择不同的目录或清除该目录内容
@@ -62,7 +63,7 @@
 4. 在第3步同步节点数据完成之后，关闭同步命令。然后以验证人的方式运行节点：
 
    ```bash
-   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/30333/p2p/12D3KooWNa5XXT8PXgS9aT6uKJanjbEHtP2z8vTMdKA8e1TqgRYv 1>dbc_node.log 2>&1 &
+   nohup ./dbc-chain --base-path ./db_data --chain ./dbcSpecRaw.json --validator --name YourNodeName --bootnodes /ip4/111.44.254.180/tcp/20337/p2p/12D3KooWNtUXjdy8Q9hvdJ35a1jWpPnVBRgpT7nP8LmEgBWGqTpm 1>dbc_node.log 2>&1 &
    ```
 
    + 如果你是从源码进行编译，可执行文件路径为：`./target/release/dbc-chain`
@@ -78,11 +79,11 @@
 
 6. 设置绑定（bond）金额
 
-   + 打开[https://test.dbcwallet.io/#/accounts](https://test.dbcwallet.io/#/accounts)  你将能看到你的余额：![image-20210121194808850](join_dbc_testnet.assets/image-20210121194808850.png)
+   + 打开[https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts](https://www.dbcwallet.io/?rpc=wss%3A%2F%2Finfo.dbcwallet.io#/accounts)  你将能看到你的余额：![image-20210121194808850](join_dbc_network.assets/image-20210121194808850.png)
 
-   + 导航到`网络` >`质押` > `账户操作` > `存储账户`，![image-20210323095232363](join_dbc_testnet.assets/image-20210323095232363.png)
+   + 导航到`网络` >`质押` > `账户操作` > `存储账户`，![image-20210323095232363](join_dbc_network.assets/image-20210323095232363.png)
 
-   + 设置bond的金额（确保除了bond的数额，您的账户中还有余额以用来发送交易）： ![image-20210121195033167](join_dbc_testnet.assets/image-20210121195033167.png)
+   + 设置bond的金额（确保除了bond的数额，您的账户中还有余额以用来发送交易）： ![image-20210121195033167](join_dbc_network.assets/image-20210121195033167.png)
 
    **说明：**
 
@@ -96,25 +97,25 @@
 
 7. 设置`rotateKey`:
 
-   + 在执行了bond之后，您将能够在Polkadot上看到`Session Key`的按钮：![image-20210121195307711](join_dbc_testnet.assets/image-20210121195307711.png)
+   + 在执行了bond之后，您将能够在Polkadot上看到`Session Key`的按钮：![image-20210121195307711](join_dbc_network.assets/image-20210121195307711.png)
 
-   + 点击它，并将步骤5生成的`rotateKeys`填入。 ![image-20210121200709277](join_dbc_testnet.assets/image-20210121200709277.png)
+   + 点击它，并将步骤5生成的`rotateKeys`填入。 ![image-20210121200709277](join_dbc_network.assets/image-20210121200709277.png)
 
-   + 现在，你可以到 [Telemetry](https://telemetry.polkadot.io/#list/0xd523fa2e0581f069b4f0c7b5944c21e9abc72305a08067868c91b898d1bf1dff)看到你的节点了！![image-20210121234945030](join_dbc_testnet.assets/image-20210121234945030.png)
+   + 现在，你可以到 [Telemetry](https://telemetry.polkadot.io/#list/DBC%20Mainnet)看到你的节点了！![image-20210121234945030](join_dbc_network.assets/image-20210121234945030.png)
 
 8. 设置参加验证人选举
 
-   + 完成了上述步骤后，你将能看到`Validate`的按钮。点击`Validate` 按钮，![image-20210121235144583](join_dbc_testnet.assets/image-20210121235144583.png)
+   + 完成了上述步骤后，你将能看到`Validate`的按钮。点击`Validate` 按钮，![image-20210121235144583](join_dbc_network.assets/image-20210121235144583.png)
    
-   + 这时你将需要设置验证人偏好：![image-20210121235217665](join_dbc_testnet.assets/image-20210121235217665.png)
+   + 这时你将需要设置验证人偏好：![image-20210121235217665](join_dbc_network.assets/image-20210121235217665.png)
    
-   + 在 `reward commission percentage`栏目中，你将需要输入你作为验证人的收益偏好。然后点击右下角`Validate`，并发送交易。在`Waiting`界面，你将能看到你的账户正在等待下个`Era`，来参加选举成为验证人节点。![image-20210121235451552](join_dbc_testnet.assets/image-20210121235451552.png)
+   + 在 `reward commission percentage`栏目中，你将需要输入你作为验证人的收益偏好。然后点击右下角`Validate`，并发送交易。在`Waiting`界面，你将能看到你的账户正在等待下个`Era`，来参加选举成为验证人节点。![image-20210121235451552](join_dbc_network.assets/image-20210121235451552.png)
 
 ## 如何领取节点奖励？
 
 在浏览器插件polkadot中登陆你的stash账户，在 `质押 > 支付 > 最大84 eras` 中，你将能看到所有待领取的奖励：
 
-![image-20210329095613442](join_dbc_testnet.assets/image-20210329095613442.png)
+![image-20210329095613442](join_dbc_network.assets/image-20210329095613442.png)
 
 
 
