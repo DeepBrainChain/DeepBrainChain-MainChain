@@ -113,7 +113,11 @@ pub mod pallet {
             let mut price_url = Self::price_url().unwrap_or_default();
             ensure!(index < price_url.len() as u32, Error::<T>::IndexOutOfRange);
             price_url.remove(index as usize);
-            PriceURL::<T>::put(price_url);
+            if price_url.len() == 0 {
+                PriceURL::<T>::kill();
+            } else {
+                PriceURL::<T>::put(price_url);
+            }
             Ok(().into())
         }
     }
