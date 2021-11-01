@@ -24,15 +24,9 @@ When you get some DBC and GAS, you should bind your email accout before rent lin
 
 ![image-20210226184818235](prepare_vm_EN.assets/image-20210226184818235.png)
 
-After that, you should input your email address,  click "Receive email" and then input the DBC number sent by the email. Finally click Start binding.
+After that, you should input your email address, click "Receive email" and then input the DBC number sent by the email. Finally click Start binding.
 
 ![image-20210226185021639](prepare_vm_EN.assets/image-20210226185021639.png)
-
-
-
-
-
-
 
 ### How to rent a server?
 
@@ -50,15 +44,12 @@ You will receive an email to inform you how to login your server. You can also c
 
 1. In windows system，you can choose `xshell`, or any other tools you like to login your server. Just open xshell's [download page](https://www.netsarang.com/zh/xshell-download/), input your email to try for 30 days, and follow the email to download it.![image-20210226171617240](join_dbc_network_vm.assets/image-20210226171617240.png)
 
-2. Input server info to connect the server. After xshell is installed, open it and click "file" -> "New", and fill the following info, and click  Ok
+2. Input server info to connect the server. After xshell is installed, open it and click "file" -> "New", and fill the following info, and click Ok
 
    ![image-20210226190105512](prepare_vm_EN.assets/image-20210226190105512.png)
 
-3. Login to your server: 
+3. Login to your server:
 
    Click "file" -> "Open" and you will see a window showing your server info. Choose the one you just careted, input your user name and password to login.
-   
-   ![1](prepare_vm_EN.assets/1.png)
-   
-   
 
+   ![1](prepare_vm_EN.assets/1.png)
