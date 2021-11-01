@@ -40,6 +40,6 @@ If you want to read the English version, click [here](README_EN.md)
 
 #### 如何成为`验证人`
 
-[如何成为DBC验证人](docs/join_dbc_testnet.md) -- 运行验证节点，成为验证人获取收益
+[如何成为DBC验证人](docs/join_dbc_network.md) -- 运行验证节点，成为验证人获取收益
 
 
