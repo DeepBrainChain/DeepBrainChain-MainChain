@@ -19,6 +19,8 @@ use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use generic_func::{ItemList, MachineId};
 pub use online_profile::{EraIndex, MachineStatus};
 use online_profile_machine::{DbcPrice, RTOps};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
@@ -30,9 +32,10 @@ pub const WAITING_CONFIRMING_DELAY: u32 = 60;
 pub const BLOCK_PER_DAY: u32 = 2880;
 
 pub use pallet::*;
-pub use rpc::RpcRentOrderDetail;
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
     /// 租用者
     pub renter: AccountId,
@@ -49,6 +52,8 @@ pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum RentStatus {
     WaitingVerifying,
     Renting,
@@ -57,7 +62,7 @@ pub enum RentStatus {
 
 impl Default for RentStatus {
     fn default() -> Self {
-        RentStatus::WaitingVerifying
+        RentStatus::RentExpired
     }
 }
 
@@ -95,27 +100,26 @@ pub mod pallet {
     #[pallet::getter(fn user_rented)]
     pub(super) type UserRented<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
 
-    // 当前机器租用者
-    #[pallet::storage]
-    #[pallet::getter(fn machine_renter)]
-    pub(super) type MachineRenter<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId>;
-
     // 用户当前租用的某个机器的详情
     #[pallet::storage]
     #[pallet::getter(fn rent_order)]
-    pub(super) type RentOrder<T: Config> = StorageDoubleMap<
+    pub(super) type RentOrder<T: Config> = StorageMap<
         _,
-        Blake2_128Concat,
-        T::AccountId,
         Blake2_128Concat,
         MachineId,
         RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
     >;
 
     // 等待用户确认租用成功的机器
     #[pallet::storage]
     #[pallet::getter(fn pending_confirming)]
     pub(super) type PendingConfirming<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_rent_ending)]
+    pub(super) type PendingRentEnding<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<MachineId>, ValueQuery>;
 
     // 存储每个用户在该模块中的总质押量
     #[pallet::storage]
@@ -173,14 +177,14 @@ pub mod pallet {
             Self::change_renter_total_stake(&renter, rent_fee, true).map_err(|_| Error::<T>::InsufficientValue)?;
 
             RentOrder::<T>::insert(
-                &renter,
                 &machine_id,
                 RentOrderDetail {
                     renter: renter.clone(),
                     rent_start: now,
+                    confirm_rent: Zero::zero(),
                     rent_end,
                     stake_amount: rent_fee,
-                    ..Default::default()
+                    rent_status: RentStatus::WaitingVerifying,
                 },
             );
 
@@ -191,9 +195,7 @@ pub mod pallet {
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, Some(renter.clone()), None);
 
-            MachineRenter::<T>::insert(&machine_id, renter.clone());
             PendingConfirming::<T>::insert(machine_id, renter);
-
             Ok(().into())
         }
 
@@ -203,7 +205,9 @@ pub mod pallet {
             let renter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            let mut order_info = Self::rent_order(&renter, &machine_id).ok_or(Error::<T>::NoOrderExist)?;
+            let mut order_info = Self::rent_order(&machine_id);
+            ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
+            ensure!(order_info.rent_status == RentStatus::WaitingVerifying, Error::<T>::NoOrderExist);
 
             // 不能超过30分钟
             let machine_start_duration = now.checked_sub(&order_info.rent_start).ok_or(Error::<T>::Overflow)?;
@@ -220,7 +224,7 @@ pub mod pallet {
             order_info.confirm_rent = now;
             order_info.stake_amount = Zero::zero();
             order_info.rent_status = RentStatus::Renting;
-            RentOrder::<T>::insert(&renter, &machine_id, order_info);
+            RentOrder::<T>::insert(&machine_id, order_info);
 
             // 改变online_profile状态
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, Some(renter.clone()), None);
@@ -239,7 +243,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
 
-            let mut order_info = Self::rent_order(&renter, &machine_id).ok_or(Error::<T>::NoOrderExist)?;
+            let mut order_info = Self::rent_order(&machine_id);
+            ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
+            ensure!(order_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
 
             let machine_price =
@@ -264,7 +270,7 @@ pub mod pallet {
                 .checked_add(&order_info.rent_end)
                 .ok_or(Error::<T>::Overflow)?;
 
-            RentOrder::<T>::insert(&renter, &machine_id, order_info);
+            RentOrder::<T>::insert(&machine_id, order_info);
 
             Ok(().into())
         }
@@ -317,20 +323,14 @@ impl<T: Config> Pallet<T> {
 
         let pending_confirming = Self::get_pending_confirming_order();
         for (machine_id, renter) in pending_confirming {
-            let rent_order = Self::rent_order(&renter, &machine_id);
+            let rent_order = Self::rent_order(&machine_id);
+            let duration = now.checked_sub(&rent_order.rent_start).unwrap_or_default();
 
-            match rent_order {
-                None => continue,
-                Some(rent_order) => {
-                    let duration = now.checked_sub(&rent_order.rent_start).unwrap_or_default();
-
-                    if duration > WAITING_CONFIRMING_DELAY.into() {
-                        // 超过了60个块，也就是30分钟
-                        Self::clean_order(&renter, &machine_id);
-                        T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None);
-                        continue
-                    }
-                },
+            if duration > WAITING_CONFIRMING_DELAY.into() {
+                // 超过了60个块，也就是30分钟
+                Self::clean_order(&renter, &machine_id);
+                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None);
+                continue
             }
         }
     }
@@ -339,14 +339,14 @@ impl<T: Config> Pallet<T> {
         let mut rent_machine_list = Self::user_rented(who);
         ItemList::rm_item(&mut rent_machine_list, machine_id);
 
-        let rent_info = Self::rent_order(who, machine_id);
-        if let Some(rent_info) = rent_info {
-            // return back staked money!
+        let rent_info = Self::rent_order(machine_id);
+
+        // return back staked money!
+        if !rent_info.stake_amount.is_zero() {
             let _ = Self::change_renter_total_stake(who, rent_info.stake_amount, false);
         }
 
-        MachineRenter::<T>::remove(machine_id);
-        RentOrder::<T>::remove(who, machine_id);
+        RentOrder::<T>::remove(machine_id);
         UserRented::<T>::insert(who, rent_machine_list);
         PendingConfirming::<T>::remove(machine_id);
     }
@@ -388,7 +388,7 @@ impl<T: Config> Pallet<T> {
             let user_rented = Self::user_rented(&a_renter);
 
             for a_machine in user_rented {
-                let rent_info = Self::rent_order(&a_renter, &a_machine).ok_or(())?;
+                let rent_info = Self::rent_order(&a_machine);
                 if now > rent_info.rent_end {
                     let machine_info = <online_profile::Module<T>>::machines_info(&a_machine);
 

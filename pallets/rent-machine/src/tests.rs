@@ -54,15 +54,15 @@ fn rent_machine_should_works() {
         // Dave relet machine
         assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 10));
         assert_eq!(
-            RentMachine::rent_order(renter_dave, machine_id.clone()),
-            Some(super::RentOrderDetail {
+            RentMachine::rent_order(&machine_id),
+            super::RentOrderDetail {
                 renter: renter_dave,
                 rent_start: 11,
                 confirm_rent: 51,
                 stake_amount: 0,
                 rent_end: (10 + 10) * 2880 + 11,
                 rent_status: super::RentStatus::Renting,
-            })
+            }
         );
 
         // So balance change should be right

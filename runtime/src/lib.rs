@@ -1227,17 +1227,12 @@ impl_runtime_apis! {
     }
 
     impl rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_rent_order(renter: AccountId, machine_id: MachineId) -> rent_machine::RpcRentOrderDetail<AccountId, BlockNumber, Balance> {
-            RentMachine::get_rent_order(renter, machine_id)
+        fn get_rent_order(machine_id: MachineId) -> rent_machine::RentOrderDetail<AccountId, BlockNumber, Balance> {
+            RentMachine::get_rent_order(machine_id)
         }
 
         fn get_rent_list(renter: AccountId) -> Vec<MachineId> {
             RentMachine::get_rent_list(renter)
-        }
-
-        fn get_machine_renter(machine_id: MachineId) -> Option<AccountId>
-        {
-            RentMachine::get_machine_renter(machine_id)
         }
     }
 
