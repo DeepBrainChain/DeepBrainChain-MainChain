@@ -702,7 +702,7 @@ pub struct ElectionSize {
 pub struct FoundationIssueRewards<AccountId: Ord, Balance> {
     pub who: Vec<AccountId>,
     pub left_reward_times: u32,
-    pub reward_start: EraIndex,
+    pub first_reward_era: EraIndex,
     pub reward_interval: EraIndex,
     pub reward_amount: Balance,
 }
@@ -712,7 +712,7 @@ pub struct FoundationIssueRewards<AccountId: Ord, Balance> {
 pub struct TreasuryIssueRewards<AccountId, Balance> {
     pub treasury_account: AccountId,
     pub left_reward_times: u32,
-    pub reward_start: EraIndex,
+    pub first_reward_era: EraIndex,
     pub reward_interval: EraIndex,
     pub reward_amount: Balance,
 }
@@ -2914,8 +2914,8 @@ impl<T: Config> Module<T> {
         }
 
         if foundation_reward.left_reward_times > 0 &&
-            era_index > foundation_reward.reward_start &&
-            (era_index - foundation_reward.reward_start) % foundation_reward.reward_interval == 0
+            era_index >= foundation_reward.first_reward_era &&
+            (era_index - foundation_reward.first_reward_era) % foundation_reward.reward_interval == 0
         {
             for a_foundation in foundation_reward.who.clone() {
                 T::Currency::deposit_creating(&a_foundation, foundation_reward.reward_amount);
@@ -2926,8 +2926,8 @@ impl<T: Config> Module<T> {
         }
 
         if treasury_reward.left_reward_times > 0 &&
-            era_index > treasury_reward.reward_start &&
-            (era_index - treasury_reward.reward_start) % treasury_reward.reward_interval == 0
+            era_index >= treasury_reward.first_reward_era &&
+            (era_index - treasury_reward.first_reward_era) % treasury_reward.reward_interval == 0
         {
             T::Currency::deposit_creating(&treasury_reward.treasury_account, treasury_reward.reward_amount);
 

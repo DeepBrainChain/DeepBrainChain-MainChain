@@ -8,6 +8,20 @@
   "MachineId": "Text",
   "OrderId": "u64",
   "TelecomName": "Text",
+  "FoundationIssueRewards": {
+    "who": "Vec<AccountId>",
+    "left_reward_times": "u32",
+    "first_reward_era": "EraIndex",
+    "reward_interval": "EraIndex",
+    "reward_amount": "Balance"
+  },
+  "TreasuryIssueRewards": {
+    "treasury_account": "AccountId",
+    "left_reward_times": "u32",
+    "first_reward_era": "EraIndex",
+    "reward_interval": "EraIndex",
+    "reward_amount": "Balance"
+  },
   "StandardGpuPointPrice": {
     "gpu_point": "u64",
     "gpu_price": "u64"
