@@ -91,7 +91,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
             Self::check_machine_starting_status();
-            let _ = Self::check_if_rent_finished();
+            Self::check_if_rent_finished();
         }
     }
 
@@ -398,37 +398,23 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // 检查机器是否已经下线，如果下线则改变机器状态
-    fn check_if_rent_finished() -> Result<(), ()> {
+    // 这里修rentMachine模块通知onlineProfile机器已经租用完成，
+    // onlineProfile判断机器是否需要变成online状态，或者记录下之前是租用状态，以便机器再次上线时进行正确的惩罚
+    fn check_if_rent_finished() {
         let now = <frame_system::Module<T>>::block_number();
+        let pending_ending = Self::pending_rent_ending(now);
 
-        let all_renter = Self::get_all_renter();
-        for a_renter in all_renter {
-            let user_rented = Self::user_rented(&a_renter);
+        for machine_id in pending_ending {
+            let rent_order = Self::rent_order(&machine_id);
+            let rent_duration = now - rent_order.rent_start;
 
-            for a_machine in user_rented {
-                let rent_info = Self::rent_order(&a_machine);
-                if now > rent_info.rent_end {
-                    let machine_info = <online_profile::Module<T>>::machines_info(&a_machine);
-
-                    // if machine is other status(Because machine is reported or offline by controller),
-                    // should not change to machine status.
-                    match machine_info.machine_status {
-                        MachineStatus::Rented => {},
-                        _ => continue,
-                    }
-
-                    let rent_duration = (rent_info.rent_end - rent_info.rent_start)
-                        .saturated_into::<u64>()
-                        .checked_div(2880u64)
-                        .unwrap_or_default();
-
-                    T::RTOps::change_machine_status(&a_machine, MachineStatus::Online, None, Some(rent_duration));
-
-                    Self::clean_order(&a_renter, &a_machine);
-                }
-            }
+            T::RTOps::change_machine_status(
+                &machine_id,
+                MachineStatus::Online,
+                Some(rent_order.renter.clone()),
+                Some(rent_duration.saturated_into::<u64>()),
+            );
+            Self::clean_order(&rent_order.renter, &machine_id);
         }
-        Ok(())
     }
 }

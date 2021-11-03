@@ -1,6 +1,6 @@
 use crate::{
-    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachinesInfo, Pallet, StashMachines, StashStake,
-    SysInfo, UserMutHardwareStake,
+    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachinesInfo, Pallet, RentedFinished, StashMachines,
+    StashStake, SysInfo, UserMutHardwareStake,
 };
 use frame_support::IterableStorageMap;
 use generic_func::{ItemList, MachineId};
@@ -224,6 +224,7 @@ impl<T: Config> RTOps for Pallet<T> {
             .checked_div(10_000)
     }
 
+    // TODO: change here
     fn change_machine_status(
         machine_id: &MachineId,
         new_status: MachineStatus<T::BlockNumber, T::AccountId>,
@@ -233,13 +234,14 @@ impl<T: Config> RTOps for Pallet<T> {
         let mut machine_info = Self::machines_info(machine_id);
         let mut live_machines = Self::live_machines();
 
-        machine_info.machine_status = new_status.clone();
-        machine_info.last_machine_renter = renter;
+        // machine_info.machine_status = new_status.clone();
+
+        machine_info.last_machine_renter = renter.clone();
 
         match new_status {
             MachineStatus::Rented => {
-                machine_info.total_rented_times += 1;
                 // 机器创建成功
+                machine_info.total_rented_times += 1;
                 Self::update_snap_by_rent_status(machine_id.to_vec(), true);
 
                 ItemList::rm_item(&mut live_machines.online_machine, &machine_id);
@@ -251,16 +253,28 @@ impl<T: Config> RTOps for Pallet<T> {
             // 租用结束 或 租用失败(半小时无确认)
             MachineStatus::Online => {
                 if rent_duration.is_some() {
-                    machine_info.total_rented_duration += rent_duration.unwrap_or_default();
-                    machine_info.last_online_height = <frame_system::Module<T>>::block_number();
                     // 租用结束
-                    Self::update_snap_by_rent_status(machine_id.to_vec(), false);
-
+                    machine_info.total_rented_duration += rent_duration.unwrap_or_default();
                     ItemList::rm_item(&mut live_machines.rented_machine, &machine_id);
-                    ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
-                    LiveMachines::<T>::put(live_machines);
 
-                    Self::change_pos_info_by_rent(&machine_info, false);
+                    match machine_info.machine_status {
+                        MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) =>
+                            if let Some(renter) = renter {
+                                RentedFinished::<T>::insert(machine_id, renter);
+                            },
+                        MachineStatus::Rented => {
+                            machine_info.last_online_height = <frame_system::Module<T>>::block_number();
+                            // 租用结束
+                            Self::update_snap_by_rent_status(machine_id.to_vec(), false);
+
+                            ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
+
+                            Self::change_pos_info_by_rent(&machine_info, false);
+                        },
+                        _ => {},
+                    }
+
+                    LiveMachines::<T>::put(live_machines);
                 }
             },
             _ => {},

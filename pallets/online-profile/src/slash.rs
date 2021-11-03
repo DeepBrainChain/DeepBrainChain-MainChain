@@ -149,7 +149,7 @@ impl<T: Config> Pallet<T> {
         slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
-    ) -> BalanceOf<T> {
+    ) -> (OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, BalanceOf<T>) {
         match slash_reason {
             // 算工主动报告被租用的机器，主动下线
             OPSlashReason::RentedReportOffline(duration) =>
@@ -169,7 +169,7 @@ impl<T: Config> Pallet<T> {
             // 机器在线，被举报无法租用
             OPSlashReason::OnlineRentFailed(duration) =>
                 Self::add_slash_online_rent_failed(machine_id, duration, slash_reason, reporter, committee),
-            _ => return Zero::zero(),
+            _ => return (OPPendingSlashInfo::default(), Zero::zero()),
         }
     }
 
@@ -177,11 +177,11 @@ impl<T: Config> Pallet<T> {
         machine_id: MachineId,
         duration: T::BlockNumber,
         slash_reason: OPSlashReason<T::BlockNumber>,
-    ) -> BalanceOf<T> {
+    ) -> (OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, BalanceOf<T>) {
         let machine_info = Self::machines_info(&machine_id);
         let duration = duration.saturated_into::<u64>();
         match duration {
-            0 => return Zero::zero(),
+            0 => return (OPPendingSlashInfo::default(), Zero::zero()),
             // 下线不超过7分钟
             1..=14 => {
                 // 扣除2%质押币。100%进入国库。
@@ -209,18 +209,18 @@ impl<T: Config> Pallet<T> {
         machine_id: MachineId,
         duration: T::BlockNumber,
         slash_reason: OPSlashReason<T::BlockNumber>,
-    ) -> BalanceOf<T> {
+    ) -> (OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, BalanceOf<T>) {
         let now = <frame_system::Module<T>>::block_number();
         let machine_info = Self::machines_info(&machine_id);
 
         // 判断是否已经下线十天，如果是，则不进行惩罚，仅仅下线处理
         // NOTE: 此时，machine_info.last_online_height还未改变
         if now > 28800u32.saturated_into::<T::BlockNumber>() + duration + machine_info.last_online_height {
-            return Zero::zero()
+            return (OPPendingSlashInfo::default(), Zero::zero())
         }
         let duration = duration.saturated_into::<u64>();
         match duration {
-            0 => return Zero::zero(),
+            0 => return (OPPendingSlashInfo::default(), Zero::zero()),
             // 下线不超过7分钟
             1..=14 => {
                 // 扣除2%质押币，质押币全部进入国库。
@@ -250,10 +250,10 @@ impl<T: Config> Pallet<T> {
         slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
-    ) -> BalanceOf<T> {
+    ) -> (OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, BalanceOf<T>) {
         let duration = duration.saturated_into::<u64>();
         match duration {
-            0 => return Zero::zero(),
+            0 => return (OPPendingSlashInfo::default(), Zero::zero()),
             // 不超过7分钟
             1..=14 => {
                 // 扣除4%质押币。10%给验证人，90%进入国库
@@ -283,10 +283,10 @@ impl<T: Config> Pallet<T> {
         slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
-    ) -> BalanceOf<T> {
+    ) -> (OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, BalanceOf<T>) {
         let duration = duration.saturated_into::<u64>();
         match duration {
-            0 => return Zero::zero(),
+            0 => return (OPPendingSlashInfo::default(), Zero::zero()),
             //不超过4小时
             1..=480 => {
                 // 扣除6%质押币。10%给到用户，20%给到验证人，70%进入国库
@@ -320,10 +320,10 @@ impl<T: Config> Pallet<T> {
         slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
-    ) -> BalanceOf<T> {
+    ) -> (OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, BalanceOf<T>) {
         let duration = duration.saturated_into::<u64>();
         match duration {
-            0 => return Zero::zero(),
+            0 => return (OPPendingSlashInfo::default(), Zero::zero()),
             // 下线不超过4小时
             1..=480 => {
                 // 扣除12%质押币。10%给到用户，20%给到验证人，70%进入国库
@@ -357,10 +357,10 @@ impl<T: Config> Pallet<T> {
         slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
-    ) -> BalanceOf<T> {
+    ) -> (OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, BalanceOf<T>) {
         let duration = duration.saturated_into::<u64>();
         match duration {
-            0 => return Zero::zero(),
+            0 => return (OPPendingSlashInfo::default(), Zero::zero()),
             1..=480 => {
                 // 扣除6%质押币。10%给到用户，20%给到验证人，70%进入国库
                 return Self::add_offline_slash(6, machine_id, reporter, committee, slash_reason)
@@ -390,12 +390,12 @@ impl<T: Config> Pallet<T> {
         reporter: Option<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
         slash_reason: OPSlashReason<T::BlockNumber>,
-    ) -> BalanceOf<T> {
+    ) -> (OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, BalanceOf<T>) {
         let now = <frame_system::Module<T>>::block_number();
         let machine_info = Self::machines_info(&machine_id);
         let slash_amount = Perbill::from_rational_approximation(slash_percent, 100) * machine_info.stake_amount;
 
-        let slash_id = Self::get_new_slash_id();
+        // let slash_id = Self::get_new_slash_id();
         let slash_info = OPPendingSlashInfo {
             slash_who: machine_info.machine_stash,
             machine_id,
@@ -407,8 +407,7 @@ impl<T: Config> Pallet<T> {
             slash_reason,
         };
 
-        PendingSlash::<T>::insert(slash_id, slash_info);
-        slash_amount
+        (slash_info, slash_amount)
     }
 
     // 惩罚掉机器押金，如果执行惩罚后机器押金不够，则状态变为补充质押

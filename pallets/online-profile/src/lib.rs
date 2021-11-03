@@ -212,6 +212,10 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage]
+    #[pallet::getter(fn rented_finished)]
+    pub(super) type RentedFinished<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
@@ -635,14 +639,14 @@ pub mod pallet {
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
-            let mut slash_amount = Zero::zero();
+            let mut slash_info = (OPPendingSlashInfo::default(), Zero::zero());
             // MachineStatus改为之前的状态
             match machine_info.machine_status.clone() {
                 MachineStatus::StakerReportOffline(offline_time, status) => {
                     let offline_duration = now - offline_time;
 
+                    // machine status before offline
                     machine_info.machine_status = *status;
-                    // let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
 
                     match machine_info.machine_status {
                         MachineStatus::Online | MachineStatus::Rented => {
@@ -656,7 +660,7 @@ pub mod pallet {
                             // 如果在线超过10天，则不进行惩罚超过
                             if offline_time < machine_info.last_online_height + 28800u32.into() {
                                 // 机器在被租用状态下线，会被惩罚
-                                slash_amount = Self::slash_when_report_offline(
+                                slash_info = Self::slash_when_report_offline(
                                     machine_id.clone(),
                                     OPSlashReason::OnlineReportOffline(offline_duration),
                                     None,
@@ -669,7 +673,7 @@ pub mod pallet {
                             Self::change_pos_info_by_rent(&machine_info, true);
 
                             // 机器在被租用状态下线，会被惩罚
-                            slash_amount = Self::slash_when_report_offline(
+                            slash_info = Self::slash_when_report_offline(
                                 machine_id.clone(),
                                 OPSlashReason::RentedReportOffline(offline_duration),
                                 None,
@@ -680,7 +684,7 @@ pub mod pallet {
                     }
                 },
                 MachineStatus::ReporterReportOffline(slash_reason, _status, reporter, committee) => {
-                    slash_amount = Self::slash_when_report_offline(
+                    slash_info = Self::slash_when_report_offline(
                         machine_id.clone(),
                         slash_reason,
                         Some(reporter),
@@ -690,9 +694,13 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
-            if slash_amount != Zero::zero() {
-                Self::change_user_total_stake(machine_info.machine_stash.clone(), slash_amount, true)
+            if slash_info.1 != Zero::zero() {
+                Self::change_user_total_stake(machine_info.machine_stash.clone(), slash_info.1, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
+
+                // Only after pay slash amount succeed, then make machine online.
+                let slash_id = Self::get_new_slash_id();
+                PendingSlash::<T>::insert(slash_id, slash_info.0);
             }
 
             machine_info.last_online_height = now;
