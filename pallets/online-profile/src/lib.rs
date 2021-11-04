@@ -684,18 +684,12 @@ pub mod pallet {
             }
 
             // machine status before offline
+            machine_info.last_online_height = now;
             machine_info.machine_status = if RentedFinished::<T>::contains_key(&machine_id) {
                 MachineStatus::Online
             } else {
                 status_before_offline
             };
-
-            Self::update_snap_by_online_status(machine_id.clone(), true);
-            Self::change_pos_info_by_online(&machine_info, true);
-            if machine_info.machine_status == MachineStatus::Rented {
-                Self::update_snap_by_rent_status(machine_id.clone(), true);
-                Self::change_pos_info_by_rent(&machine_info, true);
-            }
 
             // Pay slash fee
             if slash_info.slash_amount != Zero::zero() {
@@ -707,19 +701,19 @@ pub mod pallet {
                 PendingSlash::<T>::insert(slash_id, slash_info);
             }
 
-            machine_info.last_online_height = now;
-
             ItemList::rm_item(&mut live_machine.offline_machine, &machine_id);
-            match machine_info.machine_status {
-                MachineStatus::WaitingFulfill => {
-                    ItemList::add_item(&mut live_machine.fulfilling_machine, machine_id.clone());
-                },
-                _ => {
-                    ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
-                },
+
+            Self::update_snap_by_online_status(machine_id.clone(), true);
+            Self::change_pos_info_by_online(&machine_info, true);
+            if machine_info.machine_status == MachineStatus::Rented {
+                ItemList::add_item(&mut live_machine.rented_machine, machine_id.clone());
+                Self::update_snap_by_rent_status(machine_id.clone(), true);
+                Self::change_pos_info_by_rent(&machine_info, true);
+            } else {
+                ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
             }
 
-            // try to remove
+            // Try to remove frm rentedFinished
             RentedFinished::<T>::remove(&machine_id);
             LiveMachines::<T>::put(live_machine);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
