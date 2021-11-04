@@ -370,12 +370,6 @@ impl<T: Config> Pallet<T> {
         PendingConfirming::<T>::remove(machine_id);
     }
 
-    fn get_all_renter() -> Vec<T::AccountId> {
-        <UserRented<T> as IterableStorageMap<T::AccountId, _>>::iter()
-            .map(|(renter, _)| renter)
-            .collect::<Vec<_>>()
-    }
-
     fn get_pending_confirming_order() -> BTreeSet<(MachineId, T::AccountId)> {
         <PendingConfirming<T> as IterableStorageMap<MachineId, T::AccountId>>::iter()
             .map(|(machine, acct)| (machine, acct))
@@ -406,13 +400,13 @@ impl<T: Config> Pallet<T> {
 
         for machine_id in pending_ending {
             let rent_order = Self::rent_order(&machine_id);
-            let rent_duration = now - rent_order.rent_start;
+            let rent_duration: u64 = (now - rent_order.rent_start).saturated_into::<u64>() / 2880;
 
             T::RTOps::change_machine_status(
                 &machine_id,
                 MachineStatus::Online,
                 Some(rent_order.renter.clone()),
-                Some(rent_duration.saturated_into::<u64>()),
+                Some(rent_duration),
             );
             Self::clean_order(&rent_order.renter, &machine_id);
         }

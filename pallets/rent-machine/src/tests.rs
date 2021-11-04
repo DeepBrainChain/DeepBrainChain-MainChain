@@ -1,5 +1,6 @@
 use crate::mock::*;
 use frame_support::assert_ok;
+use online_profile::MachineStatus;
 use sp_runtime::Perbill;
 
 #[test]

@@ -234,13 +234,12 @@ impl<T: Config> RTOps for Pallet<T> {
         let mut machine_info = Self::machines_info(machine_id);
         let mut live_machines = Self::live_machines();
 
-        // machine_info.machine_status = new_status.clone();
-
         machine_info.last_machine_renter = renter.clone();
 
         match new_status {
             MachineStatus::Rented => {
                 // 机器创建成功
+                machine_info.machine_status = new_status;
                 machine_info.total_rented_times += 1;
                 Self::update_snap_by_rent_status(machine_id.to_vec(), true);
 
@@ -263,6 +262,7 @@ impl<T: Config> RTOps for Pallet<T> {
                                 RentedFinished::<T>::insert(machine_id, renter);
                             },
                         MachineStatus::Rented => {
+                            machine_info.machine_status = new_status;
                             machine_info.last_online_height = <frame_system::Module<T>>::block_number();
                             // 租用结束
                             Self::update_snap_by_rent_status(machine_id.to_vec(), false);
@@ -277,6 +277,7 @@ impl<T: Config> RTOps for Pallet<T> {
                     LiveMachines::<T>::put(live_machines);
                 }
             },
+            MachineStatus::Creating => machine_info.machine_status = new_status,
             _ => {},
         }
 

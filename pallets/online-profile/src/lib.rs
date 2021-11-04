@@ -635,31 +635,22 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let mut machine_info = Self::machines_info(&machine_id);
-            let mut live_machine = Self::live_machines();
-
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
+            let mut live_machine = Self::live_machines();
+
             let mut slash_info = (OPPendingSlashInfo::default(), Zero::zero());
+            let status_before_offline: MachineStatus<T::BlockNumber, T::AccountId>;
+
             // MachineStatus改为之前的状态
             match machine_info.machine_status.clone() {
                 MachineStatus::StakerReportOffline(offline_time, status) => {
                     let offline_duration = now - offline_time;
-
-                    // machine status before offline
-                    machine_info.machine_status = *status;
-
-                    match machine_info.machine_status {
-                        MachineStatus::Online | MachineStatus::Rented => {
-                            Self::update_snap_by_online_status(machine_id.clone(), true);
-                            Self::change_pos_info_by_online(&machine_info, true);
-                        },
-                        _ => {},
-                    }
-                    match machine_info.machine_status {
+                    status_before_offline = *status;
+                    match status_before_offline.clone() {
                         MachineStatus::Online => {
                             // 如果在线超过10天，则不进行惩罚超过
                             if offline_time < machine_info.last_online_height + 28800u32.into() {
-                                // 机器在被租用状态下线，会被惩罚
                                 slash_info = Self::slash_when_report_offline(
                                     machine_id.clone(),
                                     OPSlashReason::OnlineReportOffline(offline_duration),
@@ -669,9 +660,6 @@ pub mod pallet {
                             }
                         },
                         MachineStatus::Rented => {
-                            Self::update_snap_by_rent_status(machine_id.clone(), true);
-                            Self::change_pos_info_by_rent(&machine_info, true);
-
                             // 机器在被租用状态下线，会被惩罚
                             slash_info = Self::slash_when_report_offline(
                                 machine_id.clone(),
@@ -680,10 +668,11 @@ pub mod pallet {
                                 None,
                             );
                         },
-                        _ => {},
+                        _ => return Ok(().into()),
                     }
                 },
-                MachineStatus::ReporterReportOffline(slash_reason, _status, reporter, committee) => {
+                MachineStatus::ReporterReportOffline(slash_reason, status, reporter, committee) => {
+                    status_before_offline = *status;
                     slash_info = Self::slash_when_report_offline(
                         machine_id.clone(),
                         slash_reason,
@@ -694,6 +683,21 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
 
+            // machine status before offline
+            machine_info.machine_status = if RentedFinished::<T>::contains_key(&machine_id) {
+                MachineStatus::Online
+            } else {
+                status_before_offline
+            };
+
+            Self::update_snap_by_online_status(machine_id.clone(), true);
+            Self::change_pos_info_by_online(&machine_info, true);
+            if machine_info.machine_status == MachineStatus::Rented {
+                Self::update_snap_by_rent_status(machine_id.clone(), true);
+                Self::change_pos_info_by_rent(&machine_info, true);
+            }
+
+            // Pay slash fee
             if slash_info.1 != Zero::zero() {
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), slash_info.1, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
@@ -715,6 +719,8 @@ pub mod pallet {
                 },
             }
 
+            // try to remove
+            RentedFinished::<T>::remove(&machine_id);
             LiveMachines::<T>::put(live_machine);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
