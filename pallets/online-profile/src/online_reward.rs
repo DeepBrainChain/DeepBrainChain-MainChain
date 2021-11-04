@@ -1,5 +1,5 @@
 use crate::{
-    types::{EraIndex, EraStashPoints, MachineGradeStatus, StashMachine, BLOCK_PER_ERA},
+    types::{EraIndex, EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo, StashMachine, BLOCK_PER_ERA},
     BalanceOf, Config, CurrentEra, EraReward, ErasMachinePoints, ErasMachineReleasedReward, ErasMachineReward,
     ErasStashPoints, ErasStashReleasedReward, ErasStashReward, Pallet, StashMachines,
 };
@@ -80,6 +80,19 @@ impl<T: Config> Pallet<T> {
             Some(era_reward)
         }
     }
+
+    // pub fn get_total_should_released(
+    //     recent_reward_info: &MachineRecentRewardInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+    // ) -> BalanceOf<T> {
+    //     if recent_reward_info.recent_machine_reward.len() == 0 {
+    //         Zero::zero()
+    //     } else {
+    //         // 1% * self.recent_reward_sum + 24 % * self.recent_machine_reward[-1]
+    //         Perbill::from_rational_approximation(1u32, 100u32) * recent_reward_info.recent_reward_sum +
+    //             Perbill::from_rational_approximation(24u32, 100u32) *
+    //                 recent_reward_info.recent_machine_reward.back().unwrap()
+    //     }
+    // }
 
     // 根据机器得分快照，和委员会膨胀分数，计算应该奖励
     // end_era分发奖励

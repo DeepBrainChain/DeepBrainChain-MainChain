@@ -183,6 +183,17 @@ pub mod pallet {
     pub(super) type ErasStashReleasedReward<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
+    /// store max 150 era reward
+    #[pallet::storage]
+    #[pallet::getter(fn machine_recent_reward)]
+    pub(super) type MachineRecentReward<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        MachineRecentRewardInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
+
     /// 资金账户的质押总计
     #[pallet::storage]
     #[pallet::getter(fn stash_stake)]

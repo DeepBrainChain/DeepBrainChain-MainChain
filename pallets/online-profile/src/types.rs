@@ -6,7 +6,12 @@ use generic_func::MachineId;
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{Perbill, RuntimeDebug};
-use sp_std::{collections::btree_map::BTreeMap, prelude::Box, vec::Vec};
+use sp_std::{
+    collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+    ops::{Add, Sub},
+    prelude::Box,
+    vec::Vec,
+};
 
 /// 2880 blocks per era
 pub const BLOCK_PER_ERA: u64 = 2880;
@@ -21,6 +26,37 @@ pub const TWO_DAY: u32 = 5760;
 
 pub type EraIndex = u32;
 pub type TelecomName = Vec<u8>;
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct MachineRecentRewardInfo<AccountId, BlockNumber, Balance> {
+    // machine total reward(committee reward included)
+    pub recent_machine_reward: VecDeque<Balance>,
+    pub recent_reward_sum: Balance,
+
+    pub is_reward_committee: bool,
+    pub reward_committee_deadline: BlockNumber,
+    pub reward_committee: Vec<AccountId>,
+}
+
+// NOTE: Call order of add_new_reward and get_..released is very important
+// Add new reward first, then calc committee/stash released reward
+impl<AccountId, BlockNumber, Balance> MachineRecentRewardInfo<AccountId, BlockNumber, Balance>
+where
+    Balance: Default + Clone + Add<Output = Balance> + Sub<Output = Balance> + Copy,
+{
+    fn add_new_reward(&mut self, reward_amount: Balance) {
+        let mut reduce = Balance::default();
+
+        if self.recent_machine_reward.len() == 150 {
+            reduce = self.recent_machine_reward.pop_front().unwrap();
+            self.recent_machine_reward.push_back(reward_amount);
+        } else {
+            self.recent_machine_reward.push_back(reward_amount);
+        }
+
+        self.recent_reward_sum = self.recent_reward_sum + reward_amount - reduce;
+    }
+}
 
 /// stash account overview self-status
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
