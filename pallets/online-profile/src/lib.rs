@@ -639,7 +639,7 @@ pub mod pallet {
 
             let mut live_machine = Self::live_machines();
 
-            let mut slash_info = (OPPendingSlashInfo::default(), Zero::zero());
+            let mut slash_info = OPPendingSlashInfo::default();
             let status_before_offline: MachineStatus<T::BlockNumber, T::AccountId>;
 
             // MachineStatus改为之前的状态
@@ -698,13 +698,13 @@ pub mod pallet {
             }
 
             // Pay slash fee
-            if slash_info.1 != Zero::zero() {
-                Self::change_user_total_stake(machine_info.machine_stash.clone(), slash_info.1, true)
+            if slash_info.slash_amount != Zero::zero() {
+                Self::change_user_total_stake(machine_info.machine_stash.clone(), slash_info.slash_amount, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
                 // Only after pay slash amount succeed, then make machine online.
                 let slash_id = Self::get_new_slash_id();
-                PendingSlash::<T>::insert(slash_id, slash_info.0);
+                PendingSlash::<T>::insert(slash_id, slash_info);
             }
 
             machine_info.last_online_height = now;
