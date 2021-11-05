@@ -66,6 +66,12 @@
     "stake_amount": "Balance",
     "offline_time": "BlockNumber"
   },
+  "MachineRecentRewardInfo": {
+    "recent_machine_reward": "Vec<Balance>",
+    "recent_reward_sum": "Balance",
+    "reward_committee_deadline": "EraIndex",
+    "reward_committee": "Vec<AccountId>"
+  },
   "MachineInfo": {
     "controller": "AccountId",
     "machine_stash": "AccountId",

@@ -1,13 +1,13 @@
 use crate::{
     types::{EraIndex, EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo, StashMachine, BLOCK_PER_ERA},
     BalanceOf, Config, CurrentEra, EraReward, ErasMachinePoints, ErasMachineReleasedReward, ErasMachineReward,
-    ErasStashPoints, ErasStashReleasedReward, ErasStashReward, Pallet, StashMachines,
+    ErasStashPoints, ErasStashReleasedReward, ErasStashReward, MachineRecentReward, Pallet, StashMachines,
 };
 use codec::Decode;
 use generic_func::MachineId;
 use online_profile_machine::{DbcPrice, ManageCommittee, OPRPCQuery};
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedMul, CheckedSub},
+    traits::{CheckedAdd, CheckedMul, CheckedSub, Zero},
     Perbill, SaturatedConversion,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
@@ -81,18 +81,86 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // pub fn get_total_should_released(
-    //     recent_reward_info: &MachineRecentRewardInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-    // ) -> BalanceOf<T> {
-    //     if recent_reward_info.recent_machine_reward.len() == 0 {
-    //         Zero::zero()
-    //     } else {
-    //         // 1% * self.recent_reward_sum + 24 % * self.recent_machine_reward[-1]
-    //         Perbill::from_rational_approximation(1u32, 100u32) * recent_reward_info.recent_reward_sum +
-    //             Perbill::from_rational_approximation(24u32, 100u32) *
-    //                 recent_reward_info.recent_machine_reward.back().unwrap()
-    //     }
-    // }
+    pub fn distribute_new_reward() -> Result<(), ()> {
+        // TODO: record all machine_id
+        let all_machine_id: Vec<MachineId> = Vec::new();
+        let current_era = Self::current_era();
+        let current_total_reward = Self::era_reward(current_era);
+        let era_machine_points = Self::eras_machine_points(current_era);
+        let era_stash_points = Self::eras_stash_points(current_era);
+
+        // record new reward
+        for machine_id in all_machine_id.clone() {
+            let mut machine_recent_reward_info = Self::machine_recent_reward(&machine_id);
+            let machine_info = Self::machines_info(&machine_id);
+
+            // 计算当时机器实际获得的奖励
+            let machine_points = era_machine_points.get(&machine_id).ok_or(())?;
+            let stash_points = era_stash_points.staker_statistic.get(&machine_info.machine_stash).ok_or(())?;
+            let machine_actual_grade = machine_points.machine_actual_grade(stash_points.inflation);
+
+            // 该Era机器获得的总奖励
+            let machine_total_reward =
+                Perbill::from_rational_approximation(machine_actual_grade, era_stash_points.total) *
+                    current_total_reward;
+
+            MachineRecentRewardInfo::add_new_reward(&mut machine_recent_reward_info, machine_total_reward);
+
+            MachineRecentReward::<T>::insert(&machine_id, machine_recent_reward_info);
+            // machine_recent_reward_info
+        }
+
+        // distribute reward
+        for machine_id in all_machine_id {
+            let machine_recent_reward = Self::machine_recent_reward(&machine_id);
+
+            if machine_recent_reward.recent_reward_sum == Zero::zero() {
+                continue
+            }
+
+            let latest_reward = if machine_recent_reward.recent_machine_reward.len() > 0 {
+                machine_recent_reward.recent_machine_reward[machine_recent_reward.recent_machine_reward.len() - 1]
+            } else {
+                Zero::zero()
+            };
+
+            let released_reward = Perbill::from_rational_approximation(24u32, 100u32) * latest_reward +
+                Perbill::from_rational_approximation(1u32, 100u32) * machine_recent_reward.recent_reward_sum;
+
+            // if should reward to committee
+            if current_era > machine_recent_reward.reward_committee_deadline {
+
+                // only reward stash
+            } else {
+                // 1% of released_reward to committee
+                // 99% of released reward to stash
+                let release_to_stash = Perbill::from_rational_approximation(99u32, 100u32) * released_reward;
+                let release_to_committee = released_reward - release_to_stash;
+                let committee_each_get =
+                    Perbill::from_rational_approximation(1u32, machine_recent_reward.reward_committee.len() as u32) *
+                        release_to_committee;
+
+                for a_committee in machine_recent_reward.reward_committee.clone() {
+                    T::ManageCommittee::add_reward(a_committee, committee_each_get);
+                }
+            }
+
+            // record this
+            // ErasMachineReward::<T>::insert(current_era, &machine_id, reward_to_stash);
+            // ErasStashReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
+            //     *old_value += reward_to_stash;
+            // });
+
+            // ErasMachineReleasedReward::<T>::mutate(&current_era, &machine_id, |old_value| {
+            //     *old_value += release_to_stash
+            // });
+            // ErasStashReleasedReward::<T>::mutate(&current_era, &machine_info.machine_stash, |old_value| {
+            //     *old_value += release_to_stash
+            // });
+        }
+
+        Ok(())
+
 
     // 根据机器得分快照，和委员会膨胀分数，计算应该奖励
     // end_era分发奖励

@@ -28,23 +28,22 @@ pub type EraIndex = u32;
 pub type TelecomName = Vec<u8>;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct MachineRecentRewardInfo<AccountId, BlockNumber, Balance> {
+pub struct MachineRecentRewardInfo<AccountId, Balance> {
     // machine total reward(committee reward included)
     pub recent_machine_reward: VecDeque<Balance>,
     pub recent_reward_sum: Balance,
 
-    pub is_reward_committee: bool,
-    pub reward_committee_deadline: BlockNumber,
+    pub reward_committee_deadline: EraIndex,
     pub reward_committee: Vec<AccountId>,
 }
 
 // NOTE: Call order of add_new_reward and get_..released is very important
 // Add new reward first, then calc committee/stash released reward
-impl<AccountId, BlockNumber, Balance> MachineRecentRewardInfo<AccountId, BlockNumber, Balance>
+impl<AccountId, Balance> MachineRecentRewardInfo<AccountId, Balance>
 where
     Balance: Default + Clone + Add<Output = Balance> + Sub<Output = Balance> + Copy,
 {
-    fn add_new_reward(&mut self, reward_amount: Balance) {
+    pub fn add_new_reward(&mut self, reward_amount: Balance) {
         let mut reduce = Balance::default();
 
         if self.recent_machine_reward.len() == 150 {

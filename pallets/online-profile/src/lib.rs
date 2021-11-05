@@ -186,13 +186,8 @@ pub mod pallet {
     /// store max 150 era reward
     #[pallet::storage]
     #[pallet::getter(fn machine_recent_reward)]
-    pub(super) type MachineRecentReward<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        MachineId,
-        MachineRecentRewardInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ValueQuery,
-    >;
+    pub(super) type MachineRecentReward<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, MachineRecentRewardInfo<T::AccountId, BalanceOf<T>>, ValueQuery>;
 
     /// 资金账户的质押总计
     #[pallet::storage]
