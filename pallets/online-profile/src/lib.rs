@@ -21,7 +21,13 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, Zero},
     SaturatedConversion,
 };
-use sp_std::{collections::btree_map::BTreeMap, convert::From, prelude::*, str, vec::Vec};
+use sp_std::{
+    collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+    convert::From,
+    prelude::*,
+    str,
+    vec::Vec,
+};
 
 pub use pallet::*;
 pub use traits::*;
@@ -189,6 +195,21 @@ pub mod pallet {
     pub(super) type MachineRecentReward<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, MachineRecentRewardInfo<T::AccountId, BalanceOf<T>>, ValueQuery>;
 
+    // current era machine points
+    #[pallet::storage]
+    #[pallet::getter(fn backup_machine_grade_snap)]
+    pub(super) type BackupMachineGradeSnap<T: Config> =
+        StorageValue<_, BTreeMap<MachineId, MachineGradeStatus>, ValueQuery>;
+
+    // current era stash points
+    #[pallet::storage]
+    #[pallet::getter(fn backup_stash_grade_snap)]
+    pub(super) type BackupStashGradeSnap<T: Config> = StorageValue<_, EraStashPoints<T::AccountId>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn all_machine_id_snap)]
+    pub(super) type AllMachineIdSnap<T: Config> = StorageValue<_, (VecDeque<MachineId>, u64), ValueQuery>;
+
     /// 资金账户的质押总计
     #[pallet::storage]
     #[pallet::getter(fn stash_stake)]
@@ -225,24 +246,25 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
+            Self::backup_and_reward(block_number);
+
             if block_number.saturated_into::<u64>() % BLOCK_PER_ERA == 1 {
                 // Era开始时，生成当前Era和下一个Era的快照
                 // 每个Era(2880个块)执行一次
-                Self::update_snap_for_new_era(block_number);
+                Self::update_snap_for_new_era();
             }
             Self::check_offline_machine_duration();
-
             Self::do_pending_slash();
             0
         }
 
-        fn on_finalize(block_number: T::BlockNumber) {
-            let current_height = block_number.saturated_into::<u64>();
+        fn on_finalize(_block_number: T::BlockNumber) {
+            // let current_height = block_number.saturated_into::<u64>();
             // 在每个Era结束时执行奖励，发放到用户的Machine
             // 计算奖励，直接根据当前得分即可
-            if current_height > 0 && current_height % BLOCK_PER_ERA == 0 {
-                Self::distribute_reward();
-            }
+            // if current_height > 0 && current_height % BLOCK_PER_ERA == 0 {
+            //     // Self::distribute_reward();
+            // }
         }
     }
 
