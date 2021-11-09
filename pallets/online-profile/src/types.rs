@@ -30,6 +30,7 @@ pub type TelecomName = Vec<u8>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MachineRecentRewardInfo<AccountId, Balance> {
     // machine total reward(committee reward included)
+    pub machine_stash: AccountId,
     pub recent_machine_reward: VecDeque<Balance>,
     pub recent_reward_sum: Balance,
 

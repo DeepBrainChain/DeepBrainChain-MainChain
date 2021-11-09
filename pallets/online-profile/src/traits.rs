@@ -1,6 +1,6 @@
 use crate::{
-    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachinesInfo, Pallet, RentedFinished, StashMachines,
-    StashStake, SysInfo, UserMutHardwareStake,
+    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachinesInfo, Pallet,
+    RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
 use frame_support::IterableStorageMap;
 use generic_func::{ItemList, MachineId};
@@ -56,14 +56,14 @@ impl<T: Config> OCOps for Pallet<T> {
     ) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let current_era = Self::current_era();
+        let machine_id = committee_upload_info.machine_id.clone();
 
-        let mut machine_info = Self::machines_info(&committee_upload_info.machine_id);
+        let mut machine_info = Self::machines_info(&machine_id);
         let mut live_machines = Self::live_machines();
 
-        let is_reonline =
-            UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &committee_upload_info.machine_id);
+        let is_reonline = UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
 
-        ItemList::rm_item(&mut live_machines.booked_machine, &committee_upload_info.machine_id);
+        ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
 
         machine_info.machine_info_detail.committee_upload_info = committee_upload_info.clone();
         if !is_reonline {
@@ -77,7 +77,7 @@ impl<T: Config> OCOps for Pallet<T> {
             .ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
             if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true).is_ok() {
-                ItemList::add_item(&mut live_machines.online_machine, committee_upload_info.machine_id.clone());
+                ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
                 machine_info.stake_amount = stake_need;
                 machine_info.machine_status = MachineStatus::Online;
                 machine_info.last_online_height = now;
@@ -88,24 +88,23 @@ impl<T: Config> OCOps for Pallet<T> {
                     machine_info.reward_deadline = current_era + REWARD_DURATION;
                 }
             } else {
-                ItemList::add_item(&mut live_machines.fulfilling_machine, committee_upload_info.machine_id.clone());
+                ItemList::add_item(&mut live_machines.fulfilling_machine, machine_id.clone());
                 machine_info.machine_status = MachineStatus::WaitingFulfill;
             }
         } else {
-            ItemList::add_item(&mut live_machines.online_machine, committee_upload_info.machine_id.clone());
+            ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
             machine_info.machine_status = MachineStatus::Online;
             if !is_reonline {
                 machine_info.reward_deadline = current_era + REWARD_DURATION;
             }
         }
 
-        MachinesInfo::<T>::insert(committee_upload_info.machine_id.clone(), machine_info.clone());
+        MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
         LiveMachines::<T>::put(live_machines);
 
         if is_reonline {
             // 根据质押，奖励给这些委员会
-            let reonline_stake =
-                Self::user_mut_hardware_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
+            let reonline_stake = Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
             let _ = Self::slash_and_reward(
                 machine_info.machine_stash.clone(),
@@ -117,7 +116,7 @@ impl<T: Config> OCOps for Pallet<T> {
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if let MachineStatus::Online = machine_info.machine_status {
             Self::change_pos_info_by_online(&machine_info, true);
-            Self::update_snap_by_online_status(committee_upload_info.machine_id.clone(), true);
+            Self::update_snap_by_online_status(machine_id.clone(), true);
 
             if is_reonline {
                 // 仅在Oline成功时删掉reonline_stake记录，以便补充质押时惩罚时检查状态
@@ -133,6 +132,16 @@ impl<T: Config> OCOps for Pallet<T> {
                     OPSlashReason::OnlineReportOffline(offline_duration),
                     None,
                     None,
+                );
+            } else {
+                MachineRecentReward::<T>::insert(
+                    &machine_id,
+                    MachineRecentRewardInfo {
+                        machine_stash: machine_info.machine_stash.clone(),
+                        reward_committee_deadline: machine_info.reward_deadline,
+                        reward_committee: machine_info.reward_committee.clone(),
+                        ..Default::default()
+                    },
                 );
             }
         }

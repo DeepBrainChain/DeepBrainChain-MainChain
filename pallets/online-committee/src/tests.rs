@@ -269,7 +269,7 @@ fn machine_online_works() {
             online_height: 6,
             last_online_height: 6,
             stake_amount: 400000 * ONE_DBC,
-            reward_deadline: 365 * 2,
+            reward_deadline: 365 * 2 + 1,
             reward_committee: vec![committee2, committee3, committee1],
             machine_info_detail: online_profile::MachineInfoDetail {
                 committee_upload_info,
@@ -308,14 +308,14 @@ fn machine_online_works() {
         );
         assert_eq!(OnlineProfile::eras_stash_points(0), EraStashPoints { ..Default::default() });
         assert_eq!(
-            OnlineProfile::eras_stash_points(1),
+            OnlineProfile::eras_stash_points(2),
             EraStashPoints { total: 59914, staker_statistic: staker_statistic.clone() }
         );
 
         let mut era_machine_points = BTreeMap::new();
         assert_eq!(OnlineProfile::eras_machine_points(0), BTreeMap::new());
         era_machine_points.insert(machine_id.clone(), MachineGradeStatus { basic_grade: 59890, is_rented: false });
-        assert_eq!(OnlineProfile::eras_machine_points(1), era_machine_points);
+        assert_eq!(OnlineProfile::eras_machine_points(2), era_machine_points);
 
         // 过一个Era: 一天是2880个块
         run_to_block(2880 * 2 + 2);
@@ -325,15 +325,15 @@ fn machine_online_works() {
         // ErasMachineReleasedReward, ErasMachineReward
         // ErasStashReleasedReward, ErasStashReward, StashMachines, committee reward
 
-        assert_eq!(OnlineProfile::eras_machine_reward(0, &machine_id), 0);
-        assert_eq!(OnlineProfile::eras_machine_reward(1, &machine_id), 1089000 * ONE_DBC); // 1100000 * 0.99
-        assert_eq!(OnlineProfile::eras_machine_released_reward(0, &machine_id), 0);
-        assert_eq!(OnlineProfile::eras_machine_released_reward(1, &machine_id), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
+        assert_eq!(OnlineProfile::eras_machine_reward(1, &machine_id), 0);
+        assert_eq!(OnlineProfile::eras_machine_reward(2, &machine_id), 1089000 * ONE_DBC); // 1100000 * 0.99
+        assert_eq!(OnlineProfile::eras_machine_released_reward(1, &machine_id), 0);
+        assert_eq!(OnlineProfile::eras_machine_released_reward(2, &machine_id), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
 
-        assert_eq!(OnlineProfile::eras_stash_reward(0, &stash), 0);
-        assert_eq!(OnlineProfile::eras_stash_reward(1, &stash), 1089000 * ONE_DBC);
-        assert_eq!(OnlineProfile::eras_stash_released_reward(0, &stash), 0);
-        assert_eq!(OnlineProfile::eras_stash_released_reward(1, &stash), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
+        assert_eq!(OnlineProfile::eras_stash_reward(1, &stash), 0);
+        assert_eq!(OnlineProfile::eras_stash_reward(2, &stash), 1089000 * ONE_DBC);
+        assert_eq!(OnlineProfile::eras_stash_released_reward(1, &stash), 0);
+        assert_eq!(OnlineProfile::eras_stash_released_reward(2, &stash), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
 
         let stash_machine_info = online_profile::StashMachine {
             can_claim_reward: 272250 * ONE_DBC, // 1100000 * 0.99 * 0.25
@@ -360,18 +360,17 @@ fn machine_online_works() {
         // ErasMachineReleasedReward, ErasMachineReward
         // ErasStashReleasedReward, ErasStashReward, StashMachines, committee reward
 
-        assert_eq!(OnlineProfile::eras_machine_reward(0, &machine_id), 0);
-        assert_eq!(OnlineProfile::eras_machine_reward(1, &machine_id), 1089000 * ONE_DBC); // 1100000 * 0.99
+        assert_eq!(OnlineProfile::eras_machine_reward(1, &machine_id), 0);
         assert_eq!(OnlineProfile::eras_machine_reward(2, &machine_id), 1089000 * ONE_DBC); // 1100000 * 0.99
-        assert_eq!(OnlineProfile::eras_machine_released_reward(0, &machine_id), 0);
-        assert_eq!(OnlineProfile::eras_machine_released_reward(1, &machine_id), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
+        assert_eq!(OnlineProfile::eras_machine_reward(3, &machine_id), 1089000 * ONE_DBC); // 1100000 * 0.99
+        assert_eq!(OnlineProfile::eras_machine_released_reward(1, &machine_id), 0);
+        assert_eq!(OnlineProfile::eras_machine_released_reward(2, &machine_id), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
 
         // 释放剩余奖励的1/150: 1100000 * 0.75 / 150 * 0.99 = 5445;
-        // NOTE: 实际上，= 1100000 * 0.75 * 6666666 / 10**9 * 0.99 =  5444.9994555 DBC
         // 第一天奖励，在第二天线性释放，委员会获得的部分:
-        let first_day_linear_release = 5444 * ONE_DBC + 9994555 * ONE_DBC / 10000000;
+        let first_day_linear_release = 5445 * ONE_DBC;
         assert_eq!(
-            OnlineProfile::eras_machine_released_reward(2, &machine_id),
+            OnlineProfile::eras_machine_released_reward(3, &machine_id),
             272250 * ONE_DBC + first_day_linear_release
         ); // 1100000 * 0.99 * 0.25 + 1100000 * 0.75 * 0.99 / 150
 
@@ -384,19 +383,24 @@ fn machine_online_works() {
             ..stash_machine_info
         };
 
-        assert_eq!(OnlineProfile::eras_stash_reward(0, &stash), 0);
-        assert_eq!(OnlineProfile::eras_stash_reward(1, &stash), 1089000 * ONE_DBC);
+        assert_eq!(OnlineProfile::eras_stash_reward(1, &stash), 0);
         assert_eq!(OnlineProfile::eras_stash_reward(2, &stash), 1089000 * ONE_DBC);
-        assert_eq!(OnlineProfile::eras_stash_released_reward(0, &stash), 0);
-        assert_eq!(OnlineProfile::eras_stash_released_reward(1, &stash), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
-        assert_eq!(OnlineProfile::eras_stash_released_reward(2, &stash), 272250 * ONE_DBC + first_day_linear_release); // 1100000 * 0.99 * 0.25
+        assert_eq!(OnlineProfile::eras_stash_reward(3, &stash), 1089000 * ONE_DBC);
+        assert_eq!(OnlineProfile::eras_stash_released_reward(1, &stash), 0);
+        assert_eq!(OnlineProfile::eras_stash_released_reward(2, &stash), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
+        assert_eq!(OnlineProfile::eras_stash_released_reward(3, &stash), 272250 * ONE_DBC + first_day_linear_release); // 1100000 * 0.99 * 0.25
 
         assert_eq!(&OnlineProfile::stash_machines(stash), &stash_machine_info);
 
         // 第二天释放的获得的第一天的将奖励： 1100000 * 0.75 * 6666666 / 10**9 * 0.01 = 54.9999945
         // 916 * ONE_DBC + 66666575 * 10_000_000 = 916.66666575; (1/150 -> 6666666 / 10**9), 1100000 * 0.75 * (6666666 / 10**9) * 0.01 * 333333333 / 10**9 = 18.33333148166667
+
+        // 第二天释放的获得的第一天的将奖励： 1100000 * 0.25 / 100 * 2 + 1100000*0.75/150/100 = 5555;
+        // Each committee two get: 5555 / 3 = 1851.66666666...
+
+        // 1100000 * ONE_DBC * 0.25 / 3 * 2 + 55 / 3 * ONE_DBC;
         committee_stake_info.can_claim_reward =
-            (916 * ONE_DBC + 66666575 * 10_000_000) * 2 + 18 * ONE_DBC + 333331481666668;
+            (916 * ONE_DBC + 66666575 * 10_000_000) * 2 + 18 * ONE_DBC + 333333315000000;
         committee_stake_info.used_stake = 0;
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
 
@@ -413,7 +417,7 @@ fn machine_online_works() {
         assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
 
         // 领取奖励后，查询账户余额
-        assert_eq!(Balances::free_balance(stash), INIT_BALANCE - 400000 * ONE_DBC + 549944999455500000000);
+        assert_eq!(Balances::free_balance(stash), INIT_BALANCE - 400000 * ONE_DBC + 549945 * ONE_DBC);
 
         // 委员会领取奖励
         // - Writes:
@@ -460,11 +464,11 @@ fn machine_online_works() {
         assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
 
         // 当前Era为3
-        assert_eq!(OnlineProfile::current_era(), 3);
-        assert_eq!(OnlineProfile::eras_stash_points(3), EraStashPoints { ..Default::default() });
+        assert_eq!(OnlineProfile::current_era(), 4);
         assert_eq!(OnlineProfile::eras_stash_points(4), EraStashPoints { ..Default::default() });
-        assert_eq!(OnlineProfile::eras_machine_points(3), BTreeMap::new());
+        assert_eq!(OnlineProfile::eras_stash_points(5), EraStashPoints { ..Default::default() });
         assert_eq!(OnlineProfile::eras_machine_points(4), BTreeMap::new());
+        assert_eq!(OnlineProfile::eras_machine_points(5), BTreeMap::new());
 
         // 控制账户重新添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
@@ -669,13 +673,13 @@ fn machine_online_works() {
             },
         );
         assert_eq!(
-            OnlineProfile::eras_stash_points(4),
+            OnlineProfile::eras_stash_points(5),
             EraStashPoints { total: 119876, staker_statistic: staker_statistic.clone() }
         );
 
         let mut era_machine_points = BTreeMap::new();
         era_machine_points.insert(machine_id.clone(), MachineGradeStatus { basic_grade: 119780, is_rented: false });
-        assert_eq!(OnlineProfile::eras_machine_points(4), era_machine_points);
+        assert_eq!(OnlineProfile::eras_machine_points(5), era_machine_points);
         assert_eq!(
             OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
             online_profile::UserMutHardwareStakeInfo { ..Default::default() }

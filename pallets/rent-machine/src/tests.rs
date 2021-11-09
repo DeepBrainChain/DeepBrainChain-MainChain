@@ -23,7 +23,7 @@ fn rent_machine_should_works() {
         // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
 
-        let era_grade_snap = OnlineProfile::eras_stash_points(1);
+        let era_grade_snap = OnlineProfile::eras_stash_points(2);
         assert_eq!(era_grade_snap.total, 77881); // 59890 * 4/10000 + 59890 * 0.3 + 59890
         let staker_grade_snap = era_grade_snap.staker_statistic.get(&stash).unwrap();
 

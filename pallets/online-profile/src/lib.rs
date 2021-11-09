@@ -195,17 +195,6 @@ pub mod pallet {
     pub(super) type MachineRecentReward<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, MachineRecentRewardInfo<T::AccountId, BalanceOf<T>>, ValueQuery>;
 
-    // current era machine points
-    #[pallet::storage]
-    #[pallet::getter(fn backup_machine_grade_snap)]
-    pub(super) type BackupMachineGradeSnap<T: Config> =
-        StorageValue<_, BTreeMap<MachineId, MachineGradeStatus>, ValueQuery>;
-
-    // current era stash points
-    #[pallet::storage]
-    #[pallet::getter(fn backup_stash_grade_snap)]
-    pub(super) type BackupStashGradeSnap<T: Config> = StorageValue<_, EraStashPoints<T::AccountId>, ValueQuery>;
-
     #[pallet::storage]
     #[pallet::getter(fn all_machine_id_snap)]
     pub(super) type AllMachineIdSnap<T: Config> = StorageValue<_, (VecDeque<MachineId>, u64), ValueQuery>;
@@ -606,6 +595,17 @@ pub mod pallet {
             ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
 
             LiveMachines::<T>::put(live_machine);
+
+            MachineRecentReward::<T>::insert(
+                &machine_id,
+                MachineRecentRewardInfo {
+                    machine_stash: machine_info.machine_stash.clone(),
+                    reward_committee_deadline: machine_info.reward_deadline,
+                    reward_committee: machine_info.reward_committee.clone(),
+                    ..Default::default()
+                },
+            );
+
             MachinesInfo::<T>::insert(&machine_id, machine_info);
             Ok(().into())
         }
