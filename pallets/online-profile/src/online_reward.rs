@@ -132,6 +132,30 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // 计算当时机器实际获得的总奖励 (to_stash + to_committee)
+    fn calc_machine_total_reward(
+        machine_id: &MachineId,
+        machine_stash: &T::AccountId,
+        era_total_reward: BalanceOf<T>,
+        era_machine_points: &BTreeMap<MachineId, MachineGradeStatus>,
+        era_stash_points: &EraStashPoints<T::AccountId>,
+    ) -> BalanceOf<T> {
+        let machine_points = era_machine_points.get(machine_id);
+        let stash_points = era_stash_points.staker_statistic.get(machine_stash);
+        let machine_actual_grade = if machine_points.is_none() || stash_points.is_none() {
+            Zero::zero()
+        } else {
+            machine_points.unwrap().machine_actual_grade(stash_points.unwrap().inflation)
+        };
+
+        // 该Era机器获得的总奖励 (reward_to_stash + reward_to_committee)
+        if era_stash_points.total == 0 {
+            Zero::zero()
+        } else {
+            Perbill::from_rational_approximation(machine_actual_grade, era_stash_points.total) * era_total_reward
+        }
+    }
+
     pub fn distribute_reward_to_machine(
         machine_id: MachineId,
         release_era: EraIndex,
@@ -142,22 +166,14 @@ impl<T: Config> Pallet<T> {
         let mut machine_reward_info = Self::machine_recent_reward(&machine_id);
         let mut stash_machine = Self::stash_machines(&machine_reward_info.machine_stash);
 
-        // 计算当时机器实际获得的奖励
-        let machine_points = era_machine_points.get(&machine_id);
-        let stash_points = era_stash_points.staker_statistic.get(&machine_reward_info.machine_stash);
+        let machine_total_reward = Self::calc_machine_total_reward(
+            &machine_id,
+            &machine_reward_info.machine_stash,
+            era_total_reward,
+            era_machine_points,
+            era_stash_points,
+        );
 
-        let machine_actual_grade = if machine_points.is_none() || stash_points.is_none() {
-            Zero::zero()
-        } else {
-            machine_points.unwrap().machine_actual_grade(stash_points.unwrap().inflation)
-        };
-
-        // 该Era机器获得的总奖励 (reward_to_stash + reward_to_committee)
-        let machine_total_reward = if era_stash_points.total == 0 {
-            Zero::zero()
-        } else {
-            Perbill::from_rational_approximation(machine_actual_grade, era_stash_points.total) * era_total_reward
-        };
         MachineRecentRewardInfo::add_new_reward(&mut machine_reward_info, machine_total_reward);
 
         if machine_reward_info.recent_reward_sum == Zero::zero() {
@@ -186,7 +202,6 @@ impl<T: Config> Pallet<T> {
             (release_to_stash, release_to_committee)
         };
 
-        stash_machine.can_claim_reward += reward_to_stash;
         let committee_each_get =
             Perbill::from_rational_approximation(1u32, machine_reward_info.reward_committee.len() as u32) *
                 reward_to_committee;
@@ -194,12 +209,26 @@ impl<T: Config> Pallet<T> {
             T::ManageCommittee::add_reward(a_committee, committee_each_get);
         }
 
-        // FIXME: error here: reward of actual get will change depend on how much days left
+        // NOTE: reward of actual get will change depend on how much days left
         let machine_actual_total_reward = if release_era > machine_reward_info.reward_committee_deadline {
             machine_total_reward
+        } else if release_era > machine_reward_info.reward_committee_deadline - 150 {
+            // 减去委员会释放的部分
+
+            // 每天机器奖励释放总奖励的1/200 (150天释放75%)
+            let total_daily_release = Perbill::from_rational_approximation(1u32, 200u32) * machine_total_reward;
+            // 委员会每天分得释放奖励的1%
+            let total_committee_release = Perbill::from_rational_approximation(1u32, 100u32) * total_daily_release;
+            // 委员会还能获得奖励的天数
+            let release_day = machine_reward_info.reward_committee_deadline - release_era;
+
+            machine_total_reward - total_committee_release * release_day.saturated_into::<BalanceOf<T>>()
         } else {
             Perbill::from_rational_approximation(99u32, 100u32) * machine_total_reward
         };
+
+        // record reward
+        stash_machine.can_claim_reward += reward_to_stash;
         stash_machine.total_earned_reward += machine_actual_total_reward;
         ErasMachineReward::<T>::insert(release_era, &machine_id, machine_actual_total_reward);
         ErasStashReward::<T>::mutate(&release_era, &machine_reward_info.machine_stash, |old_value| {
