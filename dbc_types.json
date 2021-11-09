@@ -67,6 +67,7 @@
     "offline_time": "BlockNumber"
   },
   "MachineRecentRewardInfo": {
+    "machine_stash": "AccountId",
     "recent_machine_reward": "Vec<Balance>",
     "recent_reward_sum": "Balance",
     "reward_committee_deadline": "EraIndex",
