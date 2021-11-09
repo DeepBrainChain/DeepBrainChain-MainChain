@@ -143,10 +143,14 @@ impl<T: Config> Pallet<T> {
         let mut stash_machine = Self::stash_machines(&machine_reward_info.machine_stash);
 
         // 计算当时机器实际获得的奖励
-        let machine_points = era_machine_points.get(&machine_id).unwrap_or_default();
-        let stash_points =
-            era_stash_points.staker_statistic.get(&machine_reward_info.machine_stash).unwrap_or_default();
-        let machine_actual_grade = machine_points.machine_actual_grade(stash_points.inflation);
+        let machine_points = era_machine_points.get(&machine_id);
+        let stash_points = era_stash_points.staker_statistic.get(&machine_reward_info.machine_stash);
+
+        let machine_actual_grade = if machine_points.is_none() || stash_points.is_none() {
+            Zero::zero()
+        } else {
+            machine_points.unwrap().machine_actual_grade(stash_points.unwrap().inflation)
+        };
 
         // 该Era机器获得的总奖励 (reward_to_stash + reward_to_committee)
         let machine_total_reward = if era_stash_points.total == 0 {
@@ -158,7 +162,7 @@ impl<T: Config> Pallet<T> {
 
         if machine_reward_info.recent_reward_sum == Zero::zero() {
             MachineRecentReward::<T>::insert(&machine_id, machine_reward_info);
-            return Ok(())
+            return
         }
 
         let latest_reward = if machine_reward_info.recent_machine_reward.len() > 0 {
@@ -209,6 +213,5 @@ impl<T: Config> Pallet<T> {
 
         StashMachines::<T>::insert(&machine_reward_info.machine_stash, stash_machine);
         MachineRecentReward::<T>::insert(&machine_id, machine_reward_info);
-        return Ok(())
     }
 }
