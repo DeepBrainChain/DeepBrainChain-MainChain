@@ -306,6 +306,11 @@ pub mod pallet {
             let sys_info = Self::sys_info();
             // NOTE: 5000张卡开启银河竞赛
             if !Self::galaxy_is_on() && sys_info.total_gpu_num > gpu_threshold as u64 {
+                let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
+                let current_era = Self::current_era();
+                phase_reward_info.galaxy_on_era = current_era;
+                PhaseRewardInfo::<T>::put(phase_reward_info);
+
                 GalaxyIsOn::<T>::put(true);
             }
             Ok(().into())
@@ -1119,6 +1124,10 @@ impl<T: Config> Pallet<T> {
 
         // NOTE: 5000张卡开启银河竞赛
         if !Self::galaxy_is_on() && sys_info.total_gpu_num > Self::galaxy_on_gpu_threshold() as u64 {
+            let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
+            phase_reward_info.galaxy_on_era = current_era;
+            PhaseRewardInfo::<T>::put(phase_reward_info);
+
             GalaxyIsOn::<T>::put(true);
         }
 
