@@ -1,12 +1,10 @@
 {
-  "Pubkey": "Vec<u8>",
   "ReportId": "u64",
   "SlashId": "u64",
   "BoxPubkey": "[u8; 32]",
   "ReportHash": "[u8; 16]",
   "URL": "Text",
   "MachineId": "Text",
-  "OrderId": "u64",
   "TelecomName": "Text",
   "FoundationIssueRewards": {
     "who": "Vec<AccountId>",
@@ -57,10 +55,6 @@
     "total_stake": "Balance",
     "total_rent_fee": "Balance",
     "total_burn_fee": "Balance"
-  },
-  "UserReonlineStakeInfo": {
-    "stake_amount": "Balance",
-    "offline_time": "BlockNumber"
   },
   "UserMutHardwareStakeInfo": {
     "stake_amount": "Balance",
