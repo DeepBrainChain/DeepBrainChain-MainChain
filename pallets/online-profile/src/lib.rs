@@ -246,15 +246,6 @@ pub mod pallet {
             Self::do_pending_slash();
             0
         }
-
-        fn on_finalize(_block_number: T::BlockNumber) {
-            // let current_height = block_number.saturated_into::<u64>();
-            // 在每个Era结束时执行奖励，发放到用户的Machine
-            // 计算奖励，直接根据当前得分即可
-            // if current_height > 0 && current_height % BLOCK_PER_ERA == 0 {
-            //     // Self::distribute_reward();
-            // }
-        }
     }
 
     #[pallet::call]
