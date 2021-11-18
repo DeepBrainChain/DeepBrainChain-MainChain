@@ -21,13 +21,7 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, Zero},
     SaturatedConversion,
 };
-use sp_std::{
-    collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-    convert::From,
-    prelude::*,
-    str,
-    vec::Vec,
-};
+use sp_std::{collections::btree_map::BTreeMap, convert::From, prelude::*, str, vec::Vec};
 
 pub use pallet::*;
 pub use traits::*;
@@ -39,6 +33,7 @@ type NegativeImbalanceOf<T> =
 
 #[frame_support::pallet]
 pub mod pallet {
+
     use super::*;
 
     #[pallet::config]
@@ -195,9 +190,10 @@ pub mod pallet {
     pub(super) type MachineRecentReward<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, MachineRecentRewardInfo<T::AccountId, BalanceOf<T>>, ValueQuery>;
 
+    /// 将要发放奖励的机器
     #[pallet::storage]
     #[pallet::getter(fn all_machine_id_snap)]
-    pub(super) type AllMachineIdSnap<T: Config> = StorageValue<_, (VecDeque<MachineId>, u64), ValueQuery>;
+    pub(super) type AllMachineIdSnap<T: Config> = StorageValue<_, types::AllMachineIdSnapDetail, ValueQuery>;
 
     /// 资金账户的质押总计
     #[pallet::storage]

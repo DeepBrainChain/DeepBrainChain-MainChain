@@ -592,3 +592,10 @@ impl MachineGradeStatus {
         self.basic_grade + rent_extra_grade + inflation_extra_grade
     }
 }
+
+// 奖励发放前，对所有machine_id进行备份
+#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+pub struct AllMachineIdSnapDetail {
+    pub all_machine_id: VecDeque<MachineId>,
+    pub snap_len: u64,
+}

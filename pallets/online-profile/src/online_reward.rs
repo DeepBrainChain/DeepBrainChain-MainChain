@@ -1,8 +1,8 @@
 use crate::{
     types::{EraIndex, EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo, BLOCK_PER_ERA},
-    AllMachineIdSnap, BalanceOf, Config, CurrentEra, EraReward, ErasMachinePoints, ErasMachineReleasedReward,
-    ErasMachineReward, ErasStashPoints, ErasStashReleasedReward, ErasStashReward, MachineRecentReward, Pallet,
-    StashMachines,
+    AllMachineIdSnap, AllMachineIdSnapDetail, BalanceOf, Config, CurrentEra, EraReward, ErasMachinePoints,
+    ErasMachineReleasedReward, ErasMachineReward, ErasStashPoints, ErasStashReleasedReward, ErasStashReward,
+    MachineRecentReward, Pallet, StashMachines,
 };
 use codec::Decode;
 use generic_func::MachineId;
@@ -100,12 +100,15 @@ impl<T: Config> Pallet<T> {
 
                 let machine_num = all_machine.len() as u64;
 
-                AllMachineIdSnap::<T>::put((all_machine, machine_num));
+                AllMachineIdSnap::<T>::put(AllMachineIdSnapDetail {
+                    all_machine_id: all_machine.into(),
+                    snap_len: machine_num,
+                });
             },
             3..=62 => {
                 // distribute reward
                 let mut all_machine = Self::all_machine_id_snap();
-                let release_num = all_machine.1 / 60;
+                let release_num = all_machine.snap_len / 60;
 
                 let release_era = Self::current_era() - 1;
                 let era_total_reward = Self::era_reward(release_era);
@@ -113,7 +116,7 @@ impl<T: Config> Pallet<T> {
                 let era_stash_points = Self::eras_stash_points(release_era);
 
                 for _ in 0..=release_num {
-                    if let Some(machine_id) = all_machine.0.pop_front() {
+                    if let Some(machine_id) = all_machine.all_machine_id.pop_front() {
                         Self::distribute_reward_to_machine(
                             machine_id,
                             release_era,
@@ -229,7 +232,8 @@ impl<T: Config> Pallet<T> {
 
         // record reward
         stash_machine.can_claim_reward += reward_to_stash;
-        stash_machine.total_earned_reward += machine_actual_total_reward;
+        stash_machine.total_earned_reward += machine_actual_total_reward; // FIXME: check here
+
         ErasMachineReward::<T>::insert(release_era, &machine_id, machine_actual_total_reward);
         ErasStashReward::<T>::mutate(&release_era, &machine_reward_info.machine_stash, |old_value| {
             *old_value += machine_actual_total_reward;

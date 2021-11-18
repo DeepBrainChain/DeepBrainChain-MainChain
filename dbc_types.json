@@ -365,6 +365,10 @@
     "expire_time": "BlockNumber",
     "reason": "Vec<u8>"
   },
+  "AllMachineIdSnapDetail": {
+    "all_machine_id": "Vec<MachineId>",
+    "snap_len": "u64"
+  },
   "RentOrderDetail": {
     "renter": "AccountId",
     "rent_start": "BlockNumber",
