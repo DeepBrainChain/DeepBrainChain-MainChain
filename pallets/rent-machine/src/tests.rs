@@ -1,5 +1,6 @@
-use crate::mock::*;
+use crate::{mock::*, PendingConfirming, RentOrderDetail};
 use frame_support::assert_ok;
+use generic_func::MachineId;
 use online_profile::MachineStatus;
 use sp_runtime::Perbill;
 
@@ -124,6 +125,48 @@ fn controller_report_offline_when_online_should_work() {
         run_to_block(22 + 2880 * 2);
         assert_eq!(OnlineProfile::pending_slash(0), online_profile::OPPendingSlashInfo { ..Default::default() });
         assert_eq!(Balances::reserved_balance(stash), 400000 * ONE_DBC);
+    })
+}
+
+#[test]
+fn rent_machine_confirm_expired_should_work() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        let renter_dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+
+        let mut machine_info1 = OnlineProfile::machines_info(&machine_id);
+        let init_rent_order = RentMachine::rent_order(&machine_id);
+
+        // Dave rent machine for 10 days
+        assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 10));
+
+        let user_stake = RentMachine::user_total_stake(&renter_dave);
+        assert_eq!(user_stake, 249541666666666666666);
+
+        run_to_block(72);
+
+        // 机器状态
+        machine_info1.last_machine_renter = None;
+        machine_info1.machine_status = MachineStatus::Online;
+        let machine_info2 = OnlineProfile::machines_info(&machine_id);
+        assert_eq!(&machine_info1, &machine_info2);
+
+        // 检查其质押
+        let user_stake = RentMachine::user_total_stake(&renter_dave);
+        assert_eq!(user_stake, 0);
+
+        let empty_rented: Vec<MachineId> = vec![];
+        assert_eq!(RentMachine::user_rented(&renter_dave), empty_rented);
+
+        // RentOrder
+        assert_eq!(RentMachine::rent_order(&machine_id), RentOrderDetail::default());
+
+        // PendingRentEnding
+        assert_eq!(RentMachine::pending_rent_ending(init_rent_order.rent_end), empty_rented);
+
+        // PendingConfirming
+        assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(&machine_id), false);
     })
 }
 

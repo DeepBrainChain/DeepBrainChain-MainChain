@@ -233,7 +233,6 @@ impl<T: Config> RTOps for Pallet<T> {
             .checked_div(10_000)
     }
 
-    // TODO: change here
     fn change_machine_status(
         machine_id: &MachineId,
         new_status: MachineStatus<T::BlockNumber, T::AccountId>,
@@ -284,6 +283,8 @@ impl<T: Config> RTOps for Pallet<T> {
                     }
 
                     LiveMachines::<T>::put(live_machines);
+                } else {
+                    machine_info.machine_status = new_status;
                 }
             },
             MachineStatus::Creating => machine_info.machine_status = new_status,
