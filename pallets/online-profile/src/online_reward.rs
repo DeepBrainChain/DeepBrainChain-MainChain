@@ -125,6 +125,7 @@ impl<T: Config> Pallet<T> {
                             &era_stash_points,
                         );
                     } else {
+                        AllMachineIdSnap::<T>::put(all_machine);
                         return
                     }
                 }
@@ -232,7 +233,7 @@ impl<T: Config> Pallet<T> {
 
         // record reward
         stash_machine.can_claim_reward += reward_to_stash;
-        stash_machine.total_earned_reward += machine_actual_total_reward; // FIXME: check here
+        stash_machine.total_earned_reward += machine_actual_total_reward;
 
         ErasMachineReward::<T>::insert(release_era, &machine_id, machine_actual_total_reward);
         ErasStashReward::<T>::mutate(&release_era, &machine_reward_info.machine_stash, |old_value| {
