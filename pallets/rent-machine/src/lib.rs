@@ -193,6 +193,10 @@ pub mod pallet {
             ItemList::add_item(&mut user_rented, machine_id.clone());
             UserRented::<T>::insert(&renter, user_rented);
 
+            let mut pending_rent_ending = Self::pending_rent_ending(rent_end);
+            ItemList::add_item(&mut pending_rent_ending, machine_id.clone());
+            PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
+
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, Some(renter.clone()), None);
 
@@ -225,10 +229,6 @@ pub mod pallet {
             order_info.confirm_rent = now;
             order_info.stake_amount = Zero::zero();
             order_info.rent_status = RentStatus::Renting;
-
-            let mut pending_rent_ending = Self::pending_rent_ending(order_info.rent_end);
-            ItemList::add_item(&mut pending_rent_ending, machine_id.clone());
-            PendingRentEnding::<T>::insert(order_info.rent_end, pending_rent_ending);
 
             RentOrder::<T>::insert(&machine_id, order_info);
 
