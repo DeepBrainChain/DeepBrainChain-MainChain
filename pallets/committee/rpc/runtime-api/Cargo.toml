@@ -1,12 +1,12 @@
 [package]
-name = "committee-runtime-api"
-version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 edition = "2018"
+name = "committee-runtime-api"
+version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-committee = { version = "0.1.0", path = "../../../committee", default-features = false }
+codec = {package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
+committee = {version = "0.1.0", path = "../../../committee", default-features = false}
 
 [dependencies.sp-api]
 default-features = false
@@ -29,9 +29,9 @@ version = '3.0.0'
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "committee/std",
-    "sp-api/std",
-    "sp-runtime/std",
-    "sp-std/std",
+  "codec/std",
+  "committee/std",
+  "sp-api/std",
+  "sp-runtime/std",
+  "sp-std/std",
 ]

@@ -1,18 +1,18 @@
 [package]
+edition = "2018"
 name = "online-profile-rpc"
 version = "0.1.0"
-edition = "2018"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
-serde = { version = "1.0.101", features = ["derive"] }
+codec = {package = "parity-scale-codec", version = "2.0.0", features = ["derive"]}
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
+serde = {version = "1.0.101", features = ["derive"]}
 
-generic-func = { version = "0.1.0", path = "../../generic-func" }
-online-profile = { version = "0.1.0", path = "../../online-profile" }
-online-profile-runtime-api = { version = "0.1.0", path = "./runtime-api" }
+generic-func = {version = "0.1.0", path = "../../generic-func"}
+online-profile = {version = "0.1.0", path = "../../online-profile"}
+online-profile-runtime-api = {version = "0.1.0", path = "./runtime-api"}
 
 [dependencies.sp-api]
 git = 'https://github.com/paritytech/substrate.git'

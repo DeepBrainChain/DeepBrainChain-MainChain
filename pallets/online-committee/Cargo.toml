@@ -1,13 +1,13 @@
 [package]
-name = "online-committee"
-version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 edition = "2018"
+name = "online-committee"
+version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.101", optional = true, features = ["derive"] }
-online-profile-machine = { path = "../../traits/online-profile-machine", default-features = false }
+codec = {package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
+online-profile-machine = {path = "../../traits/online-profile-machine", default-features = false}
+serde = {version = "1.0.101", optional = true, features = ["derive"]}
 
 [dependencies.frame-support]
 default-features = false
@@ -23,8 +23,8 @@ version = '3.0.0'
 
 [dependencies.online-profile]
 default-features = false
-path = '../online-profile'
 package = 'online-profile'
+path = '../online-profile'
 
 [dependencies.sp-std]
 default-features = false
@@ -46,13 +46,13 @@ version = '3.0.0'
 
 [dependencies.generic-func]
 default-features = false
-path = '../generic-func'
 package = 'generic-func'
+path = '../generic-func'
 
 [dependencies.committee]
 default-features = false
-path = '../committee'
 package = 'committee'
+path = '../committee'
 
 [dev-dependencies.sp-core]
 git = 'https://github.com/paritytech/substrate.git'
@@ -70,8 +70,8 @@ rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
 [dev-dependencies.pallet-randomness-collective-flip]
-package = 'pallet-randomness-collective-flip'
 git = 'https://github.com/paritytech/substrate.git'
+package = 'pallet-randomness-collective-flip'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
@@ -81,8 +81,8 @@ rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
 [dev-dependencies.dbc-price-ocw]
-path = '../dbc-price-ocw'
 package = 'dbc-price-ocw'
+path = '../dbc-price-ocw'
 
 [dev-dependencies.pallet-treasury]
 git = 'https://github.com/paritytech/substrate.git'
@@ -110,14 +110,14 @@ version = '3.0.0'
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "committee/std",
-    "frame-support/std",
-    "frame-system/std",
-    "online-profile/std",
-    "generic-func/std",
-    "serde",
-    "sp-io/std",
-    "sp-runtime/std",
-    "sp-std/std",
+  "codec/std",
+  "committee/std",
+  "frame-support/std",
+  "frame-system/std",
+  "online-profile/std",
+  "generic-func/std",
+  "serde",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-std/std",
 ]

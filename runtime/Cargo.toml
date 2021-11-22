@@ -17,111 +17,111 @@ version = '4.0.0'
 [features]
 default = ['std']
 runtime-benchmarks = [
-    'frame-benchmarking',
-    'frame-support/runtime-benchmarks',
-    'frame-system/runtime-benchmarks',
-    'sp-runtime/runtime-benchmarks',
-    'pallet-assets/runtime-benchmarks',
-    'pallet-babe/runtime-benchmarks',
-    'pallet-balances/runtime-benchmarks',
-    'pallet-bounties/runtime-benchmarks',
-    'pallet-collective/runtime-benchmarks',
-    'pallet-contracts/runtime-benchmarks',
-    'pallet-democracy/runtime-benchmarks',
-    'pallet-elections-phragmen/runtime-benchmarks',
-    'pallet-grandpa/runtime-benchmarks',
-    'pallet-identity/runtime-benchmarks',
-    'pallet-im-online/runtime-benchmarks',
-    'pallet-indices/runtime-benchmarks',
-    'pallet-lottery/runtime-benchmarks',
-    'pallet-mmr/runtime-benchmarks',
-    'pallet-multisig/runtime-benchmarks',
-    'pallet-proxy/runtime-benchmarks',
-    'pallet-scheduler/runtime-benchmarks',
-    'pallet-society/runtime-benchmarks',
-    'pallet-staking/runtime-benchmarks',
-    'pallet-timestamp/runtime-benchmarks',
-    'pallet-tips/runtime-benchmarks',
-    'pallet-treasury/runtime-benchmarks',
-    'pallet-utility/runtime-benchmarks',
-    'pallet-vesting/runtime-benchmarks',
-    'pallet-offences-benchmarking',
-    'pallet-session-benchmarking',
-    'frame-system-benchmarking',
-    'hex-literal',
+  'frame-benchmarking',
+  'frame-support/runtime-benchmarks',
+  'frame-system/runtime-benchmarks',
+  'sp-runtime/runtime-benchmarks',
+  'pallet-assets/runtime-benchmarks',
+  'pallet-babe/runtime-benchmarks',
+  'pallet-balances/runtime-benchmarks',
+  'pallet-bounties/runtime-benchmarks',
+  'pallet-collective/runtime-benchmarks',
+  'pallet-contracts/runtime-benchmarks',
+  'pallet-democracy/runtime-benchmarks',
+  'pallet-elections-phragmen/runtime-benchmarks',
+  'pallet-grandpa/runtime-benchmarks',
+  'pallet-identity/runtime-benchmarks',
+  'pallet-im-online/runtime-benchmarks',
+  'pallet-indices/runtime-benchmarks',
+  'pallet-lottery/runtime-benchmarks',
+  'pallet-mmr/runtime-benchmarks',
+  'pallet-multisig/runtime-benchmarks',
+  'pallet-proxy/runtime-benchmarks',
+  'pallet-scheduler/runtime-benchmarks',
+  'pallet-society/runtime-benchmarks',
+  'pallet-staking/runtime-benchmarks',
+  'pallet-timestamp/runtime-benchmarks',
+  'pallet-tips/runtime-benchmarks',
+  'pallet-treasury/runtime-benchmarks',
+  'pallet-utility/runtime-benchmarks',
+  'pallet-vesting/runtime-benchmarks',
+  'pallet-offences-benchmarking',
+  'pallet-session-benchmarking',
+  'frame-system-benchmarking',
+  'hex-literal',
 ]
 std = [
-    'sp-authority-discovery/std',
-    'pallet-assets/std',
-    'pallet-authority-discovery/std',
-    'pallet-authorship/std',
-    'sp-consensus-babe/std',
-    'pallet-babe/std',
-    'pallet-balances/std',
-    'pallet-bounties/std',
-    'sp-block-builder/std',
-    'codec/std',
-    'pallet-collective/std',
-    'pallet-contracts/std',
-    'pallet-contracts-primitives/std',
-    'pallet-contracts-rpc-runtime-api/std',
-    'pallet-democracy/std',
-    'pallet-elections-phragmen/std',
-    'frame-executive/std',
-    'pallet-grandpa/std',
-    'pallet-im-online/std',
-    'pallet-indices/std',
-    'sp-inherents/std',
-    'pallet-lottery/std',
-    'pallet-membership/std',
-    'pallet-mmr/std',
-    'pallet-multisig/std',
-    'pallet-identity/std',
-    'pallet-scheduler/std',
-    'node-primitives/std',
-    'sp-offchain/std',
-    'pallet-offences/std',
-    'pallet-proxy/std',
-    'sp-core/std',
-    'pallet-randomness-collective-flip/std',
-    'sp-std/std',
-    'serde',
-    'pallet-session/std',
-    'sp-api/std',
-    'sp-runtime/std',
-    'sp-staking/std',
-    'pallet-staking/std',
-    'sp-keyring',
-    'sp-session/std',
-    'pallet-sudo/std',
-    'frame-support/std',
-    'frame-benchmarking/std',
-    'frame-system-rpc-runtime-api/std',
-    'frame-system/std',
-    'pallet-timestamp/std',
-    'pallet-tips/std',
-    'pallet-transaction-payment-rpc-runtime-api/std',
-    'pallet-transaction-payment/std',
-    'pallet-treasury/std',
-    'sp-transaction-pool/std',
-    'pallet-utility/std',
-    'sp-version/std',
-    'pallet-society/std',
-    'pallet-recovery/std',
-    'pallet-vesting/std',
-    'generic-func/std',
-    'dbc-price-ocw/std',
-    'online-profile/std',
-    'online-profile-runtime-api/std',
-    'simple-rpc/std',
-    'simple-rpc-runtime-api/std',
-    'committee/std',
-    'committee-runtime-api/std',
-    'online-committee/std',
-    'online-committee-runtime-api/std',
-    'maintain-committee/std',
-    'rent-machine/std',
-    'rent-machine-runtime-api/std',
+  'sp-authority-discovery/std',
+  'pallet-assets/std',
+  'pallet-authority-discovery/std',
+  'pallet-authorship/std',
+  'sp-consensus-babe/std',
+  'pallet-babe/std',
+  'pallet-balances/std',
+  'pallet-bounties/std',
+  'sp-block-builder/std',
+  'codec/std',
+  'pallet-collective/std',
+  'pallet-contracts/std',
+  'pallet-contracts-primitives/std',
+  'pallet-contracts-rpc-runtime-api/std',
+  'pallet-democracy/std',
+  'pallet-elections-phragmen/std',
+  'frame-executive/std',
+  'pallet-grandpa/std',
+  'pallet-im-online/std',
+  'pallet-indices/std',
+  'sp-inherents/std',
+  'pallet-lottery/std',
+  'pallet-membership/std',
+  'pallet-mmr/std',
+  'pallet-multisig/std',
+  'pallet-identity/std',
+  'pallet-scheduler/std',
+  'node-primitives/std',
+  'sp-offchain/std',
+  'pallet-offences/std',
+  'pallet-proxy/std',
+  'sp-core/std',
+  'pallet-randomness-collective-flip/std',
+  'sp-std/std',
+  'serde',
+  'pallet-session/std',
+  'sp-api/std',
+  'sp-runtime/std',
+  'sp-staking/std',
+  'pallet-staking/std',
+  'sp-keyring',
+  'sp-session/std',
+  'pallet-sudo/std',
+  'frame-support/std',
+  'frame-benchmarking/std',
+  'frame-system-rpc-runtime-api/std',
+  'frame-system/std',
+  'pallet-timestamp/std',
+  'pallet-tips/std',
+  'pallet-transaction-payment-rpc-runtime-api/std',
+  'pallet-transaction-payment/std',
+  'pallet-treasury/std',
+  'sp-transaction-pool/std',
+  'pallet-utility/std',
+  'sp-version/std',
+  'pallet-society/std',
+  'pallet-recovery/std',
+  'pallet-vesting/std',
+  'generic-func/std',
+  'dbc-price-ocw/std',
+  'online-profile/std',
+  'online-profile-runtime-api/std',
+  'simple-rpc/std',
+  'simple-rpc-runtime-api/std',
+  'committee/std',
+  'committee-runtime-api/std',
+  'online-committee/std',
+  'online-committee-runtime-api/std',
+  'maintain-committee/std',
+  'rent-machine/std',
+  'rent-machine-runtime-api/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -360,13 +360,13 @@ version = '3.0.0'
 
 [dependencies.pallet-staking]
 default-features = false
-path = '../pallets/dbc-staking'
 package = 'dbc-staking'
+path = '../pallets/dbc-staking'
 
 [dependencies.generic-func]
 default-features = false
-path = '../pallets/generic-func'
 package = 'generic-func'
+path = '../pallets/generic-func'
 
 [dependencies.dbc-price-ocw]
 default-features = false
@@ -374,58 +374,58 @@ path = '../pallets/dbc-price-ocw'
 
 [dependencies.online-profile]
 default-features = false
-path = '../pallets/online-profile'
 package = 'online-profile'
+path = '../pallets/online-profile'
 
 [dependencies.simple-rpc]
 default-features = false
-path = '../pallets/simple-rpc'
 package = 'simple-rpc'
+path = '../pallets/simple-rpc'
 
 [dependencies.simple-rpc-runtime-api]
 default-features = false
-path = '../pallets/simple-rpc/rpc/runtime-api'
 package = 'simple-rpc-runtime-api'
+path = '../pallets/simple-rpc/rpc/runtime-api'
 
 [dependencies.committee]
 default-features = false
-path = '../pallets/committee'
 package = 'committee'
+path = '../pallets/committee'
 
 [dependencies.committee-runtime-api]
 default-features = false
-path = '../pallets/committee/rpc/runtime-api'
 package = 'committee-runtime-api'
+path = '../pallets/committee/rpc/runtime-api'
 
 [dependencies.online-committee]
 default-features = false
-path = '../pallets/online-committee'
 package = 'online-committee'
+path = '../pallets/online-committee'
 
 [dependencies.online-committee-runtime-api]
 default-features = false
-path = '../pallets/online-committee/rpc/runtime-api'
 package = 'online-committee-runtime-api'
+path = '../pallets/online-committee/rpc/runtime-api'
 
 [dependencies.maintain-committee]
 default-features = false
-path = '../pallets/maintain-committee'
 package = 'maintain-committee'
+path = '../pallets/maintain-committee'
 
 [dependencies.rent-machine]
 default-features = false
-path = '../pallets/rent-machine'
 package = 'rent-machine'
+path = '../pallets/rent-machine'
 
 [dependencies.rent-machine-runtime-api]
 default-features = false
-path = '../pallets/rent-machine/rpc/runtime-api'
 package = 'rent-machine-runtime-api'
+path = '../pallets/rent-machine/rpc/runtime-api'
 
 [dependencies.online-profile-runtime-api]
 default-features = false
-path = '../pallets/online-profile/rpc/runtime-api'
 package = 'online-profile-runtime-api'
+path = '../pallets/online-profile/rpc/runtime-api'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

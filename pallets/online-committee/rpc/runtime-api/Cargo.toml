@@ -1,12 +1,12 @@
 [package]
+edition = "2018"
 name = "online-committee-runtime-api"
 version = "0.1.0"
-edition = "2018"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = {package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
 
-online-committee = { version = "0.1.0", path = "../../../online-committee", default-features = false }
+online-committee = {version = "0.1.0", path = "../../../online-committee", default-features = false}
 
 [dependencies.sp-api]
 default-features = false
@@ -28,16 +28,16 @@ version = '3.0.0'
 
 [dependencies.generic-func]
 default-features = false
-path = '../../../generic-func'
 package = 'generic-func'
+path = '../../../generic-func'
 
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "online-committee/std",
-    "sp-api/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "generic-func/std",
+  "codec/std",
+  "online-committee/std",
+  "sp-api/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "generic-func/std",
 ]

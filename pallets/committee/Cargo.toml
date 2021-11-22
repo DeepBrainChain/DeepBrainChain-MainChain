@@ -1,13 +1,13 @@
 [package]
-name = "committee"
-version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 edition = "2018"
+name = "committee"
+version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.101", optional = true }
-online-profile-machine = { package = "online-profile-machine", path = "../../traits/online-profile-machine", default-features = false }
+codec = {package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
+online-profile-machine = {package = "online-profile-machine", path = "../../traits/online-profile-machine", default-features = false}
+serde = {version = "1.0.101", optional = true}
 
 [dependencies.frame-support]
 default-features = false
@@ -47,25 +47,25 @@ version = '3.0.0'
 
 [dependencies.dbc-price-ocw]
 default-features = false
-path = '../dbc-price-ocw'
 package = 'dbc-price-ocw'
+path = '../dbc-price-ocw'
 
 [dependencies.generic-func]
 default-features = false
-path = '../generic-func'
 package = 'generic-func'
+path = '../generic-func'
 
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "serde",
-    "dbc-price-ocw/std",
-    "generic-func/std",
-    "frame-support/std",
-    "frame-system/std",
-    "pallet-collective/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "sp-io/std",
+  "codec/std",
+  "serde",
+  "dbc-price-ocw/std",
+  "generic-func/std",
+  "frame-support/std",
+  "frame-system/std",
+  "pallet-collective/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "sp-io/std",
 ]

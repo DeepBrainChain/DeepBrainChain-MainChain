@@ -1,13 +1,13 @@
 [package]
-name = "generic-func"
-version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 edition = "2018"
+name = "generic-func"
+version = "0.1.0"
 
 [dependencies]
-serde = { version = "1.0.101", optional = true, features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-online-profile-machine = { package = "online-profile-machine", path = "../../traits/online-profile-machine", default-features = false }
+codec = {package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
+online-profile-machine = {package = "online-profile-machine", path = "../../traits/online-profile-machine", default-features = false}
+serde = {version = "1.0.101", optional = true, features = ["derive"]}
 
 [dependencies.frame-support]
 default-features = false
@@ -35,8 +35,8 @@ version = '3.0.0'
 
 [dependencies.pallet-randomness-collective-flip]
 default-features = false
-package = 'pallet-randomness-collective-flip'
 git = 'https://github.com/paritytech/substrate.git'
+package = 'pallet-randomness-collective-flip'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
@@ -49,12 +49,12 @@ version = '3.0.0'
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "frame-support/std",
-    "frame-system/std",
-    "pallet-randomness-collective-flip/std",
-    "sp-core/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "serde",
+  "codec/std",
+  "frame-support/std",
+  "frame-system/std",
+  "pallet-randomness-collective-flip/std",
+  "sp-core/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "serde",
 ]

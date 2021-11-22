@@ -1,16 +1,16 @@
 [dependencies]
 jsonrpc-core = '15.1.0'
 
-online-profile-rpc = { path = "../pallets/online-profile/rpc" }
-online-profile-runtime-api = { path = "../pallets/online-profile/rpc/runtime-api" }
-online-committee-rpc = { path = "../pallets/online-committee/rpc" }
-online-committee-runtime-api = { path = "../pallets/online-committee/rpc/runtime-api" }
-rent-machine-rpc = { path = "../pallets/rent-machine/rpc" }
-rent-machine-runtime-api = { path = "../pallets/rent-machine/rpc/runtime-api" }
-simple-rpc-rpc = { path = "../pallets/simple-rpc/rpc" }
-simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api" }
-committee-rpc = { path = "../pallets/committee/rpc" }
-committee-runtime-api = { path = "../pallets/committee/rpc/runtime-api" }
+committee-rpc = {path = "../pallets/committee/rpc"}
+committee-runtime-api = {path = "../pallets/committee/rpc/runtime-api"}
+online-committee-rpc = {path = "../pallets/online-committee/rpc"}
+online-committee-runtime-api = {path = "../pallets/online-committee/rpc/runtime-api"}
+online-profile-rpc = {path = "../pallets/online-profile/rpc"}
+online-profile-runtime-api = {path = "../pallets/online-profile/rpc/runtime-api"}
+rent-machine-rpc = {path = "../pallets/rent-machine/rpc"}
+rent-machine-runtime-api = {path = "../pallets/rent-machine/rpc/runtime-api"}
+simple-rpc-rpc = {path = "../pallets/simple-rpc/rpc"}
+simple-rpc-runtime-api = {path = "../pallets/simple-rpc/rpc/runtime-api"}
 
 [dependencies.node-primitives]
 path = '../primitives'
