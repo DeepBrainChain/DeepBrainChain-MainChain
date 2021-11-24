@@ -8,6 +8,7 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, ReservableCurrency},
+    weights::Weight,
 };
 use frame_system::pallet_prelude::*;
 use generic_func::ItemList;
@@ -37,7 +38,28 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            // Handle committee reserve
+            let committee = Self::committee();
+            let stake_params = Self::committee_stake_params().unwrap();
+            let double_stake_baseline = stake_params.stake_baseline + stake_params.stake_baseline;
+
+            for a_committee in committee.normal {
+                let committee_stake = Self::committee_stake(&a_committee);
+                if committee_stake.staked_amount > stake_params.stake_baseline &&
+                    committee_stake.staked_amount < double_stake_baseline
+                {
+                    let _ = <T as pallet::Config>::Currency::unreserve(
+                        &a_committee,
+                        double_stake_baseline - committee_stake.staked_amount,
+                    );
+                }
+            }
+
+            0
+        }
+    }
 
     #[pallet::storage]
     #[pallet::getter(fn committee)]
@@ -141,17 +163,14 @@ pub mod pallet {
                     committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
                 Error::<T>::StakeNotEnough
             );
-            ensure!(
-                <T as Config>::Currency::can_reserve(&committee, committee_stake_params.stake_baseline),
-                Error::<T>::BalanceNotEnough
-            );
+            ensure!(<T as Config>::Currency::can_reserve(&committee, amount), Error::<T>::BalanceNotEnough);
 
-            <T as pallet::Config>::Currency::reserve(&committee, committee_stake_params.stake_baseline)
+            <T as pallet::Config>::Currency::reserve(&committee, amount)
                 .map_err(|_| Error::<T>::GetStakeParamsFailed)?;
 
             if committee_list.fulfilling_list.binary_search(&committee).is_ok() {
                 ItemList::rm_item(&mut committee_list.fulfilling_list, &committee);
-                ItemList::add_item(&mut committee_list.fulfilling_list, committee.clone());
+                ItemList::add_item(&mut committee_list.normal, committee.clone());
                 Committee::<T>::put(committee_list);
             }
 
