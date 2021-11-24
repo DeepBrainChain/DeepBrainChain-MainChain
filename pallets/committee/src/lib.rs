@@ -38,28 +38,7 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            // Handle committee reserve
-            let committee = Self::committee();
-            let stake_params = Self::committee_stake_params().unwrap();
-            let double_stake_baseline = stake_params.stake_baseline + stake_params.stake_baseline;
-
-            for a_committee in committee.normal {
-                let committee_stake = Self::committee_stake(&a_committee);
-                if committee_stake.staked_amount > stake_params.stake_baseline &&
-                    committee_stake.staked_amount < double_stake_baseline
-                {
-                    let _ = <T as pallet::Config>::Currency::unreserve(
-                        &a_committee,
-                        double_stake_baseline - committee_stake.staked_amount,
-                    );
-                }
-            }
-
-            0
-        }
-    }
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::storage]
     #[pallet::getter(fn committee)]
