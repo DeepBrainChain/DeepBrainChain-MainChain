@@ -840,6 +840,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "generic-func",
+ "hex",
  "online-profile-machine",
  "pallet-balances",
  "pallet-collective",

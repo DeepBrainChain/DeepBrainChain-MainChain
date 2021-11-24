@@ -169,7 +169,6 @@ pub mod pallet {
             let committee_list = Self::committee();
             let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
 
-            // ensure!(committee_list.is_in_committee(&committee), lrror::<T>::NotCommittee);
             ensure!(committee_list.normal.binary_search(&committee).is_ok(), Error::<T>::NotInNormalList);
 
             committee_stake.staked_amount =
@@ -186,7 +185,7 @@ pub mod pallet {
                 .ok_or(Error::<T>::BalanceNotEnough)?;
 
             ensure!(
-                committee_stake_params.min_free_stake_percent * committee_stake.staked_amount >= left_free_amount,
+                left_free_amount > committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
                 Error::<T>::BalanceNotEnough
             );
 

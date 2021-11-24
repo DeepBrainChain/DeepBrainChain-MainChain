@@ -40,3 +40,6 @@ jobs:
 
       - name: Run maintain machine tests
         run: cargo test -p maintain-committee
+
+      - name: Run committee tests
+        run: cargo test -p committee

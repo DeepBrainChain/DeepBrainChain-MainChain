@@ -20,6 +20,7 @@ type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRunt
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub const ONE_DBC: u128 = 1_000_000_000_000_000;
+pub const INIT_BALANCE: u128 = 10_000_000 * ONE_DBC;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -85,6 +86,22 @@ frame_support::construct_runtime!(
 
 pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     let mut storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+
+    #[rustfmt::skip]
+    pallet_balances::GenesisConfig::<TestRuntime> {
+        balances: vec![
+            (sr25519::Public::from(Sr25519Keyring::Alice).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Bob).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Charlie).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Dave).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Eve).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::One).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Two).into(), INIT_BALANCE),
+        ],
+    }
+    .assimilate_storage(&mut storage)
+    .unwrap();
 
     let mut ext = sp_io::TestExternalities::from(storage);
 
