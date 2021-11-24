@@ -841,10 +841,13 @@ dependencies = [
  "frame-system",
  "generic-func",
  "online-profile-machine",
+ "pallet-balances",
  "pallet-collective",
  "parity-scale-codec",
  "serde",
+ "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]

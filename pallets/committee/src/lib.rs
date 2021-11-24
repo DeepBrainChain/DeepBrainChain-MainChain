@@ -4,11 +4,15 @@ mod rpc;
 mod traits;
 mod types;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, ReservableCurrency},
-    weights::Weight,
 };
 use frame_system::pallet_prelude::*;
 use generic_func::ItemList;
