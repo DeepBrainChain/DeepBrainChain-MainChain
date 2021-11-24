@@ -221,11 +221,11 @@ pub mod pallet {
             let committee = ensure_signed(origin)?;
             let mut committee_list = Self::committee();
 
-            if committee_list.fulfilling_list.binary_search(&committee).is_ok() {
+            ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
+
+            if committee_list.chill_list.binary_search(&committee).is_ok() {
                 return Ok(().into())
             }
-
-            ensure!(committee_list.is_in_committee(&committee), Error::<T>::NotCommittee);
             // waiting_box_pubkey不能执行该操作
             ensure!(committee_list.waiting_box_pubkey.binary_search(&committee).is_err(), Error::<T>::PubkeyNotSet);
 

@@ -153,12 +153,36 @@ fn committee_reduce_stake_works() {
 
 #[test]
 fn committee_claim_reward_works() {
-    new_test_with_init_params_ext().execute_with(|| {})
+    new_test_with_init_params_ext().execute_with(|| {
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+
+        super::CommitteeStake::<TestRuntime>::insert(
+            &committee1,
+            super::CommitteeStakeInfo { can_claim_reward: 1000 * ONE_DBC, ..Default::default() },
+        );
+
+        assert_ok!(Committee::claim_reward(Origin::signed(committee1)));
+        assert_eq!(Balances::free_balance(&committee1), INIT_BALANCE + 1000 * ONE_DBC);
+        assert_eq!(
+            Committee::committee_stake(&committee1),
+            super::CommitteeStakeInfo { claimed_reward: 1000 * ONE_DBC, ..Default::default() }
+        );
+    })
 }
 
 #[test]
 fn committee_chill_works() {
-    new_test_with_init_params_ext().execute_with(|| {})
+    new_test_with_init_params_ext().execute_with(|| {
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+
+        super::Committee::<TestRuntime>::put(super::CommitteeList { normal: vec![committee1], ..Default::default() });
+        assert_ok!(Committee::chill(Origin::signed(committee1)));
+
+        assert_eq!(Committee::committee(), super::CommitteeList { chill_list: vec![committee1], ..Default::default() });
+
+        // TODO: check to ensure if committee is in chill list, will not be changed to other list
+        // `change_committee_status_when_stake_changed`
+    })
 }
 
 #[test]
