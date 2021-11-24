@@ -36,15 +36,8 @@
 
    HD spaces: 90G or 120G
 
-   RAM spoace: 10G
+   RAM spaces: 10G
 
-   After that, DBC needed will be shown. And if it can meet the demand, you can click "Create Order" to finished it.itIf itIf 
-
-    
+   After that, DBC needed will be shown. And if it can meet the demand, you can click "Create Order" to finished it.
 
    ![image-20210309170302116](How_to_rent_supernode.assets/image-20210309170302116.png)
-
-   
-
-
-

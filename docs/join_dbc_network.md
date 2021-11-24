@@ -30,7 +30,7 @@
    - **方式 1**: 使用预编译版本（如果不能正常运行，请使用方式 2 进行编译）：
 
      ```bash
-     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v1/dbc_chain_linux_x64.tar.gz
+     wget https://github.com/DeepBrainChain/DeepBrainChain-MainChain/releases/download/v2/dbc_chain_linux_x64.tar.gz -O dbc_chain_linux_x64.tar.gz
      tar xf dbc_chain_linux_x64.tar.gz && cd dbc-chain-mainnet
      ```
 
