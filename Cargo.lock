@@ -837,6 +837,7 @@ name = "committee"
 version = "0.1.0"
 dependencies = [
  "dbc-price-ocw",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "generic-func",
