@@ -13,20 +13,20 @@ A single GPU computing nodes points is calculated based on two indicators: the n
 #### Followup question. How can points help determine what GPU to buy?
 
 Nvidia's 2080ti model graphics card is the reference standard, the following is the formula for calculating the number of computing nodes points for various models of graphics GPUs.
- 
+
 ```
   2080ti computing nodes points: 4352=4352\*80%+4352\*11/11\*20%
-   
+
   3070 computing nodes points: 5302=5608\*80%+5608\*8/11\*20%
-   
+
   3070Ti 8G memory version computing nodes points: 5734=6144\*80%+6144\*8/11\*20%
-   
+
   3070Ti 16G memory version computing nodes points: 6703=6144\*80%+6144\*16/11\*20%
-   
+
   3080 computing nodes points: 8546=8704\*80%+8704\*10/11\*20%
-   
+
   3080Ti computing nodes points: 10426=10240\*80%+10240\*12/11\*20%
-   
+
   3090 computing nodes points: 12977=10496\*80%+10496\*24/11\*20%.
 ```
 

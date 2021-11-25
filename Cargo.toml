@@ -32,5 +32,6 @@ members = [
   'pallets/rent-machine/rpc',
   'pallets/rent-machine/rpc/runtime-api',
 ]
+
 [profile.release]
 panic = 'unwind'
