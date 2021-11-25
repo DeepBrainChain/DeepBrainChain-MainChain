@@ -21,7 +21,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     }
 
     // 改变委员会使用的质押数量
-    // - Writes: CommitteeStake, Committee
+    // - Writes: CommitteeStake.used_stake(Add or Sub), Committee
     fn change_used_stake(committee: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let mut committee_stake = Self::committee_stake(&committee);
         let mut committee_list = Self::committee();
@@ -44,6 +44,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
         Ok(())
     }
 
+    // - Writes: CommitteeStake.staked_amount(Add or Sub), Committee
     fn change_total_stake(committee: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let mut committee_stake = Self::committee_stake(&committee);
         let mut committee_list = Self::committee();

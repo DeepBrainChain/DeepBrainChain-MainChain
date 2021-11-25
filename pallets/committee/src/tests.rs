@@ -1,7 +1,7 @@
 use super::Error;
 use crate::{mock::*, CommitteeList};
-use frame_support::{assert_err, assert_noop, assert_ok};
-use std::{collections::BTreeMap, convert::TryInto};
+use frame_support::{assert_noop, assert_ok};
+use std::convert::TryInto;
 
 #[test]
 fn add_committee_works() {
@@ -215,6 +215,10 @@ fn committee_undo_chill_works() {
             waiting_box_pubkey: vec![committee3],
             fulfilling_list: vec![committee4],
         });
+        super::CommitteeStake::<TestRuntime>::insert(
+            &committee2,
+            super::CommitteeStakeInfo { staked_amount: 20000 * ONE_DBC, ..Default::default() },
+        );
 
         assert_noop!(Committee::undo_chill(Origin::signed(committee1)), Error::<TestRuntime>::NotInChillList);
         assert_ok!(Committee::undo_chill(Origin::signed(committee2)));
@@ -222,10 +226,35 @@ fn committee_undo_chill_works() {
         assert_eq!(
             Committee::committee(),
             super::CommitteeList {
+                normal: vec![committee1, committee2],
+                chill_list: vec![],
+                waiting_box_pubkey: vec![committee3],
+                fulfilling_list: vec![committee4],
+            }
+        );
+
+        super::Committee::<TestRuntime>::put(super::CommitteeList {
+            normal: vec![committee1],
+            chill_list: vec![committee2],
+            waiting_box_pubkey: vec![committee3],
+            fulfilling_list: vec![committee4],
+        });
+        super::CommitteeStake::<TestRuntime>::insert(
+            &committee2,
+            super::CommitteeStakeInfo {
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 13000 * ONE_DBC,
+                ..Default::default()
+            },
+        );
+        assert_ok!(Committee::undo_chill(Origin::signed(committee2)));
+        assert_eq!(
+            Committee::committee(),
+            super::CommitteeList {
                 normal: vec![committee1],
                 chill_list: vec![],
                 waiting_box_pubkey: vec![committee3],
-                fulfilling_list: vec![committee4, committee2],
+                fulfilling_list: vec![committee2, committee4],
             }
         );
     })
@@ -233,10 +262,24 @@ fn committee_undo_chill_works() {
 
 #[test]
 fn committee_exit_works() {
-    new_test_with_init_params_ext().execute_with(|| {})
+    new_test_with_init_params_ext().execute_with(|| {
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+
+        // insert
+        super::Committee::<TestRuntime>::put(super::CommitteeList {
+            normal: vec![committee1],
+            chill_list: vec![committee2],
+            ..Default::default()
+        });
+
+        assert_ok!(Committee::exit_committee(Origin::signed(committee2)));
+
+        assert_eq!(Committee::committee(), super::CommitteeList { normal: vec![committee1], ..Default::default() });
+    })
 }
 
-// TODO: check to ensure if committee is in chill list, will not be changed to other list
+// check to ensure if committee is in chill list, will not be changed to other list
 // `change_committee_status_when_stake_changed`
 #[test]
 fn change_committee_status_when_stake_changed_works() {
@@ -253,6 +296,7 @@ fn change_committee_status_when_stake_changed_works() {
             fulfilling_list: vec![committee4],
         };
 
+        // Normal -> fulfilling
         let committee1_stake = super::CommitteeStakeInfo {
             staked_amount: 20000 * ONE_DBC,
             used_stake: 13000 * ONE_DBC,
@@ -269,28 +313,56 @@ fn change_committee_status_when_stake_changed_works() {
             }
         );
 
+        // In Chill will not change
         let committee2_stake = super::CommitteeStakeInfo {
             staked_amount: 20000 * ONE_DBC,
             used_stake: 13000 * ONE_DBC,
             ..Default::default()
         };
         Committee::change_committee_status_when_stake_changed(committee2, &mut committee_list, &committee2_stake);
-        assert_eq!(committee_list, super::CommitteeList::default());
+        assert_eq!(
+            committee_list,
+            super::CommitteeList {
+                chill_list: vec![committee2],
+                waiting_box_pubkey: vec![committee3],
+                fulfilling_list: vec![committee1, committee4],
+                ..Default::default()
+            }
+        );
 
+        // WaitingPubkey will not change
         let committee3_stake = super::CommitteeStakeInfo {
             staked_amount: 20000 * ONE_DBC,
-            used_stake: 13000 * ONE_DBC,
+            used_stake: 12000 * ONE_DBC,
             ..Default::default()
         };
         Committee::change_committee_status_when_stake_changed(committee3, &mut committee_list, &committee3_stake);
-        assert_eq!(committee_list, super::CommitteeList::default());
+        assert_eq!(
+            committee_list,
+            super::CommitteeList {
+                chill_list: vec![committee2],
+                waiting_box_pubkey: vec![committee3],
+                fulfilling_list: vec![committee1, committee4],
+                ..Default::default()
+            }
+        );
 
+        // FUlling -> Normal
         let committee4_stake = super::CommitteeStakeInfo {
             staked_amount: 20000 * ONE_DBC,
-            used_stake: 13000 * ONE_DBC,
+            used_stake: 12000 * ONE_DBC,
             ..Default::default()
         };
         Committee::change_committee_status_when_stake_changed(committee4, &mut committee_list, &committee4_stake);
-        assert_eq!(committee_list, super::CommitteeList::default());
+        assert_eq!(
+            committee_list,
+            super::CommitteeList {
+                normal: vec![committee4],
+                chill_list: vec![committee2],
+                waiting_box_pubkey: vec![committee3],
+                fulfilling_list: vec![committee1],
+                ..Default::default()
+            }
+        );
     })
 }
