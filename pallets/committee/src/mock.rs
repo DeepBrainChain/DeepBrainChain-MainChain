@@ -1,8 +1,5 @@
 pub use crate as committee;
-use frame_support::{
-    assert_ok, parameter_types,
-    traits::{OnFinalize, OnInitialize},
-};
+use frame_support::parameter_types;
 pub use frame_system::RawOrigin;
 pub use sp_core::{
     sr25519::{self, Signature},
@@ -11,9 +8,9 @@ pub use sp_core::{
 };
 pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
 use sp_runtime::{
-    testing::{Header, TestXt},
-    traits::{BlakeTwo256, IdentityLookup, Verify},
-    ModuleId, Perbill, Permill,
+    testing::Header,
+    traits::{BlakeTwo256, IdentityLookup},
+    Perbill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;

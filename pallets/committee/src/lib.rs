@@ -328,8 +328,9 @@ impl<T: Config> Pallet<T> {
         committee_stake: &CommitteeStakeInfo<BalanceOf<T>>,
     ) -> bool {
         let committee_stake_params = Self::committee_stake_params().unwrap_or_default();
-        let is_free_stake_enough = committee_stake.staked_amount - committee_stake.used_stake >=
-            committee_stake_params.min_free_stake_percent * committee_stake.staked_amount;
+        let is_free_stake_enough = committee_stake.staked_amount >= committee_stake_params.stake_baseline &&
+            committee_stake.staked_amount - committee_stake.used_stake >=
+                committee_stake_params.min_free_stake_percent * committee_stake.staked_amount;
         let mut is_committee_list_changed = false;
 
         if is_free_stake_enough && committee_list.fulfilling_list.binary_search(&committee).is_ok() {
