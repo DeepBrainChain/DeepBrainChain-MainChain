@@ -4,8 +4,10 @@ name = "online-profile-runtime-api"
 version = "0.1.0"
 
 [dependencies]
-codec = {package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
-online-profile = {version = "0.1.0", path = "../../../online-profile", default-features = false}
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
+  "derive"
+] }
+online-profile = { version = "0.1.0", path = "../../../online-profile", default-features = false }
 
 [dependencies.sp-api]
 default-features = false
