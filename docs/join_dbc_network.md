@@ -101,7 +101,7 @@
 
    - 点击它，并将步骤 5 生成的`rotateKeys`填入。 ![image-20210121200709277](join_dbc_network.assets/image-20210121200709277.png)
 
-   - 现在，你可以到 [Telemetry](https://telemetry.polkadot.io/#list/DBC%20Mainnet)看到你的节点了！![image-20210121234945030](join_dbc_network.assets/image-20210121234945030.png)
+   - 现在，你可以到 [Telemetry](https://telemetry.polkadot.io/#list/0xd523fa2e0581f069b4f0c7b5944c21e9abc72305a08067868c91b898d1bf1dff)看到你的节点了！![image-20210121234945030](join_dbc_network.assets/image-20210121234945030.png)
 
 8. 设置参加验证人选举
 
