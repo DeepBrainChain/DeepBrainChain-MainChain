@@ -273,6 +273,7 @@ pub fn run_to_block(n: BlockNumber) {
 pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     let mut storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
+    // 初始化测试帐号余额
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {
         balances: vec![
@@ -293,20 +294,20 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
 
     ext.execute_with(|| {
         // 初始化设置参数
-        // 委员会每次抢单质押数量 (15$)
-        let _ = Committee::set_committee_stake_params(
+        // 委员会每次抢单质押数量 (1000 DBC)
+        assert_ok!(Committee::set_committee_stake_params(
             RawOrigin::Root.into(),
             committee::CommitteeStakeParamsInfo {
                 stake_baseline: 20000 * ONE_DBC,
                 stake_per_order: 1000 * ONE_DBC,
                 min_free_stake_percent: Perbill::from_rational_approximation(40u32, 100u32),
             },
-        );
+        ));
         // 操作时的固定费率: 10 DBC
-        let _ = GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10 * ONE_DBC);
+        assert_ok!(GenericFunc::set_fixed_tx_fee(RawOrigin::Root.into(), 10 * ONE_DBC));
         // 每张GPU质押数量: 100,000 DBC
         // 设置单卡质押上限： 7700_000_000, 每张GPU质押数量: 100,000 DBC
-        let _ = OnlineProfile::set_online_stake_params(
+        assert_ok!(OnlineProfile::set_online_stake_params(
             RawOrigin::Root.into(),
             online_profile::OnlineStakeParamsInfo {
                 online_stake_per_gpu: 100000 * ONE_DBC,
@@ -316,10 +317,10 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
                 reonline_stake: 24_000_000,
                 slash_review_stake: 1000 * ONE_DBC,
             },
-        );
+        ));
         // 设置奖励发放开始时间
         // 设置每个Era奖励数量: 1,100,000
-        let _ = OnlineProfile::set_reward_info(
+        assert_ok!(OnlineProfile::set_reward_info(
             RawOrigin::Root.into(),
             online_profile::PhaseRewardInfoDetail {
                 online_reward_start_era: 0,
@@ -329,13 +330,13 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
                 phase_1_reward_per_era: 550_000 * ONE_DBC,
                 phase_2_reward_per_era: 275_000 * ONE_DBC,
             },
-        );
+        ));
 
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
-        let _ = OnlineProfile::set_standard_gpu_point_price(
+        assert_ok!(OnlineProfile::set_standard_gpu_point_price(
             RawOrigin::Root.into(),
             StandardGpuPointPrice { gpu_point: 100, gpu_price: 28229 },
-        );
+        ));
 
         // Set: Price URL: https://dbchaininfo.congtu.cloud/query/dbc_info?language=CN
         // 初始化price_ocw (0.012$)

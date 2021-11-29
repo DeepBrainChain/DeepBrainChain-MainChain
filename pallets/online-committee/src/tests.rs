@@ -33,8 +33,7 @@ fn machine_online_works() {
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
-
-        // controller 生成server_name
+        // controller 生成server_room
         assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
         assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
 
@@ -690,6 +689,93 @@ fn machine_online_works() {
             current_committee1_balance + 2000 * ONE_DBC * 333333333 / 10_0000_0000
         );
     });
+}
+
+// TODO: 机器上线失败，不进行任何操作/增加操作接口可以领回质押的币
+#[test]
+fn test_machine_online_refused_claim_reserved() {
+    new_test_with_online_machine_distribution().execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+
+        let machine_info_hash1: [u8; 16] = hex::decode("cee14a520ba6a988c306aab9dc3794b1").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] = hex::decode("8c7e7ca563169689f1c789f8d4f510f8").unwrap().try_into().unwrap();
+        let machine_info_hash3: [u8; 16] = hex::decode("73af18cb31a2ebbea4eab9e9e519539e").unwrap().try_into().unwrap();
+
+        assert_eq!(
+            OnlineCommittee::machine_committee(&machine_id),
+            super::OCMachineCommitteeList {
+                book_time: 6,
+                booked_committee: vec![committee2, committee1, committee4],
+                confirm_start_time: 6 + 4320,
+                status: OCVerifyStatus::SubmittingHash,
+                ..Default::default()
+            }
+        );
+
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee1),
+            machine_id.clone(),
+            machine_info_hash1
+        ));
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee2),
+            machine_id.clone(),
+            machine_info_hash2
+        ));
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee4),
+            machine_id.clone(),
+            machine_info_hash3
+        ));
+
+        let mut committee_upload_info = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
+            gpu_num: 4,
+            cuda_core: 8704,
+            gpu_mem: 10,
+            calc_point: 59890,
+            sys_disk: 500,
+            data_disk: 3905,
+            cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
+            cpu_core_num: 46,
+            cpu_rate: 2400,
+            mem_num: 440,
+
+            rand_str: "abcdefg1".as_bytes().to_vec(),
+            is_support: false,
+        };
+
+        // 委员会提交原始信息
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
+        committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
+        committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
+
+        run_to_block(11);
+
+        assert_eq!(Balances::free_balance(&stash), INIT_BALANCE - 5000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&stash), 5000 * ONE_DBC);
+
+        // TODO: Add two days later stash being slashed:
+        // FIXME
+        assert_eq!(OnlineCommittee::pending_slash(0), crate::OCPendingSlashInfo { ..Default::default() });
+
+        run_to_block(11 + 2880 * 2);
+    })
+}
+
+// 机器上线失败，支持的委员会被惩罚后申述
+fn test_machine_online_failed_support_committee_apply_review() {
+    new_test_with_online_machine_distribution().execute_with(|| {})
 }
 
 // 三个委员会两个正常工作，一个不提交Hash值，检查惩罚机制
@@ -2531,9 +2617,4 @@ fn test_machine_online_succeed_against_committee_apply_review() {
 
         assert_ok!(OnlineCommittee::do_cancel_slash(0));
     })
-}
-
-// 机器上线失败，支持的委员会被惩罚后申述
-fn test_machine_online_failed_support_committee_apply_review() {
-    new_test_with_online_machine_distribution().execute_with(|| {})
 }
