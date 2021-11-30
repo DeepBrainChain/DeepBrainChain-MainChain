@@ -2,7 +2,7 @@ use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use generic_func::MachineId;
+use generic_func::{ItemList, MachineId};
 use online_profile::CommitteeUploadInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
@@ -52,6 +52,19 @@ pub struct OCMachineCommitteeList<AccountId, BlockNumber> {
     pub onlined_committee: Vec<AccountId>,
     /// Current order status
     pub status: OCVerifyStatus,
+}
+
+impl<AccountId: Clone + Ord, BlockNumber> OCMachineCommitteeList<AccountId, BlockNumber> {
+    // 记录没有提交原始信息的委员会
+    pub fn summary_unruly(&self) -> Vec<AccountId> {
+        let mut unruly = Vec::new();
+        for a_committee in self.booked_committee.clone() {
+            if self.confirmed_committee.binary_search(&a_committee).is_err() {
+                ItemList::add_item(&mut unruly, a_committee);
+            }
+        }
+        return unruly
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]

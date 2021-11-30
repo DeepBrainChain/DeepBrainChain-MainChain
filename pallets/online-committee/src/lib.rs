@@ -401,8 +401,7 @@ impl<T: Config> Pallet<T> {
 
     fn statistic_result() {
         let now = <frame_system::Module<T>>::block_number();
-        let live_machines = <online_profile::Pallet<T>>::live_machines();
-        let booked_machine = live_machines.booked_machine;
+        let booked_machine = <online_profile::Pallet<T>>::live_machines().booked_machine;
         let committee_stake_per_order = <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         for machine_id in booked_machine {
@@ -411,7 +410,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn statistic_a_machine(machine_id: MachineId, now: T::BlockNumber, committee_stake_per_order: BalanceOf<T>) {
-        let machine_committee = Self::machine_committee(machine_id.clone());
+        let mut machine_committee = Self::machine_committee(machine_id.clone());
         // 当不为Summary状态时查看是否到了48小时，则还需要继续等待
         if machine_committee.status != OCVerifyStatus::Summarizing &&
             now < machine_committee.book_time + SUBMIT_RAW_END.into()
@@ -441,18 +440,15 @@ impl<T: Config> Pallet<T> {
                 }
 
                 if T::OCOperations::oc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap()).is_ok() {
-                    let valid_support = summary.valid_support.clone();
-                    for a_committee in valid_support {
+                    for a_committee in &summary.valid_support {
                         // 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
-                        let mut committee_machine = Self::committee_machine(&a_committee);
+                        let mut committee_machine = Self::committee_machine(a_committee);
                         ItemList::add_item(&mut committee_machine.online_machine, machine_id.clone());
-                        CommitteeMachine::<T>::insert(&a_committee, committee_machine);
+                        CommitteeMachine::<T>::insert(a_committee, committee_machine);
                     }
 
-                    let mut machine_committee = Self::machine_committee(&machine_id);
                     machine_committee.status = OCVerifyStatus::Finished;
                     machine_committee.onlined_committee = summary.valid_support;
-                    MachineCommittee::<T>::insert(&machine_id, machine_committee);
                 }
             },
             MachineConfirmStatus::Refuse(summary) => {
@@ -466,9 +462,7 @@ impl<T: Config> Pallet<T> {
                     ItemList::add_item(&mut reward_committee, a_committee);
                 }
 
-                let mut machine_committee = Self::machine_committee(&machine_id);
                 machine_committee.status = OCVerifyStatus::Finished;
-                MachineCommittee::<T>::insert(&machine_id, machine_committee);
 
                 // should cancel machine_stash slash when slashed committee apply review
                 stash_slash_info = T::OCOperations::oc_refuse_machine(machine_id.clone());
@@ -485,6 +479,8 @@ impl<T: Config> Pallet<T> {
                 book_result = OCBookResultType::NoConsensus;
             },
         }
+
+        MachineCommittee::<T>::insert(&machine_id, machine_committee.clone());
 
         if inconsistent_committee.len() == 0 && unruly_committee.len() == 0 {
             for a_committee in reward_committee {
@@ -579,18 +575,14 @@ impl<T: Config> Pallet<T> {
     pub fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
         let machine_committee = Self::machine_committee(machine_id);
 
-        let mut summary = Summary { ..Default::default() };
+        let mut summary = Summary::default();
         // 支持的委员会可能提交不同的机器信息
         let mut uniq_machine_info: Vec<CommitteeUploadInfo> = Vec::new();
         // 不同机器信息对应的委员会
         let mut committee_for_machine_info = Vec::new();
 
         // 记录没有提交原始信息的委员会
-        for a_committee in machine_committee.booked_committee.clone() {
-            if machine_committee.confirmed_committee.binary_search(&a_committee).is_err() {
-                ItemList::add_item(&mut summary.unruly, a_committee);
-            }
-        }
+        summary.unruly = machine_committee.summary_unruly();
 
         // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
         if machine_committee.confirmed_committee.len() == 0 {
