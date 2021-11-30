@@ -52,3 +52,15 @@ node query_committee_storage.js --port wss://preinfo.dbcwallet.io --type-file ..
 # 查询某个高度(8800)时，onlineCommittee模块的committeeMachine
 node query_storage.js --port wss://galaxytest.congtu.cloud --type-file ../../dbc_types.json --rpc-file ../../dbc_rpc.json --module onlineCommittee --func committeeMachine --at-height 8800 5He35goba34RReW9WZT3xEjHNY9mo4DpqWTRXzNsR4Y1X7xF
 ```
+
+### 批量租用机器
+
+- 租用机器需要租用，确认租用成功两个步骤
+
+```bash
+# 1. 修改test_txRent.js脚本中 `machineList`字段为需要租用的机器ID，用--key指定租用人的私钥，如
+node test_txRent.js --key 0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a
+
+# 2 修改 test_txConfirm.js 脚本中 `machineList`字段为需要确认租用的机器ID, 用--key指定租用人的私钥，如
+node test_txConfirm.js --key 0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a
+```
