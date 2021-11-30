@@ -7,6 +7,10 @@ mod types;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
+mod test_online_failed;
+#[cfg(test)]
+mod test_summary;
+#[cfg(test)]
 mod tests;
 
 use frame_support::{
@@ -234,30 +238,25 @@ pub mod pallet {
                 OCBookResultType::OnlineRefused => &slash_info.machine_stash == &applicant,
                 _ => false,
             };
-
             let is_slashed_committee = slash_info.inconsistent_committee.binary_search(&applicant).is_ok();
 
             ensure!(is_slashed_stash || is_slashed_committee, Error::<T>::NotSlashed);
-
             ensure!(
                 <T as Config>::Currency::can_reserve(&applicant, committee_order_stake),
                 Error::<T>::BalanceNotEnough
             );
 
             if is_slashed_stash {
-                ensure!(
-                    T::OCOperations::oc_change_staked_balance(applicant.clone(), committee_order_stake, true).is_ok(),
-                    Error::<T>::BalanceNotEnough
-                );
+                T::OCOperations::oc_change_staked_balance(applicant.clone(), committee_order_stake, true)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else {
-                let _ =
-                    <T as Config>::ManageCommittee::change_total_stake(applicant.clone(), committee_order_stake, true);
-                let _ =
-                    <T as Config>::ManageCommittee::change_used_stake(applicant.clone(), committee_order_stake, true);
+                <T as pallet::Config>::Currency::reserve(&applicant, committee_order_stake)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                <T as Config>::ManageCommittee::change_total_stake(applicant.clone(), committee_order_stake, true)
+                    .map_err(|_| Error::<T>::Overflow)?;
+                <T as Config>::ManageCommittee::change_used_stake(applicant.clone(), committee_order_stake, true)
+                    .map_err(|_| Error::<T>::Overflow)?;
             }
-
-            <T as pallet::Config>::Currency::reserve(&applicant, committee_order_stake)
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             PendingSlashReview::<T>::insert(
                 slash_id,
@@ -306,6 +305,7 @@ pub mod pallet {
         BalanceNotEnough,
         NotPendingReviewSlash,
         ExpiredApply,
+        Overflow,
     }
 }
 

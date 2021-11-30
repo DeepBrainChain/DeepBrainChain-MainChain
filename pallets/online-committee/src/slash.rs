@@ -34,7 +34,6 @@ impl<T: Config> Pallet<T> {
         };
 
         if is_slashed_stash {
-            // slash stash
             // Change stake amount
             // NOTE: should not change slash_info.slash_amount, because it will be done in check_and_exec_pending_slash
             T::OCOperations::oc_exec_slash(slash_info.machine_stash.clone(), review_info.staked_amount)?;
@@ -45,6 +44,7 @@ impl<T: Config> Pallet<T> {
                 slash_info.reward_committee,
             )?;
         } else {
+            // applicant is slashed_committee
             Self::change_committee_stake(vec![review_info.applicant.clone()], review_info.staked_amount, true)?;
         }
 
@@ -55,6 +55,7 @@ impl<T: Config> Pallet<T> {
             vec![],
         )?;
 
+        // Keep PendingSlashReview after pending review is expired will result in performance problem
         PendingSlashReview::<T>::remove(a_pending_review);
         Ok(())
     }
