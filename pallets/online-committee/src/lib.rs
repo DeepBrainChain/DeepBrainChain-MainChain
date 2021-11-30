@@ -426,6 +426,7 @@ impl<T: Config> Pallet<T> {
 
         // type: (who, amount)
         let mut stash_slash_info = None;
+        let mut is_refused = false;
 
         match Self::summary_confirmation(&machine_id) {
             MachineConfirmStatus::Confirmed(summary) => {
@@ -462,6 +463,7 @@ impl<T: Config> Pallet<T> {
                     ItemList::add_item(&mut reward_committee, a_committee);
                 }
 
+                is_refused = true;
                 machine_committee.status = OCVerifyStatus::Finished;
 
                 // should cancel machine_stash slash when slashed committee apply review
@@ -482,7 +484,7 @@ impl<T: Config> Pallet<T> {
 
         MachineCommittee::<T>::insert(&machine_id, machine_committee.clone());
 
-        if inconsistent_committee.len() == 0 && unruly_committee.len() == 0 {
+        if inconsistent_committee.len() == 0 && unruly_committee.len() == 0 && !is_refused {
             for a_committee in reward_committee {
                 let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
                     a_committee,
@@ -491,7 +493,6 @@ impl<T: Config> Pallet<T> {
                 );
             }
         } else {
-            // FIXME: cannot run here, when all committee refused
             let slash_id = Self::get_new_slash_id();
             let (machine_stash, stash_slash_amount) = stash_slash_info.unwrap_or_default();
             PendingSlash::<T>::insert(
