@@ -55,8 +55,13 @@ impl<T: Config> GNOps for Pallet<T> {
                             left_reward,
                             BalanceStatus::Free,
                         );
+                        left_reward = Zero::zero();
                     }
                 }
+            }
+            if left_reward > Zero::zero() {
+                let (imbalance, _missing) = T::Currency::slash_reserved(&a_slash_person, each_slash);
+                T::Slash::on_unbalanced(imbalance);
             }
         }
 

@@ -765,11 +765,29 @@ fn test_machine_online_refused_claim_reserved() {
         assert_eq!(Balances::free_balance(&stash), INIT_BALANCE - 5000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&stash), 5000 * ONE_DBC);
 
-        // TODO: Add two days later stash being slashed:
-        // FIXME
-        assert_eq!(OnlineCommittee::pending_slash(0), crate::OCPendingSlashInfo { ..Default::default() });
+        // Add two days later stash being slashed:
+        assert_eq!(
+            OnlineCommittee::pending_slash(0),
+            crate::OCPendingSlashInfo {
+                machine_id,
+                machine_stash: stash,
+                stash_slash_amount: 5000 * ONE_DBC,
+                inconsistent_committee: vec![],
+                unruly_committee: vec![],
+                reward_committee: vec![committee2, committee1, committee4],
+                committee_stake: 1000 * ONE_DBC,
+                slash_time: 11,
+                slash_exec_time: 11 + 2880 * 2,
+                book_result: OCBookResultType::OnlineRefused,
+                slash_result: OCSlashResult::Pending,
+            }
+        );
 
+        // 5771 on_initialize will do slash
         run_to_block(11 + 2880 * 2);
+
+        assert_eq!(Balances::free_balance(&stash), INIT_BALANCE - 5000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&stash), 0);
     })
 }
 
