@@ -8,12 +8,14 @@ const node = {
 
 let api = null;
 const keyring = new Keyring({ type: "sr25519" });
-const args = minimist(process.argv.slice(2), { string: ["key", "data"] });
+const args = minimist(process.argv.slice(2), { string: ["key"] });
 // 链上交互
 export const GetApi = async () => {
   if (!api) {
     const provider = new WsProvider(node.dbc);
-    api = await ApiPromise.create({ provider });
+    api = await ApiPromise.create({
+      provider,
+    });
   }
   return { api };
 };
@@ -31,10 +33,10 @@ let machineList = [
   "38f4a824e0dc1fc5a9a7dccff53417b300fc0edad208176d8770597d98f6eb5c",
 ];
 
-export const utility = async (value) => {
+export const confirmRent = async () => {
   await GetApi();
   let newArray = machineList.map((res) => {
-    return api.tx.rentMachine.rentMachine(res, value);
+    return api.tx.rentMachine.confirmRent(res);
   });
   let accountFromKeyring = await keyring.addFromUri(args["key"]);
   await cryptoWaitReady();
@@ -52,9 +54,7 @@ export const utility = async (value) => {
                 data: [error],
               },
             }) => {
-              // console.log(method, error, error.words, 'method');
               if (method == "BatchInterrupted") {
-                // const decoded = api?.registry.findMetaError(error.asModule);
                 console.log("ExtrinsicFiles--->" + "成功执行：" + error.words);
               } else if (method == "BatchCompleted") {
                 console.log("ExtrinsicSuccess: 全部执行");
@@ -68,4 +68,4 @@ export const utility = async (value) => {
       }
     );
 };
-utility(args["data"]).catch((error) => console.log(error.message));
+confirmRent().catch((error) => console.log(error.message));
