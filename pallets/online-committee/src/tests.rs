@@ -691,18 +691,22 @@ fn machine_online_works() {
     });
 }
 
-// TODO: 机器上线失败，不进行任何操作/增加操作接口可以领回质押的币
+// 机器上线失败，质押将会被扣除5%, 剩余会被退还
 #[test]
 fn test_machine_online_refused_claim_reserved() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
         let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
         // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
         let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
+            .unwrap()
+            .try_into()
+            .unwrap();
 
         let machine_info_hash1: [u8; 16] = hex::decode("cee14a520ba6a988c306aab9dc3794b1").unwrap().try_into().unwrap();
         let machine_info_hash2: [u8; 16] = hex::decode("8c7e7ca563169689f1c789f8d4f510f8").unwrap().try_into().unwrap();
@@ -788,6 +792,23 @@ fn test_machine_online_refused_claim_reserved() {
 
         assert_eq!(Balances::free_balance(&stash), INIT_BALANCE - 5000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&stash), 0);
+        assert_eq!(<PendingSlash<TestRuntime>>::contains_key(0), true);
+
+        assert_eq!(
+            Balances::free_balance(committee1),
+            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational_approximation(1u32, 3u32) * (5000 * ONE_DBC)
+        );
+
+        assert_eq!(Balances::reserved_balance(committee1), 20000 * ONE_DBC);
+        assert_eq!(
+            Committee::committee_stake(committee1),
+            committee::CommitteeStakeInfo {
+                box_pubkey: committee1_box_pubkey,
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 0 * ONE_DBC,
+                ..Default::default()
+            }
+        );
     })
 }
 
