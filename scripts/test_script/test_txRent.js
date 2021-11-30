@@ -2,6 +2,7 @@ import { ApiPromise, WsProvider } from "@polkadot/api";
 import { Keyring } from "@polkadot/keyring";
 import { cryptoWaitReady } from "@polkadot/util-crypto";
 import minimist from "minimist";
+import fs from "fs";
 const node = {
   dbc: "wss://info.dbcwallet.io",
 };
@@ -9,11 +10,15 @@ const node = {
 let api = null;
 const keyring = new Keyring({ type: "sr25519" });
 const args = minimist(process.argv.slice(2), { string: ["key", "day"] });
+
+const type_path = fs.readFileSync(args["type-file"]);
+const type_json = JSON.parse(type_path);
+
 // 链上交互
 export const GetApi = async () => {
   if (!api) {
     const provider = new WsProvider(node.dbc);
-    api = await ApiPromise.create({ provider });
+    api = await ApiPromise.create({ provider, types: type_json });
   }
   return { api };
 };
@@ -55,15 +60,19 @@ export const utility = async (value) => {
               // console.log(method, error, error.words, 'method');
               if (method == "BatchInterrupted") {
                 // const decoded = api?.registry.findMetaError(error.asModule);
-                console.log("ExtrinsicFiles--->" + "成功执行：" + error.words);
+                console.log(
+                  "ExtrinsicFiles--->" + "出现错误，成功执行到：" + error.words
+                );
               } else if (method == "BatchCompleted") {
-                console.log("ExtrinsicSuccess: 全部执行");
+                console.log("ExtrinsicSuccess: 全部执行成功");
               }
             }
           );
           if (status.isInBlock) {
             console.log(`included in ${status.asInBlock}`);
           }
+
+          process.exit(0);
         }
       }
     );
