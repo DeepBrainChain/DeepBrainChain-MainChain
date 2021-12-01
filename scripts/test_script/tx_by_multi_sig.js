@@ -11,25 +11,7 @@ import { Keyring } from "@polkadot/keyring";
 // import { useApi, useCall } from "@polkadot/react-hooks";
 import fs from "fs";
 import minimist from "minimist";
-import {
-  createKeyMulti,
-  encodeAddress,
-  sortAddresses,
-} from "@polkadot/util-crypto";
-
-// import the test keyring (already has dev keys for Alice, Bob, Charlie, Eve & Ferdie)
-// kconst testKeyring = require('@polkadot/keyring/testing');
-
-// Secret phrase `soldier until emotion future loop list crumble either voice select tattoo wife` is account:
-//   Secret seed:       0xa8e5289227420a948ada4a550138326ab13c2aa879d468153b5a7edc98b35c11
-//   SS58 Address:      5GbSsW5WQJWxvuyivg1pxzcCHDSZV8yrmgXSHtmMCdNyYmK7
-// Secret phrase `bar vault anchor welcome unfold canyon calm pepper usage hint cube tissue` is account:
-//   Secret seed:       0x9b3bf87d397b40c4daa2d381a801abb9c9b4e5f3dc6a4b3f529bdbd01f4670a5
-//   SS58 Address:      5DMHnhL1cJ4y8jw7eEd6s38bF5CPA7cuELRPRgRZ5onhJGUN
-// Secret phrase `deer hidden behave begin accuse barely mean radar river inflict razor belt` is account:
-//   Secret seed:       0xe06b98f23f744049de53e9c5040622e9f5537606737dbfe5c9153b49931b4717
-//   Public key (hex):  0x36ca7d9c55a6008eef1fd422ae890ee38e60017a4a2057d6b31726cf1d83ed55
-//   SS58 Address:      5DJYbUba9ANpMBfzwnrG4jErxfg1gozhdfoLLsUbCBG7cV5o
+import { blake2AsHex } from "@polkadot/util-crypto";
 
 async function main() {
   // 读取参数
@@ -48,13 +30,20 @@ async function main() {
     types: type_json,
   });
 
+  const account1 = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+  const key1 =
+    "0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a";
+  const account2 = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
+  const key2 =
+    "0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89";
+
   // 读取密钥 type: sr25519, ssFormat: 42 (defaults)
   const keyring1 = new Keyring({ type: "sr25519" });
   // const accountFromKeyring = keyring.createFromUri(args["key"]); // 从助记词生成账户
-  const accountFromKeyring1 = keyring1.addFromUri(args["key1"]); // 从私钥生成账户对
+  const accountFromKeyring1 = keyring1.addFromUri(key1); // 从私钥生成账户对
 
   const keyring2 = new Keyring({ type: "sr25519" });
-  const accountFromKeyring2 = keyring2.addFromUri(args["key2"]); // 从私钥生成账户对
+  const accountFromKeyring2 = keyring2.addFromUri(key2); // 从私钥生成账户对
 
   // 获取账户nonce
   const { nonce1 } = await api.query.system.account(
@@ -64,26 +53,72 @@ async function main() {
     accountFromKeyring2.address
   );
 
+  // TODO: Change here
+  const threshold = 2;
+  const maxWeight = 194407000;
+  // TOOD: Change here
+  const method = {
+    callIndex: "0x0603",
+    args: {
+      dest: { id: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" },
+      value: "0x0000000000000000002386f26fc10000",
+    },
+  };
+  const encodedProposal = api.createType("TransMethod", method);
+
+  console.log("########## should be right: ", encodedProposal.toHex());
+
+  const encodedProposal2 =
+    "0x060300" + encodedProposal.toHex().toString().substring(6);
+  console.log("### encodedProposal...", encodedProposal2);
+  const encodedHash = blake2AsHex(encodedProposal2);
+  console.log("hash: ", encodedHash);
+
+  const method2 = {
+    callIndex: "0x0603",
+    callModule: "balance",
+    callName: "transferKeepAlive",
+    params: {
+      dest: { id: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" },
+      value: "0x0000000000000000002386f26fc10000",
+    },
+  };
+
+  // const encodeCall2 =
+  //   "0x060300" + api.createType("TransMethod2", method2).toHex().toString();
+
+  const encodeCall2 = api.createType("TransMethod2", method2).toHex();
+  // .toString();
+
+  console.log("###########", encodeCall2);
+
   var callFunc1 = api.tx.multisig.approveAsMulti;
   var callFunc2 = api.tx.multisig.asMulti;
 
-  const hash = callFunc1.hash.toHex();
-  console.log(hash);
-
-  // const preimage =
-  //   useCall < DeriveProposalImage > (api.derive.democracy.preimage, [value]);
-
-  // console.log("######", preimage.proposal);
-
   // 第一次多签签名
-  await do_sign_tx(callFunc1, accountFromKeyring1, nonce1, ...args._).catch(
-    (error) => console.log(error.message)
-  );
+  await do_sign_tx(
+    callFunc1,
+    accountFromKeyring1,
+    nonce1,
+    threshold,
+    [account2],
+    null,
+    encodedHash,
+    maxWeight
+  ).catch((error) => console.log(error.message));
 
-  // 最后一次多签签名
-  await do_sign_tx(callFunc2, accountFromKeyring2, nonce2, ...args._).catch(
-    (error) => console.log(error.message)
-  );
+  // // 最后一次多签签名
+  // await do_sign_tx(
+  //   callFunc2,
+  //   accountFromKeyring2,
+  //   nonce2,
+  //   threshold,
+  //   [account1],
+  //   { height: 32, index: 1 },
+  //   encodedProposal2,
+  //   false,
+  //   maxWeight
+  // ).catch((error) => console.log(error.message));
 }
 
 async function do_sign_tx(callFunc, accountFromKeyring, nonce, ...args) {

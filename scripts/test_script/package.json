@@ -5,7 +5,7 @@
   "author": "bobo <dongkaige@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@polkadot/api": "^4.12.1",
+    "@polkadot/api": "^4.17.1",
     "@polkadot/metadata": "^4.12.1",
     "@polkadot/types": "^4.12.1",
     "@polkadot/util": "^6.6.1",
