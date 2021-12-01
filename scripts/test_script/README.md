@@ -78,12 +78,12 @@ node test_txConfirm.js --key 0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7
 
 ```
   Alice:
-    seed:
-    0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a
+    seed: 0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a
     account: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
 
-  Bob: seed: 0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89
-  account: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty
+  Bob:
+    seed: 0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89
+    account: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty
 
   阈值设置为2，生成的多签账户为：
   5F3QVbS78a4aTYLiRAD8N3czjqVoNyV42L19CXyhqUMCh4Ch
