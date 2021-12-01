@@ -64,3 +64,52 @@ node test_txRent.js --key 0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76
 # 2 修改 test_txConfirm.js 脚本中 `machineList`字段为需要确认租用的机器ID, 用--key指定租用人的私钥，--type-file 指定链type文件。如
 node test_txConfirm.js --key 0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a --type-file ../../dbc_types.json
 ```
+
+### 多签脚本说明
+
+- 多签脚本需要自己手动修改以整合到项目中
+
+- 步骤 1: 修改脚本内容，第一次执行脚本: `node tx_by_multi_sig.js`
+- 步骤 2: 记录第一次脚本输出，并修改脚本内容，再次执行脚本
+
+例子：
+
+1. 生成多签账户
+
+```
+  Alice:
+    seed:
+    0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a
+    account: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+
+  Bob: seed: 0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89
+  account: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty
+
+  阈值设置为2，生成的多签账户为：
+  5F3QVbS78a4aTYLiRAD8N3czjqVoNyV42L19CXyhqUMCh4Ch
+```
+
+注意： 多签账户需要有币来支付手续费
+
+2. 修改脚本：
+
+![1](2021-12-01_18-01.png)
+
+执行脚本即可完成第一次调用,结果如图
+
+![2](2021-12-01_18-05.png)
+
+其中，applyExtrinsic: 1，即为 index，可通过 Finalized_block_hash 查询对应 block_height，在这次测试中，块高为 55
+
+执行完第一次之后，前端可以看到：
+
+![3](2021-12-01_18-07_1.png)
+
+第一次执行完之后，需要修改脚本参数为：
+
+![4](2021-12-01_18-07.png)
+
+再次执行脚本即可
+
+
+3. 如果有超过2个钱包，在第一次，和最后一次调用之间，修改 firstCallHeight, firstCallIndex和signaerKey即可

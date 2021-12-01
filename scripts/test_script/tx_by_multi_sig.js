@@ -3,34 +3,38 @@ import { Keyring } from "@polkadot/keyring";
 import fs from "fs";
 import minimist from "minimist";
 import { blake2AsHex } from "@polkadot/util-crypto";
+import { encodeAddress } from "@polkadot/util-crypto";
 
 // 不需要变
-const typeFile = "../../dbc_types.json";
-const callIndex = "0x0603";
-const maxWeight = 194407000;
+const typeFile = "../../dbc_types.json"; // 链上自定义类型
+const callIndex = "0x0603"; // transfer_keep_alive
+const maxWeight = 194407000; // 转账的maxWeight
+const SS58Prefix = 42; // 链ss58prefix
 
 // 初始化一次即可
-const websocket = "ws://127.0.0.1:9944";
+const websocket = "ws://127.0.0.1:9944"; // 链的websocket
+// 生成多签帐号时的所有账户
 const allAccount = [
   "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
   "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
 ];
-const threshold = 2;
+const threshold = 2; // 生成多签帐号时的阈值
 
 // 每次转账之前设置
-var destAccount = "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy";
-var transAmount = "10000000000000000"; // 10**15 * 10 = 10 DBC
+var destAccount = "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy"; // 转账目标账户
+var transAmount = "10000000000000000"; // 转账金额：10**15 * 10 = 10 DBC
 
 // 第一次执行脚本之后设置
-var firstCallHeight = 12;
-var firstCallIndex = 1;
-var isFirstCall = false;
+var firstCallHeight = 55; // 第一次多签执行时的块高
+var firstCallIndex = 1; // 第一次多签上链时的index
+var isFirstCall = false; // 是否是第一次调用
 
+// 第一次执行之后每次更改
 var signerKey =
-  "0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a"; // 签名账户
+  "0x398f0c28f98885e046333d4a41c19cee4c37368a9832c6502f6cfd182e2aef89"; // 签名账户
 
 // 最后一次执行时设置
-var isFinalSign = false;
+var isFinalSign = true; // 是否是最后一次调用（用以最终确认上链）
 
 async function main() {
   // 读取参数
@@ -40,7 +44,14 @@ async function main() {
 
   // 构建连接
   const wsProvider = new WsProvider(websocket);
-  const type_json = JSON.parse(fs.readFileSync(typeFile));
+  var type_json = JSON.parse(fs.readFileSync(typeFile));
+  type_json.TransMethod = {
+    callIndex: "(u8, u8)",
+    args: {
+      dest: { id: "AccountId" },
+      value: "Compact<Balance>",
+    },
+  };
 
   // Create the API and wait until ready
   const api = await ApiPromise.create({
@@ -51,6 +62,10 @@ async function main() {
   // 从私钥生成账户对
   const keyring = new Keyring({ type: "sr25519" });
   const accountFromKeyring = keyring.addFromUri(signerKey);
+  const signaerAccount = encodeAddress(
+    accountFromKeyring.publicKey,
+    SS58Prefix
+  );
 
   // 获取账户nonce
   const { nonce } = await api.query.system.account(accountFromKeyring.address);
@@ -67,16 +82,15 @@ async function main() {
     "0x060300" + encodedProposal.toHex().toString().substring(6);
   const encodedHash = blake2AsHex(encodedProposal2);
 
-  console.log("### encodedCall: ", encodedProposal2);
-  console.log("### callHash: ", encodedHash);
+  console.log("## encodedCall: ", encodedProposal2);
+  console.log("## callHash: ", encodedHash);
 
   var timepoint = null;
   if (!isFirstCall) {
     timepoint = { height: firstCallHeight, index: firstCallIndex };
   }
 
-  // TODO: 当前改这个
-  const otherAccount = ["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"];
+  const otherAccount = allAccount.filter((who) => who !== signaerAccount);
 
   if (isFinalSign) {
     // 最后一次多签签名
@@ -87,7 +101,7 @@ async function main() {
       nonce,
       threshold,
       otherAccount,
-      { height: 32, index: 1 },
+      timepoint,
       encodedProposal2,
       false,
       maxWeight
@@ -101,7 +115,7 @@ async function main() {
       nonce,
       threshold,
       otherAccount,
-      null,
+      timepoint,
       encodedHash,
       maxWeight
     ).catch((error) => console.log(error.message));
