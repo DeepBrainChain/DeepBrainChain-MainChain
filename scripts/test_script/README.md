@@ -93,23 +93,22 @@ node test_txConfirm.js --key 0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7
 
 2. 修改脚本：
 
-![1](2021-12-01_18-01.png)
+![1](tx_by_multi_sig.assets/2021-12-01_18-01.png)
 
 执行脚本即可完成第一次调用,结果如图
 
-![2](2021-12-01_18-05.png)
+![2](tx_by_multi_sig.assets/2021-12-01_18-05.png)
 
 其中，applyExtrinsic: 1，即为 index，可通过 Finalized_block_hash 查询对应 block_height，在这次测试中，块高为 55
 
 执行完第一次之后，前端可以看到：
 
-![3](2021-12-01_18-07_1.png)
+![3](tx_by_multi_sig.assets/2021-12-01_18-07_1.png)
 
 第一次执行完之后，需要修改脚本参数为：
 
-![4](2021-12-01_18-07.png)
+![4](tx_by_multi_sig.assets/2021-12-01_18-07.png)
 
 再次执行脚本即可
 
-
-3. 如果有超过2个钱包，在第一次，和最后一次调用之间，修改 firstCallHeight, firstCallIndex和signaerKey即可
+3. 如果有超过 2 个钱包，在第一次，和最后一次调用之间，修改 firstCallHeight, firstCallIndex 和 signaerKey 即可
