@@ -100,7 +100,7 @@
 
    - click it and input the result in step 5`rotateKeys`![image-20210121200709277](join_dbc_network.assets/image-20210121200709277.png)
 
-   - Now, check in [Telemetry](https://telemetry.polkadot.io/#list/DBC%20Mainnet) and you can see your node.![image-20210121234945030](join_dbc_network.assets/image-20210121234945030.png)
+   - Now, check in [Telemetry](https://telemetry.polkadot.io/#list/0xd523fa2e0581f069b4f0c7b5944c21e9abc72305a08067868c91b898d1bf1dff) and you can see your node.![image-20210121234945030](join_dbc_network.assets/image-20210121234945030.png)
 
 8. Validate
 
