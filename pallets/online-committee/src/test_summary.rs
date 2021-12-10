@@ -1,20 +1,65 @@
 use super::*;
-use crate::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList};
-use committee::CommitteeList;
+use crate::mock::*;
 use frame_support::assert_ok;
-use online_profile::{
-    CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineGradeStatus, MachineStatus, StakerCustomizeInfo,
-    UserMutHardwareStakeInfo,
-};
-use sp_runtime::Perbill;
-use std::{collections::BTreeMap, convert::TryInto};
+use online_profile::CommitteeUploadInfo;
+use std::convert::TryInto;
 
-type ThreeComittees = [sp_core::sr25519::Public; 3];
+type ThreeComittees = [sp_core::sr25519::Public; 4];
 fn get_three_committees() -> ThreeComittees {
-    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-    let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-    return [committee1, committee2, committee3]
+    // sort of four account is: [3, 2, 1, 4]
+    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+    let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+    let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+
+    return [committee1, committee2, committee3, committee4]
+}
+
+fn get_machine_id() -> Vec<u8> {
+    "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec()
+}
+
+fn get_base_machine_info() -> online_profile::CommitteeUploadInfo {
+    super::CommitteeUploadInfo {
+        machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
+        gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
+        gpu_num: 4,
+        cuda_core: 8704,
+        gpu_mem: 10,
+        calc_point: 59890,
+        sys_disk: 500,
+        data_disk: 3905,
+        cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
+        cpu_core_num: 46,
+        cpu_rate: 2400,
+        mem_num: 440,
+        rand_str: "".as_bytes().to_vec(),
+        is_support: true,
+    }
+}
+
+fn decode_hash(hash: &str) -> [u8; 16] {
+    hex::decode(hash).unwrap().try_into().unwrap()
+}
+
+fn get_support_info() {
+    let rand_str1 = "abcdefg1";
+    let rand_str2 = "abcdefg2";
+    let rand_str3 = "abcdefg3";
+
+    let hash1 = decode_hash("2a0834c7aa168781cd2c40bc5259833e");
+    let hash2 = decode_hash("422b76afb204fc7b94afe2912d82c659");
+    let hash3 = decode_hash("08e1544c321b862db7f09008551a022f");
+}
+
+fn get_against_info() {
+    let rand_str1 = "abcdefg1";
+    let rand_str2 = "abcdefg2";
+    let rand_str3 = "abcdefg3";
+
+    let hash1 = decode_hash("9e100b5d89fdc4dc0932bfda23474f08");
+    let hash2 = decode_hash("8702590323bf06ffb5f0fc5d1f9e0770");
+    let hash3 = decode_hash("cf838f58d88f5ed2b66548531e4e0ca4");
 }
 
 // NOTE: 测试summary函数
@@ -35,21 +80,21 @@ fn get_three_committees() -> ThreeComittees {
 #[test]
 fn test_summary_confirmation1() {
     new_test_with_init_params_ext().execute_with(|| {
-        let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let [committee1, committee2, committee3] = get_three_committees();
-
         run_to_block(10);
+
+        let machine_id = get_machine_id();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
+        // let mut upload_info = get_base_machine_info();
 
         // 构建 machine_committee
         <super::MachineCommittee<TestRuntime>>::insert(
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3, committee1],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2, committee1],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3, committee1],
+                confirmed_committee: vec![committee3, committee2, committee1],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -106,7 +151,7 @@ fn test_summary_confirmation1() {
         <CommitteeOps<TestRuntime>>::insert(&committee3, &machine_id, committee3_ops);
 
         let summary = super::Summary {
-            valid_support: vec![committee2, committee3, committee1],
+            valid_support: vec![committee3, committee2, committee1],
             info: Some(committee_ops.machine_info.clone()),
             ..Default::default()
         };
@@ -123,7 +168,7 @@ fn test_summary_confirmation1() {
 fn test_summary_confirmation2() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -132,10 +177,10 @@ fn test_summary_confirmation2() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3, committee1],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2, committee1],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3, committee1],
+                confirmed_committee: vec![committee3, committee2, committee1],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -211,7 +256,7 @@ fn test_summary_confirmation2() {
 fn test_summary_confirmation3() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -220,10 +265,10 @@ fn test_summary_confirmation3() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3, committee1],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2, committee1],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3, committee1],
+                confirmed_committee: vec![committee3, committee2, committee1],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -303,7 +348,7 @@ fn test_summary_confirmation3() {
 fn test_summary_confirmation4() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -312,10 +357,10 @@ fn test_summary_confirmation4() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3, committee1],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2, committee1],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3, committee1],
+                confirmed_committee: vec![committee3, committee2, committee1],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -377,7 +422,7 @@ fn test_summary_confirmation4() {
         assert_eq!(
             OnlineCommittee::summary_confirmation(&machine_id),
             super::MachineConfirmStatus::NoConsensus(super::Summary {
-                invalid_support: vec![committee2, committee3, committee1],
+                invalid_support: vec![committee3, committee2, committee1],
                 ..Default::default()
             }),
         );
@@ -389,7 +434,7 @@ fn test_summary_confirmation4() {
 fn test_summary_confirmation5() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -398,10 +443,10 @@ fn test_summary_confirmation5() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3, committee1],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2, committee1],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3, committee1],
+                confirmed_committee: vec![committee3, committee2, committee1],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -484,7 +529,7 @@ fn test_summary_confirmation5() {
 fn test_summary_confirmation6() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -493,10 +538,10 @@ fn test_summary_confirmation6() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3, committee1],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2, committee1],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3, committee1],
+                confirmed_committee: vec![committee3, committee2, committee1],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -581,7 +626,7 @@ fn test_summary_confirmation6() {
 fn test_summary_confirmation7() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -590,10 +635,10 @@ fn test_summary_confirmation7() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3, committee1],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2, committee1],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3, committee1],
+                confirmed_committee: vec![committee3, committee2, committee1],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -664,7 +709,7 @@ fn test_summary_confirmation7() {
         CommitteeOps::<TestRuntime>::insert(&committee2, &machine_id, committee2_ops);
         CommitteeOps::<TestRuntime>::insert(&committee3, &machine_id, committee3_ops);
 
-        let summary = super::Summary { against: vec![committee2, committee3, committee1], ..Default::default() };
+        let summary = super::Summary { against: vec![committee3, committee2, committee1], ..Default::default() };
 
         assert_eq!(
             OnlineCommittee::summary_confirmation(&machine_id),
@@ -678,7 +723,7 @@ fn test_summary_confirmation7() {
 fn test_summary_confirmation8() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -687,10 +732,10 @@ fn test_summary_confirmation8() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3],
+                confirmed_committee: vec![committee3, committee2],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -750,7 +795,7 @@ fn test_summary_confirmation8() {
         CommitteeOps::<TestRuntime>::insert(&committee3, &machine_id, committee3_ops);
 
         let summary =
-            super::Summary { unruly: vec![committee1], against: vec![committee2, committee3], ..Default::default() };
+            super::Summary { unruly: vec![committee1], against: vec![committee3, committee2], ..Default::default() };
 
         assert_eq!(
             OnlineCommittee::summary_confirmation(&machine_id),
@@ -764,7 +809,7 @@ fn test_summary_confirmation8() {
 fn test_summary_confirmation9() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -773,10 +818,10 @@ fn test_summary_confirmation9() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3],
+                confirmed_committee: vec![committee3, committee2],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -826,7 +871,7 @@ fn test_summary_confirmation9() {
         <CommitteeOps<TestRuntime>>::insert(&committee3, &machine_id, committee3_ops);
 
         let summary = super::Summary {
-            valid_support: vec![committee2, committee3],
+            valid_support: vec![committee3, committee2],
             unruly: vec![committee1],
             info: Some(committee_ops.machine_info.clone()),
             ..Default::default()
@@ -844,7 +889,7 @@ fn test_summary_confirmation9() {
 fn test_summary_confirmation10() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -853,10 +898,10 @@ fn test_summary_confirmation10() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3],
+                confirmed_committee: vec![committee3, committee2],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -910,7 +955,7 @@ fn test_summary_confirmation10() {
             OnlineCommittee::summary_confirmation(&machine_id),
             super::MachineConfirmStatus::NoConsensus(super::Summary {
                 unruly: vec![committee1],
-                invalid_support: vec![committee2, committee3],
+                invalid_support: vec![committee3, committee2],
                 ..Default::default()
             })
         );
@@ -922,7 +967,7 @@ fn test_summary_confirmation10() {
 fn test_summary_confirmation11() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-        let [committee1, committee2, committee3] = get_three_committees();
+        let [committee1, committee2, committee3, ..] = get_three_committees();
 
         run_to_block(10);
 
@@ -931,10 +976,10 @@ fn test_summary_confirmation11() {
             &machine_id,
             super::OCMachineCommitteeList {
                 book_time: 9,
-                booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: vec![committee2, committee3],
+                booked_committee: vec![committee3, committee2, committee1],
+                hashed_committee: vec![committee3, committee2],
                 confirm_start_time: 5432,
-                confirmed_committee: vec![committee2, committee3],
+                confirmed_committee: vec![committee3, committee2],
                 onlined_committee: vec![],
                 status: super::OCVerifyStatus::Summarizing,
             },
@@ -987,7 +1032,7 @@ fn test_summary_confirmation11() {
             OnlineCommittee::summary_confirmation(&machine_id),
             super::MachineConfirmStatus::Confirmed(super::Summary {
                 unruly: vec![committee1],
-                valid_support: vec![committee2, committee3],
+                valid_support: vec![committee3, committee2],
                 info: Some(committee_ops.machine_info.clone()),
                 ..Default::default()
             })

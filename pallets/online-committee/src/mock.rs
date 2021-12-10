@@ -194,34 +194,6 @@ impl online_profile::Config for TestRuntime {
     type SlashAndReward = GenericFunc;
 }
 
-/// 待绑定的机器信息
-#[allow(dead_code)]
-pub struct MachineBondInfo<AccountId> {
-    /// 控制账户
-    pub controller_account: AccountId,
-    /// stash账户
-    pub stash_account: AccountId,
-    /// 公钥
-    pub machine_id: Vec<u8>,
-    /// 私钥
-    pub machine_key: Vec<u8>,
-    /// sign_by_machine_key(machine_id + stash_account)
-    pub machine_sig: Vec<u8>,
-    /// committee upload info
-    pub committee_submit: Vec<CommitteeSubmit<AccountId>>,
-}
-
-/// 委员会需要提交的机器信息
-#[allow(dead_code)]
-pub struct CommitteeSubmit<AccountId> {
-    /// committee
-    pub committee_account: AccountId,
-    /// 委员会要提交的机器Hash
-    pub machine_hash: Vec<u8>,
-    /// 委员会要提交的机器信息
-    pub machine_info: online_profile::CommitteeUploadInfo,
-}
-
 #[allow(dead_code)]
 fn key_to_pair(key: &str) -> sp_core::sr25519::Public {
     sr25519::Public::from_raw(hex::decode(key).unwrap().try_into().unwrap())
