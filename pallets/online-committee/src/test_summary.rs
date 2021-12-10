@@ -9,6 +9,14 @@ use online_profile::{
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
 
+type ThreeComittees = [sp_core::sr25519::Public; 3];
+fn get_three_committees() -> ThreeComittees {
+    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+    let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+    return [committee1, committee2, committee3]
+}
+
 // NOTE: 测试summary函数
 // 当全部提交Hash+全部提交原始值时:
 // case 1: 3个支持，内容一致 ->上线
@@ -29,9 +37,7 @@ fn test_summary_confirmation1() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -117,10 +123,7 @@ fn test_summary_confirmation1() {
 fn test_summary_confirmation2() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -208,10 +211,7 @@ fn test_summary_confirmation2() {
 fn test_summary_confirmation3() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -303,10 +303,7 @@ fn test_summary_confirmation3() {
 fn test_summary_confirmation4() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -392,10 +389,7 @@ fn test_summary_confirmation4() {
 fn test_summary_confirmation5() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -490,10 +484,7 @@ fn test_summary_confirmation5() {
 fn test_summary_confirmation6() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -590,10 +581,7 @@ fn test_summary_confirmation6() {
 fn test_summary_confirmation7() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -690,10 +678,7 @@ fn test_summary_confirmation7() {
 fn test_summary_confirmation8() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -779,10 +764,7 @@ fn test_summary_confirmation8() {
 fn test_summary_confirmation9() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -862,10 +844,7 @@ fn test_summary_confirmation9() {
 fn test_summary_confirmation10() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 
@@ -943,10 +922,7 @@ fn test_summary_confirmation10() {
 fn test_summary_confirmation11() {
     new_test_with_init_params_ext().execute_with(|| {
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
-
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let [committee1, committee2, committee3] = get_three_committees();
 
         run_to_block(10);
 

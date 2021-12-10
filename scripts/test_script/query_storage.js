@@ -24,6 +24,7 @@ async function main() {
   var funcMap = {};
   funcMap["staking"] = {};
   funcMap["staking"]["ledger"] = api.query.staking.ledger;
+  funcMap["staking"]["currentEra"] = api.query.staking.currentEra;
 
   funcMap["balances"] = {};
   funcMap["balances"]["locks"] = api.query.balances.locks;
@@ -42,6 +43,10 @@ async function main() {
   funcMap["onlineCommittee"] = {};
   funcMap["onlineCommittee"]["committeeMachine"] =
     api.query.onlineCommittee.committeeMachine;
+  funcMap["onlineCommittee"]["machineCommittee"] =
+    api.query.onlineCommittee.machineCommittee;
+  funcMap["onlineCommittee"]["committeeOps"] =
+    api.query.onlineCommittee.committeeOps;
 
   funcMap["genericFunc"] = {};
   funcMap["genericFunc"]["fixedTxFee"] = api.query.genericFunc.fixedTxFee;
