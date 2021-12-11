@@ -288,6 +288,7 @@ pub mod pallet {
             PendingRentEnding::<T>::insert(order_info.rent_end, pending_rent_ending);
             RentOrder::<T>::insert(&machine_id, order_info);
 
+            Self::deposit_event(Event::ConfirmRent(renter, machine_id));
             Ok(().into())
         }
     }
@@ -298,6 +299,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         PayTxFee(T::AccountId, BalanceOf<T>),
         ConfirmRent(T::AccountId, MachineId),
+        ReletMachine(T::AccountId, MachineId),
     }
 
     #[pallet::error]

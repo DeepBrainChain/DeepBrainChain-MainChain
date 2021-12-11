@@ -102,6 +102,8 @@ fn test_summary_confirmation1() {
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
 
+        let committee_upload_info = get_base_machine_info();
+
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
@@ -109,22 +111,7 @@ fn test_summary_confirmation1() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee1_ops = super::OCCommitteeOps {
@@ -167,10 +154,10 @@ fn test_summary_confirmation1() {
 #[test]
 fn test_summary_confirmation2() {
     new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
         let [committee1, committee2, committee3, ..] = get_three_committees();
-
-        run_to_block(10);
 
         // 构建 machine_committee
         <super::MachineCommittee<TestRuntime>>::insert(
@@ -187,6 +174,7 @@ fn test_summary_confirmation2() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -195,22 +183,7 @@ fn test_summary_confirmation2() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee1_ops = super::OCCommitteeOps {
@@ -255,10 +228,10 @@ fn test_summary_confirmation2() {
 #[test]
 fn test_summary_confirmation3() {
     new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
         let [committee1, committee2, committee3, ..] = get_three_committees();
-
-        run_to_block(10);
 
         // 构建 machine_committee
         <super::MachineCommittee<TestRuntime>>::insert(
@@ -275,6 +248,7 @@ fn test_summary_confirmation3() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -283,22 +257,7 @@ fn test_summary_confirmation3() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee1_ops = super::OCCommitteeOps {
@@ -367,6 +326,7 @@ fn test_summary_confirmation4() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -375,22 +335,7 @@ fn test_summary_confirmation4() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee1_ops = super::OCCommitteeOps {
@@ -433,10 +378,10 @@ fn test_summary_confirmation4() {
 #[test]
 fn test_summary_confirmation5() {
     new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
         let [committee1, committee2, committee3, ..] = get_three_committees();
-
-        run_to_block(10);
 
         // 构建 machine_committee
         <super::MachineCommittee<TestRuntime>>::insert(
@@ -453,6 +398,7 @@ fn test_summary_confirmation5() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -461,22 +407,7 @@ fn test_summary_confirmation5() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee1_ops = super::OCCommitteeOps {
@@ -528,10 +459,10 @@ fn test_summary_confirmation5() {
 #[test]
 fn test_summary_confirmation6() {
     new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
         let machine_id = "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec();
         let [committee1, committee2, committee3, ..] = get_three_committees();
-
-        run_to_block(10);
 
         // 构建 machine_committee
         <super::MachineCommittee<TestRuntime>>::insert(
@@ -548,6 +479,7 @@ fn test_summary_confirmation6() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -556,22 +488,7 @@ fn test_summary_confirmation6() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee1_ops = super::OCCommitteeOps {
@@ -645,6 +562,7 @@ fn test_summary_confirmation7() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -653,22 +571,7 @@ fn test_summary_confirmation7() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee1_ops = super::OCCommitteeOps {
@@ -742,6 +645,7 @@ fn test_summary_confirmation8() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -750,22 +654,7 @@ fn test_summary_confirmation8() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee2_ops = super::OCCommitteeOps {
@@ -828,6 +717,7 @@ fn test_summary_confirmation9() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -836,22 +726,7 @@ fn test_summary_confirmation9() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee2_ops = super::OCCommitteeOps {
@@ -908,6 +783,7 @@ fn test_summary_confirmation10() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -916,22 +792,7 @@ fn test_summary_confirmation10() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee2_ops = super::OCCommitteeOps {
@@ -986,6 +847,7 @@ fn test_summary_confirmation11() {
         );
 
         let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let committee_upload_info = get_base_machine_info();
 
         let committee_ops = super::OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
@@ -994,22 +856,7 @@ fn test_summary_confirmation11() {
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: super::OCMachineStatus::Confirmed,
-            machine_info: super::CommitteeUploadInfo {
-                machine_id: "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec(),
-                gpu_type: "GeForceRTX3060".as_bytes().to_vec(),
-                gpu_num: 4,
-                cuda_core: 3584,
-                gpu_mem: 12,
-                calc_point: 41718,
-                sys_disk: 256,
-                data_disk: 1800,
-                cpu_type: "Intel(R) Xeon(R) Platinum Intel 8259L CPU".as_bytes().to_vec(),
-                cpu_core_num: 96,
-                cpu_rate: 2400,
-                mem_num: 192,
-                rand_str: "".as_bytes().to_vec(),
-                is_support: true,
-            },
+            machine_info: committee_upload_info,
         };
 
         let committee2_ops = super::OCCommitteeOps {
@@ -1044,10 +891,7 @@ fn test_summary_confirmation11() {
 #[test]
 fn test_machine_online_succeed_slash_execed() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let [committee1, committee2, committee3, committee4] = get_three_committees();
 
         let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
             .unwrap()
@@ -1067,6 +911,8 @@ fn test_machine_online_succeed_slash_execed() {
             .unwrap();
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        // let mut committee_upload_info = get_base_machine_info();
+        // committee_upload_info.rand_str = "abcdefg1".as_bytes().to_vec();
         // let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 三个委员会提交Hash
@@ -1253,9 +1099,7 @@ fn test_machine_online_succeed_slash_execed() {
 #[test]
 fn test_machine_online_failed_slash_execed() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let [committee1, committee2, _committee3, committee4] = get_three_committees();
 
         let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
             .unwrap()
@@ -1309,7 +1153,7 @@ fn test_machine_online_failed_slash_execed() {
 
         let machine_info_hash3: [u8; 16] = hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(committee3),
+            Origin::signed(committee4),
             machine_id.clone(),
             machine_info_hash3
         ));
@@ -1322,7 +1166,7 @@ fn test_machine_online_failed_slash_execed() {
         // 第三个委员会提交错误的机器信息
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.is_support = true;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
 
         run_to_block(11);
         // 机器被拒绝上线，将会产生对委员会3和satsh账户的pending_slash
@@ -1333,7 +1177,7 @@ fn test_machine_online_failed_slash_execed() {
                 machine_stash,
                 stash_slash_amount: 5000 * ONE_DBC, // 10,0000 * 5 / 100
 
-                inconsistent_committee: vec![committee3],
+                inconsistent_committee: vec![committee4],
                 unruly_committee: vec![],
                 reward_committee: vec![committee2, committee1],
                 committee_stake: 1000 * ONE_DBC,
@@ -1374,7 +1218,7 @@ fn test_machine_online_failed_slash_execed() {
             }
         );
         assert_eq!(
-            Committee::committee_stake(&committee3),
+            Committee::committee_stake(&committee4),
             committee::CommitteeStakeInfo {
                 box_pubkey: committee3_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
@@ -1386,7 +1230,7 @@ fn test_machine_online_failed_slash_execed() {
 
         assert_eq!(Balances::reserved_balance(&committee1), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&committee2), 20000 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&committee3), 20000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&committee4), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&machine_stash), 5000 * ONE_DBC);
         assert_eq!(Balances::free_balance(&machine_stash), (10000000 - 5000) * ONE_DBC);
 
@@ -1413,7 +1257,7 @@ fn test_machine_online_failed_slash_execed() {
             }
         );
         assert_eq!(
-            Committee::committee_stake(&committee3),
+            Committee::committee_stake(&committee4),
             committee::CommitteeStakeInfo {
                 box_pubkey: committee3_box_pubkey,
                 staked_amount: 19000 * ONE_DBC,
@@ -1425,7 +1269,7 @@ fn test_machine_online_failed_slash_execed() {
 
         assert_eq!(Balances::reserved_balance(&committee1), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&committee2), 20000 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&committee3), 19000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&committee4), 19000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&machine_stash), 0);
         assert_eq!(Balances::free_balance(&machine_stash), (10000000 - 5000) * ONE_DBC);
 
