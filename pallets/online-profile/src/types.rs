@@ -514,7 +514,7 @@ where
         let old_grade = staker_statistic.total_grades().unwrap();
 
         if is_online {
-            staker_statistic.online_gpu_num += gpu_num;
+            staker_statistic.online_gpu_num = staker_statistic.online_gpu_num.saturating_add(gpu_num);
         } else {
             // 避免上线24小时即下线时，当前Era还没有初始化该值
             staker_statistic.online_gpu_num = staker_statistic.online_gpu_num.checked_sub(gpu_num).unwrap_or_default();
@@ -530,7 +530,8 @@ where
 
         // 根据在线情况更改stash的基础分
         if is_online {
-            staker_statistic.machine_total_calc_point += basic_grade;
+            staker_statistic.machine_total_calc_point =
+                staker_statistic.machine_total_calc_point.saturating_add(basic_grade);
         } else {
             staker_statistic.machine_total_calc_point =
                 staker_statistic.machine_total_calc_point.checked_sub(basic_grade).unwrap_or_default();
@@ -538,8 +539,8 @@ where
 
         // 更新系统分数记录
         let new_grade = staker_statistic.total_grades().unwrap();
-        self.total += new_grade;
-        self.total -= old_grade;
+
+        self.total = self.total.saturating_add(new_grade).saturating_sub(old_grade);
 
         // 更新该stash账户的记录
         if staker_statistic.online_gpu_num == 0 {
@@ -562,11 +563,11 @@ where
 
         // 更新rent_extra_grade
         if is_rented {
-            self.total += grade_by_rent;
-            staker_statistic.rent_extra_grade += grade_by_rent;
+            self.total = self.total.saturating_add(grade_by_rent);
+            staker_statistic.rent_extra_grade = staker_statistic.rent_extra_grade.saturating_add(grade_by_rent);
         } else {
-            self.total -= grade_by_rent;
-            staker_statistic.rent_extra_grade -= grade_by_rent;
+            self.total = self.total.saturating_sub(grade_by_rent);
+            staker_statistic.rent_extra_grade = staker_statistic.rent_extra_grade.saturating_sub(grade_by_rent);
         }
 
         let staker_statistic = (*staker_statistic).clone();

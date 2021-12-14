@@ -8,7 +8,7 @@ use codec::Decode;
 use generic_func::MachineId;
 use online_profile_machine::{DbcPrice, ManageCommittee, OPRPCQuery};
 use sp_runtime::{
-    traits::{CheckedMul, Zero},
+    traits::{CheckedMul, Saturating, Zero},
     Perbill, SaturatedConversion,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
@@ -232,8 +232,9 @@ impl<T: Config> Pallet<T> {
         };
 
         // record reward
-        stash_machine.can_claim_reward += reward_to_stash;
-        stash_machine.total_earned_reward += machine_actual_total_reward;
+        stash_machine.can_claim_reward = stash_machine.can_claim_reward.saturating_add(reward_to_stash);
+        stash_machine.total_earned_reward =
+            stash_machine.total_earned_reward.saturating_add(machine_actual_total_reward);
 
         ErasMachineReward::<T>::insert(release_era, &machine_id, machine_actual_total_reward);
         ErasStashReward::<T>::mutate(&release_era, &machine_reward_info.machine_stash, |old_value| {

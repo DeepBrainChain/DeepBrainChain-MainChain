@@ -17,7 +17,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use generic_func::{ItemList, MachineId};
 use online_profile_machine::{GNOps, MTOps, ManageCommittee};
-use sp_runtime::traits::{CheckedAdd, Zero};
+use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
 use sp_std::{str, vec, vec::Vec};
 
 pub use pallet::*;
@@ -771,7 +771,7 @@ impl<T: Config> Pallet<T> {
             reporter_stake.staked_amount += amount;
         } else {
             ensure!(reporter_stake.staked_amount >= amount, Error::<T>::BalanceNotEnough);
-            reporter_stake.staked_amount -= amount;
+            reporter_stake.staked_amount = reporter_stake.staked_amount.saturating_sub(amount);
         }
 
         ensure!(

@@ -6,7 +6,7 @@ use frame_support::IterableStorageMap;
 use generic_func::{ItemList, MachineId};
 use online_profile_machine::{MTOps, OCOps, OPRPCQuery, RTOps};
 use sp_runtime::{
-    traits::{CheckedMul, CheckedSub},
+    traits::{CheckedMul, CheckedSub, Saturating},
     Perbill, SaturatedConversion,
 };
 use sp_std::{prelude::Box, vec::Vec};
@@ -299,13 +299,13 @@ impl<T: Config> RTOps for Pallet<T> {
         let mut staker_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
         if is_burn {
-            machine_info.total_burn_fee += amount;
-            staker_machine.total_burn_fee += amount;
-            sys_info.total_burn_fee += amount;
+            machine_info.total_burn_fee = machine_info.total_burn_fee.saturating_add(amount);
+            staker_machine.total_burn_fee = staker_machine.total_burn_fee.saturating_add(amount);
+            sys_info.total_burn_fee = sys_info.total_burn_fee.saturating_add(amount);
         } else {
-            machine_info.total_rent_fee += amount;
-            staker_machine.total_rent_fee += amount;
-            sys_info.total_rent_fee += amount;
+            machine_info.total_rent_fee = machine_info.total_rent_fee.saturating_add(amount);
+            staker_machine.total_rent_fee = staker_machine.total_rent_fee.saturating_add(amount);
+            sys_info.total_rent_fee = sys_info.total_rent_fee.saturating_add(amount);
         }
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_stash, staker_machine);

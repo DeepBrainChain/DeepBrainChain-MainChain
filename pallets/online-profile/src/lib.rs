@@ -1076,8 +1076,9 @@ impl<T: Config> Pallet<T> {
             );
 
             ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
-            stash_machine.total_gpu_num += machine_base_info.gpu_num as u64;
-            sys_info.total_gpu_num += machine_base_info.gpu_num as u64;
+
+            stash_machine.total_gpu_num = stash_machine.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
+            sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
         } else {
             if current_era_is_online {
                 // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
@@ -1093,8 +1094,8 @@ impl<T: Config> Pallet<T> {
             }
 
             ItemList::rm_item(&mut stash_machine.online_machine, &machine_id);
-            stash_machine.total_gpu_num -= machine_base_info.gpu_num as u64;
-            sys_info.total_gpu_num -= machine_base_info.gpu_num as u64;
+            stash_machine.total_gpu_num = stash_machine.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
+            sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
         }
 
         // 机器上线或者下线都会影响下一era得分，而只有下线才影响当前era得分
@@ -1119,10 +1120,10 @@ impl<T: Config> Pallet<T> {
         }
 
         if is_online && stash_machine.online_machine.len() == 1 {
-            sys_info.total_staker += 1;
+            sys_info.total_staker = sys_info.total_staker.saturating_add(1);
         }
         if !is_online && stash_machine.online_machine.len() == 0 {
-            sys_info.total_staker -= 1;
+            sys_info.total_staker = sys_info.total_staker.saturating_sub(1);
         }
 
         SysInfo::<T>::put(sys_info);
@@ -1187,15 +1188,16 @@ impl<T: Config> Pallet<T> {
         // 被租用或者退租都影响下一Era记录，而退租直接影响当前得分
         ErasStashPoints::<T>::insert(current_era + 1, next_era_stash_snap);
         ErasMachinePoints::<T>::insert(current_era + 1, next_era_machine_snap);
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
         if !is_rented {
             ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
             ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
 
-            sys_info.total_rented_gpu -= machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-            stash_machine.total_rented_gpu -= machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            sys_info.total_rented_gpu = sys_info.total_rented_gpu.saturating_sub(gpu_num);
+            stash_machine.total_rented_gpu = stash_machine.total_rented_gpu.saturating_sub(gpu_num);
         } else {
-            sys_info.total_rented_gpu += machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
-            stash_machine.total_rented_gpu += machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+            sys_info.total_rented_gpu = sys_info.total_rented_gpu.saturating_add(gpu_num);
+            stash_machine.total_rented_gpu = stash_machine.total_rented_gpu.saturating_add(gpu_num);
         }
 
         let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
