@@ -161,7 +161,7 @@ impl<T: Config> OCOps for Pallet<T> {
         if is_mut_hardware {
             let reonline_stake = Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
-            ItemList::rm_item(&mut live_machines.refused_mut_hardware_machine, &machine_id);
+            ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
             ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
 
             LiveMachines::<T>::put(live_machines);
