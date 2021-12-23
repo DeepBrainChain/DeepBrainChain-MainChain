@@ -153,10 +153,11 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
 
-            // 用户提交订单，需要扣除10个DBC
-            <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
             // 检查machine_id状态是否可以租用
             ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineNotRentable,);
+            // 用户提交订单，需要扣除10个DBC
+            <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+
             // 获得machine_price
             let machine_price =
                 T::RTOps::get_machine_price(machine_info.machine_info_detail.committee_upload_info.calc_point)
