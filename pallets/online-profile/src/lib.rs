@@ -214,6 +214,8 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    // TODO: add to check if slash is paied
+
     #[pallet::storage]
     #[pallet::getter(fn pending_slash_review)]
     pub(super) type PendingSlashReview<T: Config> = StorageMap<
@@ -563,9 +565,10 @@ pub mod pallet {
                 if reonline_stake.offline_time < machine_info.last_online_height + 28800u32.into() {
                     Self::slash_when_report_offline(
                         machine_id.clone(),
-                        OPSlashReason::OnlineReportOffline(offline_duration),
+                        OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
                         None,
                         None,
+                        offline_duration,
                     );
                 }
                 // 退还reonline_stake
@@ -662,43 +665,66 @@ pub mod pallet {
             let mut slash_info = OPPendingSlashInfo::default();
             let status_before_offline: MachineStatus<T::BlockNumber, T::AccountId>;
 
+            let offline_time = match machine_info.machine_status.clone() {
+                MachineStatus::StakerReportOffline(offline_time, _) => offline_time,
+                MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
+                    OPSlashReason::RentedInaccessible(duration) |
+                    OPSlashReason::RentedHardwareMalfunction(duration) |
+                    OPSlashReason::RentedHardwareCounterfeit(duration) |
+                    OPSlashReason::OnlineRentFailed(duration) => duration,
+                    _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
+                },
+                _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
+            };
+            let offline_duration = now - offline_time;
+
             // MachineStatus改为之前的状态
-            match machine_info.machine_status.clone() {
+            match machine_info.machine_status {
                 MachineStatus::StakerReportOffline(offline_time, status) => {
-                    let offline_duration = now - offline_time;
+                    // let offline_duration = now - offline_time;
                     status_before_offline = *status;
                     match status_before_offline.clone() {
                         MachineStatus::Online => {
+                            // 掉线时间超过最大惩罚时间后，也不再添加新的惩罚
                             // 如果在线超过10天，则不进行惩罚超过
-                            if offline_time < machine_info.last_online_height + 28800u32.into() {
+                            if offline_duration < 28800u32.into() &&
+                                offline_time < machine_info.last_online_height + 28800u32.into()
+                            {
                                 slash_info = Self::slash_when_report_offline(
                                     machine_id.clone(),
-                                    OPSlashReason::OnlineReportOffline(offline_duration),
+                                    OPSlashReason::OnlineReportOffline(offline_time),
                                     None,
                                     None,
+                                    offline_duration,
                                 );
                             }
                         },
                         MachineStatus::Rented => {
-                            // 机器在被租用状态下线，会被惩罚
-                            slash_info = Self::slash_when_report_offline(
-                                machine_id.clone(),
-                                OPSlashReason::RentedReportOffline(offline_duration),
-                                None,
-                                None,
-                            );
+                            if offline_duration < (2880u32 * 5).into() {
+                                // 机器在被租用状态下线，会被惩罚
+                                slash_info = Self::slash_when_report_offline(
+                                    machine_id.clone(),
+                                    OPSlashReason::RentedReportOffline(offline_time),
+                                    None,
+                                    None,
+                                    offline_duration,
+                                );
+                            }
                         },
                         _ => return Ok(().into()),
                     }
                 },
                 MachineStatus::ReporterReportOffline(slash_reason, status, reporter, committee) => {
                     status_before_offline = *status;
-                    slash_info = Self::slash_when_report_offline(
-                        machine_id.clone(),
-                        slash_reason,
-                        Some(reporter),
-                        Some(committee),
-                    );
+                    if offline_duration < (2880u32 * 5).into() {
+                        slash_info = Self::slash_when_report_offline(
+                            machine_id.clone(),
+                            slash_reason,
+                            Some(reporter),
+                            Some(committee),
+                            offline_duration,
+                        );
+                    }
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }

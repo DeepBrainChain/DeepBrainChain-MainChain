@@ -405,3 +405,68 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
     });
     ext
 }
+
+// 初始条件：机器已经成功上线，最新块高12
+// 测试主动报告下线
+pub fn new_test_with_machine_online() -> sp_io::TestExternalities {
+    let mut ext = new_test_with_online_machine_distribution();
+
+    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+    // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+    let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+
+    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+    // let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+    // let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+
+    let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
+    let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+    let machine_info_hash3: [u8; 16] = hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
+
+    ext.execute_with(|| {
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee1),
+            machine_id.clone(),
+            machine_info_hash1
+        ));
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee2),
+            machine_id.clone(),
+            machine_info_hash2
+        ));
+
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee4),
+            machine_id.clone(),
+            machine_info_hash3
+        ));
+
+        let mut committee_upload_info = online_profile::CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
+            gpu_num: 4,
+            cuda_core: 8704,
+            gpu_mem: 10,
+            calc_point: 59890,
+            sys_disk: 500,
+            data_disk: 3905,
+            cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
+            cpu_core_num: 46,
+            cpu_rate: 2400,
+            mem_num: 440,
+
+            rand_str: "abcdefg1".as_bytes().to_vec(),
+            is_support: true,
+        };
+
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
+        committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
+        committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
+
+        run_to_block(12);
+    });
+    ext
+}

@@ -9,6 +9,8 @@ mod mock;
 #[cfg(test)]
 mod test_online_failed;
 #[cfg(test)]
+mod test_staker_report_offline;
+#[cfg(test)]
 mod test_summary;
 #[cfg(test)]
 mod tests;

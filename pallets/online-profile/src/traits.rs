@@ -129,9 +129,10 @@ impl<T: Config> OCOps for Pallet<T> {
                 let offline_duration = now - reonline_stake.offline_time;
                 Self::slash_when_report_offline(
                     committee_upload_info.machine_id.clone(),
-                    OPSlashReason::OnlineReportOffline(offline_duration),
+                    OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
                     None,
                     None,
+                    offline_duration,
                 );
             } else {
                 MachineRecentReward::<T>::insert(
