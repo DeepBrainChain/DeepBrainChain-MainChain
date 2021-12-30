@@ -1,9 +1,5 @@
-use super::*;
 use crate::mock::*;
 use frame_support::assert_ok;
-use online_profile::CommitteeUploadInfo;
-use sp_runtime::Perbill;
-use std::convert::TryInto;
 
 // 2). 机器在空闲状态
 
@@ -200,6 +196,11 @@ fn test_staker_report_offline4() {
         run_to_block(50 + 2880 * 10);
         assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
 
+        assert_eq!(
+            OnlineProfile::live_machines(),
+            online_profile::LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
+        );
+
         // 28814
         // 已经下线超过10天了，offline时间是: 13
         assert_eq!(
@@ -276,7 +277,7 @@ fn test_staker_report_offline5() {
                 total_gpu_num: 4,
                 total_calc_points: 59914,
                 total_staker: 1,
-                total_stake: 400000 * ONE_DBC, // FIXME: 这里不对啊
+                total_stake: 400000 * ONE_DBC,
                 ..Default::default()
             }
         );

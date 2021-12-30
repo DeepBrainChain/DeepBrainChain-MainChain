@@ -214,8 +214,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    // TODO: add to check if slash is paied
-
     #[pallet::storage]
     #[pallet::getter(fn pending_slash_review)]
     pub(super) type PendingSlashReview<T: Config> = StorageMap<
@@ -662,7 +660,7 @@ pub mod pallet {
 
             let mut live_machine = Self::live_machines();
 
-            let mut slash_info = OPPendingSlashInfo::default();
+            let slash_info: OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>;
             let status_before_offline: MachineStatus<T::BlockNumber, T::AccountId>;
 
             let offline_time = match machine_info.machine_status.clone() {
@@ -677,6 +675,7 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             };
             let offline_duration = now - offline_time;
+            let mut should_add_new_slash = true;
 
             // MachineStatus改为之前的状态
             match machine_info.machine_status {
@@ -685,46 +684,48 @@ pub mod pallet {
                     status_before_offline = *status;
                     match status_before_offline.clone() {
                         MachineStatus::Online => {
-                            // 掉线时间超过最大惩罚时间后，也不再添加新的惩罚
-                            // 如果在线超过10天，则不进行惩罚超过
-                            if offline_duration < 28800u32.into() &&
-                                offline_time < machine_info.last_online_height + 28800u32.into()
-                            {
-                                slash_info = Self::slash_when_report_offline(
-                                    machine_id.clone(),
-                                    OPSlashReason::OnlineReportOffline(offline_time),
-                                    None,
-                                    None,
-                                    offline_duration,
-                                );
+                            if offline_duration >= 28800u32.into() {
+                                // 掉线时间超过最大惩罚时间后，不再添加新的惩罚
+                                should_add_new_slash = false;
                             }
+
+                            // 不进行在线超过10天的判断，在hook中会进行这个判断。
+                            slash_info = Self::slash_when_report_offline(
+                                machine_id.clone(),
+                                OPSlashReason::OnlineReportOffline(offline_time),
+                                None,
+                                None,
+                                offline_duration,
+                            );
                         },
                         MachineStatus::Rented => {
-                            if offline_duration < (2880u32 * 5).into() {
-                                // 机器在被租用状态下线，会被惩罚
-                                slash_info = Self::slash_when_report_offline(
-                                    machine_id.clone(),
-                                    OPSlashReason::RentedReportOffline(offline_time),
-                                    None,
-                                    None,
-                                    offline_duration,
-                                );
+                            if offline_duration >= (2880u32 * 5).into() {
+                                should_add_new_slash = false;
                             }
+                            // 机器在被租用状态下线，会被惩罚
+                            slash_info = Self::slash_when_report_offline(
+                                machine_id.clone(),
+                                OPSlashReason::RentedReportOffline(offline_time),
+                                None,
+                                None,
+                                offline_duration,
+                            );
                         },
                         _ => return Ok(().into()),
                     }
                 },
                 MachineStatus::ReporterReportOffline(slash_reason, status, reporter, committee) => {
                     status_before_offline = *status;
-                    if offline_duration < (2880u32 * 5).into() {
-                        slash_info = Self::slash_when_report_offline(
-                            machine_id.clone(),
-                            slash_reason,
-                            Some(reporter),
-                            Some(committee),
-                            offline_duration,
-                        );
+                    if offline_duration >= (2880u32 * 5).into() {
+                        should_add_new_slash = false;
                     }
+                    slash_info = Self::slash_when_report_offline(
+                        machine_id.clone(),
+                        slash_reason,
+                        Some(reporter),
+                        Some(committee),
+                        offline_duration,
+                    );
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
@@ -737,14 +738,18 @@ pub mod pallet {
                 status_before_offline
             };
 
-            // Pay slash fee
+            // NOTE: 如果机器下线已经超过时间，则补交质押，不插入新的惩罚。
+            // 否则，补交质押，不插入新惩罚
             if slash_info.slash_amount != Zero::zero() {
+                // 任何情况重新上链都需要补交质押
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), slash_info.slash_amount, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
-                // Only after pay slash amount succeed, then make machine online.
-                let slash_id = Self::get_new_slash_id();
-                PendingSlash::<T>::insert(slash_id, slash_info);
+                if should_add_new_slash {
+                    // Only after pay slash amount succeed, then make machine online.
+                    let slash_id = Self::get_new_slash_id();
+                    PendingSlash::<T>::insert(slash_id, slash_info);
+                }
             }
 
             ItemList::rm_item(&mut live_machine.offline_machine, &machine_id);

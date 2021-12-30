@@ -7,13 +7,16 @@ mod types;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
-mod test_online_failed;
-#[cfg(test)]
-mod test_staker_report_offline;
-#[cfg(test)]
-mod test_summary;
-#[cfg(test)]
 mod tests;
+
+// #[cfg(test)]
+// mod tests::test_staker_report_offline;
+// #[cfg(test)]
+// mod tests::test_summary;
+// #[cfg(test)]
+// mod tests;
+// #[cfg(test)]
+// mod tests::teststest_online_failed;
 
 use frame_support::{
     ensure,

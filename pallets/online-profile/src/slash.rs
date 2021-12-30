@@ -21,8 +21,6 @@ impl<T: Config> Pallet<T> {
             NextSlashId::<T>::put(slash_id + 1);
         };
 
-        let now = <frame_system::Module<T>>::block_number();
-        println!("Slash_id: ...{}, {}",slash_id, now);
         slash_id
     }
 

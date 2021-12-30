@@ -1,5 +1,4 @@
-use super::*;
-use crate::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList};
+use super::super::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList, *};
 use committee::CommitteeList;
 use frame_support::assert_ok;
 use online_profile::{
@@ -771,7 +770,7 @@ fn committee_not_submit_hash_slash_works() {
 
         assert_eq!(
             OnlineCommittee::pending_slash(0),
-            super::OCPendingSlashInfo {
+            OCPendingSlashInfo {
                 machine_id,
                 inconsistent_committee: vec![],
                 unruly_committee: vec![committee4],
@@ -781,8 +780,8 @@ fn committee_not_submit_hash_slash_works() {
                 slash_time: 4327,
                 slash_exec_time: 4327 + 2880 * 2,
 
-                book_result: super::OCBookResultType::OnlineSucceed,
-                slash_result: super::OCSlashResult::Pending,
+                book_result: OCBookResultType::OnlineSucceed,
+                slash_result: OCSlashResult::Pending,
                 ..Default::default()
             }
         );
@@ -961,13 +960,13 @@ fn committee_not_equal_then_redistribute_works() {
 
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            super::OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 16,
                 booked_committee: vec![committee3, committee1, committee2],
                 hashed_committee: vec![committee3, committee1, committee2],
                 confirmed_committee: vec![committee3, committee1, committee2],
                 confirm_start_time: 4336,
-                status: super::OCVerifyStatus::Summarizing,
+                status: OCVerifyStatus::Summarizing,
                 ..Default::default()
             }
         );
@@ -1005,7 +1004,7 @@ fn committee_not_equal_then_redistribute_works() {
         // 如果on_finalize先执行lease_committee 再z执行online_profile则没有内容，否则被重新分配了
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            super::OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 17,
                 booked_committee: vec![committee3, committee1, committee2],
                 confirm_start_time: 4337,
@@ -1017,11 +1016,7 @@ fn committee_not_equal_then_redistribute_works() {
         assert_eq!(OnlineCommittee::machine_submited_hash(&machine_id), machine_submit_hash);
         assert_eq!(
             OnlineCommittee::committee_ops(&committee1, &machine_id),
-            super::OCCommitteeOps {
-                staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![497, 1937, 3377],
-                ..Default::default()
-            }
+            OCCommitteeOps { staked_dbc: 1000 * ONE_DBC, verify_time: vec![497, 1937, 3377], ..Default::default() }
         );
     })
 }

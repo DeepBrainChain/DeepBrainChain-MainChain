@@ -1,5 +1,4 @@
-use super::*;
-use crate::mock::*;
+use super::super::{mock::*, *};
 use frame_support::assert_ok;
 use online_profile::CommitteeUploadInfo;
 use sp_runtime::Perbill;
@@ -28,7 +27,7 @@ fn test_machine_online_refused_claim_reserved() {
 
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            super::OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 6,
                 booked_committee: vec![committee2, committee1, committee4],
                 confirm_start_time: 6 + 4320,
@@ -401,6 +400,7 @@ fn test_online_refused_1_2_apply_review_failed_works() {
 }
 
 // 2票拒绝，1票支持，机器上线失败，committee申诉，技术委员会通过
+#[test]
 fn test_online_refused_1_2_apply_review_succeed_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
