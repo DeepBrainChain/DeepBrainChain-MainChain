@@ -112,7 +112,7 @@ fn controller_report_offline_when_online_should_work() {
                 slash_exec_time: 21 + 2880 * 2,
                 reward_to_reporter: None,
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::OnlineReportOffline(10)
+                slash_reason: online_profile::OPSlashReason::OnlineReportOffline(11)
             }
         );
         // Machine should be online now
@@ -197,7 +197,7 @@ fn controller_report_offline_when_rented_should_work() {
                 slash_exec_time: 21 + 2880 * 2,
                 reward_to_reporter: None,
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::RentedReportOffline(10)
+                slash_reason: online_profile::OPSlashReason::RentedReportOffline(11)
             }
         );
 
@@ -245,7 +245,7 @@ fn rented_report_offline_rented_end_report_online() {
                 slash_exec_time: 3001 + 2880 * 2,
                 reward_to_reporter: None,
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::RentedReportOffline(120)
+                slash_reason: online_profile::OPSlashReason::RentedReportOffline(2881)
             }
         );
 
