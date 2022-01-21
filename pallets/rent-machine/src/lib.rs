@@ -154,7 +154,7 @@ pub mod pallet {
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
 
             // 检查machine_id状态是否可以租用
-            ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineNotRentable,);
+            ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineNotRentable);
             // 用户提交订单，需要扣除10个DBC
             <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
