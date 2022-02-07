@@ -237,6 +237,7 @@ pub fn run_to_block(n: BlockNumber) {
         Committee::on_initialize(b + 1);
         OnlineProfile::on_initialize(b + 1);
         RandomnessCollectiveFlip::on_initialize(b + 1);
+        GenericFunc::on_initialize(b + 1);
     }
 }
 

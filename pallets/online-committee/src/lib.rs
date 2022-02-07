@@ -9,15 +9,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-// #[cfg(test)]
-// mod tests::test_staker_report_offline;
-// #[cfg(test)]
-// mod tests::test_summary;
-// #[cfg(test)]
-// mod tests;
-// #[cfg(test)]
-// mod tests::teststest_online_failed;
-
 use frame_support::{
     ensure,
     pallet_prelude::*,
