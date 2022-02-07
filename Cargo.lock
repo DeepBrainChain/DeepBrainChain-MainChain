@@ -4413,6 +4413,7 @@ dependencies = [
  "online-profile-machine",
  "pallet-balances",
  "pallet-randomness-collective-flip",
+ "pallet-timestamp",
  "parity-scale-codec",
  "serde",
  "sp-core",

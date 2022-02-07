@@ -164,6 +164,16 @@ impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
     type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
 }
 
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
@@ -207,6 +217,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},

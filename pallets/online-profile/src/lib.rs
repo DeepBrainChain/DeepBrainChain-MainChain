@@ -21,7 +21,13 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, Zero},
     SaturatedConversion,
 };
-use sp_std::{collections::btree_map::BTreeMap, convert::From, prelude::*, str, vec::Vec};
+use sp_std::{
+    collections::btree_map::BTreeMap,
+    convert::{From, TryInto},
+    prelude::*,
+    str,
+    vec::Vec,
+};
 
 pub use pallet::*;
 pub use traits::*;
@@ -33,11 +39,12 @@ type NegativeImbalanceOf<T> =
 
 #[frame_support::pallet]
 pub mod pallet {
-
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + dbc_price_ocw::Config + generic_func::Config {
+    pub trait Config:
+        frame_system::Config + dbc_price_ocw::Config + generic_func::Config + pallet_timestamp::Config
+    {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type BondingDuration: Get<EraIndex>;
@@ -228,18 +235,48 @@ pub mod pallet {
     #[pallet::getter(fn rented_finished)]
     pub(super) type RentedFinished<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
 
+    // 记录初次发放的时间戳
+    #[pallet::storage]
+    #[pallet::getter(fn init_release_timestamp)]
+    pub(super) type InitReleaseTimestamp<T: Config> = StorageValue<_, (u64, u32), ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
-            Self::backup_and_reward(block_number);
+            let current_timestamp = <pallet_timestamp::Module<T>>::now();
+            let init_release_timestamp = Self::init_release_timestamp();
 
-            if block_number.saturated_into::<u64>() % BLOCK_PER_ERA == 1 {
+            let current_era: u64 = (TryInto::<u64>::try_into(current_timestamp).unwrap_or_default() -
+                init_release_timestamp.0) /
+                30000 /
+                2880 +
+                init_release_timestamp.1 as u64;
+
+            if current_era as u32 > Self::current_era() {
                 // Era开始时，生成当前Era和下一个Era的快照
                 // 每个Era(2880个块)执行一次
                 Self::update_snap_for_new_era();
             }
+
+            if current_era as u32 == Self::current_era() {
+                Self::backup_and_reward(block_number);
+            }
+
             Self::check_offline_machine_duration();
             Self::do_pending_slash();
+            0
+        }
+
+        // 获取升级时最近的一次奖励发放时间，作为以后发放的参考时间
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let current_timestamp = <pallet_timestamp::Module<T>>::now();
+            let current_timestamp = TryInto::<u64>::try_into(current_timestamp).unwrap_or_default();
+
+            let current_height = <frame_system::Module<T>>::block_number();
+            let last_release_past: u64 =
+                TryInto::<u64>::try_into(current_height).unwrap_or_default() % 2880 * 30 * 1000; // 毫秒
+
+            InitReleaseTimestamp::<T>::put((current_timestamp - last_release_past, Self::current_era()));
             0
         }
     }
