@@ -175,7 +175,7 @@ pub mod pallet {
             report_reason: MachineFaultType,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            Self::report_handler(reporter, report_reason)
+            Self::do_report_machine_fault(reporter, report_reason)
         }
 
         #[pallet::weight(10000)]
@@ -762,6 +762,8 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // is_add: ReporterStake改变，并reserve 一定金额
+    // !is_add: ReporterStake改变，并unreserve一定金额
     fn change_reporter_stake(reporter: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> DispatchResultWithPostInfo {
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
         let mut reporter_stake = Self::reporter_stake(&reporter);
@@ -793,11 +795,18 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
-    pub fn report_handler(reporter: T::AccountId, machine_fault_type: MachineFaultType) -> DispatchResultWithPostInfo {
+    // 处理用户报告逻辑
+    // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
+    pub fn do_report_machine_fault(
+        reporter: T::AccountId,
+        machine_fault_type: MachineFaultType,
+    ) -> DispatchResultWithPostInfo {
+        // 获取处理报告需要的信息
         let now = <frame_system::Module<T>>::block_number();
         let report_id = Self::get_new_report_id();
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
+        // 生成新的报告记录
         let mut report_info = MTReportInfoDetail {
             reporter: reporter.clone(),
             report_time: now,
@@ -807,6 +816,7 @@ impl<T: Config> Pallet<T> {
             ..Default::default()
         };
 
+        // 该类型错误可以由程序快速完成检测，因此可以提交并需记录machine_id
         if let MachineFaultType::RentedInaccessible(machine_id) = machine_fault_type.clone() {
             <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
             report_info.machine_id = machine_id;
@@ -815,10 +825,11 @@ impl<T: Config> Pallet<T> {
         let mut live_report = Self::live_report();
         let mut reporter_report = Self::reporter_report(&reporter);
 
-        // Record to live_report & reporter_report
+        // 记录到 live_report & reporter_report
         ItemList::add_item(&mut live_report.bookable_report, report_id);
         ItemList::add_item(&mut reporter_report.processing_report, report_id);
 
+        // 支付处理报告的费用
         Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
 
         ReportInfo::<T>::insert(&report_id, report_info);
