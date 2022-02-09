@@ -6246,6 +6246,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collective",
  "pallet-randomness-collective-flip",
+ "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec",
  "serde",

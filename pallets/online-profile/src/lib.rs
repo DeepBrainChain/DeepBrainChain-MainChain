@@ -235,7 +235,7 @@ pub mod pallet {
     #[pallet::getter(fn rented_finished)]
     pub(super) type RentedFinished<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
 
-    // 记录初次发放的时间戳
+    // 记录初次发放的时间戳 (时间戳，EraIndex)
     #[pallet::storage]
     #[pallet::getter(fn init_release_timestamp)]
     pub(super) type InitReleaseTimestamp<T: Config> = StorageValue<_, (u64, u32), ValueQuery>;
@@ -244,39 +244,32 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
             let current_timestamp = <pallet_timestamp::Module<T>>::now();
+
             let init_release_timestamp = Self::init_release_timestamp();
+            if init_release_timestamp.0 == 0 {
+                Self::do_init_release_timestamp()
+            }
 
-            let current_era: u64 = (TryInto::<u64>::try_into(current_timestamp).unwrap_or_default() -
-                init_release_timestamp.0) /
-                30000 /
-                2880 +
-                init_release_timestamp.1 as u64;
+            // Era 从1开始,没有0 Era
+            let should_be_era: u64 = (TryInto::<u64>::try_into(current_timestamp).unwrap_or_default()
+                - init_release_timestamp.0)
+                / 30000
+                / 2880
+                + init_release_timestamp.1 as u64
+                + 1;
 
-            if current_era as u32 > Self::current_era() {
+            if should_be_era as u32 > Self::current_era() {
                 // Era开始时，生成当前Era和下一个Era的快照
                 // 每个Era(2880个块)执行一次
                 Self::update_snap_for_new_era();
             }
 
-            if current_era as u32 == Self::current_era() {
+            if should_be_era as u32 == Self::current_era() {
                 Self::backup_and_reward(block_number);
             }
 
             Self::check_offline_machine_duration();
             Self::do_pending_slash();
-            0
-        }
-
-        // 获取升级时最近的一次奖励发放时间，作为以后发放的参考时间
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            let current_timestamp = <pallet_timestamp::Module<T>>::now();
-            let current_timestamp = TryInto::<u64>::try_into(current_timestamp).unwrap_or_default();
-
-            let current_height = <frame_system::Module<T>>::block_number();
-            let last_release_past: u64 =
-                TryInto::<u64>::try_into(current_height).unwrap_or_default() % 2880 * 30 * 1000; // 毫秒
-
-            InitReleaseTimestamp::<T>::put((current_timestamp - last_release_past, Self::current_era()));
             0
         }
     }
@@ -534,11 +527,11 @@ pub mod pallet {
             );
 
             match machine_info.machine_status {
-                MachineStatus::AddingCustomizeInfo |
-                MachineStatus::CommitteeVerifying |
-                MachineStatus::CommitteeRefused(_) |
-                MachineStatus::WaitingFulfill |
-                MachineStatus::StakerReportOffline(_, _) => {
+                MachineStatus::AddingCustomizeInfo
+                | MachineStatus::CommitteeVerifying
+                | MachineStatus::CommitteeRefused(_)
+                | MachineStatus::WaitingFulfill
+                | MachineStatus::StakerReportOffline(_, _) => {
                     machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
                 },
                 _ => return Err(Error::<T>::NotAllowedChangeMachineInfo.into()),
@@ -703,10 +696,10 @@ pub mod pallet {
             let offline_time = match machine_info.machine_status.clone() {
                 MachineStatus::StakerReportOffline(offline_time, _) => offline_time,
                 MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
-                    OPSlashReason::RentedInaccessible(duration) |
-                    OPSlashReason::RentedHardwareMalfunction(duration) |
-                    OPSlashReason::RentedHardwareCounterfeit(duration) |
-                    OPSlashReason::OnlineRentFailed(duration) => duration,
+                    OPSlashReason::RentedInaccessible(duration)
+                    | OPSlashReason::RentedHardwareMalfunction(duration)
+                    | OPSlashReason::RentedHardwareCounterfeit(duration)
+                    | OPSlashReason::OnlineRentFailed(duration) => duration,
                     _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
@@ -997,6 +990,17 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // 初始化在线奖励时间戳
+    fn do_init_release_timestamp() {
+        let current_timestamp = <pallet_timestamp::Module<T>>::now();
+        let current_timestamp = TryInto::<u64>::try_into(current_timestamp).unwrap_or_default();
+
+        let current_height = <frame_system::Module<T>>::block_number();
+        let last_release_past: u64 = TryInto::<u64>::try_into(current_height).unwrap_or_default() % 2880 * 30_000; // 毫秒
+
+        InitReleaseTimestamp::<T>::put((current_timestamp - last_release_past, Self::current_era()));
+    }
+
     /// 下架机器
     fn machine_offline(machine_id: MachineId, machine_status: MachineStatus<T::BlockNumber, T::AccountId>) {
         let mut machine_info = Self::machines_info(&machine_id);
@@ -1100,7 +1104,7 @@ impl<T: Config> Pallet<T> {
         let next_era_stash_snapshot = Self::eras_stash_points(era_index);
 
         if let Some(stash_snapshot) = next_era_stash_snapshot.staker_statistic.get(stash) {
-            return stash_snapshot.total_grades().unwrap_or_default()
+            return stash_snapshot.total_grades().unwrap_or_default();
         }
         0
     }

@@ -28,6 +28,8 @@ pub const ONE_DBC: u128 = 1_000_000_000_000_000;
 // 初始1000WDBC
 pub const INIT_BALANCE: u128 = 10_000_000 * ONE_DBC;
 pub type BlockNumber = u64;
+pub const INIT_TIMESTAMP: u64 = 90_000;
+pub const BLOCK_TIME: u64 = 30_000;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -131,6 +133,16 @@ impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
 }
 
 parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
+parameter_types! {
     pub const BondingDuration: u32 = 7;
     pub const ProfitReleaseDuration: u64 = 150;
 }
@@ -210,6 +222,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
@@ -425,6 +438,7 @@ pub fn run_to_block(n: BlockNumber) {
         RentMachine::on_finalize(b);
         System::on_finalize(b);
         RandomnessCollectiveFlip::on_finalize(b);
+        Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 
         System::set_block_number(b + 1);
 
