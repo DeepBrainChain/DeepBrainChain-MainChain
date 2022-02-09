@@ -240,32 +240,34 @@ pub mod pallet {
     #[pallet::getter(fn init_release_timestamp)]
     pub(super) type InitReleaseTimestamp<T: Config> = StorageValue<_, (u64, u32), ValueQuery>;
 
+    // 记录奖励是否已经发放,奖励发放位置(bool, pos)
+    #[pallet::storage]
+    #[pallet::getter(fn release_offset)]
+    pub(super) type ReleaseOffset<T: Config> = StorageValue<_, (bool, u64), ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(block_number: T::BlockNumber) -> Weight {
+        fn on_initialize(_block_number: T::BlockNumber) -> Weight {
             let current_timestamp = <pallet_timestamp::Module<T>>::now();
+            let current_timestamp = TryInto::<u64>::try_into(current_timestamp).unwrap_or_default();
 
             let init_release_timestamp = Self::init_release_timestamp();
             if init_release_timestamp.0 == 0 {
                 Self::do_init_release_timestamp()
             }
 
-            // Era 从1开始,没有0 Era
-            let should_be_era: u64 = (TryInto::<u64>::try_into(current_timestamp).unwrap_or_default()
-                - init_release_timestamp.0)
-                / 30000
-                / 2880
-                + init_release_timestamp.1 as u64
-                + 1;
+            // Era 从 1 开始,没有 0 Era
+            let should_be_era: u64 = (current_timestamp.saturating_sub(init_release_timestamp.0)) / (30000 * 2880) +
+                init_release_timestamp.1 as u64 +
+                1;
 
+            // Era开始时，生成当前Era和下一个Era的快照
+            // 每个Era(2880个块)执行一次
             if should_be_era as u32 > Self::current_era() {
-                // Era开始时，生成当前Era和下一个Era的快照
-                // 每个Era(2880个块)执行一次
                 Self::update_snap_for_new_era();
             }
-
             if should_be_era as u32 == Self::current_era() {
-                Self::backup_and_reward(block_number);
+                Self::backup_and_reward();
             }
 
             Self::check_offline_machine_duration();
@@ -527,11 +529,11 @@ pub mod pallet {
             );
 
             match machine_info.machine_status {
-                MachineStatus::AddingCustomizeInfo
-                | MachineStatus::CommitteeVerifying
-                | MachineStatus::CommitteeRefused(_)
-                | MachineStatus::WaitingFulfill
-                | MachineStatus::StakerReportOffline(_, _) => {
+                MachineStatus::AddingCustomizeInfo |
+                MachineStatus::CommitteeVerifying |
+                MachineStatus::CommitteeRefused(_) |
+                MachineStatus::WaitingFulfill |
+                MachineStatus::StakerReportOffline(_, _) => {
                     machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
                 },
                 _ => return Err(Error::<T>::NotAllowedChangeMachineInfo.into()),
@@ -696,10 +698,10 @@ pub mod pallet {
             let offline_time = match machine_info.machine_status.clone() {
                 MachineStatus::StakerReportOffline(offline_time, _) => offline_time,
                 MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
-                    OPSlashReason::RentedInaccessible(duration)
-                    | OPSlashReason::RentedHardwareMalfunction(duration)
-                    | OPSlashReason::RentedHardwareCounterfeit(duration)
-                    | OPSlashReason::OnlineRentFailed(duration) => duration,
+                    OPSlashReason::RentedInaccessible(duration) |
+                    OPSlashReason::RentedHardwareMalfunction(duration) |
+                    OPSlashReason::RentedHardwareCounterfeit(duration) |
+                    OPSlashReason::OnlineRentFailed(duration) => duration,
                     _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
@@ -1104,7 +1106,7 @@ impl<T: Config> Pallet<T> {
         let next_era_stash_snapshot = Self::eras_stash_points(era_index);
 
         if let Some(stash_snapshot) = next_era_stash_snapshot.staker_statistic.get(stash) {
-            return stash_snapshot.total_grades().unwrap_or_default();
+            return stash_snapshot.total_grades().unwrap_or_default()
         }
         0
     }

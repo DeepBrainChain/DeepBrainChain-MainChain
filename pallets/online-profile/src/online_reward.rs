@@ -1,8 +1,8 @@
 use crate::{
-    types::{EraIndex, EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo, BLOCK_PER_ERA},
+    types::{EraIndex, EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo},
     AllMachineIdSnap, AllMachineIdSnapDetail, BalanceOf, Config, CurrentEra, EraReward, ErasMachinePoints,
     ErasMachineReleasedReward, ErasMachineReward, ErasStashPoints, ErasStashReleasedReward, ErasStashReward,
-    MachineRecentReward, Pallet, StashMachines,
+    MachineRecentReward, Pallet, ReleaseOffset, StashMachines,
 };
 use codec::Decode;
 use generic_func::MachineId;
@@ -26,6 +26,7 @@ impl<T: Config> Pallet<T> {
 
         let era_reward = Self::current_era_reward().unwrap_or_default();
         EraReward::<T>::insert(current_era, era_reward);
+        ReleaseOffset::<T>::put((false, 1));
 
         if current_era == 1 {
             ErasStashPoints::<T>::insert(0, EraStashPoints { ..Default::default() });
@@ -85,10 +86,14 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn backup_and_reward(now: T::BlockNumber) {
-        let block_offset = now.saturated_into::<u64>() % BLOCK_PER_ERA;
+    pub fn backup_and_reward() {
+        let mut release_offset = Self::release_offset();
+        if release_offset.0 {
+            return
+        }
 
-        match block_offset {
+        match release_offset.1 {
+            // 记录所有MachineId，用来后面发放奖励时使用
             2 => {
                 // back up all machine_id; current era machine grade snap; current era stash grade snap
                 let mut all_machine = Vec::new();
@@ -132,8 +137,15 @@ impl<T: Config> Pallet<T> {
 
                 AllMachineIdSnap::<T>::put(all_machine);
             },
-            _ => return,
+            _ => {},
         }
+
+        if release_offset.1 == 62 {
+            release_offset.0 = true;
+        }
+
+        release_offset.1 += 1;
+        ReleaseOffset::<T>::put(release_offset);
     }
 
     // 计算当时机器实际获得的总奖励 (to_stash + to_committee)
