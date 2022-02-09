@@ -147,7 +147,7 @@ impl<T: Config> OCOps for Pallet<T> {
             }
         }
 
-        return Ok(())
+        return Ok(());
     }
 
     // When committees reach an agreement to refuse machine, change machine status and record refuse time
@@ -166,7 +166,7 @@ impl<T: Config> OCOps for Pallet<T> {
             ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
 
             LiveMachines::<T>::put(live_machines);
-            return Some((machine_info.machine_stash, reonline_stake.stake_amount))
+            return Some((machine_info.machine_stash, reonline_stake.stake_amount));
         }
 
         // let mut sys_info = Self::sys_info();
@@ -266,10 +266,11 @@ impl<T: Config> RTOps for Pallet<T> {
                     ItemList::rm_item(&mut live_machines.rented_machine, &machine_id);
 
                     match machine_info.machine_status {
-                        MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) =>
+                        MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) => {
                             if let Some(renter) = renter {
                                 RentedFinished::<T>::insert(machine_id, renter);
-                            },
+                            }
+                        },
                         MachineStatus::Rented => {
                             machine_info.machine_status = new_status;
                             machine_info.last_online_height = <frame_system::Module<T>>::block_number();

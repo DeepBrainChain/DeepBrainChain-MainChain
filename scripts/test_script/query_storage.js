@@ -32,6 +32,9 @@ async function main() {
   funcMap["system"] = {};
   funcMap["system"]["account"] = api.query.system.account;
 
+  funcMap["timestamp"] = {};
+  funcMap["timestamp"]["now"] = api.query.timestamp.now;
+
   funcMap["dbcPriceOcw"] = {};
   funcMap["dbcPriceOcw"]["avgPrice"] = api.query.dbcPriceOcw.avgPrice;
   funcMap["dbcPriceOcw"]["priceURL"] = api.query.dbcPriceOcw.priceURL;

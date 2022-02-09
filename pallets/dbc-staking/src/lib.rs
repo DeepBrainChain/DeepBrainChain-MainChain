@@ -535,7 +535,7 @@ impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32BitUnsigned> 
             }
 
             if unlocking_balance >= value {
-                break
+                break;
             }
         }
 
@@ -2466,7 +2466,7 @@ impl<T: Config> Module<T> {
 
         // Nothing to do if they have no reward points.
         if validator_reward_points.is_zero() {
-            return Ok(())
+            return Ok(());
         }
 
         // This is the fraction of the total reward that the validator and the
@@ -2528,17 +2528,19 @@ impl<T: Config> Module<T> {
     fn make_payout(stash: &T::AccountId, amount: BalanceOf<T>) -> Option<PositiveImbalanceOf<T>> {
         let dest = Self::payee(stash);
         match dest {
-            RewardDestination::Controller =>
-                Self::bonded(stash).and_then(|controller| Some(T::Currency::deposit_creating(&controller, amount))),
+            RewardDestination::Controller => {
+                Self::bonded(stash).and_then(|controller| Some(T::Currency::deposit_creating(&controller, amount)))
+            },
             RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
-            RewardDestination::Staked =>
+            RewardDestination::Staked => {
                 Self::bonded(stash).and_then(|c| Self::ledger(&c).map(|l| (c, l))).and_then(|(controller, mut l)| {
                     l.active += amount;
                     l.total += amount;
                     let r = T::Currency::deposit_into_existing(stash, amount).ok();
                     Self::update_ledger(&controller, &l);
                     r
-                }),
+                })
+            },
             RewardDestination::Account(dest_account) => Some(T::Currency::deposit_creating(&dest_account, amount)),
         }
     }
@@ -2568,7 +2570,7 @@ impl<T: Config> Module<T> {
                         // otherwise previous arm would short circuit.
                         Self::close_election_window();
                     }
-                    return None
+                    return None;
                 },
             }
 
@@ -2702,7 +2704,7 @@ impl<T: Config> Module<T> {
                 // have bigger problems.
                 log!(error, "💸 detected an error in the staking locking and snapshot.");
                 // abort.
-                return Err(Error::<T>::OffchainElectionBogusNominator.into())
+                return Err(Error::<T>::OffchainElectionBogusNominator.into());
             }
 
             if !is_validator {
@@ -2719,13 +2721,13 @@ impl<T: Config> Module<T> {
                     // each target in the provided distribution must be actually nominated by the
                     // nominator after the last non-zero slash.
                     if nomination.targets.iter().find(|&tt| tt == t).is_none() {
-                        return Err(Error::<T>::OffchainElectionBogusNomination.into())
+                        return Err(Error::<T>::OffchainElectionBogusNomination.into());
                     }
 
                     if <Self as Store>::SlashingSpans::get(&t)
                         .map_or(false, |spans| nomination.submitted_in < spans.last_nonzero_slash())
                     {
-                        return Err(Error::<T>::OffchainElectionSlashedNomination.into())
+                        return Err(Error::<T>::OffchainElectionSlashedNomination.into());
                     }
                 }
             } else {
@@ -2896,7 +2898,7 @@ impl<T: Config> Module<T> {
     fn reward_to_committee_team() {
         let reward_times = Self::reward_times();
         if reward_times < 1 {
-            return
+            return;
         }
         for (dest_account, amount) in Self::committee_team_reward_per_year() {
             T::Currency::deposit_creating(&dest_account, amount);
@@ -2910,12 +2912,12 @@ impl<T: Config> Module<T> {
         let mut treasury_reward = Self::treasury_reward();
 
         if foundation_reward.reward_interval == 0 || treasury_reward.reward_interval == 0 {
-            return
+            return;
         }
 
-        if foundation_reward.left_reward_times > 0 &&
-            era_index >= foundation_reward.first_reward_era &&
-            (era_index - foundation_reward.first_reward_era) % foundation_reward.reward_interval == 0
+        if foundation_reward.left_reward_times > 0
+            && era_index >= foundation_reward.first_reward_era
+            && (era_index - foundation_reward.first_reward_era) % foundation_reward.reward_interval == 0
         {
             for a_foundation in foundation_reward.who.clone() {
                 T::Currency::deposit_creating(&a_foundation, foundation_reward.reward_amount);
@@ -2925,9 +2927,9 @@ impl<T: Config> Module<T> {
             <FoundationReward<T>>::put(foundation_reward);
         }
 
-        if treasury_reward.left_reward_times > 0 &&
-            era_index >= treasury_reward.first_reward_era &&
-            (era_index - treasury_reward.first_reward_era) % treasury_reward.reward_interval == 0
+        if treasury_reward.left_reward_times > 0
+            && era_index >= treasury_reward.first_reward_era
+            && (era_index - treasury_reward.first_reward_era) % treasury_reward.reward_interval == 0
         {
             T::Currency::deposit_creating(&treasury_reward.treasury_account, treasury_reward.reward_amount);
 
@@ -3418,7 +3420,7 @@ where
         slash_session: SessionIndex,
     ) -> Result<Weight, ()> {
         if !Self::can_report() {
-            return Err(())
+            return Err(());
         }
 
         let reward_proportion = SlashRewardFraction::get();
@@ -3432,7 +3434,7 @@ where
             add_db_reads_writes(1, 0);
             if active_era.is_none() {
                 // this offence need not be re-submitted.
-                return Ok(consumed_weight)
+                return Ok(consumed_weight);
             }
             active_era.expect("value checked not to be `None`; qed").index
         };
@@ -3477,7 +3479,7 @@ where
 
             // Skip if the validator is invulnerable.
             if invulnerables.contains(stash) {
-                continue
+                continue;
             }
 
             let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
@@ -3570,14 +3572,14 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
                 TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
                 _ => {
                     log!(debug, "rejecting unsigned transaction because it is not local/in-block.");
-                    return InvalidTransaction::Call.into()
+                    return InvalidTransaction::Call.into();
                 },
             }
 
             if let Err(error_with_post_info) = Self::pre_dispatch_checks(*score, *era) {
                 let invalid = to_invalid(error_with_post_info);
                 log!(debug, "💸 validate unsigned pre dispatch checks failed due to error #{:?}.", invalid,);
-                return invalid.into()
+                return invalid.into();
             }
 
             log!(debug, "💸 validateUnsigned succeeded for a solution at era {}.", era);

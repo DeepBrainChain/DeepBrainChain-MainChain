@@ -63,7 +63,7 @@ impl<AccountId: Clone + Ord, BlockNumber> OCMachineCommitteeList<AccountId, Bloc
                 ItemList::add_item(&mut unruly, a_committee);
             }
         }
-        return unruly
+        return unruly;
     }
 }
 

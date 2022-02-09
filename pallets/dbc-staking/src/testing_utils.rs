@@ -57,7 +57,7 @@ pub fn create_stash_controller<T: Config>(
     let controller_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(controller.clone());
     let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
     Staking::<T>::bond(RawOrigin::Signed(stash.clone()).into(), controller_lookup, amount, destination)?;
-    return Ok((stash, controller))
+    return Ok((stash, controller));
 }
 
 /// Create a stash and controller pair, where the controller is dead, and payouts go to controller.
@@ -73,7 +73,7 @@ pub fn create_stash_and_dead_controller<T: Config>(
     let controller_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(controller.clone());
     let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
     Staking::<T>::bond(RawOrigin::Signed(stash.clone()).into(), controller_lookup, amount, destination)?;
-    return Ok((stash, controller))
+    return Ok((stash, controller));
 }
 
 /// create `max` validators.

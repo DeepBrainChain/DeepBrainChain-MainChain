@@ -225,15 +225,15 @@ pub struct LiveMachine {
 impl LiveMachine {
     /// Check if machine_id exist
     pub fn machine_id_exist(&self, machine_id: &MachineId) -> bool {
-        self.bonding_machine.binary_search(machine_id).is_ok() ||
-            self.confirmed_machine.binary_search(machine_id).is_ok() ||
-            self.booked_machine.binary_search(machine_id).is_ok() ||
-            self.online_machine.binary_search(machine_id).is_ok() ||
-            self.fulfilling_machine.binary_search(machine_id).is_ok() ||
-            self.refused_machine.binary_search(machine_id).is_ok() ||
-            self.rented_machine.binary_search(machine_id).is_ok() ||
-            self.offline_machine.binary_search(machine_id).is_ok() ||
-            self.refused_mut_hardware_machine.binary_search(machine_id).is_ok()
+        self.bonding_machine.binary_search(machine_id).is_ok()
+            || self.confirmed_machine.binary_search(machine_id).is_ok()
+            || self.booked_machine.binary_search(machine_id).is_ok()
+            || self.online_machine.binary_search(machine_id).is_ok()
+            || self.fulfilling_machine.binary_search(machine_id).is_ok()
+            || self.refused_machine.binary_search(machine_id).is_ok()
+            || self.rented_machine.binary_search(machine_id).is_ok()
+            || self.offline_machine.binary_search(machine_id).is_ok()
+            || self.refused_mut_hardware_machine.binary_search(machine_id).is_ok()
     }
 }
 
@@ -420,7 +420,7 @@ impl CommitteeUploadInfo {
         raw_info.extend(self.rand_str.clone());
         raw_info.extend(is_support);
 
-        return blake2_128(&raw_info)
+        return blake2_128(&raw_info);
     }
 }
 

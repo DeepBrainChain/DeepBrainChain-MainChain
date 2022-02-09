@@ -132,8 +132,8 @@ pub fn get_balancing_iters<T: Config>() -> usize {
         max @ _ => {
             let seed = sp_io::offchain::random_seed();
             let random = <u32>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
-                .expect("input is padded with zeroes; qed") %
-                max.saturating_add(1);
+                .expect("input is padded with zeroes; qed")
+                % max.saturating_add(1);
             random as usize
         },
     }
@@ -146,7 +146,7 @@ pub fn maximum_compact_len<W: crate::WeightInfo>(winners_len: u32, size: Electio
     use sp_std::cmp::Ordering;
 
     if size.nominators < 1 {
-        return size.nominators
+        return size.nominators;
     }
 
     let max_voters = size.nominators.max(1);
@@ -254,7 +254,7 @@ where
                 }
 
                 if removed >= to_remove {
-                    break
+                    break;
                 }
             }
 
@@ -370,7 +370,7 @@ pub fn prepare_submission<T: Config>(
             let compact_index: ValidatorIndex = idx.try_into().map_err(|_| OffchainElectionError::InvalidWinner)?;
             winners_indexed.push(compact_index);
         } else {
-            return Err(OffchainElectionError::InvalidWinner)
+            return Err(OffchainElectionError::InvalidWinner);
         }
     }
 

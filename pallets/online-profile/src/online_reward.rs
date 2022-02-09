@@ -1,8 +1,8 @@
 use crate::{
-    types::{EraIndex, EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo, BLOCK_PER_ERA},
+    types::{EraIndex, EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo},
     AllMachineIdSnap, AllMachineIdSnapDetail, BalanceOf, Config, CurrentEra, EraReward, ErasMachinePoints,
     ErasMachineReleasedReward, ErasMachineReward, ErasStashPoints, ErasStashReleasedReward, ErasStashReward,
-    MachineRecentReward, Pallet, StashMachines,
+    MachineRecentReward, Pallet, ReleaseOffset, StashMachines,
 };
 use codec::Decode;
 use generic_func::MachineId;
@@ -26,6 +26,7 @@ impl<T: Config> Pallet<T> {
 
         let era_reward = Self::current_era_reward().unwrap_or_default();
         EraReward::<T>::insert(current_era, era_reward);
+        ReleaseOffset::<T>::put((false, 1));
 
         if current_era == 1 {
             ErasStashPoints::<T>::insert(0, EraStashPoints { ..Default::default() });
@@ -51,8 +52,8 @@ impl<T: Config> Pallet<T> {
         let online_stake_params = Self::online_stake_params()?;
 
         let dbc_stake_per_gpu = if sys_info.total_gpu_num > 10_000 {
-            Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num) *
-                online_stake_params.online_stake_per_gpu
+            Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num)
+                * online_stake_params.online_stake_per_gpu
         } else {
             online_stake_params.online_stake_per_gpu
         };
@@ -85,10 +86,14 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn backup_and_reward(now: T::BlockNumber) {
-        let block_offset = now.saturated_into::<u64>() % BLOCK_PER_ERA;
+    pub fn backup_and_reward() {
+        let mut release_offset = Self::release_offset();
+        if release_offset.0 {
+            return;
+        }
 
-        match block_offset {
+        match release_offset.1 {
+            // 记录所有MachineId，用来后面发放奖励时使用
             2 => {
                 // back up all machine_id; current era machine grade snap; current era stash grade snap
                 let mut all_machine = Vec::new();
@@ -126,14 +131,21 @@ impl<T: Config> Pallet<T> {
                         );
                     } else {
                         AllMachineIdSnap::<T>::put(all_machine);
-                        return
+                        return;
                     }
                 }
 
                 AllMachineIdSnap::<T>::put(all_machine);
             },
-            _ => return,
+            _ => {},
         }
+
+        if release_offset.1 == 62 {
+            release_offset.0 = true;
+        }
+
+        release_offset.1 += 1;
+        ReleaseOffset::<T>::put(release_offset);
     }
 
     // 计算当时机器实际获得的总奖励 (to_stash + to_committee)
@@ -182,7 +194,7 @@ impl<T: Config> Pallet<T> {
 
         if machine_reward_info.recent_reward_sum == Zero::zero() {
             MachineRecentReward::<T>::insert(&machine_id, machine_reward_info);
-            return
+            return;
         }
 
         let latest_reward = if machine_reward_info.recent_machine_reward.len() > 0 {
@@ -192,8 +204,8 @@ impl<T: Config> Pallet<T> {
         };
 
         // total released reward = sum(1..n-1) * (1/200) + n * (50/200) = 49/200*n + 1/200 * sum(1..n)
-        let released_reward = Perbill::from_rational_approximation(49u32, 200u32) * latest_reward +
-            Perbill::from_rational_approximation(1u32, 200u32) * machine_reward_info.recent_reward_sum;
+        let released_reward = Perbill::from_rational_approximation(49u32, 200u32) * latest_reward
+            + Perbill::from_rational_approximation(1u32, 200u32) * machine_reward_info.recent_reward_sum;
 
         // if should reward to committee
         let (reward_to_stash, reward_to_committee) = if release_era > machine_reward_info.reward_committee_deadline {
@@ -207,8 +219,8 @@ impl<T: Config> Pallet<T> {
         };
 
         let committee_each_get =
-            Perbill::from_rational_approximation(1u32, machine_reward_info.reward_committee.len() as u32) *
-                reward_to_committee;
+            Perbill::from_rational_approximation(1u32, machine_reward_info.reward_committee.len() as u32)
+                * reward_to_committee;
         for a_committee in machine_reward_info.reward_committee.clone() {
             T::ManageCommittee::add_reward(a_committee, committee_each_get);
         }

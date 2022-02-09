@@ -28,6 +28,8 @@ pub const ONE_DBC: u128 = 1_000_000_000_000_000;
 // 初始1000WDBC
 pub const INIT_BALANCE: u128 = 10_000_000 * ONE_DBC;
 pub type BlockNumber = u64;
+pub const INIT_TIMESTAMP: u64 = 90_000;
+pub const BLOCK_TIME: u64 = 30_000;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -164,6 +166,16 @@ impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
     type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
 }
 
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
@@ -207,6 +219,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
@@ -227,6 +240,7 @@ pub fn run_to_block(n: BlockNumber) {
         Committee::on_finalize(b);
         System::on_finalize(b);
         RandomnessCollectiveFlip::on_finalize(b);
+        Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 
         System::set_block_number(b + 1);
 
@@ -266,6 +280,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::from(storage);
 
     ext.execute_with(|| {
+        Timestamp::set_timestamp(System::block_number() * 30000 + INIT_TIMESTAMP);
         // 初始化设置参数
         // 委员会每次抢单质押数量 (1000 DBC)
         assert_ok!(Committee::set_committee_stake_params(

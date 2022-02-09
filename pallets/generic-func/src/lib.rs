@@ -96,7 +96,7 @@ pub mod pallet {
             match frequency {
                 Some(frequency) => {
                     if frequency.1 == 0u32.into() {
-                        return 0
+                        return 0;
                     }
                     if block_number % frequency.1 == 0u32.into() {
                         Self::auto_destroy(frequency.0);

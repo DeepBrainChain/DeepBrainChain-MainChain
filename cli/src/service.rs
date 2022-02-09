@@ -572,7 +572,7 @@ mod tests {
                         keystore.clone(),
                         &babe_link,
                     ) {
-                        break babe_pre_digest
+                        break babe_pre_digest;
                     }
 
                     slot += 1;

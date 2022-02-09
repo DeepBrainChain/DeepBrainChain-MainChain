@@ -1,4 +1,4 @@
-use super::super::{mock::*, *};
+use super::super::mock::*;
 use frame_support::assert_ok;
 
 // 测试用户主动销毁
