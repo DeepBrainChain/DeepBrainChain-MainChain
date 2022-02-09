@@ -804,6 +804,7 @@ fn committee_not_wubmit_raw_slash_works() {
     })
 }
 
+// TODO: Add testcase
 #[test]
 fn fulfill_should_works() {
     new_test_with_online_machine_distribution().execute_with(|| {})
@@ -1018,5 +1019,181 @@ fn committee_not_equal_then_redistribute_works() {
             OnlineCommittee::committee_ops(&committee1, &machine_id),
             OCCommitteeOps { staked_dbc: 1000 * ONE_DBC, verify_time: vec![497, 1937, 3377], ..Default::default() }
         );
+    })
+}
+
+// After 2 submit hash, and it's time to submit raw,
+// machine status is still submiting_hash.  (#44)
+#[test]
+fn two_submit_hash_reach_submit_raw_works() {
+    new_test_with_init_params_ext().execute_with(|| {
+        // Bob pubkey
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
+                   5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
+        let sig = "b4084f70730b183127e9db78c6d8dcf79039f23466cd1ee8b536c40c3027a83d\
+                   ab040be4ed2db57b67eaac406817a69ce72a13f8ac11ba460e15d318b1504481";
+
+        // 委员会需要提交的信息
+        let mut committee_upload_info = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
+            gpu_num: 4,
+            cuda_core: 8704,
+            gpu_mem: 10,
+            calc_point: 59890,
+            sys_disk: 500,
+            data_disk: 3905,
+            cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
+            cpu_core_num: 46,
+            cpu_rate: 2400,
+            mem_num: 440,
+
+            rand_str: "abcdefg1".as_bytes().to_vec(),
+            is_support: true,
+        };
+
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+
+        let committee1_box_pubkey: [u8; 32] =
+            hex::decode("f660309770b2bd379e2514d88c146a7ddc3759533cf06d9fb4b41159e560325e")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee2_box_pubkey: [u8; 32] =
+            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee3_box_pubkey: [u8; 32] =
+            hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+                .unwrap()
+                .try_into()
+                .unwrap();
+
+        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+
+        committee_upload_info.machine_id = machine_id.clone();
+
+        // stash 账户设置控制账户
+        assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
+        // controller 生成server_name
+        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
+        let server_room = OnlineProfile::stash_server_rooms(&stash);
+        assert_ok!(OnlineProfile::bond_machine(
+            Origin::signed(controller),
+            machine_id.clone(),
+            msg.as_bytes().to_vec(),
+            hex::decode(sig).unwrap()
+        ));
+
+        let mut machine_info = online_profile::MachineInfo {
+            controller: controller.clone(),
+            machine_stash: stash.clone(),
+            bonding_height: 3,
+            stake_amount: 100000 * ONE_DBC,
+            machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
+            ..Default::default()
+        };
+
+        let customize_info = StakerCustomizeInfo {
+            server_room: server_room[0].clone(),
+            upload_net: 100,
+            download_net: 100,
+            longitude: online_profile::Longitude::East(1157894),
+            latitude: online_profile::Latitude::North(235678),
+            telecom_operators: vec!["China Unicom".into()],
+        };
+        assert_ok!(OnlineProfile::add_machine_info(
+            Origin::signed(controller),
+            machine_id.clone(),
+            customize_info.clone()
+        ));
+
+        machine_info.machine_info_detail.staker_customize_info = customize_info.clone();
+        machine_info.machine_status = online_profile::MachineStatus::DistributingOrder;
+
+        run_to_block(15);
+
+        // 添加三个委员会
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
+        assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
+
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), committee2_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey.clone()));
+
+        run_to_block(16);
+        assert_eq!(
+            OnlineProfile::live_machines(),
+            online_profile::LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
+        );
+
+        machine_info.machine_status = online_profile::MachineStatus::CommitteeVerifying;
+
+        // 正常Hash: 0x6b561dfad171810dfb69924dd68733ec
+        // cpu_core_num: 48: 0x5b4499c4b6e9f080673f9573410a103a
+        // cpu_core_num: 96: 0x3ac5b3416d1743b58a4c9af58c7002d7
+
+        assert_eq!(
+            OnlineCommittee::machine_committee(&machine_id),
+            OCMachineCommitteeList {
+                book_time: 16,
+                booked_committee: vec![committee3, committee1, committee2],
+                confirm_start_time: 4336,
+                status: OCVerifyStatus::SubmittingHash,
+                ..Default::default()
+            }
+        );
+
+        // 两个委员会分别提交机器Hash
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee1),
+            machine_id.clone(),
+            machine_info_hash1
+        ));
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(committee2),
+            machine_id.clone(),
+            machine_info_hash2
+        ));
+
+        assert_eq!(
+            OnlineCommittee::machine_committee(&machine_id),
+            OCMachineCommitteeList {
+                book_time: 16,
+                booked_committee: vec![committee3, committee1, committee2],
+                hashed_committee: vec![committee1, committee2],
+                confirm_start_time: 4336,
+                status: OCVerifyStatus::SubmittingHash,
+                ..Default::default()
+            }
+        );
+
+        run_to_block(4336);
+
+        assert_eq!(
+            OnlineCommittee::machine_committee(&machine_id),
+            OCMachineCommitteeList {
+                book_time: 16,
+                booked_committee: vec![committee3, committee1, committee2],
+                hashed_committee: vec![committee1, committee2],
+                confirm_start_time: 4336,
+                status: OCVerifyStatus::SubmittingRaw,
+                ..Default::default()
+            }
+        );
+
+        // 委员会提交原始信息
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
+        committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
     })
 }

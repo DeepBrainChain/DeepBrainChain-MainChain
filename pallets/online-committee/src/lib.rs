@@ -406,12 +406,25 @@ impl<T: Config> Pallet<T> {
     }
 
     fn statistic_a_machine(machine_id: MachineId, now: T::BlockNumber, committee_stake_per_order: BalanceOf<T>) {
-        let mut machine_committee = Self::machine_committee(machine_id.clone());
-        // 当不为Summary状态时查看是否到了48小时，则还需要继续等待
-        if machine_committee.status != OCVerifyStatus::Summarizing
-            && now < machine_committee.book_time + SUBMIT_RAW_END.into()
-        {
-            return;
+        let mut machine_committee = Self::machine_committee(&machine_id);
+
+        match machine_committee.status {
+            OCVerifyStatus::SubmittingHash => {
+                if now >= machine_committee.book_time + SUBMIT_RAW_START.into() {
+                    machine_committee.status = OCVerifyStatus::SubmittingRaw;
+                    MachineCommittee::<T>::insert(&machine_id, machine_committee);
+                    return;
+                } else {
+                    return;
+                }
+            },
+            OCVerifyStatus::SubmittingRaw => {
+                if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
+                    return;
+                }
+            },
+            OCVerifyStatus::Summarizing => {},
+            OCVerifyStatus::Finished => return,
         }
 
         let mut inconsistent_committee = Vec::new();
