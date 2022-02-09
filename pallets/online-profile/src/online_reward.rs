@@ -52,8 +52,8 @@ impl<T: Config> Pallet<T> {
         let online_stake_params = Self::online_stake_params()?;
 
         let dbc_stake_per_gpu = if sys_info.total_gpu_num > 10_000 {
-            Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num) *
-                online_stake_params.online_stake_per_gpu
+            Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num)
+                * online_stake_params.online_stake_per_gpu
         } else {
             online_stake_params.online_stake_per_gpu
         };
@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
     pub fn backup_and_reward() {
         let mut release_offset = Self::release_offset();
         if release_offset.0 {
-            return
+            return;
         }
 
         match release_offset.1 {
@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
                         );
                     } else {
                         AllMachineIdSnap::<T>::put(all_machine);
-                        return
+                        return;
                     }
                 }
 
@@ -194,7 +194,7 @@ impl<T: Config> Pallet<T> {
 
         if machine_reward_info.recent_reward_sum == Zero::zero() {
             MachineRecentReward::<T>::insert(&machine_id, machine_reward_info);
-            return
+            return;
         }
 
         let latest_reward = if machine_reward_info.recent_machine_reward.len() > 0 {
@@ -204,8 +204,8 @@ impl<T: Config> Pallet<T> {
         };
 
         // total released reward = sum(1..n-1) * (1/200) + n * (50/200) = 49/200*n + 1/200 * sum(1..n)
-        let released_reward = Perbill::from_rational_approximation(49u32, 200u32) * latest_reward +
-            Perbill::from_rational_approximation(1u32, 200u32) * machine_reward_info.recent_reward_sum;
+        let released_reward = Perbill::from_rational_approximation(49u32, 200u32) * latest_reward
+            + Perbill::from_rational_approximation(1u32, 200u32) * machine_reward_info.recent_reward_sum;
 
         // if should reward to committee
         let (reward_to_stash, reward_to_committee) = if release_era > machine_reward_info.reward_committee_deadline {
@@ -219,8 +219,8 @@ impl<T: Config> Pallet<T> {
         };
 
         let committee_each_get =
-            Perbill::from_rational_approximation(1u32, machine_reward_info.reward_committee.len() as u32) *
-                reward_to_committee;
+            Perbill::from_rational_approximation(1u32, machine_reward_info.reward_committee.len() as u32)
+                * reward_to_committee;
         for a_committee in machine_reward_info.reward_committee.clone() {
             T::ManageCommittee::add_reward(a_committee, committee_each_get);
         }

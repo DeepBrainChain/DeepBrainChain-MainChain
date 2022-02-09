@@ -147,7 +147,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn gen_rand_url() -> Option<u32> {
         let price_url = Self::price_url()?;
-        return Some(<generic_func::Module<T>>::random_u32((price_url.len() - 1) as u32))
+        return Some(<generic_func::Module<T>>::random_u32((price_url.len() - 1) as u32));
     }
 
     fn fetch_price_and_send_unsigned_tx() -> Result<(), Error<T>> {
@@ -175,7 +175,7 @@ impl<T: Config> Pallet<T> {
         let response = pending.try_wait(timeout).map_err(|_| http::Error::DeadlineReached)??;
         // Let's check the status code before we proceed to reading the response.
         if response.code != 200 {
-            return Err(http::Error::Unknown)
+            return Err(http::Error::Unknown);
         }
         let body = response.body().collect::<Vec<u8>>();
 
@@ -200,7 +200,7 @@ impl<T: Config> Pallet<T> {
     pub fn add_avg_price() {
         let prices = Prices::<T>::get();
         if prices.len() != MAX_LEN {
-            return
+            return;
         }
         let avg_price = prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64;
 

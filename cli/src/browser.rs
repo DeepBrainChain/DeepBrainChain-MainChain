@@ -31,8 +31,9 @@ async fn start_inner(chain_spec: Option<String>, log_directives: String) -> Resu
     set_console_error_panic_hook();
     let telemetry_worker = init_logging_and_telemetry(&log_directives)?;
     let chain_spec = match chain_spec {
-        Some(chain_spec) =>
-            ChainSpec::from_json_bytes(chain_spec.as_bytes().to_vec()).map_err(|e| format!("{:?}", e))?,
+        Some(chain_spec) => {
+            ChainSpec::from_json_bytes(chain_spec.as_bytes().to_vec()).map_err(|e| format!("{:?}", e))?
+        },
         None => crate::chain_spec::development_config(),
     };
 

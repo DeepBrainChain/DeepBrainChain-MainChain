@@ -22,10 +22,10 @@ pub struct CommitteeList<AccountId: Ord> {
 
 impl<AccountId: Ord> CommitteeList<AccountId> {
     pub fn is_in_committee(&self, who: &AccountId) -> bool {
-        self.normal.binary_search(who).is_ok() ||
-            self.chill_list.binary_search(who).is_ok() ||
-            self.waiting_box_pubkey.binary_search(who).is_ok() ||
-            self.fulfilling_list.binary_search(who).is_ok()
+        self.normal.binary_search(who).is_ok()
+            || self.chill_list.binary_search(who).is_ok()
+            || self.waiting_box_pubkey.binary_search(who).is_ok()
+            || self.fulfilling_list.binary_search(who).is_ok()
     }
 }
 

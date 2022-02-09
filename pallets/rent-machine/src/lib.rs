@@ -349,7 +349,7 @@ impl<T: Config> Pallet<T> {
                 // 超过了60个块，也就是30分钟
                 Self::clean_order(&renter, &machine_id);
                 T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None);
-                continue
+                continue;
             }
         }
     }

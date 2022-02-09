@@ -7,7 +7,7 @@ pub fn parse_price(price_str: &str) -> Option<u64> {
     let serde_result: SerdeValue = serde_json::from_str(price_str).ok()?;
     let price = &serde_result["content"]["dbc_price"];
     if let SerdeValue::Null = price {
-        return None
+        return None;
     }
 
     // 构造price_json: {"a": 0.0123}
@@ -20,7 +20,7 @@ pub fn parse_price(price_str: &str) -> Option<u64> {
 
     for i in price.clone() {
         if b'e' == i {
-            return None
+            return None;
         }
     }
 
@@ -34,18 +34,18 @@ pub fn parse_price(price_str: &str) -> Option<u64> {
 
     if let JsonValue::Object(obj) = price_json {
         if obj.len() == 0 {
-            return None
+            return None;
         }
 
         if let JsonValue::Number(price) = obj[0].1.clone() {
             return Some(
-                price.integer as u64 * 10_u64.pow(6) +
-                    price.fraction * 10_u64.pow(6) / 10_u64.pow(price.fraction_length),
-            )
+                price.integer as u64 * 10_u64.pow(6)
+                    + price.fraction * 10_u64.pow(6) / 10_u64.pow(price.fraction_length),
+            );
         }
     }
 
-    return None
+    return None;
 }
 
 #[cfg(test)]

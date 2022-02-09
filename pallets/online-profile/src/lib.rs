@@ -257,9 +257,9 @@ pub mod pallet {
             }
 
             // Era 从 1 开始,没有 0 Era
-            let should_be_era: u64 = (current_timestamp.saturating_sub(init_release_timestamp.0)) / (30000 * 2880) +
-                init_release_timestamp.1 as u64 +
-                1;
+            let should_be_era: u64 = (current_timestamp.saturating_sub(init_release_timestamp.0)) / (30000 * 2880)
+                + init_release_timestamp.1 as u64
+                + 1;
 
             // Era开始时，生成当前Era和下一个Era的快照
             // 每个Era(2880个块)执行一次
@@ -529,11 +529,11 @@ pub mod pallet {
             );
 
             match machine_info.machine_status {
-                MachineStatus::AddingCustomizeInfo |
-                MachineStatus::CommitteeVerifying |
-                MachineStatus::CommitteeRefused(_) |
-                MachineStatus::WaitingFulfill |
-                MachineStatus::StakerReportOffline(_, _) => {
+                MachineStatus::AddingCustomizeInfo
+                | MachineStatus::CommitteeVerifying
+                | MachineStatus::CommitteeRefused(_)
+                | MachineStatus::WaitingFulfill
+                | MachineStatus::StakerReportOffline(_, _) => {
                     machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
                 },
                 _ => return Err(Error::<T>::NotAllowedChangeMachineInfo.into()),
@@ -698,10 +698,10 @@ pub mod pallet {
             let offline_time = match machine_info.machine_status.clone() {
                 MachineStatus::StakerReportOffline(offline_time, _) => offline_time,
                 MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
-                    OPSlashReason::RentedInaccessible(duration) |
-                    OPSlashReason::RentedHardwareMalfunction(duration) |
-                    OPSlashReason::RentedHardwareCounterfeit(duration) |
-                    OPSlashReason::OnlineRentFailed(duration) => duration,
+                    OPSlashReason::RentedInaccessible(duration)
+                    | OPSlashReason::RentedHardwareMalfunction(duration)
+                    | OPSlashReason::RentedHardwareCounterfeit(duration)
+                    | OPSlashReason::OnlineRentFailed(duration) => duration,
                     _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
@@ -1106,7 +1106,7 @@ impl<T: Config> Pallet<T> {
         let next_era_stash_snapshot = Self::eras_stash_points(era_index);
 
         if let Some(stash_snapshot) = next_era_stash_snapshot.staker_statistic.get(stash) {
-            return stash_snapshot.total_grades().unwrap_or_default()
+            return stash_snapshot.total_grades().unwrap_or_default();
         }
         0
     }

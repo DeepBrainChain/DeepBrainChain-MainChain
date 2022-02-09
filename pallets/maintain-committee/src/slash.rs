@@ -15,7 +15,7 @@ impl<T: Config> Pallet<T> {
         for slashed_report_id in pending_unhandled_id.clone() {
             let mut report_result_info = Self::report_result(&slashed_report_id);
             if now < report_result_info.slash_exec_time {
-                continue
+                continue;
             }
 
             // TODO: refa
@@ -150,7 +150,7 @@ impl<T: Config> Pallet<T> {
             let report_result_info = Self::report_result(&a_pending_review);
 
             if review_info.expire_time < now {
-                continue
+                continue;
             }
 
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&review_info.applicant);

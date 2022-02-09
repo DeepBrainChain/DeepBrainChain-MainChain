@@ -13,7 +13,7 @@ impl<T: Config> Pallet<T> {
 
         for a_pending_review in all_pending_review {
             if let Err(_) = Self::do_a_pending_review(a_pending_review) {
-                continue
+                continue;
             };
         }
     }
@@ -25,7 +25,7 @@ impl<T: Config> Pallet<T> {
         let slash_info = Self::pending_slash(a_pending_review);
 
         if review_info.expire_time < now {
-            return Ok(())
+            return Ok(());
         }
 
         let is_slashed_stash = match slash_info.book_result {
@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
 
         for slash_id in pending_unhandled_id.clone() {
             if let Err(_) = Self::do_a_slash(slash_id, &mut pending_unhandled_id) {
-                continue
+                continue;
             };
         }
         UnhandledSlash::<T>::put(pending_unhandled_id);
@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let mut slash_info = Self::pending_slash(slash_id);
         if now < slash_info.slash_exec_time {
-            return Ok(())
+            return Ok(());
         }
 
         if !slash_info.stash_slash_amount.is_zero() {

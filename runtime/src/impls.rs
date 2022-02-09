@@ -157,7 +157,7 @@ mod multiplier_tests {
                 let next = runtime_multiplier_update(fm);
                 fm = next;
                 if fm == min_multiplier() {
-                    break
+                    break;
                 }
                 iterations += 1;
             }

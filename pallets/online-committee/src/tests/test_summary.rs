@@ -11,7 +11,7 @@ fn get_three_committees() -> ThreeComittees {
     let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
     let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-    return [committee1, committee2, committee3, committee4]
+    return [committee1, committee2, committee3, committee4];
 }
 
 fn get_machine_id() -> Vec<u8> {

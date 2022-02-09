@@ -42,7 +42,7 @@ impl<T: Config> Module<T> {
     pub fn get_staker_identity(account: impl EncodeLike<T::AccountId>) -> Vec<u8> {
         let account_info = <pallet_identity::Module<T>>::identity(account);
         if let None = account_info {
-            return Vec::new()
+            return Vec::new();
         }
         let account_info = account_info.unwrap();
 
@@ -58,7 +58,7 @@ impl<T: Config> Module<T> {
         let mut stash_list_info = Vec::new();
 
         if all_stash.len() == 0 {
-            return stash_list_info
+            return stash_list_info;
         }
 
         let cur_page = cur_page as usize;
@@ -67,7 +67,7 @@ impl<T: Config> Module<T> {
         let mut page_end = page_start + per_page;
 
         if page_start >= all_stash.len() {
-            return stash_list_info
+            return stash_list_info;
         }
 
         if page_end >= all_stash.len() {
