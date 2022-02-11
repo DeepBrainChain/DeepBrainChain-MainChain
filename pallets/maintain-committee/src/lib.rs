@@ -223,100 +223,13 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn committee_book_report(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
 
             // 判断发起请求者是状态正常的委员会
             ensure!(T::ManageCommittee::is_valid_committee(&committee), Error::<T>::NotCommittee);
+            // 判断包含该report_info
             ensure!(<ReportInfo<T>>::contains_key(report_id), Error::<T>::OrderNotAllowBook);
 
-            // 检查订单是否可预订状态
-            let mut live_report = Self::live_report();
-            let mut report_info = Self::report_info(report_id);
-            let mut ops_detail = Self::committee_ops(&committee, &report_id);
-            let mut is_live_report_changed = false;
-
-            // 检查订单是否可以抢定
-            ensure!(
-                report_info.report_status == ReportStatus::Reported
-                    || report_info.report_status == ReportStatus::WaitingBook,
-                Error::<T>::OrderNotAllowBook
-            );
-            ensure!(report_info.booked_committee.len() < 3, Error::<T>::OrderNotAllowBook);
-
-            // 记录预订订单的委员会
-            ensure!(report_info.booked_committee.binary_search(&committee).is_err(), Error::<T>::AlreadyBooked);
-
-            ItemList::add_item(&mut report_info.booked_committee, committee.clone());
-            // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
-            if report_info.booked_committee.len() == 1 {
-                report_info.first_book_time = now;
-                report_info.confirm_start = now + THREE_HOUR.into();
-            }
-
-            // 添加委员会对于机器的操作记录
-            ops_detail.booked_time = now;
-
-            // 支付手续费或押金
-            match report_info.machine_fault_type {
-                MachineFaultType::RentedInaccessible(..) => {
-                    // 付10个DBC的手续费
-                    <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone())
-                        .map_err(|_| Error::<T>::PayTxFeeFailed)?;
-
-                    ops_detail.order_status = MTOrderStatus::Verifying;
-                    // WaitingBook状态允许其他委员会继续抢单
-                    report_info.report_status = if report_info.booked_committee.len() == 3 {
-                        ItemList::rm_item(&mut live_report.bookable_report, &report_id);
-                        ItemList::add_item(&mut live_report.verifying_report, report_id);
-
-                        is_live_report_changed = true;
-                        ReportStatus::Verifying
-                    } else {
-                        ReportStatus::WaitingBook
-                    }
-                },
-                // 其他情况，需要质押100RMB等值DBC
-                MachineFaultType::RentedHardwareMalfunction(..)
-                | MachineFaultType::RentedHardwareCounterfeit(..)
-                | MachineFaultType::OnlineRentFailed(..) => {
-                    // 支付质押
-                    let committee_order_stake =
-                        T::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
-                    <T as pallet::Config>::ManageCommittee::change_used_stake(
-                        committee.clone(),
-                        committee_order_stake,
-                        true,
-                    )
-                    .map_err(|_| Error::<T>::StakeFailed)?;
-                    ops_detail.staked_balance = committee_order_stake;
-                    ops_detail.order_status = MTOrderStatus::WaitingEncrypt;
-
-                    // 改变report状态为正在验证中，此时禁止其他委员会预订
-                    report_info.report_status = ReportStatus::Verifying;
-
-                    // 从bookable_report移动到verifying_report
-                    ItemList::rm_item(&mut live_report.bookable_report, &report_id);
-                    ItemList::add_item(&mut live_report.verifying_report, report_id);
-
-                    is_live_report_changed = true;
-                },
-            }
-
-            // 记录当前哪个委员会正在验证，方便状态控制
-            report_info.verifying_committee = Some(committee.clone());
-
-            // 添加到委员会自己的存储中
-            let mut committee_order = Self::committee_order(&committee);
-            ItemList::add_item(&mut committee_order.booked_report, report_id);
-
-            if is_live_report_changed {
-                LiveReport::<T>::put(live_report);
-            }
-            CommitteeOps::<T>::insert(&committee, &report_id, ops_detail);
-            CommitteeOrder::<T>::insert(&committee, committee_order);
-            ReportInfo::<T>::insert(&report_id, report_info);
-
-            Ok(().into())
+            Self::do_book_reports(committee, report_id)
         }
 
         /// 报告人在委员会完成抢单后，30分钟内用委员会的公钥，提交加密后的故障信息
@@ -797,7 +710,7 @@ impl<T: Config> Pallet<T> {
 
     // 处理用户报告逻辑
     // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
-    pub fn do_report_machine_fault(
+    fn do_report_machine_fault(
         reporter: T::AccountId,
         machine_fault_type: MachineFaultType,
     ) -> DispatchResultWithPostInfo {
@@ -837,6 +750,98 @@ impl<T: Config> Pallet<T> {
         ReporterReport::<T>::insert(&reporter, reporter_report);
 
         Self::deposit_event(Event::ReportMachineFault(reporter, machine_fault_type));
+        Ok(().into())
+    }
+
+    fn do_book_reports(committee: T::AccountId, report_id: ReportId) -> DispatchResultWithPostInfo {
+        let now = <frame_system::Module<T>>::block_number();
+        let book_order_stake = T::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
+
+        // 检查订单是否可预订状态
+        let mut live_report = Self::live_report();
+        let mut report_info = Self::report_info(report_id);
+        let mut committee_ops = Self::committee_ops(&committee, &report_id);
+        let mut is_live_report_changed = false;
+
+        // 检查订单是否可以抢定
+        ensure!(
+            report_info.report_status == ReportStatus::Reported
+                || report_info.report_status == ReportStatus::WaitingBook,
+            Error::<T>::OrderNotAllowBook
+        );
+        ensure!(report_info.booked_committee.len() < 3, Error::<T>::OrderNotAllowBook);
+        ensure!(report_info.booked_committee.binary_search(&committee).is_err(), Error::<T>::AlreadyBooked);
+
+        // 支付手续费或押金: 10 DBC | 100RMB等值DBC
+        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+            <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+        } else {
+            <T as pallet::Config>::ManageCommittee::change_used_stake(committee.clone(), book_order_stake, true)
+                .map_err(|_| Error::<T>::StakeFailed)?;
+        }
+
+        // 修改report_info
+        ItemList::add_item(&mut report_info.booked_committee, committee.clone());
+        // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
+        if report_info.booked_committee.len() == 1 {
+            report_info.first_book_time = now;
+            report_info.confirm_start = now + THREE_HOUR.into();
+        }
+        // 记录当前哪个委员会正在验证，方便状态控制
+        report_info.verifying_committee = Some(committee.clone());
+        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+            // WaitingBook状态允许其他委员会继续抢单
+            report_info.report_status = if report_info.booked_committee.len() == 3 {
+                ItemList::rm_item(&mut live_report.bookable_report, &report_id);
+                ItemList::add_item(&mut live_report.verifying_report, report_id);
+
+                is_live_report_changed = true;
+                ReportStatus::Verifying
+            } else {
+                ReportStatus::WaitingBook
+            }
+        } else {
+            // 改变report状态为正在验证中，此时禁止其他委员会预订
+            report_info.report_status = ReportStatus::Verifying;
+        }
+
+        // 更改committee_ops
+        // 添加委员会对于机器的操作记录
+        committee_ops.booked_time = now;
+        // 手续费支付后更改变量状态
+        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+            committee_ops.order_status = MTOrderStatus::Verifying;
+        } else {
+            committee_ops.staked_balance = book_order_stake;
+            committee_ops.order_status = MTOrderStatus::WaitingEncrypt;
+        }
+
+        // 更改live_report
+        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+            if report_info.booked_committee.len() == 3 {
+                ItemList::rm_item(&mut live_report.bookable_report, &report_id);
+                ItemList::add_item(&mut live_report.verifying_report, report_id);
+                is_live_report_changed = true;
+            }
+        } else {
+            // 从bookable_report移动到verifying_report
+            ItemList::rm_item(&mut live_report.bookable_report, &report_id);
+            ItemList::add_item(&mut live_report.verifying_report, report_id);
+            is_live_report_changed = true;
+        }
+
+        // 更改committee_order
+        // 添加到委员会自己的存储中
+        let mut committee_order = Self::committee_order(&committee);
+        ItemList::add_item(&mut committee_order.booked_report, report_id);
+        CommitteeOrder::<T>::insert(&committee, committee_order);
+
+        if is_live_report_changed {
+            LiveReport::<T>::put(live_report);
+        }
+        CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
+        ReportInfo::<T>::insert(&report_id, report_info);
+
         Ok(().into())
     }
 
