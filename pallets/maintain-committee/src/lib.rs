@@ -283,14 +283,13 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
             let committee_limit = Self::committee_limit();
 
-            // 判断是否为委员会其列表是否有该report_id
             let mut committee_order = Self::committee_order(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
             let mut report_info = Self::report_info(&report_id);
             let mut live_report = Self::live_report();
 
+            // 判断是否为委员会其列表是否有该report_id
             ensure!(committee_order.booked_report.binary_search(&report_id).is_ok(), Error::<T>::NotInBookedList);
-
             // 判断该委员会的状态是验证中
             ensure!(committee_ops.order_status == MTOrderStatus::Verifying, Error::<T>::OrderStatusNotFeat);
             // 判断该report_id是否可以提交信息
@@ -418,7 +417,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        pub fn committee_submit_offline_raw(
+        pub fn committee_submit_inaccessible_raw(
             origin: OriginFor<T>,
             report_id: ReportId,
             committee_rand_str: Vec<u8>,
@@ -723,7 +722,6 @@ impl<T: Config> Pallet<T> {
         let mut report_info = MTReportInfoDetail {
             reporter: reporter.clone(),
             report_time: now,
-            reporter_stake: stake_params.stake_per_report,
             machine_fault_type: machine_fault_type.clone(),
             report_status: ReportStatus::Reported,
             ..Default::default()
@@ -733,6 +731,11 @@ impl<T: Config> Pallet<T> {
         if let MachineFaultType::RentedInaccessible(machine_id) = machine_fault_type.clone() {
             <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
             report_info.machine_id = machine_id;
+        } else {
+            // 支付处理报告的费用
+            Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
+
+            report_info.reporter_stake = stake_params.stake_per_report;
         }
 
         let mut live_report = Self::live_report();
@@ -741,9 +744,6 @@ impl<T: Config> Pallet<T> {
         // 记录到 live_report & reporter_report
         ItemList::add_item(&mut live_report.bookable_report, report_id);
         ItemList::add_item(&mut reporter_report.processing_report, report_id);
-
-        // 支付处理报告的费用
-        Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
 
         ReportInfo::<T>::insert(&report_id, report_info);
         LiveReport::<T>::put(live_report);
@@ -761,7 +761,9 @@ impl<T: Config> Pallet<T> {
         let mut live_report = Self::live_report();
         let mut report_info = Self::report_info(report_id);
         let mut committee_ops = Self::committee_ops(&committee, &report_id);
+
         let mut is_live_report_changed = false;
+        let is_first_book = report_info.report_status == ReportStatus::Reported;
 
         // 检查订单是否可以抢定
         ensure!(
@@ -783,12 +785,11 @@ impl<T: Config> Pallet<T> {
         // 修改report_info
         ItemList::add_item(&mut report_info.booked_committee, committee.clone());
         // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
-        if report_info.booked_committee.len() == 1 {
+        if is_first_book {
             report_info.first_book_time = now;
-            report_info.confirm_start = now + THREE_HOUR.into();
         }
+
         // 记录当前哪个委员会正在验证，方便状态控制
-        report_info.verifying_committee = Some(committee.clone());
         if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
             // WaitingBook状态允许其他委员会继续抢单
             report_info.report_status = if report_info.booked_committee.len() == 3 {
@@ -799,10 +800,23 @@ impl<T: Config> Pallet<T> {
                 ReportStatus::Verifying
             } else {
                 ReportStatus::WaitingBook
+            };
+
+            // 如果是第一个抢单，如果是rentedInaccessible，将在5分钟后开始提交委员会的验证结果
+            if is_first_book {
+                report_info.confirm_start = now + 10u32.into();
             }
         } else {
+            // 仅在不是RentedInaccessible时进行记录，因为这些情况只能一次有一个验证委员会
+            report_info.verifying_committee = Some(committee.clone());
+
             // 改变report状态为正在验证中，此时禁止其他委员会预订
             report_info.report_status = ReportStatus::Verifying;
+
+            // 如果不是rentedInaccessible，将在三个小时之后开始提交委员会的验证结果
+            if is_first_book {
+                report_info.confirm_start = now + THREE_HOUR.into();
+            }
         }
 
         // 更改committee_ops
