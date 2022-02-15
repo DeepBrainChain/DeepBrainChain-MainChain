@@ -4,13 +4,19 @@ use super::super::{mock::*, ReporterStakeInfo};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
-// 报告机器被租用，但是无法访问: 只有一个人预订
+// 报告机器被租用，但是无法访问
+// case1: 只有1委员会预订，同意报告
+// case2: 只有1委员会预订，拒绝报告
+// case3: 只有1人预订，未提交最终结果
+
+// 报告机器被租用，但是无法访问: 只有一个人预订，10分钟后检查结果，两天后结果执行
 #[test]
-fn report_machine_inaccessible_works() {
+fn report_machine_inaccessible_works1() {
     new_test_with_init_params_ext().execute_with(|| {
         let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
         let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
@@ -101,7 +107,7 @@ fn report_machine_inaccessible_works() {
         ));
 
         // 检查状态
-        // TODO: 如果两个同时来预订，的状态
+        // TODO: 如果两个同时来预订的状态
         {
             assert_eq!(
                 &MaintainCommittee::live_report(),
@@ -179,16 +185,95 @@ fn report_machine_inaccessible_works() {
                     hash_time: 11,
                     confirm_time: 22,
                     confirm_result: true,
-                    order_status: MTOrderStatus::WaitingRaw,
+                    order_status: MTOrderStatus::Finished,
                     ..Default::default()
                 }
             );
         }
 
-        run_to_block(22);
+        run_to_block(23);
 
-        // TODO: 检查最终状态及惩罚
+        // 检查summary的结果
+        // summary_a_inaccessible
+        // - Writes:
+        // ReportInfo, ReportResult, CommitteeOrder, CommitteeOps
+        // LiveReport, UnhandledReportResult, ReporterReport,
+        {
+            assert_eq!(
+                &MaintainCommittee::report_info(0),
+                &crate::MTReportInfoDetail {
+                    reporter,
+                    report_time: 11,
+                    // reporter_stake: 1000 * ONE_DBC,
+                    first_book_time: 11,
+                    machine_id: machine_id.clone(),
+                    verifying_committee: None,
+                    booked_committee: vec![committee],
+                    hashed_committee: vec![committee],
+                    confirmed_committee: vec![committee],
+                    support_committee: vec![committee],
+                    confirm_start: 11 + 10,
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    report_status: ReportStatus::CommitteeConfirmed,
+                    ..Default::default()
+                }
+            );
+            assert_eq!(
+                &MaintainCommittee::report_result(0),
+                &crate::MTReportResultInfo {
+                    report_id: 0,
+                    reporter,
+                    reward_committee: vec![committee],
+                    machine_id: machine_id.clone(),
+                    slash_time: 22,
+                    slash_exec_time: 22 + 2880 * 2,
+                    report_result: crate::ReportResultType::ReportSucceed,
+                    slash_result: crate::MCSlashResult::Pending,
+                    // inconsistent_committee, unruly_committee, machine_stash,
+                    // committee_stake, reporter_stake
+                    ..Default::default()
+                }
+            );
+            assert_eq!(
+                &MaintainCommittee::committee_order(&committee),
+                &crate::MTCommitteeOrderList { finished_report: vec![0], ..Default::default() }
+            );
+            assert_eq!(
+                &MaintainCommittee::committee_ops(&committee, 0),
+                &crate::MTCommitteeOpsDetail {
+                    booked_time: 11,
+                    confirm_hash: offline_committee_hash,
+                    hash_time: 11,
+                    confirm_time: 22,
+                    confirm_result: true,
+                    order_status: crate::MTOrderStatus::Finished,
+
+                    ..Default::default()
+                }
+            );
+            assert_eq!(
+                &MaintainCommittee::live_report(),
+                &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
+            );
+            let unhandled_report_result: Vec<u64> = vec![0];
+            assert_eq!(&MaintainCommittee::unhandled_report_result(), &unhandled_report_result);
+            assert_eq!(
+                &MaintainCommittee::reporter_report(&reporter),
+                &crate::ReporterReportList { succeed_report: vec![0], ..Default::default() }
+            );
+        }
+
+        // TODO: 两天后，根据结果进行惩罚
+        // TODO: 机器在举报成功后会立即被下线
     })
+}
+
+fn report_machine_inaccessible_works2() {
+    new_test_with_init_params_ext().execute_with(|| {})
+}
+
+fn report_machine_inaccessible_works3() {
+    new_test_with_init_params_ext().execute_with(|| {})
 }
 
 // 报告其他类型的错误
