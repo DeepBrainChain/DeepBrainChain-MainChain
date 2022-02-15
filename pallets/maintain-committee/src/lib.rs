@@ -745,13 +745,12 @@ impl<T: Config> Pallet<T> {
                     .map_err(|_| Error::<T>::PayTxFeeFailed)?;
                 report_info.machine_id = machine_id;
             }
-        } else {
-            // 支付处理报告的费用
-            // TODO: 这种需要重新支付币，且质押需要在summary时退还
-            Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
-
-            report_info.reporter_stake = stake_params.stake_per_report;
         }
+
+        // 支付处理报告的费用
+        // TODO: 这种需要重新支付币，且质押需要在summary时退还
+        Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
+        report_info.reporter_stake = stake_params.stake_per_report;
 
         let mut live_report = Self::live_report();
         let mut reporter_report = Self::reporter_report(&reporter);
@@ -928,9 +927,10 @@ impl<T: Config> Pallet<T> {
             slash_time: now,
             slash_exec_time: now + TWO_DAY.into(),
             slash_result: MCSlashResult::Pending,
+            machine_id: report_info.machine_id.clone(),
             // report_result: ReportResultType::待定
             // committee_stake: 0,
-            // reporter_stake: 0,
+            reporter_stake: report_info.reporter_stake,
             ..Default::default()
         };
 
@@ -1011,7 +1011,6 @@ impl<T: Config> Pallet<T> {
             report_result.report_result = ReportResultType::ReportRefused;
         }
 
-        report_result.machine_id = report_info.machine_id.clone();
         ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
 
         report_info.report_status = ReportStatus::CommitteeConfirmed;

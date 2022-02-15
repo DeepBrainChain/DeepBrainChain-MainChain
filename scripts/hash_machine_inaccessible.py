@@ -2,7 +2,7 @@
 
 from hashlib import blake2b
 
-report_id = "2"
+report_id = "0"
 committee_rand_str = "fedcba111"
 is_support = "1"  # 支持举报填1，不支持举报填0
 
