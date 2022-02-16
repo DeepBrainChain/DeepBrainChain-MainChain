@@ -764,7 +764,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 支付处理报告的费用
-        // TODO: 这种需要重新支付币，且质押需要在summary时退还
+        // TODO: 需要重新支付币，且质押需要在summary时退还
         Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
         report_info.reporter_stake = stake_params.stake_per_report;
 
@@ -1004,12 +1004,15 @@ impl<T: Config> Pallet<T> {
         // 处理支持报告人的情况
         if report_info.support_committee.len() >= report_info.against_committee.len() {
             // 此时，应该支持报告人，惩罚反对的委员会
-            T::MTOps::mt_machine_offline(
+
+            Self::offline_machine(
                 report_info.reporter.clone(),
                 report_info.support_committee.clone(),
                 report_info.machine_id.clone(),
-                online_profile::OPSlashReason::RentedInaccessible(report_info.report_time),
+                report_info.machine_fault_type.clone(),
+                report_info.report_time,
             );
+
             for a_committee in report_info.against_committee.clone() {
                 ItemList::add_item(&mut report_result.inconsistent_committee, a_committee);
             }
@@ -1051,7 +1054,6 @@ impl<T: Config> Pallet<T> {
     // Hook: Summary other fault report
     fn summary_fault_hook() -> Result<(), ()> {
         let mut live_report = Self::live_report();
-        // let mut live_report_is_changed = false;
 
         // 需要检查的report可能是正在被委员会验证/仍然可以预订的状态
         let mut verifying_report = live_report.verifying_report.clone();
@@ -1064,13 +1066,10 @@ impl<T: Config> Pallet<T> {
 
         // 正在提交原始值的
         for report_id in submitting_raw_report {
-            // live_report_is_changed = Self::summary_waiting_raw(report_id, &mut live_report) || live_report_is_changed;
             let _ = Self::summary_waiting_raw(report_id, &mut live_report);
         }
 
-        // if live_report_is_changed {
         LiveReport::<T>::put(live_report);
-        // }
         Ok(())
     }
 
@@ -1100,8 +1099,8 @@ impl<T: Config> Pallet<T> {
             ..report_result
         };
 
-        // 不到验证截止时间时:
         if now - report_info.first_book_time < THREE_HOUR.into() {
+            // 处理三小时之前的问题，报告人/委员会不按时提交信息的情况
             Self::summary_before_fault_submit_raw(
                 report_id,
                 now,
@@ -1109,9 +1108,8 @@ impl<T: Config> Pallet<T> {
                 &mut reporter_report,
                 &mut report_result,
             )?;
-        }
-        // 已经到3个小时
-        else {
+        } else {
+            // 处理超过3小时，仍然处于验证中|等待预订情况
             Self::summary_after_fault_submit_raw(report_id, now, live_report)?;
         }
 
@@ -1129,16 +1127,17 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         let mut report_info = Self::report_info(&report_id);
 
-        // 在前三个小时，允许处于等待预订状态
-        if let ReportStatus::WaitingBook = report_info.report_status {
-            return Ok(());
+        match report_info.report_status {
+            ReportStatus::Verifying => {},
+            // Reported, WaitingBook, CommitteeConfirmed, SubmittingRaw
+            _ => return Ok(()),
         }
 
         let verifying_committee = report_info.verifying_committee.ok_or(())?;
         let committee_ops = Self::committee_ops(&verifying_committee, &report_id);
 
-        // 1. 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
-        if committee_ops.encrypted_err_info.is_none() && now - committee_ops.booked_time >= HALF_HOUR.into() {
+        // 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
+        if now - committee_ops.booked_time >= HALF_HOUR.into() && committee_ops.encrypted_err_info.is_none() {
             ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
             ItemList::add_item(&mut reporter_report.failed_report, report_id);
             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
@@ -1159,8 +1158,6 @@ impl<T: Config> Pallet<T> {
             }
 
             ItemList::rm_item(&mut live_report.verifying_report, &report_id);
-            // live_report_is_changed = true;
-            // if report_info.
             report_result.report_result = ReportResultType::ReporterNotSubmitEncryptedInfo;
             ReportResult::<T>::insert(report_id, report_result);
             Self::update_unhandled_report(report_id, true);
@@ -1169,7 +1166,7 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        // 2. 委员会没有提交Hash，删除该委员会，并惩罚
+        // 委员会没有提交Hash，删除该委员会，并惩罚
         if now - committee_ops.booked_time >= ONE_HOUR.into() {
             // 更改report_info
             report_info.verifying_committee = None;
@@ -1179,6 +1176,7 @@ impl<T: Config> Pallet<T> {
 
             // 如果此时booked_committee.len() == 0；返回到最初始的状态，并允许取消报告
             if report_info.booked_committee.len() == 0 {
+                // TODO: 这里需要调用重新提交举报
                 report_info.first_book_time = Zero::zero();
                 report_info.confirm_start = Zero::zero();
                 report_info.report_status = ReportStatus::Reported;
@@ -1188,7 +1186,6 @@ impl<T: Config> Pallet<T> {
 
             ItemList::rm_item(&mut live_report.verifying_report, &report_id);
             ItemList::add_item(&mut live_report.bookable_report, report_id);
-            // live_report_is_changed = true;
 
             let mut committee_order = Self::committee_order(&verifying_committee);
             ItemList::rm_item(&mut committee_order.booked_report, &report_id);
@@ -1215,14 +1212,12 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         live_report.clean_unfinished_report(&report_id);
         ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
-        // live_report_is_changed = true;
 
         let mut report_info = Self::report_info(&report_id);
 
         if let ReportStatus::WaitingBook = report_info.report_status {
             report_info.report_status = ReportStatus::SubmittingRaw;
             ReportInfo::<T>::insert(report_id, report_info);
-            // continue;
             return Ok(());
         }
 
@@ -1253,29 +1248,29 @@ impl<T: Config> Pallet<T> {
         return Ok(());
     }
 
-    fn summary_waiting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) -> bool {
+    // 统计正在waiting_raw的机器
+    fn summary_waiting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) {
         let now = <frame_system::Module<T>>::block_number();
         let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
 
-        let mut live_report_is_changed = false;
         let mut report_info = Self::report_info(&report_id);
         let mut report_result = Self::report_result(report_id);
 
         // 禁止对快速报告进行检查，快速报告会处理这种情况
         if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-            return false;
+            return;
         }
 
-        // 未全部提交了原始信息且未达到了四个小时
+        // 未全部提交了原始信息且未达到了四个小时，需要继续等待
         if now - report_info.report_time < FOUR_HOUR.into()
             && report_info.hashed_committee.len() != report_info.confirmed_committee.len()
         {
-            return false;
+            return;
         }
 
         let is_report_succeed: bool;
 
-        match Self::summary_report(report_id) {
+        match Self::summary_fault_report(report_id) {
             ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
                 // Slash against_committee and release support committee stake
                 for a_committee in against_committee.clone() {
@@ -1298,28 +1293,14 @@ impl<T: Config> Pallet<T> {
 
                 ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
                 ItemList::add_item(&mut live_report.finished_report, report_id);
-                live_report_is_changed = true;
 
-                // 根据错误类型，调用不同的处理函数
-                let fault_type = match report_info.machine_fault_type {
-                    MachineFaultType::RentedInaccessible(..) => {
-                        online_profile::OPSlashReason::RentedInaccessible(report_info.report_time)
-                    },
-                    MachineFaultType::RentedHardwareMalfunction(..) => {
-                        online_profile::OPSlashReason::RentedHardwareMalfunction(report_info.report_time)
-                    },
-                    MachineFaultType::RentedHardwareCounterfeit(..) => {
-                        online_profile::OPSlashReason::RentedHardwareCounterfeit(report_info.report_time)
-                    },
-                    MachineFaultType::OnlineRentFailed(..) => {
-                        online_profile::OPSlashReason::OnlineRentFailed(report_info.report_time)
-                    },
-                };
-                T::MTOps::mt_machine_offline(
+                // 根据错误类型，下线机器并记录
+                Self::offline_machine(
                     report_info.reporter.clone(),
                     support_committees,
                     report_info.machine_id.clone(),
-                    fault_type,
+                    report_info.machine_fault_type.clone(),
+                    report_info.report_time,
                 );
 
                 report_result.report_result = ReportResultType::ReportSucceed;
@@ -1367,7 +1348,6 @@ impl<T: Config> Pallet<T> {
                 ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
                 ItemList::rm_item(&mut live_report.verifying_report, &report_id);
                 ItemList::add_item(&mut live_report.bookable_report, report_id);
-                live_report_is_changed = true;
 
                 report_result.report_result = ReportResultType::NoConsensus;
                 is_report_succeed = false;
@@ -1410,11 +1390,10 @@ impl<T: Config> Pallet<T> {
         }
         ReportResult::<T>::insert(report_id, report_result);
         ReportInfo::<T>::insert(report_id, report_info);
-        live_report_is_changed
     }
 
     // Summary committee's handle result depend on support & against votes
-    fn summary_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {
+    fn summary_fault_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {
         let report_info = Self::report_info(&report_id);
 
         if report_info.confirmed_committee.len() == 0 {
@@ -1429,5 +1408,27 @@ impl<T: Config> Pallet<T> {
             );
         }
         ReportConfirmStatus::Refuse(report_info.support_committee, report_info.against_committee)
+    }
+
+    // 根据错误类型，匹配到新的错误，并进行下线机器的操作
+    fn offline_machine(
+        reporter: T::AccountId,
+        support_committee: Vec<T::AccountId>,
+        machine_id: MachineId,
+        raw_fault_type: MachineFaultType,
+        report_time: T::BlockNumber,
+    ) {
+        let fault_type = match raw_fault_type {
+            MachineFaultType::RentedInaccessible(..) => online_profile::OPSlashReason::RentedInaccessible(report_time),
+            MachineFaultType::RentedHardwareMalfunction(..) => {
+                online_profile::OPSlashReason::RentedHardwareMalfunction(report_time)
+            },
+            MachineFaultType::RentedHardwareCounterfeit(..) => {
+                online_profile::OPSlashReason::RentedHardwareCounterfeit(report_time)
+            },
+            MachineFaultType::OnlineRentFailed(..) => online_profile::OPSlashReason::OnlineRentFailed(report_time),
+        };
+
+        T::MTOps::mt_machine_offline(reporter, support_committee, machine_id, fault_type);
     }
 }
