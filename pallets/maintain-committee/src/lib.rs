@@ -1350,7 +1350,6 @@ impl<T: Config> Pallet<T> {
             && is_report_succeed
         {
             // committee is consistent
-            println!("########## this is done...");
             report_result.slash_result = MCSlashResult::Executed;
             let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
             for a_committee in report_result.reward_committee.clone() {
