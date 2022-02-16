@@ -176,7 +176,21 @@ pub mod pallet {
             report_reason: MachineFaultType,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            Self::do_report_machine_fault(reporter, report_reason, None)
+
+            let mut live_report = Self::live_report();
+            let mut reporter_report = Self::reporter_report(&reporter);
+
+            Self::do_report_machine_fault(
+                reporter.clone(),
+                report_reason,
+                None,
+                &mut live_report,
+                &mut reporter_report,
+            )?;
+
+            LiveReport::<T>::put(live_report);
+            ReporterReport::<T>::insert(&reporter, reporter_report);
+            Ok(().into())
         }
 
         #[pallet::weight(10000)]
@@ -719,6 +733,8 @@ impl<T: Config> Pallet<T> {
         reporter: T::AccountId,
         machine_fault_type: MachineFaultType,
         report_time: Option<T::BlockNumber>,
+        live_report: &mut MTLiveReportList,
+        reporter_report: &mut ReporterReportList,
     ) -> DispatchResultWithPostInfo {
         // 获取处理报告需要的信息
         let now = <frame_system::Module<T>>::block_number();
@@ -752,16 +768,11 @@ impl<T: Config> Pallet<T> {
         Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
         report_info.reporter_stake = stake_params.stake_per_report;
 
-        let mut live_report = Self::live_report();
-        let mut reporter_report = Self::reporter_report(&reporter);
-
         // 记录到 live_report & reporter_report
         ItemList::add_item(&mut live_report.bookable_report, report_id);
         ItemList::add_item(&mut reporter_report.processing_report, report_id);
 
         ReportInfo::<T>::insert(&report_id, report_info);
-        LiveReport::<T>::put(live_report);
-        ReporterReport::<T>::insert(&reporter, reporter_report);
 
         Self::deposit_event(Event::ReportMachineFault(reporter, machine_fault_type));
         Ok(().into())
@@ -878,6 +889,7 @@ impl<T: Config> Pallet<T> {
         let mut live_report = Self::live_report();
         let mut verifying_report = live_report.verifying_report.clone();
         verifying_report.extend(live_report.bookable_report.clone());
+        verifying_report.extend(live_report.waiting_raw_report.clone());
 
         for report_id in verifying_report {
             let _ = Self::summary_a_inaccessible(report_id, &mut live_report);
@@ -907,6 +919,9 @@ impl<T: Config> Pallet<T> {
                 // 当大于等于5分钟或者hashed的委员会已经达到3人，则更改报告状态，允许提交原始值
                 if now - report_info.first_book_time >= FIVE_MINUTE.into() || report_info.hashed_committee.len() == 3 {
                     report_info.report_status = ReportStatus::SubmittingRaw;
+                    ItemList::rm_item(&mut live_report.bookable_report, &report_id);
+                    ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
+
                     ReportInfo::<T>::insert(report_id, report_info);
                 }
                 return Ok(());
@@ -934,6 +949,12 @@ impl<T: Config> Pallet<T> {
             ..Default::default()
         };
 
+        ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
+
+        // 修改报告人的报告记录
+        let mut reporter_report = Self::reporter_report(&report_info.reporter);
+        ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
+
         // 委员会成功完成该订单，则记录；否则从记录中删除，并添加惩罚
         for a_committee in report_info.booked_committee.clone() {
             let mut committee_order = Self::committee_order(&a_committee);
@@ -958,9 +979,11 @@ impl<T: Config> Pallet<T> {
         if report_info.confirmed_committee.len() == 0 {
             // 调用举报函数来实现重新举报
             Self::do_report_machine_fault(
-                report_info.reporter,
+                report_info.reporter.clone(),
                 report_info.machine_fault_type,
                 Some(report_info.report_time),
+                live_report,
+                &mut reporter_report,
             )
             .map_err(|_| ())?;
 
@@ -971,13 +994,11 @@ impl<T: Config> Pallet<T> {
                 ReportResult::<T>::insert(report_id, report_result);
                 Self::update_unhandled_report(report_id, true);
             }
-            // continue -> Ok
+
+            ItemList::add_item(&mut reporter_report.failed_report, report_id);
+            ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
             return Ok(());
         }
-
-        // 修改报告人的报告记录
-        let mut reporter_report = Self::reporter_report(&report_info.reporter);
-        ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
 
         // 处理支持报告人的情况
         if report_info.support_committee.len() >= report_info.against_committee.len() {
@@ -1197,6 +1218,11 @@ impl<T: Config> Pallet<T> {
         let mut report_info = Self::report_info(&report_id);
         let mut report_result = Self::report_result(report_id);
 
+        // 禁止对快速报告进行检查，快速报告会处理这种情况
+        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+            return false;
+        }
+
         // 未全部提交了原始信息且未达到了四个小时
         if now - report_info.report_time < FOUR_HOUR.into()
             && report_info.hashed_committee.len() != report_info.confirmed_committee.len()
@@ -1324,6 +1350,7 @@ impl<T: Config> Pallet<T> {
             && is_report_succeed
         {
             // committee is consistent
+            println!("########## this is done...");
             report_result.slash_result = MCSlashResult::Executed;
             let committee_order_stake = T::ManageCommittee::stake_per_order().unwrap_or_default();
             for a_committee in report_result.reward_committee.clone() {

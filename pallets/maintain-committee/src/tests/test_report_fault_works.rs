@@ -7,8 +7,8 @@ use std::convert::TryInto;
 // 报告机器被租用，但是无法访问
 // case1: 只有1委员会预订，同意报告
 // case2: 只有1委员会预订，拒绝报告
-// case3: 只有1人预订，提交了Hash,未提交最终结果
-// case3: 只有1人预订，未提交Hash,未提交最终结果
+// case3: 只有1人预订，提交了Hash, 未提交最终结果
+// case3: 只有1人预订，未提交Hash, 未提交最终结果
 
 // 报告机器被租用，但是无法访问: 只有一个人预订，10分钟后检查结果，两天后结果执行
 #[test]
@@ -453,7 +453,7 @@ fn report_machine_inaccessible_works3() {
             offline_committee_hash.clone()
         ));
 
-        run_to_block(32);
+        run_to_block(34);
 
         // 检查summary的结果
 
@@ -492,8 +492,8 @@ fn report_machine_inaccessible_works3() {
                     reporter_stake: 1000 * ONE_DBC,
                     unruly_committee: vec![committee],
                     machine_id: machine_id.clone(),
-                    slash_time: 32,
-                    slash_exec_time: 32 + 2880 * 2,
+                    slash_time: 31,
+                    slash_exec_time: 31 + 2880 * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     // inconsistent_committee, reward_committee, machine_stash,
@@ -514,12 +514,15 @@ fn report_machine_inaccessible_works3() {
                     ..Default::default()
                 }
             );
-            assert_eq!(&MaintainCommittee::live_report(), &crate::MTLiveReportList { ..Default::default() });
+            assert_eq!(
+                &MaintainCommittee::live_report(),
+                &crate::MTLiveReportList { bookable_report: vec![1], ..Default::default() }
+            );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(&MaintainCommittee::unhandled_report_result(), &unhandled_report_result);
             assert_eq!(
                 &MaintainCommittee::reporter_report(&reporter),
-                &crate::ReporterReportList { failed_report: vec![0], ..Default::default() }
+                &crate::ReporterReportList { processing_report: vec![1], failed_report: vec![0], ..Default::default() }
             );
         }
 
