@@ -964,6 +964,7 @@ impl<T: Config> Pallet<T> {
                 ItemList::rm_item(&mut committee_order.confirmed_report, &report_id);
                 ItemList::add_item(&mut committee_order.finished_report, report_id);
             } else {
+                ItemList::rm_item(&mut committee_order.booked_report, &report_id);
                 ItemList::rm_item(&mut committee_order.hashed_report, &report_id);
 
                 // 添加未完成的委员会的记录，用于惩罚
