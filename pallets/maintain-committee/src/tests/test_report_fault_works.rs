@@ -184,7 +184,7 @@ fn report_machine_fault_works() {
             &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
         );
 
-        assert!(match MaintainCommittee::summary_report(0) {
+        assert!(match MaintainCommittee::summary_fault_report(0) {
             crate::ReportConfirmStatus::Confirmed(..) => true,
             _ => false,
         });
