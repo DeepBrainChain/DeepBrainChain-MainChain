@@ -24,14 +24,14 @@ impl<T: Config> Pallet<T> {
         report_id
     }
 
-    pub fn update_unhandled_report(report_id: ReportId, is_add: bool) {
-        let mut unhandled_report_result = Self::unhandled_report_result();
+    pub fn update_unhandled_report(report_id: ReportId, is_add: bool, slash_exec_time: T::BlockNumber) {
+        let mut unhandled_report_result = Self::unhandled_report_result(slash_exec_time);
         if is_add {
             ItemList::add_item(&mut unhandled_report_result, report_id);
         } else {
             ItemList::rm_item(&mut unhandled_report_result, &report_id);
         }
-        UnhandledReportResult::<T>::put(unhandled_report_result);
+        UnhandledReportResult::<T>::insert(slash_exec_time, unhandled_report_result);
     }
 
     pub fn pay_stake_when_report(

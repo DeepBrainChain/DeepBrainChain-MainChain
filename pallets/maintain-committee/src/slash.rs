@@ -1,4 +1,5 @@
 use crate::{
+    pallet,
     types::{MCSlashResult, ReportId, ReportResultType},
     Config, Pallet, PendingSlashReview, ReportResult, UnhandledReportResult,
 };
@@ -10,13 +11,9 @@ use sp_std::{vec, vec::Vec};
 impl<T: Config> Pallet<T> {
     pub fn check_and_exec_slash() -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
-        let mut pending_unhandled_id = Self::unhandled_report_result();
 
-        for slashed_report_id in pending_unhandled_id.clone() {
+        for slashed_report_id in Self::unhandled_report_result(now) {
             let mut report_result_info = Self::report_result(&slashed_report_id);
-            if now < report_result_info.slash_exec_time {
-                continue;
-            }
 
             // TODO: refa
             match report_result_info.report_result {
@@ -35,7 +32,7 @@ impl<T: Config> Pallet<T> {
 
                     let mut reward_who = report_result_info.reward_committee.clone();
                     ItemList::add_item(&mut reward_who, report_result_info.reporter.clone());
-                    let _ = T::SlashAndReward::slash_and_reward(
+                    let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
                         slash_who.clone(),
                         report_result_info.committee_stake,
                         reward_who,
@@ -62,7 +59,7 @@ impl<T: Config> Pallet<T> {
                     );
 
                     // only slash unruly_committee, no reward
-                    let _ = T::SlashAndReward::slash_and_reward(
+                    let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
                         report_result_info.unruly_committee.clone(),
                         report_result_info.committee_stake,
                         vec![],
@@ -76,7 +73,7 @@ impl<T: Config> Pallet<T> {
                     );
 
                     // slash reporter, slash committee
-                    let _ = T::SlashAndReward::slash_and_reward(
+                    let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
                         vec![report_result_info.reporter.clone()],
                         report_result_info.reporter_stake,
                         report_result_info.reward_committee.clone(),
@@ -87,7 +84,7 @@ impl<T: Config> Pallet<T> {
                         ItemList::add_item(&mut slash_who, a_inconsistent);
                     }
 
-                    let _ = T::SlashAndReward::slash_and_reward(
+                    let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
                         slash_who.clone(),
                         report_result_info.committee_stake,
                         report_result_info.reward_committee.clone(),
@@ -112,12 +109,12 @@ impl<T: Config> Pallet<T> {
                     );
 
                     // slash reporter, slash committee
-                    let _ = T::SlashAndReward::slash_and_reward(
+                    let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
                         vec![report_result_info.reporter.clone()],
                         report_result_info.reporter_stake,
                         vec![],
                     );
-                    let _ = T::SlashAndReward::slash_and_reward(
+                    let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
                         report_result_info.unruly_committee.clone(),
                         report_result_info.committee_stake,
                         vec![],
@@ -131,11 +128,10 @@ impl<T: Config> Pallet<T> {
                 },
             }
 
-            ItemList::rm_item(&mut pending_unhandled_id, &slashed_report_id);
             report_result_info.slash_result = MCSlashResult::Executed;
             ReportResult::<T>::insert(slashed_report_id, report_result_info);
         }
-        UnhandledReportResult::<T>::put(pending_unhandled_id);
+        UnhandledReportResult::<T>::remove(now);
         Ok(())
     }
 
@@ -173,7 +169,11 @@ impl<T: Config> Pallet<T> {
                 let _ = T::MTOps::mt_rm_stash_total_stake(review_info.applicant.clone(), review_info.staked_amount);
             }
 
-            let _ = T::SlashAndReward::slash_and_reward(vec![review_info.applicant], review_info.staked_amount, vec![]);
+            let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+                vec![review_info.applicant],
+                review_info.staked_amount,
+                vec![],
+            );
 
             PendingSlashReview::<T>::remove(a_pending_review);
         }

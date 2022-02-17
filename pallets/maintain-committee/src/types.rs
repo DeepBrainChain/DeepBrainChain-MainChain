@@ -15,7 +15,7 @@ pub type ReportId = u64;
 pub type BoxPubkey = [u8; 32];
 pub type ReportHash = [u8; 16];
 
-/// 机器故障的报告
+/// 机器故障的报告列表
 /// 记录该模块中所有活跃的报告, 根据ReportStatus来区分
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MTLiveReportList {

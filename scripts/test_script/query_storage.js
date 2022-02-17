@@ -35,6 +35,9 @@ async function main() {
   funcMap["timestamp"] = {};
   funcMap["timestamp"]["now"] = api.query.timestamp.now;
 
+  funcMap["session"] = {};
+  funcMap["session"]["nextKeys"] = api.query.session.nextKeys;
+
   funcMap["dbcPriceOcw"] = {};
   funcMap["dbcPriceOcw"]["avgPrice"] = api.query.dbcPriceOcw.avgPrice;
   funcMap["dbcPriceOcw"]["priceURL"] = api.query.dbcPriceOcw.priceURL;
@@ -99,6 +102,7 @@ async function main() {
 
 async function do_query(callFunc, heightHash, ...args) {
   const a = await callFunc(heightHash, ...args);
+  // console.log(a.toHex());
   console.log(a.toString());
   // console.log(`${a.machine_info_detail.staker_customize_info}`);
   process.exit(0);
