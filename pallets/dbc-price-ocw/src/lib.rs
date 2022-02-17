@@ -39,6 +39,15 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
+    #[pallet::type_value]
+    pub(super) fn PriceUpdateFrequencyDefault<T: Config>() -> u32 {
+        10
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn price_update_frequency)]
+    pub(super) type PriceUpdateFrequency<T: Config> = StorageValue<_, u32, ValueQuery, PriceUpdateFrequencyDefault<T>>;
+
     #[pallet::storage]
     #[pallet::getter(fn prices)]
     pub type Prices<T> = StorageValue<_, VecDeque<u64>, ValueQuery>;
@@ -73,8 +82,16 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn offchain_worker(_block_number: T::BlockNumber) {
-            if Self::price_url().is_some() {
+        fn offchain_worker(block_number: T::BlockNumber) {
+            if Self::price_url().is_none() {
+                return;
+            };
+            let price_update_frequency = Self::price_update_frequency();
+            if price_update_frequency == 0 {
+                return;
+            }
+
+            if block_number % price_update_frequency.into() == 0u32.into() {
                 let _ = Self::fetch_price_and_send_unsigned_tx();
             }
         }
@@ -104,6 +121,16 @@ pub mod pallet {
             let mut price_url = Self::price_url().unwrap_or_default();
             price_url.push(new_url);
             PriceURL::<T>::put(price_url);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_price_update_frequency(origin: OriginFor<T>, frequency: u32) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            if frequency == 0 {
+                return Ok(().into());
+            }
+            PriceUpdateFrequency::<T>::put(frequency);
             Ok(().into())
         }
 
