@@ -30,7 +30,7 @@ jobs:
       #   run: cargo check
 
       # - name: Run build release
-      #   run: cargo build --release
+      #   run: cargo build --release --features runtime-benchmarks
 
       - name: Run machine online tests
         run: cargo test -p online-committee

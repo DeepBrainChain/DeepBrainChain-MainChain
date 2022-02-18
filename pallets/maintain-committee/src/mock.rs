@@ -217,6 +217,13 @@ impl maintain_committee::Config for TestRuntime {
     type SlashAndReward = GenericFunc;
 }
 
+impl rent_machine::Config for TestRuntime {
+    type Currency = Balances;
+    type Event = Event;
+    type RTOps = OnlineProfile;
+    type DbcPrice = DBCPriceOCW;
+}
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum TestRuntime where
@@ -236,6 +243,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
     }
 );
 
@@ -337,6 +345,10 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             RawOrigin::Root.into(),
             StandardGpuPointPrice { gpu_point: 1000, gpu_price: 150_000_000 },
         );
+
+        let pot_two: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        // 设置机器租金支付地址
+        assert_ok!(RentMachine::set_rent_fee_pot(RawOrigin::Root.into(), pot_two));
 
         // 初始化price_ocw (0.012$)
         assert_eq!(DBCPriceOCW::avg_price(), None);
@@ -463,6 +475,12 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info.clone()));
 
         run_to_block(10);
+
+        // 报告人租用机器
+        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        // rent machine for 1 days
+        assert_ok!(RentMachine::rent_machine(Origin::signed(reporter), machine_id.clone(), 1));
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(reporter), machine_id.clone()));
     });
 
     ext

@@ -1018,6 +1018,7 @@ impl<T: Config> Pallet<T> {
         Self::update_snap_by_online_status(machine_id.clone(), false);
 
         ItemList::rm_item(&mut live_machine.online_machine, &machine_id);
+        ItemList::rm_item(&mut live_machine.rented_machine, &machine_id);
         ItemList::add_item(&mut live_machine.offline_machine, machine_id.clone());
 
         // After re-online, machine status is same as former

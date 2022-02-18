@@ -32,7 +32,9 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config {
+    pub trait Config:
+        frame_system::Config + online_profile::Config + generic_func::Config + rent_machine::Config
+    {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
@@ -706,6 +708,7 @@ pub mod pallet {
         AlreadyApplied,
         ExpiredApply,
         DuplicateHash,
+        NotMachineRenter,
     }
 }
 
@@ -772,6 +775,10 @@ impl<T: Config> Pallet<T> {
 
         // 该类型错误可以由程序快速完成检测，因此可以提交并需记录machine_id
         if let MachineFaultType::RentedInaccessible(machine_id) = machine_fault_type.clone() {
+            // TODO: 检查是否是机器租用者
+            let rent_order = <rent_machine::Module<T>>::rent_order(&machine_id);
+            ensure!(rent_order.renter == reporter, Error::<T>::NotMachineRenter);
+
             if report_time.is_none() {
                 <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
                     .map_err(|_| Error::<T>::PayTxFeeFailed)?;

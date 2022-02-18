@@ -61,6 +61,11 @@ default-features = false
 package = 'committee'
 path = '../committee'
 
+[dependencies.rent-machine]
+default-features = false
+package = 'rent-machine'
+path = '../rent-machine'
+
 [dev-dependencies.online-committee]
 package = 'online-committee'
 path = '../online-committee'

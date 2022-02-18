@@ -3517,6 +3517,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec",
+ "rent-machine",
  "serde",
  "sp-core",
  "sp-io",
