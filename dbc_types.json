@@ -100,6 +100,19 @@
       "Rented": null
     }
   },
+  "StashSlashReason": {
+    "_enum": {
+      "RentedReportOffline": "BlockNumber",
+      "OnlineReportOffline": "BlockNumber",
+      "RentedInaccessible": "BlockNumber",
+      "RentedHardwareMalfunction": "BlockNumber",
+      "RentedHardwareCounterfeit": "BlockNumber",
+      "OnlineRentFailed": "BlockNumber",
+      "CommitteeRefusedOnline": null,
+      "CommitteeRefusedMutHardware": null,
+      "ReonlineShouldReward": null
+    }
+  },
   "MachineInfoDetail": {
     "committee_upload_info": "CommitteeUploadInfo",
     "staker_customize_info": "StakerCustomizeInfo"
