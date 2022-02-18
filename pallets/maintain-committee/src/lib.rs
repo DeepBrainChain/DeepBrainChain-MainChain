@@ -775,15 +775,16 @@ impl<T: Config> Pallet<T> {
 
         // 该类型错误可以由程序快速完成检测，因此可以提交并需记录machine_id
         if let MachineFaultType::RentedInaccessible(machine_id) = machine_fault_type.clone() {
-            // TODO: 检查是否是机器租用者
+            // 检查是否是机器租用者
             let rent_order = <rent_machine::Module<T>>::rent_order(&machine_id);
             ensure!(rent_order.renter == reporter, Error::<T>::NotMachineRenter);
 
             if report_time.is_none() {
                 <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
                     .map_err(|_| Error::<T>::PayTxFeeFailed)?;
-                report_info.machine_id = machine_id;
             }
+
+            report_info.machine_id = machine_id;
         }
 
         // 支付处理报告的费用

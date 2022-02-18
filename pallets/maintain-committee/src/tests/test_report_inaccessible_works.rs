@@ -558,6 +558,36 @@ fn report_machine_inaccessible_works3() {
                 &crate::ReporterReportList { processing_report: vec![1], failed_report: vec![0], ..Default::default() }
             );
         }
+
+        // 检查自动报告的新订单
+        // 判断调用举报之后的状态
+        {
+            assert_eq!(
+                &MaintainCommittee::live_report(),
+                &crate::MTLiveReportList { bookable_report: vec![1], ..Default::default() }
+            );
+            assert_eq!(
+                &MaintainCommittee::report_info(1),
+                &crate::MTReportInfoDetail {
+                    reporter,
+                    report_time: 11,
+                    reporter_stake: 1000 * ONE_DBC,
+                    machine_id: machine_id.clone(),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    report_status: crate::ReportStatus::Reported,
+
+                    ..Default::default()
+                }
+            );
+            assert_eq!(
+                &MaintainCommittee::reporter_report(&reporter),
+                &crate::ReporterReportList { processing_report: vec![1], failed_report: vec![0], ..Default::default() }
+            );
+
+            // TODO: 检查free_balance
+            // reporter=committee，因此需要质押40000，减去租用机器的租金
+            // assert_eq!(Balances::free_balance(&reporter), INIT_BALANCE - 40000 * ONE_DBC - 10 * ONE_DBC);
+        }
     })
 }
 
