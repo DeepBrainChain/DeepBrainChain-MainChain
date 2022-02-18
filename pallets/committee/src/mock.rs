@@ -66,6 +66,7 @@ impl pallet_balances::Config for TestRuntime {
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
+    type WeightInfo = ();
 }
 
 // Configure a mock runtime to test the pallet.
