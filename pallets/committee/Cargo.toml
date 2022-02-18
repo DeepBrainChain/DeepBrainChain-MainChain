@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive"
+  "derive",
 ] }
 online-profile-machine = { package = "online-profile-machine", path = "../../traits/online-profile-machine", default-features = false }
 serde = { version = "1.0.101", optional = true }
@@ -57,6 +57,14 @@ default-features = false
 package = 'generic-func'
 path = '../generic-func'
 
+# Optional imports for benchmarking
+[dependencies.frame-benchmarking]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+optional = true
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
 [dev-dependencies.sp-core]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
@@ -75,8 +83,14 @@ version = '3.0.0'
 [dev-dependencies.hex]
 version = '0.4'
 
+[dev-dependencies.frame-benchmarking]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
 [features]
 default = ["std"]
+runtime-benchmarks = ["frame-benchmarking"]
 std = [
   "codec/std",
   "serde",

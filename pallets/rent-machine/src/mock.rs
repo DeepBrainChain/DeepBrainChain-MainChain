@@ -150,6 +150,7 @@ parameter_types! {
 impl committee::Config for TestRuntime {
     type Currency = Balances;
     type Event = Event;
+    type WeightInfo = ();
 }
 
 impl online_profile::Config for TestRuntime {

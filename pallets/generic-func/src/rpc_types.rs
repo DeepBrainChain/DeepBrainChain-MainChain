@@ -1,3 +1,4 @@
+#[cfg(feature = "std")]
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{de, ser, Deserialize, Serialize};

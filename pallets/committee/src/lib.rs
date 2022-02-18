@@ -3,7 +3,10 @@
 mod rpc;
 mod traits;
 mod types;
+pub mod weights;
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -26,6 +29,7 @@ type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_sys
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
+pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -35,6 +39,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
@@ -74,7 +79,8 @@ pub mod pallet {
 
         // 该操作由社区决定
         // 添加到委员会，直接添加到fulfill列表中。每次finalize将会读取委员会币数量，币足则放到committee中
-        #[pallet::weight(0)]
+        // TODO: add max_committee config for better weight
+        #[pallet::weight(<T as Config>::WeightInfo::add_committee(100u32))]
         pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut committee = Self::committee();

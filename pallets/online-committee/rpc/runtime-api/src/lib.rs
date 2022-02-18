@@ -6,7 +6,6 @@ use codec::Codec;
 use generic_func::MachineId;
 use online_committee::{rpc::RpcOCCommitteeOps, OCCommitteeMachineList, OCMachineCommitteeList};
 use sp_runtime::traits::MaybeDisplay;
-use sp_std::prelude::Vec;
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // runtime amalgamator file (the `runtime/src/lib.rs`)

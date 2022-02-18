@@ -3,7 +3,6 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use committee::CommitteeList;
-use sp_std::prelude::Vec;
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // runtime amalgamator file (the `runtime/src/lib.rs`)
