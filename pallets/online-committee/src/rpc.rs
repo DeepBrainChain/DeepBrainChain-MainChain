@@ -6,7 +6,7 @@ use codec::{Decode, Encode};
 use generic_func::MachineId;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_std::{str, vec::Vec};
+use sp_std::vec::Vec;
 
 // for RPC
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
