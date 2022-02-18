@@ -281,6 +281,23 @@ fn report_machine_inaccessible_works1() {
         // TODO: 两天后，根据结果进行惩罚
         // run_to_block(32 + 2880 * 2);
         // TODO: 机器在举报成功后会立即被下线
+        // 检查online_profile模块的状态
+        {
+            assert_eq!(
+                OnlineProfile::live_machines(),
+                online_profile::LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
+            );
+            let machine_info = OnlineProfile::machines_info(machine_id);
+            assert_eq!(
+                machine_info.machine_status,
+                online_profile::MachineStatus::ReporterReportOffline(
+                    online_profile::OPSlashReason::RentedInaccessible(11),
+                    Box::new(online_profile::MachineStatus::Rented),
+                    reporter,
+                    vec![committee],
+                )
+            );
+        }
     })
 }
 
