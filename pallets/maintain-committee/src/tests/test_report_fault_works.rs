@@ -40,24 +40,26 @@ fn report_machine_fault_works() {
             machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
             ..Default::default()
         };
-        assert_eq!(&MaintainCommittee::report_info(0), &report_status);
-        assert_eq!(
-            &MaintainCommittee::reporter_stake(&reporter),
-            &ReporterStakeInfo {
-                staked_amount: 20000 * ONE_DBC,
-                used_stake: 1000 * ONE_DBC,
-                can_claim_reward: 0,
-                claimed_reward: 0,
-            }
-        );
-        assert_eq!(
-            &MaintainCommittee::live_report(),
-            &crate::MTLiveReportList { bookable_report: vec![0], ..Default::default() }
-        );
-        assert_eq!(
-            &MaintainCommittee::reporter_report(&reporter),
-            &crate::ReporterReportList { processing_report: vec![0], ..Default::default() }
-        );
+        {
+            assert_eq!(&MaintainCommittee::report_info(0), &report_status);
+            assert_eq!(
+                &MaintainCommittee::reporter_stake(&reporter),
+                &ReporterStakeInfo {
+                    staked_amount: 20000 * ONE_DBC,
+                    used_stake: 1000 * ONE_DBC,
+                    can_claim_reward: 0,
+                    claimed_reward: 0,
+                }
+            );
+            assert_eq!(
+                &MaintainCommittee::live_report(),
+                &crate::MTLiveReportList { bookable_report: vec![0], ..Default::default() }
+            );
+            assert_eq!(
+                &MaintainCommittee::reporter_report(&reporter),
+                &crate::ReporterReportList { processing_report: vec![0], ..Default::default() }
+            );
+        }
 
         // 委员会订阅机器故障报告
         assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
