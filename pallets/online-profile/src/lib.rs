@@ -919,16 +919,7 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
-            ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIdNotExist);
-
-            let slash_info = Self::pending_slash(slash_id);
-
-            Self::change_user_total_stake(slash_info.slash_who.clone(), slash_info.slash_amount, false)
-                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
-
-            PendingSlash::<T>::remove(slash_id);
-            Self::deposit_event(Event::SlashCanceled(slash_id, slash_info.slash_who, slash_info.slash_amount));
-            Ok(().into())
+            Self::do_cancel_slash(slash_id)
         }
     }
 
@@ -1001,6 +992,25 @@ impl<T: Config> Pallet<T> {
         let last_release_past: u64 = TryInto::<u64>::try_into(current_height).unwrap_or_default() % 2880 * 30_000; // 毫秒
 
         InitReleaseTimestamp::<T>::put((current_timestamp - last_release_past, Self::current_era()));
+    }
+
+    pub fn do_cancel_slash(slash_id: u64) -> DispatchResultWithPostInfo {
+        ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIdNotExist);
+
+        let slash_info = Self::pending_slash(slash_id);
+        let pending_slash_review = Self::pending_slash_review(slash_id);
+
+        Self::change_user_total_stake(slash_info.slash_who.clone(), slash_info.slash_amount, false)
+            .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+
+        Self::change_user_total_stake(slash_info.slash_who.clone(), pending_slash_review.staked_amount, false)
+            .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+
+        PendingSlash::<T>::remove(slash_id);
+        PendingSlashReview::<T>::remove(slash_id);
+
+        Self::deposit_event(Event::SlashCanceled(slash_id, slash_info.slash_who, slash_info.slash_amount));
+        Ok(().into())
     }
 
     /// 下架机器
