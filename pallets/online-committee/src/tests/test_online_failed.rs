@@ -130,7 +130,7 @@ fn test_machine_online_refused_claim_reserved() {
 fn test_online_refused_apply_review_ignored_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
@@ -189,7 +189,8 @@ fn test_online_refused_apply_review_ignored_works() {
 
         run_to_block(11);
 
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(stash), 0, vec![]));
+        // FIXME: 这里改为stash
+        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(controller), 0, vec![]));
         assert_eq!(Balances::reserved_balance(stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
         assert_eq!(OnlineProfile::stash_stake(stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
         assert_eq!(
@@ -231,7 +232,7 @@ fn test_online_refused_apply_review_ignored_works() {
 fn test_online_refused_apply_review_succeed_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
@@ -291,7 +292,7 @@ fn test_online_refused_apply_review_succeed_works() {
         run_to_block(11);
 
         // stash申诉
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(stash), 0, vec![]));
+        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(controller), 0, vec![]));
 
         // 申诉时的状态
         assert_eq!(Balances::reserved_balance(stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
@@ -332,8 +333,8 @@ fn test_online_refused_apply_review_succeed_works() {
 fn test_online_refused_1_2_apply_review_failed_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
         let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
@@ -393,7 +394,7 @@ fn test_online_refused_1_2_apply_review_failed_works() {
         run_to_block(11);
 
         // stash申诉
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(stash), 0, vec![]));
+        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(controller), 0, vec![]));
 
         // TODO: add this
     })
@@ -404,8 +405,8 @@ fn test_online_refused_1_2_apply_review_failed_works() {
 fn test_online_refused_1_2_apply_review_succeed_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
         let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
@@ -464,7 +465,7 @@ fn test_online_refused_1_2_apply_review_succeed_works() {
         run_to_block(11);
 
         // stash申诉
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(stash), 0, vec![]));
+        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(controller), 0, vec![]));
 
         // TODO: add this
     })
