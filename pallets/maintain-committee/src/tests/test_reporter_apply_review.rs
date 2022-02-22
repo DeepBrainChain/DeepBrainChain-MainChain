@@ -160,6 +160,6 @@ fn apply_slash_review_case1_1() {
             INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC - 1000 * ONE_DBC - 16000 * ONE_DBC
         );
         assert_eq!(OnlineProfile::stash_stake(&machine_stash), 400000 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&machine_stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&machine_stash), 400000 * ONE_DBC + 20000 * ONE_DBC);
     })
 }
