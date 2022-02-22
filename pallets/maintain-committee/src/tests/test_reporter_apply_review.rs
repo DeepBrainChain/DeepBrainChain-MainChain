@@ -132,3 +132,34 @@ fn apply_slash_review_case1() {
         }
     })
 }
+
+// satsh_apply_slash_after_inaccessible_report
+#[test]
+fn apply_slash_review_case1_1() {
+    after_report_machine_inaccessible().execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+
+        let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
+
+        // Stash apply reonline
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+
+        assert_ok!(OnlineProfile::apply_slash_review(Origin::signed(controller), 0, vec![]));
+
+        // TODO: 没有执行取消，则两天后被执行
+        run_to_block(25 + 2880 * 2);
+
+        // assert_eq!(<online_profile::PendingSlashReview<TestRuntime>>::contains_key(0), true);
+        assert_eq!(OnlineProfile::pending_slash_review(0), online_profile::OPPendingSlashReviewInfo::default());
+        // 机器400000, 委员会质押20000, 申述1000， 罚款16000
+        assert_eq!(
+            Balances::free_balance(machine_stash),
+            INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC - 1000 * ONE_DBC - 16000 * ONE_DBC
+        );
+        assert_eq!(OnlineProfile::stash_stake(&machine_stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&machine_stash), 400000 * ONE_DBC);
+    })
+}

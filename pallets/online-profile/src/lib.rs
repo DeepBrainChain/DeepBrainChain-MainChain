@@ -231,6 +231,12 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    // 记录块高 -> 到期的slash_review
+    #[pallet::storage]
+    #[pallet::getter(fn pending_slash_review_checking)]
+    pub(super) type PendingSlashReviewChecking<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<SlashId>, ValueQuery>;
+
     #[pallet::storage]
     #[pallet::getter(fn rented_finished)]
     pub(super) type RentedFinished<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
@@ -272,6 +278,8 @@ pub mod pallet {
 
             Self::check_offline_machine_duration();
             Self::do_pending_slash();
+
+            let _ = Self::do_pending_slash_checking();
             0
         }
     }
@@ -912,6 +920,10 @@ pub mod pallet {
                 },
             );
 
+            let mut pending_review_checking = Self::pending_slash_review_checking(slash_info.slash_exec_time);
+            ItemList::add_item(&mut pending_review_checking, slash_id);
+            PendingSlashReviewChecking::<T>::insert(slash_info.slash_exec_time, pending_review_checking);
+
             Self::deposit_event(Event::ApplySlashReview(slash_id));
             Ok(().into())
         }
@@ -1005,6 +1017,10 @@ impl<T: Config> Pallet<T> {
 
         Self::change_user_total_stake(slash_info.slash_who.clone(), pending_slash_review.staked_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+
+        let mut pending_review_checking = Self::pending_slash_review_checking(slash_info.slash_exec_time);
+        ItemList::rm_item(&mut pending_review_checking, &slash_id);
+        PendingSlashReviewChecking::<T>::insert(slash_info.slash_exec_time, pending_review_checking);
 
         PendingSlash::<T>::remove(slash_id);
         PendingSlashReview::<T>::remove(slash_id);

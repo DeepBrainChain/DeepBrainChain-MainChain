@@ -1,6 +1,7 @@
 use crate::{
     types::{MachineStatus, OPPendingSlashInfo, OPSlashReason, MAX_SLASH_THRESHOLD, TWO_DAY},
-    BalanceOf, Config, Event, NextSlashId, Pallet, PendingSlash, StashStake, SysInfo,
+    BalanceOf, Config, Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview, PendingSlashReviewChecking,
+    StashStake, SysInfo,
 };
 use frame_support::{traits::ReservableCurrency, IterableStorageMap};
 use generic_func::MachineId;
@@ -76,6 +77,20 @@ impl<T: Config> Pallet<T> {
 
             PendingSlash::<T>::remove(slash_id);
         }
+    }
+
+    pub fn do_pending_slash_checking() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+        let pending_slash_checking = Self::pending_slash_review_checking(now);
+        for slash_id in pending_slash_checking {
+            let slash_apply_review_info = Self::pending_slash_review(slash_id);
+            let stash = Self::controller_stash(slash_apply_review_info.applicant).ok_or(())?;
+
+            Self::slash_and_reward(stash, slash_apply_review_info.staked_amount, vec![])?;
+            PendingSlashReview::<T>::remove(slash_id);
+        }
+        PendingSlashReviewChecking::<T>::remove(now);
+        Ok(())
     }
 
     // TODO: 记录到区块相关的数据中，优化性能
