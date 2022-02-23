@@ -210,7 +210,7 @@ fn report_machine_fault_works_case1() {
             // - Writes:
             // committee_stake; committee_order; LiveReport;
             // report_info.report_status = super::ReportStatus::CommitteeConfirmed;
-            assert_eq!(Committee::committee_stake(committee1).used_stake, 0);
+            assert_eq!(Committee::committee_stake(committee1).used_stake, 1000 * ONE_DBC);
             assert_eq!(
                 MaintainCommittee::committee_order(committee1),
                 crate::MTCommitteeOrderList { finished_report: vec![0], ..Default::default() }
@@ -231,9 +231,19 @@ fn report_machine_fault_works_case1() {
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
+            // NOTE: 没有任何反对的成功举报，同样需要记录
+            assert_eq!(MaintainCommittee::unhandled_report_result(374 + 2880 * 2), vec![0]);
         }
 
-        run_to_block(2880 + 400);
+        run_to_block(2880 * 2 + 374);
+        {
+            assert_eq!(
+                MaintainCommittee::reporter_stake(&reporter),
+                crate::ReporterStakeInfo { staked_amount: 20000 * ONE_DBC, ..Default::default() }
+            );
+            assert_eq!(Committee::committee_stake(committee1).used_stake, 0);
+            assert_eq!(Committee::committee_stake(committee1).staked_amount, 20000 * ONE_DBC);
+        }
 
         // 报告人上线机器
         assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
@@ -521,7 +531,7 @@ fn report_machine_fault_works_case2() {
             // - Writes:
             // committee_stake; committee_order; LiveReport;
             // report_info.report_status = super::ReportStatus::CommitteeConfirmed;
-            assert_eq!(Committee::committee_stake(committee1).used_stake, 0);
+            assert_eq!(Committee::committee_stake(committee1).used_stake, 1000 * ONE_DBC);
             assert_eq!(
                 MaintainCommittee::committee_order(committee1),
                 crate::MTCommitteeOrderList { finished_report: vec![0], ..Default::default() }
@@ -554,7 +564,7 @@ fn report_machine_fault_works_case2() {
 #[test]
 fn report_machine_fault_works_case3() {
     new_test_with_init_params_ext().execute_with(|| {
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
         let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
         let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
@@ -825,16 +835,16 @@ fn report_machine_fault_works_case3() {
 
         // assert_eq!(&super::ReportConfirmStatus::Confirmed(_, _, _), MaintainCommittee::summary_report(0));
 
-        run_to_block(360 + 14);
+        // 下一个块即进行summary
+        // run_to_block(360 + 14);
+        run_to_block(12);
 
         {
             // summary_fault_case -> summary_waiting_raw -> Confirmed -> mt_machine_offline
             // - Writes:
             // committee_stake; committee_order; LiveReport;
             // report_info.report_status = super::ReportStatus::CommitteeConfirmed;
-            // FIXME
-            // assert_eq!(Committee::committee_stake(committee1).used_stake, 0);
-            // FIXME: 错误错误错误！
+            assert_eq!(Committee::committee_stake(committee1).used_stake, 1000 * ONE_DBC);
             assert_eq!(
                 MaintainCommittee::committee_order(committee1),
                 crate::MTCommitteeOrderList { finished_report: vec![0], ..Default::default() }
@@ -855,11 +865,23 @@ fn report_machine_fault_works_case3() {
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
+
+            assert_eq!(MaintainCommittee::unhandled_report_result(11 + 2880 * 2), vec![0]);
         }
 
-        run_to_block(2880 + 400);
+        // 将退还质押
+        run_to_block(2880 * 2 + 11);
+        {
+            assert_eq!(
+                MaintainCommittee::reporter_stake(&reporter),
+                crate::ReporterStakeInfo { staked_amount: 19000 * ONE_DBC, ..Default::default() }
+            );
+            assert_eq!(Committee::committee_stake(committee1).used_stake, 0);
+            assert_eq!(Committee::committee_stake(committee1).staked_amount, 20000 * ONE_DBC);
+        }
 
         // 报告人上线机器
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        // 报告被拒绝，机器状态当然是不变
+        // assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
     })
 }

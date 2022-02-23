@@ -123,6 +123,7 @@ impl Default for MachineFaultType {
 }
 
 /// Summary after all committee submit raw info
+#[derive(Clone)]
 pub enum ReportConfirmStatus<AccountId> {
     Confirmed(Vec<AccountId>, Vec<AccountId>, Vec<u8>),
     Refuse(Vec<AccountId>, Vec<AccountId>),

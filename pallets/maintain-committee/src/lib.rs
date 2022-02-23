@@ -403,6 +403,7 @@ pub mod pallet {
             ItemList::add_item(&mut report_info.confirmed_committee, committee.clone());
 
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
+            let mut committee_order = Self::committee_order(&committee);
 
             // 检查是否与报告人提交的Hash一致
             let mut reporter_info_raw = Vec::new();
@@ -440,7 +441,10 @@ pub mod pallet {
                 order_status: MTOrderStatus::Finished,
                 ..committee_ops
             };
+            ItemList::rm_item(&mut committee_order.hashed_report, &report_id);
+            ItemList::add_item(&mut committee_order.confirmed_report, report_id);
 
+            CommitteeOrder::<T>::insert(&committee, committee_order);
             CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
             ReportInfo::<T>::insert(&report_id, report_info);
 
@@ -1296,9 +1300,9 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        let is_report_succeed: bool;
+        let fault_report_result = Self::summary_fault_report(report_id);
 
-        match Self::summary_fault_report(report_id) {
+        match fault_report_result.clone() {
             ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
                 // Slash against_committee and release support committee stake
                 for a_committee in against_committee.clone() {
@@ -1332,7 +1336,6 @@ impl<T: Config> Pallet<T> {
                 );
 
                 report_result.report_result = ReportResultType::ReportSucceed;
-                is_report_succeed = true;
             },
             ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                 // Slash support committee and release against committee stake
@@ -1344,42 +1347,28 @@ impl<T: Config> Pallet<T> {
                 }
 
                 report_result.report_result = ReportResultType::ReportRefused;
-                is_report_succeed = false;
             },
-            // No consensus, will clean record & as new report to handle
-            // In this case, no raw info is submitted, so committee record should be None
-            ReportConfirmStatus::NoConsensus => {
-                report_info.report_status = ReportStatus::Reported;
-                // 仅在没有人提交原始值时才无共识，因此所有booked_committee都应该被惩罚
-                for a_committee in report_info.booked_committee.clone() {
-                    // clean from committee storage
-                    CommitteeOps::<T>::remove(&a_committee, report_id);
+            // NOTE: 这里不会出现NoConsensus的情况，
+            // 因为如果没有人提交，则前一步判断就会被惩罚，并重新派单
+            ReportConfirmStatus::NoConsensus => {},
+        }
 
-                    // 从committee_order中删除
+        // 根据报告结果，更改live_report的结果
+        match fault_report_result {
+            ReportConfirmStatus::Confirmed(mut sp_committees, ag_committee, ..)
+            | ReportConfirmStatus::Refuse(mut sp_committees, ag_committee, ..) => {
+                ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
+                ItemList::add_item(&mut live_report.finished_report, report_id);
+
+                sp_committees.extend(ag_committee);
+                for a_committee in sp_committees {
                     let mut committee_order = Self::committee_order(&a_committee);
-                    ItemList::rm_item(&mut committee_order.booked_report, &report_id);
-                    ItemList::rm_item(&mut committee_order.hashed_report, &report_id);
+                    ItemList::rm_item(&mut committee_order.confirmed_report, &report_id);
+                    ItemList::add_item(&mut committee_order.finished_report, report_id);
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
-
-                // All info of report should be cleaned, and so allow report be booked or canceled
-                report_info = MTReportInfoDetail {
-                    reporter: report_info.reporter,
-                    report_time: report_info.report_time,
-                    reporter_stake: report_info.reporter_stake,
-                    report_status: ReportStatus::Reported,
-                    machine_fault_type: report_info.machine_fault_type,
-                    ..Default::default()
-                };
-
-                // 放到live_report的bookable字段
-                ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
-                ItemList::rm_item(&mut live_report.verifying_report, &report_id);
-                ItemList::add_item(&mut live_report.bookable_report, report_id);
-
-                report_result.report_result = ReportResultType::NoConsensus;
-                is_report_succeed = false;
             },
+            ReportConfirmStatus::NoConsensus => {},
         }
 
         report_result = MTReportResultInfo {
@@ -1396,23 +1385,8 @@ impl<T: Config> Pallet<T> {
             ..report_result
         };
 
-        if report_result.unruly_committee.len() == 0
-            && report_result.inconsistent_committee.len() == 0
-            && is_report_succeed
-        {
-            // committee is consistent
-            report_result.slash_result = MCSlashResult::Executed;
-            let committee_order_stake = <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
-            for a_committee in report_result.reward_committee.clone() {
-                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
-                    a_committee.clone(),
-                    committee_order_stake,
-                    false,
-                );
-            }
-        } else {
-            Self::update_unhandled_report(report_id, true, now + TWO_DAY.into());
-        }
+        Self::update_unhandled_report(report_id, true, now + TWO_DAY.into());
+
         if report_info.report_status != ReportStatus::Reported {
             report_info.report_status = ReportStatus::CommitteeConfirmed;
         }
