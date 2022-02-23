@@ -10,8 +10,12 @@ use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
-    pub fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
-        blake2_128(raw_str)
+    pub fn get_hash(raw_str: Vec<Vec<u8>>) -> [u8; 16] {
+        let mut full_str = Vec::new();
+        for a_str in raw_str {
+            full_str.extend(a_str);
+        }
+        blake2_128(&full_str)
     }
 
     pub fn get_new_report_id() -> ReportId {

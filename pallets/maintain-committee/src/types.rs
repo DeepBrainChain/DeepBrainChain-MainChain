@@ -83,6 +83,47 @@ pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
     pub machine_fault_type: MachineFaultType,
 }
 
+impl<A, B, C> MTReportInfoDetail<A, B, C>
+where
+    A: Default + Clone + Ord,
+    B: Default,
+    C: Default,
+{
+    pub fn new(reporter: A, report_time: B, machine_fault_type: MachineFaultType, reporter_stake: C) -> Self {
+        MTReportInfoDetail { reporter, report_time, machine_fault_type, reporter_stake, ..Default::default() }
+    }
+    pub fn add_hash(&mut self, who: A, book_limit: u32, is_inaccess: bool) {
+        // 添加到report的已提交Hash的委员会列表
+        ItemList::add_item(&mut self.hashed_committee, who.clone());
+        self.verifying_committee = None;
+
+        // 达到book_limit
+        if self.hashed_committee.len() == book_limit as usize {
+            self.report_status = ReportStatus::SubmittingRaw;
+        } else if !is_inaccess {
+            // 否则，是普通错误时，继续允许预订
+            self.report_status = ReportStatus::WaitingBook;
+        }
+    }
+    pub fn add_raw(&mut self, who: A, is_support: bool, machine_id: Option<MachineId>, err_reason: Vec<u8>) {
+        // 添加到Report的已提交Raw的列表
+        ItemList::add_item(&mut self.confirmed_committee, who.clone());
+
+        // 将委员会插入到是否支持的委员会列表
+        if is_support {
+            ItemList::add_item(&mut self.support_committee, who);
+        } else {
+            ItemList::add_item(&mut self.against_committee, who);
+        }
+
+        // 一般错误报告
+        if machine_id.is_some() {
+            self.err_info = err_reason;
+            self.machine_id = machine_id.unwrap();
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum ReportStatus {
     /// 没有委员会预订过的报告, 允许报告人取消
@@ -121,6 +162,16 @@ impl Default for MachineFaultType {
         Self::RentedInaccessible(vec![])
     }
 }
+impl MachineFaultType {
+    pub fn get_hash(self) -> Option<ReportHash> {
+        match self {
+            MachineFaultType::RentedHardwareMalfunction(hash, ..)
+            | MachineFaultType::RentedHardwareCounterfeit(hash, ..)
+            | MachineFaultType::OnlineRentFailed(hash, ..) => Some(hash),
+            MachineFaultType::RentedInaccessible(..) => None,
+        }
+    }
+}
 
 /// Summary after all committee submit raw info
 #[derive(Clone)]
@@ -149,6 +200,15 @@ impl MTCommitteeOrderList {
         ItemList::rm_item(&mut self.hashed_report, report_id);
         ItemList::rm_item(&mut self.confirmed_report, report_id);
     }
+    pub fn add_hash(&mut self, report_id: ReportId) {
+        // 将订单从委员会已预订移动到已Hash
+        ItemList::rm_item(&mut self.booked_report, &report_id);
+        ItemList::add_item(&mut self.hashed_report, report_id);
+    }
+    pub fn add_raw(&mut self, report_id: ReportId) {
+        ItemList::rm_item(&mut self.hashed_report, &report_id);
+        ItemList::add_item(&mut self.confirmed_report, report_id);
+    }
 }
 
 /// 委员会对报告的操作信息
@@ -167,6 +227,25 @@ pub struct MTCommitteeOpsDetail<BlockNumber, Balance> {
     pub confirm_result: bool,
     pub staked_balance: Balance,
     pub order_status: MTOrderStatus,
+}
+
+impl<A, B> MTCommitteeOpsDetail<A, B> {
+    pub fn add_encry_info(&mut self, info: Vec<u8>, time: A) {
+        self.encrypted_err_info = Some(info);
+        self.encrypted_time = time;
+        self.order_status = MTOrderStatus::Verifying;
+    }
+    pub fn add_hash(&mut self, hash: ReportHash, time: A) {
+        self.confirm_hash = hash;
+        self.hash_time = time;
+        self.order_status = MTOrderStatus::WaitingRaw;
+    }
+    pub fn add_raw(&mut self, time: A, is_support: bool, extra_err_info: Vec<u8>) {
+        self.confirm_time = time;
+        self.extra_err_info = extra_err_info;
+        self.confirm_result = is_support;
+        self.order_status = MTOrderStatus::Finished;
+    }
 }
 
 /// 委员会抢单之后，对应订单的状态

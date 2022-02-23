@@ -170,9 +170,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 用户报告机器有故障：无法租用或者硬件故障或者离线
-        /// 报告无法租用提交Hash:机器ID+随机数+报告内容
-        /// 报告硬件故障提交Hash:机器ID+随机数+报告内容+租用机器的Session信息
         /// 用户报告机器硬件故障
         #[pallet::weight(10000)]
         pub fn report_machine_fault(
@@ -183,14 +180,25 @@ pub mod pallet {
 
             let mut live_report = Self::live_report();
             let mut reporter_report = Self::reporter_report(&reporter);
+            let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
-            Self::do_report_machine_fault(
+            // 支付
+            if let MachineFaultType::RentedInaccessible(machine_id) = report_reason.clone() {
+                // 检查是否是机器租用者
+                let rent_order = <rent_machine::Module<T>>::rent_order(&machine_id);
+                ensure!(rent_order.renter == reporter, Error::<T>::NotMachineRenter);
+                <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
+                    .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+            }
+            Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
+
+            let _ = Self::do_report_machine_fault(
                 reporter.clone(),
                 report_reason,
                 None,
                 &mut live_report,
                 &mut reporter_report,
-            )?;
+            );
 
             LiveReport::<T>::put(live_report);
             ReporterReport::<T>::insert(&reporter, reporter_report);
@@ -213,27 +221,16 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn reporter_cancel_report(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-
             let report_info = Self::report_info(&report_id);
-            ensure!(report_info.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancel);
+
             ensure!(&report_info.reporter == &reporter, Error::<T>::NotReporter);
-
-            let mut live_report = Self::live_report();
-            ItemList::rm_item(&mut live_report.bookable_report, &report_id);
-
-            let mut reporter_report = Self::reporter_report(&reporter);
-            ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
-            ItemList::add_item(&mut reporter_report.canceled_report, report_id);
-
+            ensure!(report_info.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancel);
             ensure!(
                 Self::change_reporter_stake_on_report_close(&reporter, report_info.reporter_stake, false).is_ok(),
                 Error::<T>::ReduceTotalStakeFailed
             );
 
-            ReporterReport::<T>::insert(&reporter, reporter_report);
-            LiveReport::<T>::put(live_report);
-            ReportInfo::<T>::remove(&report_id);
-
+            Self::do_reporter_cancel_report(&reporter, report_id);
             Self::deposit_event(Event::ReportCanceld(reporter, report_id, report_info.machine_fault_type));
             Ok(().into())
         }
@@ -243,12 +240,34 @@ pub mod pallet {
         pub fn committee_book_report(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
 
-            // 判断发起请求者是状态正常的委员会
             ensure!(<T as pallet::Config>::ManageCommittee::is_valid_committee(&committee), Error::<T>::NotCommittee);
-            // 判断包含该report_info
-            ensure!(<ReportInfo<T>>::contains_key(report_id), Error::<T>::OrderNotAllowBook);
 
-            Self::do_book_reports(committee, report_id)
+            let mut report_info = Self::report_info(report_id);
+            // 检查订单是否可以抢定
+            ensure!(report_info.report_time != Zero::zero(), Error::<T>::OrderNotAllowBook);
+            ensure!(
+                report_info.report_status == ReportStatus::Reported
+                    || report_info.report_status == ReportStatus::WaitingBook,
+                Error::<T>::OrderNotAllowBook
+            );
+            ensure!(report_info.booked_committee.len() < 3, Error::<T>::OrderNotAllowBook);
+            ensure!(report_info.booked_committee.binary_search(&committee).is_err(), Error::<T>::AlreadyBooked);
+
+            let order_stake =
+                <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
+
+            // 支付手续费或押金: 10 DBC | 100RMB等值DBC
+            if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+                <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone())
+                    .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+            } else {
+                <T as pallet::Config>::ManageCommittee::change_used_stake(committee.clone(), order_stake, true)
+                    .map_err(|_| Error::<T>::StakeFailed)?;
+            }
+
+            Self::do_book_reports(committee.clone(), report_id, &mut report_info, order_stake);
+            Self::deposit_event(Event::CommitteeBookReport(committee, report_id));
+            Ok(().into())
         }
 
         /// 报告人在委员会完成抢单后，30分钟内用委员会的公钥，提交加密后的故障信息
@@ -265,26 +284,23 @@ pub mod pallet {
 
             // 该orde处于验证中, 且还没有提交过加密信息
             let mut report_info = Self::report_info(&report_id);
-            ensure!(&report_info.reporter == &reporter, Error::<T>::NotOrderReporter);
-            ensure!(report_info.report_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
+            let mut committee_ops = Self::committee_ops(&to_committee, &report_id);
+
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
                 return Err(Error::<T>::NotNeedEncryptedInfo.into());
             }
-
-            let mut committee_ops = Self::committee_ops(&to_committee, &report_id);
-            ensure!(committee_ops.order_status == MTOrderStatus::WaitingEncrypt, Error::<T>::OrderStatusNotFeat);
-            // 检查该委员会为预订了该订单的委员会
+            ensure!(&report_info.reporter == &reporter, Error::<T>::NotOrderReporter);
+            ensure!(report_info.report_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
             ensure!(report_info.booked_committee.binary_search(&to_committee).is_ok(), Error::<T>::NotOrderCommittee);
+
+            ensure!(committee_ops.order_status == MTOrderStatus::WaitingEncrypt, Error::<T>::OrderStatusNotFeat);
 
             // report_info中插入已经收到了加密信息的委员会
             ItemList::add_item(&mut report_info.get_encrypted_info_committee, to_committee.clone());
+            ReportInfo::<T>::insert(&report_id, report_info);
 
-            committee_ops.encrypted_err_info = Some(encrypted_err_info);
-            committee_ops.encrypted_time = now;
-            committee_ops.order_status = MTOrderStatus::Verifying;
-
+            committee_ops.add_encry_info(encrypted_err_info, now);
             CommitteeOps::<T>::insert(&to_committee, &report_id, committee_ops);
-            ReportInfo::<T>::insert(report_id, report_info);
 
             Self::deposit_event(Event::EncryptedInfoSent(reporter, to_committee, report_id));
             Ok(().into())
@@ -307,12 +323,14 @@ pub mod pallet {
             let mut report_info = Self::report_info(&report_id);
             let mut live_report = Self::live_report();
 
-            // 判断是否为委员会其列表是否有该report_id
             ensure!(committee_order.booked_report.binary_search(&report_id).is_ok(), Error::<T>::NotInBookedList);
-            // 判断该委员会的状态是验证中
             ensure!(committee_ops.order_status == MTOrderStatus::Verifying, Error::<T>::OrderStatusNotFeat);
-            // 判断该report_id是否可以提交信息
-            if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+
+            let is_inaccess = match report_info.machine_fault_type {
+                MachineFaultType::RentedInaccessible(..) => true,
+                _ => false,
+            };
+            if is_inaccess {
                 ensure!(
                     report_info.report_status == ReportStatus::WaitingBook
                         || report_info.report_status == ReportStatus::Verifying,
@@ -321,7 +339,6 @@ pub mod pallet {
             } else {
                 ensure!(report_info.report_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
             }
-
             // 判断Hash是否被提交过
             for a_committee in &report_info.hashed_committee {
                 let committee_ops = Self::committee_ops(&a_committee, report_id);
@@ -330,43 +347,27 @@ pub mod pallet {
                 }
             }
 
-            // 添加到report的已提交Hash的委员会列表
-            ItemList::add_item(&mut report_info.hashed_committee, committee.clone());
-
-            // 判断是否已经有3个了
+            // 修改report_info
+            report_info.add_hash(committee.clone(), committee_limit, is_inaccess);
+            // 修改live_report
             if report_info.hashed_committee.len() == committee_limit as usize {
-                // 满足要求的Hash已镜提交，则进入提交raw的阶段
+                // 全都提交了hash后，进入提交raw的阶段
                 ItemList::rm_item(&mut live_report.verifying_report, &report_id);
                 ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
-
-                report_info.report_status = ReportStatus::SubmittingRaw;
-            } else {
-                match report_info.machine_fault_type {
-                    MachineFaultType::RentedInaccessible(..) => {},
-                    _ => {
-                        ItemList::rm_item(&mut live_report.verifying_report, &report_id);
-                        ItemList::add_item(&mut live_report.bookable_report, report_id);
-
-                        report_info.report_status = ReportStatus::WaitingBook;
-                    },
-                }
+            } else if !is_inaccess {
+                // 否则，是普通错误时，继续允许预订
+                ItemList::rm_item(&mut live_report.verifying_report, &report_id);
+                ItemList::add_item(&mut live_report.bookable_report, report_id);
             }
-
-            report_info.verifying_committee = None;
-
             // 修改committeeOps存储/状态
-            committee_ops.order_status = MTOrderStatus::WaitingRaw;
-            committee_ops.confirm_hash = hash;
-            committee_ops.hash_time = now;
+            committee_ops.add_hash(hash, now);
+            // 修改committee_order 预订 -> Hash
+            committee_order.add_hash(report_id);
 
-            // 将订单从委员会已预订移动到已Hash
-            ItemList::rm_item(&mut committee_order.booked_report, &report_id);
-            ItemList::add_item(&mut committee_order.hashed_report, report_id);
-
+            ReportInfo::<T>::insert(&report_id, report_info);
             LiveReport::<T>::put(live_report);
             CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
             CommitteeOrder::<T>::insert(&committee, committee_order);
-            ReportInfo::<T>::insert(&report_id, report_info);
 
             Self::deposit_event(Event::HashSubmited(report_id, committee));
             Ok(().into())
@@ -390,59 +391,37 @@ pub mod pallet {
             let mut report_info = Self::report_info(report_id);
             ensure!(report_info.report_status == ReportStatus::SubmittingRaw, Error::<T>::OrderStatusNotFeat);
 
-            let reporter_hash = match report_info.machine_fault_type {
-                MachineFaultType::RentedHardwareMalfunction(hash, _)
-                | MachineFaultType::RentedHardwareCounterfeit(hash, _)
-                | MachineFaultType::OnlineRentFailed(hash, _) => hash,
-                MachineFaultType::RentedInaccessible(..) => return Err(Error::<T>::OrderStatusNotFeat.into()),
-            };
-
+            // 获取链上已经记录的Hash
+            let reporter_hash =
+                report_info.machine_fault_type.clone().get_hash().ok_or(Error::<T>::OrderStatusNotFeat)?;
             // 检查是否提交了该订单的hash
             ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
-            // 添加到Report的已提交Raw的列表
-            ItemList::add_item(&mut report_info.confirmed_committee, committee.clone());
+
+            // 检查是否与报告人提交的Hash一致
+            let reporter_report_hash =
+                Self::get_hash(vec![machine_id.clone(), reporter_rand_str.clone(), err_reason.clone()]);
+            ensure!(reporter_report_hash == reporter_hash, Error::<T>::NotEqualReporterSubmit);
 
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
             let mut committee_order = Self::committee_order(&committee);
 
-            // 检查是否与报告人提交的Hash一致
-            let mut reporter_info_raw = Vec::new();
-            reporter_info_raw.extend(machine_id.clone());
-            reporter_info_raw.extend(reporter_rand_str.clone());
-            reporter_info_raw.extend(err_reason.clone());
-            let reporter_report_hash = Self::get_hash(&reporter_info_raw);
-            ensure!(reporter_report_hash == reporter_hash, Error::<T>::NotEqualReporterSubmit);
-
             // 检查委员会提交是否与第一次Hash一致
-            let mut committee_report_raw = Vec::new();
-            committee_report_raw.extend(machine_id.clone());
-            committee_report_raw.extend(reporter_rand_str);
-            committee_report_raw.extend(committee_rand_str);
             let is_support: Vec<u8> = if support_report { "1".into() } else { "0".into() };
-            committee_report_raw.extend(is_support);
-            committee_report_raw.extend(err_reason.clone());
-            committee_report_raw.extend(extra_err_info.clone());
-            let committee_report_hash = Self::get_hash(&committee_report_raw);
+            let committee_report_hash = Self::get_hash(vec![
+                machine_id.clone(),
+                reporter_rand_str,
+                committee_rand_str,
+                is_support,
+                err_reason.clone(),
+            ]);
             ensure!(committee_report_hash == committee_ops.confirm_hash, Error::<T>::NotEqualCommitteeSubmit);
 
-            // 将委员会插入到是否支持的委员会列表
-            if support_report {
-                ItemList::add_item(&mut report_info.support_committee, committee.clone());
-            } else {
-                ItemList::add_item(&mut report_info.against_committee, committee.clone());
-            }
-
-            report_info.machine_id = machine_id;
-            report_info.err_info = err_reason;
-            committee_ops = MTCommitteeOpsDetail {
-                confirm_time: now,
-                confirm_result: support_report,
-                extra_err_info,
-                order_status: MTOrderStatus::Finished,
-                ..committee_ops
-            };
-            ItemList::rm_item(&mut committee_order.hashed_report, &report_id);
-            ItemList::add_item(&mut committee_order.confirmed_report, report_id);
+            // 更改report_info，添加提交Raw的记录
+            report_info.add_raw(committee.clone(), support_report, Some(machine_id), err_reason);
+            // 记录committee_ops，添加提交Raw记录
+            committee_ops.add_raw(now, support_report, extra_err_info);
+            // 记录committee_order
+            committee_order.add_raw(report_id);
 
             CommitteeOrder::<T>::insert(&committee, committee_order);
             CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
@@ -464,46 +443,35 @@ pub mod pallet {
 
             let mut report_info = Self::report_info(report_id);
             let mut committee_order = Self::committee_order(&committee);
+            let mut committee_ops = Self::committee_ops(&committee, &report_id);
 
             ensure!(report_info.report_status == ReportStatus::SubmittingRaw, Error::<T>::OrderStatusNotFeat);
             match report_info.machine_fault_type {
                 MachineFaultType::RentedInaccessible(..) => {},
                 _ => return Err(Error::<T>::OrderStatusNotFeat.into()),
             }
-
             // 检查是否提交了该订单的hash
             ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
 
-            // 添加到Report的已提交Raw的列表
-            ItemList::add_item(&mut report_info.confirmed_committee, committee.clone());
-
-            let mut committee_ops = Self::committee_ops(&committee, &report_id);
-            // 计算Hash
-            let mut raw_msg_info = Vec::new();
-            let new_report_id: Vec<u8> = report_id.to_string().into();
-            raw_msg_info.extend(new_report_id);
-            raw_msg_info.extend(committee_rand_str);
+            // 检查Hash是否一致
             let is_support_u8: Vec<u8> = if is_support { "1".into() } else { "0".into() };
-            raw_msg_info.extend(is_support_u8);
-            ensure!(Self::get_hash(&raw_msg_info) == committee_ops.confirm_hash, Error::<T>::NotEqualCommitteeSubmit);
+            ensure!(
+                Self::get_hash(vec![report_id.to_string().into(), committee_rand_str, is_support_u8])
+                    == committee_ops.confirm_hash,
+                Error::<T>::NotEqualCommitteeSubmit
+            );
 
-            // 将委员会插入到是否支持的委员会列表
-            if is_support {
-                ItemList::add_item(&mut report_info.support_committee, committee.clone());
-            } else {
-                ItemList::add_item(&mut report_info.against_committee, committee.clone());
-            }
+            // 记录到report_info中
+            report_info.add_raw(committee.clone(), is_support, None, vec![]);
+            // 记录到committee_ops
+            committee_ops.add_raw(now, is_support, vec![]);
+            // 记录到committee_order
+            committee_order.add_raw(report_id);
 
-            committee_ops.confirm_time = now;
-            committee_ops.confirm_result = is_support;
-            committee_ops.order_status = MTOrderStatus::Finished;
-
-            ItemList::add_item(&mut committee_order.confirmed_report, report_id);
-            CommitteeOrder::<T>::insert(&committee, committee_order);
-            CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
             ReportInfo::<T>::insert(&report_id, report_info);
+            CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
+            CommitteeOrder::<T>::insert(&committee, committee_order);
 
-            // TODO: 用户调用时触发Summary
             Self::deposit_event(Event::RawInfoSubmited(report_id, committee));
             Ok(().into())
         }
@@ -679,6 +647,7 @@ pub mod pallet {
         ReporterAddStake(T::AccountId, BalanceOf<T>),
         ReporterReduceStake(T::AccountId, BalanceOf<T>),
         ApplySlashReview(ReportId),
+        CommitteeBookReport(T::AccountId, ReportId),
     }
 
     #[pallet::error]
@@ -760,41 +729,22 @@ impl<T: Config> Pallet<T> {
         reporter_report: &mut ReporterReportList,
     ) -> DispatchResultWithPostInfo {
         // 获取处理报告需要的信息
-        let now = <frame_system::Module<T>>::block_number();
-        let report_id = Self::get_new_report_id();
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+        let report_id = Self::get_new_report_id();
+        let report_time =
+            if report_time.is_some() { report_time.unwrap() } else { <frame_system::Module<T>>::block_number() };
 
-        // 生成新的报告记录
-        let mut report_info = MTReportInfoDetail {
-            reporter: reporter.clone(),
-            report_time: now,
-            machine_fault_type: machine_fault_type.clone(),
-            report_status: ReportStatus::Reported,
-            ..Default::default()
-        };
-
-        if report_time.is_some() {
-            report_info.report_time = report_time.unwrap();
-        }
+        let mut report_info = MTReportInfoDetail::new(
+            reporter.clone(),
+            report_time,
+            machine_fault_type.clone(),
+            stake_params.stake_per_report,
+        );
 
         // 该类型错误可以由程序快速完成检测，因此可以提交并需记录machine_id
         if let MachineFaultType::RentedInaccessible(machine_id) = machine_fault_type.clone() {
-            // 检查是否是机器租用者
-            let rent_order = <rent_machine::Module<T>>::rent_order(&machine_id);
-            ensure!(rent_order.renter == reporter, Error::<T>::NotMachineRenter);
-
-            if report_time.is_none() {
-                <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
-                    .map_err(|_| Error::<T>::PayTxFeeFailed)?;
-            }
-
             report_info.machine_id = machine_id;
         }
-
-        // 支付处理报告的费用
-        // TODO: 需要重新支付币，且质押需要在summary时退还
-        Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
-        report_info.reporter_stake = stake_params.stake_per_report;
 
         // 记录到 live_report & reporter_report
         ItemList::add_item(&mut live_report.bookable_report, report_id);
@@ -806,82 +756,73 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
-    fn do_book_reports(committee: T::AccountId, report_id: ReportId) -> DispatchResultWithPostInfo {
-        let now = <frame_system::Module<T>>::block_number();
-        let book_order_stake =
-            <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
-
-        // 检查订单是否可预订状态
+    fn do_reporter_cancel_report(reporter: &T::AccountId, report_id: ReportId) {
         let mut live_report = Self::live_report();
-        let mut report_info = Self::report_info(report_id);
-        let mut committee_ops = Self::committee_ops(&committee, &report_id);
+        ItemList::rm_item(&mut live_report.bookable_report, &report_id);
 
+        let mut reporter_report = Self::reporter_report(reporter);
+        ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
+        ItemList::add_item(&mut reporter_report.canceled_report, report_id);
+
+        ReporterReport::<T>::insert(reporter, reporter_report);
+        LiveReport::<T>::put(live_report);
+        ReportInfo::<T>::remove(&report_id);
+    }
+
+    fn do_book_reports(
+        committee: T::AccountId,
+        report_id: ReportId,
+        report_info: &mut MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        order_stake: BalanceOf<T>,
+    ) {
+        let now = <frame_system::Module<T>>::block_number();
+
+        let mut live_report = Self::live_report();
+        let mut committee_ops = Self::committee_ops(&committee, &report_id);
         let mut is_live_report_changed = false;
         let is_first_book = report_info.report_status == ReportStatus::Reported;
+        let mft = report_info.machine_fault_type.clone();
 
-        // 检查订单是否可以抢定
-        ensure!(
-            report_info.report_status == ReportStatus::Reported
-                || report_info.report_status == ReportStatus::WaitingBook,
-            Error::<T>::OrderNotAllowBook
-        );
-        ensure!(report_info.booked_committee.len() < 3, Error::<T>::OrderNotAllowBook);
-        ensure!(report_info.booked_committee.binary_search(&committee).is_err(), Error::<T>::AlreadyBooked);
-
-        // 支付手续费或押金: 10 DBC | 100RMB等值DBC
-        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-            <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
-        } else {
-            <T as pallet::Config>::ManageCommittee::change_used_stake(committee.clone(), book_order_stake, true)
-                .map_err(|_| Error::<T>::StakeFailed)?;
-        }
-
-        // 修改report_info
+        // 更改report_info
         ItemList::add_item(&mut report_info.booked_committee, committee.clone());
         // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
         if is_first_book {
             report_info.first_book_time = now;
-        }
-
-        // 记录当前哪个委员会正在验证，方便状态控制
-        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-            // WaitingBook状态允许其他委员会继续抢单
-            report_info.report_status = if report_info.booked_committee.len() == 3 {
-                ReportStatus::Verifying
-            } else {
-                ReportStatus::WaitingBook
+            report_info.confirm_start = match report_info.machine_fault_type {
+                // 如果是第一个抢单，如果是rentedInaccessible，将在5分钟后开始提交委员会的验证结果
+                MachineFaultType::RentedInaccessible(..) => now + 10u32.into(),
+                // 将在三个小时之后开始提交委员会的验证结果
+                _ => now + THREE_HOUR.into(),
             };
-
-            // 如果是第一个抢单，如果是rentedInaccessible，将在5分钟后开始提交委员会的验证结果
-            if is_first_book {
-                report_info.confirm_start = now + 10u32.into();
-            }
-        } else {
-            // 仅在不是RentedInaccessible时进行记录，因为这些情况只能一次有一个验证委员会
-            report_info.verifying_committee = Some(committee.clone());
-
-            // 改变report状态为正在验证中，此时禁止其他委员会预订
-            report_info.report_status = ReportStatus::Verifying;
-
-            // 如果不是rentedInaccessible，将在三个小时之后开始提交委员会的验证结果
-            if is_first_book {
-                report_info.confirm_start = now + THREE_HOUR.into();
-            }
         }
+        report_info.report_status = match mft {
+            MachineFaultType::RentedInaccessible(..) => {
+                if report_info.booked_committee.len() == 3 {
+                    ReportStatus::Verifying
+                } else {
+                    ReportStatus::WaitingBook
+                }
+            },
+            _ => {
+                // 仅在不是RentedInaccessible时进行记录，因为这些情况只能一次有一个验证委员会
+                report_info.verifying_committee = Some(committee.clone());
+                // 改变report状态为正在验证中，此时禁止其他委员会预订
+                ReportStatus::Verifying
+            },
+        };
 
-        // 更改committee_ops
-        // 添加委员会对于机器的操作记录
+        // 更改committee_ps
         committee_ops.booked_time = now;
-        // 手续费支付后更改变量状态
-        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-            committee_ops.order_status = MTOrderStatus::Verifying;
-        } else {
-            committee_ops.staked_balance = book_order_stake;
-            committee_ops.order_status = MTOrderStatus::WaitingEncrypt;
-        }
+        committee_ops.order_status = match mft {
+            MachineFaultType::RentedInaccessible(..) => MTOrderStatus::Verifying,
+            _ => {
+                committee_ops.staked_balance = order_stake;
+                MTOrderStatus::WaitingEncrypt
+            },
+        };
 
         // 更改live_report
-        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+        if let MachineFaultType::RentedInaccessible(..) = mft {
             if report_info.booked_committee.len() == 3 {
                 ItemList::rm_item(&mut live_report.bookable_report, &report_id);
                 ItemList::add_item(&mut live_report.verifying_report, report_id);
@@ -895,18 +836,15 @@ impl<T: Config> Pallet<T> {
         }
 
         // 更改committee_order
-        // 添加到委员会自己的存储中
         let mut committee_order = Self::committee_order(&committee);
         ItemList::add_item(&mut committee_order.booked_report, report_id);
-        CommitteeOrder::<T>::insert(&committee, committee_order);
 
+        ReportInfo::<T>::insert(&report_id, report_info);
+        CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
         if is_live_report_changed {
             LiveReport::<T>::put(live_report);
         }
-        CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
-        ReportInfo::<T>::insert(&report_id, report_info);
-
-        Ok(().into())
+        CommitteeOrder::<T>::insert(&committee, committee_order);
     }
 
     // Hook: Summary inaccessible report
@@ -1191,7 +1129,6 @@ impl<T: Config> Pallet<T> {
             Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
             ReportResult::<T>::insert(report_id, report_result);
 
-            // continue;
             return Ok(());
         }
 
@@ -1205,7 +1142,6 @@ impl<T: Config> Pallet<T> {
 
             // 如果此时booked_committee.len() == 0；返回到最初始的状态，并允许取消报告
             if report_info.booked_committee.len() == 0 {
-                // TODO: 这里需要调用重新提交举报
                 report_info.first_book_time = Zero::zero();
                 report_info.confirm_start = Zero::zero();
                 report_info.report_status = ReportStatus::Reported;
@@ -1348,9 +1284,33 @@ impl<T: Config> Pallet<T> {
 
                 report_result.report_result = ReportResultType::ReportRefused;
             },
-            // NOTE: 这里不会出现NoConsensus的情况，
-            // 因为如果没有人提交，则前一步判断就会被惩罚，并重新派单
-            ReportConfirmStatus::NoConsensus => {},
+            // 如果没有人提交，会出现NoConsensus的情况，并重新派单
+            ReportConfirmStatus::NoConsensus => {
+                // 所有booked_committee都应该被惩罚
+                for a_committee in report_info.booked_committee.clone() {
+                    CommitteeOps::<T>::remove(&a_committee, report_id);
+                    let mut committee_order = Self::committee_order(&a_committee);
+                    ItemList::rm_item(&mut committee_order.booked_report, &report_id);
+                    ItemList::rm_item(&mut committee_order.hashed_report, &report_id);
+                    CommitteeOrder::<T>::insert(&a_committee, committee_order);
+                }
+
+                let mut reporter_report = Self::reporter_report(&report_info.reporter);
+                let _ = Self::do_report_machine_fault(
+                    report_info.reporter.clone(),
+                    report_info.machine_fault_type.clone(),
+                    Some(report_info.report_time),
+                    live_report,
+                    &mut reporter_report,
+                );
+
+                ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
+
+                // FIXME: 直接惩罚，而不用等到两天之后
+
+                ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
+                report_result.report_result = ReportResultType::NoConsensus;
+            },
         }
 
         // 根据报告结果，更改live_report的结果
