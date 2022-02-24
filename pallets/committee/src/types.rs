@@ -21,11 +21,21 @@ pub struct CommitteeList<AccountId: Ord> {
 }
 
 impl<AccountId: Ord> CommitteeList<AccountId> {
-    pub fn is_in_committee(&self, who: &AccountId) -> bool {
+    pub fn is_normal(&self, who: &AccountId) -> bool {
         self.normal.binary_search(who).is_ok()
-            || self.chill_list.binary_search(who).is_ok()
-            || self.waiting_box_pubkey.binary_search(who).is_ok()
-            || self.fulfilling_list.binary_search(who).is_ok()
+    }
+    pub fn is_chill(&self, who: &AccountId) -> bool {
+        self.chill_list.binary_search(who).is_ok()
+    }
+    pub fn is_waiting_puk(&self, who: &AccountId) -> bool {
+        self.waiting_box_pubkey.binary_search(who).is_ok()
+    }
+    pub fn is_fulfilling(&self, who: &AccountId) -> bool {
+        self.fulfilling_list.binary_search(who).is_ok()
+    }
+
+    pub fn is_committee(&self, who: &AccountId) -> bool {
+        self.is_normal(who) || self.is_chill(who) || self.is_waiting_puk(who) || self.is_fulfilling(who)
     }
 }
 

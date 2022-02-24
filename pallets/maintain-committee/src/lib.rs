@@ -17,7 +17,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use generic_func::{ItemList, MachineId};
 use online_profile_machine::{GNOps, MTOps, ManageCommittee};
-use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
+use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{str, vec, vec::Vec};
 
 pub use pallet::*;
@@ -256,7 +256,7 @@ pub mod pallet {
             let order_stake =
                 <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
-            // 支付手续费或押金: 10 DBC | 100RMB等值DBC
+            // 支付手续费或押金: 10 DBC | 1000 DBC
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
                 <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone())
                     .map_err(|_| Error::<T>::PayTxFeeFailed)?;
@@ -487,6 +487,9 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
             let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
             let report_result_info = Self::report_result(report_result_id);
+
+            // 判断申请人角色
+            let stake_per_report = reporter_stake_params.stake_per_report;
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&applicant);
             let is_slashed_committee = report_result_info.is_slashed_committee(&applicant);
             let is_slashed_stash = report_result_info.is_slashed_stash(&applicant);
@@ -494,49 +497,27 @@ pub mod pallet {
             ensure!(!PendingSlashReview::<T>::contains_key(report_result_id), Error::<T>::AlreadyApplied);
             ensure!(is_slashed_reporter || is_slashed_committee || is_slashed_stash, Error::<T>::NotSlashed);
             ensure!(now < report_result_info.slash_exec_time, Error::<T>::TimeNotAllowed);
-
-            ensure!(
-                <T as Config>::Currency::can_reserve(&applicant, reporter_stake_params.stake_per_report),
-                Error::<T>::BalanceNotEnough
-            );
+            ensure!(<T as Config>::Currency::can_reserve(&applicant, stake_per_report), Error::<T>::BalanceNotEnough);
 
             // Add stake when apply for review
-            // NOTE: here, should add total stake not add used stake
+            // NOTE: here, should add total stake and **also add used stake**
             if is_slashed_reporter {
-                let mut reporter_stake = Self::reporter_stake(&applicant);
-                reporter_stake.staked_amount = reporter_stake
-                    .staked_amount
-                    .checked_add(&reporter_stake_params.stake_per_report)
-                    .ok_or(Error::<T>::BalanceNotEnough)?;
-                ensure!(
-                    reporter_stake.staked_amount - reporter_stake.used_stake
-                        > reporter_stake_params.min_free_stake_percent * reporter_stake.staked_amount,
-                    Error::<T>::StakeNotEnough
-                );
-                <T as pallet::Config>::Currency::reserve(&applicant, reporter_stake_params.stake_per_report)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
-                ReporterStake::<T>::insert(&applicant, reporter_stake);
+                Self::change_reporter_stake(applicant.clone(), stake_per_report, true)?;
+                Self::pay_stake_when_report(applicant.clone(), &reporter_stake_params)?;
             } else if is_slashed_committee {
                 // Change committee stake
                 <T as pallet::Config>::ManageCommittee::change_total_stake(
                     applicant.clone(),
-                    reporter_stake_params.stake_per_report,
+                    stake_per_report,
+                    true,
                     true,
                 )
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
-                <T as pallet::Config>::ManageCommittee::change_used_stake(
-                    applicant.clone(),
-                    reporter_stake_params.stake_per_report,
-                    true,
-                )
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
-
-                <T as pallet::Config>::Currency::reserve(&applicant, reporter_stake_params.stake_per_report)
+                <T as pallet::Config>::ManageCommittee::change_used_stake(applicant.clone(), stake_per_report, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else if is_slashed_stash {
-                // change stash stake
-                T::MTOps::mt_change_staked_balance(applicant.clone(), reporter_stake_params.stake_per_report, true)
+                T::MTOps::mt_change_staked_balance(applicant.clone(), stake_per_report, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
             }
 
@@ -544,7 +525,7 @@ pub mod pallet {
                 report_result_id,
                 MTPendingSlashReviewInfo {
                     applicant,
-                    staked_amount: reporter_stake_params.stake_per_report,
+                    staked_amount: stake_per_report,
                     apply_time: now,
                     expire_time: report_result_info.slash_exec_time,
                     reason,
@@ -564,53 +545,47 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
             let mut report_result = Self::report_result(slashed_report_id);
             let slash_review_info = Self::pending_slash_review(slashed_report_id);
+            let (applicant, staked) = (slash_review_info.applicant, slash_review_info.staked_amount);
 
             ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
-            let is_slashed_reporter = report_result.is_slashed_reporter(&slash_review_info.applicant);
+            let is_slashed_reporter = report_result.is_slashed_reporter(&applicant);
+            let is_slashed_stash = report_result.is_slashed_stash(&applicant);
 
-            // Return reserved balance when apply for review
+            // 退还申述时的质押
             if is_slashed_reporter {
-                let _ = Self::change_reporter_stake_on_report_close(
-                    &slash_review_info.applicant,
-                    slash_review_info.staked_amount,
-                    false,
-                );
+                Self::change_reporter_stake(applicant.clone(), staked, false)?;
+            } else if is_slashed_stash {
+                T::MTOps::mt_change_staked_balance(applicant.clone(), staked, false)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else {
-                let _ = Self::change_committee_stake_on_report_close(
-                    vec![slash_review_info.applicant],
-                    slash_review_info.staked_amount,
-                    false,
-                );
+                Self::change_committee_stake_on_report_close(vec![applicant], staked, false)
+                    .map_err(|_| Error::<T>::ReduceUsedStakeFailed)?;
             }
 
-            // revert reward and slash
+            // 之前的结果中，报告人是否被惩罚
             let is_reporter_slashed = match report_result.report_result {
                 ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo => true,
                 _ => false,
             };
 
+            // 重新获得应该惩罚/奖励的委员会
             let mut should_slash = report_result.reward_committee.clone();
             for a_committee in report_result.unruly_committee.clone() {
                 ItemList::add_item(&mut should_slash, a_committee)
             }
             let mut should_reward = report_result.inconsistent_committee.clone();
 
-            if is_reporter_slashed {
-                let _ = Self::change_reporter_stake_on_report_close(
-                    &report_result.reporter,
-                    report_result.reporter_stake,
-                    false,
-                );
+            // 执行与之前是否惩罚相反的质押操作
+            let _ = Self::change_reporter_stake_on_report_close(
+                &report_result.reporter,
+                report_result.reporter_stake,
+                !is_reporter_slashed,
+            );
 
+            if is_reporter_slashed {
                 ItemList::add_item(&mut should_reward, report_result.reporter.clone());
             } else {
-                let _ = Self::change_reporter_stake_on_report_close(
-                    &report_result.reporter,
-                    report_result.reporter_stake,
-                    true,
-                );
-
                 // slash reporter
                 let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
                     vec![report_result.reporter.clone()],
@@ -682,6 +657,7 @@ pub mod pallet {
         ExpiredApply,
         DuplicateHash,
         NotMachineRenter,
+        ReduceUsedStakeFailed,
     }
 }
 
@@ -701,7 +677,7 @@ impl<T: Config> Pallet<T> {
         }
 
         ensure!(
-            reporter_stake.staked_amount - reporter_stake.used_stake
+            reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake)
                 > stake_params.min_free_stake_percent * reporter_stake.staked_amount,
             Error::<T>::StakeNotEnough
         );
@@ -1210,7 +1186,6 @@ impl<T: Config> Pallet<T> {
             CommitteeOps::<T>::remove(&verifying_committee, report_id);
             ReportInfo::<T>::insert(report_id, report_info);
 
-            // continue;
             return Ok(());
         }
         return Ok(());
@@ -1275,13 +1250,8 @@ impl<T: Config> Pallet<T> {
             },
             ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                 // Slash support committee and release against committee stake
-                for a_committee in support_committee.clone() {
-                    ItemList::add_item(&mut report_result.inconsistent_committee, a_committee);
-                }
-                for a_committee in against_committee.clone() {
-                    ItemList::add_item(&mut report_result.reward_committee, a_committee);
-                }
-
+                report_result.i_exten_sorted(support_committee.clone());
+                report_result.r_exten_sorted(against_committee.clone());
                 report_result.report_result = ReportResultType::ReportRefused;
             },
             // 如果没有人提交，会出现NoConsensus的情况，并重新派单

@@ -334,25 +334,38 @@ impl Default for MCSlashResult {
     }
 }
 
-impl<AccountId, BlockNumber, Balance> MTReportResultInfo<AccountId, BlockNumber, Balance>
+// A: Account, B: Block, C: Balance
+impl<A, B, C> MTReportResultInfo<A, B, C>
 where
-    AccountId: Ord,
+    A: Ord,
 {
-    pub fn is_slashed_reporter(&self, who: &AccountId) -> bool {
+    pub fn is_slashed_reporter(&self, who: &A) -> bool {
         match self.report_result {
             ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo => &self.reporter == who,
             _ => false,
         }
     }
 
-    pub fn is_slashed_committee(&self, who: &AccountId) -> bool {
+    pub fn is_slashed_committee(&self, who: &A) -> bool {
         self.inconsistent_committee.binary_search(who).is_ok() || self.unruly_committee.binary_search(who).is_ok()
     }
 
-    pub fn is_slashed_stash(&self, who: &AccountId) -> bool {
+    pub fn is_slashed_stash(&self, who: &A) -> bool {
         match self.report_result {
             ReportResultType::ReportSucceed => &self.machine_stash == who,
             _ => false,
+        }
+    }
+
+    pub fn i_exten_sorted(&mut self, a_list: Vec<A>) {
+        for a_item in a_list {
+            ItemList::add_item(&mut self.inconsistent_committee, a_item);
+        }
+    }
+
+    pub fn r_exten_sorted(&mut self, a_list: Vec<A>) {
+        for a_item in a_list {
+            ItemList::add_item(&mut self.reward_committee, a_item);
         }
     }
 }

@@ -295,18 +295,20 @@ fn test_online_refused_apply_review_succeed_works() {
         assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(controller), 0, vec![]));
 
         // 申诉时的状态
-        assert_eq!(Balances::reserved_balance(stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
-        assert_eq!(
-            OnlineCommittee::pending_slash_review(0),
-            OCPendingSlashReviewInfo {
-                applicant: stash,
-                staked_amount: 1000 * ONE_DBC,
-                apply_time: 12,
-                expire_time: 11 + 2880 * 2,
-                reason: vec![],
-            }
-        );
+        {
+            assert_eq!(Balances::reserved_balance(stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
+            assert_eq!(OnlineProfile::stash_stake(stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
+            assert_eq!(
+                OnlineCommittee::pending_slash_review(0),
+                OCPendingSlashReviewInfo {
+                    applicant: stash,
+                    staked_amount: 1000 * ONE_DBC,
+                    apply_time: 12,
+                    expire_time: 11 + 2880 * 2,
+                    reason: vec![],
+                }
+            );
+        }
 
         assert_ok!(OnlineCommittee::do_cancel_slash(0));
 

@@ -54,7 +54,12 @@ pub trait ManageCommittee {
     // Only change stake record, not influence actual stake
     fn change_used_stake(committee: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
     // Only change stake record, not influence actual stake
-    fn change_total_stake(committee: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
+    fn change_total_stake(
+        committee: Self::AccountId,
+        amount: Self::Balance,
+        is_add: bool,
+        change_reserve: bool,
+    ) -> Result<(), ()>;
     fn stake_per_order() -> Option<Self::Balance>;
     fn add_reward(committee: Self::AccountId, reward: Self::Balance);
 }

@@ -102,7 +102,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         for a_committee in committee_list {
             if is_slash {
-                <T as Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false)?;
+                <T as Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false, false)?;
             }
 
             <T as Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
