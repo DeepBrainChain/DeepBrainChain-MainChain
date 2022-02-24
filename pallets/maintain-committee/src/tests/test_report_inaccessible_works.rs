@@ -521,7 +521,7 @@ fn report_machine_inaccessible_works3() {
                 &crate::MTReportResultInfo {
                     report_id: 0,
                     reporter,
-                    reporter_stake: 1000 * ONE_DBC,
+                    reporter_stake: 0 * ONE_DBC,
                     unruly_committee: vec![committee],
                     machine_id: machine_id.clone(),
                     machine_stash,
@@ -644,7 +644,7 @@ fn report_machine_inaccessible_works4() {
                 &crate::MTReportResultInfo {
                     report_id: 0,
                     reporter,
-                    reporter_stake: 1000 * ONE_DBC,
+                    reporter_stake: 0 * ONE_DBC,
                     unruly_committee: vec![committee],
                     machine_id: machine_id.clone(),
                     machine_stash,
