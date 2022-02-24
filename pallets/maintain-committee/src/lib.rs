@@ -707,6 +707,7 @@ impl<T: Config> Pallet<T> {
         // 获取处理报告需要的信息
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
         let report_id = Self::get_new_report_id();
+
         let report_time =
             if report_time.is_some() { report_time.unwrap() } else { <frame_system::Module<T>>::block_number() };
 
@@ -845,6 +846,10 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let mut report_info = Self::report_info(&report_id);
 
+        if report_info.first_book_time == Zero::zero() {
+            return Ok(());
+        }
+
         // 仅处理Inaccessible的情况
         match report_info.machine_fault_type {
             MachineFaultType::RentedInaccessible(..) => {},
@@ -933,6 +938,7 @@ impl<T: Config> Pallet<T> {
 
             // 记录下report_result
             report_result.report_result = ReportResultType::NoConsensus;
+            report_result.reporter_stake = Zero::zero();
             // Should do slash at once
             if report_result.unruly_committee.len() > 0 {
                 Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
@@ -1021,6 +1027,11 @@ impl<T: Config> Pallet<T> {
         let committee_order_stake = <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         let report_info = Self::report_info(&report_id);
+
+        if report_info.first_book_time == Zero::zero() {
+            return Ok(());
+        }
+
         // 忽略掉线的类型
         if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
             return Ok(());
@@ -1199,13 +1210,17 @@ impl<T: Config> Pallet<T> {
         let mut report_info = Self::report_info(&report_id);
         let mut report_result = Self::report_result(report_id);
 
+        if report_info.first_book_time == Zero::zero() {
+            return;
+        }
+
         // 禁止对快速报告进行检查，快速报告会处理这种情况
         if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
             return;
         }
 
         // 未全部提交了原始信息且未达到了四个小时，需要继续等待
-        if now - report_info.report_time < FOUR_HOUR.into()
+        if now - report_info.first_book_time < FOUR_HOUR.into()
             && report_info.hashed_committee.len() != report_info.confirmed_committee.len()
         {
             return;
@@ -1265,7 +1280,11 @@ impl<T: Config> Pallet<T> {
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
 
+                // 记录unruly的委员会，两天后进行惩罚
+                ItemList::expand_to_order(&mut report_result.unruly_committee, report_info.booked_committee.clone());
+
                 let mut reporter_report = Self::reporter_report(&report_info.reporter);
+                // 重新举报
                 let _ = Self::do_report_machine_fault(
                     report_info.reporter.clone(),
                     report_info.machine_fault_type.clone(),
@@ -1273,10 +1292,9 @@ impl<T: Config> Pallet<T> {
                     live_report,
                     &mut reporter_report,
                 );
-
+                // 重新举报时，记录报告人的质押将被重新使用，因此不再退还。
+                report_result.reporter_stake = Zero::zero();
                 ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
-
-                // FIXME: 直接惩罚，而不用等到两天之后
 
                 ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
                 report_result.report_result = ReportResultType::NoConsensus;
@@ -1284,7 +1302,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 根据报告结果，更改live_report的结果
-        match fault_report_result {
+        match fault_report_result.clone() {
             ReportConfirmStatus::Confirmed(mut sp_committees, ag_committee, ..)
             | ReportConfirmStatus::Refuse(mut sp_committees, ag_committee, ..) => {
                 ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
@@ -1297,15 +1315,17 @@ impl<T: Config> Pallet<T> {
                     ItemList::add_item(&mut committee_order.finished_report, report_id);
                     CommitteeOrder::<T>::insert(&a_committee, committee_order);
                 }
+
+                report_result.reporter_stake = report_info.reporter_stake;
             },
-            ReportConfirmStatus::NoConsensus => {},
+            ReportConfirmStatus::NoConsensus => {
+                report_result.reporter_stake = Zero::zero();
+            },
         }
 
         report_result = MTReportResultInfo {
             report_id,
             reporter: report_info.reporter.clone(),
-            reporter_stake: report_info.reporter_stake,
-
             committee_stake: committee_order_stake,
             slash_time: now,
             slash_exec_time: now + TWO_DAY.into(),

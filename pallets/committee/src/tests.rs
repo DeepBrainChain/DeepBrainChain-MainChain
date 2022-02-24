@@ -146,7 +146,7 @@ fn committee_reduce_stake_works() {
 
         assert_noop!(
             Committee::committee_reduce_stake(Origin::signed(committee1), 2000 * ONE_DBC),
-            Error::<TestRuntime>::ChangeReservedFailed
+            Error::<TestRuntime>::BalanceNotEnough
         );
     })
 }
