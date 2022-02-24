@@ -32,6 +32,9 @@ jobs:
       # - name: Run build release
       #   run: cargo build --release --features runtime-benchmarks
 
+      - name: Run parse price url tests
+        run: cargo test -p dbc-price-ocw
+
       - name: Run machine online tests
         run: cargo test -p online-committee
 

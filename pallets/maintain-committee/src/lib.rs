@@ -962,24 +962,14 @@ impl<T: Config> Pallet<T> {
                 report_info.report_time,
             );
 
-            for a_committee in report_info.against_committee.clone() {
-                ItemList::add_item(&mut report_result.inconsistent_committee, a_committee);
-            }
-            for a_committee in report_info.support_committee.clone() {
-                ItemList::add_item(&mut report_result.reward_committee, a_committee);
-            }
-
+            ItemList::expand_to_order(&mut report_result.inconsistent_committee, report_info.against_committee.clone());
+            ItemList::expand_to_order(&mut report_result.reward_committee, report_info.support_committee.clone());
             ItemList::add_item(&mut reporter_report.succeed_report, report_id);
             report_result.report_result = ReportResultType::ReportSucceed;
         } else {
             // 处理拒绝报告人的情况
-            for a_committee in report_info.support_committee.clone() {
-                ItemList::add_item(&mut report_result.inconsistent_committee, a_committee);
-            }
-            for a_committee in report_info.against_committee.clone() {
-                ItemList::add_item(&mut report_result.reward_committee, a_committee);
-            }
-
+            ItemList::expand_to_order(&mut report_result.inconsistent_committee, report_info.support_committee.clone());
+            ItemList::expand_to_order(&mut report_result.reward_committee, report_info.against_committee.clone());
             ItemList::add_item(&mut reporter_report.failed_report, report_id);
 
             report_result.report_result = ReportResultType::ReportRefused;
@@ -1151,7 +1141,6 @@ impl<T: Config> Pallet<T> {
             Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
             ReportResult::<T>::insert(report_id, report_result);
 
-            // continue;
             return Ok(());
         }
         return Ok(());
