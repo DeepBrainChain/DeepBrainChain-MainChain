@@ -42,7 +42,7 @@ fn add_committee_works() {
             waiting_box_pubkey: vec![committee3],
             fulfilling_list: vec![committee4],
         };
-        assert_eq!(tmp_committee_list.is_in_committee(&committee3), true);
+        assert_eq!(tmp_committee_list.is_committee(&committee3), true);
     })
 }
 
@@ -302,7 +302,7 @@ fn change_committee_status_when_stake_changed_works() {
             used_stake: 13000 * ONE_DBC,
             ..Default::default()
         };
-        Committee::change_committee_status_when_stake_changed(committee1, &mut committee_list, &committee1_stake);
+        Committee::do_change_status_when_stake_changed(committee1, &mut committee_list, &committee1_stake);
         assert_eq!(
             committee_list,
             super::CommitteeList {
@@ -319,7 +319,7 @@ fn change_committee_status_when_stake_changed_works() {
             used_stake: 13000 * ONE_DBC,
             ..Default::default()
         };
-        Committee::change_committee_status_when_stake_changed(committee2, &mut committee_list, &committee2_stake);
+        Committee::do_change_status_when_stake_changed(committee2, &mut committee_list, &committee2_stake);
         assert_eq!(
             committee_list,
             super::CommitteeList {
@@ -336,7 +336,7 @@ fn change_committee_status_when_stake_changed_works() {
             used_stake: 12000 * ONE_DBC,
             ..Default::default()
         };
-        Committee::change_committee_status_when_stake_changed(committee3, &mut committee_list, &committee3_stake);
+        Committee::do_change_status_when_stake_changed(committee3, &mut committee_list, &committee3_stake);
         assert_eq!(
             committee_list,
             super::CommitteeList {
@@ -353,7 +353,7 @@ fn change_committee_status_when_stake_changed_works() {
             used_stake: 12000 * ONE_DBC,
             ..Default::default()
         };
-        Committee::change_committee_status_when_stake_changed(committee4, &mut committee_list, &committee4_stake);
+        Committee::do_change_status_when_stake_changed(committee4, &mut committee_list, &committee4_stake);
         assert_eq!(
             committee_list,
             super::CommitteeList {

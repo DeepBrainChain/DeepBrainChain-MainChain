@@ -1,12 +1,10 @@
 use super::super::mock::*;
-use super::super::Error;
-use crate::types::{MTOrderStatus, ReportStatus};
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 use std::convert::TryInto;
 
 // case1: 报告inaccessible成功后，stash进行申述->申述成功;
-// case1.1 申述失败
-// case2: 报告inaccessible失败后，报告人进行申述 -> 申述成功
+// case1.1 申述失败(技术委员会没有进行处理)
+// case2: 报告其他错误失败后，报告人进行申述 -> 申述成功
 // case2.1 申述失败
 // case3: 报告其他错误成功后，stash进行申述
 // case4: 报告其他错误失败后，报告人进行申述
@@ -18,7 +16,7 @@ fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
         let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
         let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let _machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
@@ -140,7 +138,7 @@ fn apply_slash_review_case1_1() {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let _committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
 
         let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
 

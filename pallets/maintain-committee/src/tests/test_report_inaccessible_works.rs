@@ -841,7 +841,7 @@ fn report_machine_inaccessible_works5() {
 
         // run_to_block(21); 直接允许开始提交
         // - Writes:
-        // 三个委员会提交
+        // 三个委员会提交 Raw
         // ReportInfo, committee_ops,
         {
             assert_ok!(MaintainCommittee::committee_submit_inaccessible_raw(
@@ -896,6 +896,10 @@ fn report_machine_inaccessible_works5() {
                     order_status: MTOrderStatus::Finished,
                     ..Default::default()
                 }
+            );
+            assert_eq!(
+                &MaintainCommittee::live_report(),
+                &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
             );
         }
 

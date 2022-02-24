@@ -1,6 +1,5 @@
-use crate::{BalanceOf, Committee, CommitteeStake, Config, Pallet, ReportId};
+use crate::{BalanceOf, CommitteeStake, Config, Pallet, ReportId};
 use online_profile_machine::ManageCommittee;
-use sp_runtime::traits::{CheckedAdd, CheckedSub};
 use sp_std::vec::Vec;
 
 impl<T: Config> ManageCommittee for Pallet<T> {
@@ -10,7 +9,7 @@ impl<T: Config> ManageCommittee for Pallet<T> {
 
     // 检查是否为状态正常的委员会
     fn is_valid_committee(who: &T::AccountId) -> bool {
-        Self::committee().normal.binary_search(&who).is_ok()
+        Self::committee().is_normal(&who)
     }
 
     // 检查委员会是否有足够的质押,返回有可以抢单的机器列表
@@ -23,47 +22,18 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     // 改变委员会使用的质押数量
     // - Writes: CommitteeStake.used_stake(Add or Sub), Committee
     fn change_used_stake(committee: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
-        let mut committee_stake = Self::committee_stake(&committee);
-        let mut committee_list = Self::committee();
-
-        // 计算下一阶段需要的质押数量
-        committee_stake.used_stake = if is_add {
-            committee_stake.used_stake.checked_add(&amount).ok_or(())?
-        } else {
-            committee_stake.used_stake.checked_sub(&amount).ok_or(())?
-        };
-
-        let is_committee_list_changed =
-            Self::change_committee_status_when_stake_changed(committee.clone(), &mut committee_list, &committee_stake);
-
-        if is_committee_list_changed {
-            Committee::<T>::put(committee_list);
-        }
-        CommitteeStake::<T>::insert(&committee, committee_stake);
-
-        Ok(())
+        Self::do_change_used_stake(committee, amount, is_add)
     }
 
+    // 改变Reserved的金额
     // - Writes: CommitteeStake.staked_amount(Add or Sub), Committee
-    fn change_total_stake(committee: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
-        let mut committee_stake = Self::committee_stake(&committee);
-        let mut committee_list = Self::committee();
-
-        committee_stake.staked_amount = if is_add {
-            committee_stake.staked_amount.checked_add(&amount).ok_or(())?
-        } else {
-            committee_stake.staked_amount.checked_sub(&amount).ok_or(())?
-        };
-
-        let is_committee_list_changed =
-            Self::change_committee_status_when_stake_changed(committee.clone(), &mut committee_list, &committee_stake);
-
-        if is_committee_list_changed {
-            Committee::<T>::put(committee_list);
-        }
-
-        CommitteeStake::<T>::insert(&committee, committee_stake);
-        Ok(())
+    fn change_total_stake(
+        committee: T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+        change_reserve: bool,
+    ) -> Result<(), ()> {
+        Self::do_change_reserved(committee, amount, is_add, change_reserve)
     }
 
     fn stake_per_order() -> Option<BalanceOf<T>> {

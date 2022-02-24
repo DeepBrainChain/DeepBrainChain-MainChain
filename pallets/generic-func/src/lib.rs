@@ -37,6 +37,15 @@ impl ItemList {
             a_field.remove(index);
         }
     }
+
+    pub fn expand_to_order<T>(raw_items: &mut Vec<T>, new_items: Vec<T>)
+    where
+        T: Ord,
+    {
+        for a_item in new_items {
+            Self::add_item(raw_items, a_item);
+        }
+    }
 }
 
 pub type SlashId = u64;

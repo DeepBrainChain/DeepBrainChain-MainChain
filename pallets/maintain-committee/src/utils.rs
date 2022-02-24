@@ -10,8 +10,12 @@ use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
-    pub fn get_hash(raw_str: &Vec<u8>) -> [u8; 16] {
-        blake2_128(raw_str)
+    pub fn get_hash(raw_str: Vec<Vec<u8>>) -> [u8; 16] {
+        let mut full_str = Vec::new();
+        for a_str in raw_str {
+            full_str.extend(a_str);
+        }
+        blake2_128(&full_str)
     }
 
     pub fn get_new_report_id() -> ReportId {
@@ -98,7 +102,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         for a_committee in committee_list {
             if is_slash {
-                <T as Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false)?;
+                <T as Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false, false)?;
             }
 
             <T as Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;

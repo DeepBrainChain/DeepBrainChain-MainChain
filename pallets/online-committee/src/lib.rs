@@ -250,10 +250,13 @@ pub mod pallet {
                 T::OCOperations::oc_change_staked_balance(real_slash.clone(), committee_order_stake, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else {
-                <T as pallet::Config>::Currency::reserve(&real_slash, committee_order_stake)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
-                <T as Config>::ManageCommittee::change_total_stake(real_slash.clone(), committee_order_stake, true)
-                    .map_err(|_| Error::<T>::Overflow)?;
+                <T as Config>::ManageCommittee::change_total_stake(
+                    real_slash.clone(),
+                    committee_order_stake,
+                    true,
+                    true,
+                )
+                .map_err(|_| Error::<T>::Overflow)?;
                 <T as Config>::ManageCommittee::change_used_stake(real_slash.clone(), committee_order_stake, true)
                     .map_err(|_| Error::<T>::Overflow)?;
             }
@@ -694,7 +697,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         for a_committee in committee_list {
             if is_slash {
-                <T as pallet::Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false)?;
+                <T as pallet::Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false, false)?;
             }
 
             <T as pallet::Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
@@ -727,6 +730,7 @@ impl<T: Config> Pallet<T> {
                 false,
             );
         } else {
+            // 否则，申请人是被惩罚的委员会
             let _ = <T as pallet::Config>::Currency::unreserve(
                 &slash_review_info.applicant,
                 slash_review_info.staked_amount,
@@ -735,6 +739,7 @@ impl<T: Config> Pallet<T> {
                 slash_review_info.applicant.clone(),
                 committee_order_stake,
                 false,
+                true,
             );
             let _ = <T as Config>::ManageCommittee::change_used_stake(
                 slash_review_info.applicant.clone(),
@@ -746,9 +751,8 @@ impl<T: Config> Pallet<T> {
         let mut should_slash = slash_info.reward_committee.clone();
         let mut should_reward = slash_info.inconsistent_committee.clone();
 
-        for a_committee in slash_info.unruly_committee.clone() {
-            ItemList::add_item(&mut should_slash, a_committee);
-        }
+        ItemList::expand_to_order(&mut should_slash, slash_info.unruly_committee.clone());
+
         if let OCBookResultType::OnlineRefused = slash_info.book_result {
             ItemList::add_item(&mut should_reward, slash_info.machine_stash.clone());
         }
@@ -774,8 +778,12 @@ impl<T: Config> Pallet<T> {
         }
         // 如果委员会应该被惩罚，则减少其total_stake和used_stake
         for a_committee in should_slash {
-            let _ =
-                <T as Config>::ManageCommittee::change_total_stake(a_committee.clone(), committee_order_stake, false);
+            let _ = <T as Config>::ManageCommittee::change_total_stake(
+                a_committee.clone(),
+                committee_order_stake,
+                false,
+                false,
+            );
             let _ = <T as Config>::ManageCommittee::change_used_stake(a_committee, committee_order_stake, false);
         }
         // 如果委员会应该被奖励，则改变已使用的质押即可
