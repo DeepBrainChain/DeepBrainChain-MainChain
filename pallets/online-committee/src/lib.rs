@@ -724,7 +724,6 @@ impl<T: Config> Pallet<T> {
 
         // Return reserved balance when apply for review
         if is_applicant_slashed_stash {
-            println!("#############");
             let _ = T::OCOperations::oc_change_staked_balance(
                 slash_review_info.applicant.clone(),
                 committee_order_stake,
@@ -779,14 +778,12 @@ impl<T: Config> Pallet<T> {
         }
         // 如果委员会应该被惩罚，则减少其total_stake和used_stake
         for a_committee in should_slash {
-            println!("####111");
-            <T as Config>::ManageCommittee::change_total_stake(
+            let _ = <T as Config>::ManageCommittee::change_total_stake(
                 a_committee.clone(),
                 committee_order_stake,
                 false,
                 false,
-            )
-            .map_err(|e| println!("###{:?}", e));
+            );
             let _ = <T as Config>::ManageCommittee::change_used_stake(a_committee, committee_order_stake, false);
         }
         // 如果委员会应该被奖励，则改变已使用的质押即可

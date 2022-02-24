@@ -106,7 +106,7 @@ pub mod pallet {
             // 只允许waiting_puk, normal 执行
             if committee_list.is_waiting_puk(&committee) {
                 Self::check_stake_health(&committee, committee_stake_params.stake_baseline, true)
-                    .map_err(|_| Error::<T>::BalanceNotEnough);
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
                 Self::do_change_reserved(committee.clone(), committee_stake_params.stake_baseline, true, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
