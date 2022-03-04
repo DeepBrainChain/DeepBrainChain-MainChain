@@ -224,6 +224,9 @@ impl<T: Config> RTOps for Pallet<T> {
     type Balance = BalanceOf<T>;
 
     /// 根据GPU数量和该机器算力点数，计算该机器相比标准配置的租用价格
+    // standard_point / machine_point ==  standard_price / machine_price
+    // =>
+    // machine_price = standard_price * machine_point / standard_point
     fn get_machine_price(machine_point: u64) -> Option<u64> {
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
         standard_gpu_point_price

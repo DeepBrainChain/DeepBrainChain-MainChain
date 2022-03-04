@@ -51,6 +51,26 @@ pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
     pub rent_status: RentStatus,
 }
 
+// A: AccountId, B: BlockNumber, C: Balance
+impl<A, B: Default, C: Default> RentOrderDetail<A, B, C> {
+    pub fn new(renter: A, rent_start: B, rent_end: B, stake_amount: C) -> Self {
+        Self {
+            renter,
+            rent_start,
+            confirm_rent: B::default(),
+            rent_end,
+            stake_amount,
+            rent_status: RentStatus::WaitingVerifying,
+        }
+    }
+
+    pub fn confirm_rent(&mut self, confirm_rent_time: B) {
+        self.confirm_rent = confirm_rent_time;
+        self.stake_amount = C::default();
+        self.rent_status = RentStatus::Renting;
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -178,17 +198,7 @@ pub mod pallet {
             // 质押用户的资金，并修改机器状态
             Self::change_renter_total_stake(&renter, rent_fee, true).map_err(|_| Error::<T>::InsufficientValue)?;
 
-            RentOrder::<T>::insert(
-                &machine_id,
-                RentOrderDetail {
-                    renter: renter.clone(),
-                    rent_start: now,
-                    confirm_rent: Zero::zero(),
-                    rent_end,
-                    stake_amount: rent_fee,
-                    rent_status: RentStatus::WaitingVerifying,
-                },
-            );
+            RentOrder::<T>::insert(&machine_id, RentOrderDetail::new(renter.clone(), now, rent_end, rent_fee));
 
             let mut user_rented = Self::user_rented(&renter);
             ItemList::add_item(&mut user_rented, machine_id.clone());
@@ -227,10 +237,7 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
             Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, order_info.stake_amount)?;
 
-            order_info.confirm_rent = now;
-            order_info.stake_amount = Zero::zero();
-            order_info.rent_status = RentStatus::Renting;
-
+            order_info.confirm_rent(now);
             RentOrder::<T>::insert(&machine_id, order_info);
 
             // 改变online_profile状态

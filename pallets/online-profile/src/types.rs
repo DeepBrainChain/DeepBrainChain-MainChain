@@ -10,6 +10,7 @@ use sp_std::{
     collections::{btree_map::BTreeMap, vec_deque::VecDeque},
     ops::{Add, Sub},
     prelude::Box,
+    vec,
     vec::Vec,
 };
 
@@ -223,17 +224,45 @@ pub struct LiveMachine {
 }
 
 impl LiveMachine {
+    pub fn is_bonding(&self, machine_id: &MachineId) -> bool {
+        self.bonding_machine.binary_search(machine_id).is_ok()
+    }
+    pub fn is_confirmed(&self, machine_id: &MachineId) -> bool {
+        self.confirmed_machine.binary_search(machine_id).is_ok()
+    }
+    pub fn is_booked(&self, machine_id: &MachineId) -> bool {
+        self.booked_machine.binary_search(machine_id).is_ok()
+    }
+    pub fn is_online(&self, machine_id: &MachineId) -> bool {
+        self.online_machine.binary_search(machine_id).is_ok()
+    }
+    pub fn is_fulfilling(&self, machine_id: &MachineId) -> bool {
+        self.fulfilling_machine.binary_search(machine_id).is_ok()
+    }
+    pub fn is_refused(&self, machine_id: &MachineId) -> bool {
+        self.refused_machine.binary_search(machine_id).is_ok()
+    }
+    pub fn is_rented(&self, machine_id: &MachineId) -> bool {
+        self.rented_machine.binary_search(machine_id).is_ok()
+    }
+    pub fn is_offline(&self, machine_id: &MachineId) -> bool {
+        self.offline_machine.binary_search(machine_id).is_ok()
+    }
+    pub fn is_refused_mut_hardware(&self, machine_id: &MachineId) -> bool {
+        self.refused_machine.binary_search(machine_id).is_ok()
+    }
+
     /// Check if machine_id exist
     pub fn machine_id_exist(&self, machine_id: &MachineId) -> bool {
-        self.bonding_machine.binary_search(machine_id).is_ok()
-            || self.confirmed_machine.binary_search(machine_id).is_ok()
-            || self.booked_machine.binary_search(machine_id).is_ok()
-            || self.online_machine.binary_search(machine_id).is_ok()
-            || self.fulfilling_machine.binary_search(machine_id).is_ok()
-            || self.refused_machine.binary_search(machine_id).is_ok()
-            || self.rented_machine.binary_search(machine_id).is_ok()
-            || self.offline_machine.binary_search(machine_id).is_ok()
-            || self.refused_mut_hardware_machine.binary_search(machine_id).is_ok()
+        self.is_bonding(machine_id)
+            || self.is_confirmed(machine_id)
+            || self.is_booked(machine_id)
+            || self.is_online(machine_id)
+            || self.is_fulfilling(machine_id)
+            || self.is_refused(machine_id)
+            || self.is_rented(machine_id)
+            || self.is_offline(machine_id)
+            || self.is_refused_mut_hardware(machine_id)
     }
 }
 
@@ -389,34 +418,33 @@ pub struct CommitteeUploadInfo {
     pub is_support: bool, // 委员会是否支持该机器上线
 }
 
+// TODO: refa
 impl CommitteeUploadInfo {
-    pub fn hash(&self) -> [u8; 16] {
-        let gpu_num: Vec<u8> = self.gpu_num.to_string().into();
-        let cuda_core: Vec<u8> = self.cuda_core.to_string().into();
-        let gpu_mem: Vec<u8> = self.gpu_mem.to_string().into();
-        let calc_point: Vec<u8> = self.calc_point.to_string().into();
-        let sys_disk: Vec<u8> = self.sys_disk.to_string().into();
-        let data_disk: Vec<u8> = self.data_disk.to_string().into();
-        let cpu_core_num: Vec<u8> = self.cpu_core_num.to_string().into();
-        let cpu_rate: Vec<u8> = self.cpu_rate.to_string().into();
-        let mem_num: Vec<u8> = self.mem_num.to_string().into();
+    fn join_str<A: ToString>(items: Vec<A>) -> Vec<u8> {
+        let mut output = Vec::new();
+        for item in items {
+            let item: Vec<u8> = item.to_string().into();
+            output.extend(item);
+        }
+        output
+    }
 
+    pub fn hash(&self) -> [u8; 16] {
         let is_support: Vec<u8> = if self.is_support { "1".into() } else { "0".into() };
 
         let mut raw_info = Vec::new();
         raw_info.extend(self.machine_id.clone());
         raw_info.extend(self.gpu_type.clone());
-        raw_info.extend(gpu_num);
-        raw_info.extend(cuda_core);
-        raw_info.extend(gpu_mem);
-        raw_info.extend(calc_point);
-        raw_info.extend(sys_disk);
-        raw_info.extend(data_disk);
+        raw_info.extend(Self::join_str(vec![
+            self.gpu_num as u64,
+            self.cuda_core as u64,
+            self.gpu_mem,
+            self.calc_point,
+            self.sys_disk,
+            self.data_disk,
+        ]));
         raw_info.extend(self.cpu_type.clone());
-        raw_info.extend(cpu_core_num);
-        raw_info.extend(cpu_rate);
-        raw_info.extend(mem_num);
-
+        raw_info.extend(Self::join_str(vec![self.cpu_core_num as u64, self.cpu_rate, self.mem_num]));
         raw_info.extend(self.rand_str.clone());
         raw_info.extend(is_support);
 
