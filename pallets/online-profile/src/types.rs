@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use codec::{alloc::string::ToString, Decode, Encode};
-use generic_func::MachineId;
+use generic_func::{ItemList, MachineId};
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{Perbill, RuntimeDebug};
@@ -87,6 +87,13 @@ pub struct StashMachine<Balance> {
     pub total_burn_fee: Balance,
 }
 
+impl<B> StashMachine<B> {
+    // 新加入的机器，放到total_machine中
+    pub fn new_bonding(&mut self, machine_id: MachineId) {
+        ItemList::add_item(&mut self.total_machine, machine_id.clone());
+    }
+}
+
 /// All details of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -128,6 +135,30 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub reward_committee: Vec<AccountId>,
     /// When reward will be over for committees
     pub reward_deadline: EraIndex,
+}
+
+impl<A: Ord + Default, B: Default, C: Default> MachineInfo<A, B, C> {
+    pub fn new_bonding(controller: A, stash: A, now: B, init_stake_per_gpu: C) -> Self {
+        Self {
+            controller,
+            machine_stash: stash,
+            bonding_height: now,
+            init_stake_per_gpu,
+            machine_status: MachineStatus::AddingCustomizeInfo,
+            ..Default::default()
+        }
+    }
+
+    pub fn can_add_customize_info(&self) -> bool {
+        match self.machine_status {
+            MachineStatus::AddingCustomizeInfo
+            | MachineStatus::CommitteeVerifying
+            | MachineStatus::CommitteeRefused(_)
+            | MachineStatus::WaitingFulfill
+            | MachineStatus::StakerReportOffline(_, _) => true,
+            _ => false,
+        }
+    }
 }
 
 /// All kind of status of a machine
@@ -263,6 +294,11 @@ impl LiveMachine {
             || self.is_rented(machine_id)
             || self.is_offline(machine_id)
             || self.is_refused_mut_hardware(machine_id)
+    }
+
+    // 添加到LiveMachine的bonding_machine字段
+    pub fn new_bonding(&mut self, machine_id: MachineId) {
+        ItemList::add_item(&mut self.bonding_machine, machine_id.clone());
     }
 }
 
@@ -418,7 +454,6 @@ pub struct CommitteeUploadInfo {
     pub is_support: bool, // 委员会是否支持该机器上线
 }
 
-// TODO: refa
 impl CommitteeUploadInfo {
     fn join_str<A: ToString>(items: Vec<A>) -> Vec<u8> {
         let mut output = Vec::new();
