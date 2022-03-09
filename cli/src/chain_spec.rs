@@ -71,6 +71,10 @@ pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 pub fn flaming_fir_config() -> Result<ChainSpec, String> {
     ChainSpec::from_json_bytes(&include_bytes!("../res/flaming-fir.json")[..])
 }
+/// DBC Mainnet spec config
+pub fn mainnet_config() -> Result<ChainSpec, String> {
+    ChainSpec::from_json_bytes(&include_bytes!("../res/dbcSpecRaw.json")[..])
+}
 
 fn session_keys(
     grandpa: GrandpaId,
