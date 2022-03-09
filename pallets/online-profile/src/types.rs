@@ -137,13 +137,14 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub reward_deadline: EraIndex,
 }
 
-impl<A: Ord + Default, B: Default, C: Default> MachineInfo<A, B, C> {
+impl<A: Ord + Default, B: Default, C: Copy + Default> MachineInfo<A, B, C> {
     pub fn new_bonding(controller: A, stash: A, now: B, init_stake_per_gpu: C) -> Self {
         Self {
             controller,
             machine_stash: stash,
             bonding_height: now,
             init_stake_per_gpu,
+            stake_amount: init_stake_per_gpu,
             machine_status: MachineStatus::AddingCustomizeInfo,
             ..Default::default()
         }
