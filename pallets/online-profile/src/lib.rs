@@ -233,6 +233,18 @@ pub mod pallet {
     #[pallet::getter(fn rented_finished)]
     pub(super) type RentedFinished<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
 
+    // 记录某个时间需要执行的惩罚
+    #[pallet::storage]
+    #[pallet::getter(fn pending_exec_slash)]
+    pub(super) type PendingExecSlash<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<SlashId>, ValueQuery>;
+
+    // // 记录机器下线超过10天后，需要立即执行的惩罚
+    // #[pallet::storage]
+    // #[pallet::getter(fn pending_exec_max_offline_slash)]
+    // pub(super) type PendingExecMaxOfflineSlash<T: Config> =
+    //     StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<MachineId>, ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
@@ -722,7 +734,13 @@ pub mod pallet {
 
                 if should_add_new_slash {
                     // Only after pay slash amount succeed, then make machine online.
+                    // TODO: Refa: slash.rs 208-213
                     let slash_id = Self::get_new_slash_id();
+
+                    let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
+                    ItemList::add_item(&mut pending_exec_slash, slash_id);
+                    PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
+
                     PendingSlash::<T>::insert(slash_id, slash_info);
                 }
             }
@@ -965,6 +983,10 @@ impl<T: Config> Pallet<T> {
         let mut pending_review_checking = Self::pending_slash_review_checking(slash_info.slash_exec_time);
         ItemList::rm_item(&mut pending_review_checking, &slash_id);
         PendingSlashReviewChecking::<T>::insert(slash_info.slash_exec_time, pending_review_checking);
+
+        let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
+        ItemList::rm_item(&mut pending_exec_slash, &slash_id);
+        PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
 
         PendingSlash::<T>::remove(slash_id);
         PendingSlashReview::<T>::remove(slash_id);

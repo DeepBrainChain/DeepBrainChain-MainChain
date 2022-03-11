@@ -1,10 +1,10 @@
 use crate::{
     types::{MachineStatus, OPPendingSlashInfo, OPSlashReason, MAX_SLASH_THRESHOLD, TWO_DAY},
-    BalanceOf, Config, Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview, PendingSlashReviewChecking,
-    StashStake, SysInfo,
+    BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecSlash, PendingSlash, PendingSlashReview,
+    PendingSlashReviewChecking, StashStake, SysInfo,
 };
 use frame_support::{traits::ReservableCurrency, IterableStorageMap};
-use generic_func::MachineId;
+use generic_func::{ItemList, MachineId};
 use online_profile_machine::GNOps;
 use sp_runtime::{
     traits::{CheckedSub, Zero},
@@ -43,18 +43,14 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // TODO: 优化性能
+    // NOTE: 确保 PendingSlash 添加时，添加该变量
+    // PendingSlash 删除时，删除该变量
     pub fn do_pending_slash() {
         let now = <frame_system::Module<T>>::block_number();
-        let all_slash_id = <PendingSlash<T> as IterableStorageMap<u64, _>>::iter()
-            .map(|(slash_id, _)| slash_id)
-            .collect::<Vec<_>>();
+        let pending_exec_slash = Self::pending_exec_slash(now);
 
-        for slash_id in all_slash_id {
+        for slash_id in pending_exec_slash {
             let slash_info = Self::pending_slash(slash_id);
-            if now < slash_info.slash_exec_time {
-                continue;
-            }
 
             match slash_info.slash_reason {
                 OPSlashReason::CommitteeRefusedOnline | OPSlashReason::CommitteeRefusedMutHardware => {
@@ -172,10 +168,22 @@ impl<T: Config> Pallet<T> {
 
             if slash_info.slash_amount != Zero::zero() {
                 let slash_id = Self::get_new_slash_id();
+
+                let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
+                ItemList::add_item(&mut pending_exec_slash, slash_id);
+                PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
+
                 PendingSlash::<T>::insert(slash_id, slash_info);
             }
         }
     }
+
+    // pub fn check_offline_machine_duration2() {
+    //     let now = <frame_system::Module<T>>::block_number();
+    //     let pending_exec_slash = Self::pending_exec_max_offline_slash(now);
+
+    //     for machine_id in pending_exec_slash {}
+    // }
 
     // Return slashed amount when slash is executed
     pub fn slash_when_report_offline(

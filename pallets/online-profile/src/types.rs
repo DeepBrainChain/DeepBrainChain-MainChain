@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use codec::{alloc::string::ToString, Decode, Encode};
-use generic_func::{ItemList, MachineId};
+use generic_func::{ItemList, MachineId, SlashId};
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{traits::Saturating, Perbill, RuntimeDebug};
@@ -720,4 +720,12 @@ impl MachineGradeStatus {
 pub struct AllMachineIdSnapDetail {
     pub all_machine_id: VecDeque<MachineId>,
     pub snap_len: u64,
+}
+
+#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+pub struct PendingCheckingList {
+    // 达到下线10天的机器，立即执行最大惩罚
+    pub offline_checking: Vec<MachineId>,
+    // 达到执行时间的惩罚，立即执行
+    pub pending_do_slash: Vec<SlashId>,
 }
