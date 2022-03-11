@@ -28,9 +28,9 @@ impl<T: Config> Pallet<T> {
         EraReward::<T>::insert(current_era, era_reward);
 
         if current_era == 1 {
-            ErasStashPoints::<T>::insert(0, EraStashPoints { ..Default::default() });
-            ErasStashPoints::<T>::insert(1, EraStashPoints { ..Default::default() });
-            ErasStashPoints::<T>::insert(2, EraStashPoints { ..Default::default() });
+            ErasStashPoints::<T>::insert(0, EraStashPoints::default());
+            ErasStashPoints::<T>::insert(1, EraStashPoints::default());
+            ErasStashPoints::<T>::insert(2, EraStashPoints::default());
             let init_value: BTreeMap<MachineId, MachineGradeStatus> = BTreeMap::new();
             ErasMachinePoints::<T>::insert(0, init_value.clone());
             ErasMachinePoints::<T>::insert(1, init_value.clone());
@@ -50,7 +50,7 @@ impl<T: Config> Pallet<T> {
         let sys_info = Self::sys_info();
         let online_stake_params = Self::online_stake_params()?;
 
-        let dbc_stake_per_gpu = if sys_info.total_gpu_num > 10_000 {
+        let stake_per_gpu = if sys_info.total_gpu_num > 10_000 {
             Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num)
                 * online_stake_params.online_stake_per_gpu
         } else {
@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
         };
 
         let stake_limit = T::DbcPrice::get_dbc_amount_by_value(online_stake_params.online_stake_usd_limit)?;
-        Some(dbc_stake_per_gpu.min(stake_limit)) // .checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())
+        Some(stake_per_gpu.min(stake_limit)) // .checked_mul(&gpu_num.saturated_into::<BalanceOf<T>>())
     }
 
     /// 计算当前Era在线奖励数量

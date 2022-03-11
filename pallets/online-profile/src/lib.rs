@@ -334,15 +334,14 @@ pub mod pallet {
             ensure!(!<ControllerStash<T>>::contains_key(&new_controller), Error::<T>::AlreadyController);
 
             let mut machine_info = Self::machines_info(&machine_id);
-            let old_controller = machine_info.controller.clone();
+            ensure!(machine_info.machine_stash == stash, Error::<T>::NotMachineStash);
 
+            let old_controller = machine_info.controller.clone();
             let mut old_controller_machines = Self::controller_machines(&old_controller);
             let mut new_controller_machines = Self::controller_machines(&new_controller);
 
-            ensure!(machine_info.machine_stash == stash, Error::<T>::NotMachineStash);
+            // Change machine_info & controller_machines
             machine_info.controller = new_controller.clone();
-
-            // Change controller_machines
             ItemList::rm_item(&mut old_controller_machines, &machine_id);
             ItemList::add_item(&mut new_controller_machines, machine_id.clone());
 
@@ -414,39 +413,21 @@ pub mod pallet {
             let mut stash_machines = Self::stash_machines(&stash);
 
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
-
-            // 验证msg: len(pubkey + account) = 64 + 48
-            ensure!(msg.len() == 112, Error::<T>::BadMsgLen);
-
-            let sig_machine_id: Vec<u8> = msg[..64].to_vec();
-            let sig_stash_account: Vec<u8> = msg[64..].to_vec();
-
-            ensure!(machine_id == sig_machine_id, Error::<T>::SigMachineIdNotEqualBondedMachineId);
-            let sig_stash_account =
-                Self::get_account_from_str(&sig_stash_account).ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
-            ensure!(sig_stash_account == stash, Error::<T>::MachineStashNotEqualControllerStash);
-
-            // 验证签名是否为MachineId发出
-            ensure!(
-                utils::verify_sig(msg.clone(), sig.clone(), machine_id.clone()).is_some(),
-                Error::<T>::BadSignature
-            );
+            // 检查签名是否正确
+            Self::check_bonding_msg(stash.clone(), machine_id.clone(), msg.clone(), sig)?;
 
             // 用户绑定机器需要质押一张显卡的DBC
             let stake_amount = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            // 修改controller_machine, stash_machine记录
+            // 修改controller_machine, stash_machine, live_machine, machine_info
             ItemList::add_item(&mut controller_machines, machine_id.clone());
             stash_machines.new_bonding(machine_id.clone());
-            // 修改LiveMachine
             live_machines.new_bonding(machine_id.clone());
-            // 初始化MachineInfo, 并添加到MachinesInfo
             let machine_info = MachineInfo::new_bonding(controller.clone(), stash.clone(), now, stake_amount);
 
-            // 扣除10个Dbc作为交易手续费
+            // 扣除10个Dbc作为交易手续费; 并质押
             <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
-
             Self::change_user_total_stake(stash.clone(), stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
@@ -468,6 +449,7 @@ pub mod pallet {
             <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
             let mut stash_server_rooms = Self::stash_server_rooms(&stash);
+
             let new_server_room = <generic_func::Module<T>>::random_server_room();
             ItemList::add_item(&mut stash_server_rooms, new_server_room);
 
@@ -501,7 +483,6 @@ pub mod pallet {
             machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
 
             let mut live_machines = Self::live_machines();
-
             if live_machines.bonding_machine.binary_search(&machine_id).is_ok() {
                 ItemList::rm_item(&mut live_machines.bonding_machine, &machine_id);
                 ItemList::add_item(&mut live_machines.confirmed_machine, machine_id.clone());
@@ -603,6 +584,7 @@ pub mod pallet {
             let stash_account = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashAccount)?;
 
             ensure!(StashMachines::<T>::contains_key(&stash_account), Error::<T>::NotMachineController);
+
             let mut stash_machine = Self::stash_machines(&stash_account);
             let can_claim = stash_machine.can_claim_reward;
 
@@ -948,6 +930,26 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn check_bonding_msg(
+        stash: T::AccountId,
+        machine_id: MachineId,
+        msg: Vec<u8>,
+        sig: Vec<u8>,
+    ) -> DispatchResultWithPostInfo {
+        // 验证msg: len(machine_id + stash_account) = 64 + 48
+        ensure!(msg.len() == 112, Error::<T>::BadMsgLen);
+
+        let (sig_machine_id, sig_stash_account) = (msg[..64].to_vec(), msg[64..].to_vec());
+        ensure!(machine_id == sig_machine_id, Error::<T>::SigMachineIdNotEqualBondedMachineId);
+        let sig_stash_account =
+            Self::get_account_from_str(&sig_stash_account).ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
+        ensure!(sig_stash_account == stash, Error::<T>::MachineStashNotEqualControllerStash);
+
+        // 验证签名是否为MachineId发出
+        ensure!(utils::verify_sig(msg, sig, machine_id).is_some(), Error::<T>::BadSignature);
+        Ok(().into())
+    }
+
     pub fn do_cancel_slash(slash_id: u64) -> DispatchResultWithPostInfo {
         ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIdNotExist);
 
@@ -977,8 +979,8 @@ impl<T: Config> Pallet<T> {
         let mut live_machine = Self::live_machines();
 
         if let MachineStatus::Rented = machine_info.machine_status {
-            Self::update_snap_by_rent_status(machine_id.clone(), false);
             Self::change_pos_info_by_rent(&machine_info, false);
+            Self::update_snap_by_rent_status(machine_id.clone(), false);
         }
 
         // When offline, pos_info will be removed
@@ -1005,21 +1007,12 @@ impl<T: Config> Pallet<T> {
     ) {
         let longitude = &machine_info.machine_info_detail.staker_customize_info.longitude;
         let latitude = &machine_info.machine_info_detail.staker_customize_info.latitude;
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
         let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
 
         let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
 
-        if is_online {
-            pos_gpu_info.online_gpu = pos_gpu_info.online_gpu.saturating_add(gpu_num);
-            pos_gpu_info.online_gpu_calc_points = pos_gpu_info.online_gpu_calc_points.saturating_add(calc_point);
-        } else {
-            pos_gpu_info.online_gpu = pos_gpu_info.online_gpu.checked_sub(gpu_num).unwrap_or_default();
-            pos_gpu_info.offline_gpu = pos_gpu_info.offline_gpu.saturating_add(gpu_num);
-            pos_gpu_info.online_gpu_calc_points =
-                pos_gpu_info.online_gpu_calc_points.checked_sub(calc_point).unwrap_or_default();
-        }
-
+        pos_gpu_info.is_online(is_online, gpu_num, calc_point);
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
     }
 
@@ -1031,15 +1024,10 @@ impl<T: Config> Pallet<T> {
     ) {
         let longitude = &machine_info.machine_info_detail.staker_customize_info.longitude;
         let latitude = &machine_info.machine_info_detail.staker_customize_info.latitude;
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
 
         let mut pos_gpu_info = Self::pos_gpu_info(longitude.clone(), latitude.clone());
-        if is_rented {
-            pos_gpu_info.rented_gpu += gpu_num;
-        } else {
-            pos_gpu_info.rented_gpu = pos_gpu_info.rented_gpu.checked_sub(gpu_num).unwrap_or_default();
-        }
-
+        pos_gpu_info.is_rented(is_rented, gpu_num);
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
     }
 
@@ -1047,17 +1035,17 @@ impl<T: Config> Pallet<T> {
         let mut stash_stake = Self::stash_stake(&who);
         let mut sys_info = Self::sys_info();
 
+        // 更改 stash_stake
         if is_add {
-            sys_info.total_stake = sys_info.total_stake.checked_add(&amount).ok_or(())?;
             stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
-
             ensure!(<T as Config>::Currency::can_reserve(&who, amount), ());
             <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
         } else {
             stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
-            sys_info.total_stake = sys_info.total_stake.checked_sub(&amount).ok_or(())?;
             <T as pallet::Config>::Currency::unreserve(&who, amount);
         }
+        // 更改sys_info
+        sys_info.change_stake(amount, is_add);
 
         StashStake::<T>::insert(&who, stash_stake);
         SysInfo::<T>::put(sys_info);
@@ -1121,7 +1109,7 @@ impl<T: Config> Pallet<T> {
             ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
 
             stash_machine.total_gpu_num = stash_machine.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
-            sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
+            // sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
         } else {
             if current_era_is_online {
                 // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
@@ -1138,7 +1126,7 @@ impl<T: Config> Pallet<T> {
 
             ItemList::rm_item(&mut stash_machine.online_machine, &machine_id);
             stash_machine.total_gpu_num = stash_machine.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
-            sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
+            // sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
         }
 
         // 机器上线或者下线都会影响下一era得分，而只有下线才影响当前era得分
@@ -1151,7 +1139,7 @@ impl<T: Config> Pallet<T> {
 
         let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
         stash_machine.total_calc_points = stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
-        sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
+        // sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
         // NOTE: 5000张卡开启银河竞赛
         if !Self::galaxy_is_on() && sys_info.total_gpu_num > Self::galaxy_on_gpu_threshold() as u64 {

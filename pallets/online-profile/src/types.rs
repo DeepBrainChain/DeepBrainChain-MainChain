@@ -5,7 +5,7 @@ use codec::{alloc::string::ToString, Decode, Encode};
 use generic_func::{ItemList, MachineId};
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
-use sp_runtime::{Perbill, RuntimeDebug};
+use sp_runtime::{traits::Saturating, Perbill, RuntimeDebug};
 use sp_std::{
     collections::{btree_map::BTreeMap, vec_deque::VecDeque},
     ops::{Add, Sub},
@@ -87,10 +87,18 @@ pub struct StashMachine<Balance> {
     pub total_burn_fee: Balance,
 }
 
-impl<B> StashMachine<B> {
+impl<B: Saturating + Copy> StashMachine<B> {
     // 新加入的机器，放到total_machine中
     pub fn new_bonding(&mut self, machine_id: MachineId) {
         ItemList::add_item(&mut self.total_machine, machine_id.clone());
+    }
+
+    pub fn change_rent_fee(&mut self, amount: B, is_burn: bool) {
+        if is_burn {
+            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
+        } else {
+            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
+        }
     }
 }
 
@@ -137,7 +145,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub reward_deadline: EraIndex,
 }
 
-impl<A: Ord + Default, B: Default, C: Copy + Default> MachineInfo<A, B, C> {
+impl<A: Ord + Default, B: Default, C: Copy + Default + Saturating> MachineInfo<A, B, C> {
     pub fn new_bonding(controller: A, stash: A, now: B, init_stake_per_gpu: C) -> Self {
         Self {
             controller,
@@ -158,6 +166,14 @@ impl<A: Ord + Default, B: Default, C: Copy + Default> MachineInfo<A, B, C> {
             | MachineStatus::WaitingFulfill
             | MachineStatus::StakerReportOffline(_, _) => true,
             _ => false,
+        }
+    }
+
+    pub fn change_rent_fee(&mut self, amount: C, is_burn: bool) {
+        if is_burn {
+            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
+        } else {
+            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
         }
     }
 }
@@ -365,6 +381,24 @@ pub struct SysInfoDetail<Balance> {
     pub total_burn_fee: Balance,
 }
 
+impl<Balance: Saturating + Copy> SysInfoDetail<Balance> {
+    pub fn change_stake(&mut self, amount: Balance, is_add: bool) {
+        if is_add {
+            self.total_stake = self.total_stake.saturating_add(amount);
+        } else {
+            self.total_stake = self.total_stake.saturating_sub(amount);
+        }
+    }
+
+    pub fn change_rent_fee(&mut self, amount: Balance, is_burn: bool) {
+        if is_burn {
+            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
+        } else {
+            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
+        }
+    }
+}
+
 /// Statistics of gpus based on position(latitude and longitude)
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -378,6 +412,29 @@ pub struct PosInfo {
     pub rented_gpu: u64,
     /// Online gpu grades (NOTE: Extra rewarded grades is not counted)
     pub online_gpu_calc_points: u64,
+}
+
+impl PosInfo {
+    pub fn is_rented(&mut self, is_rented: bool, gpu_num: u32) {
+        if is_rented {
+            self.rented_gpu = self.rented_gpu.saturating_add(gpu_num as u64);
+        } else {
+            self.rented_gpu = self.rented_gpu.saturating_sub(gpu_num as u64);
+        }
+    }
+
+    pub fn is_online(&mut self, is_online: bool, gpu_num: u32, calc_point: u64) {
+        let gpu_num = gpu_num as u64;
+        if is_online {
+            self.online_gpu = self.online_gpu.saturating_add(gpu_num);
+            self.online_gpu_calc_points = self.online_gpu_calc_points.saturating_add(calc_point);
+        } else {
+            self.online_gpu = self.online_gpu.saturating_sub(gpu_num);
+            self.online_gpu_calc_points = self.online_gpu_calc_points.saturating_sub(calc_point);
+
+            self.offline_gpu = self.offline_gpu.saturating_add(gpu_num);
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
