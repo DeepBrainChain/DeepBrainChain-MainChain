@@ -1109,7 +1109,7 @@ impl<T: Config> Pallet<T> {
             ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
 
             stash_machine.total_gpu_num = stash_machine.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
-            // sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
+            sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
         } else {
             if current_era_is_online {
                 // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
@@ -1126,7 +1126,7 @@ impl<T: Config> Pallet<T> {
 
             ItemList::rm_item(&mut stash_machine.online_machine, &machine_id);
             stash_machine.total_gpu_num = stash_machine.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
-            // sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
+            sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
         }
 
         // 机器上线或者下线都会影响下一era得分，而只有下线才影响当前era得分
@@ -1139,7 +1139,7 @@ impl<T: Config> Pallet<T> {
 
         let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
         stash_machine.total_calc_points = stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
-        // sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
+        sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
         // NOTE: 5000张卡开启银河竞赛
         if !Self::galaxy_is_on() && sys_info.total_gpu_num > Self::galaxy_on_gpu_threshold() as u64 {
