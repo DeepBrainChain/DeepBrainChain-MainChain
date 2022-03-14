@@ -152,6 +152,17 @@ pub mod pallet {
     #[pallet::getter(fn rent_fee_pot)]
     pub(super) type RentFeePot<T: Config> = StorageValue<_, T::AccountId>;
 
+    #[pallet::type_value]
+    pub(super) fn MaximumRentalDurationDefault<T: Config>() -> EraIndex {
+        60
+    }
+
+    // 最大租用/续租用时间
+    #[pallet::storage]
+    #[pallet::getter(fn maximum_rental_duration)]
+    pub(super) type MaximumRentalDuration<T: Config> =
+        StorageValue<_, EraIndex, ValueQuery, MaximumRentalDurationDefault<T>>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置机器租金支付目标地址
@@ -175,6 +186,10 @@ pub mod pallet {
 
             // 检查machine_id状态是否可以租用
             ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineNotRentable);
+
+            // 最大租用时间限制MaximumRentalDuration
+            let duration = duration.min(Self::maximum_rental_duration());
+
             // 用户提交订单，需要扣除10个DBC
             <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
@@ -262,12 +277,29 @@ pub mod pallet {
 
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
             ensure!(order_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
+
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
+            let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
 
-            let machine_price =
-                T::RTOps::get_machine_price(machine_info.machine_info_detail.committee_upload_info.calc_point)
-                    .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            // 确保租用时间不超过设定的限制
+            let now = <frame_system::Module<T>>::block_number();
+            // 最大结束块高为 今天租用开始的时间 + 60天
+            let max_rent_end = order_info.rent_start
+                + (now - order_info.rent_start) / BLOCK_PER_DAY.into() * BLOCK_PER_DAY.into()
+                + (Self::maximum_rental_duration() * BLOCK_PER_DAY).into();
+            let wanted_rent_end = old_rent_end + (add_duration * BLOCK_PER_DAY).into();
 
+            let add_duration = if wanted_rent_end >= max_rent_end {
+                (max_rent_end - old_rent_end).saturated_into::<u64>() / BLOCK_PER_DAY as u64
+            } else {
+                add_duration as u64
+            };
+
+            if add_duration == 0 {
+                return Ok(().into());
+            }
+
+            let machine_price = T::RTOps::get_machine_price(calc_point).ok_or(Error::<T>::GetMachinePriceFailed)?;
             let rent_fee_value = machine_price.checked_mul(add_duration as u64).ok_or(Error::<T>::Overflow)?;
             let rent_fee =
                 <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value).ok_or(Error::<T>::Overflow)?;
@@ -280,7 +312,7 @@ pub mod pallet {
 
             // 获取用户租用的结束时间
             // rent_end = block_per_day * rent_duration + rent_end
-            order_info.rent_end = BLOCK_PER_DAY
+            order_info.rent_end = (BLOCK_PER_DAY as u64)
                 .checked_mul(add_duration)
                 .ok_or(Error::<T>::Overflow)?
                 .saturated_into::<T::BlockNumber>()

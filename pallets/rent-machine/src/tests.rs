@@ -1,4 +1,4 @@
-use crate::{mock::*, PendingConfirming, RentOrderDetail};
+use crate::{mock::*, PendingConfirming, RentOrderDetail, BLOCK_PER_DAY};
 use frame_support::assert_ok;
 use generic_func::MachineId;
 use online_profile::MachineStatus;
@@ -50,7 +50,7 @@ fn rent_machine_should_works() {
         // Balance of renter will decrease, Dave is committee so - 20000
         assert_eq!(
             Balances::free_balance(renter_dave),
-            INIT_BALANCE - 249541666666666666666 - 10 * ONE_DBC - 20000 * ONE_DBC
+            2 * INIT_BALANCE - 249541666666666666666 - 10 * ONE_DBC - 20000 * ONE_DBC
         );
 
         // Dave relet machine
@@ -73,7 +73,7 @@ fn rent_machine_should_works() {
         assert_eq!(Balances::free_balance(stash), INIT_BALANCE + 249541666666666666666 * 2 - 400000 * ONE_DBC);
         assert_eq!(
             Balances::free_balance(renter_dave),
-            INIT_BALANCE - 249541666666666666666 * 2 - 10 * ONE_DBC - 20000 * ONE_DBC
+            2 * INIT_BALANCE - 249541666666666666666 * 2 - 10 * ONE_DBC - 20000 * ONE_DBC
         );
 
         // 21 days later
@@ -288,5 +288,77 @@ fn controller_report_offline_mutiple_times_should_work() {
         run_to_block(2880 * 2 + 20);
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
         assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+    })
+}
+
+#[test]
+fn rent_limit_should_works() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        let renter_dave: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+
+        // Dave rent machine for 70 days
+        assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 70));
+
+        // DBC 价格： 12000 / 10^6 USD
+        // 机器价格： 59890 / 1000 * (5000000 / 10^6) USD
+        // 需要 DBC的租金:  59890 / 1000 * (5000000 / 10^6) / (12000 / 10^6) * 60 = 1497250
+        assert_eq!(RentMachine::user_total_stake(&renter_dave), 1497250 * ONE_DBC);
+        assert_eq!(
+            RentMachine::rent_order(&machine_id),
+            super::RentOrderDetail {
+                renter: renter_dave,
+                rent_start: 11,
+                rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
+                confirm_rent: 0,
+                rent_status: super::RentStatus::WaitingVerifying,
+                stake_amount: 1497250 * ONE_DBC,
+            }
+        );
+        assert_eq!(RentMachine::user_rented(&renter_dave), vec![machine_id.clone()]);
+        assert_eq!(RentMachine::pending_rent_ending((11 + 60 * BLOCK_PER_DAY) as u64), vec![machine_id.clone()]);
+
+        run_to_block(15);
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
+        assert_eq!(
+            RentMachine::rent_order(&machine_id),
+            super::RentOrderDetail {
+                renter: renter_dave,
+                rent_start: 11,
+                rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
+                confirm_rent: 16,
+                rent_status: super::RentStatus::Renting,
+                stake_amount: 0 * ONE_DBC,
+            }
+        );
+
+        run_to_block(20);
+        assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 1));
+        assert_eq!(
+            RentMachine::rent_order(&machine_id),
+            super::RentOrderDetail {
+                renter: renter_dave,
+                rent_start: 11,
+                rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
+                confirm_rent: 16,
+                rent_status: super::RentStatus::Renting,
+                stake_amount: 0 * ONE_DBC,
+            }
+        );
+
+        // 过了一天，续租2天，则只能续租1天
+        run_to_block(20 + 2880);
+        assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 2));
+        assert_eq!(
+            RentMachine::rent_order(&machine_id),
+            super::RentOrderDetail {
+                renter: renter_dave,
+                rent_start: 11,
+                rent_end: 11 + BLOCK_PER_DAY as u64 * (60 + 1),
+                confirm_rent: 16,
+                rent_status: super::RentStatus::Renting,
+                stake_amount: 0 * ONE_DBC,
+            }
+        );
     })
 }
