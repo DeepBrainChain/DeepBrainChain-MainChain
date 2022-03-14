@@ -246,7 +246,7 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
             (sr25519::Public::from(Sr25519Keyring::Alice).into(), INIT_BALANCE),
             (sr25519::Public::from(Sr25519Keyring::Bob).into(), INIT_BALANCE),
             (sr25519::Public::from(Sr25519Keyring::Charlie).into(), INIT_BALANCE),
-            (sr25519::Public::from(Sr25519Keyring::Dave).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Dave).into(), 2 * INIT_BALANCE),
             (sr25519::Public::from(Sr25519Keyring::Eve).into(), INIT_BALANCE),
             (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), INIT_BALANCE),
             (sr25519::Public::from(Sr25519Keyring::One).into(), INIT_BALANCE),
