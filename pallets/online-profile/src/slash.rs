@@ -1,10 +1,10 @@
 use crate::{
-    types::{MachineStatus, OPPendingSlashInfo, OPSlashReason, MAX_SLASH_THRESHOLD, TWO_DAY},
-    BalanceOf, Config, Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview, PendingSlashReviewChecking,
-    StashStake, SysInfo,
+    types::{MachineStatus, OPPendingSlashInfo, OPSlashReason, TWO_DAY},
+    BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecMaxOfflineSlash, PendingExecSlash, PendingSlash,
+    PendingSlashReview, PendingSlashReviewChecking, StashStake, SysInfo,
 };
-use frame_support::{traits::ReservableCurrency, IterableStorageMap};
-use generic_func::MachineId;
+use frame_support::traits::ReservableCurrency;
+use generic_func::{ItemList, MachineId};
 use online_profile_machine::GNOps;
 use sp_runtime::{
     traits::{CheckedSub, Zero},
@@ -43,18 +43,14 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // TODO: 优化性能
+    // NOTE: 确保 PendingSlash 添加时，添加该变量
+    // PendingSlash 删除时，删除该变量
     pub fn do_pending_slash() {
         let now = <frame_system::Module<T>>::block_number();
-        let all_slash_id = <PendingSlash<T> as IterableStorageMap<u64, _>>::iter()
-            .map(|(slash_id, _)| slash_id)
-            .collect::<Vec<_>>();
+        let pending_exec_slash = Self::pending_exec_slash(now);
 
-        for slash_id in all_slash_id {
+        for slash_id in pending_exec_slash {
             let slash_info = Self::pending_slash(slash_id);
-            if now < slash_info.slash_exec_time {
-                continue;
-            }
 
             match slash_info.slash_reason {
                 OPSlashReason::CommitteeRefusedOnline | OPSlashReason::CommitteeRefusedMutHardware => {
@@ -93,50 +89,33 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // TODO: 记录到区块相关的数据中，优化性能
-    // 主动惩罚超过下线阈值的机器
     pub fn check_offline_machine_duration() {
-        let live_machine = Self::live_machines();
         let now = <frame_system::Module<T>>::block_number();
+        let pending_exec_slash = Self::pending_exec_max_offline_slash(now);
 
-        for a_machine in live_machine.offline_machine {
-            let machine_info = Self::machines_info(&a_machine);
+        for machine_id in pending_exec_slash {
+            let machine_info = Self::machines_info(&machine_id);
             let slash_info: OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>;
 
             match machine_info.machine_status {
+                // 主动报告下线
                 MachineStatus::StakerReportOffline(offline_time, status) => match *status {
+                    // 如果下线前是Online状态，且空闲（为Online状态）超过10天，则不进行惩罚
                     MachineStatus::Online => {
-                        // 如果下线前是Online状态，且空闲（为Online状态）超过10天，则不进行惩罚
-                        if offline_time > machine_info.last_online_height
-                            && offline_time - machine_info.last_online_height >= (10 * 2880u32).into()
-                        {
-                            continue;
-                        }
-
-                        // 否则，如果不超过10天，不执行检查(直到10天时，执行最大惩罚), 超过10天不再检查
-                        if now - offline_time != (10 * 2880u32).into() {
-                            continue;
-                        }
-
                         // 下线达到10天，达到最大惩罚，则添加惩罚
                         slash_info = Self::add_offline_slash(
                             80,
-                            a_machine,
+                            machine_id,
                             None,
                             None,
                             OPSlashReason::OnlineReportOffline(offline_time),
                         );
                     },
-
                     MachineStatus::Rented => {
                         // 租用时主动下线，最多5天达到惩罚最大
-                        if now - offline_time != MAX_SLASH_THRESHOLD.into() {
-                            continue;
-                        }
-
                         slash_info = Self::add_offline_slash(
                             50,
-                            a_machine,
+                            machine_id,
                             machine_info.last_machine_renter,
                             None,
                             OPSlashReason::RentedReportOffline(offline_time),
@@ -145,36 +124,40 @@ impl<T: Config> Pallet<T> {
                     _ => continue,
                 },
                 MachineStatus::ReporterReportOffline(offline_reason, _status, _reporter, committee) => {
+                    // 被举报时，超过5天达到惩罚最大
                     match offline_reason {
-                        // 被举报时
-                        OPSlashReason::RentedInaccessible(report_time)
-                        | OPSlashReason::RentedHardwareCounterfeit(report_time)
-                        | OPSlashReason::RentedHardwareMalfunction(report_time)
-                        | OPSlashReason::OnlineRentFailed(report_time) => {
-                            // 被举报时，最多5天达到惩罚最大
-                            if now - report_time != MAX_SLASH_THRESHOLD.into() {
-                                continue;
-                            }
+                        OPSlashReason::RentedInaccessible(_)
+                        | OPSlashReason::RentedHardwareCounterfeit(_)
+                        | OPSlashReason::RentedHardwareMalfunction(_)
+                        | OPSlashReason::OnlineRentFailed(_) => {
                             slash_info = Self::add_offline_slash(
                                 100,
-                                a_machine,
+                                machine_id,
                                 machine_info.last_machine_renter,
                                 Some(committee),
                                 offline_reason,
                             );
                         },
-
                         _ => continue,
                     }
                 },
                 _ => continue,
             }
-
+            // 插入一个新的SlashId
             if slash_info.slash_amount != Zero::zero() {
                 let slash_id = Self::get_new_slash_id();
+
+                let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
+                ItemList::add_item(&mut pending_exec_slash, slash_id);
+                PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
+
                 PendingSlash::<T>::insert(slash_id, slash_info);
+
+                Self::deposit_event(Event::NewSlash(slash_id));
             }
         }
+
+        PendingExecMaxOfflineSlash::<T>::remove(now);
     }
 
     // Return slashed amount when slash is executed

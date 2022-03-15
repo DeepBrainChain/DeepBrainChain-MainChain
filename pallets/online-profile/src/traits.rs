@@ -1,6 +1,6 @@
 use crate::{
     types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachinesInfo, Pallet,
-    RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
+    PendingExecMaxOfflineSlash, RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
 use frame_support::IterableStorageMap;
 use generic_func::{ItemList, MachineId};
@@ -344,13 +344,23 @@ impl<T: Config> MTOps for Pallet<T> {
         let machine_info = Self::machines_info(&machine_id);
 
         Self::machine_offline(
-            machine_id,
+            machine_id.clone(),
             MachineStatus::ReporterReportOffline(
                 fault_type,
                 Box::new(machine_info.machine_status),
                 reporter,
                 committee,
             ),
+        );
+
+        // When Reported offline, after 5 days, reach max slash amount;
+        let now = <frame_system::Module<T>>::block_number();
+        let mut pending_exec_slash =
+            Self::pending_exec_max_offline_slash(now + (5 * BLOCK_PER_ERA).saturated_into::<T::BlockNumber>());
+        ItemList::add_item(&mut pending_exec_slash, machine_id);
+        PendingExecMaxOfflineSlash::<T>::insert(
+            now + (5 * BLOCK_PER_ERA).saturated_into::<T::BlockNumber>(),
+            pending_exec_slash,
         );
     }
 
