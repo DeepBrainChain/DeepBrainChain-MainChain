@@ -193,7 +193,11 @@ fn test_staker_report_offline4() {
 
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
 
+        assert_eq!(OnlineProfile::pending_exec_max_offline_slash(13 + 2880 * 10), vec![machine_id.clone()]);
+
         run_to_block(50 + 2880 * 10);
+        assert_eq!(OnlineProfile::pending_exec_slash(13 + 2880 * (10 + 2)), vec![0]);
+
         assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
 
         assert_eq!(

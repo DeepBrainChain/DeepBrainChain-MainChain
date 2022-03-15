@@ -239,11 +239,11 @@ pub mod pallet {
     pub(super) type PendingExecSlash<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<SlashId>, ValueQuery>;
 
-    // // 记录机器下线超过10天后，需要立即执行的惩罚
-    // #[pallet::storage]
-    // #[pallet::getter(fn pending_exec_max_offline_slash)]
-    // pub(super) type PendingExecMaxOfflineSlash<T: Config> =
-    //     StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<MachineId>, ValueQuery>;
+    // 记录机器下线超过最大值(5,10天)后，需要立即执行的惩罚
+    #[pallet::storage]
+    #[pallet::getter(fn pending_exec_max_offline_slash)]
+    pub(super) type PendingExecMaxOfflineSlash<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<MachineId>, ValueQuery>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -622,10 +622,22 @@ pub mod pallet {
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
 
             // 某些状态允许下线
-            match machine_info.machine_status {
-                MachineStatus::Online | MachineStatus::Rented => {},
+            let max_slash_offline_threshold = match machine_info.machine_status {
+                MachineStatus::Online => 10 * BLOCK_PER_ERA,
+                MachineStatus::Rented => 5 * BLOCK_PER_ERA,
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
-            }
+            };
+
+            // When Online -> Offline, after 10 days, reach max slash amount;
+            // Rented -> Offline, after 5 days reach max slash amount
+            let mut pending_exec_slash = Self::pending_exec_max_offline_slash(
+                now + max_slash_offline_threshold.saturated_into::<T::BlockNumber>(),
+            );
+            ItemList::add_item(&mut pending_exec_slash, machine_id.clone());
+            PendingExecMaxOfflineSlash::<T>::insert(
+                now + max_slash_offline_threshold.saturated_into::<T::BlockNumber>(),
+                pending_exec_slash,
+            );
 
             Self::machine_offline(
                 machine_id.clone(),
@@ -663,18 +675,19 @@ pub mod pallet {
             };
             let offline_duration = now - offline_time;
             let mut should_add_new_slash = true;
+            let mut max_slash_offline_threshold: T::BlockNumber = 0u32.into();
 
             // MachineStatus改为之前的状态
             match machine_info.machine_status {
                 MachineStatus::StakerReportOffline(offline_time, status) => {
-                    // let offline_duration = now - offline_time;
                     status_before_offline = *status;
                     match status_before_offline.clone() {
                         MachineStatus::Online => {
+                            // 掉线时间超过最大惩罚时间后，不再添加新的惩罚
                             if offline_duration >= 28800u32.into() {
-                                // 掉线时间超过最大惩罚时间后，不再添加新的惩罚
                                 should_add_new_slash = false;
                             }
+                            max_slash_offline_threshold = 28800u32.into();
 
                             // 不进行在线超过10天的判断，在hook中会进行这个判断。
                             slash_info = Self::slash_when_report_offline(
@@ -689,6 +702,7 @@ pub mod pallet {
                             if offline_duration >= (2880u32 * 5).into() {
                                 should_add_new_slash = false;
                             }
+                            max_slash_offline_threshold = (2880u32 * 5).into();
                             // 机器在被租用状态下线，会被惩罚
                             slash_info = Self::slash_when_report_offline(
                                 machine_id.clone(),
@@ -702,6 +716,7 @@ pub mod pallet {
                     }
                 },
                 MachineStatus::ReporterReportOffline(slash_reason, status, reporter, committee) => {
+                    max_slash_offline_threshold = (2880u32 * 5).into();
                     status_before_offline = *status;
                     if offline_duration >= (2880u32 * 5).into() {
                         should_add_new_slash = false;
@@ -733,9 +748,13 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
                 if should_add_new_slash {
-                    // Only after pay slash amount succeed, then make machine online.
-                    // TODO: Refa: slash.rs 208-213
+                    // NOTE: Only after pay slash amount succeed, then make machine online.
+
                     let slash_id = Self::get_new_slash_id();
+
+                    let mut pending_exec_max_slash = Self::pending_exec_max_offline_slash(max_slash_offline_threshold);
+                    ItemList::rm_item(&mut pending_exec_max_slash, &machine_id);
+                    PendingExecMaxOfflineSlash::<T>::insert(max_slash_offline_threshold, pending_exec_max_slash);
 
                     let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
                     ItemList::add_item(&mut pending_exec_slash, slash_id);
@@ -912,6 +931,7 @@ pub mod pallet {
         SlashAndReward(T::AccountId, T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
         ApplySlashReview(SlashId),
         SlashExecuted(T::AccountId, MachineId, BalanceOf<T>),
+        NewSlash(SlashId),
     }
 
     #[pallet::error]
