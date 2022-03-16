@@ -2148,6 +2148,7 @@ dependencies = [
 name = "generic-func"
 version = "0.1.0"
 dependencies = [
+ "bs58",
  "frame-support",
  "frame-system",
  "online-profile-machine",
