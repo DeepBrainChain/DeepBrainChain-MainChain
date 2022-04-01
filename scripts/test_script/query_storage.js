@@ -28,6 +28,7 @@ async function main() {
 
   funcMap["balances"] = {};
   funcMap["balances"]["locks"] = api.query.balances.locks;
+  funcMap["balances"]["totalIssuance"] = api.query.balances.totalIssuance;
 
   funcMap["system"] = {};
   funcMap["system"]["account"] = api.query.system.account;
