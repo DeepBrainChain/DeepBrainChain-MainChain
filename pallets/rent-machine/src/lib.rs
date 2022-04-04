@@ -252,6 +252,10 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
             Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, order_info.stake_amount)?;
 
+            // 在stake_amount设置0前记录，用作事件
+            let rent_fee = order_info.stake_amount;
+            let rent_duration = (order_info.rent_end - order_info.rent_start) / BLOCK_PER_DAY.into();
+
             order_info.confirm_rent(now);
             RentOrder::<T>::insert(&machine_id, order_info);
 
@@ -259,7 +263,12 @@ pub mod pallet {
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, Some(renter.clone()), None);
             PendingConfirming::<T>::remove(&machine_id);
 
-            Self::deposit_event(Event::ConfirmRent(renter, machine_id));
+            Self::deposit_event(Event::ConfirmRent(
+                renter,
+                machine_id,
+                rent_fee,
+                rent_duration.saturated_into::<u32>(),
+            ));
             Ok(().into())
         }
 
@@ -328,7 +337,7 @@ pub mod pallet {
             PendingRentEnding::<T>::insert(order_info.rent_end, pending_rent_ending);
             RentOrder::<T>::insert(&machine_id, order_info);
 
-            Self::deposit_event(Event::ReletMachine(renter, machine_id));
+            Self::deposit_event(Event::ReletMachine(renter, machine_id, rent_fee, add_duration as u32));
             Ok(().into())
         }
     }
@@ -338,8 +347,8 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         PayTxFee(T::AccountId, BalanceOf<T>),
-        ConfirmRent(T::AccountId, MachineId),
-        ReletMachine(T::AccountId, MachineId),
+        ConfirmRent(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
+        ReletMachine(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
     }
 
     #[pallet::error]
