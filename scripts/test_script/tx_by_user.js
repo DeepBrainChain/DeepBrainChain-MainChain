@@ -1,7 +1,7 @@
 // refer: https://polkadot.js.org/docs/substrate/extrinsics
 
-// 使用： node sign_txs.js
-// --port="wss://innertest.dbcwallet.io"
+// 使用： node sign_tx_by_user.js
+// --port="wss://info.dbcwallet.io"
 // --module=onlineProfile --func=bondMachine
 // --key="sample split bamboo west visual approve brain fox arch impact relief smile"
 
@@ -73,7 +73,7 @@ async function main() {
   funcMap["rentMachine"] = {};
   funcMap["rentMachine"]["rentMachine"] = api.tx.rentMachine.rentMachine;
   funcMap["rentMachine"]["confirmRent"] = api.tx.rentMachine.confirmRent;
-  funcMap["rentMachine"]["addRent"] = api.tx.rentMachine.addRent;
+  funcMap["rentMachine"]["reletMachine"] = api.tx.rentMachine.reletMachine;
 
   funcMap["balances"] = {};
   funcMap["balances"]["transfer"] = api.tx.balances.transfer;
