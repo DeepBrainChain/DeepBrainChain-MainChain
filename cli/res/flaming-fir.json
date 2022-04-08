@@ -13,10 +13,7 @@
     "/dns/3.flamingfir.paritytech.net/tcp/30334/ws/p2p/12D3KooWDfFapccu3KgvWyVMdXhMGPPpKiJ1yEhSMEupBZppfi9U"
   ],
   "telemetryEndpoints": [
-    [
-      "/dns/telemetry.polkadot.io/tcp/443/x-parity-wss/%2Fsubmit%2F",
-      0
-    ]
+    ["/dns/telemetry.polkadot.io/tcp/443/x-parity-wss/%2Fsubmit%2F", 0]
   ],
   "protocolId": "fir9",
   "properties": {

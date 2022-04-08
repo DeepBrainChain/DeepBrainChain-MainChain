@@ -91,10 +91,7 @@ rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
 [dependencies.sc-client-db]
-features = [
-    'kvdb-rocksdb',
-    'parity-db',
-]
+features = ['kvdb-rocksdb', 'parity-db']
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '0.9.0'
@@ -106,10 +103,7 @@ rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '0.9.0'
 
 [dependencies.sc-service]
-features = [
-    'test-helpers',
-    'db',
-]
+features = ['test-helpers', 'db']
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '0.9.0'
@@ -188,5 +182,6 @@ name = 'node-testing'
 publish = true
 repository = 'https://github.com/paritytech/substrate/'
 version = '2.0.0'
+
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']

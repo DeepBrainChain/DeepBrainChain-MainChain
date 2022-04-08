@@ -26,11 +26,11 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      # - name: Run check
-      #   run: cargo check
+      - name: Run check
+        run: cargo check
 
-      # - name: Run build release
-      #   run: cargo build --release --features runtime-benchmarks
+      - name: Run build release
+        run: cargo build --release --features runtime-benchmarks
 
       - name: Run parse price url tests
         run: cargo test -p dbc-price-ocw

@@ -95,6 +95,7 @@ license = 'Apache-2.0'
 name = 'node-executor'
 repository = 'https://github.com/paritytech/substrate/'
 version = '2.0.0'
+
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
 

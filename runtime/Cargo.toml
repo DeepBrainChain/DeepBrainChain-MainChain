@@ -7,8 +7,10 @@ license = 'Apache-2.0'
 name = 'node-runtime'
 repository = 'https://github.com/paritytech/substrate/'
 version = '2.0.1'
+
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
+
 [build-dependencies.substrate-wasm-builder]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
@@ -23,7 +25,6 @@ runtime-benchmarks = [
   'frame-system/runtime-benchmarks',
   'sp-runtime/runtime-benchmarks',
   'frame-system-benchmarking',
-
   'committee/runtime-benchmarks',
 ]
 std = [

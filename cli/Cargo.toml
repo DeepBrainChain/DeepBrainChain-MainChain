@@ -9,8 +9,10 @@ license = 'GPL-3.0-or-later WITH Classpath-exception-2.0'
 name = 'node-cli'
 repository = 'https://github.com/paritytech/substrate/'
 version = '2.0.0'
+
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
+
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = false
 
@@ -300,26 +302,22 @@ optional = true
 version = '0.4.18'
 
 [features]
-browser = [
-    'browser-utils',
-    'wasm-bindgen',
-    'wasm-bindgen-futures',
-]
+browser = ['browser-utils', 'wasm-bindgen', 'wasm-bindgen-futures']
 cli = [
-    'node-executor/wasmi-errno',
-    'node-inspect',
-    'sc-cli',
-    'frame-benchmarking-cli',
-    'substrate-frame-cli',
-    'sc-service/db',
-    'sc-finality-grandpa-warp-sync',
-    'structopt',
-    'substrate-build-script-utils',
+  'node-executor/wasmi-errno',
+  'node-inspect',
+  'sc-cli',
+  'frame-benchmarking-cli',
+  'substrate-frame-cli',
+  'sc-service/db',
+  'sc-finality-grandpa-warp-sync',
+  'structopt',
+  'substrate-build-script-utils',
 ]
 default = ['cli']
 runtime-benchmarks = [
-    'node-runtime/runtime-benchmarks',
-    'frame-benchmarking-cli',
+  'node-runtime/runtime-benchmarks',
+  'frame-benchmarking-cli',
 ]
 
 [dev-dependencies]
@@ -361,25 +359,21 @@ version = '2.0.0'
 # features = ['wasmtime']
 # path = '../executor'
 # version = '2.0.0'
-
 # [target."cfg(target_arch=\"x86_64\")".dependencies.sc-cli]
 # features = ['wasmtime']
 # optional = true
 # path = '../../../client/cli'
 # version = '0.9.0'
-
 # [target."cfg(target_arch=\"x86_64\")".dependencies.sc-service]
 # default-features = false
 # features = ['wasmtime']
 # path = '../../../client/service'
 # version = '0.9.0'
-
 # [target."cfg(target_arch=\"x86_64\")".dependencies.sp-trie]
 # default-features = false
 # features = ['memory-tracker']
 # path = '../../../primitives/trie'
 # version = '3.0.0'
-
 [build-dependencies.frame-benchmarking-cli]
 git = 'https://github.com/paritytech/substrate.git'
 optional = true
@@ -413,6 +407,7 @@ git = 'https://github.com/paritytech/substrate.git'
 optional = true
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
+
 [badges.is-it-maintained-issue-resolution]
 repository = 'paritytech/substrate'
 
@@ -426,7 +421,4 @@ status = 'actively-developed'
 repository = 'paritytech/substrate'
 
 [lib]
-crate-type = [
-    'cdylib',
-    'rlib',
-]
+crate-type = ['cdylib', 'rlib']
