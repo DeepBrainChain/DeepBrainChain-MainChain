@@ -173,6 +173,18 @@ pub mod pallet {
             Self::do_destroy_dbc(who, amount);
             Ok(().into())
         }
+
+        // 强制销毁DBC
+        #[pallet::weight(0)]
+        pub fn force_destroy_free_dbc(
+            origin: OriginFor<T>,
+            who: T::AccountId,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::do_destroy_dbc(who, amount);
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
