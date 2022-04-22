@@ -675,7 +675,7 @@ pub mod pallet {
             };
             let offline_duration = now - offline_time;
             let mut should_add_new_slash = true;
-            let mut max_slash_offline_threshold: T::BlockNumber = 0u32.into();
+            let max_slash_offline_threshold: T::BlockNumber;
 
             // MachineStatus改为之前的状态
             match machine_info.machine_status {

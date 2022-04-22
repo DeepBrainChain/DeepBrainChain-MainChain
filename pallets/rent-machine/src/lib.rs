@@ -226,7 +226,8 @@ pub mod pallet {
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, Some(renter.clone()), None);
 
-            PendingConfirming::<T>::insert(&machine_id, renter);
+            PendingConfirming::<T>::insert(&machine_id, renter.clone());
+            Self::deposit_event(Event::RentMachine(renter, machine_id, rent_fee, duration));
             Ok(().into())
         }
 
@@ -349,6 +350,7 @@ pub mod pallet {
         PayTxFee(T::AccountId, BalanceOf<T>),
         ConfirmRent(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
         ReletMachine(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
+        RentMachine(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
     }
 
     #[pallet::error]
