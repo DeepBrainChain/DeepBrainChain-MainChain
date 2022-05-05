@@ -6,7 +6,7 @@ import json
 # NOTE: cpu_rate: 单位Mhz; sys_disk/data_disk单位: G， mem_num: G
 # NOTE: is_support: 支持传1，不支持传0
 # NOTE: 请先修改自己的随机字符串: rand_str
-# NOTE: calc_point: 按公式计算出算力点数后，如获得了420.56，则需乘以100，填写42056
+# NOTE: calc_point: 按公式计算出算力点数后，如获得了420.56，则需乘以100，计算及网页提交时，都填写42056
 
 raw_info = json.loads(
     """
