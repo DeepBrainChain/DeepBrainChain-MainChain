@@ -12,7 +12,7 @@ impl<T: Config> Pallet<T> {
             .collect::<Vec<_>>();
 
         for a_pending_review in all_pending_review {
-            if let Err(_) = Self::do_a_pending_review(a_pending_review) {
+            if Self::do_a_pending_review(a_pending_review).is_err() {
                 continue;
             };
         }
@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let is_slashed_stash = match slash_info.book_result {
-            OCBookResultType::OnlineRefused => &slash_info.machine_stash == &review_info.applicant,
+            OCBookResultType::OnlineRefused => slash_info.machine_stash == review_info.applicant,
             _ => false,
         };
 
@@ -64,7 +64,7 @@ impl<T: Config> Pallet<T> {
         let mut pending_unhandled_id = Self::unhandled_slash();
 
         for slash_id in pending_unhandled_id.clone() {
-            if let Err(_) = Self::do_a_slash(slash_id, &mut pending_unhandled_id) {
+            if Self::do_a_slash(slash_id, &mut pending_unhandled_id).is_err() {
                 continue;
             };
         }

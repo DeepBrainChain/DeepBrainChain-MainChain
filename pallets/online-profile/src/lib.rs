@@ -426,7 +426,7 @@ pub mod pallet {
 
             ensure!(!live_machines.machine_id_exist(&machine_id), Error::<T>::MachineIdExist);
             // 检查签名是否正确
-            Self::check_bonding_msg(stash.clone(), machine_id.clone(), msg.clone(), sig)?;
+            Self::check_bonding_msg(stash.clone(), machine_id.clone(), msg, sig)?;
 
             // 用户绑定机器需要质押一张显卡的DBC
             let stake_amount = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
@@ -448,7 +448,7 @@ pub mod pallet {
             LiveMachines::<T>::put(live_machines);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
-            Self::deposit_event(Event::BondMachine(controller.clone(), machine_id.clone(), stake_amount));
+            Self::deposit_event(Event::BondMachine(controller, machine_id, stake_amount));
             Ok(().into())
         }
 
@@ -466,7 +466,7 @@ pub mod pallet {
             ItemList::add_item(&mut stash_server_rooms, new_server_room);
 
             StashServerRooms::<T>::insert(&stash, stash_server_rooms);
-            Self::deposit_event(Event::ServerRoomGenerated(controller.clone(), new_server_room));
+            Self::deposit_event(Event::ServerRoomGenerated(controller, new_server_room));
             Ok(().into())
         }
 
@@ -479,7 +479,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            ensure!(customize_machine_info.telecom_operators.len() > 0, Error::<T>::TelecomIsNull);
+            ensure!(!customize_machine_info.telecom_operators.is_empty(), Error::<T>::TelecomIsNull);
             // 查询机器Id是否在该账户的控制下
             let mut machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
@@ -681,7 +681,7 @@ pub mod pallet {
             match machine_info.machine_status {
                 MachineStatus::StakerReportOffline(offline_time, status) => {
                     status_before_offline = *status;
-                    match status_before_offline.clone() {
+                    match status_before_offline {
                         MachineStatus::Online => {
                             // 掉线时间超过最大惩罚时间后，不再添加新的惩罚
                             if offline_duration >= 28800u32.into() {
@@ -873,7 +873,7 @@ pub mod pallet {
             // 补交质押
             ensure!(
                 Self::change_user_total_stake(
-                    machine_info.machine_stash.clone(),
+                    machine_info.machine_stash,
                     online_stake_params.slash_review_stake,
                     true,
                 )
@@ -1195,7 +1195,7 @@ impl<T: Config> Pallet<T> {
         if is_online && stash_machine.online_machine.len() == 1 {
             sys_info.total_staker = sys_info.total_staker.saturating_add(1);
         }
-        if !is_online && stash_machine.online_machine.len() == 0 {
+        if !is_online && stash_machine.online_machine.is_empty() {
             sys_info.total_staker = sys_info.total_staker.saturating_sub(1);
         }
 
@@ -1250,7 +1250,7 @@ impl<T: Config> Pallet<T> {
             }
 
             current_era_machine_snap.insert(
-                machine_id.clone(),
+                machine_id,
                 MachineGradeStatus {
                     basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
                     is_rented,

@@ -11,12 +11,12 @@ use std::{collections::BTreeMap, convert::TryInto};
 #[test]
 fn machine_online_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
         // Bob pubkey
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
@@ -44,8 +44,8 @@ fn machine_online_works() {
         ));
 
         let mut machine_info = online_profile::MachineInfo {
-            controller: controller.clone(),
-            machine_stash: stash.clone(),
+            controller,
+            machine_stash: stash,
             bonding_height: 3,
             stake_amount: 100000 * ONE_DBC,
             init_stake_per_gpu: 100000 * ONE_DBC,
@@ -64,7 +64,7 @@ fn machine_online_works() {
             OnlineProfile::live_machines(),
             LiveMachine { bonding_machine: vec!(machine_id.clone()), ..Default::default() }
         );
-        assert_eq!(OnlineProfile::machines_info(&machine_id), machine_info.clone());
+        assert_eq!(OnlineProfile::machines_info(&machine_id), machine_info);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail { total_staker: 0, total_stake: 100000 * ONE_DBC, ..Default::default() }
@@ -74,7 +74,7 @@ fn machine_online_works() {
         assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 30 * ONE_DBC);
 
         let customize_info = StakerCustomizeInfo {
-            server_room: server_room[0].clone(),
+            server_room: server_room[0],
             upload_net: 100,
             download_net: 100,
             longitude: online_profile::Longitude::East(1157894),
@@ -88,7 +88,7 @@ fn machine_online_works() {
             customize_info.clone()
         ));
 
-        machine_info.machine_info_detail.staker_customize_info = customize_info.clone();
+        machine_info.machine_info_detail.staker_customize_info = customize_info;
         machine_info.machine_status = online_profile::MachineStatus::DistributingOrder;
 
         run_to_block(3);
@@ -111,9 +111,9 @@ fn machine_online_works() {
             .unwrap()
             .try_into()
             .unwrap();
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), one_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), one_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), one_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), one_box_pubkey));
 
         // 委员会处于正常状态(排序后的列表)
         assert_eq!(
@@ -534,21 +534,21 @@ fn machine_online_works() {
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee1),
             machine_id.clone(),
-            machine_info_hash1.clone()
+            machine_info_hash1
         ));
 
         let machine_info_hash2: [u8; 16] = hex::decode("3f775d3f4a144b94d6d551f6091a5126").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee2),
             machine_id.clone(),
-            machine_info_hash2.clone()
+            machine_info_hash2
         ));
 
         let machine_info_hash3: [u8; 16] = hex::decode("4983040157403addac94ca860ddbff7f").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee3),
             machine_id.clone(),
-            machine_info_hash3.clone()
+            machine_info_hash3
         ));
 
         // submit_confirm_hash:
@@ -692,10 +692,10 @@ fn machine_online_works() {
 #[test]
 fn committee_not_submit_hash_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
@@ -758,7 +758,7 @@ fn committee_not_submit_hash_slash_works() {
         ));
         assert_ok!(OnlineCommittee::submit_confirm_raw(
             Origin::signed(committee2),
-            CommitteeUploadInfo { rand_str: rand_str2, ..machine_base_info.clone() }
+            CommitteeUploadInfo { rand_str: rand_str2, ..machine_base_info }
         ));
 
         run_to_block(4327);
@@ -795,10 +795,10 @@ fn committee_not_submit_hash_slash_works() {
 #[test]
 fn committee_not_wubmit_raw_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let _committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let _committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let _committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let _committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let _committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
+        let _committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
 
         let _machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
     })
@@ -840,9 +840,9 @@ fn committee_not_equal_then_redistribute_works() {
             is_support: true,
         };
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
 
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("f660309770b2bd379e2514d88c146a7ddc3759533cf06d9fb4b41159e560325e")
@@ -864,8 +864,8 @@ fn committee_not_equal_then_redistribute_works() {
         let machine_info_hash2: [u8; 16] = hex::decode("26c58bca9792cc285aa0a2e42483131b").unwrap().try_into().unwrap();
         let machine_info_hash3: [u8; 16] = hex::decode("5745567d193b6d3cba18412489ccd433").unwrap().try_into().unwrap();
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         // Machine account Info:
         // ❯ subkey generate --scheme sr25519
@@ -887,8 +887,8 @@ fn committee_not_equal_then_redistribute_works() {
         ));
 
         let mut machine_info = online_profile::MachineInfo {
-            controller: controller.clone(),
-            machine_stash: stash.clone(),
+            controller,
+            machine_stash: stash,
             bonding_height: 3,
             stake_amount: 100000 * ONE_DBC,
             machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
@@ -896,7 +896,7 @@ fn committee_not_equal_then_redistribute_works() {
         };
 
         let customize_info = StakerCustomizeInfo {
-            server_room: server_room[0].clone(),
+            server_room: server_room[0],
             upload_net: 100,
             download_net: 100,
             longitude: online_profile::Longitude::East(1157894),
@@ -909,7 +909,7 @@ fn committee_not_equal_then_redistribute_works() {
             customize_info.clone()
         ));
 
-        machine_info.machine_info_detail.staker_customize_info = customize_info.clone();
+        machine_info.machine_info_detail.staker_customize_info = customize_info;
         machine_info.machine_status = online_profile::MachineStatus::DistributingOrder;
 
         run_to_block(15);
@@ -919,9 +919,9 @@ fn committee_not_equal_then_redistribute_works() {
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
 
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), committee2_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), committee2_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey));
 
         run_to_block(16);
         assert_eq!(
@@ -957,7 +957,7 @@ fn committee_not_equal_then_redistribute_works() {
         committee_upload_info.mem_num = 441;
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
         committee_upload_info.mem_num = 442;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info));
 
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
@@ -1053,9 +1053,9 @@ fn two_submit_hash_reach_submit_raw_works() {
             is_support: true,
         };
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
 
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("f660309770b2bd379e2514d88c146a7ddc3759533cf06d9fb4b41159e560325e")
@@ -1076,8 +1076,8 @@ fn two_submit_hash_reach_submit_raw_works() {
         let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         committee_upload_info.machine_id = machine_id.clone();
 
@@ -1094,8 +1094,8 @@ fn two_submit_hash_reach_submit_raw_works() {
         ));
 
         let mut machine_info = online_profile::MachineInfo {
-            controller: controller.clone(),
-            machine_stash: stash.clone(),
+            controller,
+            machine_stash: stash,
             bonding_height: 3,
             stake_amount: 100000 * ONE_DBC,
             machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
@@ -1103,7 +1103,7 @@ fn two_submit_hash_reach_submit_raw_works() {
         };
 
         let customize_info = StakerCustomizeInfo {
-            server_room: server_room[0].clone(),
+            server_room: server_room[0],
             upload_net: 100,
             download_net: 100,
             longitude: online_profile::Longitude::East(1157894),
@@ -1116,7 +1116,7 @@ fn two_submit_hash_reach_submit_raw_works() {
             customize_info.clone()
         ));
 
-        machine_info.machine_info_detail.staker_customize_info = customize_info.clone();
+        machine_info.machine_info_detail.staker_customize_info = customize_info;
         machine_info.machine_status = online_profile::MachineStatus::DistributingOrder;
 
         run_to_block(15);
@@ -1126,9 +1126,9 @@ fn two_submit_hash_reach_submit_raw_works() {
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
 
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), committee2_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), committee2_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey));
 
         run_to_block(16);
         assert_eq!(
@@ -1194,6 +1194,6 @@ fn two_submit_hash_reach_submit_raw_works() {
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info));
     })
 }

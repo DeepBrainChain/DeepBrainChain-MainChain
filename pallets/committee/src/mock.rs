@@ -88,14 +88,14 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {
         balances: vec![
-            (sr25519::Public::from(Sr25519Keyring::Alice).into(), INIT_BALANCE),
-            (sr25519::Public::from(Sr25519Keyring::Bob).into(), INIT_BALANCE),
-            (sr25519::Public::from(Sr25519Keyring::Charlie).into(), INIT_BALANCE),
-            (sr25519::Public::from(Sr25519Keyring::Dave).into(), INIT_BALANCE),
-            (sr25519::Public::from(Sr25519Keyring::Eve).into(), INIT_BALANCE),
-            (sr25519::Public::from(Sr25519Keyring::Ferdie).into(), INIT_BALANCE),
-            (sr25519::Public::from(Sr25519Keyring::One).into(), INIT_BALANCE),
-            (sr25519::Public::from(Sr25519Keyring::Two).into(), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Alice), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Bob), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Charlie), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Dave), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Eve), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Ferdie), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::One), INIT_BALANCE),
+            (sr25519::Public::from(Sr25519Keyring::Two), INIT_BALANCE),
         ],
     }
     .assimilate_storage(&mut storage)

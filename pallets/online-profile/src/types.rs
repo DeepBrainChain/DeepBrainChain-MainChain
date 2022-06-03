@@ -90,7 +90,7 @@ pub struct StashMachine<Balance> {
 impl<B: Saturating + Copy> StashMachine<B> {
     // 新加入的机器，放到total_machine中
     pub fn new_bonding(&mut self, machine_id: MachineId) {
-        ItemList::add_item(&mut self.total_machine, machine_id.clone());
+        ItemList::add_item(&mut self.total_machine, machine_id);
     }
 
     pub fn change_rent_fee(&mut self, amount: B, is_burn: bool) {
@@ -159,14 +159,14 @@ impl<A: Ord + Default, B: Default, C: Copy + Default + Saturating> MachineInfo<A
     }
 
     pub fn can_add_customize_info(&self) -> bool {
-        match self.machine_status {
+        matches!(
+            self.machine_status,
             MachineStatus::AddingCustomizeInfo
-            | MachineStatus::CommitteeVerifying
-            | MachineStatus::CommitteeRefused(_)
-            | MachineStatus::WaitingFulfill
-            | MachineStatus::StakerReportOffline(_, _) => true,
-            _ => false,
-        }
+                | MachineStatus::CommitteeVerifying
+                | MachineStatus::CommitteeRefused(_)
+                | MachineStatus::WaitingFulfill
+                | MachineStatus::StakerReportOffline(_, _)
+        )
     }
 
     pub fn change_rent_fee(&mut self, amount: C, is_burn: bool) {
@@ -315,7 +315,7 @@ impl LiveMachine {
 
     // 添加到LiveMachine的bonding_machine字段
     pub fn new_bonding(&mut self, machine_id: MachineId) {
-        ItemList::add_item(&mut self.bonding_machine, machine_id.clone());
+        ItemList::add_item(&mut self.bonding_machine, machine_id);
     }
 }
 
@@ -541,7 +541,7 @@ impl CommitteeUploadInfo {
         raw_info.extend(self.rand_str.clone());
         raw_info.extend(is_support);
 
-        return blake2_128(&raw_info);
+        blake2_128(&raw_info)
     }
 }
 

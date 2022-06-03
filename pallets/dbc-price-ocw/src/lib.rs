@@ -140,7 +140,7 @@ pub mod pallet {
             let mut price_url = Self::price_url().unwrap_or_default();
             ensure!(index < price_url.len() as u32, Error::<T>::IndexOutOfRange);
             price_url.remove(index as usize);
-            if price_url.len() == 0 {
+            if price_url.is_empty() {
                 PriceURL::<T>::kill();
             } else {
                 PriceURL::<T>::put(price_url);
@@ -174,7 +174,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn gen_rand_url() -> Option<u32> {
         let price_url = Self::price_url()?;
-        return Some(<generic_func::Module<T>>::random_u32((price_url.len() - 1) as u32));
+        Some(<generic_func::Module<T>>::random_u32((price_url.len() - 1) as u32))
     }
 
     fn fetch_price_and_send_unsigned_tx() -> Result<(), Error<T>> {
@@ -240,7 +240,7 @@ impl<T: Config> DbcPrice for Pallet<T> {
     type Balance = BalanceOf<T>;
 
     fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance> {
-        let one_dbc: Self::Balance = 1000_000_000_000_000u64.saturated_into();
+        let one_dbc: Self::Balance = 1_000_000_000_000_000_u64.saturated_into();
         let dbc_price: Self::Balance = Self::avg_price()?.saturated_into();
         value.saturated_into::<Self::Balance>().checked_mul(&one_dbc)?.checked_div(&dbc_price)
     }

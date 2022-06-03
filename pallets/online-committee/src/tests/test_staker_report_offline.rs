@@ -14,8 +14,8 @@ use frame_support::assert_ok;
 fn test_staker_report_offline() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
 
@@ -72,8 +72,8 @@ fn test_staker_report_offline() {
 fn test_staker_report_offline2() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
 
@@ -130,8 +130,8 @@ fn test_staker_report_offline2() {
 fn test_staker_report_offline3() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
 
@@ -188,8 +188,8 @@ fn test_staker_report_offline3() {
 fn test_staker_report_offline4() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
 
@@ -260,14 +260,14 @@ fn test_staker_report_offline4() {
 fn test_staker_report_offline5() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         // 空闲10天
         run_to_block(50 + 2880 * 10);
 
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id));
 
         // 不存在其他的slash：
         assert_eq!(OnlineProfile::pending_slash(0), online_profile::OPPendingSlashInfo::default());

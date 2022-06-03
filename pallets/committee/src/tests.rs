@@ -6,10 +6,10 @@ use std::convert::TryInto;
 #[test]
 fn add_committee_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
         assert_eq!(
@@ -42,14 +42,14 @@ fn add_committee_works() {
             waiting_box_pubkey: vec![committee3],
             fulfilling_list: vec![committee4],
         };
-        assert_eq!(tmp_committee_list.is_committee(&committee3), true);
+        assert!(tmp_committee_list.is_committee(&committee3));
     })
 }
 
 #[test]
 fn committee_set_box_pubkey_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
                 .unwrap()
@@ -58,7 +58,7 @@ fn committee_set_box_pubkey_works() {
         let stake_params = Committee::committee_stake_params().unwrap();
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey));
 
         assert_eq!(Committee::committee(), super::CommitteeList { normal: vec![committee1], ..Default::default() });
         assert_eq!(
@@ -87,7 +87,7 @@ fn committee_set_box_pubkey_works() {
 #[test]
 fn committee_add_stake_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
                 .unwrap()
@@ -96,7 +96,7 @@ fn committee_add_stake_works() {
         let stake_params = Committee::committee_stake_params().unwrap();
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey));
 
         assert_ok!(Committee::committee_add_stake(Origin::signed(committee1), 5000 * ONE_DBC));
 
@@ -117,7 +117,7 @@ fn committee_add_stake_works() {
 #[test]
 fn committee_reduce_stake_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
                 .unwrap()
@@ -126,7 +126,7 @@ fn committee_reduce_stake_works() {
         let stake_params = Committee::committee_stake_params().unwrap();
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey.clone()));
+        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey));
 
         assert_ok!(Committee::committee_add_stake(Origin::signed(committee1), 5000 * ONE_DBC));
 
@@ -154,7 +154,7 @@ fn committee_reduce_stake_works() {
 #[test]
 fn committee_claim_reward_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         super::CommitteeStake::<TestRuntime>::insert(
             &committee1,
@@ -173,10 +173,10 @@ fn committee_claim_reward_works() {
 #[test]
 fn committee_chill_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
 
         super::Committee::<TestRuntime>::put(super::CommitteeList {
             normal: vec![committee1],
@@ -203,10 +203,10 @@ fn committee_chill_works() {
 #[test]
 fn committee_undo_chill_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
 
         // insert
         super::Committee::<TestRuntime>::put(super::CommitteeList {
@@ -263,8 +263,8 @@ fn committee_undo_chill_works() {
 #[test]
 fn committee_exit_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
 
         // insert
         super::Committee::<TestRuntime>::put(super::CommitteeList {
@@ -284,10 +284,10 @@ fn committee_exit_works() {
 #[test]
 fn change_committee_status_when_stake_changed_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
 
         let mut committee_list = super::CommitteeList {
             normal: vec![committee1],
@@ -361,7 +361,6 @@ fn change_committee_status_when_stake_changed_works() {
                 chill_list: vec![committee2],
                 waiting_box_pubkey: vec![committee3],
                 fulfilling_list: vec![committee1],
-                ..Default::default()
             }
         );
     })

@@ -128,7 +128,7 @@ impl<T: Config> OCOps for Pallet<T> {
                 // 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
                 let offline_duration = now - reonline_stake.offline_time;
                 Self::slash_when_report_offline(
-                    committee_upload_info.machine_id.clone(),
+                    committee_upload_info.machine_id,
                     OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
                     None,
                     None,
@@ -140,14 +140,14 @@ impl<T: Config> OCOps for Pallet<T> {
                     MachineRecentRewardInfo {
                         machine_stash: machine_info.machine_stash.clone(),
                         reward_committee_deadline: machine_info.reward_deadline,
-                        reward_committee: machine_info.reward_committee.clone(),
+                        reward_committee: machine_info.reward_committee,
                         ..Default::default()
                     },
                 );
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     // When committees reach an agreement to refuse machine, change machine status and record refuse time
@@ -255,7 +255,7 @@ impl<T: Config> RTOps for Pallet<T> {
                 machine_info.total_rented_times += 1;
                 Self::update_snap_by_rent_status(machine_id.to_vec(), true);
 
-                ItemList::rm_item(&mut live_machines.online_machine, &machine_id);
+                ItemList::rm_item(&mut live_machines.online_machine, machine_id);
                 ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
                 LiveMachines::<T>::put(live_machines);
 
@@ -266,7 +266,7 @@ impl<T: Config> RTOps for Pallet<T> {
                 if rent_duration.is_some() {
                     // 租用结束
                     machine_info.total_rented_duration += rent_duration.unwrap_or_default();
-                    ItemList::rm_item(&mut live_machines.rented_machine, &machine_id);
+                    ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
 
                     match machine_info.machine_status {
                         MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) => {

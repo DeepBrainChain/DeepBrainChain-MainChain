@@ -19,7 +19,7 @@ impl<T: Config> GNOps for Pallet<T> {
         // 如果reward_to为0，则将币转到国库
         let reward_to_num = reward_who.len() as u32;
 
-        if slash_who.len() == 0 || each_slash == Zero::zero() {
+        if slash_who.is_empty() || each_slash == Zero::zero() {
             return Ok(());
         }
 

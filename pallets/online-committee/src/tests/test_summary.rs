@@ -6,12 +6,12 @@ use std::convert::TryInto;
 type ThreeComittees = [sp_core::sr25519::Public; 4];
 fn get_three_committees() -> ThreeComittees {
     // sort of four account is: [3, 2, 1, 4]
-    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-    let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-    let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
+    let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
+    let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
 
-    return [committee1, committee2, committee3, committee4];
+    [committee1, committee2, committee3, committee4]
 }
 
 fn get_machine_id() -> Vec<u8> {
@@ -106,7 +106,7 @@ fn test_summary_confirmation1() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -115,19 +115,19 @@ fn test_summary_confirmation1() {
 
         let committee1_ops = OCCommitteeOps {
             verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
@@ -138,14 +138,11 @@ fn test_summary_confirmation1() {
 
         let summary = Summary {
             valid_support: vec![committee3, committee2, committee1],
-            info: Some(committee_ops.machine_info.clone()),
+            info: Some(committee_ops.machine_info),
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(summary.clone())
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
     })
 }
 
@@ -178,7 +175,7 @@ fn test_summary_confirmation2() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -187,19 +184,19 @@ fn test_summary_confirmation2() {
 
         let committee1_ops = OCCommitteeOps {
             verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
             ..committee_ops.clone()
         };
@@ -212,14 +209,11 @@ fn test_summary_confirmation2() {
         let summary = Summary {
             valid_support: vec![committee2, committee1],
             invalid_support: vec![committee3],
-            info: Some(committee_ops.machine_info.clone()),
+            info: Some(committee_ops.machine_info),
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(summary.clone())
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
     })
 }
 
@@ -252,7 +246,7 @@ fn test_summary_confirmation3() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -261,19 +255,19 @@ fn test_summary_confirmation3() {
 
         let committee1_ops = OCCommitteeOps {
             verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
             ..committee_ops.clone()
         };
@@ -286,14 +280,11 @@ fn test_summary_confirmation3() {
         let summary = Summary {
             valid_support: vec![committee2, committee1],
             against: vec![committee3],
-            info: Some(committee_ops.machine_info.clone()),
+            info: Some(committee_ops.machine_info),
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(summary.clone())
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
     })
 }
 
@@ -326,7 +317,7 @@ fn test_summary_confirmation4() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -335,13 +326,13 @@ fn test_summary_confirmation4() {
 
         let committee1_ops = OCCommitteeOps {
             verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
 
             machine_info: CommitteeUploadInfo { gpu_num: 5, ..committee_ops.machine_info.clone() },
             ..committee_ops.clone()
@@ -349,9 +340,9 @@ fn test_summary_confirmation4() {
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
+            ..committee_ops
         };
 
         // 构建committee_ops
@@ -398,7 +389,7 @@ fn test_summary_confirmation5() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -407,7 +398,7 @@ fn test_summary_confirmation5() {
 
         let committee1_ops = OCCommitteeOps {
             verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 4, ..committee_ops.machine_info.clone() },
 
             ..committee_ops.clone()
@@ -415,7 +406,7 @@ fn test_summary_confirmation5() {
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
 
             ..committee_ops.clone()
@@ -423,9 +414,9 @@ fn test_summary_confirmation5() {
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
+            ..committee_ops
         };
 
         // 构建committee_ops
@@ -436,10 +427,7 @@ fn test_summary_confirmation5() {
         let summary =
             Summary { invalid_support: vec![committee2, committee1], against: vec![committee3], ..Default::default() };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::NoConsensus(summary.clone())
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::NoConsensus(summary));
     })
 }
 
@@ -472,7 +460,7 @@ fn test_summary_confirmation6() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -481,23 +469,23 @@ fn test_summary_confirmation6() {
 
         let committee1_ops = OCCommitteeOps {
             verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
             ..committee_ops.clone()
         };
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
+            ..committee_ops
         };
 
         // 构建committee_ops
@@ -541,7 +529,7 @@ fn test_summary_confirmation7() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -550,23 +538,23 @@ fn test_summary_confirmation7() {
 
         let committee1_ops = OCCommitteeOps {
             verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
             ..committee_ops.clone()
         };
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
+            ..committee_ops
         };
 
         // 构建committee_ops
@@ -609,7 +597,7 @@ fn test_summary_confirmation8() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -618,16 +606,16 @@ fn test_summary_confirmation8() {
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
+            ..committee_ops
         };
 
         // 构建committee_ops
@@ -669,7 +657,7 @@ fn test_summary_confirmation9() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -678,13 +666,13 @@ fn test_summary_confirmation9() {
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
@@ -695,14 +683,11 @@ fn test_summary_confirmation9() {
         let summary = Summary {
             valid_support: vec![committee3, committee2],
             unruly: vec![committee1],
-            info: Some(committee_ops.machine_info.clone()),
+            info: Some(committee_ops.machine_info),
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(summary.clone())
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
     })
 }
 
@@ -735,7 +720,7 @@ fn test_summary_confirmation10() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -744,16 +729,13 @@ fn test_summary_confirmation10() {
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
             ..committee_ops.clone()
         };
 
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
-            ..committee_ops.clone()
-        };
+        let committee3_ops =
+            OCCommitteeOps { verify_time: vec![662, 2102, 3542], confirm_hash: machine_info_hash, ..committee_ops };
 
         // 构建committee_ops
         <CommitteeOps<TestRuntime>>::insert(&committee2, &machine_id, committee2_ops);
@@ -799,7 +781,7 @@ fn test_summary_confirmation11() {
         let committee_ops = OCCommitteeOps {
             staked_dbc: 1000 * ONE_DBC,
             verify_time: vec![],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             hash_time: 16887,
             confirm_time: 16891,
             machine_status: OCMachineStatus::Confirmed,
@@ -808,13 +790,13 @@ fn test_summary_confirmation11() {
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash.clone(),
+            confirm_hash: machine_info_hash,
             ..committee_ops.clone()
         };
 
@@ -827,7 +809,7 @@ fn test_summary_confirmation11() {
             MachineConfirmStatus::Confirmed(Summary {
                 unruly: vec![committee1],
                 valid_support: vec![committee3, committee2],
-                info: Some(committee_ops.machine_info.clone()),
+                info: Some(committee_ops.machine_info),
                 ..Default::default()
             })
         );
@@ -923,7 +905,7 @@ fn test_machine_online_succeed_slash_execed() {
         assert_eq!(
             OnlineCommittee::pending_slash(0),
             crate::OCPendingSlashInfo {
-                machine_id: machine_id.clone(),
+                machine_id,
                 stash_slash_amount: 0,
 
                 inconsistent_committee: vec![committee4],
@@ -1038,7 +1020,7 @@ fn test_machine_online_succeed_slash_execed() {
         assert_eq!(Balances::reserved_balance(&committee3), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&committee4), 19000 * ONE_DBC);
 
-        assert_eq!(OnlineCommittee::unhandled_slash().binary_search(&0).is_err(), true);
+        assert!(OnlineCommittee::unhandled_slash().binary_search(&0).is_err());
     })
 }
 
@@ -1062,7 +1044,7 @@ fn test_machine_online_failed_slash_execed() {
             .unwrap();
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         // 三个委员会提交Hash
         let mut committee_upload_info = CommitteeUploadInfo {
@@ -1113,7 +1095,7 @@ fn test_machine_online_failed_slash_execed() {
         // 第三个委员会提交错误的机器信息
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.is_support = true;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info));
 
         run_to_block(11);
         // 机器被拒绝上线，将会产生对委员会3和satsh账户的pending_slash
@@ -1140,7 +1122,7 @@ fn test_machine_online_failed_slash_execed() {
 
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine { refused_machine: vec![machine_id.clone()], ..Default::default() }
+            online_profile::LiveMachine { refused_machine: vec![machine_id], ..Default::default() }
         );
 
         // 检查前后委员会/stash质押的变化
@@ -1220,7 +1202,7 @@ fn test_machine_online_failed_slash_execed() {
         assert_eq!(Balances::reserved_balance(&machine_stash), 0);
         assert_eq!(Balances::free_balance(&machine_stash), (10000000 - 5000) * ONE_DBC);
 
-        assert_eq!(OnlineCommittee::unhandled_slash().binary_search(&0).is_err(), true);
+        assert!(OnlineCommittee::unhandled_slash().binary_search(&0).is_err());
     })
 }
 
@@ -1228,10 +1210,10 @@ fn test_machine_online_failed_slash_execed() {
 #[test]
 fn test_machine_online_succeed_against_committee_apply_review() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
 
         // let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
         //     .unwrap()
@@ -1286,11 +1268,7 @@ fn test_machine_online_succeed_against_committee_apply_review() {
         ));
 
         let machine_info_hash3: [u8; 16] = hex::decode("fe3d8c7eb5dc36f3f923aff6f3367544").unwrap().try_into().unwrap();
-        assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(committee4),
-            machine_id.clone(),
-            machine_info_hash3
-        ));
+        assert_ok!(OnlineCommittee::submit_confirm_hash(Origin::signed(committee4), machine_id, machine_info_hash3));
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
@@ -1300,7 +1278,7 @@ fn test_machine_online_succeed_against_committee_apply_review() {
         // 第三个委员会提交错误的机器信息
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.mem_num = 450;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info));
 
         run_to_block(12);
 

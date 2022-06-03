@@ -5,7 +5,7 @@ use frame_support::assert_ok;
 #[test]
 fn test_user_destroy() {
     new_test_with_init_params_ext().execute_with(|| {
-        let alice: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
+        let alice: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
         assert_ok!(GenericFunc::destroy_free_dbc(Origin::signed(alice), 1000));
 
         assert_eq!(Balances::free_balance(&alice), INIT_BALANCE - 1000);
@@ -17,8 +17,8 @@ fn test_user_destroy() {
 #[test]
 fn test_auto_destroy() {
     new_test_with_init_params_ext().execute_with(|| {
-        let alice: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let bob: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Bob).into();
+        let alice: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let bob: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Bob);
         assert_ok!(GenericFunc::set_auto_destroy(RawOrigin::Root.into(), alice, 10));
 
         assert_eq!(Balances::free_balance(&alice), INIT_BALANCE);

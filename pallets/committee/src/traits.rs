@@ -9,14 +9,14 @@ impl<T: Config> ManageCommittee for Pallet<T> {
 
     // 检查是否为状态正常的委员会
     fn is_valid_committee(who: &T::AccountId) -> bool {
-        Self::committee().is_normal(&who)
+        Self::committee().is_normal(who)
     }
 
     // 检查委员会是否有足够的质押,返回有可以抢单的机器列表
     // 在每个区块以及每次分配一个机器之后，都需要检查
     fn available_committee() -> Option<Vec<T::AccountId>> {
         let committee_list = Self::committee();
-        (committee_list.normal.len() > 0).then(|| committee_list.normal)
+        (!committee_list.normal.is_empty()).then(|| committee_list.normal)
     }
 
     // 改变委员会使用的质押数量

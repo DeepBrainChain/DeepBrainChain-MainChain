@@ -14,7 +14,7 @@ use sp_runtime::{
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
 impl<T: Config> Pallet<T> {
-    pub fn get_account_from_str(addr: &Vec<u8>) -> Option<T::AccountId> {
+    pub fn get_account_from_str(addr: &[u8]) -> Option<T::AccountId> {
         let account_id32: [u8; 32] = crate::utils::get_accountid32(addr)?;
         T::AccountId::decode(&mut &account_id32[..]).ok()
     }
@@ -186,7 +186,7 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        let latest_reward = if machine_reward_info.recent_machine_reward.len() > 0 {
+        let latest_reward = if !machine_reward_info.recent_machine_reward.is_empty() {
             machine_reward_info.recent_machine_reward[machine_reward_info.recent_machine_reward.len() - 1]
         } else {
             Zero::zero()

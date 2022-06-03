@@ -300,7 +300,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             RawOrigin::Root.into(),
             online_profile::OnlineStakeParamsInfo {
                 online_stake_per_gpu: 100000 * ONE_DBC,
-                online_stake_usd_limit: 7700_000_000,
+                online_stake_usd_limit: 7_700_000_000,
                 // 设置重新上线绑定的金额: 47美元；这里为了方便计算，设置为24美元
                 // 等值2000DBC
                 reonline_stake: 24_000_000,
@@ -346,10 +346,10 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
 pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
     let mut ext = new_test_with_init_params_ext();
     ext.execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
 
         // 增加四个委员会
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
@@ -378,8 +378,8 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey));
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee4), committee4_box_pubkey));
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
         // Bob pubkey
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
@@ -407,7 +407,7 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
         // 控制账户添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
             Origin::signed(controller),
-            machine_id.clone(),
+            machine_id,
             StakerCustomizeInfo {
                 server_room: server_room[0],
                 upload_net: 10000,
@@ -428,10 +428,10 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
 pub fn new_test_with_machine_online() -> sp_io::TestExternalities {
     let mut ext = new_test_with_online_machine_distribution();
 
-    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
     // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-    let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+    let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
 
     let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
     // let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
@@ -481,7 +481,7 @@ pub fn new_test_with_machine_online() -> sp_io::TestExternalities {
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info));
 
         run_to_block(12);
     });

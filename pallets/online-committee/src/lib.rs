@@ -137,7 +137,7 @@ pub mod pallet {
                 Error::<T>::AlreadySubmitHash
             );
             ensure!(machine_submited_hash.binary_search(&hash).is_err(), Error::<T>::DuplicateHash);
-            ItemList::add_item(&mut machine_submited_hash, hash.clone());
+            ItemList::add_item(&mut machine_submited_hash, hash);
 
             let mut committee_ops = Self::committee_ops(&committee, &machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
@@ -148,7 +148,7 @@ pub mod pallet {
 
             // 添加用户对机器的操作记录
             committee_ops.machine_status = OCMachineStatus::Hashed;
-            committee_ops.confirm_hash = hash.clone();
+            committee_ops.confirm_hash = hash;
             committee_ops.hash_time = now;
 
             // 如果委员会都提交了Hash,则直接进入提交原始信息的阶段
@@ -199,7 +199,7 @@ pub mod pallet {
 
             machine_ops.confirm_time = now;
             machine_ops.machine_status = OCMachineStatus::Confirmed;
-            machine_ops.machine_info = machine_info_detail.clone();
+            machine_ops.machine_info = machine_info_detail;
             machine_ops.machine_info.rand_str = Vec::new();
 
             if machine_committee.confirmed_committee.len() == machine_committee.hashed_committee.len() {
@@ -232,7 +232,7 @@ pub mod pallet {
 
             let controller_stash = <online_profile::Pallet<T>>::controller_stash(&applicant).unwrap_or_default();
             let is_slashed_stash = match slash_info.book_result {
-                OCBookResultType::OnlineRefused => &slash_info.machine_stash == &controller_stash,
+                OCBookResultType::OnlineRefused => slash_info.machine_stash == controller_stash,
                 _ => false,
             };
             let is_slashed_committee = slash_info.inconsistent_committee.binary_search(&applicant).is_ok();
@@ -500,7 +500,7 @@ impl<T: Config> Pallet<T> {
 
         MachineCommittee::<T>::insert(&machine_id, machine_committee.clone());
 
-        if inconsistent_committee.len() == 0 && unruly_committee.len() == 0 && !is_refused {
+        if inconsistent_committee.is_empty() && unruly_committee.is_empty() && !is_refused {
             for a_committee in reward_committee {
                 let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
                     a_committee,
@@ -602,12 +602,12 @@ impl<T: Config> Pallet<T> {
         summary.unruly = machine_committee.summary_unruly();
 
         // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
-        if machine_committee.confirmed_committee.len() == 0 {
+        if machine_committee.confirmed_committee.is_empty() {
             return MachineConfirmStatus::NoConsensus(summary);
         }
 
         // 记录上反对上线的委员会
-        for a_committee in machine_committee.confirmed_committee.clone() {
+        for a_committee in machine_committee.confirmed_committee {
             let submit_machine_info = Self::committee_ops(a_committee.clone(), machine_id).machine_info;
             if !submit_machine_info.is_support {
                 ItemList::add_item(&mut summary.against, a_committee);
@@ -718,7 +718,7 @@ impl<T: Config> Pallet<T> {
         ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
         let is_applicant_slashed_stash = match slash_info.book_result {
-            OCBookResultType::OnlineRefused => &slash_info.machine_stash == &slash_review_info.applicant,
+            OCBookResultType::OnlineRefused => slash_info.machine_stash == slash_review_info.applicant,
             _ => false,
         };
 
@@ -771,7 +771,7 @@ impl<T: Config> Pallet<T> {
         // return back of reserved balance
         if is_applicant_slashed_stash {
             let _ = T::OCOperations::oc_change_staked_balance(
-                slash_review_info.applicant.clone(),
+                slash_review_info.applicant,
                 slash_info.stash_slash_amount,
                 false,
             );

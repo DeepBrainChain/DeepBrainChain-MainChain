@@ -4,18 +4,22 @@ use online_profile::CommitteeUploadInfo;
 use sp_runtime::Perbill;
 use std::convert::TryInto;
 
+// 先正常上线一个机器，再上线第二个机器被拒绝，检查质押的金额（避免质押不足而无法检查出来多惩罚的部分）
+#[test]
+fn test_machine_online_refused_after_some_online() {}
+
 // 3票拒绝,机器上线失败，质押将会被扣除5%, 剩余会被退还
 #[test]
 fn test_machine_online_refused_claim_reserved() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
         // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
         let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
             .unwrap()
             .try_into()
@@ -75,7 +79,7 @@ fn test_machine_online_refused_claim_reserved() {
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info));
 
         run_to_block(11);
 
@@ -105,7 +109,7 @@ fn test_machine_online_refused_claim_reserved() {
 
         assert_eq!(Balances::free_balance(&stash), INIT_BALANCE - 5000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&stash), 0);
-        assert_eq!(<PendingSlash<TestRuntime>>::contains_key(0), true);
+        assert!(<PendingSlash<TestRuntime>>::contains_key(0));
 
         assert_eq!(
             Balances::free_balance(committee1),
@@ -118,7 +122,7 @@ fn test_machine_online_refused_claim_reserved() {
             committee::CommitteeStakeInfo {
                 box_pubkey: committee1_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
-                used_stake: 0 * ONE_DBC,
+                used_stake: 0,
                 ..Default::default()
             }
         );
@@ -130,13 +134,13 @@ fn test_machine_online_refused_claim_reserved() {
 fn test_online_refused_apply_review_ignored_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
         // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
         let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
             .unwrap()
             .try_into()
@@ -163,7 +167,7 @@ fn test_online_refused_apply_review_ignored_works() {
         ));
 
         let mut committee_upload_info = CommitteeUploadInfo {
-            machine_id: machine_id.clone(),
+            machine_id,
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,
             cuda_core: 8704,
@@ -185,7 +189,7 @@ fn test_online_refused_apply_review_ignored_works() {
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info));
 
         run_to_block(11);
 
@@ -218,12 +222,12 @@ fn test_online_refused_apply_review_ignored_works() {
             committee::CommitteeStakeInfo {
                 box_pubkey: committee1_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
-                used_stake: 0 * ONE_DBC,
+                used_stake: 0,
                 ..Default::default()
             }
         );
 
-        assert_eq!(<PendingSlashReview<TestRuntime>>::contains_key(0), false);
+        assert!(!<PendingSlashReview<TestRuntime>>::contains_key(0));
     })
 }
 
@@ -232,13 +236,13 @@ fn test_online_refused_apply_review_ignored_works() {
 fn test_online_refused_apply_review_succeed_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
         // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
         let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
             .unwrap()
             .try_into()
@@ -265,7 +269,7 @@ fn test_online_refused_apply_review_succeed_works() {
         ));
 
         let mut committee_upload_info = CommitteeUploadInfo {
-            machine_id: machine_id.clone(),
+            machine_id,
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,
             cuda_core: 8704,
@@ -321,12 +325,12 @@ fn test_online_refused_apply_review_succeed_works() {
             committee::CommitteeStakeInfo {
                 box_pubkey: committee1_box_pubkey,
                 staked_amount: 19000 * ONE_DBC,
-                used_stake: 0 * ONE_DBC,
+                used_stake: 0,
                 ..Default::default()
             }
         );
 
-        assert_eq!(<PendingSlashReview<TestRuntime>>::contains_key(0), false);
+        assert!(!<PendingSlashReview<TestRuntime>>::contains_key(0));
     })
 }
 
@@ -335,13 +339,13 @@ fn test_online_refused_apply_review_succeed_works() {
 fn test_online_refused_1_2_apply_review_failed_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
         // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
         // let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
         //     .unwrap()
         //     .try_into()
@@ -368,7 +372,7 @@ fn test_online_refused_1_2_apply_review_failed_works() {
         ));
 
         let mut committee_upload_info = CommitteeUploadInfo {
-            machine_id: machine_id.clone(),
+            machine_id,
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,
             cuda_core: 8704,
@@ -391,7 +395,7 @@ fn test_online_refused_1_2_apply_review_failed_works() {
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.is_support = true;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info));
 
         run_to_block(11);
 
@@ -407,13 +411,13 @@ fn test_online_refused_1_2_apply_review_failed_works() {
 fn test_online_refused_1_2_apply_review_succeed_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie).into();
+        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
         // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
         // let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
         //     .unwrap()
         //     .try_into()
@@ -440,7 +444,7 @@ fn test_online_refused_1_2_apply_review_succeed_works() {
         ));
 
         let mut committee_upload_info = CommitteeUploadInfo {
-            machine_id: machine_id.clone(),
+            machine_id,
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,
             cuda_core: 8704,
@@ -462,7 +466,7 @@ fn test_online_refused_1_2_apply_review_succeed_works() {
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee4), committee_upload_info));
 
         run_to_block(11);
 

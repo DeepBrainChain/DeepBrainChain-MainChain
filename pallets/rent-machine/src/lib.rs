@@ -435,11 +435,11 @@ impl<T: Config> Pallet<T> {
 
         let new_stake = if is_add {
             ensure!(<T as pallet::Config>::Currency::can_reserve(who, amount), ());
-            <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
+            <T as pallet::Config>::Currency::reserve(who, amount).map_err(|_| ())?;
             current_stake.checked_add(&amount).ok_or(())?
         } else {
             ensure!(current_stake >= amount, ());
-            let _ = <T as pallet::Config>::Currency::unreserve(&who, amount);
+            let _ = <T as pallet::Config>::Currency::unreserve(who, amount);
             current_stake.checked_sub(&amount).ok_or(())?
         };
         UserTotalStake::<T>::insert(who, new_stake);

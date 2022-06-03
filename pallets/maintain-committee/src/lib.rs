@@ -223,7 +223,7 @@ pub mod pallet {
             let reporter = ensure_signed(origin)?;
             let report_info = Self::report_info(&report_id);
 
-            ensure!(&report_info.reporter == &reporter, Error::<T>::NotReporter);
+            ensure!(report_info.reporter == reporter, Error::<T>::NotReporter);
             ensure!(report_info.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancel);
             ensure!(
                 Self::change_reporter_stake_on_report_close(&reporter, report_info.reporter_stake, false).is_ok(),
@@ -289,7 +289,7 @@ pub mod pallet {
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
                 return Err(Error::<T>::NotNeedEncryptedInfo.into());
             }
-            ensure!(&report_info.reporter == &reporter, Error::<T>::NotOrderReporter);
+            ensure!(report_info.reporter == reporter, Error::<T>::NotOrderReporter);
             ensure!(report_info.report_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
             ensure!(report_info.booked_committee.binary_search(&to_committee).is_ok(), Error::<T>::NotOrderCommittee);
 
@@ -326,10 +326,8 @@ pub mod pallet {
             ensure!(committee_order.booked_report.binary_search(&report_id).is_ok(), Error::<T>::NotInBookedList);
             ensure!(committee_ops.order_status == MTOrderStatus::Verifying, Error::<T>::OrderStatusNotFeat);
 
-            let is_inaccess = match report_info.machine_fault_type {
-                MachineFaultType::RentedInaccessible(..) => true,
-                _ => false,
-            };
+            let is_inaccess = matches!(report_info.machine_fault_type, MachineFaultType::RentedInaccessible(..));
+
             if is_inaccess {
                 ensure!(
                     report_info.report_status == ReportStatus::WaitingBook
@@ -554,9 +552,9 @@ pub mod pallet {
 
             // 退还申述时的质押
             if is_slashed_reporter {
-                Self::change_reporter_stake(applicant.clone(), staked, false)?;
+                Self::change_reporter_stake(applicant, staked, false)?;
             } else if is_slashed_stash {
-                T::MTOps::mt_change_staked_balance(applicant.clone(), staked, false)
+                T::MTOps::mt_change_staked_balance(applicant, staked, false)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else {
                 Self::change_committee_stake_on_report_close(vec![applicant], staked, false)
@@ -564,10 +562,10 @@ pub mod pallet {
             }
 
             // 之前的结果中，报告人是否被惩罚
-            let is_reporter_slashed = match report_result.report_result {
-                ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo => true,
-                _ => false,
-            };
+            let is_reporter_slashed = matches!(
+                report_result.report_result,
+                ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo
+            );
 
             // 重新获得应该惩罚/奖励的委员会
             let mut should_slash = report_result.reward_committee.clone();
@@ -708,8 +706,7 @@ impl<T: Config> Pallet<T> {
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
         let report_id = Self::get_new_report_id();
 
-        let report_time =
-            if report_time.is_some() { report_time.unwrap() } else { <frame_system::Module<T>>::block_number() };
+        let report_time = report_time.unwrap_or_else(|| <frame_system::Module<T>>::block_number());
 
         let mut report_info = MTReportInfoDetail::new(
             reporter.clone(),
@@ -916,7 +913,7 @@ impl<T: Config> Pallet<T> {
                 ItemList::rm_item(&mut committee_order.hashed_report, &report_id);
 
                 // 添加未完成的委员会的记录，用于惩罚
-                ItemList::add_item(&mut &mut report_result.unruly_committee, a_committee.clone());
+                ItemList::add_item(&mut report_result.unruly_committee, a_committee.clone());
                 CommitteeOps::<T>::remove(&a_committee, report_id);
             }
 
@@ -925,7 +922,7 @@ impl<T: Config> Pallet<T> {
 
         // 没有委员会进行举报时，添加惩罚，重置报告状态以允许重新抢单
         // 重置report_id，因为原来的report_id已经产生了惩罚记录
-        if report_info.confirmed_committee.len() == 0 {
+        if report_info.confirmed_committee.is_empty() {
             // 调用举报函数来实现重新举报
             Self::do_report_machine_fault(
                 report_info.reporter.clone(),
@@ -940,7 +937,7 @@ impl<T: Config> Pallet<T> {
             report_result.report_result = ReportResultType::NoConsensus;
             report_result.reporter_stake = Zero::zero();
             // Should do slash at once
-            if report_result.unruly_committee.len() > 0 {
+            if !report_result.unruly_committee.is_empty() {
                 Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
                 ReportResult::<T>::insert(report_id, report_result);
             }
@@ -1118,7 +1115,7 @@ impl<T: Config> Pallet<T> {
             ItemList::rm_item(&mut report_info.get_encrypted_info_committee, &verifying_committee);
 
             // 如果此时booked_committee.len() == 0；返回到最初始的状态，并允许取消报告
-            if report_info.booked_committee.len() == 0 {
+            if report_info.booked_committee.is_empty() {
                 report_info.first_book_time = Zero::zero();
                 report_info.confirm_start = Zero::zero();
                 report_info.report_status = ReportStatus::Reported;
@@ -1140,10 +1137,8 @@ impl<T: Config> Pallet<T> {
             ItemList::add_item(&mut report_result.unruly_committee, verifying_committee.clone());
             Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
             ReportResult::<T>::insert(report_id, report_result);
-
-            return Ok(());
         }
-        return Ok(());
+        Ok(())
     }
 
     fn summary_after_fault_submit_raw(
@@ -1185,10 +1180,8 @@ impl<T: Config> Pallet<T> {
 
             CommitteeOps::<T>::remove(&verifying_committee, report_id);
             ReportInfo::<T>::insert(report_id, report_info);
-
-            return Ok(());
         }
-        return Ok(());
+        Ok(())
     }
 
     // 统计正在waiting_raw的机器
@@ -1220,7 +1213,7 @@ impl<T: Config> Pallet<T> {
         match fault_report_result.clone() {
             ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
                 // Slash against_committee and release support committee stake
-                for a_committee in against_committee.clone() {
+                for a_committee in against_committee {
                     ItemList::add_item(&mut report_result.inconsistent_committee, a_committee.clone());
 
                     // 改变committee_order
@@ -1254,8 +1247,8 @@ impl<T: Config> Pallet<T> {
             },
             ReportConfirmStatus::Refuse(support_committee, against_committee) => {
                 // Slash support committee and release against committee stake
-                report_result.i_exten_sorted(support_committee.clone());
-                report_result.r_exten_sorted(against_committee.clone());
+                report_result.i_exten_sorted(support_committee);
+                report_result.r_exten_sorted(against_committee);
                 report_result.report_result = ReportResultType::ReportRefused;
             },
             // 如果没有人提交，会出现NoConsensus的情况，并重新派单
@@ -1291,7 +1284,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 根据报告结果，更改live_report的结果
-        match fault_report_result.clone() {
+        match fault_report_result {
             ReportConfirmStatus::Confirmed(mut sp_committees, ag_committee, ..)
             | ReportConfirmStatus::Refuse(mut sp_committees, ag_committee, ..) => {
                 ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
@@ -1337,7 +1330,7 @@ impl<T: Config> Pallet<T> {
     fn summary_fault_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {
         let report_info = Self::report_info(&report_id);
 
-        if report_info.confirmed_committee.len() == 0 {
+        if report_info.confirmed_committee.is_empty() {
             return ReportConfirmStatus::NoConsensus;
         }
 

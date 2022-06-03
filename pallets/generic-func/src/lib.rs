@@ -258,7 +258,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::DestroyDBC(who, burn_amount));
     }
 
-    pub fn get_accountid32(addr: &Vec<u8>) -> Option<[u8; 32]> {
+    pub fn get_accountid32(addr: &[u8]) -> Option<[u8; 32]> {
         let mut data: [u8; 35] = [0; 35];
 
         let length = bs58::decode(addr).into(&mut data).ok()?;

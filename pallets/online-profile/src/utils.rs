@@ -8,7 +8,7 @@ use sp_std::{
 
 // Reference： primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
 // from_ss58check_with_version
-pub fn get_accountid32(addr: &Vec<u8>) -> Option<[u8; 32]> {
+pub fn get_accountid32(addr: &[u8]) -> Option<[u8; 32]> {
     let mut data: [u8; 35] = [0; 35];
 
     let length = bs58::decode(addr).into(&mut data).ok()?;
@@ -38,11 +38,11 @@ pub fn verify_sig(msg: Vec<u8>, sig: Vec<u8>, account: Vec<u8>) -> Option<()> {
     let account_id32: [u8; 32] = pubkey_hex.try_into().ok()?;
     let public = sp_core::sr25519::Public::from_slice(&account_id32);
 
-    signature.verify(&msg[..], &public.into()).then(|| ())
+    signature.verify(&msg[..], &public).then(|| ())
 }
 
 #[allow(dead_code)]
-fn get_public_from_str(addr: &Vec<u8>) -> Option<sp_core::sr25519::Public> {
+fn get_public_from_str(addr: &[u8]) -> Option<sp_core::sr25519::Public> {
     let account_id32: [u8; 32] = get_accountid32(addr)?;
     Some(sp_core::sr25519::Public::from_slice(&account_id32))
 }

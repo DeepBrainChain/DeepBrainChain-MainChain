@@ -33,7 +33,7 @@ pub fn parse_price(price_str: &str) -> Option<u64> {
     let price_json = lite_json::parse_json(price_json).ok()?;
 
     if let JsonValue::Object(obj) = price_json {
-        if obj.len() == 0 {
+        if obj.is_empty() {
             return None;
         }
 
@@ -45,7 +45,7 @@ pub fn parse_price(price_str: &str) -> Option<u64> {
         }
     }
 
-    return None;
+    None
 }
 
 #[cfg(test)]
