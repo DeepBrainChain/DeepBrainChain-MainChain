@@ -346,10 +346,10 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
 pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
     let mut ext = new_test_with_init_params_ext();
     ext.execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
+        let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
         // 增加四个委员会
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
@@ -378,8 +378,8 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey));
         assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee4), committee4_box_pubkey));
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         // Bob pubkey
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\

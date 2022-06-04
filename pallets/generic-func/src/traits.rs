@@ -13,7 +13,7 @@ impl<T: Config> GNOps for Pallet<T> {
 
     fn slash_and_reward(
         slash_who: Vec<T::AccountId>,
-        each_slash: BalanceOf<T>,
+        each_slash: BalanceOf<T>, // 每个人惩罚的金额
         reward_who: Vec<T::AccountId>,
     ) -> Result<(), ()> {
         // 如果reward_to为0，则将币转到国库
@@ -60,7 +60,7 @@ impl<T: Config> GNOps for Pallet<T> {
                 }
             }
             if left_reward > Zero::zero() {
-                let (imbalance, _missing) = T::Currency::slash_reserved(&a_slash_person, each_slash);
+                let (imbalance, _missing) = T::Currency::slash_reserved(&a_slash_person, left_reward);
                 T::Slash::on_unbalanced(imbalance);
             }
         }
