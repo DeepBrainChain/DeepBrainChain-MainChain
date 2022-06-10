@@ -1,6 +1,6 @@
 // refer: https://polkadot.js.org/docs/substrate/extrinsics
 
-// 使用： node sign_tx_by_user.js
+// Usage： node sign_tx_by_user.js
 // --port="wss://info.dbcwallet.io"
 // --module=onlineProfile --func=bondMachine
 // --key="sample split bamboo west visual approve brain fox arch impact relief smile"
@@ -15,7 +15,7 @@ import minimist from "minimist";
 // kconst testKeyring = require('@polkadot/keyring/testing');
 
 async function main() {
-  // 读取参数
+  // Read params from command line
   var args = minimist(process.argv.slice(2), {
     string: ["key", "sig", "hash"],
   });
@@ -28,7 +28,7 @@ async function main() {
     args._.push(args["hash"]);
   }
 
-  // 构建连接
+  // Create connection
   const wsProvider = new WsProvider(args["port"]);
   const type_path = fs.readFileSync(args["type-file"]);
   const type_json = JSON.parse(type_path);
@@ -42,21 +42,22 @@ async function main() {
     rpc: rpc_json,
   });
 
-  // 读取密钥 type: sr25519, ssFormat: 42 (defaults)
+  // Read account key: type: sr25519, ssFormat: 42 (defaults)
   const keyring = new Keyring({ type: "sr25519" });
-  // const accountFromKeyring = keyring.createFromUri(args["key"]); // 从助记词生成账户
-  const accountFromKeyring = keyring.addFromUri(args["key"]); // 从私钥生成账户对
+  // const accountFromKeyring = keyring.createFromUri(args["key"]); // Generate Account from Mnemonic Phrase
+  const accountFromKeyring = keyring.addFromUri(args["key"]); // Generate account pair from private key
 
-  // 获取账户nonce
+  // Get account nonce
   const { nonce } = await api.query.system.account(accountFromKeyring.address);
 
-  // 创建方法map
+  // Create function you want to call
   var funcMap = {};
   funcMap["onlineProfile"] = {};
   funcMap["onlineProfile"]["setController"] =
     api.tx.onlineProfile.setController;
   funcMap["onlineProfile"]["machineSetStash"] =
     api.tx.onlineProfile.machineSetStash;
+  funcMap["onlineProfile"]["claimRewards"] = api.tx.onlineProfile.claimRewards;
 
   funcMap["onlineProfile"]["bondMachine"] = api.tx.onlineProfile.bondMachine;
 
