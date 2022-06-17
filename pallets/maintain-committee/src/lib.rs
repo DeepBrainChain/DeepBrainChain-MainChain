@@ -672,6 +672,7 @@ impl<T: Config> Pallet<T> {
         } else {
             ensure!(reporter_stake.staked_amount >= amount, Error::<T>::BalanceNotEnough);
             reporter_stake.staked_amount = reporter_stake.staked_amount.saturating_sub(amount);
+            ensure!(reporter_stake.staked_amount >= reporter_stake.used_stake, Error::<T>::StakeNotEnough);
         }
 
         if reporter_stake.used_stake > Zero::zero() || is_add {
