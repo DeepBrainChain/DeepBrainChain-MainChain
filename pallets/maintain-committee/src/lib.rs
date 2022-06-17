@@ -674,11 +674,13 @@ impl<T: Config> Pallet<T> {
             reporter_stake.staked_amount = reporter_stake.staked_amount.saturating_sub(amount);
         }
 
-        ensure!(
-            reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake)
-                > stake_params.min_free_stake_percent * reporter_stake.staked_amount,
-            Error::<T>::StakeNotEnough
-        );
+        if reporter_stake.used_stake > Zero::zero() || is_add {
+            ensure!(
+                reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake)
+                    >= stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                Error::<T>::StakeNotEnough
+            );
+        }
 
         if is_add {
             <T as pallet::Config>::Currency::reserve(&reporter, amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
