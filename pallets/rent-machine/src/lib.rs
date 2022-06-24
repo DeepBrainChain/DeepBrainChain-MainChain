@@ -173,7 +173,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: 现在必须是30min的倍数
         /// 用户租用机器（按分钟租用）
         #[pallet::weight(10000)]
         pub fn rent_machine_by_minutes(
@@ -295,8 +294,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: 合并两个租用方法（按天租用/按分钟租用），都可以调用这个confir_rent，并且输出的应该是相同的事件
-        /// 用户在租用半小时(60个块)内确认机器租用成功
+        /// 用户在租用15min(30个块)内确认机器租用成功
         #[pallet::weight(10000)]
         pub fn confirm_rent(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
@@ -306,7 +304,7 @@ pub mod pallet {
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
             ensure!(order_info.rent_status == RentStatus::WaitingVerifying, Error::<T>::NoOrderExist);
 
-            // 不能超过30分钟
+            // 不能超过15分钟
             let machine_start_duration = now.checked_sub(&order_info.rent_start).ok_or(Error::<T>::Overflow)?;
             ensure!(machine_start_duration <= WAITING_CONFIRMING_DELAY.into(), Error::<T>::ExpiredConfirm);
 
@@ -320,7 +318,7 @@ pub mod pallet {
 
             // 在stake_amount设置0前记录，用作事件
             let rent_fee = order_info.stake_amount;
-            let rent_duration = (order_info.rent_end - order_info.rent_start) / BLOCK_PER_DAY.into();
+            let rent_duration = order_info.rent_end - order_info.rent_start;
 
             order_info.confirm_rent(now);
             RentOrder::<T>::insert(&machine_id, order_info);
@@ -329,12 +327,7 @@ pub mod pallet {
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, Some(renter.clone()), None);
             PendingConfirming::<T>::remove(&machine_id);
 
-            Self::deposit_event(Event::ConfirmRent(
-                renter,
-                machine_id,
-                rent_fee,
-                rent_duration.saturated_into::<u32>(),
-            ));
+            Self::deposit_event(Event::ConfirmReletBlockNum(renter, machine_id, rent_fee, rent_duration));
             Ok(().into())
         }
 
@@ -481,10 +474,9 @@ pub mod pallet {
         ConfirmRent(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
         ReletMachine(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
         RentMachine(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
-        // (.., minutes)
         RentBlockNum(T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber),
-        // (.., minutes)
         ReletBlockNum(T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber),
+        ConfirmReletBlockNum(T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber),
     }
 
     #[pallet::error]
@@ -531,7 +523,7 @@ impl<T: Config> Pallet<T> {
             let duration = now.checked_sub(&rent_order.rent_start).unwrap_or_default();
 
             if duration > WAITING_CONFIRMING_DELAY.into() {
-                // 超过了60个块，也就是30分钟
+                // 超过了30个块，也就是15分钟
                 Self::clean_order(&renter, &machine_id);
                 T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None);
                 continue;
