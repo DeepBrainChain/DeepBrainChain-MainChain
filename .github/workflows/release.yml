@@ -1,0 +1,51 @@
+name: release
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  release:
+    name: release ${{ matrix.target }}
+    runs-on: ubuntu-18.04
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [cli]
+        include:
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz tar.xz
+
+    steps:
+      - name: Add wasm toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2022-01-01
+          target: wasm32-unknown-unknown
+
+      - name: Set compile environment
+        run: curl https://getsubstrate.io -sSf | bash -s -- --fast
+
+      - name: 'Checkout codes'
+        uses: actions/checkout@v1
+
+      - name: Compile
+        run: rustup override set nightly-2022-01-01-x86_64-unknown-linux-gnu
+          && rustup target add wasm32-unknown-unknown
+          && cargo build --release
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          tag_name: daily.release
+          files: |
+            target/release/dbc-chain
+
+      # - name: Upload artifact
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: Binary
+      #     path: |
+      #       ${{ steps.compile.outputs.BUILT_ARCHIVE }}
+      #       ${{ steps.compile.outputs.BUILT_CHECKSUM }}
