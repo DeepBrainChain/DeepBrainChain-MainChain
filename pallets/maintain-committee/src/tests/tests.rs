@@ -11,9 +11,9 @@ use std::convert::TryInto;
 #[test]
 fn test_heart_beat1() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
             .try_into()
@@ -96,9 +96,9 @@ fn test_heart_beat1() {
 #[test]
 fn test_heart_beat2() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
             .try_into()
@@ -205,10 +205,10 @@ fn test_heart_beat2() {
 #[test]
 fn test_heart_beat3() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
             .try_into()
@@ -319,11 +319,8 @@ fn test_report_and_slash() {
 #[test]
 fn test_apply_slash_review() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let _committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
-
-        let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let reporter_rand_str = "abcdef".as_bytes().to_vec();
@@ -332,7 +329,7 @@ fn test_apply_slash_review() {
         let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
         let extra_err_info = Vec::new();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
             .try_into()

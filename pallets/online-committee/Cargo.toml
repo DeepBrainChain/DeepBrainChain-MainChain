@@ -56,6 +56,9 @@ default-features = false
 package = 'committee'
 path = '../committee'
 
+[dev-dependencies]
+once_cell = '1'
+
 [dev-dependencies.sp-core]
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'

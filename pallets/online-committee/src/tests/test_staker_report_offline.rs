@@ -1,4 +1,5 @@
 use crate::mock::*;
+use crate::tests::{controller, stash};
 use frame_support::assert_ok;
 
 // 2). 机器在空闲状态
@@ -14,18 +15,16 @@ use frame_support::assert_ok;
 fn test_staker_report_offline() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(*controller), machine_id.clone()));
 
         run_to_block(20);
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(*controller), machine_id.clone()));
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
             online_profile::OPPendingSlashInfo {
-                slash_who: stash,
+                slash_who: *stash,
                 machine_id,
                 slash_time: 21,
                 slash_amount: 8000 * ONE_DBC,
@@ -36,8 +35,8 @@ fn test_staker_report_offline() {
             }
         );
 
-        assert_eq!(Balances::reserved_balance(stash), (400000 + 8000) * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), (400000 + 8000) * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000) * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), (400000 + 8000) * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -52,8 +51,8 @@ fn test_staker_report_offline() {
         // 两天之后，惩罚被执行
         run_to_block(21 + 2880 * 2);
 
-        assert_eq!(Balances::reserved_balance(stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -72,18 +71,16 @@ fn test_staker_report_offline() {
 fn test_staker_report_offline2() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(*controller), machine_id.clone()));
 
         run_to_block(50);
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(*controller), machine_id.clone()));
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
             online_profile::OPPendingSlashInfo {
-                slash_who: stash,
+                slash_who: *stash,
                 machine_id,
                 slash_time: 51,
                 slash_amount: 8000 * 2 * ONE_DBC,
@@ -94,8 +91,8 @@ fn test_staker_report_offline2() {
             }
         );
 
-        assert_eq!(Balances::reserved_balance(stash), (400000 + 8000 * 2) * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), (400000 + 8000 * 2) * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000 * 2) * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), (400000 + 8000 * 2) * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -110,8 +107,8 @@ fn test_staker_report_offline2() {
         // 两天之后，惩罚被执行
         run_to_block(51 + 2880 * 2);
 
-        assert_eq!(Balances::reserved_balance(stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -130,18 +127,16 @@ fn test_staker_report_offline2() {
 fn test_staker_report_offline3() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(*controller), machine_id.clone()));
 
         run_to_block(50 + 2880 * 2);
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(*controller), machine_id.clone()));
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
             online_profile::OPPendingSlashInfo {
-                slash_who: stash,
+                slash_who: *stash,
                 machine_id,
                 slash_time: 51 + 2880 * 2,
                 slash_amount: 8000 * 15 * ONE_DBC,
@@ -152,8 +147,8 @@ fn test_staker_report_offline3() {
             }
         );
 
-        assert_eq!(Balances::reserved_balance(stash), (400000 + 8000 * 15) * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), (400000 + 8000 * 15) * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000 * 15) * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), (400000 + 8000 * 15) * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -168,8 +163,8 @@ fn test_staker_report_offline3() {
         // 两天之后，惩罚被执行
         run_to_block(51 + 2880 * 2 + 2880 * 2);
 
-        assert_eq!(Balances::reserved_balance(stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -188,17 +183,15 @@ fn test_staker_report_offline3() {
 fn test_staker_report_offline4() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(*controller), machine_id.clone()));
 
         assert_eq!(OnlineProfile::pending_exec_max_offline_slash(13 + 2880 * 10), vec![machine_id.clone()]);
 
         run_to_block(50 + 2880 * 10);
         assert_eq!(OnlineProfile::pending_exec_slash(13 + 2880 * (10 + 2)), vec![0]);
 
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(*controller), machine_id.clone()));
 
         assert_eq!(
             OnlineProfile::live_machines(),
@@ -210,7 +203,7 @@ fn test_staker_report_offline4() {
         assert_eq!(
             OnlineProfile::pending_slash(0),
             online_profile::OPPendingSlashInfo {
-                slash_who: stash,
+                slash_who: *stash,
                 machine_id,
                 slash_time: 13 + 2880 * 10,
                 slash_amount: 8000 * 40 * ONE_DBC,
@@ -224,8 +217,8 @@ fn test_staker_report_offline4() {
         // 不存在其他的slash：
         assert_eq!(OnlineProfile::pending_slash(1), online_profile::OPPendingSlashInfo::default());
 
-        assert_eq!(Balances::reserved_balance(stash), (400000 + 8000 * 40) * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), (400000 + 8000 * 40) * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000 * 40) * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), (400000 + 8000 * 40) * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -240,8 +233,8 @@ fn test_staker_report_offline4() {
         // 两天之后，惩罚被执行
         run_to_block(51 + 2880 * 10 + 2880 * 2);
 
-        assert_eq!(Balances::reserved_balance(stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -260,21 +253,20 @@ fn test_staker_report_offline4() {
 fn test_staker_report_offline5() {
     new_test_with_machine_online().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         // 空闲10天
         run_to_block(50 + 2880 * 10);
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id));
+        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(*controller), machine_id.clone()));
+        run_to_block(50 + 2880 * 10 + 5);
+        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(*controller), machine_id));
 
         // 不存在其他的slash：
         assert_eq!(OnlineProfile::pending_slash(0), online_profile::OPPendingSlashInfo::default());
         assert_eq!(OnlineProfile::pending_slash(1), online_profile::OPPendingSlashInfo::default());
 
-        assert_eq!(Balances::reserved_balance(stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -285,8 +277,5 @@ fn test_staker_report_offline5() {
                 ..Default::default()
             }
         );
-
-        assert_eq!(Balances::reserved_balance(stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(stash), 400000 * ONE_DBC);
     });
 }

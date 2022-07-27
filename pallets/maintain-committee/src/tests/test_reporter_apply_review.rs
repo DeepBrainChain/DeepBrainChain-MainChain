@@ -13,10 +13,9 @@ use std::convert::TryInto;
 fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
     let mut ext = new_test_with_init_params_ext();
     ext.execute_with(|| {
-        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let _machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
@@ -59,9 +58,9 @@ fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
 fn apply_slash_review_case1() {
     after_report_machine_inaccessible().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
 
         let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
         // 10万为质押，20000为委员会
@@ -136,9 +135,8 @@ fn apply_slash_review_case1() {
 fn apply_slash_review_case1_1() {
     after_report_machine_inaccessible().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let _committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
         let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
 

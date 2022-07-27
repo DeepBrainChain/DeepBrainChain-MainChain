@@ -7,6 +7,7 @@ mod types;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
+#[allow(non_upper_case_globals)]
 mod tests;
 
 use frame_support::{

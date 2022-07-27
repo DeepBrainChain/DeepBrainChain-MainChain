@@ -7,7 +7,7 @@ use std::convert::TryInto;
 #[test]
 fn test_committee_cancel_report_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
@@ -76,14 +76,14 @@ fn test_committee_cancel_report_works() {
 #[test]
 fn test_committee_cancel_booked_report_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
             .try_into()
             .unwrap();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
 
         // 报告硬件造假允许取消
         {

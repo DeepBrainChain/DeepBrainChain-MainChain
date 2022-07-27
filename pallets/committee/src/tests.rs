@@ -6,10 +6,10 @@ use std::convert::TryInto;
 #[test]
 fn add_committee_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee4 = sr25519::Public::from(Sr25519Keyring::Alice);
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
         assert_eq!(
@@ -49,7 +49,7 @@ fn add_committee_works() {
 #[test]
 fn committee_set_box_pubkey_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
                 .unwrap()
@@ -87,7 +87,7 @@ fn committee_set_box_pubkey_works() {
 #[test]
 fn committee_add_stake_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
                 .unwrap()
@@ -117,7 +117,7 @@ fn committee_add_stake_works() {
 #[test]
 fn committee_reduce_stake_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
                 .unwrap()
@@ -154,7 +154,7 @@ fn committee_reduce_stake_works() {
 #[test]
 fn committee_claim_reward_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         super::CommitteeStake::<TestRuntime>::insert(
             &committee1,
@@ -173,10 +173,10 @@ fn committee_claim_reward_works() {
 #[test]
 fn committee_chill_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee4 = sr25519::Public::from(Sr25519Keyring::Alice);
 
         super::Committee::<TestRuntime>::put(super::CommitteeList {
             normal: vec![committee1],
@@ -203,10 +203,10 @@ fn committee_chill_works() {
 #[test]
 fn committee_undo_chill_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee4 = sr25519::Public::from(Sr25519Keyring::Alice);
 
         // insert
         super::Committee::<TestRuntime>::put(super::CommitteeList {
@@ -263,8 +263,8 @@ fn committee_undo_chill_works() {
 #[test]
 fn committee_exit_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::One);
 
         // insert
         super::Committee::<TestRuntime>::put(super::CommitteeList {
@@ -284,10 +284,10 @@ fn committee_exit_works() {
 #[test]
 fn change_committee_status_when_stake_changed_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee4 = sr25519::Public::from(Sr25519Keyring::Alice);
 
         let mut committee_list = super::CommitteeList {
             normal: vec![committee1],

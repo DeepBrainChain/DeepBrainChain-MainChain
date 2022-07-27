@@ -346,7 +346,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             StandardGpuPointPrice { gpu_point: 1000, gpu_price: 150_000_000 },
         );
 
-        let pot_two: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
+        let pot_two = sr25519::Public::from(Sr25519Keyring::Two);
         // 设置机器租金支付地址
         assert_ok!(RentMachine::set_rent_fee_pot(RawOrigin::Root.into(), pot_two));
 
@@ -358,12 +358,12 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         DBCPriceOCW::add_avg_price();
         run_to_block(2);
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         // use Bob pubkey
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
@@ -477,7 +477,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         run_to_block(10);
 
         // 报告人租用机器
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two);
         // rent machine for 1 days
         assert_ok!(RentMachine::rent_machine(Origin::signed(reporter), machine_id.clone(), 1));
         assert_ok!(RentMachine::confirm_rent(Origin::signed(reporter), machine_id));

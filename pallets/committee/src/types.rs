@@ -33,7 +33,6 @@ impl<AccountId: Ord> CommitteeList<AccountId> {
     pub fn is_fulfilling(&self, who: &AccountId) -> bool {
         self.fulfilling_list.binary_search(who).is_ok()
     }
-
     pub fn is_committee(&self, who: &AccountId) -> bool {
         self.is_normal(who) || self.is_chill(who) || self.is_waiting_puk(who) || self.is_fulfilling(who)
     }

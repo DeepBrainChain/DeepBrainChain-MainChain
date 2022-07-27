@@ -258,12 +258,12 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
 
     let mut ext = sp_io::TestExternalities::from(storage);
 
-    let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-    let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-    let pot_two: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-    let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
+    let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
+    let stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+    let pot_two = sr25519::Public::from(Sr25519Keyring::Two).into();
+    let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
+    let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
+    let committee3 = sr25519::Public::from(Sr25519Keyring::Dave).into();
 
     // Bob pubkey
     let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();

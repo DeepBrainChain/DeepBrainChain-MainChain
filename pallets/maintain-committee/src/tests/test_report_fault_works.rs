@@ -11,10 +11,10 @@ use std::convert::TryInto;
 #[test]
 fn report_machine_fault_works_case1() {
     new_test_with_init_params_ext().execute_with(|| {
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
             .try_into()
@@ -254,12 +254,12 @@ fn report_machine_fault_works_case1() {
 #[test]
 fn report_machine_fault_works_case2() {
     new_test_with_init_params_ext().execute_with(|| {
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
             .try_into()
@@ -565,12 +565,12 @@ fn report_machine_fault_works_case2() {
 #[test]
 fn report_machine_fault_works_case3() {
     new_test_with_init_params_ext().execute_with(|| {
-        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let _controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
             .try_into()
@@ -888,10 +888,9 @@ fn report_machine_fault_works_case3() {
 #[test]
 fn report_machine_fault_works_case4() {
     new_test_with_init_params_ext().execute_with(|| {
-        let _controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
             .unwrap()
             .try_into()

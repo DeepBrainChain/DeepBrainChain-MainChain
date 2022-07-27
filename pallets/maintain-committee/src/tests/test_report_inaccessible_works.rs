@@ -24,10 +24,10 @@ use std::convert::TryInto;
 #[test]
 fn report_machine_inaccessible_works1() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
@@ -304,10 +304,10 @@ fn report_machine_inaccessible_works1() {
 #[test]
 fn report_machine_inaccessible_works2() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
@@ -459,10 +459,10 @@ fn report_machine_inaccessible_works2() {
 #[test]
 fn report_machine_inaccessible_works3() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
@@ -594,10 +594,10 @@ fn report_machine_inaccessible_works3() {
 #[test]
 fn report_machine_inaccessible_works4() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
@@ -690,13 +690,13 @@ fn report_machine_inaccessible_works4() {
 #[test]
 fn report_machine_inaccessible_works5() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
@@ -986,13 +986,13 @@ fn report_machine_inaccessible_works5() {
 #[test]
 fn report_machine_inaccessible_works8() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One).into();
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
-        let reporter: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(

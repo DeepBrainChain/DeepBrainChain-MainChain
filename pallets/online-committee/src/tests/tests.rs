@@ -11,12 +11,12 @@ use std::{collections::BTreeMap, convert::TryInto};
 #[test]
 fn machine_online_works() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::One);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         // Bob pubkey
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
@@ -692,10 +692,9 @@ fn machine_online_works() {
 #[test]
 fn committee_not_submit_hash_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
-        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
-        let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
@@ -795,10 +794,10 @@ fn committee_not_submit_hash_slash_works() {
 #[test]
 fn committee_not_wubmit_raw_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let _committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
-        let _committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
-        let _committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave);
-        let _committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+        let _committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
+        let _committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let _committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
+        let _committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
         let _machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
     })
@@ -840,9 +839,9 @@ fn committee_not_equal_then_redistribute_works() {
             is_support: true,
         };
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Two);
 
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("f660309770b2bd379e2514d88c146a7ddc3759533cf06d9fb4b41159e560325e")
@@ -864,8 +863,8 @@ fn committee_not_equal_then_redistribute_works() {
         let machine_info_hash2: [u8; 16] = hex::decode("26c58bca9792cc285aa0a2e42483131b").unwrap().try_into().unwrap();
         let machine_info_hash3: [u8; 16] = hex::decode("5745567d193b6d3cba18412489ccd433").unwrap().try_into().unwrap();
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         // Machine account Info:
         // ❯ subkey generate --scheme sr25519
@@ -1053,9 +1052,9 @@ fn two_submit_hash_reach_submit_raw_works() {
             is_support: true,
         };
 
-        let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::One);
-        let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Two);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::One);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Two);
 
         let committee1_box_pubkey: [u8; 32] =
             hex::decode("f660309770b2bd379e2514d88c146a7ddc3759533cf06d9fb4b41159e560325e")
@@ -1076,8 +1075,8 @@ fn two_submit_hash_reach_submit_raw_works() {
         let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
 
-        let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
-        let stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
         committee_upload_info.machine_id = machine_id.clone();
 

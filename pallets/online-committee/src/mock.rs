@@ -428,14 +428,11 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
 pub fn new_test_with_machine_online() -> sp_io::TestExternalities {
     let mut ext = new_test_with_online_machine_distribution();
 
-    let committee1: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Alice);
-    let committee2: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Charlie);
-    // let committee3: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Dave).into();
-    let committee4: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve);
+    let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
+    let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+    let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
     let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-    // let controller: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Eve).into();
-    // let _stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
     let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
     let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
