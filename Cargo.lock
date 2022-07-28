@@ -3508,6 +3508,7 @@ dependencies = [
  "frame-system",
  "generic-func",
  "hex",
+ "once_cell",
  "online-committee",
  "online-profile",
  "online-profile-machine",

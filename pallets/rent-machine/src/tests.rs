@@ -262,7 +262,6 @@ fn rented_report_offline_rented_end_report_online() {
 fn controller_report_offline_mutiple_times_should_work() {
     new_test_ext_after_machine_online().execute_with(|| {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let _stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         let renter_dave = sr25519::Public::from(Sr25519Keyring::Dave).into();

@@ -58,7 +58,7 @@ fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
 fn apply_slash_review_case1() {
     after_report_machine_inaccessible().execute_with(|| {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let committee = sr25519::Public::from(Sr25519Keyring::One).into();
 

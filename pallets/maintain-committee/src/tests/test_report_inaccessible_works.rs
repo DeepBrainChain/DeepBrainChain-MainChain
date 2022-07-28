@@ -2,6 +2,7 @@ use super::super::mock::*;
 use super::super::Error;
 use crate::types::{MTOrderStatus, ReportStatus};
 use frame_support::{assert_noop, assert_ok};
+use once_cell::sync::Lazy;
 use std::convert::TryInto;
 
 // 报告机器被租用，但是无法访问
@@ -20,18 +21,20 @@ use std::convert::TryInto;
 // case10: 2人预订，都反对
 // case11: 2人预订，一同意，一反对
 
+const committee: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::One));
+const reporter: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Two));
+const machine_stash: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Ferdie));
+
+const machine_id: Lazy<Vec<u8>> =
+    Lazy::new(|| "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec());
+
 // 报告机器被租用，但是无法访问: 只有一个人预订，10分钟后检查结果，两天后结果执行
 #[test]
 fn report_machine_inaccessible_works1() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            Origin::signed(*reporter),
             crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
         ));
 
@@ -44,7 +47,7 @@ fn report_machine_inaccessible_works1() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     machine_id: machine_id.clone(),
@@ -55,7 +58,7 @@ fn report_machine_inaccessible_works1() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::reporter_report(&reporter),
+                &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { processing_report: vec![0], ..Default::default() }
             );
 
@@ -65,7 +68,7 @@ fn report_machine_inaccessible_works1() {
         }
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(*committee), 0));
 
         // 检查订阅之后的状态
         // do_report_machine_fault:
@@ -79,13 +82,13 @@ fn report_machine_inaccessible_works1() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
-                    booked_committee: vec![committee],
+                    booked_committee: vec![*committee],
                     confirm_start: 11 + 10,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
                     report_status: ReportStatus::WaitingBook,
@@ -93,7 +96,7 @@ fn report_machine_inaccessible_works1() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_ops(&committee, 0),
+                &MaintainCommittee::committee_ops(&*committee, 0),
                 &crate::MTCommitteeOpsDetail {
                     booked_time: 11,
                     order_status: MTOrderStatus::Verifying,
@@ -101,11 +104,11 @@ fn report_machine_inaccessible_works1() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_order(&committee),
+                &MaintainCommittee::committee_order(&*committee),
                 &crate::MTCommitteeOrderList { booked_report: vec![0], ..Default::default() }
             );
 
-            assert_eq!(Balances::free_balance(&committee), INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC);
+            assert_eq!(Balances::free_balance(&*committee), INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC);
         }
 
         // 委员会首先提交Hash: 内容为 订单ID + 验证人自己的随机数 + 机器是否有问题
@@ -115,7 +118,7 @@ fn report_machine_inaccessible_works1() {
         // - Writes:
         // LiveReport, CommitteeOps, CommitteeOrder, ReportInfo
         assert_ok!(MaintainCommittee::committee_submit_verify_hash(
-            Origin::signed(committee),
+            Origin::signed(*committee),
             0,
             offline_committee_hash.clone()
         ));
@@ -129,14 +132,14 @@ fn report_machine_inaccessible_works1() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
-                    booked_committee: vec![committee],
-                    hashed_committee: vec![committee],
+                    booked_committee: vec![*committee],
+                    hashed_committee: vec![*committee],
                     confirm_start: 11 + 10,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
                     report_status: ReportStatus::WaitingBook,
@@ -144,7 +147,7 @@ fn report_machine_inaccessible_works1() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_ops(&committee, 0),
+                &MaintainCommittee::committee_ops(&*committee, 0),
                 &crate::MTCommitteeOpsDetail {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
@@ -154,7 +157,7 @@ fn report_machine_inaccessible_works1() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_order(&committee),
+                &MaintainCommittee::committee_order(&*committee),
                 &crate::MTCommitteeOrderList { booked_report: vec![], hashed_report: vec![0], ..Default::default() }
             );
         }
@@ -163,7 +166,7 @@ fn report_machine_inaccessible_works1() {
         // - Writes:
         // ReportInfo, committee_ops,
         assert_ok!(MaintainCommittee::committee_submit_inaccessible_raw(
-            Origin::signed(committee),
+            Origin::signed(*committee),
             0,
             "abcd".as_bytes().to_vec(),
             true
@@ -174,16 +177,16 @@ fn report_machine_inaccessible_works1() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
-                    booked_committee: vec![committee],
-                    hashed_committee: vec![committee],
-                    confirmed_committee: vec![committee],
-                    support_committee: vec![committee],
+                    booked_committee: vec![*committee],
+                    hashed_committee: vec![*committee],
+                    confirmed_committee: vec![*committee],
+                    support_committee: vec![*committee],
                     confirm_start: 11 + 10,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
                     report_status: ReportStatus::SubmittingRaw,
@@ -191,7 +194,7 @@ fn report_machine_inaccessible_works1() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_ops(&committee, 0),
+                &MaintainCommittee::committee_ops(&*committee, 0),
                 &crate::MTCommitteeOpsDetail {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
@@ -215,16 +218,16 @@ fn report_machine_inaccessible_works1() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
-                    booked_committee: vec![committee],
-                    hashed_committee: vec![committee],
-                    confirmed_committee: vec![committee],
-                    support_committee: vec![committee],
+                    booked_committee: vec![*committee],
+                    hashed_committee: vec![*committee],
+                    confirmed_committee: vec![*committee],
+                    support_committee: vec![*committee],
                     confirm_start: 11 + 10,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
                     report_status: ReportStatus::CommitteeConfirmed,
@@ -235,11 +238,11 @@ fn report_machine_inaccessible_works1() {
                 &MaintainCommittee::report_result(0),
                 &crate::MTReportResultInfo {
                     report_id: 0,
-                    reporter,
+                    reporter: *reporter,
                     reporter_stake: 1000 * ONE_DBC,
-                    reward_committee: vec![committee],
+                    reward_committee: vec![*committee],
                     machine_id: machine_id.clone(),
-                    machine_stash,
+                    machine_stash: *machine_stash,
                     slash_time: 22,
                     slash_exec_time: 22 + 2880 * 2,
                     report_result: crate::ReportResultType::ReportSucceed,
@@ -250,11 +253,11 @@ fn report_machine_inaccessible_works1() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_order(&committee),
+                &MaintainCommittee::committee_order(&*committee),
                 &crate::MTCommitteeOrderList { finished_report: vec![0], ..Default::default() }
             );
             assert_eq!(
-                &MaintainCommittee::committee_ops(&committee, 0),
+                &MaintainCommittee::committee_ops(&*committee, 0),
                 &crate::MTCommitteeOpsDetail {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
@@ -273,7 +276,7 @@ fn report_machine_inaccessible_works1() {
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(&MaintainCommittee::unhandled_report_result(22 + 2880 * 2), &unhandled_report_result);
             assert_eq!(
-                &MaintainCommittee::reporter_report(&reporter),
+                &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { succeed_report: vec![0], ..Default::default() }
             );
         }
@@ -287,14 +290,14 @@ fn report_machine_inaccessible_works1() {
                 OnlineProfile::live_machines(),
                 online_profile::LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
             );
-            let machine_info = OnlineProfile::machines_info(machine_id);
+            let machine_info = OnlineProfile::machines_info(machine_id.clone());
             assert_eq!(
                 machine_info.machine_status,
                 online_profile::MachineStatus::ReporterReportOffline(
                     online_profile::OPSlashReason::RentedInaccessible(11),
                     Box::new(online_profile::MachineStatus::Rented),
-                    reporter,
-                    vec![committee],
+                    *reporter,
+                    vec![*committee],
                 )
             );
         }
@@ -304,19 +307,14 @@ fn report_machine_inaccessible_works1() {
 #[test]
 fn report_machine_inaccessible_works2() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            Origin::signed(*reporter),
             crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
         ));
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(*committee), 0));
 
         // 委员会首先提交Hash: 内容为 订单ID + 验证人自己的随机数 + 机器是否有问题
         // hash(0abcd1) => 0x73124a023f585b4018b9ed3593c7470a
@@ -325,7 +323,7 @@ fn report_machine_inaccessible_works2() {
         // - Writes:
         // LiveReport, CommitteeOps, CommitteeOrder, ReportInfo
         assert_ok!(MaintainCommittee::committee_submit_verify_hash(
-            Origin::signed(committee),
+            Origin::signed(*committee),
             0,
             offline_committee_hash.clone()
         ));
@@ -334,7 +332,7 @@ fn report_machine_inaccessible_works2() {
         // - Writes:
         // ReportInfo, committee_ops,
         assert_ok!(MaintainCommittee::committee_submit_inaccessible_raw(
-            Origin::signed(committee),
+            Origin::signed(*committee),
             0,
             "fedcba111".as_bytes().to_vec(),
             false
@@ -345,17 +343,17 @@ fn report_machine_inaccessible_works2() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
-                    booked_committee: vec![committee],
-                    hashed_committee: vec![committee],
-                    confirmed_committee: vec![committee],
+                    booked_committee: vec![*committee],
+                    hashed_committee: vec![*committee],
+                    confirmed_committee: vec![*committee],
                     // support_committee: vec![committee],
-                    against_committee: vec![committee],
+                    against_committee: vec![*committee],
                     confirm_start: 11 + 10,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
                     report_status: ReportStatus::SubmittingRaw,
@@ -363,7 +361,7 @@ fn report_machine_inaccessible_works2() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_ops(&committee, 0),
+                &MaintainCommittee::committee_ops(&*committee, 0),
                 &crate::MTCommitteeOpsDetail {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
@@ -387,17 +385,17 @@ fn report_machine_inaccessible_works2() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
-                    booked_committee: vec![committee],
-                    hashed_committee: vec![committee],
-                    confirmed_committee: vec![committee],
+                    booked_committee: vec![*committee],
+                    hashed_committee: vec![*committee],
+                    confirmed_committee: vec![*committee],
                     // support_committee: vec![committee],
-                    against_committee: vec![committee],
+                    against_committee: vec![*committee],
                     confirm_start: 11 + 10,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
                     report_status: ReportStatus::CommitteeConfirmed,
@@ -408,11 +406,11 @@ fn report_machine_inaccessible_works2() {
                 &MaintainCommittee::report_result(0),
                 &crate::MTReportResultInfo {
                     report_id: 0,
-                    reporter,
+                    reporter: *reporter,
                     reporter_stake: 1000 * ONE_DBC,
-                    reward_committee: vec![committee],
+                    reward_committee: vec![*committee],
                     machine_id: machine_id.clone(),
-                    machine_stash,
+                    machine_stash: *machine_stash,
                     slash_time: 22,
                     slash_exec_time: 22 + 2880 * 2,
                     report_result: crate::ReportResultType::ReportRefused,
@@ -423,11 +421,11 @@ fn report_machine_inaccessible_works2() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_order(&committee),
+                &MaintainCommittee::committee_order(&*committee),
                 &crate::MTCommitteeOrderList { finished_report: vec![0], ..Default::default() }
             );
             assert_eq!(
-                &MaintainCommittee::committee_ops(&committee, 0),
+                &MaintainCommittee::committee_ops(&*committee, 0),
                 &crate::MTCommitteeOpsDetail {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
@@ -446,7 +444,7 @@ fn report_machine_inaccessible_works2() {
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(&MaintainCommittee::unhandled_report_result(22 + 2880 * 2), &unhandled_report_result);
             assert_eq!(
-                &MaintainCommittee::reporter_report(&reporter),
+                &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { failed_report: vec![0], ..Default::default() }
             );
         }
@@ -459,19 +457,14 @@ fn report_machine_inaccessible_works2() {
 #[test]
 fn report_machine_inaccessible_works3() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            Origin::signed(*reporter),
             crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
         ));
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(*committee), 0));
 
         // 委员会首先提交Hash: 内容为 订单ID + 验证人自己的随机数 + 机器是否有问题
         // hash(0abcd1) => 0x73124a023f585b4018b9ed3593c7470a
@@ -480,7 +473,7 @@ fn report_machine_inaccessible_works3() {
         // - Writes:
         // LiveReport, CommitteeOps, CommitteeOrder, ReportInfo
         assert_ok!(MaintainCommittee::committee_submit_verify_hash(
-            Origin::signed(committee),
+            Origin::signed(*committee),
             0,
             offline_committee_hash.clone()
         ));
@@ -499,14 +492,14 @@ fn report_machine_inaccessible_works3() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
-                    booked_committee: vec![committee],
-                    hashed_committee: vec![committee],
+                    booked_committee: vec![*committee],
+                    hashed_committee: vec![*committee],
                     // confirmed_committee: vec![],
                     // support_committee: vec![committee],
                     // against_committee: vec![committee],
@@ -520,11 +513,11 @@ fn report_machine_inaccessible_works3() {
                 &MaintainCommittee::report_result(0),
                 &crate::MTReportResultInfo {
                     report_id: 0,
-                    reporter,
+                    reporter: *reporter,
                     reporter_stake: 0 * ONE_DBC,
-                    unruly_committee: vec![committee],
+                    unruly_committee: vec![*committee],
                     machine_id: machine_id.clone(),
-                    machine_stash,
+                    machine_stash: *machine_stash,
                     slash_time: 31,
                     slash_exec_time: 31 + 2880 * 2,
                     report_result: crate::ReportResultType::NoConsensus,
@@ -535,11 +528,11 @@ fn report_machine_inaccessible_works3() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_order(&committee),
+                &MaintainCommittee::committee_order(&*committee),
                 &crate::MTCommitteeOrderList { ..Default::default() }
             );
             assert_eq!(
-                &MaintainCommittee::committee_ops(&committee, 0),
+                &MaintainCommittee::committee_ops(&*committee, 0),
                 &crate::MTCommitteeOpsDetail {
                     // booked_time: 11,
                     // confirm_result: false,
@@ -554,7 +547,7 @@ fn report_machine_inaccessible_works3() {
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(&MaintainCommittee::unhandled_report_result(31 + 2880 * 2), &unhandled_report_result);
             assert_eq!(
-                &MaintainCommittee::reporter_report(&reporter),
+                &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { processing_report: vec![1], failed_report: vec![0], ..Default::default() }
             );
         }
@@ -569,7 +562,7 @@ fn report_machine_inaccessible_works3() {
             assert_eq!(
                 &MaintainCommittee::report_info(1),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     machine_id: machine_id.clone(),
@@ -580,7 +573,7 @@ fn report_machine_inaccessible_works3() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::reporter_report(&reporter),
+                &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { processing_report: vec![1], failed_report: vec![0], ..Default::default() }
             );
 
@@ -594,19 +587,14 @@ fn report_machine_inaccessible_works3() {
 #[test]
 fn report_machine_inaccessible_works4() {
     new_test_with_init_params_ext().execute_with(|| {
-        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            Origin::signed(*reporter),
             crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
         ));
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(*committee), 0));
 
         run_to_block(34);
 
@@ -622,13 +610,13 @@ fn report_machine_inaccessible_works4() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
-                    booked_committee: vec![committee],
+                    booked_committee: vec![*committee],
                     // hashed_committee: vec![],
                     // confirmed_committee: vec![],
                     // support_committee: vec![committee],
@@ -643,11 +631,11 @@ fn report_machine_inaccessible_works4() {
                 &MaintainCommittee::report_result(0),
                 &crate::MTReportResultInfo {
                     report_id: 0,
-                    reporter,
+                    reporter: *reporter,
                     reporter_stake: 0 * ONE_DBC,
-                    unruly_committee: vec![committee],
+                    unruly_committee: vec![*committee],
                     machine_id: machine_id.clone(),
-                    machine_stash,
+                    machine_stash: *machine_stash,
                     slash_time: 22,
                     slash_exec_time: 22 + 2880 * 2,
                     report_result: crate::ReportResultType::NoConsensus,
@@ -658,11 +646,11 @@ fn report_machine_inaccessible_works4() {
                 }
             );
             assert_eq!(
-                &MaintainCommittee::committee_order(&committee),
+                &MaintainCommittee::committee_order(&*committee),
                 &crate::MTCommitteeOrderList { ..Default::default() }
             );
             assert_eq!(
-                &MaintainCommittee::committee_ops(&committee, 0),
+                &MaintainCommittee::committee_ops(&*committee, 0),
                 &crate::MTCommitteeOpsDetail {
                     // booked_time: 11,
                     // confirm_result: false,
@@ -677,7 +665,7 @@ fn report_machine_inaccessible_works4() {
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(&MaintainCommittee::unhandled_report_result(22 + 2880 * 2), &unhandled_report_result);
             assert_eq!(
-                &MaintainCommittee::reporter_report(&reporter),
+                &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { processing_report: vec![1], failed_report: vec![0], ..Default::default() }
             );
         }
@@ -694,13 +682,9 @@ fn report_machine_inaccessible_works5() {
         let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
         let committee3 = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
-        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            Origin::signed(*reporter),
             crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
         ));
 
@@ -721,7 +705,7 @@ fn report_machine_inaccessible_works5() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
@@ -809,7 +793,7 @@ fn report_machine_inaccessible_works5() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
@@ -869,7 +853,7 @@ fn report_machine_inaccessible_works5() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
@@ -915,7 +899,7 @@ fn report_machine_inaccessible_works5() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
@@ -935,11 +919,11 @@ fn report_machine_inaccessible_works5() {
                 &MaintainCommittee::report_result(0),
                 &crate::MTReportResultInfo {
                     report_id: 0,
-                    reporter,
+                    reporter: *reporter,
                     reporter_stake: 1000 * ONE_DBC,
                     reward_committee: vec![committee2, committee3, committee1],
                     machine_id: machine_id.clone(),
-                    machine_stash,
+                    machine_stash: *machine_stash,
                     slash_time: 11,
                     slash_exec_time: 11 + 2880 * 2,
                     report_result: crate::ReportResultType::ReportSucceed,
@@ -973,7 +957,7 @@ fn report_machine_inaccessible_works5() {
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(&MaintainCommittee::unhandled_report_result(11 + 2880 * 2), &unhandled_report_result);
             assert_eq!(
-                &MaintainCommittee::reporter_report(&reporter),
+                &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { succeed_report: vec![0], ..Default::default() }
             );
         }
@@ -990,13 +974,9 @@ fn report_machine_inaccessible_works8() {
         let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
         let committee3 = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
 
-        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
-
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            Origin::signed(*reporter),
             crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
         ));
 
@@ -1063,7 +1043,7 @@ fn report_machine_inaccessible_works8() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
@@ -1105,7 +1085,7 @@ fn report_machine_inaccessible_works8() {
             assert_eq!(
                 &MaintainCommittee::report_info(0),
                 &crate::MTReportInfoDetail {
-                    reporter,
+                    reporter: *reporter,
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     first_book_time: 11,
@@ -1125,11 +1105,11 @@ fn report_machine_inaccessible_works8() {
                 &MaintainCommittee::report_result(0),
                 &crate::MTReportResultInfo {
                     report_id: 0,
-                    reporter,
+                    reporter: *reporter,
                     reporter_stake: 1000 * ONE_DBC,
                     reward_committee: vec![committee2, committee3, committee1],
                     machine_id: machine_id.clone(),
-                    machine_stash,
+                    machine_stash: *machine_stash,
                     slash_time: 11,
                     slash_exec_time: 11 + 2880 * 2,
                     report_result: crate::ReportResultType::ReportRefused,
@@ -1163,7 +1143,7 @@ fn report_machine_inaccessible_works8() {
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(&MaintainCommittee::unhandled_report_result(11 + 2880 * 2), &unhandled_report_result);
             assert_eq!(
-                &MaintainCommittee::reporter_report(&reporter),
+                &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { failed_report: vec![0], ..Default::default() }
             );
         }

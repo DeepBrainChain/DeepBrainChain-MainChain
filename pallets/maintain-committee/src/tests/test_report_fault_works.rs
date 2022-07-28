@@ -565,7 +565,6 @@ fn report_machine_fault_works_case2() {
 #[test]
 fn report_machine_fault_works_case3() {
     new_test_with_init_params_ext().execute_with(|| {
-        let _controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
         let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
         let committee3 = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
