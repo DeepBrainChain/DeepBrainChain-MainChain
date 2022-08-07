@@ -67,6 +67,7 @@ where
             rent_end: order_detail.rent_end,
             stake_amount: order_detail.stake_amount.into(),
             rent_status: order_detail.rent_status,
+            gpu_num: order_detail.gpu_num,
         });
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),

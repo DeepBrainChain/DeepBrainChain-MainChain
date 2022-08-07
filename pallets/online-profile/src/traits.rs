@@ -242,6 +242,7 @@ impl<T: Config> RTOps for Pallet<T> {
         new_status: MachineStatus<T::BlockNumber, T::AccountId>,
         renter: Option<Self::AccountId>,
         rent_duration: Option<u64>,
+        gpu_num: u32,
     ) {
         let mut machine_info = Self::machines_info(machine_id);
         let mut live_machines = Self::live_machines();
