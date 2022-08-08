@@ -43,7 +43,7 @@ impl From<Vec<u8>> for RpcText {
 
 /// Text serialization/deserialization
 #[cfg(feature = "std")]
-mod serde_text {
+pub mod serde_text {
     use super::*;
 
     /// A serializer that encodes the bytes as a string

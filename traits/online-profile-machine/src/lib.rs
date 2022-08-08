@@ -31,6 +31,7 @@ pub trait RTOps {
         new_status: Self::MachineStatus,
         renter: Option<Self::AccountId>,
         rent_duration: Option<u64>, // 不为None时，表示租用结束
+        gpu_num: u32,
     );
 
     fn change_machine_rent_fee(amount: Self::Balance, machine_id: Self::MachineId, is_burn: bool);
