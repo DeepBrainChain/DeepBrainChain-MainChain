@@ -72,6 +72,7 @@ use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
 use generic_func::MachineId;
+use rent_machine::RentOrderId;
 
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
@@ -1228,11 +1229,11 @@ impl_runtime_apis! {
     }
 
     impl rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_rent_order(machine_id: MachineId) -> rent_machine::RentOrderDetail<AccountId, BlockNumber, Balance> {
-            RentMachine::get_rent_order(machine_id)
+        fn get_rent_order(rent_id: RentOrderId) -> rent_machine::RentOrderDetail<AccountId, BlockNumber, Balance> {
+            RentMachine::get_rent_order(rent_id)
         }
 
-        fn get_rent_list(renter: AccountId) -> Vec<MachineId> {
+        fn get_rent_list(renter: AccountId) -> Vec<RentOrderId> {
             RentMachine::get_rent_list(renter)
         }
     }

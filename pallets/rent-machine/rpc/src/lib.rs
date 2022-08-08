@@ -1,8 +1,9 @@
 use codec::Codec;
-use generic_func::{MachineId, RpcBalance};
+use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use rent_machine::RentOrderDetail;
+use rent_machine::RentOrderId;
 use rent_machine_runtime_api::RmRpcApi as RmStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -20,12 +21,12 @@ where
     #[rpc(name = "rentMachine_getRentOrder")]
     fn get_rent_order(
         &self,
-        machine_id: String,
+        rent_id: RentOrderId,
         at: Option<BlockHash>,
     ) -> Result<RentOrderDetail<AccountId, BlockNumber, RpcBalance<Balance>>>;
 
     #[rpc(name = "rentMachine_getRentList")]
-    fn get_rent_list(&self, renter: AccountId, at: Option<BlockHash>) -> Result<Vec<MachineId>>;
+    fn get_rent_list(&self, renter: AccountId, at: Option<BlockHash>) -> Result<Vec<RentOrderId>>;
 }
 
 pub struct RmStorage<C, M> {
@@ -53,14 +54,14 @@ where
 {
     fn get_rent_order(
         &self,
-        machine_id: String,
+        rent_id: RentOrderId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<RentOrderDetail<AccountId, BlockNumber, RpcBalance<Balance>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-        let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api.get_rent_order(&at, machine_id).map(|order_detail| RentOrderDetail {
+        let runtime_api_result = api.get_rent_order(&at, rent_id).map(|order_detail| RentOrderDetail {
+            machine_id: order_detail.machine_id,
             renter: order_detail.renter,
             rent_start: order_detail.rent_start,
             confirm_rent: order_detail.confirm_rent,
@@ -76,7 +77,7 @@ where
         })
     }
 
-    fn get_rent_list(&self, renter: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<MachineId>> {
+    fn get_rent_list(&self, renter: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<RentOrderId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

@@ -26,6 +26,8 @@ use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
 type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+pub type RentOrderId = u64;
+
 /// 等待30个块(15min)，用户确认是否租用成功
 pub const WAITING_CONFIRMING_DELAY: u32 = 30;
 /// 1天按照2880个块
@@ -37,6 +39,8 @@ pub use pallet::*;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
+    /// 租用的机器ID
+    pub machine_id: MachineId,
     /// 租用者
     pub renter: AccountId,
     /// 租用开始时间
@@ -55,15 +59,16 @@ pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
 
 // A: AccountId, B: BlockNumber, C: Balance
 impl<A, B: Default, C: Default> RentOrderDetail<A, B, C> {
-    pub fn new(renter: A, rent_start: B, rent_end: B, stake_amount: C, gpu_num: u32) -> Self {
+    pub fn new(machine_id: MachineId,renter: A, rent_start: B, rent_end: B, stake_amount: C, gpu_num: u32) -> Self {
         Self {
+            machine_id,
             renter,
             rent_start,
             confirm_rent: B::default(),
             rent_end,
             stake_amount,
             rent_status: RentStatus::WaitingVerifying,
-            gpu_num
+            gpu_num,
         }
     }
 
@@ -121,7 +126,24 @@ pub mod pallet {
     // 存储用户当前租用的机器列表
     #[pallet::storage]
     #[pallet::getter(fn user_rented)]
-    pub(super) type UserRented<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<MachineId>, ValueQuery>;
+    pub(super) type UserRented<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<RentOrderId>, ValueQuery>;
+
+    // // 用户当前租用的某个机器的详情
+    // #[pallet::storage]
+    // #[pallet::getter(fn rent_order)]
+    // pub(super) type RentOrder<T: Config> = StorageMap<
+    //     _,
+    //     Blake2_128Concat,
+    //     MachineId,
+    //     // TODO: 记录每个租用记录
+    //     // Vec<RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>>,
+    //     RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+    //     ValueQuery,
+    // >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn next_rent_id)]
+    pub(super) type NextRentId<T: Config> = StorageValue<_, RentOrderId, ValueQuery>;
 
     // 用户当前租用的某个机器的详情
     #[pallet::storage]
@@ -129,23 +151,35 @@ pub mod pallet {
     pub(super) type RentOrder<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        MachineId,
+        RentOrderId,
         // TODO: 记录每个租用记录
         // Vec<RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>>,
         RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
+    // // 等待用户确认租用成功的机器
+    // #[pallet::storage]
+    // #[pallet::getter(fn pending_confirming)]
+    // pub(super) type PendingConfirming<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
+
     // 等待用户确认租用成功的机器
     #[pallet::storage]
     #[pallet::getter(fn pending_confirming)]
-    pub(super) type PendingConfirming<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
+    pub(super) type PendingConfirming<T: Config> =
+        StorageMap<_, Blake2_128Concat, RentOrderId, T::AccountId, ValueQuery>;
+
+    // // 记录每个区块将要结束租用的机器
+    // #[pallet::storage]
+    // #[pallet::getter(fn pending_rent_ending)]
+    // pub(super) type PendingRentEnding<T: Config> =
+    //     StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<MachineId>, ValueQuery>;
 
     // 记录每个区块将要结束租用的机器
     #[pallet::storage]
     #[pallet::getter(fn pending_rent_ending)]
     pub(super) type PendingRentEnding<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<MachineId>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<RentOrderId>, ValueQuery>;
 
     // 存储每个用户在该模块中的总质押量
     #[pallet::storage]
@@ -228,23 +262,37 @@ pub mod pallet {
             // 质押用户的资金，并修改机器状态
             Self::change_renter_total_stake(&renter, rent_fee, true).map_err(|_| Error::<T>::InsufficientValue)?;
 
-            RentOrder::<T>::insert(&machine_id, RentOrderDetail::new(renter.clone(), now, rent_end, rent_fee, gpu_num));
+            let rent_id = Self::get_new_rent_id();
+            RentOrder::<T>::insert(&rent_id, RentOrderDetail::new(machine_id.clone(),renter.clone(), now, rent_end, rent_fee, gpu_num));
 
             let mut user_rented = Self::user_rented(&renter);
-            ItemList::add_item(&mut user_rented, machine_id.clone());
+            ItemList::add_item(&mut user_rented, rent_id);
             UserRented::<T>::insert(&renter, user_rented);
 
             let mut pending_rent_ending = Self::pending_rent_ending(rent_end);
-            ItemList::add_item(&mut pending_rent_ending, machine_id.clone());
+            ItemList::add_item(&mut pending_rent_ending, rent_id);
             PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
 
             // 改变online_profile状态，影响机器佣金
             // TODO: 改变租用的GPU数量
-            T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, Some(renter.clone()), None, rent_gpu_num);
+            T::RTOps::change_machine_status(
+                &machine_id,
+                MachineStatus::Creating,
+                Some(renter.clone()),
+                None,
+                rent_gpu_num,
+            );
 
-            PendingConfirming::<T>::insert(&machine_id, renter.clone());
+            PendingConfirming::<T>::insert(&rent_id, renter.clone());
 
-            Self::deposit_event(Event::RentBlockNum(renter, machine_id, rent_fee, duration.into()));
+            Self::deposit_event(Event::RentBlockNum(
+                rent_id,
+                renter,
+                machine_id,
+                rent_fee,
+                duration.into(),
+                gpu_num,
+            ));
             Ok(().into())
         }
 
@@ -294,31 +342,33 @@ pub mod pallet {
             // 质押用户的资金，并修改机器状态
             Self::change_renter_total_stake(&renter, rent_fee, true).map_err(|_| Error::<T>::InsufficientValue)?;
 
-            RentOrder::<T>::insert(&machine_id, RentOrderDetail::new(renter.clone(), now, rent_end, rent_fee, gpu_num));
+            let rent_id = Self::get_new_rent_id();
+            RentOrder::<T>::insert(&rent_id, RentOrderDetail::new(machine_id.clone(),renter.clone(), now, rent_end, rent_fee, gpu_num));
 
             let mut user_rented = Self::user_rented(&renter);
-            ItemList::add_item(&mut user_rented, machine_id.clone());
+            ItemList::add_item(&mut user_rented, rent_id);
             UserRented::<T>::insert(&renter, user_rented);
 
             let mut pending_rent_ending = Self::pending_rent_ending(rent_end);
-            ItemList::add_item(&mut pending_rent_ending, machine_id.clone());
+            ItemList::add_item(&mut pending_rent_ending, rent_id.clone());
             PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
 
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, Some(renter.clone()), None, gpu_num);
 
-            PendingConfirming::<T>::insert(&machine_id, renter.clone());
-            Self::deposit_event(Event::RentMachine(renter, machine_id, rent_fee, duration));
+            PendingConfirming::<T>::insert(&rent_id, renter.clone());
+            Self::deposit_event(Event::RentMachine(rent_id, renter, machine_id, rent_fee, duration, gpu_num));
             Ok(().into())
         }
 
         /// 用户在租用15min(30个块)内确认机器租用成功
         #[pallet::weight(10000)]
-        pub fn confirm_rent(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn confirm_rent(origin: OriginFor<T>, rent_id: RentOrderId) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            let mut order_info = Self::rent_order(&machine_id);
+            let mut order_info = Self::rent_order(&rent_id);
+            let machine_id = order_info.machine_id.clone();
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
             ensure!(order_info.rent_status == RentStatus::WaitingVerifying, Error::<T>::NoOrderExist);
 
@@ -339,12 +389,12 @@ pub mod pallet {
             let rent_duration = order_info.rent_end - order_info.rent_start;
 
             order_info.confirm_rent(now);
-            RentOrder::<T>::insert(&machine_id, order_info);
+            RentOrder::<T>::insert(&rent_id, order_info);
 
             // 改变online_profile状态
             // FIXME: 修改gpu_num
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, Some(renter.clone()), None, 0);
-            PendingConfirming::<T>::remove(&machine_id);
+            PendingConfirming::<T>::remove(&rent_id);
 
             Self::deposit_event(Event::ConfirmReletBlockNum(renter, machine_id, rent_fee, rent_duration));
             Ok(().into())
@@ -354,12 +404,14 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn relet_machine_by_minutes(
             origin: OriginFor<T>,
-            machine_id: MachineId,
+            rent_id: RentOrderId,
             minutes: u32, // 分钟
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            let mut order_info = Self::rent_order(&machine_id);
+            let mut order_info = Self::rent_order(&rent_id);
             let old_rent_end = order_info.rent_end;
+            let machine_id = order_info.machine_id.clone();
+            let gpu_num = order_info.gpu_num;
 
             ensure!(minutes % 30 == 0, Error::<T>::OnlyHalfHourAllowed);
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
@@ -403,15 +455,15 @@ pub mod pallet {
             order_info.rent_end = order_info.rent_end.checked_add(&add_duration).ok_or(Error::<T>::Overflow)?;
 
             let mut old_pending_rent_ending = Self::pending_rent_ending(old_rent_end);
-            ItemList::rm_item(&mut old_pending_rent_ending, &machine_id);
+            ItemList::rm_item(&mut old_pending_rent_ending, &rent_id);
             let mut pending_rent_ending = Self::pending_rent_ending(order_info.rent_end);
-            ItemList::add_item(&mut pending_rent_ending, machine_id.clone());
+            ItemList::add_item(&mut pending_rent_ending, rent_id);
 
             PendingRentEnding::<T>::insert(old_rent_end, old_pending_rent_ending);
             PendingRentEnding::<T>::insert(order_info.rent_end, pending_rent_ending);
-            RentOrder::<T>::insert(&machine_id, order_info);
+            RentOrder::<T>::insert(&rent_id, order_info);
 
-            Self::deposit_event(Event::ReletBlockNum(renter, machine_id, rent_fee, add_duration));
+            Self::deposit_event(Event::ReletBlockNum(rent_id, renter, machine_id, rent_fee, add_duration, gpu_num));
             Ok(().into())
         }
 
@@ -421,13 +473,14 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn relet_machine(
             origin: OriginFor<T>,
-            machine_id: MachineId,
+            rent_id: RentOrderId,
             add_duration: EraIndex,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
 
-            let mut order_info = Self::rent_order(&machine_id);
+            let mut order_info = Self::rent_order(&rent_id);
             let old_rent_end = order_info.rent_end;
+            let machine_id = order_info.machine_id.clone();
 
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
             ensure!(order_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
@@ -474,13 +527,13 @@ pub mod pallet {
                 .ok_or(Error::<T>::Overflow)?;
 
             let mut old_pending_rent_ending = Self::pending_rent_ending(old_rent_end);
-            ItemList::rm_item(&mut old_pending_rent_ending, &machine_id);
+            ItemList::rm_item(&mut old_pending_rent_ending, &rent_id);
             let mut pending_rent_ending = Self::pending_rent_ending(order_info.rent_end);
-            ItemList::add_item(&mut pending_rent_ending, machine_id.clone());
+            ItemList::add_item(&mut pending_rent_ending, rent_id);
 
             PendingRentEnding::<T>::insert(old_rent_end, old_pending_rent_ending);
             PendingRentEnding::<T>::insert(order_info.rent_end, pending_rent_ending);
-            RentOrder::<T>::insert(&machine_id, order_info);
+            RentOrder::<T>::insert(&rent_id, order_info);
 
             Self::deposit_event(Event::ReletMachine(renter, machine_id, rent_fee, add_duration as u32));
             Ok(().into())
@@ -494,9 +547,12 @@ pub mod pallet {
         PayTxFee(T::AccountId, BalanceOf<T>),
         ConfirmRent(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
         ReletMachine(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
-        RentMachine(T::AccountId, MachineId, BalanceOf<T>, EraIndex),
-        RentBlockNum(T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber),
-        ReletBlockNum(T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber),
+        // Last item is rent order gpu_num
+        RentMachine(RentOrderId,T::AccountId, MachineId, BalanceOf<T>, EraIndex, u32),
+        // Last item is rent order gpu_num
+        RentBlockNum(RentOrderId, T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber, u32),
+        // Last item is rent order gpu_num
+        ReletBlockNum(RentOrderId, T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber, u32),
         ConfirmReletBlockNum(T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber),
     }
 
@@ -519,6 +575,23 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // TODO: 使用更好的实现方式
+    // 获取一个新的租用订单的ID
+    pub fn get_new_rent_id() -> RentOrderId {
+        let rent_id = Self::next_rent_id();
+
+        let new_rent_id = loop {
+            let new_rent_id = if rent_id == u64::MAX { 0 } else { rent_id + 1 };
+            if !RentOrder::<T>::contains_key(new_rent_id) {
+                break new_rent_id;
+            }
+        };
+
+        NextRentId::<T>::put(new_rent_id);
+
+        rent_id
+    }
+
     // NOTE: 银河竞赛开启前，租金付给stash账户；开启后租金转到销毁账户
     fn pay_rent_fee(
         renter: &T::AccountId,
@@ -540,13 +613,14 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
 
         let pending_confirming = Self::get_pending_confirming_order();
-        for (machine_id, renter) in pending_confirming {
-            let rent_order = Self::rent_order(&machine_id);
+        for (rent_id, renter) in pending_confirming {
+            let rent_order = Self::rent_order(&rent_id);
+            let machine_id = rent_order.machine_id.clone();
             let duration = now.checked_sub(&rent_order.rent_start).unwrap_or_default();
 
             if duration > WAITING_CONFIRMING_DELAY.into() {
                 // 超过了30个块，也就是15分钟
-                Self::clean_order(&renter, &machine_id);
+                Self::clean_order(&renter, rent_id);
                 // FIXME: 修改gpu_num
                 T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None, 0);
                 continue;
@@ -554,11 +628,11 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn clean_order(who: &T::AccountId, machine_id: &MachineId) {
-        let mut rent_machine_list = Self::user_rented(who);
-        ItemList::rm_item(&mut rent_machine_list, machine_id);
+    fn clean_order(who: &T::AccountId, rent_order_id: RentOrderId) {
+        let mut rent_order_list = Self::user_rented(who);
+        ItemList::rm_item(&mut rent_order_list, &rent_order_id);
 
-        let rent_order = Self::rent_order(machine_id);
+        let rent_order = Self::rent_order(rent_order_id);
 
         // return back staked money!
         if !rent_order.stake_amount.is_zero() {
@@ -566,16 +640,16 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut pending_rent_ending = Self::pending_rent_ending(rent_order.rent_end);
-        ItemList::rm_item(&mut pending_rent_ending, machine_id);
+        ItemList::rm_item(&mut pending_rent_ending, &rent_order_id);
 
         PendingRentEnding::<T>::insert(rent_order.rent_end, pending_rent_ending);
-        RentOrder::<T>::remove(machine_id);
-        UserRented::<T>::insert(who, rent_machine_list);
-        PendingConfirming::<T>::remove(machine_id);
+        RentOrder::<T>::remove(rent_order_id);
+        UserRented::<T>::insert(who, rent_order_list);
+        PendingConfirming::<T>::remove(rent_order_id);
     }
 
-    fn get_pending_confirming_order() -> BTreeSet<(MachineId, T::AccountId)> {
-        <PendingConfirming<T> as IterableStorageMap<MachineId, T::AccountId>>::iter()
+    fn get_pending_confirming_order() -> BTreeSet<(RentOrderId, T::AccountId)> {
+        <PendingConfirming<T> as IterableStorageMap<RentOrderId, T::AccountId>>::iter()
             .map(|(machine, acct)| (machine, acct))
             .collect::<BTreeSet<_>>()
     }
@@ -602,8 +676,9 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let pending_ending = Self::pending_rent_ending(now);
 
-        for machine_id in pending_ending {
-            let rent_order = Self::rent_order(&machine_id);
+        for rent_id in pending_ending {
+            let rent_order = Self::rent_order(&rent_id);
+            let machine_id = rent_order.machine_id.clone();
             let rent_duration: u64 = (now - rent_order.rent_start).saturated_into::<u64>() / 2880;
 
             // FIXME: 修改gpu_num
@@ -614,7 +689,7 @@ impl<T: Config> Pallet<T> {
                 Some(rent_duration),
                 0,
             );
-            Self::clean_order(&rent_order.renter, &machine_id);
+            Self::clean_order(&rent_order.renter, rent_id);
         }
     }
 }

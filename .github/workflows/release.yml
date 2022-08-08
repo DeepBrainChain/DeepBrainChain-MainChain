@@ -19,6 +19,10 @@ jobs:
       - name: 'Checkout codes'
         uses: actions/checkout@v1
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+
       - name: Compile
         run: cargo build --release
 
