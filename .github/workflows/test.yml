@@ -16,6 +16,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - dbc-price-ocw
+          - online-committee
+          - rent-machine
+          - maintain-committee
+          - committee
+
     steps:
       - name: Add wasm toolchain
         uses: actions-rs/toolchain@v1
@@ -29,17 +39,5 @@ jobs:
         with:
           cache-on-failure: "true"
 
-      - name: Run parse price url tests
-        run: cargo test -p dbc-price-ocw
-
-      - name: Run machine online tests
-        run: cargo test -p online-committee
-
-      - name: Run rent machine tests
-        run: cargo test -p rent-machine
-
-      - name: Run maintain machine tests
-        run: cargo test -p maintain-committee
-
-      - name: Run committee tests
-        run: cargo test -p committee
+      - name: Run ${{ matrix.package }} tests
+        run: cargo test -p ${{ matrix.package }}
