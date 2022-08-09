@@ -1,6 +1,6 @@
+use crate::RentOrderId;
 use crate::{mock::*, Error, PendingConfirming, RentOrderDetail, BLOCK_PER_DAY};
 use frame_support::{assert_noop, assert_ok};
-use generic_func::MachineId;
 use online_profile::MachineStatus;
 use sp_runtime::Perbill;
 
@@ -18,7 +18,7 @@ fn rent_machine_should_works() {
         run_to_block(10 + 20);
 
         // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), 0));
 
         let era_grade_snap = OnlineProfile::eras_stash_points(2);
         assert_eq!(era_grade_snap.total, 77881); // 59890 * 4/10000 + 59890 * 0.3 + 59890
@@ -49,16 +49,17 @@ fn rent_machine_should_works() {
             2 * INIT_BALANCE - 249541666666666666666 - 10 * ONE_DBC - 20000 * ONE_DBC
         );
 
-        // Dave relet machine
-        assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 10));
+        // Dave relet machine: order_id == 0
+        assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), 0, 10));
         assert_eq!(
-            RentMachine::rent_order(&machine_id),
+            RentMachine::rent_order(0),
             super::RentOrderDetail {
+                machine_id: machine_id.clone(),
                 renter: renter_dave,
                 rent_start: 11,
                 confirm_rent: 31,
-                stake_amount: 0,
                 rent_end: (10 + 10) * 2880 + 11,
+                stake_amount: 0,
                 rent_status: super::RentStatus::Renting,
                 gpu_num: 4,
             }
@@ -132,7 +133,7 @@ fn rent_machine_confirm_expired_should_work() {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         let mut machine_info1 = OnlineProfile::machines_info(&machine_id);
-        let init_rent_order = RentMachine::rent_order(&machine_id);
+        let init_rent_order = RentMachine::rent_order(0);
 
         // Dave rent machine for 10 days
         assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 4, 10));
@@ -153,17 +154,17 @@ fn rent_machine_confirm_expired_should_work() {
             let user_stake = RentMachine::user_total_stake(&renter_dave);
             assert_eq!(user_stake, 0);
 
-            let empty_rented: Vec<MachineId> = vec![];
-            assert_eq!(RentMachine::user_rented(&renter_dave), empty_rented);
+            let empty_rented: Vec<RentOrderId> = vec![];
+            assert_eq!(RentMachine::user_rented(renter_dave), empty_rented);
 
             // RentOrder
-            assert_eq!(RentMachine::rent_order(&machine_id), RentOrderDetail::default());
+            assert_eq!(RentMachine::rent_order(0), RentOrderDetail::default());
 
             // PendingRentEnding
             assert_eq!(RentMachine::pending_rent_ending(init_rent_order.rent_end), empty_rented);
 
             // PendingConfirming
-            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(&machine_id), false);
+            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(&0), false);
         }
     })
 }
@@ -178,7 +179,7 @@ fn controller_report_offline_when_rented_should_work() {
 
         let renter_dave = sr25519::Public::from(Sr25519Keyring::Dave).into();
         assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 4, 2));
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), 0));
 
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
 
@@ -221,7 +222,7 @@ fn rented_report_offline_rented_end_report_online() {
 
         let renter_dave = sr25519::Public::from(Sr25519Keyring::Dave).into();
         assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 4, 1));
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), 0));
 
         // now, rent is 10 block left
         run_to_block(2880);
@@ -278,7 +279,7 @@ fn controller_report_offline_mutiple_times_should_work() {
 
         // Dave rent machine for 10 days
         assert_ok!(RentMachine::rent_machine(Origin::signed(renter_dave), machine_id.clone(), 4, 2));
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), 0));
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
         assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
 
@@ -302,8 +303,9 @@ fn rent_limit_should_works() {
         // 需要 DBC的租金:  59890 / 1000 * (5000000 / 10^6) / (12000 / 10^6) * 60 = 1497250
         assert_eq!(RentMachine::user_total_stake(&renter_dave), 1497250 * ONE_DBC);
         assert_eq!(
-            RentMachine::rent_order(&machine_id),
+            RentMachine::rent_order(0),
             super::RentOrderDetail {
+                machine_id: machine_id.clone(),
                 renter: renter_dave,
                 rent_start: 11,
                 rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
@@ -313,14 +315,15 @@ fn rent_limit_should_works() {
                 gpu_num: 4,
             }
         );
-        assert_eq!(RentMachine::user_rented(&renter_dave), vec![machine_id.clone()]);
-        assert_eq!(RentMachine::pending_rent_ending((11 + 60 * BLOCK_PER_DAY) as u64), vec![machine_id.clone()]);
+        assert_eq!(RentMachine::user_rented(&renter_dave), vec![0]);
+        assert_eq!(RentMachine::pending_rent_ending((11 + 60 * BLOCK_PER_DAY) as u64), vec![0]);
 
         run_to_block(15);
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), 0));
         assert_eq!(
-            RentMachine::rent_order(&machine_id),
+            RentMachine::rent_order(&0),
             super::RentOrderDetail {
+                machine_id: machine_id.clone(),
                 renter: renter_dave,
                 rent_start: 11,
                 rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
@@ -332,10 +335,11 @@ fn rent_limit_should_works() {
         );
 
         run_to_block(20);
-        assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 1));
+        assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), 0, 1));
         assert_eq!(
-            RentMachine::rent_order(&machine_id),
+            RentMachine::rent_order(&0),
             super::RentOrderDetail {
+                machine_id: machine_id.clone(),
                 renter: renter_dave,
                 rent_start: 11,
                 rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
@@ -348,10 +352,11 @@ fn rent_limit_should_works() {
 
         // 过了一天，续租2天，则只能续租1天
         run_to_block(20 + 2880);
-        assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), machine_id.clone(), 2));
+        assert_ok!(RentMachine::relet_machine(Origin::signed(renter_dave), 0, 2));
         assert_eq!(
-            RentMachine::rent_order(&machine_id),
+            RentMachine::rent_order(0),
             super::RentOrderDetail {
+                machine_id: machine_id.clone(),
                 renter: renter_dave,
                 rent_start: 11,
                 rent_end: 11 + BLOCK_PER_DAY as u64 * (60 + 1),
@@ -389,12 +394,13 @@ fn rent_and_relet_by_minutes_works() {
             let user_stake = RentMachine::user_total_stake(&renter_dave);
             assert_eq!(user_stake, 519878416666666666); // 519.8784166666667 DBC
 
-            assert_eq!(RentMachine::user_rented(&renter_dave), vec![machine_id.clone()]);
+            assert_eq!(RentMachine::user_rented(&renter_dave), vec![0]);
 
             // RentOrder
             assert_eq!(
-                RentMachine::rent_order(&machine_id),
+                RentMachine::rent_order(0),
                 RentOrderDetail {
+                    machine_id: machine_id.clone(),
                     renter: renter_dave,
                     rent_start: 11,
                     confirm_rent: 0,
@@ -406,10 +412,10 @@ fn rent_and_relet_by_minutes_works() {
             );
 
             // PendingRentEnding
-            assert_eq!(RentMachine::pending_rent_ending(11 + 60), vec![machine_id.clone()]);
+            assert_eq!(RentMachine::pending_rent_ending(11 + 60), vec![0]);
 
             // PendingConfirming
-            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(&machine_id), true);
+            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(0), true);
         }
 
         // 检查订单被清理，检查David余额
@@ -419,17 +425,17 @@ fn rent_and_relet_by_minutes_works() {
             let user_stake = RentMachine::user_total_stake(&renter_dave);
             assert_eq!(user_stake, 0);
 
-            let empty_rented: Vec<MachineId> = vec![];
+            let empty_rented: Vec<RentOrderId> = vec![];
             assert_eq!(RentMachine::user_rented(&renter_dave), empty_rented);
 
             // RentOrder
-            assert_eq!(RentMachine::rent_order(&machine_id), RentOrderDetail::default());
+            assert_eq!(RentMachine::rent_order(0), RentOrderDetail::default());
 
             // PendingRentEnding
             assert_eq!(RentMachine::pending_rent_ending(11 + 30), empty_rented);
 
             // PendingConfirming
-            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(&machine_id), false);
+            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(0), false);
 
             assert_eq!(Balances::free_balance(renter_dave), 2 * INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC);
         }
@@ -437,19 +443,20 @@ fn rent_and_relet_by_minutes_works() {
         assert_ok!(RentMachine::rent_machine_by_minutes(Origin::signed(renter_dave), machine_id.clone(), 4, 30));
 
         // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), machine_id.clone()));
+        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter_dave), 1));
         {
             // 检查租用人质押
             let user_stake = RentMachine::user_total_stake(&renter_dave);
             assert_eq!(user_stake, 0);
 
-            let empty_rented: Vec<MachineId> = vec![];
-            assert_eq!(RentMachine::user_rented(&renter_dave), vec![machine_id.clone()]);
+            let empty_rented: Vec<RentOrderId> = vec![];
+            assert_eq!(RentMachine::user_rented(&renter_dave), vec![1]);
 
             // RentOrder
             assert_eq!(
-                RentMachine::rent_order(&machine_id),
+                RentMachine::rent_order(1),
                 RentOrderDetail {
+                    machine_id: machine_id.clone(),
                     renter: renter_dave,
                     rent_start: 43,
                     confirm_rent: 43,
@@ -464,22 +471,23 @@ fn rent_and_relet_by_minutes_works() {
             assert_eq!(RentMachine::pending_rent_ending(11 + 30), empty_rented);
 
             // PendingConfirming
-            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(&machine_id), false);
+            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(&0), false);
         }
 
         // Dave relet machine
-        assert_ok!(RentMachine::relet_machine_by_minutes(Origin::signed(renter_dave), machine_id.clone(), 30));
+        assert_ok!(RentMachine::relet_machine_by_minutes(Origin::signed(renter_dave), 1, 30));
         {
             // 检查租用人质押
             let user_stake = RentMachine::user_total_stake(&renter_dave);
             assert_eq!(user_stake, 0);
 
-            assert_eq!(RentMachine::user_rented(&renter_dave), vec![machine_id.clone()]);
+            assert_eq!(RentMachine::user_rented(&renter_dave), vec![1]);
 
             // RentOrder
             assert_eq!(
-                RentMachine::rent_order(&machine_id),
+                RentMachine::rent_order(1),
                 RentOrderDetail {
+                    machine_id: machine_id.clone(),
                     renter: renter_dave,
                     rent_start: 43,
                     confirm_rent: 43,
@@ -491,10 +499,10 @@ fn rent_and_relet_by_minutes_works() {
             );
 
             // PendingRentEnding
-            assert_eq!(RentMachine::pending_rent_ending(43 + 120), vec![machine_id.clone()]);
+            assert_eq!(RentMachine::pending_rent_ending(43 + 120), vec![1]);
 
             // PendingConfirming
-            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(&machine_id), false);
+            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(0), false);
 
             assert_eq!(
                 Balances::free_balance(renter_dave),
