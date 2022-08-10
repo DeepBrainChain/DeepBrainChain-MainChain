@@ -227,13 +227,18 @@ impl<T: Config> RTOps for Pallet<T> {
     // standard_point / machine_point ==  standard_price / machine_price
     // =>
     // machine_price = standard_price * machine_point / standard_point
-    fn get_machine_price(machine_point: u64) -> Option<u64> {
+    fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64> {
+        if total_gpu == 0 {
+            return None;
+        }
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
         standard_gpu_point_price
             .gpu_price
             .checked_mul(machine_point)?
             .checked_mul(10_000)?
             .checked_div(standard_gpu_point_price.gpu_point)?
+            .checked_mul(need_gpu as u64)?
+            .checked_div(total_gpu as u64)?
             .checked_div(10_000)
     }
 
