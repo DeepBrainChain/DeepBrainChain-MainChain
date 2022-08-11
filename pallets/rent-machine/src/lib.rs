@@ -1,14 +1,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod rpc;
+mod types;
 
 #[cfg(test)]
 mod mock;
-#[cfg(test)]
 #[allow(non_upper_case_globals)]
+#[cfg(test)]
 mod tests;
 
-use codec::{Decode, Encode};
 use frame_support::{
     dispatch::DispatchResult,
     ensure,
@@ -20,14 +20,12 @@ use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use generic_func::{ItemList, MachineId};
 pub use online_profile::{EraIndex, MachineStatus};
 use online_profile_machine::{DbcPrice, RTOps};
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub use types::*;
 
-pub type RentOrderId = u64;
+type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// 等待30个块(15min)，用户确认是否租用成功
 pub const WAITING_CONFIRMING_DELAY: u32 = 30;
@@ -35,89 +33,6 @@ pub const WAITING_CONFIRMING_DELAY: u32 = 30;
 pub const BLOCK_PER_DAY: u32 = 2880;
 
 pub use pallet::*;
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
-    /// 租用的机器ID
-    pub machine_id: MachineId,
-    /// 租用者
-    pub renter: AccountId,
-    /// 租用开始时间
-    pub rent_start: BlockNumber,
-    /// 用户确认租成功的时间
-    pub confirm_rent: BlockNumber,
-    /// 租用结束时间
-    pub rent_end: BlockNumber,
-    /// 用户对该机器的质押
-    pub stake_amount: Balance,
-    /// 当前订单的状态
-    pub rent_status: RentStatus,
-    /// 租用的GPU数量
-    pub gpu_num: u32,
-    /// 租用的GPU index
-    pub gpu_index: Vec<u32>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
-pub struct MachineGPUOrder {
-    // 机器所有GPU对应的RentOrder
-    pub rent_order: Vec<RentOrderId>,
-    // 机器订单已经使用的gpu:
-    pub used_gpu: Vec<u32>,
-}
-
-impl MachineGPUOrder {
-    // 根据gpu_index清理使用的GPU index
-    pub fn clean_rented_gpu(&mut self, order_id: RentOrderId ,gpu_index: Vec<u32>) {
-        ItemList::rm_item(&mut self.rent_order, &order_id);
-        for index in gpu_index {
-            ItemList::rm_item(&mut self.used_gpu,&index);
-        }
-    }
-}
-
-
-
-// A: AccountId, B: BlockNumber, C: Balance
-impl<A, B: Default, C: Default> RentOrderDetail<A, B, C> {
-    pub fn new(machine_id: MachineId, renter: A, rent_start: B, rent_end: B, stake_amount: C, gpu_num: u32, gpu_index: Vec<u32>) -> Self {
-        Self {
-            machine_id,
-            renter,
-            rent_start,
-            confirm_rent: B::default(),
-            rent_end,
-            stake_amount,
-            rent_status: RentStatus::WaitingVerifying,
-            gpu_num,
-            // 增加gpu_index记录
-            gpu_index,
-        }
-    }
-
-    pub fn confirm_rent(&mut self, confirm_rent_time: B) {
-        self.confirm_rent = confirm_rent_time;
-        self.stake_amount = C::default();
-        self.rent_status = RentStatus::Renting;
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum RentStatus {
-    WaitingVerifying,
-    Renting,
-    RentExpired,
-}
-
-impl Default for RentStatus {
-    fn default() -> Self {
-        RentStatus::RentExpired
-    }
-}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -233,7 +148,6 @@ pub mod pallet {
             // 检查还有空闲的GPU
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
-
             ensure!(minutes % 30 == 0, Error::<T>::OnlyHalfHourAllowed);
 
             // 检查machine_id状态是否可以租用
@@ -273,13 +187,22 @@ pub mod pallet {
 
             let rent_id = Self::get_new_rent_id();
 
-        let mut machine_rent_order = Self::machine_rent_order(&machine_id);
-            let rentable_gpu_index = Self::get_rentable_gpu(&mut machine_rent_order, rent_gpu_num, gpu_num );
+            let mut machine_rent_order = Self::machine_rent_order(&machine_id);
+            let rentable_gpu_index = machine_rent_order.gen_rentable_gpu(rent_gpu_num, gpu_num);
+            println!("###1 {:?}", &rentable_gpu_index);
             ItemList::add_item(&mut machine_rent_order.rent_order, rent_id);
 
             RentOrder::<T>::insert(
                 &rent_id,
-                RentOrderDetail::new(machine_id.clone(), renter.clone(), now, rent_end, rent_fee, gpu_num, rentable_gpu_index),
+                RentOrderDetail::new(
+                    machine_id.clone(),
+                    renter.clone(),
+                    now,
+                    rent_end,
+                    rent_fee,
+                    rent_gpu_num,
+                    rentable_gpu_index,
+                ),
             );
 
             let mut user_rented = Self::user_rented(&renter);
@@ -325,7 +248,6 @@ pub mod pallet {
             let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
-
             // 检查machine_id状态是否可以租用
             ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineNotRentable);
 
@@ -361,14 +283,21 @@ pub mod pallet {
 
             let rent_id = Self::get_new_rent_id();
 
-
             let mut machine_rent_order = Self::machine_rent_order(&machine_id);
             ItemList::add_item(&mut machine_rent_order.rent_order, rent_id);
-            let rentable_gpu_index = Self::get_rentable_gpu(&mut machine_rent_order, rent_gpu_num, gpu_num );
+            let rentable_gpu_index = machine_rent_order.gen_rentable_gpu(rent_gpu_num, gpu_num);
 
             RentOrder::<T>::insert(
                 &rent_id,
-                RentOrderDetail::new(machine_id.clone(), renter.clone(), now, rent_end, rent_fee, gpu_num, rentable_gpu_index),
+                RentOrderDetail::new(
+                    machine_id.clone(),
+                    renter.clone(),
+                    now,
+                    rent_end,
+                    rent_fee,
+                    rent_gpu_num,
+                    rentable_gpu_index,
+                ),
             );
 
             let mut user_rented = Self::user_rented(&renter);
@@ -377,11 +306,13 @@ pub mod pallet {
 
             let mut pending_rent_ending = Self::pending_rent_ending(rent_end);
             ItemList::add_item(&mut pending_rent_ending, rent_id.clone());
+            println!("Pending rent ending: {rent_end}");
             PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
 
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, Some(renter.clone()), None, gpu_num);
 
+            // TODO: 修改这里
             PendingConfirming::<T>::insert(&rent_id, renter.clone());
 
             MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
@@ -629,24 +560,6 @@ impl<T: Config> Pallet<T> {
         rent_id
     }
 
-    // 获取可以被租用的GPU index
-    pub fn get_rentable_gpu(machine_rent_order: &mut MachineGPUOrder, need_gpu: u32, total_gpu: u32) -> Vec<u32> {
-        let mut out = vec![];
-
-        for i in 0..total_gpu {
-            if out.len() == need_gpu as usize {
-                return out;
-            }
-
-            if machine_rent_order.used_gpu.binary_search(&i).is_err() {
-                out.push(i);
-                ItemList::add_item(&mut machine_rent_order.used_gpu, i);
-            }
-        }
-
-        out
-    }
-
     // NOTE: 银河竞赛开启前，租金付给stash账户；开启后租金转到销毁账户
     fn pay_rent_fee(
         renter: &T::AccountId,
@@ -663,6 +576,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // TODO: 添加时间记录待检查的机器
     // 定时检查机器是否30分钟没有上线
     fn check_machine_starting_status() {
         let now = <frame_system::Module<T>>::block_number();
@@ -698,9 +612,10 @@ impl<T: Config> Pallet<T> {
         let mut pending_rent_ending = Self::pending_rent_ending(rent_order.rent_end);
         ItemList::rm_item(&mut pending_rent_ending, &rent_order_id);
 
-        let mut machine_gpu_order = Self::machine_rent_order(&rent_order.machine_id);
-        machine_gpu_order.clean_rented_gpu(rent_order_id, rent_order.gpu_index);
+        let mut machine_rent_order =  Self::machine_rent_order(&rent_order.machine_id);
+        machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index);
 
+        MachineRentOrder::<T>::insert(&rent_order.machine_id,machine_rent_order );
         PendingRentEnding::<T>::insert(rent_order.rent_end, pending_rent_ending);
         RentOrder::<T>::remove(rent_order_id);
         UserRented::<T>::insert(who, rent_order_list);

@@ -425,10 +425,31 @@ fn rent_and_relet_by_minutes_works() {
             // PendingConfirming
             assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(0), false);
 
+            assert_eq!(
+                RentMachine::machine_rent_order(&*machine_id),
+                MachineGPUOrder { rent_order: vec![], used_gpu: vec![] }
+            );
+
             assert_eq!(Balances::free_balance(*renter_dave), 2 * INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC);
         }
 
         assert_ok!(RentMachine::rent_machine_by_minutes(Origin::signed(*renter_dave), machine_id.clone(), 4, 30));
+        {
+            assert_eq!(
+                RentMachine::rent_order(1),
+                RentOrderDetail {
+                    machine_id: machine_id.clone(),
+                    renter: *renter_dave,
+                    rent_start: 43,
+                    confirm_rent: 0,
+                    rent_end: 43 + 60, // 租用30min = 60block
+                    stake_amount: 519878416666666666,
+                    rent_status: crate::RentStatus::WaitingVerifying,
+                    gpu_num: 4,
+                    gpu_index: vec![0, 1, 2, 3],
+                }
+            );
+        }
 
         // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
         assert_ok!(RentMachine::confirm_rent(Origin::signed(*renter_dave), 1));
@@ -518,19 +539,24 @@ fn rent_machine_by_gpu_works() {
                     rent_start: 11,
                     confirm_rent: 0,
                     rent_end: 10 * 2880 + 11,
-                    stake_amount: 249541666666666666666,
+                    stake_amount: 62385416666666666666,
                     rent_status: super::RentStatus::WaitingVerifying,
                     gpu_num: 1,
-                    gpu_index: vec![],
+                    gpu_index: vec![0],
                 }
             );
 
             assert_eq!(RentMachine::user_rented(&*renter_dave), vec![0],);
 
             // 15 min之后需要确认租用
-            assert_eq!(RentMachine::pending_rent_ending(11 + 30), vec![0]);
+            assert_eq!(RentMachine::pending_confirming(0), *renter_dave);
 
-            // assert_eq!(RentMachine::pending_confirming(11 + 30), vec![0]);
+            assert_eq!(RentMachine::pending_rent_ending(10 * 2880 + 11), vec![0]);
+
+            assert_eq!(
+                RentMachine::machine_rent_order(&*machine_id),
+                MachineGPUOrder { rent_order: vec![0], used_gpu: vec![0] }
+            )
         }
 
         // 过10个块之后执行租用成功
@@ -547,18 +573,18 @@ fn get_machine_price_works() {
     // TODO: 测试 get_machine_price
 }
 
-// 测试 get_rentable_gpu
+// 测试 gen_rentable_gpu
 #[test]
-fn get_rentable_gpu_works() {
+fn gen_rentable_gpu_works() {
     let mut machine_rent_order1 = MachineGPUOrder { rent_order: vec![], used_gpu: vec![] };
 
-    assert_eq!(RentMachine::get_rentable_gpu(&mut machine_rent_order1, 1, 4), vec![0]);
+    assert_eq!(machine_rent_order1.gen_rentable_gpu(1, 4), vec![0]);
     assert_eq!(&machine_rent_order1, &MachineGPUOrder { rent_order: vec![], used_gpu: vec![0] });
 
-    assert_eq!(RentMachine::get_rentable_gpu(&mut machine_rent_order1, 2, 4), vec![1, 2]);
+    assert_eq!(machine_rent_order1.gen_rentable_gpu(2, 4), vec![1, 2,]);
     assert_eq!(&machine_rent_order1, &MachineGPUOrder { rent_order: vec![], used_gpu: vec![0, 1, 2] });
 
     let mut machine_rent_order1 = MachineGPUOrder { rent_order: vec![], used_gpu: vec![1] };
-    assert_eq!(RentMachine::get_rentable_gpu(&mut machine_rent_order1, 2, 4), vec![0, 2]);
+    assert_eq!(machine_rent_order1.gen_rentable_gpu(2, 4), vec![0, 2,]);
     assert_eq!(&machine_rent_order1, &MachineGPUOrder { rent_order: vec![], used_gpu: vec![0, 1, 2] });
 }
