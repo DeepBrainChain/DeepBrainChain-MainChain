@@ -189,7 +189,6 @@ pub mod pallet {
 
             let mut machine_rent_order = Self::machine_rent_order(&machine_id);
             let rentable_gpu_index = machine_rent_order.gen_rentable_gpu(rent_gpu_num, gpu_num);
-            println!("###1 {:?}", &rentable_gpu_index);
             ItemList::add_item(&mut machine_rent_order.rent_order, rent_id);
 
             RentOrder::<T>::insert(
@@ -214,7 +213,6 @@ pub mod pallet {
             PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
 
             // 改变online_profile状态，影响机器佣金
-            // TODO: 改变租用的GPU数量
             T::RTOps::change_machine_status(
                 &machine_id,
                 MachineStatus::Creating,
@@ -306,15 +304,12 @@ pub mod pallet {
 
             let mut pending_rent_ending = Self::pending_rent_ending(rent_end);
             ItemList::add_item(&mut pending_rent_ending, rent_id.clone());
-            println!("Pending rent ending: {rent_end}");
             PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
 
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, Some(renter.clone()), None, gpu_num);
 
-            // TODO: 修改这里
             PendingConfirming::<T>::insert(&rent_id, renter.clone());
-
             MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
             Self::deposit_event(Event::RentMachine(rent_id, renter, machine_id, rent_fee, duration, gpu_num));
@@ -349,11 +344,11 @@ pub mod pallet {
             let rent_duration = order_info.rent_end - order_info.rent_start;
 
             order_info.confirm_rent(now);
-            RentOrder::<T>::insert(&rent_id, order_info);
 
             // 改变online_profile状态
-            // FIXME: 修改gpu_num
-            T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, Some(renter.clone()), None, 0);
+            T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, Some(renter.clone()), None, order_info.gpu_num);
+
+            RentOrder::<T>::insert(&rent_id, order_info);
             PendingConfirming::<T>::remove(&rent_id);
 
             Self::deposit_event(Event::ConfirmReletBlockNum(renter, machine_id, rent_fee, rent_duration));
@@ -590,14 +585,12 @@ impl<T: Config> Pallet<T> {
             if duration > WAITING_CONFIRMING_DELAY.into() {
                 // 超过了30个块，也就是15分钟
                 Self::clean_order(&renter, rent_id);
-                // FIXME: 修改gpu_num
-                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None, 0);
+                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None, rent_order.gpu_num);
                 continue;
             }
         }
     }
 
-    // TODO: 清理MachineGPUOrder
     fn clean_order(who: &T::AccountId, rent_order_id: RentOrderId) {
         let mut rent_order_list = Self::user_rented(who);
         ItemList::rm_item(&mut rent_order_list, &rent_order_id);
@@ -612,10 +605,10 @@ impl<T: Config> Pallet<T> {
         let mut pending_rent_ending = Self::pending_rent_ending(rent_order.rent_end);
         ItemList::rm_item(&mut pending_rent_ending, &rent_order_id);
 
-        let mut machine_rent_order =  Self::machine_rent_order(&rent_order.machine_id);
+        let mut machine_rent_order = Self::machine_rent_order(&rent_order.machine_id);
         machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index);
 
-        MachineRentOrder::<T>::insert(&rent_order.machine_id,machine_rent_order );
+        MachineRentOrder::<T>::insert(&rent_order.machine_id, machine_rent_order);
         PendingRentEnding::<T>::insert(rent_order.rent_end, pending_rent_ending);
         RentOrder::<T>::remove(rent_order_id);
         UserRented::<T>::insert(who, rent_order_list);
@@ -655,13 +648,12 @@ impl<T: Config> Pallet<T> {
             let machine_id = rent_order.machine_id.clone();
             let rent_duration: u64 = (now - rent_order.rent_start).saturated_into::<u64>() / 2880;
 
-            // FIXME: 修改gpu_num
             T::RTOps::change_machine_status(
                 &machine_id,
                 MachineStatus::Online,
                 Some(rent_order.renter.clone()),
                 Some(rent_duration),
-                0,
+                rent_order.gpu_num,
             );
             Self::clean_order(&rent_order.renter, rent_id);
         }

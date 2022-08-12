@@ -3,6 +3,7 @@ use generic_func::{ItemList, MachineId};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
+use sp_std::{vec, vec::Vec};
 
 pub type RentOrderId = u64;
 
@@ -77,7 +78,6 @@ impl<A, B: Default, C: Default> RentOrderDetail<A, B, C> {
         gpu_num: u32,
         gpu_index: Vec<u32>,
     ) -> Self {
-        println!("### {:?}", &gpu_index);
         Self {
             machine_id,
             renter,

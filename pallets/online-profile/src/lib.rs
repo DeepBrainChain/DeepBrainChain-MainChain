@@ -115,7 +115,7 @@ pub mod pallet {
     /// 记录机器被租用的GPU个数
     #[pallet::storage]
     #[pallet::getter(fn machine_rented_gpu)]
-    pub type MachineRentedGpu<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, u32, ValueQuery>;
+    pub type MachineRentedGPU<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, u32, ValueQuery>;
 
     /// Statistics of stash account
     #[pallet::storage]

@@ -1,6 +1,6 @@
 use crate::{
-    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachinesInfo, Pallet,
-    PendingExecMaxOfflineSlash, RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
+    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachineRentedGPU, MachinesInfo,
+    Pallet, PendingExecMaxOfflineSlash, RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
 use frame_support::IterableStorageMap;
 use generic_func::{ItemList, MachineId};
@@ -251,6 +251,7 @@ impl<T: Config> RTOps for Pallet<T> {
     ) {
         let mut machine_info = Self::machines_info(machine_id);
         let mut live_machines = Self::live_machines();
+        let mut machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
 
         machine_info.last_machine_renter = renter.clone();
 
@@ -297,11 +298,18 @@ impl<T: Config> RTOps for Pallet<T> {
                 } else {
                     machine_info.machine_status = new_status;
                 }
+
+                machine_rented_gpu = machine_rented_gpu.saturating_sub(gpu_num);
             },
-            MachineStatus::Creating => machine_info.machine_status = new_status,
+            MachineStatus::Creating => {
+                machine_info.machine_status = new_status;
+
+                machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
+            },
             _ => {},
         }
 
+        MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 
