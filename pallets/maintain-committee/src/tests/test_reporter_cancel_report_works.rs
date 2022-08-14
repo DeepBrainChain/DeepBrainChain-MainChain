@@ -47,7 +47,7 @@ fn test_committee_cancel_report_works() {
         {
             assert_ok!(MaintainCommittee::report_machine_fault(
                 Origin::signed(reporter),
-                crate::MachineFaultType::RentedInaccessible(machine_id)
+                crate::MachineFaultType::RentedInaccessible(machine_id, 0)
             ));
             assert_eq!(
                 &MaintainCommittee::reporter_stake(reporter),
@@ -104,7 +104,7 @@ fn test_committee_cancel_booked_report_works() {
         {
             assert_ok!(MaintainCommittee::report_machine_fault(
                 Origin::signed(reporter),
-                crate::MachineFaultType::RentedInaccessible(machine_id)
+                crate::MachineFaultType::RentedInaccessible(machine_id, 0)
             ));
 
             // 委员会订阅机器故障报告

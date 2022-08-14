@@ -171,6 +171,7 @@ fn report_machine_fault_works_case1() {
             Origin::signed(committee1),
             0,
             machine_id.clone(),
+            0,
             reporter_rand_str,
             committee_rand_str,
             err_reason.clone(),
@@ -274,11 +275,10 @@ fn report_machine_fault_works_case2() {
         let committee2_rand_str = "abc2".as_bytes().to_vec();
         let committee3_rand_str = "abc3".as_bytes().to_vec();
         let err_reason = "补充信息，可留空".as_bytes().to_vec();
-        // let err_reason2 = "补充信息，可留空".as_bytes().to_vec();
-        // let err_reason3 = "补充信息，可留空".as_bytes().to_vec();
-        let committee1_hash: [u8; 16] = hex::decode("5a56f3873581d7589ecb579a57afe644").unwrap().try_into().unwrap();
-        let committee2_hash: [u8; 16] = hex::decode("65191b9aaf2cc26e05dd2c90cad0ed36").unwrap().try_into().unwrap();
-        let committee3_hash: [u8; 16] = hex::decode("5a4229ecaabe9cb51cc4ab096481be9d").unwrap().try_into().unwrap();
+
+        let committee1_hash: [u8; 16] = hex::decode("1c0dad1277a293bdaa4d53bbdc74464d").unwrap().try_into().unwrap();
+        let committee2_hash: [u8; 16] = hex::decode("ee4102c5ac60e66c7979bd6da07408d1").unwrap().try_into().unwrap();
+        let committee3_hash: [u8; 16] = hex::decode("d0d71ad755987bb02c2f7fba3e8c46ad").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
@@ -471,6 +471,7 @@ fn report_machine_fault_works_case2() {
             Origin::signed(committee1),
             0,
             machine_id.clone(),
+            0,
             reporter_rand_str.clone(),
             committee1_rand_str,
             err_reason.clone(),
@@ -482,6 +483,7 @@ fn report_machine_fault_works_case2() {
             Origin::signed(committee2),
             0,
             machine_id.clone(),
+            0,
             reporter_rand_str.clone(),
             committee2_rand_str,
             err_reason.clone(),
@@ -492,6 +494,7 @@ fn report_machine_fault_works_case2() {
             Origin::signed(committee3),
             0,
             machine_id.clone(),
+            0,
             reporter_rand_str.clone(),
             committee3_rand_str,
             err_reason.clone(),
@@ -779,6 +782,7 @@ fn report_machine_fault_works_case3() {
             Origin::signed(committee1),
             0,
             machine_id.clone(),
+            0,
             reporter_rand_str.clone(),
             committee1_rand_str,
             err_reason.clone(),
@@ -790,6 +794,7 @@ fn report_machine_fault_works_case3() {
             Origin::signed(committee2),
             0,
             machine_id.clone(),
+            0,
             reporter_rand_str.clone(),
             committee2_rand_str,
             err_reason.clone(),
@@ -800,6 +805,7 @@ fn report_machine_fault_works_case3() {
             Origin::signed(committee3),
             0,
             machine_id.clone(),
+            0,
             reporter_rand_str.clone(),
             committee3_rand_str,
             err_reason.clone(),

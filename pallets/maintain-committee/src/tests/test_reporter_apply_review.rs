@@ -20,7 +20,7 @@ fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
-            crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+            crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
         ));
 
         // 委员会订阅机器故障报告

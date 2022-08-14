@@ -35,7 +35,7 @@ fn report_machine_inaccessible_works1() {
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(*reporter),
-            crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+            crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
         ));
 
         // 判断调用举报之后的状态
@@ -51,7 +51,7 @@ fn report_machine_inaccessible_works1() {
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     machine_id: machine_id.clone(),
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: crate::ReportStatus::Reported,
 
                     ..Default::default()
@@ -90,7 +90,7 @@ fn report_machine_inaccessible_works1() {
                     verifying_committee: None,
                     booked_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::WaitingBook,
                     ..Default::default()
                 }
@@ -141,7 +141,7 @@ fn report_machine_inaccessible_works1() {
                     booked_committee: vec![*committee],
                     hashed_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::WaitingBook,
                     ..Default::default()
                 }
@@ -188,7 +188,7 @@ fn report_machine_inaccessible_works1() {
                     confirmed_committee: vec![*committee],
                     support_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -229,7 +229,7 @@ fn report_machine_inaccessible_works1() {
                     confirmed_committee: vec![*committee],
                     support_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::CommitteeConfirmed,
                     ..Default::default()
                 }
@@ -310,7 +310,7 @@ fn report_machine_inaccessible_works2() {
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(*reporter),
-            crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+            crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
         ));
 
         // 委员会订阅机器故障报告
@@ -355,7 +355,7 @@ fn report_machine_inaccessible_works2() {
                     // support_committee: vec![committee],
                     against_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -397,7 +397,7 @@ fn report_machine_inaccessible_works2() {
                     // support_committee: vec![committee],
                     against_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::CommitteeConfirmed,
                     ..Default::default()
                 }
@@ -460,7 +460,7 @@ fn report_machine_inaccessible_works3() {
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(*reporter),
-            crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+            crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
         ));
 
         // 委员会订阅机器故障报告
@@ -504,7 +504,7 @@ fn report_machine_inaccessible_works3() {
                     // support_committee: vec![committee],
                     // against_committee: vec![committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -566,7 +566,7 @@ fn report_machine_inaccessible_works3() {
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     machine_id: machine_id.clone(),
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: crate::ReportStatus::Reported,
 
                     ..Default::default()
@@ -590,7 +590,7 @@ fn report_machine_inaccessible_works4() {
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(*reporter),
-            crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+            crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
         ));
 
         // 委员会订阅机器故障报告
@@ -622,7 +622,7 @@ fn report_machine_inaccessible_works4() {
                     // support_committee: vec![committee],
                     // against_committee: vec![committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -685,7 +685,7 @@ fn report_machine_inaccessible_works5() {
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(*reporter),
-            crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+            crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
         ));
 
         // 委员会订阅机器故障报告
@@ -713,7 +713,7 @@ fn report_machine_inaccessible_works5() {
                     verifying_committee: None,
                     booked_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::Verifying,
                     ..Default::default()
                 }
@@ -802,7 +802,7 @@ fn report_machine_inaccessible_works5() {
                     booked_committee: vec![committee2, committee3, committee1],
                     hashed_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -864,7 +864,7 @@ fn report_machine_inaccessible_works5() {
                     confirmed_committee: vec![committee2, committee3, committee1],
                     support_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -910,7 +910,7 @@ fn report_machine_inaccessible_works5() {
                     confirmed_committee: vec![committee2, committee3, committee1],
                     support_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::CommitteeConfirmed,
                     ..Default::default()
                 }
@@ -977,7 +977,7 @@ fn report_machine_inaccessible_works8() {
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(*reporter),
-            crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+            crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
         ));
 
         // 委员会订阅机器故障报告
@@ -1054,7 +1054,7 @@ fn report_machine_inaccessible_works8() {
                     confirmed_committee: vec![committee2, committee3, committee1],
                     against_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -1096,7 +1096,7 @@ fn report_machine_inaccessible_works8() {
                     confirmed_committee: vec![committee2, committee3, committee1],
                     against_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone()),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
                     report_status: ReportStatus::CommitteeConfirmed,
                     ..Default::default()
                 }

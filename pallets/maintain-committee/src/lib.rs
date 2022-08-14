@@ -20,6 +20,7 @@ use generic_func::{ItemList, MachineId};
 use online_profile_machine::{GNOps, MTOps, ManageCommittee};
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{str, vec, vec::Vec};
+use rent_machine::RentOrderId;
 
 pub use pallet::*;
 use types::*;
@@ -184,10 +185,9 @@ pub mod pallet {
             let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // 支付
-            if let MachineFaultType::RentedInaccessible(machine_id) = report_reason.clone() {
+            if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) = report_reason.clone() {
                 // 检查是否是机器租用者
-                // FIXME: 完成这里逻辑
-                let rent_order = <rent_machine::Module<T>>::rent_order(&0);
+                let rent_order = <rent_machine::Module<T>>::rent_order(&rent_order_id);
                 ensure!(rent_order.renter == reporter, Error::<T>::NotMachineRenter);
                 <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
                     .map_err(|_| Error::<T>::PayTxFeeFailed)?;
@@ -379,6 +379,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             report_id: ReportId,
             machine_id: MachineId,
+            rent_order_id: RentOrderId,
             reporter_rand_str: Vec<u8>,
             committee_rand_str: Vec<u8>,
             err_reason: Vec<u8>,
@@ -409,6 +410,7 @@ pub mod pallet {
             let is_support: Vec<u8> = if support_report { "1".into() } else { "0".into() };
             let committee_report_hash = Self::get_hash(vec![
                 machine_id.clone(),
+                rent_order_id.to_string().into(),
                 reporter_rand_str,
                 committee_rand_str,
                 is_support,
@@ -721,8 +723,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // 该类型错误可以由程序快速完成检测，因此可以提交并需记录machine_id
-        if let MachineFaultType::RentedInaccessible(machine_id) = machine_fault_type.clone() {
+        if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) = machine_fault_type.clone() {
             report_info.machine_id = machine_id;
+            report_info.rent_order_id = rent_order_id;
         }
 
         // 记录到 live_report & reporter_report

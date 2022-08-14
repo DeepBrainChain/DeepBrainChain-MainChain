@@ -1,5 +1,6 @@
 use codec::{Decode, Encode};
 use generic_func::{ItemList, MachineId};
+use rent_machine::RentOrderId;
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{vec, vec::Vec};
 
@@ -59,6 +60,8 @@ pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
     pub first_book_time: BlockNumber,
     /// 出问题的机器，只有委员会提交原始信息时才存入
     pub machine_id: MachineId,
+    /// 出问题的机器的租用ID
+    pub rent_order_id: RentOrderId,
     /// 机器的故障原因
     pub err_info: Vec<u8>,
     /// 当前正在验证机器的委员会
@@ -147,7 +150,7 @@ impl Default for ReportStatus {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum MachineFaultType {
     /// 机器被租用，但无法访问的故障 (机器离线)
-    RentedInaccessible(MachineId),
+    RentedInaccessible(MachineId, RentOrderId),
     /// 机器被租用，但有硬件故障
     RentedHardwareMalfunction(ReportHash, BoxPubkey),
     /// 机器被租用，但硬件参数造假
@@ -159,7 +162,7 @@ pub enum MachineFaultType {
 // 默认硬件故障
 impl Default for MachineFaultType {
     fn default() -> Self {
-        Self::RentedInaccessible(vec![])
+        Self::RentedInaccessible(vec![], 0)
     }
 }
 impl MachineFaultType {
