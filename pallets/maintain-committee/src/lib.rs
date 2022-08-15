@@ -18,9 +18,9 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use generic_func::{ItemList, MachineId};
 use online_profile_machine::{GNOps, MTOps, ManageCommittee};
+use rent_machine::RentOrderId;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{str, vec, vec::Vec};
-use rent_machine::RentOrderId;
 
 pub use pallet::*;
 use types::*;
@@ -399,8 +399,12 @@ pub mod pallet {
             ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
 
             // 检查是否与报告人提交的Hash一致
-            let reporter_report_hash =
-                Self::get_hash(vec![machine_id.clone(), reporter_rand_str.clone(), err_reason.clone()]);
+            let reporter_report_hash = Self::get_hash(vec![
+                machine_id.clone(),
+                rent_order_id.to_string().into(),
+                reporter_rand_str.clone(),
+                err_reason.clone(),
+            ]);
             ensure!(reporter_report_hash == reporter_hash, Error::<T>::NotEqualReporterSubmit);
 
             let mut committee_ops = Self::committee_ops(&committee, &report_id);

@@ -324,9 +324,9 @@ fn test_apply_slash_review() {
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         let reporter_rand_str = "abcdef".as_bytes().to_vec();
-        let committee_rand_str = "fedcba".as_bytes().to_vec();
-        let err_reason = "它坏了".as_bytes().to_vec();
-        let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
+        let committee_rand_str = "abc1".as_bytes().to_vec();
+        let err_reason = "补充信息，可留空".as_bytes().to_vec();
+        let committee_hash: [u8; 16] = hex::decode("7980cfd18a2e6cb338f4924ae0fff495").unwrap().try_into().unwrap();
         let extra_err_info = Vec::new();
 
         let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
@@ -334,7 +334,7 @@ fn test_apply_slash_review() {
             .unwrap()
             .try_into()
             .unwrap();
-        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+        let report_hash: [u8; 16] = hex::decode("2611557f5306f050019eeb27648c5494").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
