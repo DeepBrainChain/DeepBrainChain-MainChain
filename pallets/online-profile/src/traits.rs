@@ -248,6 +248,8 @@ impl<T: Config> RTOps for Pallet<T> {
         renter: Option<Self::AccountId>,
         rent_duration: Option<u64>,
         gpu_num: u32,
+        // 是否是来自确认租用成功的调用
+        is_confirmed: bool, // TODO: is_confirmed 用来确认是不是被租用成功，这样可以用来修改
     ) {
         let mut machine_info = Self::machines_info(machine_id);
         let mut live_machines = Self::live_machines();
@@ -257,16 +259,21 @@ impl<T: Config> RTOps for Pallet<T> {
 
         match new_status {
             MachineStatus::Rented => {
-                // 机器创建成功
                 machine_info.machine_status = new_status;
-                machine_info.total_rented_times += 1;
-                Self::update_snap_by_rent_status(machine_id.to_vec(), true);
+                if is_confirmed {
+                    // 机器创建成功
+                    machine_info.total_rented_times += 1;
+                    Self::update_snap_by_rent_status(machine_id.to_vec(), true);
 
-                ItemList::rm_item(&mut live_machines.online_machine, machine_id);
-                ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
-                LiveMachines::<T>::put(live_machines);
+                    ItemList::rm_item(&mut live_machines.online_machine, machine_id);
+                    ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
+                    LiveMachines::<T>::put(live_machines);
 
-                Self::change_pos_info_by_rent(&machine_info, true);
+                    Self::change_pos_info_by_rent(&machine_info, true);
+                } else {
+                    // 如果不是confirm_rent()这个调用，则表示是刚开始租用，还不用修改机器的得分快照等信息
+                    machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
+                }
             },
             // 租用结束 或 租用失败(半小时无确认)
             MachineStatus::Online => {
@@ -301,11 +308,10 @@ impl<T: Config> RTOps for Pallet<T> {
 
                 machine_rented_gpu = machine_rented_gpu.saturating_sub(gpu_num);
             },
-            MachineStatus::Creating => {
-                machine_info.machine_status = new_status;
-
-                machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
-            },
+            // MachineStatus::Creating => {
+            //     machine_info.machine_status = new_status;
+            //     machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
+            // },
             _ => {},
         }
 

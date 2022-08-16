@@ -199,7 +199,11 @@ pub enum MachineStatus<BlockNumber, AccountId> {
     StakerReportOffline(BlockNumber, Box<Self>),
     /// Reporter report machine is fault, so machine go offline (SlashReason, StatusBeforeOffline, Reporter, Committee)
     ReporterReportOffline(OPSlashReason<BlockNumber>, Box<Self>, AccountId, Vec<AccountId>),
+
     /// Machine is rented, and waiting for renter to confirm virtual machine is created successfully
+    /// NOTE: 该状态被弃用。
+    /// 机器上线后，正常情况下，只有Rented和Online两种状态
+    /// 对DBC来说要查询某个用户是否能创建虚拟机，到rent_machine中查看machine对应的租用人即可
     Creating,
     /// Machine is rented now
     Rented,

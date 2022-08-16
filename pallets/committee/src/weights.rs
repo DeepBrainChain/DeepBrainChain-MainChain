@@ -22,37 +22,39 @@
 // ./pallets/committee/src/weights.rs
 // --template=./scripts/frame-weight-template.hbs
 
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight, Weight},
+};
 use sp_std::marker::PhantomData;
 
 /// Weight functions needed for committee.
 pub trait WeightInfo {
-	fn add_committee(u: u32, ) -> Weight;
+    fn add_committee(u: u32) -> Weight;
 }
 
 /// Weights for committee using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn add_committee(u: u32, ) -> Weight {
-		(45_961_000 as Weight)
-			// Standard Error: 1_000
-			.saturating_add((3_000 as Weight).saturating_mul(u as Weight))
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
+    fn add_committee(u: u32) -> Weight {
+        (45_961_000 as Weight)
+            // Standard Error: 1_000
+            .saturating_add((3_000 as Weight).saturating_mul(u as Weight))
+            .saturating_add(T::DbWeight::get().reads(1 as Weight))
+            .saturating_add(T::DbWeight::get().writes(1 as Weight))
+    }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	fn add_committee(u: u32, ) -> Weight {
-		(45_961_000 as Weight)
-			// Standard Error: 1_000
-			.saturating_add((3_000 as Weight).saturating_mul(u as Weight))
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
+    fn add_committee(u: u32) -> Weight {
+        (45_961_000 as Weight)
+            // Standard Error: 1_000
+            .saturating_add((3_000 as Weight).saturating_mul(u as Weight))
+            .saturating_add(RocksDbWeight::get().reads(1 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(1 as Weight))
+    }
 }

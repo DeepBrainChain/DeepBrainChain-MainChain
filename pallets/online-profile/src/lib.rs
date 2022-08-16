@@ -265,6 +265,12 @@ pub mod pallet {
             let _ = Self::do_pending_slash_checking();
             0
         }
+
+        fn on_runtime_upgrade() -> Weight {
+            // TODO: 对于所有的machine_info: creating -> online，因为creating状态被弃用
+
+            0
+        }
     }
 
     #[pallet::call]

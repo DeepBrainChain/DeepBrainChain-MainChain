@@ -151,7 +151,11 @@ pub mod pallet {
             ensure!(minutes % 30 == 0, Error::<T>::OnlyHalfHourAllowed);
 
             // 检查machine_id状态是否可以租用
-            ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineNotRentable);
+            ensure!(
+                machine_info.machine_status == MachineStatus::Online
+                    || machine_info.machine_status == MachineStatus::Rented,
+                Error::<T>::MachineNotRentable
+            );
 
             // 最大租用时间限制MaximumRentalDuration
             let duration = minutes.min(Self::maximum_rental_duration() * 24 * 60);
@@ -215,10 +219,11 @@ pub mod pallet {
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status(
                 &machine_id,
-                MachineStatus::Creating,
+                MachineStatus::Rented,
                 Some(renter.clone()),
                 None,
                 rent_gpu_num,
+                false,
             );
 
             PendingConfirming::<T>::insert(&rent_id, renter.clone());
@@ -247,7 +252,11 @@ pub mod pallet {
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
             // 检查machine_id状态是否可以租用
-            ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineNotRentable);
+            ensure!(
+                machine_info.machine_status == MachineStatus::Online
+                    || machine_info.machine_status == MachineStatus::Rented,
+                Error::<T>::MachineNotRentable
+            );
 
             // 最大租用时间限制MaximumRentalDuration
             let duration = duration.min(Self::maximum_rental_duration());
@@ -307,7 +316,14 @@ pub mod pallet {
             PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
 
             // 改变online_profile状态，影响机器佣金
-            T::RTOps::change_machine_status(&machine_id, MachineStatus::Creating, Some(renter.clone()), None, gpu_num);
+            T::RTOps::change_machine_status(
+                &machine_id,
+                MachineStatus::Rented,
+                Some(renter.clone()),
+                None,
+                rent_gpu_num,
+                false,
+            );
 
             PendingConfirming::<T>::insert(&rent_id, renter.clone());
             MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
@@ -332,7 +348,7 @@ pub mod pallet {
             ensure!(machine_start_duration <= WAITING_CONFIRMING_DELAY.into(), Error::<T>::ExpiredConfirm);
 
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-            ensure!(machine_info.machine_status == MachineStatus::Creating, Error::<T>::StatusNotAllowed);
+            ensure!(machine_info.machine_status == MachineStatus::Rented, Error::<T>::StatusNotAllowed);
 
             // 质押转到特定账户
             Self::change_renter_total_stake(&renter, order_info.stake_amount, false)
@@ -346,7 +362,14 @@ pub mod pallet {
             order_info.confirm_rent(now);
 
             // 改变online_profile状态
-            T::RTOps::change_machine_status(&machine_id, MachineStatus::Rented, Some(renter.clone()), None, order_info.gpu_num);
+            T::RTOps::change_machine_status(
+                &machine_id,
+                MachineStatus::Rented,
+                Some(renter.clone()),
+                None,
+                order_info.gpu_num,
+                true,
+            );
 
             RentOrder::<T>::insert(&rent_id, order_info);
             PendingConfirming::<T>::remove(&rent_id);
@@ -571,7 +594,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // TODO: 添加时间记录待检查的机器
+    // TODO: 优化：添加时间记录待检查的机器
     // 定时检查机器是否30分钟没有上线
     fn check_machine_starting_status() {
         let now = <frame_system::Module<T>>::block_number();
@@ -585,7 +608,14 @@ impl<T: Config> Pallet<T> {
             if duration > WAITING_CONFIRMING_DELAY.into() {
                 // 超过了30个块，也就是15分钟
                 Self::clean_order(&renter, rent_id);
-                T::RTOps::change_machine_status(&machine_id, MachineStatus::Online, None, None, rent_order.gpu_num);
+                T::RTOps::change_machine_status(
+                    &machine_id,
+                    MachineStatus::Online,
+                    None,
+                    None,
+                    rent_order.gpu_num,
+                    false,
+                );
                 continue;
             }
         }
@@ -654,6 +684,7 @@ impl<T: Config> Pallet<T> {
                 Some(rent_order.renter.clone()),
                 Some(rent_duration),
                 rent_order.gpu_num,
+                false,
             );
             Self::clean_order(&rent_order.renter, rent_id);
         }

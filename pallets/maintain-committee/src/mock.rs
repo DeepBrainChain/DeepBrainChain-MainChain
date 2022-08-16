@@ -269,9 +269,8 @@ pub fn run_to_block(n: BlockNumber) {
     }
 }
 
-// 初始条件：设置参数，并成功上线用一台机器
-// Build genesis storage according to the mock runtime.
-pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
+// 初始条件：设置参数，并上线一台机器
+pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
     let mut storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
     #[rustfmt::skip]
@@ -475,6 +474,17 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info));
 
         run_to_block(10);
+    });
+
+    ext
+}
+
+// 初始条件：设置参数，并成功上线,租用一台机器
+// Build genesis storage according to the mock runtime.
+pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
+    let mut ext = new_test_with_init_machine_online();
+    ext.execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         // 报告人租用机器
         let reporter = sr25519::Public::from(Sr25519Keyring::Two);
