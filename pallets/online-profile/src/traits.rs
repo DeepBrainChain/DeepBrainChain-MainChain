@@ -242,81 +242,99 @@ impl<T: Config> RTOps for Pallet<T> {
             .checked_div(10_000)
     }
 
-    fn change_machine_status(
+    // 在rent_machine; rent_machine_by_minutes中使用, confirm_rent之前
+    fn change_machine_status_on_rent_start(machine_id: &MachineId, gpu_num: u32) {
+        let mut machine_info = Self::machines_info(machine_id);
+        let mut machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
+
+        machine_info.machine_status = MachineStatus::Rented;
+        machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
+
+        MachinesInfo::<T>::insert(&machine_id, machine_info);
+        MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
+    }
+
+    // 在confirm_rent中使用
+    fn change_machine_status_on_confirmed(machine_id: &MachineId) {
+        let mut machine_info = Self::machines_info(machine_id);
+        let mut live_machines = Self::live_machines();
+
+        // 机器创建成功
+        machine_info.total_rented_times += 1;
+
+        // NOTE: 该检查确保得分快照不被改变多次
+        if live_machines.rented_machine.binary_search(&machine_id).is_err() {
+            Self::update_snap_by_rent_status(machine_id.to_vec(), true);
+
+            ItemList::rm_item(&mut live_machines.online_machine, machine_id);
+            ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
+            LiveMachines::<T>::put(live_machines);
+
+            Self::change_pos_info_by_rent(&machine_info, true);
+        }
+
+        MachinesInfo::<T>::insert(&machine_id, machine_info);
+    }
+
+    fn change_machine_status_on_rent_end(
         machine_id: &MachineId,
-        new_status: MachineStatus<T::BlockNumber, T::AccountId>,
-        renter: Option<Self::AccountId>,
-        rent_duration: Option<u64>,
-        gpu_num: u32,
-        // 是否是来自确认租用成功的调用
-        is_confirmed: bool, // TODO: is_confirmed 用来确认是不是被租用成功，这样可以用来修改
+        rented_gpu_num: u32,
+        rent_duration: u64,
+        is_last_rent: bool,
+        renter: Self::AccountId,
     ) {
         let mut machine_info = Self::machines_info(machine_id);
         let mut live_machines = Self::live_machines();
-        let mut machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
+        let mut machine_rented_gpu = Self::machine_rented_gpu(machine_id);
+        machine_rented_gpu = machine_rented_gpu.saturating_sub(rented_gpu_num);
 
-        machine_info.last_machine_renter = renter.clone();
+        // 租用结束
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
+        machine_info.total_rented_duration += rent_duration.saturating_mul(rented_gpu_num as u64).saturating_div(gpu_num as u64);
+        machine_info.last_machine_renter = Some(renter.clone());
 
-        match new_status {
+        ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
+
+        match machine_info.machine_status {
+            MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) => {
+                RentedFinished::<T>::insert(machine_id, renter);
+            },
             MachineStatus::Rented => {
-                machine_info.machine_status = new_status;
-                if is_confirmed {
-                    // 机器创建成功
-                    machine_info.total_rented_times += 1;
-                    Self::update_snap_by_rent_status(machine_id.to_vec(), true);
+                // machine_info.machine_status = new_status;
 
-                    ItemList::rm_item(&mut live_machines.online_machine, machine_id);
-                    ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
-                    LiveMachines::<T>::put(live_machines);
+                // NOTE: 考虑是不是last_rent
+                if is_last_rent {
+                    ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
 
-                    Self::change_pos_info_by_rent(&machine_info, true);
-                } else {
-                    // 如果不是confirm_rent()这个调用，则表示是刚开始租用，还不用修改机器的得分快照等信息
-                    machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
-                }
-            },
-            // 租用结束 或 租用失败(半小时无确认)
-            MachineStatus::Online => {
-                if rent_duration.is_some() {
+                    machine_info.last_online_height = <frame_system::Module<T>>::block_number();
+                    machine_info.machine_status = MachineStatus::Online;
+
                     // 租用结束
-                    machine_info.total_rented_duration += rent_duration.unwrap_or_default();
-                    ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
-
-                    match machine_info.machine_status {
-                        MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) => {
-                            if let Some(renter) = renter {
-                                RentedFinished::<T>::insert(machine_id, renter);
-                            }
-                        },
-                        MachineStatus::Rented => {
-                            machine_info.machine_status = new_status;
-                            machine_info.last_online_height = <frame_system::Module<T>>::block_number();
-                            // 租用结束
-                            Self::update_snap_by_rent_status(machine_id.to_vec(), false);
-
-                            ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
-
-                            Self::change_pos_info_by_rent(&machine_info, false);
-                        },
-                        _ => {},
-                    }
-
-                    LiveMachines::<T>::put(live_machines);
-                } else {
-                    machine_info.machine_status = new_status;
+                    Self::update_snap_by_rent_status(machine_id.to_vec(), false);
+                    Self::change_pos_info_by_rent(&machine_info, false);
                 }
-
-                machine_rented_gpu = machine_rented_gpu.saturating_sub(gpu_num);
             },
-            // MachineStatus::Creating => {
-            //     machine_info.machine_status = new_status;
-            //     machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
-            // },
             _ => {},
         }
 
         MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
+        LiveMachines::<T>::put(live_machines);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
+    }
+
+    fn change_machine_status_on_confirm_expired(machine_id: &MachineId, gpu_num: u32) {
+        let mut machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
+
+        machine_rented_gpu = machine_rented_gpu.saturating_sub(gpu_num);
+
+        if machine_rented_gpu == 0 {
+            // 已经没有正在租用的机器时，改变机器的状态
+            let mut machine_info = Self::machines_info(machine_id);
+            machine_info.machine_status = MachineStatus::Online;
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
+        }
+
+        MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
     }
 
     fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {

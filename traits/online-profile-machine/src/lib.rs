@@ -26,15 +26,16 @@ pub trait RTOps {
 
     fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64>;
 
-    fn change_machine_status(
+    fn change_machine_status_on_rent_start(machine_id: &Self::MachineId, gpu_num: u32);
+    fn change_machine_status_on_confirmed(machine_id: &Self::MachineId);
+    fn change_machine_status_on_rent_end(
         machine_id: &Self::MachineId,
-        new_status: Self::MachineStatus,
-        renter: Option<Self::AccountId>,
-        rent_duration: Option<u64>, // 不为None时，表示租用结束
         gpu_num: u32,
-        // 是否是来自确认租用成功的调用
-        is_confirmed: bool,
+        rent_duration: u64,
+        is_last_rent: bool,
+        renter: Self::AccountId,
     );
+    fn change_machine_status_on_confirm_expired(machine_id: &Self::MachineId, gpu_num: u32);
 
     fn change_machine_rent_fee(amount: Self::Balance, machine_id: Self::MachineId, is_burn: bool);
 }

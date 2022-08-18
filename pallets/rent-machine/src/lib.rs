@@ -90,10 +90,10 @@ pub mod pallet {
     >;
 
     // 等待用户确认租用成功的机器
+    // TODO: 修改成 BlockNumber -> Vec<RentOrderId>
     #[pallet::storage]
     #[pallet::getter(fn pending_confirming)]
-    pub(super) type PendingConfirming<T: Config> =
-        StorageMap<_, Blake2_128Concat, RentOrderId, T::AccountId, ValueQuery>;
+    pub type PendingConfirming<T: Config> = StorageMap<_, Blake2_128Concat, RentOrderId, T::AccountId, ValueQuery>;
 
     // 记录每个区块将要结束租用的机器
     #[pallet::storage]
@@ -217,14 +217,7 @@ pub mod pallet {
             PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
 
             // 改变online_profile状态，影响机器佣金
-            T::RTOps::change_machine_status(
-                &machine_id,
-                MachineStatus::Rented,
-                Some(renter.clone()),
-                None,
-                rent_gpu_num,
-                false,
-            );
+            T::RTOps::change_machine_status_on_rent_start(&machine_id, rent_gpu_num);
 
             PendingConfirming::<T>::insert(&rent_id, renter.clone());
 
@@ -316,14 +309,7 @@ pub mod pallet {
             PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
 
             // 改变online_profile状态，影响机器佣金
-            T::RTOps::change_machine_status(
-                &machine_id,
-                MachineStatus::Rented,
-                Some(renter.clone()),
-                None,
-                rent_gpu_num,
-                false,
-            );
+            T::RTOps::change_machine_status_on_rent_start(&machine_id, rent_gpu_num);
 
             PendingConfirming::<T>::insert(&rent_id, renter.clone());
             MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
@@ -362,14 +348,7 @@ pub mod pallet {
             order_info.confirm_rent(now);
 
             // 改变online_profile状态
-            T::RTOps::change_machine_status(
-                &machine_id,
-                MachineStatus::Rented,
-                Some(renter.clone()),
-                None,
-                order_info.gpu_num,
-                true,
-            );
+            T::RTOps::change_machine_status_on_confirmed(&machine_id);
 
             RentOrder::<T>::insert(&rent_id, order_info);
             PendingConfirming::<T>::remove(&rent_id);
@@ -608,14 +587,7 @@ impl<T: Config> Pallet<T> {
             if duration > WAITING_CONFIRMING_DELAY.into() {
                 // 超过了30个块，也就是15分钟
                 Self::clean_order(&renter, rent_id);
-                T::RTOps::change_machine_status(
-                    &machine_id,
-                    MachineStatus::Online,
-                    None,
-                    None,
-                    rent_order.gpu_num,
-                    false,
-                );
+                T::RTOps::change_machine_status_on_confirm_expired(&machine_id, rent_order.gpu_num);
                 continue;
             }
         }
@@ -651,6 +623,7 @@ impl<T: Config> Pallet<T> {
             .collect::<BTreeSet<_>>()
     }
 
+    // - Write: UserTotalStake
     fn change_renter_total_stake(who: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let current_stake = Self::user_total_stake(who);
 
@@ -678,15 +651,32 @@ impl<T: Config> Pallet<T> {
             let machine_id = rent_order.machine_id.clone();
             let rent_duration: u64 = (now - rent_order.rent_start).saturated_into::<u64>() / 2880;
 
-            T::RTOps::change_machine_status(
+            // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
+            let is_last_rent = Self::is_last_rent(&machine_id);
+            T::RTOps::change_machine_status_on_rent_end(
                 &machine_id,
-                MachineStatus::Online,
-                Some(rent_order.renter.clone()),
-                Some(rent_duration),
                 rent_order.gpu_num,
-                false,
+                rent_duration,
+                is_last_rent,
+                rent_order.renter.clone(),
             );
+
             Self::clean_order(&rent_order.renter, rent_id);
         }
+    }
+
+    // 当没有正在租用的机器时，可以修改得分快照
+    fn is_last_rent(machine_id: &MachineId) -> bool {
+        let machine_order = Self::machine_rent_order(machine_id);
+
+        // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
+        for order_id in machine_order.rent_order {
+            let rent_order = Self::rent_order(order_id);
+            if rent_order.rent_status == RentStatus::Renting {
+                return true;
+            }
+        }
+
+        false
     }
 }

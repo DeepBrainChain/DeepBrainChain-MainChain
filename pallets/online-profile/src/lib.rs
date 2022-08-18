@@ -90,7 +90,7 @@ pub mod pallet {
     /// Statistics of gpu and stake
     #[pallet::storage]
     #[pallet::getter(fn sys_info)]
-    pub(super) type SysInfo<T: Config> = StorageValue<_, SysInfoDetail<BalanceOf<T>>, ValueQuery>;
+    pub type SysInfo<T: Config> = StorageValue<_, SysInfoDetail<BalanceOf<T>>, ValueQuery>;
 
     /// Statistics of gpu in one position
     #[pallet::storage]
