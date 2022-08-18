@@ -23,6 +23,7 @@ pub trait RTOps {
     type MachineId;
     type MachineStatus;
     type Balance;
+    type BlockNumber;
 
     fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64>;
 
@@ -31,7 +32,7 @@ pub trait RTOps {
     fn change_machine_status_on_rent_end(
         machine_id: &Self::MachineId,
         gpu_num: u32,
-        rent_duration: u64,
+        rent_duration: Self::BlockNumber,
         is_last_rent: bool,
         renter: Self::AccountId,
     );

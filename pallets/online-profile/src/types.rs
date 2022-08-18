@@ -129,7 +129,8 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     /// Status of machine
     pub machine_status: MachineStatus<BlockNumber, AccountId>,
     /// How long machine has been rented(will be update after one rent is end)
-    pub total_rented_duration: u64,
+    /// NOTE: 单位从天改为BlockNumber
+    pub total_rented_duration: BlockNumber,
     /// How many times machine has been rented
     pub total_rented_times: u64,
     /// How much rent fee machine has earned for rented(before Galaxy is ON)

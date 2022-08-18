@@ -222,6 +222,7 @@ impl<T: Config> RTOps for Pallet<T> {
     type MachineStatus = MachineStatus<T::BlockNumber, T::AccountId>;
     type AccountId = T::AccountId;
     type Balance = BalanceOf<T>;
+    type BlockNumber = T::BlockNumber;
 
     /// 根据GPU数量和该机器算力点数，计算该机器相比标准配置的租用价格
     // standard_point / machine_point ==  standard_price / machine_price
@@ -279,7 +280,7 @@ impl<T: Config> RTOps for Pallet<T> {
     fn change_machine_status_on_rent_end(
         machine_id: &MachineId,
         rented_gpu_num: u32,
-        rent_duration: u64,
+        rent_duration: Self::BlockNumber,
         is_last_rent: bool,
         renter: Self::AccountId,
     ) {
@@ -290,10 +291,12 @@ impl<T: Config> RTOps for Pallet<T> {
 
         // 租用结束
         let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
-        machine_info.total_rented_duration += rent_duration.saturating_mul(rented_gpu_num as u64).saturating_div(gpu_num as u64);
+        if gpu_num == 0 {
+            return;
+        }
+        machine_info.total_rented_duration +=
+            Perbill::from_rational_approximation(rented_gpu_num, gpu_num) * rent_duration;
         machine_info.last_machine_renter = Some(renter.clone());
-
-        ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
 
         match machine_info.machine_status {
             MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) => {
@@ -304,6 +307,7 @@ impl<T: Config> RTOps for Pallet<T> {
 
                 // NOTE: 考虑是不是last_rent
                 if is_last_rent {
+                    ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
                     ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
 
                     machine_info.last_online_height = <frame_system::Module<T>>::block_number();

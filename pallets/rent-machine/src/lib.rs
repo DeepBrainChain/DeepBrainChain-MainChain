@@ -47,6 +47,7 @@ pub mod pallet {
             MachineStatus = MachineStatus<Self::BlockNumber, Self::AccountId>,
             AccountId = Self::AccountId,
             Balance = BalanceOf<Self>,
+            BlockNumber = Self::BlockNumber,
         >;
         type DbcPrice: DbcPrice<Balance = BalanceOf<Self>>;
     }
@@ -81,7 +82,7 @@ pub mod pallet {
     // 记录每个租用记录
     #[pallet::storage]
     #[pallet::getter(fn rent_order)]
-    pub(super) type RentOrder<T: Config> = StorageMap<
+    pub type RentOrder<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         RentOrderId,
@@ -593,6 +594,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // -Write: MachineRentOrder, PendingRentEnding, RentOrder,
+    // UserRented, PendingConfirming
     fn clean_order(who: &T::AccountId, rent_order_id: RentOrderId) {
         let mut rent_order_list = Self::user_rented(who);
         ItemList::rm_item(&mut rent_order_list, &rent_order_id);
@@ -649,7 +652,7 @@ impl<T: Config> Pallet<T> {
         for rent_id in pending_ending {
             let rent_order = Self::rent_order(&rent_id);
             let machine_id = rent_order.machine_id.clone();
-            let rent_duration: u64 = (now - rent_order.rent_start).saturated_into::<u64>() / 2880;
+            let rent_duration = now - rent_order.rent_start;
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
             let is_last_rent = Self::is_last_rent(&machine_id);
@@ -668,15 +671,16 @@ impl<T: Config> Pallet<T> {
     // 当没有正在租用的机器时，可以修改得分快照
     fn is_last_rent(machine_id: &MachineId) -> bool {
         let machine_order = Self::machine_rent_order(machine_id);
+        let mut renting_count = 0;
 
         // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
         for order_id in machine_order.rent_order {
             let rent_order = Self::rent_order(order_id);
             if rent_order.rent_status == RentStatus::Renting {
-                return true;
+                renting_count += 1;
             }
         }
 
-        false
+        renting_count < 2
     }
 }

@@ -252,6 +252,7 @@ pub fn run_to_block(n: BlockNumber) {
         // 当前块结束
         OnlineProfile::on_finalize(b);
         OnlineCommittee::on_finalize(b);
+        RentMachine::on_finalize(b);
         MaintainCommittee::on_finalize(b);
         System::on_finalize(b);
         RandomnessCollectiveFlip::on_finalize(b);
@@ -263,6 +264,7 @@ pub fn run_to_block(n: BlockNumber) {
         MaintainCommittee::on_initialize(b + 1);
         RandomnessCollectiveFlip::on_initialize(b + 1);
         System::on_initialize(b + 1);
+        RentMachine::on_initialize(b + 1);
         OnlineCommittee::on_initialize(b + 1);
         OnlineProfile::on_initialize(b + 1);
         RandomnessCollectiveFlip::on_initialize(b + 1);
