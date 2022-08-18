@@ -246,7 +246,7 @@ fn rented_report_offline_rented_end_report_online() {
         let machine_info = OnlineProfile::machines_info(&*machine_id);
         assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
         assert_eq!(machine_info.last_online_height, 3001);
-        assert_eq!(machine_info.total_rented_duration, 1);
+        assert_eq!(machine_info.total_rented_duration, 2880);
         assert_eq!(machine_info.total_rented_times, 1);
     });
 }
