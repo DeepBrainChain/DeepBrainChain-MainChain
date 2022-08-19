@@ -62,6 +62,12 @@ pub mod pallet {
             Self::check_machine_starting_status();
             Self::check_if_rent_finished();
         }
+
+        fn on_runtime_upgrade() -> Weight {
+            // TODO: 对于所有的pending_confirming，由 RentOrderId -> T::AccountId 改为了
+            // T::BlockNumber -> Vec<RentOrderId>
+            0
+        }
     }
 
     // 存储用户当前租用的机器列表
@@ -91,10 +97,10 @@ pub mod pallet {
     >;
 
     // 等待用户确认租用成功的机器
-    // TODO: 修改成 BlockNumber -> Vec<RentOrderId>
     #[pallet::storage]
     #[pallet::getter(fn pending_confirming)]
-    pub type PendingConfirming<T: Config> = StorageMap<_, Blake2_128Concat, RentOrderId, T::AccountId, ValueQuery>;
+    pub type PendingConfirming<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<RentOrderId>, ValueQuery>;
 
     // 记录每个区块将要结束租用的机器
     #[pallet::storage]
@@ -220,8 +226,9 @@ pub mod pallet {
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status_on_rent_start(&machine_id, rent_gpu_num);
 
-            PendingConfirming::<T>::insert(&rent_id, renter.clone());
-
+            let mut pending_confirming = Self::pending_confirming(now + WAITING_CONFIRMING_DELAY.into());
+            ItemList::add_item(&mut pending_confirming, rent_id);
+            PendingConfirming::<T>::insert(now + WAITING_CONFIRMING_DELAY.into(), pending_confirming);
             MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
             Self::deposit_event(Event::RentBlockNum(rent_id, renter, machine_id, rent_fee, duration.into(), gpu_num));
@@ -312,7 +319,9 @@ pub mod pallet {
             // 改变online_profile状态，影响机器佣金
             T::RTOps::change_machine_status_on_rent_start(&machine_id, rent_gpu_num);
 
-            PendingConfirming::<T>::insert(&rent_id, renter.clone());
+            let mut pending_confirming = Self::pending_confirming(now + WAITING_CONFIRMING_DELAY.into());
+            ItemList::add_item(&mut pending_confirming, rent_id);
+            PendingConfirming::<T>::insert(now + WAITING_CONFIRMING_DELAY.into(), pending_confirming);
             MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
             Self::deposit_event(Event::RentMachine(rent_id, renter, machine_id, rent_fee, duration, gpu_num));
@@ -351,8 +360,12 @@ pub mod pallet {
             // 改变online_profile状态
             T::RTOps::change_machine_status_on_confirmed(&machine_id);
 
+            let mut pending_confirming =
+                Self::pending_confirming(order_info.rent_start + WAITING_CONFIRMING_DELAY.into());
+            ItemList::rm_item(&mut pending_confirming, &rent_id);
+            PendingConfirming::<T>::insert(order_info.rent_start + WAITING_CONFIRMING_DELAY.into(), pending_confirming);
+
             RentOrder::<T>::insert(&rent_id, order_info);
-            PendingConfirming::<T>::remove(&rent_id);
 
             Self::deposit_event(Event::ConfirmReletBlockNum(renter, machine_id, rent_fee, rent_duration));
             Ok(().into())
@@ -579,18 +592,12 @@ impl<T: Config> Pallet<T> {
     fn check_machine_starting_status() {
         let now = <frame_system::Module<T>>::block_number();
 
-        let pending_confirming = Self::get_pending_confirming_order();
-        for (rent_id, renter) in pending_confirming {
+        let pending_confirming = Self::pending_confirming(now);
+        for rent_id in pending_confirming {
             let rent_order = Self::rent_order(&rent_id);
-            let machine_id = rent_order.machine_id.clone();
-            let duration = now.checked_sub(&rent_order.rent_start).unwrap_or_default();
 
-            if duration > WAITING_CONFIRMING_DELAY.into() {
-                // 超过了30个块，也就是15分钟
-                Self::clean_order(&renter, rent_id);
-                T::RTOps::change_machine_status_on_confirm_expired(&machine_id, rent_order.gpu_num);
-                continue;
-            }
+            Self::clean_order(&rent_order.renter, rent_id);
+            T::RTOps::change_machine_status_on_confirm_expired(&rent_order.machine_id, rent_order.gpu_num);
         }
     }
 
@@ -610,6 +617,10 @@ impl<T: Config> Pallet<T> {
         let mut pending_rent_ending = Self::pending_rent_ending(rent_order.rent_end);
         ItemList::rm_item(&mut pending_rent_ending, &rent_order_id);
 
+        let pending_confirming_deadline = rent_order.rent_start + WAITING_CONFIRMING_DELAY.into();
+        let mut pending_confirming = Self::pending_confirming(pending_confirming_deadline);
+        ItemList::rm_item(&mut pending_confirming, &rent_order_id);
+
         let mut machine_rent_order = Self::machine_rent_order(&rent_order.machine_id);
         machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index);
 
@@ -617,13 +628,7 @@ impl<T: Config> Pallet<T> {
         PendingRentEnding::<T>::insert(rent_order.rent_end, pending_rent_ending);
         RentOrder::<T>::remove(rent_order_id);
         UserRented::<T>::insert(who, rent_order_list);
-        PendingConfirming::<T>::remove(rent_order_id);
-    }
-
-    fn get_pending_confirming_order() -> BTreeSet<(RentOrderId, T::AccountId)> {
-        <PendingConfirming<T> as IterableStorageMap<RentOrderId, T::AccountId>>::iter()
-            .map(|(machine, acct)| (machine, acct))
-            .collect::<BTreeSet<_>>()
+        PendingConfirming::<T>::insert(pending_confirming_deadline, pending_confirming);
     }
 
     // - Write: UserTotalStake

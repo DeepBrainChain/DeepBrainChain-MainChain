@@ -403,7 +403,7 @@ fn rent_and_relet_by_minutes_works() {
             assert_eq!(RentMachine::pending_rent_ending(11 + 60), vec![0]);
 
             // PendingConfirming
-            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(0), true);
+            assert_eq!(<PendingConfirming<TestRuntime>>::contains_key(11 + 30), true);
         }
 
         // 检查订单被清理，检查David余额
@@ -549,7 +549,7 @@ fn rent_machine_by_gpu_works() {
             assert_eq!(RentMachine::user_rented(&*renter_dave), vec![0],);
 
             // 15 min之后需要确认租用
-            assert_eq!(RentMachine::pending_confirming(0), *renter_dave);
+            assert_eq!(RentMachine::pending_confirming(11 + 30), vec![0]);
 
             assert_eq!(RentMachine::pending_rent_ending(10 * 2880 + 11), vec![0]);
 
