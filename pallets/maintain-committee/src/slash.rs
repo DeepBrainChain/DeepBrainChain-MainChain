@@ -131,7 +131,12 @@ impl<T: Config> Pallet<T> {
             report_result_info.slash_result = MCSlashResult::Executed;
             ReportResult::<T>::insert(slashed_report_id, report_result_info);
         }
-        UnhandledReportResult::<T>::remove(now);
+
+        // NOTE: 检查之后再处理，速度上要快非常多
+        if UnhandledReportResult::<T>::contains_key(now) {
+            UnhandledReportResult::<T>::remove(now);
+        }
+
         Ok(())
     }
 
