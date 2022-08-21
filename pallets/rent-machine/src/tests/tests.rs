@@ -1,5 +1,6 @@
-use crate::{mock::*, Error, PendingConfirming, RentOrderDetail, BLOCK_PER_DAY};
-use crate::{MachineGPUOrder, RentOrderId};
+use crate::{
+    mock::*, Error, MachineGPUOrder, PendingConfirming, RentOrderDetail, RentOrderId, RentStatus, BLOCK_PER_DAY,
+};
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
 use online_profile::MachineStatus;
@@ -55,14 +56,14 @@ fn rent_machine_should_works() {
         assert_ok!(RentMachine::relet_machine(Origin::signed(*renter_dave), 0, 10));
         assert_eq!(
             RentMachine::rent_order(0),
-            super::RentOrderDetail {
+            RentOrderDetail {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
                 confirm_rent: 31,
                 rent_end: (10 + 10) * 2880 + 11,
                 stake_amount: 0,
-                rent_status: super::RentStatus::Renting,
+                rent_status: RentStatus::Renting,
                 gpu_num: 4,
                 gpu_index: vec![0, 1, 2, 3],
             }
@@ -290,13 +291,13 @@ fn rent_limit_should_works() {
         assert_eq!(RentMachine::user_total_stake(&*renter_dave), 1497250 * ONE_DBC);
         assert_eq!(
             RentMachine::rent_order(0),
-            super::RentOrderDetail {
+            RentOrderDetail {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
                 rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
                 confirm_rent: 0,
-                rent_status: super::RentStatus::WaitingVerifying,
+                rent_status: RentStatus::WaitingVerifying,
                 stake_amount: 1497250 * ONE_DBC,
                 gpu_num: 4,
                 gpu_index: vec![0, 1, 2, 3],
@@ -309,13 +310,13 @@ fn rent_limit_should_works() {
         assert_ok!(RentMachine::confirm_rent(Origin::signed(*renter_dave), 0));
         assert_eq!(
             RentMachine::rent_order(&0),
-            super::RentOrderDetail {
+            RentOrderDetail {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
                 rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
                 confirm_rent: 16,
-                rent_status: super::RentStatus::Renting,
+                rent_status: RentStatus::Renting,
                 stake_amount: 0 * ONE_DBC,
                 gpu_num: 4,
                 gpu_index: vec![0, 1, 2, 3],
@@ -326,13 +327,13 @@ fn rent_limit_should_works() {
         assert_ok!(RentMachine::relet_machine(Origin::signed(*renter_dave), 0, 1));
         assert_eq!(
             RentMachine::rent_order(&0),
-            super::RentOrderDetail {
+            RentOrderDetail {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
                 rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
                 confirm_rent: 16,
-                rent_status: super::RentStatus::Renting,
+                rent_status: RentStatus::Renting,
                 stake_amount: 0 * ONE_DBC,
                 gpu_num: 4,
                 gpu_index: vec![0, 1, 2, 3],
@@ -344,13 +345,13 @@ fn rent_limit_should_works() {
         assert_ok!(RentMachine::relet_machine(Origin::signed(*renter_dave), 0, 2));
         assert_eq!(
             RentMachine::rent_order(0),
-            super::RentOrderDetail {
+            RentOrderDetail {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
                 rent_end: 11 + BLOCK_PER_DAY as u64 * (60 + 1),
                 confirm_rent: 16,
-                rent_status: super::RentStatus::Renting,
+                rent_status: RentStatus::Renting,
                 stake_amount: 0 * ONE_DBC,
                 gpu_num: 4,
                 gpu_index: vec![0, 1, 2, 3],
@@ -533,14 +534,14 @@ fn rent_machine_by_gpu_works() {
         {
             assert_eq!(
                 RentMachine::rent_order(0),
-                super::RentOrderDetail {
+                RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: *renter_dave,
                     rent_start: 11,
                     confirm_rent: 0,
                     rent_end: 10 * 2880 + 11,
                     stake_amount: 62385416666666666666,
-                    rent_status: super::RentStatus::WaitingVerifying,
+                    rent_status: RentStatus::WaitingVerifying,
                     gpu_num: 1,
                     gpu_index: vec![0],
                 }
@@ -568,7 +569,6 @@ fn rent_machine_by_gpu_works() {
 }
 
 #[test]
-
 fn get_machine_price_works() {
     // TODO: 测试 get_machine_price
 }

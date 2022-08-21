@@ -1,19 +1,12 @@
 use super::super::mock::*;
+use crate::{MachineGPUOrder, PendingConfirming, RentOrder, RentOrderDetail, RentOrderId, RentStatus};
 use frame_support::assert_ok;
-use once_cell::sync::Lazy;
 use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
-use rent_machine::{MachineGPUOrder, PendingConfirming, RentOrderDetail, RentOrderId, RentStatus};
-
-// const controller: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Eve));
-// const committee1: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::One));
-// const committee2: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Two));
-// const committee3: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Ferdie));
-// const reporter: Lazy<sp_core::sr25519::Public> = committee2;
 
 #[test]
-fn report_indivudual_gpu() {
+fn report_individual_gpu() {
     // 一个机器被两个人进行租用，其中一个进行举报，举报成功，将另一个进行下架。
-    new_test_with_init_machine_online().execute_with(|| {
+    new_test_ext_after_machine_online().execute_with(|| {
         let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
 
@@ -29,10 +22,10 @@ fn report_indivudual_gpu() {
             //
 
             // DBC 价格：1 DBC = 12_000 / 10^6 USD
-            // 机器价格：59890 / 1000 * (150_000_000/10^6) USD = 8983.5
+            // 机器价格：59890 / 1000 * (50_000_000/10^6) USD = 2994.5
             // 每天需要租金： 机器价格/DBC价格
-            // 1000 point -> 150_000_000; 59890 -> 748625 DBC，因此两个GPU: 374312.5 DBC
-            assert_eq!(RentMachine::user_total_stake(renter1), 374312500000000000000);
+            // 1000 point -> 50_000_000; 59890 -> 748625 DBC，因此两个GPU: 374312.5 DBC
+            assert_eq!(RentMachine::user_total_stake(renter1), 12477083333333333333);
             assert_eq!(RentMachine::next_rent_id(), 1);
             assert_eq!(
                 RentMachine::rent_order(0),
@@ -42,7 +35,7 @@ fn report_indivudual_gpu() {
                     rent_start: 11,
                     confirm_rent: 0,
                     rent_end: 11 + 2880,
-                    stake_amount: 374312500000000000000,
+                    stake_amount: 12477083333333333333,
                     rent_status: RentStatus::WaitingVerifying,
                     gpu_num: 2,
                     gpu_index: vec![0, 1],
@@ -50,7 +43,7 @@ fn report_indivudual_gpu() {
             );
             assert_eq!(RentMachine::user_rented(&renter1), vec![0]);
             assert_eq!(RentMachine::pending_rent_ending(11 + 2880), vec![0]);
-            assert_eq!(RentMachine::pending_confirming(&0), renter1);
+            assert_eq!(RentMachine::pending_confirming(11 + 30), vec![0]);
             assert_eq!(
                 RentMachine::machine_rent_order(&machine_id),
                 MachineGPUOrder { rent_order: vec![0], used_gpu: vec![0, 1] }
@@ -71,7 +64,7 @@ fn report_indivudual_gpu() {
             // Balance: 支付10 DBC; UserTotalStake; NextRentId; RentOrder; UserRented;
             // PendingRentEnding; PendingConfirming; MachineRentOrder;
 
-            assert_eq!(RentMachine::user_total_stake(renter1), 374312500000000000000);
+            assert_eq!(RentMachine::user_total_stake(renter1), 12477083333333333333);
             assert_eq!(RentMachine::next_rent_id(), 2);
             assert_eq!(
                 RentMachine::rent_order(1),
@@ -81,7 +74,7 @@ fn report_indivudual_gpu() {
                     rent_start: 11,
                     confirm_rent: 0,
                     rent_end: 11 + 2880,
-                    stake_amount: 374312500000000000000,
+                    stake_amount: 12477083333333333333,
                     rent_status: RentStatus::WaitingVerifying,
                     gpu_num: 2,
                     gpu_index: vec![2, 3],
@@ -89,7 +82,7 @@ fn report_indivudual_gpu() {
             );
             assert_eq!(RentMachine::user_rented(&renter1), vec![0]);
             assert_eq!(RentMachine::pending_rent_ending(11 + 2880), vec![0, 1]);
-            assert_eq!(RentMachine::pending_confirming(&1), renter2);
+            assert_eq!(RentMachine::pending_confirming(11 + 30), vec![0, 1]);
             assert_eq!(
                 RentMachine::machine_rent_order(&machine_id),
                 MachineGPUOrder { rent_order: vec![0, 1], used_gpu: vec![0, 1, 2, 3] }
@@ -144,7 +137,7 @@ fn report_indivudual_gpu() {
                     total_staker: 1,
                     total_calc_points: 77881,
                     total_stake: 400000 * ONE_DBC,
-                    total_rent_fee: 374312500000000000000,
+                    total_rent_fee: 12477083333333333333,
                     ..Default::default()
                 }
             );
@@ -156,7 +149,7 @@ fn report_indivudual_gpu() {
                     total_calc_points: 77881,
                     total_gpu_num: 4,
                     total_rented_gpu: 4,
-                    total_rent_fee: 374312500000000000000,
+                    total_rent_fee: 12477083333333333333,
                     ..Default::default()
                 }
             );
@@ -204,7 +197,7 @@ fn report_indivudual_gpu() {
                     total_staker: 1,
                     total_calc_points: 77881,
                     total_stake: 400000 * ONE_DBC,
-                    total_rent_fee: 374312500000000000000 * 2,
+                    total_rent_fee: 12477083333333333333 * 2,
                     ..Default::default()
                 }
             );
@@ -217,7 +210,7 @@ fn report_indivudual_gpu() {
                     total_gpu_num: 4,
                     // NOTE: 这里应该记录为4
                     total_rented_gpu: 4,
-                    total_rent_fee: 374312500000000000000 * 2,
+                    total_rent_fee: 12477083333333333333 * 2,
                     ..Default::default()
                 }
             );
@@ -257,7 +250,7 @@ fn report_indivudual_gpu() {
                     total_staker: 1,
                     total_calc_points: 77881,
                     total_stake: 400000 * ONE_DBC,
-                    total_rent_fee: 374312500000000000000 * 3,
+                    total_rent_fee: 12477083333333333333 * 3,
                     ..Default::default()
                 }
             );
@@ -271,7 +264,7 @@ fn report_indivudual_gpu() {
                     total_gpu_num: 4,
                     // NOTE: 这里应该记录为4
                     total_rented_gpu: 4,
-                    total_rent_fee: 374312500000000000000 * 3,
+                    total_rent_fee: 12477083333333333333 * 3,
                     ..Default::default()
                 }
             );
@@ -305,18 +298,38 @@ fn report_indivudual_gpu() {
 
             let user_rented: Vec<RentOrderId> = vec![];
             assert_eq!(RentMachine::pending_rent_ending(12 + 2880), user_rented.clone());
-            assert!(!<rent_machine::RentOrder::<TestRuntime>>::contains_key(&1));
+            assert!(!<RentOrder::<TestRuntime>>::contains_key(&1));
             assert_eq!(RentMachine::user_rented(renter2), user_rented);
-            assert!(!<rent_machine::PendingConfirming::<TestRuntime>>::contains_key(&1));
-        }
-
-        // 再过了一天，租用人1到期
-        {
-            // TODO: 确保得分，等一些信息被还原
+            assert!(!<PendingConfirming::<TestRuntime>>::contains_key(&1));
         }
 
         // TODO: 租用人1进行举报
+
+        // 再过了一天，租用人1到期
+        run_to_block(12 + 2880 * 2);
+        {
+            // TODO: 确保得分，等一些信息被还原
+            // change_machine_status_on_rent_end
+            // MachinesInfo, LiveMachines, MachineRentedGPU
+            assert_eq!(OnlineProfile::machine_rented_gpu(&machine_id), 0);
+            let live_machines = OnlineProfile::live_machines();
+            assert!(live_machines.online_machine.binary_search(&machine_id).is_ok());
+            assert!(live_machines.rented_machine.binary_search(&machine_id).is_err());
+            let machine_info = OnlineProfile::machines_info(&machine_id);
+            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
+            assert_eq!(machine_info.total_rented_duration, 4320);
+            assert_eq!(machine_info.last_machine_renter, Some(renter1));
+
+            // clean_order
+            // -Write: MachineRentOrder, PendingRentEnding, RentOrder,
+            // UserRented, PendingConfirming
+            assert_eq!(RentMachine::machine_rent_order(&machine_id), MachineGPUOrder::default());
+
+            let user_rented: Vec<RentOrderId> = vec![];
+            assert_eq!(RentMachine::pending_rent_ending(12 + 2880), user_rented.clone());
+            assert!(!<RentOrder::<TestRuntime>>::contains_key(&1));
+            assert_eq!(RentMachine::user_rented(renter2), user_rented);
+            assert!(!<PendingConfirming::<TestRuntime>>::contains_key(&1));
+        }
     })
 }
-
-// TODO: 增加15min每确认租用，清理状态后正常
