@@ -12,7 +12,7 @@ codec = { package = "parity-scale-codec", version = "2.0.0", default-features = 
   "derive"
 ] }
 lite-json = { version = "0.1", default-features = false }
-online-profile-machine = { package = "online-profile-machine", path = "../../traits/online-profile-machine", default-features = false }
+dbc-support = { package = "dbc-support", path = "../support", default-features = false }
 serde = { version = "1.0.101", optional = true }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 

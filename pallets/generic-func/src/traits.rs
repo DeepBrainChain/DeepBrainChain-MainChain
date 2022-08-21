@@ -1,6 +1,6 @@
 use crate::{BalanceOf, Config, Pallet};
+use dbc_support::traits::GNOps;
 use frame_support::traits::{BalanceStatus, OnUnbalanced, ReservableCurrency};
-use online_profile_machine::GNOps;
 use sp_runtime::{
     traits::{CheckedSub, Zero},
     Perbill,

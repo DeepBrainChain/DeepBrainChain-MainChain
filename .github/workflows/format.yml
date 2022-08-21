@@ -21,7 +21,7 @@ jobs:
         uses: actions/setup-node@v1
         with:
           # 选择要使用的 node 版本
-          node-version: '14'
+          node-version: "14"
 
       - name: Format docs
         run: yarn global add prettier && prettier --write pallets
@@ -34,6 +34,6 @@ jobs:
           author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
           branch: format-doc
           delete-branch: true
-          title: '[Format doc] Auto format markdown doc'
+          title: "[Format doc] Auto format markdown doc"
           assignees: kaigedong
           reviewers: kaigedong

@@ -26,11 +26,10 @@ members = [
   'pallets/simple-rpc/rpc',
   'pallets/simple-rpc/rpc/runtime-api',
   'pallets/maintain-committee',
-  'traits/phase-reward',
-  'traits/online-profile-machine',
   'pallets/rent-machine',
   'pallets/rent-machine/rpc',
   'pallets/rent-machine/rpc/runtime-api',
+  'pallets/support',
 ]
 
 [profile.release]

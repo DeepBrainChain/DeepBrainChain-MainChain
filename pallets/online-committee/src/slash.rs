@@ -1,7 +1,7 @@
 use crate::{types::OCSlashResult, Config, OCBookResultType, Pallet, PendingSlash, PendingSlashReview, UnhandledSlash};
+use dbc_support::traits::{GNOps, OCOps};
 use frame_support::IterableStorageMap;
 use generic_func::{ItemList, SlashId};
-use online_profile_machine::{GNOps, OCOps};
 use sp_runtime::traits::Zero;
 use sp_std::{vec, vec::Vec};
 

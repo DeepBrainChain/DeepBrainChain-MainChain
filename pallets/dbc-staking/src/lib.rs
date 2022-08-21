@@ -330,7 +330,7 @@ use sp_std::{
 };
 pub use weights::WeightInfo;
 
-use phase_reward::PhaseReward;
+use dbc_support::traits::PhaseReward;
 
 const STAKING_ID: LockIdentifier = *b"staking ";
 pub const MAX_UNLOCKING_CHUNKS: usize = 32;

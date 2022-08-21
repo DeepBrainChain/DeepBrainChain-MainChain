@@ -10,6 +10,7 @@ mod mock;
 #[allow(non_upper_case_globals)]
 mod tests;
 
+use dbc_support::traits::{GNOps, ManageCommittee, OCOps};
 use frame_support::{
     ensure,
     pallet_prelude::*,
@@ -18,7 +19,6 @@ use frame_support::{
 use frame_system::{ensure_signed, pallet_prelude::*};
 use generic_func::{ItemList, MachineId, SlashId};
 use online_profile::CommitteeUploadInfo;
-use online_profile_machine::{GNOps, ManageCommittee, OCOps};
 use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;

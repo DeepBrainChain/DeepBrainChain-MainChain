@@ -11,13 +11,13 @@ mod mock;
 mod tests;
 
 use codec::alloc::string::ToString;
+use dbc_support::traits::{GNOps, MTOps, ManageCommittee};
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, OnUnbalanced, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
 use generic_func::{ItemList, MachineId};
-use online_profile_machine::{GNOps, MTOps, ManageCommittee};
 use rent_machine::RentOrderId;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{str, vec, vec::Vec};
@@ -185,7 +185,7 @@ pub mod pallet {
             let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // 支付
-            if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) = report_reason.clone() {
+            if let MachineFaultType::RentedInaccessible(_machine_id, rent_order_id) = report_reason.clone() {
                 // 检查是否是机器租用者
                 let rent_order = <rent_machine::Module<T>>::rent_order(&rent_order_id);
                 ensure!(rent_order.renter == reporter, Error::<T>::NotMachineRenter);

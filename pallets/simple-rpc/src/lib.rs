@@ -1,13 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::EncodeLike;
+use dbc_support::traits::OPRPCQuery;
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
 use online_profile::StashMachine;
-use online_profile_machine::OPRPCQuery;
 pub use pallet::*;
 use pallet_identity::Data;
 use sp_std::vec::Vec;

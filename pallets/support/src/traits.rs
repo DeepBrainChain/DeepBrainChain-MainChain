@@ -1,8 +1,14 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use sp_std::vec::Vec;
 
-// lease-committee_ops
+pub trait PhaseReward {
+    type Balance;
+
+    fn set_phase0_reward(balance: Self::Balance);
+    fn set_phase1_reward(balance: Self::Balance);
+    fn set_phase2_reward(balance: Self::Balance);
+}
+
+// online-committee_ops
 pub trait OCOps {
     type AccountId;
     type MachineId;

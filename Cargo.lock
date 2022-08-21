@@ -837,12 +837,12 @@ name = "committee"
 version = "0.1.0"
 dependencies = [
  "dbc-price-ocw",
+ "dbc-support",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "generic-func",
  "hex",
- "online-profile-machine",
  "pallet-balances",
  "pallet-collective",
  "parity-scale-codec",
@@ -1310,11 +1310,11 @@ dependencies = [
 name = "dbc-price-ocw"
 version = "0.1.0"
 dependencies = [
+ "dbc-support",
  "frame-support",
  "frame-system",
  "generic-func",
  "lite-json",
- "online-profile-machine",
  "parity-scale-codec",
  "serde",
  "serde_json",
@@ -1328,6 +1328,7 @@ dependencies = [
 name = "dbc-staking"
 version = "3.0.0"
 dependencies = [
+ "dbc-support",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -1339,7 +1340,6 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "parking_lot 0.11.1",
- "phase-reward",
  "rand_chacha 0.2.2",
  "serde",
  "sp-application-crypto",
@@ -1353,6 +1353,13 @@ dependencies = [
  "sp-tracing",
  "static_assertions",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "dbc-support"
+version = "0.1.0"
+dependencies = [
+ "sp-std",
 ]
 
 [[package]]
@@ -2149,9 +2156,9 @@ name = "generic-func"
 version = "0.1.0"
 dependencies = [
  "bs58",
+ "dbc-support",
  "frame-support",
  "frame-system",
- "online-profile-machine",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "serde",
@@ -3504,6 +3511,7 @@ version = "0.1.0"
 dependencies = [
  "committee",
  "dbc-price-ocw",
+ "dbc-support",
  "frame-support",
  "frame-system",
  "generic-func",
@@ -3511,7 +3519,6 @@ dependencies = [
  "once_cell",
  "online-committee",
  "online-profile",
- "online-profile-machine",
  "pallet-balances",
  "pallet-collective",
  "pallet-identity",
@@ -4353,13 +4360,13 @@ version = "0.1.0"
 dependencies = [
  "committee",
  "dbc-price-ocw",
+ "dbc-support",
  "frame-support",
  "frame-system",
  "generic-func",
  "hex",
  "once_cell",
  "online-profile",
- "online-profile-machine",
  "pallet-balances",
  "pallet-collective",
  "pallet-identity",
@@ -4412,10 +4419,10 @@ dependencies = [
  "bs58",
  "dbc-price-ocw",
  "dbc-staking",
+ "dbc-support",
  "frame-support",
  "frame-system",
  "generic-func",
- "online-profile-machine",
  "pallet-balances",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
@@ -4424,13 +4431,6 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "online-profile-machine"
-version = "0.1.0"
-dependencies = [
  "sp-std",
 ]
 
@@ -5535,10 +5535,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "phase-reward"
-version = "0.1.0"
-
-[[package]]
 name = "pin-project"
 version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6224,6 +6220,7 @@ version = "0.1.0"
 dependencies = [
  "committee",
  "dbc-price-ocw",
+ "dbc-support",
  "frame-support",
  "frame-system",
  "generic-func",
@@ -6231,7 +6228,6 @@ dependencies = [
  "once_cell",
  "online-committee",
  "online-profile",
- "online-profile-machine",
  "pallet-balances",
  "pallet-collective",
  "pallet-randomness-collective-flip",
@@ -7745,10 +7741,10 @@ dependencies = [
 name = "simple-rpc"
 version = "0.1.0"
 dependencies = [
+ "dbc-support",
  "frame-support",
  "frame-system",
  "online-profile",
- "online-profile-machine",
  "pallet-identity",
  "parity-scale-codec",
  "serde",

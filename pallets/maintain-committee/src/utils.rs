@@ -2,9 +2,9 @@ use crate::{
     types::{ReportId, ReporterStakeParamsInfo},
     BalanceOf, Config, Error, NextReportId, Pallet, ReporterStake, UnhandledReportResult,
 };
+use dbc_support::traits::ManageCommittee;
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
 use generic_func::ItemList;
-use online_profile_machine::ManageCommittee;
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::vec::Vec;

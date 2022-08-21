@@ -1,9 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // use alt_serde::{Deserialize, Deserializer};
+use dbc_support::traits::DbcPrice;
 use frame_support::traits::{Currency, Randomness, ReservableCurrency};
 use frame_system::offchain::SubmitTransaction;
-use online_profile_machine::DbcPrice;
 use sp_core::H256;
 use sp_runtime::{
     offchain::{http, Duration},

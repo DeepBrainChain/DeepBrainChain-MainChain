@@ -7,6 +7,7 @@ mod traits;
 mod types;
 mod utils;
 
+use dbc_support::traits::{DbcPrice, GNOps, ManageCommittee};
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
@@ -15,7 +16,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use generic_func::{ItemList, MachineId, SlashId};
-use online_profile_machine::{DbcPrice, GNOps, ManageCommittee};
 use sp_core::H256;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, Zero},

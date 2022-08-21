@@ -2,9 +2,9 @@ use crate::{
     types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachineRentedGPU, MachinesInfo,
     Pallet, PendingExecMaxOfflineSlash, RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
+use dbc_support::traits::{MTOps, OCOps, OPRPCQuery, RTOps};
 use frame_support::IterableStorageMap;
 use generic_func::{ItemList, MachineId};
-use online_profile_machine::{MTOps, OCOps, OPRPCQuery, RTOps};
 use sp_runtime::{
     traits::{CheckedMul, CheckedSub},
     Perbill, SaturatedConversion,

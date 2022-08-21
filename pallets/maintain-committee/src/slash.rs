@@ -3,9 +3,9 @@ use crate::{
     types::{MCSlashResult, ReportId, ReportResultType},
     Config, Pallet, PendingSlashReview, ReportResult, UnhandledReportResult,
 };
+use dbc_support::traits::{GNOps, MTOps};
 use frame_support::IterableStorageMap;
 use generic_func::ItemList;
-use online_profile_machine::{GNOps, MTOps};
 use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {

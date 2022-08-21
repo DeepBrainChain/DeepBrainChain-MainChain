@@ -1,9 +1,0 @@
-[package]
-name = "phase-reward"
-version = "0.1.0"
-authors = ["bobo <dongkaige@gmail.com>"]
-edition = "2018"
-
-[features]
-default = ['std']
-std = []

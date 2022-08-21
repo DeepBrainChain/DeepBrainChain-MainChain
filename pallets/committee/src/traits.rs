@@ -1,5 +1,5 @@
 use crate::{BalanceOf, CommitteeStake, Config, Pallet, ReportId};
-use online_profile_machine::ManageCommittee;
+use dbc_support::traits::ManageCommittee;
 use sp_std::vec::Vec;
 
 impl<T: Config> ManageCommittee for Pallet<T> {
