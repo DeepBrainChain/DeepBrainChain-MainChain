@@ -537,9 +537,7 @@ pub mod pallet {
             // 每卡质押按照第一次上线时计算
             let stake_need = machine_info
                 .init_stake_per_gpu
-                .checked_mul(
-                    &machine_info.machine_info_detail.committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>(),
-                )
+                .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
 
             // 当出现需要补交质押时
@@ -844,9 +842,7 @@ pub mod pallet {
 
             let stake_per_gpu = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
             let stake_need = stake_per_gpu
-                .checked_mul(
-                    &machine_info.machine_info_detail.committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>(),
-                )
+                .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
             ensure!(machine_info.stake_amount > stake_need, Error::<T>::NoStakeToReduce);
 
@@ -1059,10 +1055,10 @@ impl<T: Config> Pallet<T> {
         machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         is_online: bool,
     ) {
-        let longitude = &machine_info.machine_info_detail.staker_customize_info.longitude;
-        let latitude = &machine_info.machine_info_detail.staker_customize_info.latitude;
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
-        let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
+        let longitude = machine_info.longitude();
+        let latitude = machine_info.latitude();
+        let gpu_num = machine_info.gpu_num();
+        let calc_point = machine_info.calc_point();
 
         let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
 
@@ -1076,11 +1072,11 @@ impl<T: Config> Pallet<T> {
         machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         is_rented: bool,
     ) {
-        let longitude = &machine_info.machine_info_detail.staker_customize_info.longitude;
-        let latitude = &machine_info.machine_info_detail.staker_customize_info.latitude;
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
+        let longitude = machine_info.longitude();
+        let latitude = machine_info.latitude();
+        let gpu_num = machine_info.gpu_num();
 
-        let mut pos_gpu_info = Self::pos_gpu_info(longitude.clone(), latitude.clone());
+        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
         pos_gpu_info.is_rented(is_rented, gpu_num);
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
     }
@@ -1146,18 +1142,15 @@ impl<T: Config> Pallet<T> {
 
         next_era_stash_snap.change_machine_online_status(
             machine_info.machine_stash.clone(),
-            machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
-            machine_info.machine_info_detail.committee_upload_info.calc_point,
+            machine_info.gpu_num() as u64,
+            machine_info.calc_point(),
             is_online,
         );
 
         if is_online {
             next_era_machine_snap.insert(
                 machine_id.clone(),
-                MachineGradeStatus {
-                    basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
-                    is_rented: false,
-                },
+                MachineGradeStatus { basic_grade: machine_info.calc_point(), is_rented: false },
             );
 
             ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
@@ -1170,8 +1163,8 @@ impl<T: Config> Pallet<T> {
                 // 一天内再次下线会造成再次清空
                 current_era_stash_snap.change_machine_online_status(
                     machine_info.machine_stash.clone(),
-                    machine_info.machine_info_detail.committee_upload_info.gpu_num as u64,
-                    machine_info.machine_info_detail.committee_upload_info.calc_point,
+                    machine_info.gpu_num() as u64,
+                    machine_info.calc_point(),
                     is_online,
                 );
                 current_era_machine_snap.remove(&machine_id);
@@ -1241,39 +1234,29 @@ impl<T: Config> Pallet<T> {
 
         next_era_stash_snap.change_machine_rent_status(
             machine_info.machine_stash.clone(),
-            machine_info.machine_info_detail.committee_upload_info.calc_point,
+            machine_info.calc_point(),
             is_rented,
         );
-        next_era_machine_snap.insert(
-            machine_id.clone(),
-            MachineGradeStatus {
-                basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
-                is_rented,
-            },
-        );
+        next_era_machine_snap
+            .insert(machine_id.clone(), MachineGradeStatus { basic_grade: machine_info.calc_point(), is_rented });
 
         if !is_rented {
             if current_era_is_rented {
                 current_era_stash_snap.change_machine_rent_status(
                     machine_info.machine_stash.clone(),
-                    machine_info.machine_info_detail.committee_upload_info.calc_point,
+                    machine_info.calc_point(),
                     is_rented,
                 );
             }
 
-            current_era_machine_snap.insert(
-                machine_id,
-                MachineGradeStatus {
-                    basic_grade: machine_info.machine_info_detail.committee_upload_info.calc_point,
-                    is_rented,
-                },
-            );
+            current_era_machine_snap
+                .insert(machine_id, MachineGradeStatus { basic_grade: machine_info.calc_point(), is_rented });
         }
 
         // 被租用或者退租都影响下一Era记录，而退租直接影响当前得分
         ErasStashPoints::<T>::insert(current_era + 1, next_era_stash_snap);
         ErasMachinePoints::<T>::insert(current_era + 1, next_era_machine_snap);
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+        let gpu_num = machine_info.gpu_num() as u64;
         if !is_rented {
             ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
             ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);

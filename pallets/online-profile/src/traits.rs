@@ -290,7 +290,7 @@ impl<T: Config> RTOps for Pallet<T> {
         machine_rented_gpu = machine_rented_gpu.saturating_sub(rented_gpu_num);
 
         // 租用结束
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
+        let gpu_num = machine_info.gpu_num();
         if gpu_num == 0 {
             return;
         }

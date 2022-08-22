@@ -150,7 +150,7 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
             let machine_rented_gpu = <online_profile::Module<T>>::machine_rented_gpu(&machine_id);
-            let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
+            let gpu_num = machine_info.gpu_num();
             // 检查还有空闲的GPU
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
@@ -171,12 +171,8 @@ pub mod pallet {
 
             // 获得machine_price(每天的价格)
             // 根据租用GPU数量计算价格
-            let machine_price = T::RTOps::get_machine_price(
-                machine_info.machine_info_detail.committee_upload_info.calc_point,
-                rent_gpu_num,
-                gpu_num,
-            )
-            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let machine_price = T::RTOps::get_machine_price(machine_info.calc_point(), rent_gpu_num, gpu_num)
+                .ok_or(Error::<T>::GetMachinePriceFailed)?;
 
             // 根据租用时长计算rent_fee
             let rent_fee_value = machine_price
@@ -248,7 +244,7 @@ pub mod pallet {
             let machine_rented_gpu = <online_profile::Module<T>>::machine_rented_gpu(&machine_id);
 
             // 检查还有空闲的GPU
-            let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
+            let gpu_num = machine_info.gpu_num();
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
             // 检查machine_id状态是否可以租用
@@ -266,12 +262,8 @@ pub mod pallet {
 
             // 获得machine_price
             // 根据租用GPU数量计算价格
-            let machine_price = T::RTOps::get_machine_price(
-                machine_info.machine_info_detail.committee_upload_info.calc_point,
-                rent_gpu_num,
-                gpu_num,
-            )
-            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let machine_price = T::RTOps::get_machine_price(machine_info.calc_point(), rent_gpu_num, gpu_num)
+                .ok_or(Error::<T>::GetMachinePriceFailed)?;
 
             let rent_fee_value = machine_price.checked_mul(duration as u64).ok_or(Error::<T>::Overflow)?;
             let rent_fee =
@@ -388,7 +380,7 @@ pub mod pallet {
             ensure!(order_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-            let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
+            let calc_point = machine_info.calc_point();
 
             // 确保租用时间不超过设定的限制，计算最多续费租用到
             let now = <frame_system::Module<T>>::block_number();
@@ -406,12 +398,8 @@ pub mod pallet {
             }
 
             // 计算rent_fee
-            let machine_price = T::RTOps::get_machine_price(
-                calc_point,
-                gpu_num,
-                machine_info.machine_info_detail.committee_upload_info.gpu_num,
-            )
-            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let machine_price = T::RTOps::get_machine_price(calc_point, gpu_num, machine_info.gpu_num())
+                .ok_or(Error::<T>::GetMachinePriceFailed)?;
             let rent_fee_value = machine_price
                 .checked_mul(add_duration.saturated_into::<u64>())
                 .ok_or(Error::<T>::Overflow)?
@@ -459,7 +447,7 @@ pub mod pallet {
             ensure!(order_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-            let calc_point = machine_info.machine_info_detail.committee_upload_info.calc_point;
+            let calc_point = machine_info.calc_point();
 
             // 确保租用时间不超过设定的限制
             let now = <frame_system::Module<T>>::block_number();
@@ -479,12 +467,8 @@ pub mod pallet {
                 return Ok(().into());
             }
 
-            let machine_price = T::RTOps::get_machine_price(
-                calc_point,
-                order_info.gpu_num,
-                machine_info.machine_info_detail.committee_upload_info.gpu_num,
-            )
-            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let machine_price = T::RTOps::get_machine_price(calc_point, order_info.gpu_num, machine_info.gpu_num())
+                .ok_or(Error::<T>::GetMachinePriceFailed)?;
             let rent_fee_value = machine_price.checked_mul(add_duration as u64).ok_or(Error::<T>::Overflow)?;
             let rent_fee =
                 <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value).ok_or(Error::<T>::Overflow)?;

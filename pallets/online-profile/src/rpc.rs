@@ -33,8 +33,8 @@ impl<T: Config> Pallet<T> {
             let machine_info = Self::machines_info(a_machine);
             staker_machines.push(MachineBriefInfo {
                 machine_id: a_machine.to_vec(),
-                gpu_num: machine_info.machine_info_detail.committee_upload_info.gpu_num,
-                calc_point: machine_info.machine_info_detail.committee_upload_info.calc_point,
+                gpu_num: machine_info.gpu_num(),
+                calc_point: machine_info.calc_point(),
                 machine_status: machine_info.machine_status,
             })
         }

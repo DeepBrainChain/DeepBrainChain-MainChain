@@ -146,8 +146,13 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub reward_deadline: EraIndex,
 }
 
-impl<A: Ord + Default, B: Default, C: Copy + Default + Saturating> MachineInfo<A, B, C> {
-    pub fn new_bonding(controller: A, stash: A, now: B, init_stake_per_gpu: C) -> Self {
+impl<AccountId, BlockNumber, Balance> MachineInfo<AccountId, BlockNumber, Balance>
+where
+    AccountId: Ord + Default,
+    BlockNumber: Default,
+    Balance: Copy + Default + Saturating,
+{
+    pub fn new_bonding(controller: AccountId, stash: AccountId, now: BlockNumber, init_stake_per_gpu: Balance) -> Self {
         Self {
             controller,
             machine_stash: stash,
@@ -170,12 +175,32 @@ impl<A: Ord + Default, B: Default, C: Copy + Default + Saturating> MachineInfo<A
         )
     }
 
-    pub fn change_rent_fee(&mut self, amount: C, is_burn: bool) {
+    pub fn change_rent_fee(&mut self, amount: Balance, is_burn: bool) {
         if is_burn {
             self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
         } else {
             self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
         }
+    }
+
+    /// Return longitude of machine
+    pub fn longitude(&self) -> &Longitude {
+        &self.machine_info_detail.staker_customize_info.longitude
+    }
+
+    /// Return latitude of machine
+    pub fn latitude(&self) -> &Latitude {
+        &self.machine_info_detail.staker_customize_info.latitude
+    }
+
+    /// Return machine total gpu_num
+    pub fn gpu_num(&self) -> u32 {
+        self.machine_info_detail.committee_upload_info.gpu_num
+    }
+
+    /// Return `calc point` of machine
+    pub fn calc_point(&self) -> u64 {
+        self.machine_info_detail.committee_upload_info.calc_point
     }
 }
 
