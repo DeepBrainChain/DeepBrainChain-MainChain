@@ -404,13 +404,11 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
+        // FIXME: 奖励分配给slasl_info.committee
         // reward to reporter:
-        if reward_to_reporter > Zero::zero() && slash_info.reporter.is_some() {
-            let _ = Self::slash_and_reward(
-                slash_info.slash_who.clone(),
-                reward_to_reporter,
-                vec![slash_info.reporter.clone().unwrap()],
-            );
+        if reward_to_reporter > Zero::zero() && !slash_info.renters.is_empty() {
+            let _ =
+                Self::slash_and_reward(slash_info.slash_who.clone(), reward_to_reporter, slash_info.renters.clone());
         }
         // reward to committee
         if reward_to_committee > Zero::zero() && slash_info.reward_to_committee.is_some() {

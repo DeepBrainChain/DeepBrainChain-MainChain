@@ -192,7 +192,7 @@ fn controller_report_offline_when_rented_should_work() {
                 slash_amount: 8000 * ONE_DBC,
                 slash_exec_time: 21 + 2880 * 2,
                 reporter: None,
-                renters: vec![],
+                renters: vec![*renter_dave],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::RentedReportOffline(11)
             }
@@ -238,7 +238,7 @@ fn rented_report_offline_rented_end_report_online() {
                 slash_amount: 16000 * ONE_DBC,
                 slash_exec_time: 3001 + 2880 * 2,
                 reporter: None,
-                renters: vec![*renter_dave],
+                renters: vec![],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::RentedReportOffline(2881)
             }

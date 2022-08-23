@@ -1078,6 +1078,7 @@ impl<T: Config> Pallet<T> {
         let mut machine_info = Self::machines_info(&machine_id);
         let mut live_machine = Self::live_machines();
 
+        // 先根据机器当前状态，之后再变更成下线状态
         if let MachineStatus::Rented = machine_info.machine_status {
             Self::change_pos_info_by_rent(&machine_info, false);
             Self::update_snap_by_rent_status(machine_id.clone(), false);

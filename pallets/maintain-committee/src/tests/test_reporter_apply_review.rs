@@ -61,6 +61,7 @@ fn apply_slash_review_case1() {
         let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let committee = sr25519::Public::from(Sr25519Keyring::One).into();
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
 
         let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
         // 10万为质押，20000为委员会
@@ -90,7 +91,7 @@ fn apply_slash_review_case1() {
                     slash_amount: 16000 * ONE_DBC, // 掉线13个块，惩罚4%: 400000 * 4% = 16000
                     slash_exec_time: 24 + 2880 * 2,
                     reporter: None, // 这种不奖励验证人
-                    renters: vec![],
+                    renters: vec![reporter],
                     reward_to_committee: Some(vec![committee]),
                     slash_reason: online_profile::OPSlashReason::RentedInaccessible(11),
                     ..Default::default()
