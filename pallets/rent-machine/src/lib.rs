@@ -349,7 +349,7 @@ pub mod pallet {
             order_info.confirm_rent(now);
 
             // 改变online_profile状态
-            T::RTOps::change_machine_status_on_confirmed(&machine_id);
+            T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone());
 
             let mut pending_confirming =
                 Self::pending_confirming(order_info.rent_start + WAITING_CONFIRMING_DELAY.into());

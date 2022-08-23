@@ -183,6 +183,7 @@ fn report_individual_gpu() {
             // EraStashPoints, ErasMachinePoints, SysInfo, StashMachines
 
             let machine_info = OnlineProfile::machines_info(&machine_id);
+            assert_eq!(machine_info.renters, vec![renter2, renter1]);
             assert_eq!(OnlineProfile::eras_stash_points(1), EraStashPoints { ..Default::default() });
             assert_eq!(
                 OnlineProfile::live_machines(),
@@ -286,7 +287,7 @@ fn report_individual_gpu() {
             let machine_info = OnlineProfile::machines_info(&machine_id);
             assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
             assert_eq!(machine_info.total_rented_duration, 1440);
-            assert_eq!(machine_info.renters, vec![renter2]);
+            assert_eq!(machine_info.renters, vec![renter1]);
 
             // clean_order
             // -Write: MachineRentOrder, PendingRentEnding, RentOrder,
@@ -318,7 +319,7 @@ fn report_individual_gpu() {
             let machine_info = OnlineProfile::machines_info(&machine_id);
             assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
             assert_eq!(machine_info.total_rented_duration, 4320);
-            assert_eq!(machine_info.renters, vec![renter1]);
+            assert_eq!(machine_info.renters, vec![]);
 
             // clean_order
             // -Write: MachineRentOrder, PendingRentEnding, RentOrder,

@@ -1,7 +1,7 @@
 use crate::{
     types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachineRentedGPU, MachinesInfo,
-    Pallet, PendingMaxOfflineSlash, PendingExecSlash, PendingSlash, RentedFinished, StashMachines, StashStake,
-    SysInfo, UserMutHardwareStake,
+    Pallet, PendingExecSlash, PendingMaxOfflineSlash, PendingSlash, RentedFinished, StashMachines, StashStake, SysInfo,
+    UserMutHardwareStake,
 };
 use dbc_support::traits::{MTOps, OCOps, OPRPCQuery, RTOps};
 use frame_support::IterableStorageMap;
@@ -10,7 +10,7 @@ use sp_runtime::{
     traits::{CheckedMul, CheckedSub},
     Perbill, SaturatedConversion,
 };
-use sp_std::{prelude::Box, vec,vec::{Vec, }};
+use sp_std::{prelude::Box, vec, vec::Vec};
 
 /// 审查委员会可以执行的操作
 impl<T: Config> OCOps for Pallet<T> {
@@ -266,9 +266,11 @@ impl<T: Config> RTOps for Pallet<T> {
     }
 
     // 在confirm_rent中使用
-    fn change_machine_status_on_confirmed(machine_id: &MachineId) {
+    fn change_machine_status_on_confirmed(machine_id: &MachineId, renter: Self::AccountId) {
         let mut machine_info = Self::machines_info(machine_id);
         let mut live_machines = Self::live_machines();
+
+        ItemList::add_item(&mut machine_info.renters, renter);
 
         // 机器创建成功
         machine_info.total_rented_times += 1;
@@ -306,7 +308,7 @@ impl<T: Config> RTOps for Pallet<T> {
         }
         machine_info.total_rented_duration +=
             Perbill::from_rational_approximation(rented_gpu_num, gpu_num) * rent_duration;
-        ItemList::add_item(&mut machine_info.renters, renter.clone());
+        ItemList::rm_item(&mut machine_info.renters, &renter);
 
         match machine_info.machine_status {
             MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) => {

@@ -1,6 +1,6 @@
 use crate::{
     types::{MachineStatus, OPPendingSlashInfo, OPSlashReason, TWO_DAY},
-    BalanceOf, Config, Event, NextSlashId, Pallet, PendingMaxOfflineSlash, PendingExecSlash, PendingSlash,
+    BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecSlash, PendingMaxOfflineSlash, PendingSlash,
     PendingSlashReview, PendingSlashReviewChecking, StashStake, SysInfo,
 };
 use dbc_support::traits::GNOps;
@@ -166,7 +166,6 @@ impl<T: Config> Pallet<T> {
 
             PendingMaxOfflineSlash::<T>::remove(now, machine_id);
         }
-
     }
 
     // 当机器主动下线/被举报下线时，返回一个待执行的惩罚信息
@@ -182,7 +181,7 @@ impl<T: Config> Pallet<T> {
         match slash_reason {
             // 算工主动报告被租用的机器，主动下线
             OPSlashReason::RentedReportOffline(_) => {
-                Self::new_slash_rented_report_offline(machine_id, reporter, renters,duration, slash_reason)
+                Self::new_slash_rented_report_offline(machine_id, reporter, renters, duration, slash_reason)
             },
             // 算工主动报告在线的机器，主动下线
             OPSlashReason::OnlineReportOffline(_) => {
@@ -190,19 +189,29 @@ impl<T: Config> Pallet<T> {
             },
             // 机器处于租用状态，无法访问，这种情况下，reporter == renter
             OPSlashReason::RentedInaccessible(_) => {
-                Self::new_slash_rented_inaccessible(machine_id, duration, slash_reason, reporter, renters,committee)
+                Self::new_slash_rented_inaccessible(machine_id, duration, slash_reason, reporter, renters, committee)
             },
             // 机器处于租用状态，机器出现故障
-            OPSlashReason::RentedHardwareMalfunction(_) => {
-                Self::new_slash_rented_hardware_mulfunction(machine_id, duration, slash_reason, reporter, renters, committee)
-            },
+            OPSlashReason::RentedHardwareMalfunction(_) => Self::new_slash_rented_hardware_mulfunction(
+                machine_id,
+                duration,
+                slash_reason,
+                reporter,
+                renters,
+                committee,
+            ),
             // 机器处于租用状态，机器硬件造假
-            OPSlashReason::RentedHardwareCounterfeit(_) => {
-                Self::new_slash_rented_hardware_counterfeit(machine_id, duration, slash_reason, reporter, renters,committee)
-            },
+            OPSlashReason::RentedHardwareCounterfeit(_) => Self::new_slash_rented_hardware_counterfeit(
+                machine_id,
+                duration,
+                slash_reason,
+                reporter,
+                renters,
+                committee,
+            ),
             // 机器在线，被举报无法租用
             OPSlashReason::OnlineRentFailed(_) => {
-                Self::new_slash_online_rent_failed(machine_id, duration, slash_reason, reporter, renters,committee)
+                Self::new_slash_online_rent_failed(machine_id, duration, slash_reason, reporter, renters, committee)
             },
             _ => OPPendingSlashInfo::default(),
         }
@@ -210,7 +219,7 @@ impl<T: Config> Pallet<T> {
 
     fn new_slash_rented_report_offline(
         machine_id: MachineId,
-        reporter: Option< T::AccountId>,
+        reporter: Option<T::AccountId>,
         renters: Vec<T::AccountId>,
         duration: T::BlockNumber,
         slash_reason: OPSlashReason<T::BlockNumber>,
@@ -219,15 +228,13 @@ impl<T: Config> Pallet<T> {
         match duration {
             0 => OPPendingSlashInfo::default(),
             // 下线不超过7分钟, 扣除2%质押币。100%进入国库。
-            1..=14 => Self::new_offline_slash(2, machine_id, None,renters ,None, slash_reason),
+            1..=14 => Self::new_offline_slash(2, machine_id, None, renters, None, slash_reason),
             // 不超过48小时, 扣除4%质押币。100%进入国库
-            15..=5760 => Self::new_offline_slash(4, machine_id, None, renters,None, slash_reason),
+            15..=5760 => Self::new_offline_slash(4, machine_id, None, renters, None, slash_reason),
             // 不超过120小时, 扣除30%质押币，10%给到用户，90%进入国库
-            5761..=14400 => {
-                Self::new_offline_slash(30, machine_id, reporter ,renters, None, slash_reason)
-            },
+            5761..=14400 => Self::new_offline_slash(30, machine_id, reporter, renters, None, slash_reason),
             // 超过120小时, 扣除50%押金。10%给到用户，90%进入国库
-            _ => Self::new_offline_slash(50, machine_id, reporter ,renters, None, slash_reason),
+            _ => Self::new_offline_slash(50, machine_id, reporter, renters, None, slash_reason),
         }
     }
 
@@ -248,14 +255,14 @@ impl<T: Config> Pallet<T> {
         match duration {
             0 => OPPendingSlashInfo::default(),
             // 下线不超过7分钟, 扣除2%质押币，质押币全部进入国库。
-            1..=14 => Self::new_offline_slash(2, machine_id, None,vec![],None, slash_reason),
+            1..=14 => Self::new_offline_slash(2, machine_id, None, vec![], None, slash_reason),
             // 下线不超过48小时, 扣除4%质押币，质押币全部进入国库
-            15..=5760 => Self::new_offline_slash(4, machine_id, None,vec![] ,None, slash_reason),
+            15..=5760 => Self::new_offline_slash(4, machine_id, None, vec![], None, slash_reason),
             // 不超过240小时, 扣除30%质押币，质押币全部进入国库
-            5761..=28800 => Self::new_offline_slash(30, machine_id, None,vec![] , None, slash_reason),
+            5761..=28800 => Self::new_offline_slash(30, machine_id, None, vec![], None, slash_reason),
             // TODO: 如果机器从首次上线时间起超过365天，剩下20%押金可以申请退回。
             // 扣除80%质押币。质押币全部进入国库。
-            _ => Self::new_offline_slash(80, machine_id, None,vec![] ,None, slash_reason),
+            _ => Self::new_offline_slash(80, machine_id, None, vec![], None, slash_reason),
         }
     }
 
@@ -271,13 +278,13 @@ impl<T: Config> Pallet<T> {
         match duration {
             0 => OPPendingSlashInfo::default(),
             // 不超过7分钟, 扣除4%质押币。10%给验证人，90%进入国库
-            1..=14 => Self::new_offline_slash(4, machine_id, None,renters ,committee, slash_reason),
+            1..=14 => Self::new_offline_slash(4, machine_id, None, renters, committee, slash_reason),
             // 不超过48小时, 扣除8%质押币。10%给验证人，90%进入国库
-            15..=5760 => Self::new_offline_slash(8, machine_id, None,renters ,committee, slash_reason),
+            15..=5760 => Self::new_offline_slash(8, machine_id, None, renters, committee, slash_reason),
             // 不超过120小时, 扣除60%质押币。10%给到用户，20%给到验证人，70%进入国库
-            5761..=14400 => Self::new_offline_slash(60, machine_id, reporter,renters ,committee, slash_reason),
+            5761..=14400 => Self::new_offline_slash(60, machine_id, reporter, renters, committee, slash_reason),
             // 超过120小时, 扣除100%押金。10%给到用户，20%给到验证人，70%进入国库
-            _ => Self::new_offline_slash(100, machine_id, reporter,renters ,committee, slash_reason),
+            _ => Self::new_offline_slash(100, machine_id, reporter, renters, committee, slash_reason),
         }
     }
 
@@ -293,15 +300,15 @@ impl<T: Config> Pallet<T> {
         match duration {
             0 => OPPendingSlashInfo::default(),
             //不超过4小时, 扣除6%质押币。10%给到用户，20%给到验证人，70%进入国库
-            1..=480 => Self::new_offline_slash(6, machine_id, reporter,renters ,committee, slash_reason),
+            1..=480 => Self::new_offline_slash(6, machine_id, reporter, renters, committee, slash_reason),
             // 不超过24小时, 扣除12%质押币。10%给到用户，20%给到验证人，70%进入国库
-            481..=2880 => Self::new_offline_slash(12, machine_id, reporter,renters ,committee, slash_reason),
+            481..=2880 => Self::new_offline_slash(12, machine_id, reporter, renters, committee, slash_reason),
             // 不超过48小时, 扣除16%质押币。10%给到用户，20%给到验证人，70%进入国库
-            2881..=5760 => Self::new_offline_slash(16, machine_id, reporter,renters ,committee, slash_reason),
+            2881..=5760 => Self::new_offline_slash(16, machine_id, reporter, renters, committee, slash_reason),
             // 不超过120小时, 扣除60%质押币。10%给到用户，20%给到验证人，70%进入国库
-            5761..=14400 => Self::new_offline_slash(60, machine_id, reporter, renters,committee, slash_reason),
+            5761..=14400 => Self::new_offline_slash(60, machine_id, reporter, renters, committee, slash_reason),
             // 扣除100%押金，10%给到用户，20%给到验证人，70%进入国库
-            _ => Self::new_offline_slash(100, machine_id, reporter,renters ,committee, slash_reason),
+            _ => Self::new_offline_slash(100, machine_id, reporter, renters, committee, slash_reason),
         }
     }
 
@@ -317,15 +324,15 @@ impl<T: Config> Pallet<T> {
         match duration {
             0 => OPPendingSlashInfo::default(),
             // 下线不超过4小时, 扣除12%质押币。10%给到用户，20%给到验证人，70%进入国库
-            1..=480 => Self::new_offline_slash(12, machine_id, reporter, renters,committee, slash_reason),
+            1..=480 => Self::new_offline_slash(12, machine_id, reporter, renters, committee, slash_reason),
             // 不超过24小时, 扣除24%质押币。10%给到用户，20%给到验证人，70%进入国库
-            481..=2880 => Self::new_offline_slash(24, machine_id, reporter,renters ,committee, slash_reason),
+            481..=2880 => Self::new_offline_slash(24, machine_id, reporter, renters, committee, slash_reason),
             // 不超过48小时, 扣除32%质押币。10%给到用户，20%给到验证人，70%进入国库
-            2881..=5760 => Self::new_offline_slash(32, machine_id, reporter,renters ,committee, slash_reason),
+            2881..=5760 => Self::new_offline_slash(32, machine_id, reporter, renters, committee, slash_reason),
             // 不超过120小时, 扣除60%质押币。10%给到用户，20%给到验证人，70%进入国库
-            5761..=14400 => Self::new_offline_slash(60, machine_id, reporter, renters,committee, slash_reason),
+            5761..=14400 => Self::new_offline_slash(60, machine_id, reporter, renters, committee, slash_reason),
             // 扣除100%押金，10%给到用户，20%给到验证人，70%进入国库
-            _ => Self::new_offline_slash(100, machine_id, reporter, renters,committee, slash_reason),
+            _ => Self::new_offline_slash(100, machine_id, reporter, renters, committee, slash_reason),
         }
     }
 
@@ -341,15 +348,15 @@ impl<T: Config> Pallet<T> {
         match duration {
             0 => OPPendingSlashInfo::default(),
             // 扣除6%质押币。10%给到用户，20%给到验证人，70%进入国库
-            1..=480 => Self::new_offline_slash(6, machine_id, reporter, renters,committee, slash_reason),
+            1..=480 => Self::new_offline_slash(6, machine_id, reporter, renters, committee, slash_reason),
             // 扣除12%质押币。10%给到用户，20%给到验证人，70%进入国库
-            481..=2880 => Self::new_offline_slash(12, machine_id, reporter, renters,committee, slash_reason),
+            481..=2880 => Self::new_offline_slash(12, machine_id, reporter, renters, committee, slash_reason),
             // 扣除16%质押币。10%给到用户，20%给到验证人，70%进入国库
-            2881..=5760 => Self::new_offline_slash(16, machine_id, reporter, renters,committee, slash_reason),
+            2881..=5760 => Self::new_offline_slash(16, machine_id, reporter, renters, committee, slash_reason),
             // 扣除60%质押币。10%给到用户，20%给到验证人，70%进入国库
-            5761..=14400 => Self::new_offline_slash(60, machine_id, reporter,renters ,committee, slash_reason),
+            5761..=14400 => Self::new_offline_slash(60, machine_id, reporter, renters, committee, slash_reason),
             // 扣除100%押金，10%给到用户，20%给到验证人，70%进入国库
-            _ => Self::new_offline_slash(100, machine_id, reporter, renters,committee, slash_reason),
+            _ => Self::new_offline_slash(100, machine_id, reporter, renters, committee, slash_reason),
         }
     }
 

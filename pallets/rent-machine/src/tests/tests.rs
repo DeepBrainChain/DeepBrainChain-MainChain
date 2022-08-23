@@ -238,7 +238,7 @@ fn rented_report_offline_rented_end_report_online() {
                 slash_amount: 16000 * ONE_DBC,
                 slash_exec_time: 3001 + 2880 * 2,
                 reporter: None,
-                renters: vec![],
+                renters: vec![*renter_dave],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::RentedReportOffline(2881)
             }

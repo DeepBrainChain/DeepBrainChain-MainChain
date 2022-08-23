@@ -29,7 +29,8 @@ fn test_staker_report_offline() {
                 slash_time: 21,
                 slash_amount: 8000 * ONE_DBC,
                 slash_exec_time: 21 + 2880 * 2,
-                reward_to_reporter: None,
+                reporter: None,
+                renters: vec![],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::OnlineReportOffline(13),
             }
@@ -85,7 +86,8 @@ fn test_staker_report_offline2() {
                 slash_time: 51,
                 slash_amount: 8000 * 2 * ONE_DBC,
                 slash_exec_time: 51 + 2880 * 2,
-                reward_to_reporter: None,
+                reporter: None,
+                renters: vec![],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::OnlineReportOffline(13),
             }
@@ -141,7 +143,8 @@ fn test_staker_report_offline3() {
                 slash_time: 51 + 2880 * 2,
                 slash_amount: 8000 * 15 * ONE_DBC,
                 slash_exec_time: 51 + 2880 * 2 + 2880 * 2,
-                reward_to_reporter: None,
+                reporter: None,
+                renters: vec![],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::OnlineReportOffline(13),
             }
@@ -186,7 +189,7 @@ fn test_staker_report_offline4() {
 
         assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(*controller), machine_id.clone()));
 
-        assert_eq!(OnlineProfile::pending_exec_max_offline_slash(13 + 2880 * 10), vec![machine_id.clone()]);
+        assert_eq!(OnlineProfile::pending_max_offline_slash(13 + 2880 * 10, machine_id.clone()), (None, vec![]));
 
         run_to_block(50 + 2880 * 10);
         assert_eq!(OnlineProfile::pending_exec_slash(13 + 2880 * (10 + 2)), vec![0]);
@@ -208,7 +211,8 @@ fn test_staker_report_offline4() {
                 slash_time: 13 + 2880 * 10,
                 slash_amount: 8000 * 40 * ONE_DBC,
                 slash_exec_time: 13 + 2880 * 10 + 2880 * 2,
-                reward_to_reporter: None,
+                reporter: None,
+                renters: vec![],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::OnlineReportOffline(13),
             }

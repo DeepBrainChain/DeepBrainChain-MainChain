@@ -89,7 +89,8 @@ fn apply_slash_review_case1() {
                     slash_time: 24,
                     slash_amount: 16000 * ONE_DBC, // 掉线13个块，惩罚4%: 400000 * 4% = 16000
                     slash_exec_time: 24 + 2880 * 2,
-                    reward_to_reporter: None, // 这种不奖励验证人
+                    reporter: None, // 这种不奖励验证人
+                    renters: vec![],
                     reward_to_committee: Some(vec![committee]),
                     slash_reason: online_profile::OPSlashReason::RentedInaccessible(11),
                     ..Default::default()

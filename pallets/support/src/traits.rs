@@ -34,7 +34,7 @@ pub trait RTOps {
     fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64>;
 
     fn change_machine_status_on_rent_start(machine_id: &Self::MachineId, gpu_num: u32);
-    fn change_machine_status_on_confirmed(machine_id: &Self::MachineId);
+    fn change_machine_status_on_confirmed(machine_id: &Self::MachineId, renter: Self::AccountId);
     fn change_machine_status_on_rent_end(
         machine_id: &Self::MachineId,
         gpu_num: u32,
