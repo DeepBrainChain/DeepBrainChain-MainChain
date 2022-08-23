@@ -112,7 +112,7 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     /// Who own this machine and will get machine's reward
     pub machine_stash: AccountId,
     /// Last machine renter
-    pub last_machine_renter: Option<AccountId>,
+    pub renters: Vec<AccountId>,
     /// Every 365 days machine can restake(For token price maybe changed)
     pub last_machine_restake: BlockNumber,
     /// When controller bond this machine
@@ -480,7 +480,9 @@ pub struct OPPendingSlashInfo<AccountId, BlockNumber, Balance> {
     /// When slash will be exec
     pub slash_exec_time: BlockNumber,
     /// If reporter is some, will be rewarded when slash is executed
-    pub reward_to_reporter: Option<AccountId>,
+    pub reporter: Option<AccountId>,
+    /// 机器当前的租用人
+    pub renters: Vec<AccountId>,
     /// If committee is some, will be rewarded when slash is executed
     pub reward_to_committee: Option<Vec<AccountId>>,
     /// Why one is slashed

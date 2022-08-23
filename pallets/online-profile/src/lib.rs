@@ -244,11 +244,25 @@ pub mod pallet {
     pub(super) type PendingExecSlash<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<SlashId>, ValueQuery>;
 
-    // 记录机器下线超过最大值(5,10天)后，需要立即执行的惩罚
+    // // 记录机器下线超过最大值(5,10天)后，需要立即执行的惩罚
+    // #[pallet::storage]
+    // #[pallet::getter(fn pending_exec_max_offline_slash)]
+    // pub(super) type PendingExecMaxOfflineSlash<T: Config> =
+    //     StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<MachineId>, ValueQuery>;
+
+    // 机器主动下线后，记录机器下线超过最大值{5,10天}后，需要立即执行的惩罚
     #[pallet::storage]
-    #[pallet::getter(fn pending_exec_max_offline_slash)]
-    pub(super) type PendingExecMaxOfflineSlash<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<MachineId>, ValueQuery>;
+    #[pallet::getter(fn pending_max_offline_slash)]
+    pub(super) type PendingMaxOfflineSlash<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::BlockNumber,
+        Blake2_128Concat,
+        MachineId,
+        // 记录机器举报人，当前租用人
+        (Option<T::AccountId>, Vec<T::AccountId>),
+        ValueQuery,
+    >;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -267,8 +281,21 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> Weight {
-            // TODO: 对于所有的machine_info: creating -> online，因为creating状态被弃用
-            // TODO: 对于所有的machine_info: total_rent_duration 单位从天 -> BlockNumber
+            // TODO 1: 对于所有的machine_info: creating -> online，因为creating状态被弃用
+            // TODO 2: 对于所有的machine_info: total_rent_duration 单位从天 -> BlockNumber
+            //
+            // TODO 3: 对于所有的machine_info.last_machine_renter: Option<AccountId> ->
+            // machine_info.renters: Vec<AccountId>,
+            //
+            // TODO 4: 如果机器主动下线/因举报下线之后，几个租用订单陆续到期，则机器主动上线
+            // 要根据几个订单的状态来判断机器是否是在线/租用状态
+            // 需要在rentMachine中提供一个查询接口
+            //
+            // TODO 5: OPPendingSlashInfo 新增： current_renter: Vec<AccountId字段>
+            // OPPendingSlashInfo.reward_to_reporter -> OPPendingSlashInfo.reporter
+            //
+            // TODO 6: PendingExecMaxOfflineSlash(T::blocknum -> Vec<machineId>) -> PendingMaxOfflineSlash
+            // ((T::Blocknum, machine_id) -> Vec<renter>)
 
             0
         }
@@ -562,6 +589,7 @@ pub mod pallet {
                         machine_id.clone(),
                         OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
                         None,
+                        vec![],
                         None,
                         offline_duration,
                     );
@@ -646,15 +674,13 @@ pub mod pallet {
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             };
 
-            // When Online -> Offline, after 10 days, reach max slash amount;
-            // Rented -> Offline, after 5 days reach max slash amount
-            let mut pending_exec_slash = Self::pending_exec_max_offline_slash(
+            // NOTE: 当机器是被租用状态时，记录机器的租用人，
+            // 惩罚执行时，租用人都能获得赔偿
+            // let nobody: Option<T::AccountId> = None;
+            PendingMaxOfflineSlash::<T>::insert(
                 now + max_slash_offline_threshold.saturated_into::<T::BlockNumber>(),
-            );
-            ItemList::add_item(&mut pending_exec_slash, machine_id.clone());
-            PendingExecMaxOfflineSlash::<T>::insert(
-                now + max_slash_offline_threshold.saturated_into::<T::BlockNumber>(),
-                pending_exec_slash,
+                &machine_id,
+                (None::<T::AccountId>, machine_info.renters),
             );
 
             Self::machine_offline(
@@ -712,6 +738,7 @@ pub mod pallet {
                                 machine_id.clone(),
                                 OPSlashReason::OnlineReportOffline(offline_time),
                                 None,
+                                vec![],
                                 None,
                                 offline_duration,
                             );
@@ -726,6 +753,7 @@ pub mod pallet {
                                 machine_id.clone(),
                                 OPSlashReason::RentedReportOffline(offline_time),
                                 None,
+                                machine_info.renters.clone(),
                                 None,
                                 offline_duration,
                             );
@@ -743,6 +771,7 @@ pub mod pallet {
                         machine_id.clone(),
                         slash_reason,
                         Some(reporter),
+                        machine_info.renters.clone(),
                         Some(committee),
                         offline_duration,
                     );
@@ -770,9 +799,7 @@ pub mod pallet {
 
                     let slash_id = Self::get_new_slash_id();
 
-                    let mut pending_exec_max_slash = Self::pending_exec_max_offline_slash(max_slash_offline_threshold);
-                    ItemList::rm_item(&mut pending_exec_max_slash, &machine_id);
-                    PendingExecMaxOfflineSlash::<T>::insert(max_slash_offline_threshold, pending_exec_max_slash);
+                    PendingMaxOfflineSlash::<T>::remove(max_slash_offline_threshold, &machine_id);
 
                     let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
                     ItemList::add_item(&mut pending_exec_slash, slash_id);
@@ -984,6 +1011,12 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn get_pending_max_slash(
+        time: T::BlockNumber,
+    ) -> BTreeMap<MachineId, (Option<T::AccountId>, Vec<T::AccountId>)> {
+        PendingMaxOfflineSlash::<T>::iter_prefix(time).collect()
+    }
+
     pub fn check_bonding_msg(
         stash: T::AccountId,
         machine_id: MachineId,
@@ -1006,11 +1039,11 @@ impl<T: Config> Pallet<T> {
 
     // 机器第一次上线时，因质押不足，需要补充质押
     fn fulfill_on_first_online() -> DispatchResultWithPostInfo {
-        Ok(())
+        Ok(().into())
     }
 
     fn fulfill_on_mut_hardware() -> DispatchResultWithPostInfo {
-        Ok(())
+        Ok(().into())
     }
 
     pub fn do_cancel_slash(slash_id: u64) -> DispatchResultWithPostInfo {

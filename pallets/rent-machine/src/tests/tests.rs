@@ -110,7 +110,8 @@ fn controller_report_offline_when_online_should_work() {
                 slash_time: 21,
                 slash_amount: 8000 * ONE_DBC,
                 slash_exec_time: 21 + 2880 * 2,
-                reward_to_reporter: None,
+                reporter: None,
+                renters: vec![],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::OnlineReportOffline(11)
             }
@@ -144,7 +145,7 @@ fn rent_machine_confirm_expired_should_work() {
 
         {
             // 机器状态
-            machine_info1.last_machine_renter = None;
+            machine_info1.renters = vec![];
             machine_info1.machine_status = MachineStatus::Online;
             let machine_info2 = OnlineProfile::machines_info(&*machine_id);
             assert_eq!(&machine_info1, &machine_info2);
@@ -190,7 +191,8 @@ fn controller_report_offline_when_rented_should_work() {
                 slash_time: 21,
                 slash_amount: 8000 * ONE_DBC,
                 slash_exec_time: 21 + 2880 * 2,
-                reward_to_reporter: None,
+                reporter: None,
+                renters: vec![],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::RentedReportOffline(11)
             }
@@ -235,7 +237,8 @@ fn rented_report_offline_rented_end_report_online() {
                 slash_time: 3001,
                 slash_amount: 16000 * ONE_DBC,
                 slash_exec_time: 3001 + 2880 * 2,
-                reward_to_reporter: None,
+                reporter: None,
+                renters: vec![],
                 reward_to_committee: None,
                 slash_reason: online_profile::OPSlashReason::RentedReportOffline(2881)
             }

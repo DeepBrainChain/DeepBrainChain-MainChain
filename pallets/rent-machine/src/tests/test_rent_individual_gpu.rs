@@ -286,7 +286,7 @@ fn report_individual_gpu() {
             let machine_info = OnlineProfile::machines_info(&machine_id);
             assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
             assert_eq!(machine_info.total_rented_duration, 1440);
-            assert_eq!(machine_info.last_machine_renter, Some(renter2));
+            assert_eq!(machine_info.renters, vec![renter2]);
 
             // clean_order
             // -Write: MachineRentOrder, PendingRentEnding, RentOrder,
@@ -318,7 +318,7 @@ fn report_individual_gpu() {
             let machine_info = OnlineProfile::machines_info(&machine_id);
             assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
             assert_eq!(machine_info.total_rented_duration, 4320);
-            assert_eq!(machine_info.last_machine_renter, Some(renter1));
+            assert_eq!(machine_info.renters, vec![renter1]);
 
             // clean_order
             // -Write: MachineRentOrder, PendingRentEnding, RentOrder,

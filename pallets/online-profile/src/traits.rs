@@ -1,6 +1,6 @@
 use crate::{
     types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachineRentedGPU, MachinesInfo,
-    Pallet, PendingExecMaxOfflineSlash, PendingExecSlash, PendingSlash, RentedFinished, StashMachines, StashStake,
+    Pallet, PendingMaxOfflineSlash, PendingExecSlash, PendingSlash, RentedFinished, StashMachines, StashStake,
     SysInfo, UserMutHardwareStake,
 };
 use dbc_support::traits::{MTOps, OCOps, OPRPCQuery, RTOps};
@@ -10,7 +10,7 @@ use sp_runtime::{
     traits::{CheckedMul, CheckedSub},
     Perbill, SaturatedConversion,
 };
-use sp_std::{prelude::Box, vec::Vec};
+use sp_std::{prelude::Box, vec,vec::{Vec, }};
 
 /// 审查委员会可以执行的操作
 impl<T: Config> OCOps for Pallet<T> {
@@ -133,6 +133,7 @@ impl<T: Config> OCOps for Pallet<T> {
                     committee_upload_info.machine_id,
                     OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
                     None,
+                    vec![],
                     None,
                     offline_duration,
                 );
@@ -305,7 +306,7 @@ impl<T: Config> RTOps for Pallet<T> {
         }
         machine_info.total_rented_duration +=
             Perbill::from_rational_approximation(rented_gpu_num, gpu_num) * rent_duration;
-        machine_info.last_machine_renter = Some(renter.clone());
+        ItemList::add_item(&mut machine_info.renters, renter.clone());
 
         match machine_info.machine_status {
             MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) => {
@@ -399,19 +400,17 @@ impl<T: Config> MTOps for Pallet<T> {
             MachineStatus::ReporterReportOffline(
                 fault_type,
                 Box::new(machine_info.machine_status),
-                reporter,
+                reporter.clone(),
                 committee,
             ),
         );
 
         // When Reported offline, after 5 days, reach max slash amount;
         let now = <frame_system::Module<T>>::block_number();
-        let mut pending_exec_slash =
-            Self::pending_exec_max_offline_slash(now + (5 * BLOCK_PER_ERA).saturated_into::<T::BlockNumber>());
-        ItemList::add_item(&mut pending_exec_slash, machine_id);
-        PendingExecMaxOfflineSlash::<T>::insert(
+        PendingMaxOfflineSlash::<T>::insert(
             now + (5 * BLOCK_PER_ERA).saturated_into::<T::BlockNumber>(),
-            pending_exec_slash,
+            machine_id,
+            (Some(reporter), machine_info.renters),
         );
     }
 

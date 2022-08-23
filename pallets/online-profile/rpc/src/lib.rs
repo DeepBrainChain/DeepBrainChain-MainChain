@@ -192,7 +192,7 @@ where
         let runtime_api_result = api.get_machine_info(&at, machine_id).map(|machine_info| MachineInfo {
             controller: machine_info.controller,
             machine_stash: machine_info.machine_stash,
-            last_machine_renter: machine_info.last_machine_renter,
+            renters: machine_info.renters,
             last_machine_restake: machine_info.last_machine_restake,
             bonding_height: machine_info.bonding_height,
             online_height: machine_info.online_height,
