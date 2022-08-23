@@ -1,6 +1,7 @@
 use crate::{
     types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachineRentedGPU, MachinesInfo,
-    Pallet, PendingExecMaxOfflineSlash, RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
+    Pallet, PendingExecMaxOfflineSlash, PendingExecSlash, PendingSlash, RentedFinished, StashMachines, StashStake,
+    SysInfo, UserMutHardwareStake,
 };
 use dbc_support::traits::{MTOps, OCOps, OPRPCQuery, RTOps};
 use frame_support::IterableStorageMap;
@@ -127,14 +128,21 @@ impl<T: Config> OCOps for Pallet<T> {
 
                 // 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
                 let offline_duration = now - reonline_stake.offline_time;
-                // FIXME: 记录该惩罚数据
-                Self::new_slash_when_offline(
+                // 记录该惩罚数据
+                let slash_info = Self::new_slash_when_offline(
                     committee_upload_info.machine_id,
                     OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
                     None,
                     None,
                     offline_duration,
                 );
+                let slash_id = Self::get_new_slash_id();
+
+                let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
+                ItemList::add_item(&mut pending_exec_slash, slash_id);
+                PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
+
+                PendingSlash::<T>::insert(slash_id, slash_info);
             } else {
                 MachineRecentReward::<T>::insert(
                     &machine_id,

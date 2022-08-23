@@ -531,7 +531,7 @@ pub mod pallet {
             let mut live_machine = Self::live_machines();
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-            ensure!(machine_info.online_height == Zero::zero(), Error::<T>::MachineStatusNotAllowed);
+            // ensure!(machine_info.online_height == Zero::zero(), Error::<T>::MachineStatusNotAllowed);
 
             // NOTE: 机器补交质押时，所需的质押 = max(当前机器需要的质押，第一次绑定上线时的质押量)
             // 每卡质押按照第一次上线时计算
@@ -540,7 +540,7 @@ pub mod pallet {
                 .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
 
-            // 当出现需要补交质押时
+            // 当出现需要补交质押时，补充质押并记录到机器信息中
             if machine_info.stake_amount < stake_need {
                 let extra_stake = stake_need - machine_info.stake_amount;
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true)
@@ -557,14 +557,21 @@ pub mod pallet {
                 let offline_duration = now - reonline_stake.offline_time;
                 // 如果下线的时候空闲超过10天，则不进行惩罚
                 if reonline_stake.offline_time < machine_info.last_online_height + 28800u32.into() {
-                    // FIXME: 记录该惩罚数据
-                    Self::new_slash_when_offline(
+                    // 记录该惩罚数据
+                    let slash_info = Self::new_slash_when_offline(
                         machine_id.clone(),
                         OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
                         None,
                         None,
                         offline_duration,
                     );
+                    let slash_id = Self::get_new_slash_id();
+
+                    let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
+                    ItemList::add_item(&mut pending_exec_slash, slash_id);
+                    PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
+
+                    PendingSlash::<T>::insert(slash_id, slash_info);
                 }
                 // 退还reonline_stake
                 Self::change_user_total_stake(machine_info.machine_stash.clone(), reonline_stake.stake_amount, false)
@@ -995,6 +1002,15 @@ impl<T: Config> Pallet<T> {
         // 验证签名是否为MachineId发出
         ensure!(utils::verify_sig(msg, sig, machine_id).is_some(), Error::<T>::BadSignature);
         Ok(().into())
+    }
+
+    // 机器第一次上线时，因质押不足，需要补充质押
+    fn fulfill_on_first_online() -> DispatchResultWithPostInfo {
+        Ok(())
+    }
+
+    fn fulfill_on_mut_hardware() -> DispatchResultWithPostInfo {
+        Ok(())
     }
 
     pub fn do_cancel_slash(slash_id: u64) -> DispatchResultWithPostInfo {

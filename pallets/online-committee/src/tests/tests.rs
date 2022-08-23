@@ -803,12 +803,6 @@ fn committee_not_wubmit_raw_slash_works() {
     })
 }
 
-// TODO: Add testcase
-#[test]
-fn fulfill_should_works() {
-    new_test_with_online_machine_distribution().execute_with(|| {})
-}
-
 // 三个委员会提交信息不一致，导致重新分派
 #[test]
 fn committee_not_equal_then_redistribute_works() {
