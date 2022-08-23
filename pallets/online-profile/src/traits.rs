@@ -127,7 +127,8 @@ impl<T: Config> OCOps for Pallet<T> {
 
                 // 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
                 let offline_duration = now - reonline_stake.offline_time;
-                Self::slash_when_report_offline(
+                // FIXME: 记录该惩罚数据
+                Self::new_slash_when_offline(
                     committee_upload_info.machine_id,
                     OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
                     None,

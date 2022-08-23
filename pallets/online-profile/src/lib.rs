@@ -261,8 +261,8 @@ pub mod pallet {
                 Self::update_snap_for_new_era();
             }
             Self::check_offline_machine_duration();
-            Self::do_pending_slash();
-            let _ = Self::do_pending_slash_checking();
+            Self::exec_pending_slash();
+            let _ = Self::check_pending_slash();
             0
         }
 
@@ -557,7 +557,8 @@ pub mod pallet {
                 let offline_duration = now - reonline_stake.offline_time;
                 // 如果下线的时候空闲超过10天，则不进行惩罚
                 if reonline_stake.offline_time < machine_info.last_online_height + 28800u32.into() {
-                    Self::slash_when_report_offline(
+                    // FIXME: 记录该惩罚数据
+                    Self::new_slash_when_offline(
                         machine_id.clone(),
                         OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
                         None,
@@ -700,7 +701,7 @@ pub mod pallet {
                             max_slash_offline_threshold = 28800u32.into();
 
                             // 不进行在线超过10天的判断，在hook中会进行这个判断。
-                            slash_info = Self::slash_when_report_offline(
+                            slash_info = Self::new_slash_when_offline(
                                 machine_id.clone(),
                                 OPSlashReason::OnlineReportOffline(offline_time),
                                 None,
@@ -714,7 +715,7 @@ pub mod pallet {
                             }
                             max_slash_offline_threshold = (2880u32 * 5).into();
                             // 机器在被租用状态下线，会被惩罚
-                            slash_info = Self::slash_when_report_offline(
+                            slash_info = Self::new_slash_when_offline(
                                 machine_id.clone(),
                                 OPSlashReason::RentedReportOffline(offline_time),
                                 None,
@@ -731,7 +732,7 @@ pub mod pallet {
                     if offline_duration >= (2880u32 * 5).into() {
                         should_add_new_slash = false;
                     }
-                    slash_info = Self::slash_when_report_offline(
+                    slash_info = Self::new_slash_when_offline(
                         machine_id.clone(),
                         slash_reason,
                         Some(reporter),
