@@ -6,6 +6,7 @@
   "URL": "Text",
   "MachineId": "Text",
   "TelecomName": "Text",
+  "RentOrderId": "u64",
   "FoundationIssueRewards": {
     "who": "Vec<AccountId>",
     "left_reward_times": "u32",
@@ -70,7 +71,7 @@
   "MachineInfo": {
     "controller": "AccountId",
     "machine_stash": "AccountId",
-    "last_machine_renter": "Option<AccountId>",
+    "last_machine_renter": "Vec<AccountId>",
     "last_machine_restake": "BlockNumber",
     "bonding_height": "BlockNumber",
     "online_height": "BlockNumber",
@@ -78,7 +79,7 @@
     "init_stake_per_gpu": "Balance",
     "stake_amount": "Balance",
     "machine_status": "MachineStatus",
-    "total_rented_duration": "u64",
+    "total_rented_duration": "BlockNumber",
     "total_rented_times": "u64",
     "total_rent_fee": "Balance",
     "total_burn_fee": "Balance",
@@ -354,7 +355,8 @@
     "slash_time": "BlockNumber",
     "slash_amount": "Balance",
     "slash_exec_time": "BlockNumber",
-    "reward_to_reporter": "Option<AccountId>",
+    "reporter": "Option<AccountId>",
+    "renters": "Vec<AccountId>",
     "reward_to_committee": "Option<Vec<AccountId>>",
     "slash_reason": "OPSlashReason"
   },
@@ -392,6 +394,10 @@
   },
   "RentStatus": {
     "_enum": ["WaitingVerifying", "Renting", "RentExpired"]
+  },
+  "MachineGPUOrder": {
+    "rent_order": "Vec<RentOrderId>",
+    "used_gpu": "Vec<u32>",
   },
   "CommitteeStakeParamsInfo": {
     "stake_baseline": "Balance",
