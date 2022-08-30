@@ -385,19 +385,22 @@
     "snap_len": "u64"
   },
   "RentOrderDetail": {
+    "machine_id": "MachineId",
     "renter": "AccountId",
     "rent_start": "BlockNumber",
     "confirm_rent": "BlockNumber",
     "rent_end": "BlockNumber",
     "stake_amount": "Balance",
-    "rent_status": "RentStatus"
+    "rent_status": "RentStatus",
+    "gpu_num": "u32",
+    "gpu_index": "Vec<u32>"
   },
   "RentStatus": {
     "_enum": ["WaitingVerifying", "Renting", "RentExpired"]
   },
   "MachineGPUOrder": {
     "rent_order": "Vec<RentOrderId>",
-    "used_gpu": "Vec<u32>",
+    "used_gpu": "Vec<u32>"
   },
   "CommitteeStakeParamsInfo": {
     "stake_baseline": "Balance",
