@@ -1,0 +1,244 @@
+# 使用VScode插件：`Rust Client`
+
+@url = https://httprentgpu.dbcwallet.io:9002
+@url2 = https://httpinfo.dbcwallet.io
+
+@controller = 5EnfvRoxQXHFmudw76KarcSdvom3aHGt1MEUj8wrLKTu3uDd
+@stash = 5HpcY5iuUzuZNtExdmqF4AH6o3fu5yR1Y2pe1bmkXGjpUM9n
+@machine_id = 7a79fd95e89c3db2e8bc052cb307d4130f6750cb715c44639e2c3faa7217ef1f
+
+###
+# 1.1 查询某个资金账户控制的所有机器
+# 参数：[资金账户 (stash account)]
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+     "jsonrpc":"2.0",
+      "id":1,
+      "method":"onlineProfile_getStakerInfo",
+      "params": ["{{stash}}"]
+}
+
+###
+# 1.2 查询机器某个 Era 获得收益
+# 参数：[机器ID，EraIndex]
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getMachineEraReward",
+  "params": [
+    "ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875",
+    1
+  ]
+}
+
+
+###
+# 1.3 查询机器某个 Era 解锁收益
+# 参数：[机器ID，EraIndex]
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getMachineEraReleasedReward",
+  "params": [
+    "ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875", 1]
+}
+
+###
+# 1.4 查询资金账户某个 Era 获得收益
+# 参数：[资金账户，EraIndex]
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getStashEraReward",
+  "params": ["5DhR2dxiPZquPhFjfPzFg5jZENdr375hbX643kr9FBXMVa2z", 1]
+}
+
+###
+# 1.5. 查询资金账户某个 Era 解锁奖励
+# 参数：[资金账户，EraIndex]
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getStashEraReward",
+  "params": ["5DhR2dxiPZquPhFjfPzFg5jZENdr375hbX643kr9FBXMVa2z", 1]
+}
+
+###
+# 1.6. 查询机器详细信息
+# 参数：[机器ID]
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"onlineProfile_getMachineInfo",
+  "params": ["ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875"]
+}
+
+###
+# 1.7. 查看矿工个数
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getStakerNum",
+  "params": []
+}
+
+###
+# 1.8. 查看所有机器列表
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getMachineList",
+  "params": []
+}
+
+###
+# 1.9 查看 onlineProfile 模块统计信息
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"onlineProfile_getOpInfo",
+  "params": []
+}
+
+###
+# 1.10 获取账户链上身份
+# 参数：[账户]
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getStakerIdentity",
+  "params": ["5CqTCD23gTbfmP8s6g1ehbJ66i6wi4Er4AguAw7yggDAKmPu"]
+}
+
+###
+# 1.11 获取矿工统计信息
+# 参数：[pageIndex, count]
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getStakerListInfo",
+  "params": [0, 5]
+}
+
+###
+# 1.12 按位置获取统计信息
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineProfile_getPosGpuInfo",
+  "params": []
+}
+
+
+###
+# 2.1 committee_getCommitteeList
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "committee_getCommitteeList",
+  "params": []
+}
+
+
+###
+# 3.1 获取机器分配的委员会列表
+# 参数：[机器ID]
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"onlineCommittee_getMachineCommitteeList",
+  "params": ["38f4a824e0dc1fc5a9a7dccff53417b300fc0edad208176d8770597d98f6eb5c"]
+}
+
+
+###
+# 3.2 获取委员会对机器的审核时间
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onlineCommittee_getCommitteeOps",
+  "params": [
+    "5D1vwMoK1DjBF7pfApKjT9Gi5C4DKHvZMztFRhTsMqo71B8r",
+    "74339d3413c1386d23d92e55586ccf25090c7eb762928f9bc69799b677f65f51"
+  ]
+}
+
+###
+# 3.3 获取委员会所有派单的机器列表
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "onilneCommittee_getCommitteeMachineList",
+  "params": ["5Gv3FyFA7bFbUqqgXWXwkgCkazMaaBpfbVnwtVVRP5vgUYRs"]
+}
+
+###
+# 4.1 查看机器的租用信息
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "rentMachine_getRentOrder",
+  "params": [1]
+}
+
+###
+# 4.2 查看某个账户租用的机器列表
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "rentMachine_getRentList",
+  "params": ["5E7123qZExgZaYKnmTcJacu68c2GbLeSHo9qNWmUWcaw4RSR"]
+}
