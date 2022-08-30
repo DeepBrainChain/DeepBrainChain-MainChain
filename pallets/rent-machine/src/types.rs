@@ -12,6 +12,7 @@ pub type RentOrderId = u64;
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
     /// 租用的机器ID
+    #[cfg_attr(feature = "std", serde(with = "generic_func::rpc_types::serde_text"))]
     pub machine_id: MachineId,
     /// 租用者
     pub renter: AccountId,
