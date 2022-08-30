@@ -2159,6 +2159,7 @@ dependencies = [
  "dbc-support",
  "frame-support",
  "frame-system",
+ "hex",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "serde",

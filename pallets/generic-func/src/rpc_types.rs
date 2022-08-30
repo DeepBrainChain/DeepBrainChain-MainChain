@@ -65,3 +65,38 @@ pub mod serde_text {
         Ok(data.into_bytes())
     }
 }
+
+/// Text serialization/deserialization
+#[cfg(feature = "std")]
+pub mod serde_hash {
+    use super::*;
+    use std::convert::TryInto;
+
+    /// A serializer that encodes the [u8; 16] as a string
+    pub fn serialize<T, S>(value: &T, serializer: S) -> StdResult<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+        T: AsRef<[u8]>,
+    {
+        let output = format!("0x{}", hex::encode(value));
+        serializer.serialize_str(&output)
+    }
+
+    /// A deserializer that decodes the string to the [u8; 16]
+    pub fn deserialize<'de, D>(deserializer: D) -> StdResult<[u8; 16], D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let data: String = String::deserialize(deserializer)?
+            .strip_prefix("0x")
+            .ok_or(serde::de::Error::custom("Parse from string failed"))?
+            .to_string();
+
+        let hash: [u8; 16] = hex::decode(data)
+            .map_err(|_| serde::de::Error::custom("Parse from string failed"))?
+            .try_into()
+            .map_err(|_| serde::de::Error::custom("Parse from string failed"))?;
+
+        Ok(hash)
+    }
+}
