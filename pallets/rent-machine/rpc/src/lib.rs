@@ -29,10 +29,10 @@ where
     fn get_rent_list(&self, renter: AccountId, at: Option<BlockHash>) -> Result<Vec<RentOrderId>>;
 
     #[rpc(name = "rentMachine_isMachineRenter")]
-    fn is_machine_renter(&self, machine_id: MachineId, renter: AccountId, at: Option<BlockHash>) -> Result<bool>;
+    fn is_machine_renter(&self, machine_id: String, renter: AccountId, at: Option<BlockHash>) -> Result<bool>;
 
-    #[rpc(name = "get_machine_rent_id")]
-    fn get_machine_rent_id(&self, machine_id: MachineId, at: Option<BlockHash>) -> Result<MachineGPUOrder>;
+    #[rpc(name = "rentMachine_getMachineRentId")]
+    fn get_machine_rent_id(&self, machine_id: String, at: Option<BlockHash>) -> Result<MachineGPUOrder>;
 }
 
 pub struct RmStorage<C, M> {
@@ -98,7 +98,7 @@ where
 
     fn is_machine_renter(
         &self,
-        machine_id: MachineId,
+        machine_id: String,
         renter: AccountId,
         at: Option<<Block as BlockT>::Hash>,
     ) -> Result<bool> {
@@ -113,11 +113,7 @@ where
         })
     }
 
-    fn get_machine_rent_id(
-        &self,
-        machine_id: MachineId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<MachineGPUOrder> {
+    fn get_machine_rent_id(&self, machine_id: String, at: Option<<Block as BlockT>::Hash>) -> Result<MachineGPUOrder> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
