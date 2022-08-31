@@ -1,10 +1,6 @@
 use codec::Codec;
-use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use rent_machine::RentOrderDetail;
-use rent_machine::RentOrderId;
-use rent_machine_runtime_api::RmRpcApi as RmStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -12,6 +8,10 @@ use sp_runtime::{
     traits::{Block as BlockT, MaybeDisplay},
 };
 use std::{fmt::Display, str::FromStr, sync::Arc};
+
+use generic_func::{MachineId, RpcBalance};
+use rent_machine::{MachineGPUOrder, RentOrderDetail, RentOrderId};
+use rent_machine_runtime_api::RmRpcApi as RmStorageRuntimeApi;
 
 #[rpc]
 pub trait RmRpcApi<BlockHash, AccountId, BlockNumber, Balance>
@@ -27,6 +27,12 @@ where
 
     #[rpc(name = "rentMachine_getRentList")]
     fn get_rent_list(&self, renter: AccountId, at: Option<BlockHash>) -> Result<Vec<RentOrderId>>;
+
+    #[rpc(name = "rentMachine_isMachineRenter")]
+    fn is_machine_renter(&self, machine_id: MachineId, renter: AccountId, at: Option<BlockHash>) -> Result<bool>;
+
+    #[rpc(name = "get_machine_rent_id")]
+    fn get_machine_rent_id(&self, machine_id: MachineId, at: Option<BlockHash>) -> Result<MachineGPUOrder>;
 }
 
 pub struct RmStorage<C, M> {
@@ -83,6 +89,39 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api.get_rent_list(&at, renter);
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn is_machine_renter(
+        &self,
+        machine_id: MachineId,
+        renter: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<bool> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.is_machine_renter(&at, machine_id, renter);
+        runtime_api_result.map_err(|e| RpcError {
+            code: ErrorCode::ServerError(9876),
+            message: "Something wrong".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn get_machine_rent_id(
+        &self,
+        machine_id: MachineId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<MachineGPUOrder> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        let runtime_api_result = api.get_machine_rent_id(&at, machine_id);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

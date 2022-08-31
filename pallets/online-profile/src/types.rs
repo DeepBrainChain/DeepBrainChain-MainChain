@@ -1,4 +1,6 @@
 #[cfg(feature = "std")]
+use generic_func::rpc_types::serde_text;
+#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 use codec::{alloc::string::ToString, Decode, Encode};
@@ -511,7 +513,7 @@ pub struct RpcStakerInfo<Balance, BlockNumber, AccountId> {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct MachineBriefInfo<BlockNumber, AccountId> {
-    #[cfg_attr(feature = "std", serde(with = "generic_func::rpc_types::serde_text"))]
+    #[cfg_attr(feature = "std", serde(with = "serde_text"))]
     pub machine_id: MachineId,
     pub gpu_num: u32,
     pub calc_point: u64,
@@ -528,9 +530,9 @@ pub struct MachineInfoDetail {
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct CommitteeUploadInfo {
-    #[cfg_attr(feature = "std", serde(with = "generic_func::rpc_types::serde_text"))]
+    #[cfg_attr(feature = "std", serde(with = "serde_text"))]
     pub machine_id: MachineId,
-    #[cfg_attr(feature = "std", serde(with = "generic_func::rpc_types::serde_text"))]
+    #[cfg_attr(feature = "std", serde(with = "serde_text"))]
     pub gpu_type: Vec<u8>, // GPU型号
     pub gpu_num: u32,    // GPU数量
     pub cuda_core: u32,  // CUDA core数量
@@ -538,13 +540,13 @@ pub struct CommitteeUploadInfo {
     pub calc_point: u64, // 算力值
     pub sys_disk: u64,   // 系统盘大小
     pub data_disk: u64,  // 数据盘大小
-    #[cfg_attr(feature = "std", serde(with = "generic_func::rpc_types::serde_text"))]
+    #[cfg_attr(feature = "std", serde(with = "serde_text"))]
     pub cpu_type: Vec<u8>, // CPU型号
     pub cpu_core_num: u32, // CPU内核数
     pub cpu_rate: u64,   // CPU频率
     pub mem_num: u64,    // 内存数
 
-    #[cfg_attr(feature = "std", serde(with = "generic_func::rpc_types::serde_text"))]
+    #[cfg_attr(feature = "std", serde(with = "serde_text"))]
     pub rand_str: Vec<u8>,
     pub is_support: bool, // 委员会是否支持该机器上线
 }

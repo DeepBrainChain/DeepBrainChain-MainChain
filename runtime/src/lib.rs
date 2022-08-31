@@ -72,7 +72,7 @@ use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
 use generic_func::MachineId;
-use rent_machine::RentOrderId;
+use rent_machine::{MachineGPUOrder, RentOrderId};
 
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
@@ -115,7 +115,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 268,
+    spec_version: 269,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -1235,6 +1235,14 @@ impl_runtime_apis! {
 
         fn get_rent_list(renter: AccountId) -> Vec<RentOrderId> {
             RentMachine::get_rent_list(renter)
+        }
+
+        fn is_machine_renter(machine_id: MachineId, renter: AccountId) -> bool {
+            RentMachine::is_machine_renter(machine_id, renter)
+        }
+
+        fn get_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
+            RentMachine::get_machine_rent_id(machine_id)
         }
     }
 

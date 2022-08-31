@@ -1,4 +1,6 @@
 use codec::{Decode, Encode};
+#[cfg(feature = "std")]
+use generic_func::rpc_types::serde_text;
 use generic_func::{ItemList, MachineId};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -12,7 +14,7 @@ pub type RentOrderId = u64;
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
     /// 租用的机器ID
-    #[cfg_attr(feature = "std", serde(with = "generic_func::rpc_types::serde_text"))]
+    #[cfg_attr(feature = "std", serde(with = "serde_text"))]
     pub machine_id: MachineId,
     /// 租用者
     pub renter: AccountId,
@@ -33,6 +35,8 @@ pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct MachineGPUOrder {
     // 机器所有GPU对应的RentOrder
     pub rent_order: Vec<RentOrderId>,
