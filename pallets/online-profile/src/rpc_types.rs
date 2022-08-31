@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
-use generic_func::RpcText;
+use generic_func::{rpc_types::serde_text, RpcText};
 // use generic_func::rpc_types::RpcText;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,70 @@ use sp_std::vec::Vec;
 #[cfg(feature = "std")]
 use std::convert::From;
 
-use crate::LiveMachine;
+use crate::{LiveMachine, MachineId, MachineStatus, StashMachine};
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct StakerInfo<Balance, BlockNumber, AccountId> {
+    pub stash_statistic: StashMachine<Balance>,
+    pub bonded_machines: Vec<MachineBriefInfo<BlockNumber, AccountId>>,
+}
+
+#[cfg(feature = "std")]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct RpcStakerInfo<Balance, BlockNumber, AccountId> {
+    pub stash_statistic: RpcStashMachine<Balance>,
+    pub bonded_machines: Vec<MachineBriefInfo<BlockNumber, AccountId>>,
+}
+
+#[cfg(feature = "std")]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct RpcStashMachine<Balance> {
+    pub total_machine: Vec<RpcText>,
+    pub online_machine: Vec<RpcText>,
+    pub total_calc_points: u64,
+    pub total_gpu_num: u64,
+    pub total_rented_gpu: u64,
+    pub total_earned_reward: Balance,
+    pub total_claimed_reward: Balance,
+    pub can_claim_reward: Balance,
+    pub total_rent_fee: Balance,
+    pub total_burn_fee: Balance,
+}
+
+#[cfg(feature = "std")]
+impl<Balance> From<StashMachine<Balance>> for RpcStashMachine<Balance> {
+    fn from(stash_machine: StashMachine<Balance>) -> Self {
+        Self {
+            total_machine: stash_machine.total_machine.iter().map(|machine_id| machine_id.into()).collect(),
+            online_machine: stash_machine.online_machine.iter().map(|machine_id| machine_id.into()).collect(),
+            total_calc_points: stash_machine.total_calc_points,
+            total_gpu_num: stash_machine.total_gpu_num,
+            total_rented_gpu: stash_machine.total_rented_gpu,
+            total_earned_reward: stash_machine.total_earned_reward,
+            total_claimed_reward: stash_machine.total_claimed_reward,
+            can_claim_reward: stash_machine.can_claim_reward,
+            total_rent_fee: stash_machine.total_rent_fee,
+            total_burn_fee: stash_machine.total_burn_fee,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct MachineBriefInfo<BlockNumber, AccountId> {
+    #[cfg_attr(feature = "std", serde(with = "serde_text"))]
+    pub machine_id: MachineId,
+    pub gpu_num: u32,
+    pub calc_point: u64,
+    pub machine_status: MachineStatus<BlockNumber, AccountId>,
+}
 
 #[cfg(feature = "std")]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]

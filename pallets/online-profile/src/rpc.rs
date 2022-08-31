@@ -5,7 +5,10 @@ use sp_std::vec::Vec;
 
 use codec::EncodeLike;
 
-use crate::{BalanceOf, Config, Pallet, PosGPUInfo, StashMachines};
+use crate::{
+    rpc_types::{MachineBriefInfo, StakerInfo},
+    BalanceOf, Config, Pallet, PosGPUInfo, StashMachines,
+};
 
 type EraIndex = u32;
 
@@ -24,7 +27,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_staker_info(
         account: impl EncodeLike<T::AccountId>,
-    ) -> RpcStakerInfo<BalanceOf<T>, T::BlockNumber, T::AccountId> {
+    ) -> StakerInfo<BalanceOf<T>, T::BlockNumber, T::AccountId> {
         let staker_info = Self::stash_machines(account);
 
         let mut staker_machines = Vec::new();
@@ -39,7 +42,7 @@ impl<T: Config> Pallet<T> {
             })
         }
 
-        RpcStakerInfo { stash_statistic: staker_info, bonded_machines: staker_machines }
+        StakerInfo { stash_statistic: staker_info.into(), bonded_machines: staker_machines }
     }
 
     /// 获取机器列表

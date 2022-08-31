@@ -5,8 +5,8 @@ use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use online_profile::{
-    rpc_types::RpcLiveMachine, EraIndex, Latitude, Longitude, MachineInfo, PosInfo, RpcStakerInfo, StashMachine,
-    SysInfoDetail,
+    rpc_types::{RpcLiveMachine, RpcStakerInfo, RpcStashMachine},
+    EraIndex, Latitude, Longitude, MachineInfo, PosInfo, SysInfoDetail,
 };
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
@@ -145,21 +145,24 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_staker_info(&at, account).map(|staker_info| RpcStakerInfo {
-            stash_statistic: StashMachine {
-                total_machine: staker_info.stash_statistic.total_machine,
-                online_machine: staker_info.stash_statistic.online_machine,
-                total_calc_points: staker_info.stash_statistic.total_calc_points,
-                total_gpu_num: staker_info.stash_statistic.total_gpu_num,
-                total_rented_gpu: staker_info.stash_statistic.total_rented_gpu,
+        let runtime_api_result = api.get_staker_info(&at, account).map(|staker_info| {
+            let tmp_info: RpcStashMachine<Balance> = staker_info.stash_statistic.clone().into();
+            RpcStakerInfo {
+                stash_statistic: RpcStashMachine {
+                    total_machine: tmp_info.total_machine,
+                    online_machine: tmp_info.online_machine,
+                    total_calc_points: tmp_info.total_calc_points,
+                    total_gpu_num: tmp_info.total_gpu_num,
+                    total_rented_gpu: tmp_info.total_rented_gpu,
 
-                total_earned_reward: staker_info.stash_statistic.total_earned_reward.into(),
-                total_claimed_reward: staker_info.stash_statistic.total_claimed_reward.into(),
-                can_claim_reward: staker_info.stash_statistic.can_claim_reward.into(),
-                total_rent_fee: staker_info.stash_statistic.total_rent_fee.into(),
-                total_burn_fee: staker_info.stash_statistic.total_burn_fee.into(),
-            },
-            bonded_machines: staker_info.bonded_machines,
+                    total_earned_reward: staker_info.stash_statistic.total_earned_reward.into(),
+                    total_claimed_reward: staker_info.stash_statistic.total_claimed_reward.into(),
+                    can_claim_reward: staker_info.stash_statistic.can_claim_reward.into(),
+                    total_rent_fee: staker_info.stash_statistic.total_rent_fee.into(),
+                    total_burn_fee: staker_info.stash_statistic.total_burn_fee.into(),
+                },
+                bonded_machines: staker_info.bonded_machines,
+            }
         });
 
         runtime_api_result.map_err(|e| RpcError {

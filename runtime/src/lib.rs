@@ -1169,7 +1169,7 @@ impl_runtime_apis! {
             OnlineProfile::get_op_info()
         }
 
-        fn get_staker_info(who: AccountId) -> online_profile::RpcStakerInfo<Balance, BlockNumber, AccountId> {
+        fn get_staker_info(who: AccountId) -> online_profile::rpc_types::StakerInfo<Balance, BlockNumber, AccountId> {
             OnlineProfile::get_staker_info(who)
         }
 

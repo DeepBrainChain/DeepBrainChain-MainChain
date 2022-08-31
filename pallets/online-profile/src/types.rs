@@ -500,26 +500,6 @@ pub struct OPPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
     pub reason: Vec<u8>,
 }
 
-// For RPC
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct RpcStakerInfo<Balance, BlockNumber, AccountId> {
-    pub stash_statistic: StashMachine<Balance>,
-    pub bonded_machines: Vec<MachineBriefInfo<BlockNumber, AccountId>>,
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct MachineBriefInfo<BlockNumber, AccountId> {
-    #[cfg_attr(feature = "std", serde(with = "serde_text"))]
-    pub machine_id: MachineId,
-    pub gpu_num: u32,
-    pub calc_point: u64,
-    pub machine_status: MachineStatus<BlockNumber, AccountId>,
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct MachineInfoDetail {
