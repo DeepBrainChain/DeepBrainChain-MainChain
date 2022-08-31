@@ -36,7 +36,6 @@ content-type: application/json
   ]
 }
 
-
 ###
 # 1.3 查询机器某个 Era 解锁收益
 # 参数：[机器ID，EraIndex]
@@ -241,4 +240,31 @@ content-type: application/json
   "id": 1,
   "method": "rentMachine_getRentList",
   "params": ["5E7123qZExgZaYKnmTcJacu68c2GbLeSHo9qNWmUWcaw4RSR"]
+}
+
+
+# 新增API
+
+###
+# 返回是否是机器租用人
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "rentMachine_isMachineRenter",
+  "params": ["ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875", "5E7123qZExgZaYKnmTcJacu68c2GbLeSHo9qNWmUWcaw4RSR"]
+}
+
+###
+# 获取机器对应的租用ID
+POST {{url}} HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "rentMachine_getMachineRentId",
+  "params": ["ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875", "5E7123qZExgZaYKnmTcJacu68c2GbLeSHo9qNWmUWcaw4RSR"]
 }
