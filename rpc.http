@@ -266,5 +266,5 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "rentMachine_getMachineRentId",
-  "params": ["ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875", "5E7123qZExgZaYKnmTcJacu68c2GbLeSHo9qNWmUWcaw4RSR"]
+  "params": ["ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875"]
 }
