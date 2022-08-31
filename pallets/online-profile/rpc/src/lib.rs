@@ -5,7 +5,8 @@ use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use online_profile::{
-    EraIndex, Latitude, LiveMachine, Longitude, MachineInfo, PosInfo, RpcStakerInfo, StashMachine, SysInfoDetail,
+    rpc_types::RpcLiveMachine, EraIndex, Latitude, Longitude, MachineInfo, PosInfo, RpcStakerInfo, StashMachine,
+    SysInfoDetail,
 };
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
@@ -36,7 +37,7 @@ where
     ) -> Result<RpcStakerInfo<RpcBalance<Balance>, BlockNumber, AccountId>>;
 
     #[rpc(name = "onlineProfile_getMachineList")]
-    fn get_machine_list(&self, at: Option<BlockHash>) -> Result<LiveMachine>;
+    fn get_machine_list(&self, at: Option<BlockHash>) -> Result<RpcLiveMachine>;
 
     #[rpc(name = "onlineProfile_getMachineInfo")]
     fn get_machine_info(
@@ -168,16 +169,20 @@ where
         })
     }
 
-    fn get_machine_list(&self, at: Option<<Block as BlockT>::Hash>) -> Result<LiveMachine> {
+    fn get_machine_list(&self, at: Option<<Block as BlockT>::Hash>) -> Result<RpcLiveMachine> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api.get_machine_list(&at);
-        runtime_api_result.map_err(|e| RpcError {
-            code: ErrorCode::ServerError(9876),
-            message: "Something wrong".into(),
-            data: Some(format!("{:?}", e).into()),
-        })
+
+        match runtime_api_result {
+            Ok(data) => Ok(data.into()),
+            Err(e) => Err(RpcError {
+                code: ErrorCode::ServerError(9876),
+                message: "Something wrong".into(),
+                data: Some(format!("{:?}", e).into()),
+            }),
+        }
     }
 
     fn get_machine_info(

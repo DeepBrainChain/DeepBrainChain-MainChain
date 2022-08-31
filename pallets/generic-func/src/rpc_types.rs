@@ -41,6 +41,13 @@ impl From<Vec<u8>> for RpcText {
     }
 }
 
+#[cfg(feature = "std")]
+impl From<&Vec<u8>> for RpcText {
+    fn from(value: &Vec<u8>) -> Self {
+        RpcText(value.to_vec())
+    }
+}
+
 /// Text serialization/deserialization
 #[cfg(feature = "std")]
 pub mod serde_text {
