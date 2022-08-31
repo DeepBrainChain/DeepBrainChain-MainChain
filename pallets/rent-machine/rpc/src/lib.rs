@@ -9,7 +9,7 @@ use sp_runtime::{
 };
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
-use generic_func::{MachineId, RpcBalance};
+use generic_func::RpcBalance;
 use rent_machine::{MachineGPUOrder, RentOrderDetail, RentOrderId};
 use rent_machine_runtime_api::RmRpcApi as RmStorageRuntimeApi;
 
@@ -105,6 +105,7 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
+        let machine_id = machine_id.as_bytes().to_vec();
         let runtime_api_result = api.is_machine_renter(&at, machine_id, renter);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
@@ -117,6 +118,7 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
+        let machine_id = machine_id.as_bytes().to_vec();
         let runtime_api_result = api.get_machine_rent_id(&at, machine_id);
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
