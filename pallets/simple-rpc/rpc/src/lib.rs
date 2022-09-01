@@ -18,7 +18,7 @@ where
     Balance: Display + FromStr,
 {
     #[rpc(name = "onlineProfile_getStakerIdentity")]
-    fn get_staker_identity(&self, account: AccountId, at: Option<BlockHash>) -> Result<Vec<u8>>;
+    fn get_staker_identity(&self, account: AccountId, at: Option<BlockHash>) -> Result<String>;
 
     #[rpc(name = "onlineProfile_getStakerListInfo")]
     fn get_staker_list_info(
@@ -50,16 +50,20 @@ where
     C: HeaderBackend<Block>,
     C::Api: SrStorageRuntimeApi<Block, AccountId, Balance>,
 {
-    fn get_staker_identity(&self, account: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<u8>> {
+    fn get_staker_identity(&self, account: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<String> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api.get_staker_identity(&at, account);
-        runtime_api_result.map_err(|e| RpcError {
-            code: ErrorCode::ServerError(9876),
-            message: "Something wrong".into(),
-            data: Some(format!("{:?}", e).into()),
-        })
+
+        match runtime_api_result {
+            Ok(data) => Ok(String::from_utf8_lossy(&data).to_string()),
+            Err(e) => Err(RpcError {
+                code: ErrorCode::ServerError(9876),
+                message: "Something wrong".into(),
+                data: Some(format!("{:?}", e).into()),
+            }),
+        }
     }
 
     fn get_staker_list_info(
