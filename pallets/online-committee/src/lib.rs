@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod rpc;
+pub mod rpc_types;
 mod slash;
 mod types;
 

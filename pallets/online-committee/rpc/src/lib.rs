@@ -2,7 +2,7 @@ use codec::Codec;
 use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_committee::{rpc::RpcOCCommitteeOps, OCCommitteeMachineList, OCMachineCommitteeList};
+use online_committee::{rpc::RpcOCCommitteeOps, rpc_types::RpcOCCommitteeMachineList, OCMachineCommitteeList};
 
 use online_committee_runtime_api::OcRpcApi as OcStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
@@ -16,8 +16,11 @@ where
     Balance: Display + FromStr,
 {
     #[rpc(name = "onilneCommittee_getCommitteeMachineList")]
-    fn get_committee_machine_list(&self, committee: AccountId, at: Option<BlockHash>)
-        -> Result<OCCommitteeMachineList>;
+    fn get_committee_machine_list(
+        &self,
+        committee: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<RpcOCCommitteeMachineList>;
 
     #[rpc(name = "onlineCommittee_getCommitteeOps")]
     fn get_committee_ops(
@@ -62,16 +65,20 @@ where
         &self,
         committee: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<OCCommitteeMachineList> {
+    ) -> Result<RpcOCCommitteeMachineList> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api.get_committee_machine_list(&at, committee);
-        runtime_api_result.map_err(|e| RpcError {
-            code: ErrorCode::ServerError(9876),
-            message: "Something wrong".into(),
-            data: Some(format!("{:?}", e).into()),
-        })
+
+        match runtime_api_result {
+            Ok(data) => Ok(data.into()),
+            Err(e) => Err(RpcError {
+                code: ErrorCode::ServerError(9876),
+                message: "Something wrong".into(),
+                data: Some(format!("{:?}", e).into()),
+            }),
+        }
     }
 
     fn get_committee_ops(
