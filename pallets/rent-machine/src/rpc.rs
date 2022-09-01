@@ -13,7 +13,6 @@ impl<T: Config> Pallet<T> {
         Self::user_rented(&renter)
     }
 
-    // TODO: 新增API，补充RPC文档
     pub fn is_machine_renter(machine_id: MachineId, renter: T::AccountId) -> bool {
         let machine_order = Self::machine_rent_order(machine_id);
 
@@ -28,7 +27,6 @@ impl<T: Config> Pallet<T> {
         false
     }
 
-    // TODO: 新增API，补充RPC文档
     pub fn get_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
         Self::machine_rent_order(machine_id)
     }

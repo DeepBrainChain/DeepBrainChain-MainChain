@@ -5,8 +5,8 @@ use generic_func::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use online_profile::{
-    rpc_types::{RpcLiveMachine, RpcStakerInfo, RpcStashMachine},
-    EraIndex, Latitude, Longitude, MachineInfo, PosInfo, SysInfoDetail,
+    rpc_types::{RpcLiveMachine, RpcMachineInfo, RpcStakerInfo, RpcStashMachine},
+    EraIndex, Latitude, Longitude, PosInfo, SysInfoDetail,
 };
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
@@ -44,7 +44,7 @@ where
         &self,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> Result<MachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>>;
+    ) -> Result<RpcMachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>>;
 
     #[rpc(name = "onlineProfile_getPosGpuInfo")]
     fn get_pos_gpu_info(&self, at: Option<BlockHash>) -> Result<Vec<(Longitude, Latitude, PosInfo)>>;
@@ -192,12 +192,12 @@ where
         &self,
         machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<MachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>> {
+    ) -> Result<RpcMachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api.get_machine_info(&at, machine_id).map(|machine_info| MachineInfo {
+        let runtime_api_result = api.get_machine_info(&at, machine_id).map(|machine_info| RpcMachineInfo {
             controller: machine_info.controller,
             machine_stash: machine_info.machine_stash,
             renters: machine_info.renters,
@@ -212,7 +212,7 @@ where
             total_rented_times: machine_info.total_rented_times,
             total_rent_fee: machine_info.total_rent_fee.into(),
             total_burn_fee: machine_info.total_burn_fee.into(),
-            machine_info_detail: machine_info.machine_info_detail,
+            machine_info_detail: machine_info.machine_info_detail.into(),
             reward_committee: machine_info.reward_committee,
             reward_deadline: machine_info.reward_deadline,
         });

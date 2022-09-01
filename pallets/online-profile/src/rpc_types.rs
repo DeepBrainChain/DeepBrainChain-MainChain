@@ -4,11 +4,110 @@ use generic_func::{rpc_types::serde_text, RpcText};
 // use generic_func::rpc_types::RpcText;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_core::H256;
 use sp_std::vec::Vec;
 #[cfg(feature = "std")]
 use std::convert::From;
 
-use crate::{LiveMachine, MachineId, MachineStatus, StashMachine};
+use crate::{
+    CommitteeUploadInfo, EraIndex, Latitude, LiveMachine, Longitude, MachineId, MachineInfo, MachineInfoDetail,
+    MachineStatus, StakerCustomizeInfo, StashMachine,
+};
+
+#[cfg(feature = "std")]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct RpcMachineInfo<AccountId: Ord, BlockNumber, Balance> {
+    pub controller: AccountId,
+    pub machine_stash: AccountId,
+    pub renters: Vec<AccountId>,
+    pub last_machine_restake: BlockNumber,
+    pub bonding_height: BlockNumber,
+    pub online_height: BlockNumber,
+    pub last_online_height: BlockNumber,
+    pub init_stake_per_gpu: Balance,
+    pub stake_amount: Balance,
+    pub machine_status: MachineStatus<BlockNumber, AccountId>,
+    pub total_rented_duration: BlockNumber,
+    pub total_rented_times: u64,
+    pub total_rent_fee: Balance,
+    pub total_burn_fee: Balance,
+    pub machine_info_detail: RpcMachineInfoDetail,
+    pub reward_committee: Vec<AccountId>,
+    pub reward_deadline: EraIndex,
+}
+
+#[cfg(feature = "std")]
+impl<AccountId: Ord, BlockNumber, Balance> From<MachineInfo<AccountId, BlockNumber, Balance>>
+    for RpcMachineInfo<AccountId, BlockNumber, Balance>
+{
+    fn from(info: MachineInfo<AccountId, BlockNumber, Balance>) -> Self {
+        Self {
+            controller: info.controller,
+            machine_stash: info.machine_stash,
+            renters: info.renters,
+            last_machine_restake: info.last_machine_restake,
+            bonding_height: info.bonding_height,
+            online_height: info.online_height,
+            last_online_height: info.last_online_height,
+            init_stake_per_gpu: info.init_stake_per_gpu,
+            stake_amount: info.stake_amount,
+            machine_status: info.machine_status,
+            total_rented_duration: info.total_rented_duration,
+            total_rented_times: info.total_rented_times,
+            total_rent_fee: info.total_rent_fee,
+            total_burn_fee: info.total_burn_fee,
+            machine_info_detail: info.machine_info_detail.into(),
+            reward_committee: info.reward_committee,
+            reward_deadline: info.reward_deadline,
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct RpcMachineInfoDetail {
+    pub committee_upload_info: CommitteeUploadInfo,
+    pub staker_customize_info: RpcStakerCustomizeInfo,
+}
+
+#[cfg(feature = "std")]
+impl From<MachineInfoDetail> for RpcMachineInfoDetail {
+    fn from(info: MachineInfoDetail) -> Self {
+        Self {
+            committee_upload_info: info.committee_upload_info,
+            staker_customize_info: info.staker_customize_info.into(),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct RpcStakerCustomizeInfo {
+    pub server_room: H256,
+    pub upload_net: u64,
+    pub download_net: u64,
+    pub longitude: Longitude,
+    pub latitude: Latitude,
+    pub telecom_operators: Vec<RpcText>,
+}
+
+#[cfg(feature = "std")]
+impl From<StakerCustomizeInfo> for RpcStakerCustomizeInfo {
+    fn from(info: StakerCustomizeInfo) -> Self {
+        Self {
+            server_room: info.server_room,
+            upload_net: info.upload_net,
+            download_net: info.download_net,
+            longitude: info.longitude,
+            latitude: info.latitude,
+            telecom_operators: info.telecom_operators.iter().map(|telecom| telecom.into()).collect(),
+        }
+    }
+}
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
