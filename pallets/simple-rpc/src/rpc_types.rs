@@ -1,5 +1,7 @@
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
+use generic_func::rpc_types::serde_text;
+#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 
@@ -8,6 +10,7 @@ use sp_std::vec::Vec;
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct StakerListInfo<Balance, AccountId> {
     pub index: u64,
+    #[cfg_attr(feature = "std", serde(with = "serde_text"))]
     pub staker_name: Vec<u8>,
     pub staker_account: AccountId,
     pub calc_points: u64,
