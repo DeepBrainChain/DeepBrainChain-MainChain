@@ -283,7 +283,7 @@ pub mod pallet {
 
         fn on_runtime_upgrade() -> Weight {
             // TODO 1: 对于所有的machine_info: creating -> online，因为creating状态被弃用
-            // TODO 2: 对于所有的machine_info: total_rent_duration 单位从天 -> BlockNumber
+            // TODO 2: 对于所有的machine_info: total_rented_duration 单位从天 -> BlockNumber
             //
             // TODO 3: 对于所有的machine_info.last_machine_renter: Option<AccountId> ->
             // machine_info.renters: Vec<AccountId>,
