@@ -15,6 +15,7 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
+    IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use generic_func::{ItemList, MachineId};
@@ -65,6 +66,29 @@ pub mod pallet {
         fn on_runtime_upgrade() -> Weight {
             // TODO: 对于所有的pending_confirming，由 RentOrderId -> T::AccountId 改为了
             // T::BlockNumber -> Vec<RentOrderId>
+
+            // NOTE: 清理过期存储: PendingRentEnding; PendingConfirming
+            let now = <frame_system::Module<T>>::block_number();
+            let pending_rent_ending: Vec<T::BlockNumber> =
+                <PendingRentEnding<T> as IterableStorageMap<T::BlockNumber, _>>::iter()
+                    .map(|(time, _)| time)
+                    .collect::<Vec<_>>();
+            for time in pending_rent_ending {
+                if time < now {
+                    <PendingRentEnding<T>>::remove(time);
+                }
+            }
+
+            let pending_confirming: Vec<T::BlockNumber> =
+                <PendingConfirming<T> as IterableStorageMap<T::BlockNumber, _>>::iter()
+                    .map(|(time, _)| time)
+                    .collect::<Vec<_>>();
+            for time in pending_confirming {
+                if time < now {
+                    <PendingConfirming<T>>::remove(time)
+                }
+            }
+
             0
         }
     }
@@ -570,10 +594,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // TODO: 优化：添加时间记录待检查的机器
     // 定时检查机器是否30分钟没有上线
     fn check_machine_starting_status() {
         let now = <frame_system::Module<T>>::block_number();
+
+        if !<PendingConfirming<T>>::contains_key(now) {
+            return;
+        }
 
         let pending_confirming = Self::pending_confirming(now);
         for rent_id in pending_confirming {
@@ -608,10 +635,18 @@ impl<T: Config> Pallet<T> {
         machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index);
 
         MachineRentOrder::<T>::insert(&rent_order.machine_id, machine_rent_order);
-        PendingRentEnding::<T>::insert(rent_order.rent_end, pending_rent_ending);
+        if pending_rent_ending.is_empty() {
+            PendingRentEnding::<T>::remove(rent_order.rent_end);
+        } else {
+            PendingRentEnding::<T>::insert(rent_order.rent_end, pending_rent_ending);
+        }
         RentOrder::<T>::remove(rent_order_id);
         UserRented::<T>::insert(who, rent_order_list);
-        PendingConfirming::<T>::insert(pending_confirming_deadline, pending_confirming);
+        if pending_confirming.is_empty() {
+            PendingConfirming::<T>::remove(pending_confirming_deadline);
+        } else {
+            PendingConfirming::<T>::insert(pending_confirming_deadline, pending_confirming);
+        }
     }
 
     // - Write: UserTotalStake
@@ -635,6 +670,9 @@ impl<T: Config> Pallet<T> {
     // onlineProfile判断机器是否需要变成online状态，或者记录下之前是租用状态，以便机器再次上线时进行正确的惩罚
     fn check_if_rent_finished() {
         let now = <frame_system::Module<T>>::block_number();
+        if !<PendingRentEnding<T>>::contains_key(now) {
+            return;
+        }
         let pending_ending = Self::pending_rent_ending(now);
 
         for rent_id in pending_ending {
