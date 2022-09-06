@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod migrations;
 mod online_reward;
 mod rpc;
 pub mod rpc_types;
@@ -253,8 +254,8 @@ pub mod pallet {
 
     // 机器主动下线后，记录机器下线超过最大值{5,10天}后，需要立即执行的惩罚
     #[pallet::storage]
-    #[pallet::getter(fn pending_max_offline_slash)]
-    pub(super) type PendingMaxOfflineSlash<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn pending_exec_max_offline_slash)]
+    pub(super) type PendingExecMaxOfflineSlash<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::BlockNumber,
@@ -264,6 +265,11 @@ pub mod pallet {
         (Option<T::AccountId>, Vec<T::AccountId>),
         ValueQuery,
     >;
+
+    // The current storage version.
+    #[pallet::storage]
+    #[pallet::getter(fn pallet_version)]
+    pub(super) type PalletVersion<T: Config> = StorageValue<_, u16, ValueQuery>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -284,18 +290,17 @@ pub mod pallet {
         fn on_runtime_upgrade() -> Weight {
             // TODO 1: 对于所有的machine_info: creating -> online，因为creating状态被弃用
             // TODO 2: 对于所有的machine_info: total_rented_duration 单位从天 -> BlockNumber
-            //
-            // TODO 3: 对于所有的machine_info.last_machine_renter: Option<AccountId> ->
-            // machine_info.renters: Vec<AccountId>,
+            // TODO 3: 对于所有的machine_info.last_machine_renter: Option<AccountId> -> machine_info.renters: Vec<AccountId>,
             //
             // TODO 4: 如果机器主动下线/因举报下线之后，几个租用订单陆续到期，则机器主动上线
             // 要根据几个订单的状态来判断机器是否是在线/租用状态
             // 需要在rentMachine中提供一个查询接口
             //
-            // TODO 5: OPPendingSlashInfo 新增： current_renter: Vec<AccountId字段>
-            // OPPendingSlashInfo.reward_to_reporter -> OPPendingSlashInfo.reporter
+            // TODO 5: OPPendingSlashInfo
+            // 新增： current_renter: Vec<AccountId字段>
+            // 改动：OPPendingSlashInfo.reward_to_reporter -> OPPendingSlashInfo.reporter
             //
-            // TODO 6: PendingExecMaxOfflineSlash(T::blocknum -> Vec<machineId>) -> PendingMaxOfflineSlash
+            // TODO 6: PendingExecMaxOfflineSlash(T::blocknum -> Vec<machineId>) -> PendingExecMaxOfflineSlash
             // ((T::Blocknum, machine_id) -> Vec<renter>)
 
             0
@@ -678,7 +683,7 @@ pub mod pallet {
             // NOTE: 当机器是被租用状态时，记录机器的租用人，
             // 惩罚执行时，租用人都能获得赔偿
             // let nobody: Option<T::AccountId> = None;
-            PendingMaxOfflineSlash::<T>::insert(
+            PendingExecMaxOfflineSlash::<T>::insert(
                 now + max_slash_offline_threshold.saturated_into::<T::BlockNumber>(),
                 &machine_id,
                 (None::<T::AccountId>, machine_info.renters),
@@ -800,7 +805,7 @@ pub mod pallet {
 
                     let slash_id = Self::get_new_slash_id();
 
-                    PendingMaxOfflineSlash::<T>::remove(max_slash_offline_threshold, &machine_id);
+                    PendingExecMaxOfflineSlash::<T>::remove(max_slash_offline_threshold, &machine_id);
 
                     let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
                     ItemList::add_item(&mut pending_exec_slash, slash_id);
@@ -976,6 +981,7 @@ pub mod pallet {
         ApplySlashReview(SlashId),
         SlashExecuted(T::AccountId, MachineId, BalanceOf<T>),
         NewSlash(SlashId),
+        SetTmpVal(u64),
     }
 
     #[pallet::error]
@@ -1015,7 +1021,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_pending_max_slash(
         time: T::BlockNumber,
     ) -> BTreeMap<MachineId, (Option<T::AccountId>, Vec<T::AccountId>)> {
-        PendingMaxOfflineSlash::<T>::iter_prefix(time).collect()
+        PendingExecMaxOfflineSlash::<T>::iter_prefix(time).collect()
     }
 
     pub fn check_bonding_msg(
