@@ -71,7 +71,7 @@
   "MachineInfo": {
     "controller": "AccountId",
     "machine_stash": "AccountId",
-    "last_machine_renter": "Vec<AccountId>",
+    "renters": "Vec<AccountId>",
     "last_machine_restake": "BlockNumber",
     "bonding_height": "BlockNumber",
     "online_height": "BlockNumber",
