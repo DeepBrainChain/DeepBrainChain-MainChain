@@ -204,6 +204,10 @@ where
     pub fn calc_point(&self) -> u64 {
         self.machine_info_detail.committee_upload_info.calc_point
     }
+
+    pub fn machine_id(&self) -> MachineId {
+        self.machine_info_detail.committee_upload_info.machine_id.clone()
+    }
 }
 
 /// All kind of status of a machine

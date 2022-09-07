@@ -268,8 +268,8 @@ pub mod pallet {
 
     // The current storage version.
     #[pallet::storage]
-    #[pallet::getter(fn pallet_version)]
-    pub(super) type PalletVersion<T: Config> = StorageValue<_, u16, ValueQuery>;
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, u16, ValueQuery>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {

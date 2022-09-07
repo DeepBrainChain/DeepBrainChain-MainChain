@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod migrations;
 mod rpc;
 mod types;
 
@@ -15,7 +16,6 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
-    IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use generic_func::{ItemList, MachineId};
@@ -66,28 +66,6 @@ pub mod pallet {
         fn on_runtime_upgrade() -> Weight {
             // TODO: 对于所有的pending_confirming，由 RentOrderId -> T::AccountId 改为了
             // T::BlockNumber -> Vec<RentOrderId>
-
-            // NOTE: 清理过期存储: PendingRentEnding; PendingConfirming
-            let now = <frame_system::Module<T>>::block_number();
-            let pending_rent_ending: Vec<T::BlockNumber> =
-                <PendingRentEnding<T> as IterableStorageMap<T::BlockNumber, _>>::iter()
-                    .map(|(time, _)| time)
-                    .collect::<Vec<_>>();
-            for time in pending_rent_ending {
-                if time < now {
-                    <PendingRentEnding<T>>::remove(time);
-                }
-            }
-
-            let pending_confirming: Vec<T::BlockNumber> =
-                <PendingConfirming<T> as IterableStorageMap<T::BlockNumber, _>>::iter()
-                    .map(|(time, _)| time)
-                    .collect::<Vec<_>>();
-            for time in pending_confirming {
-                if time < now {
-                    <PendingConfirming<T>>::remove(time)
-                }
-            }
 
             0
         }
@@ -151,6 +129,11 @@ pub mod pallet {
     #[pallet::getter(fn maximum_rental_duration)]
     pub(super) type MaximumRentalDuration<T: Config> =
         StorageValue<_, EraIndex, ValueQuery, MaximumRentalDurationDefault<T>>;
+
+    // The current storage version.
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, u16, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {

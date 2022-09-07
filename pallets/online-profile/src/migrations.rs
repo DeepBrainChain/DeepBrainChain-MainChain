@@ -1,6 +1,6 @@
 use crate::{
     BalanceOf, Config, EraIndex, MachineId, MachineInfo, MachineInfoDetail, MachineStatus, MachinesInfo,
-    OPPendingSlashInfo, OPSlashReason, PalletVersion, PendingSlash,
+    OPPendingSlashInfo, OPSlashReason, PendingSlash, StorageVersion,
 };
 use codec::{Decode, Encode};
 use frame_support::{debug::info, traits::Get, weights::Weight, RuntimeDebug};
@@ -117,13 +117,13 @@ pub fn apply<T: Config>() -> Weight {
     frame_support::debug::RuntimeLogger::init();
 
     info!(
-        target: "runtime::gateway::common",
-        "Running migration for gateway common pallet"
+        target: "runtime::online_profile",
+        "Running migration for onlineProfile pallet"
     );
 
-    if PalletVersion::<T>::get() <= 1 {
+    if StorageVersion::<T>::get() <= 1 {
         // NOTE: Update storage version.
-        PalletVersion::<T>::put(2);
+        StorageVersion::<T>::put(2);
 
         migrate_machine_info_to_v2::<T>().saturating_add(migrate_pending_slash_to_v2::<T>())
     } else {
