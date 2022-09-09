@@ -10,9 +10,11 @@ use system::AccountInfo;
 #[test]
 fn fulfill_machine_works() {
     new_test_ext_after_machine_online().execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
         //   Secret seed:       0xd161967810190fcec218b2c263881b50e4becc6a2ba34ebd45760f44ae3e64d3
         //   Public key (hex):  0xf4f223af57780708fcefeaab01c2ee7fed79262173e16ca01a4a78df1c34f44e
         let machine_id2 = "f4f223af57780708fcefeaab01c2ee7fed79262173e16ca01a4a78df1c34f44e".as_bytes().to_vec();
+
         let msg = "f4f223af57780708fcefeaab01c2ee7fed79262173e16ca01a4a78df1c34f44e\
                 5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
         let sig = "26ed9e3a5c13d01e2239f3a2f39a0825c289ffeaf30da99a4d8516252e28bb0b1c4a119a22528c65ee470718f79f59303f0e3bc074aa17d495d69663fe73838e";
@@ -111,7 +113,8 @@ fn fulfill_machine_works() {
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info.clone()));
 
-        // TODO: 检查LiveMachine
+        run_to_block(13);
+
         {
             // NOTE: stash把币转走，只剩下 200_000 DBC
             assert_eq!(System::account(stash), AccountInfo{
@@ -125,6 +128,11 @@ fn fulfill_machine_works() {
                 },
                 ..Default::default()
             });
+
+            assert_eq!(
+                OnlineProfile::live_machines(),
+                LiveMachine { online_machine: vec![machine_id.clone()], fulfilling_machine: vec![machine_id2.clone()],..Default::default() }
+            );
         }
 
         assert_ok!(Balances::transfer(Origin::signed(controller), stash, 400_000 * ONE_DBC));
@@ -149,11 +157,9 @@ fn fulfill_machine_works() {
                 ..Default::default()
             });
 
-            // LiveMachine
-
             assert_eq!(
                 OnlineProfile::live_machines(),
-                LiveMachine { rented_machine: vec![machine_id2.clone()], ..Default::default() }
+                LiveMachine { online_machine: vec![machine_id.clone(), machine_id2.clone()], ..Default::default() }
             );
         }
     })
