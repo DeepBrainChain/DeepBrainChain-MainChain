@@ -1215,11 +1215,10 @@ impl<T: Config> Pallet<T> {
         sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
         // NOTE: 5000张卡开启银河竞赛
-        if !Self::galaxy_is_on() && sys_info.total_gpu_num > Self::galaxy_on_gpu_threshold() as u64 {
+        if !Self::galaxy_is_on() && sys_info.total_gpu_num >= Self::galaxy_on_gpu_threshold() as u64 {
             let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
             phase_reward_info.galaxy_on_era = current_era;
             PhaseRewardInfo::<T>::put(phase_reward_info);
-
             GalaxyIsOn::<T>::put(true);
         }
 
