@@ -564,7 +564,10 @@ pub mod pallet {
             let mut live_machine = Self::live_machines();
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-            // ensure!(machine_info.online_height == Zero::zero(), Error::<T>::MachineStatusNotAllowed);
+            ensure!(
+                live_machine.fulfilling_machine.binary_search(&machine_id).is_ok(),
+                Error::<T>::MachineStatusNotAllowed
+            );
 
             // NOTE: 机器补交质押时，所需的质押 = max(当前机器需要的质押，第一次绑定上线时的质押量)
             // 每卡质押按照第一次上线时计算
