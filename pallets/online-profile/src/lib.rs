@@ -246,12 +246,6 @@ pub mod pallet {
     pub(super) type PendingExecSlash<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<SlashId>, ValueQuery>;
 
-    // // 记录机器下线超过最大值(5,10天)后，需要立即执行的惩罚
-    // #[pallet::storage]
-    // #[pallet::getter(fn pending_exec_max_offline_slash)]
-    // pub(super) type PendingExecMaxOfflineSlash<T: Config> =
-    //     StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<MachineId>, ValueQuery>;
-
     // 机器主动下线后，记录机器下线超过最大值{5,10天}后，需要立即执行的惩罚
     #[pallet::storage]
     #[pallet::getter(fn pending_exec_max_offline_slash)]
@@ -284,25 +278,6 @@ pub mod pallet {
             Self::check_offline_machine_duration();
             Self::exec_pending_slash();
             let _ = Self::check_pending_slash();
-            0
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            // TODO 1: 对于所有的machine_info: creating -> online，因为creating状态被弃用
-            // TODO 2: 对于所有的machine_info: total_rented_duration 单位从天 -> BlockNumber
-            // TODO 3: 对于所有的machine_info.last_machine_renter: Option<AccountId> -> machine_info.renters: Vec<AccountId>,
-            //
-            // TODO 4: 如果机器主动下线/因举报下线之后，几个租用订单陆续到期，则机器主动上线
-            // 要根据几个订单的状态来判断机器是否是在线/租用状态
-            // 需要在rentMachine中提供一个查询接口
-            //
-            // TODO 5: OPPendingSlashInfo
-            // 新增： current_renter: Vec<AccountId字段>
-            // 改动：OPPendingSlashInfo.reward_to_reporter -> OPPendingSlashInfo.reporter
-            //
-            // TODO 6: PendingExecMaxOfflineSlash(T::blocknum -> Vec<machineId>) -> PendingExecMaxOfflineSlash
-            // ((T::Blocknum, machine_id) -> Vec<renter>)
-
             0
         }
     }
@@ -353,16 +328,17 @@ pub mod pallet {
             ensure_root(origin)?;
             GalaxyOnGPUThreshold::<T>::put(gpu_threshold);
 
+            let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
+            let current_era = Self::current_era();
             let sys_info = Self::sys_info();
+
             // NOTE: 5000张卡开启银河竞赛
-            if !Self::galaxy_is_on() && sys_info.total_gpu_num > gpu_threshold as u64 {
-                let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
-                let current_era = Self::current_era();
+            if !Self::galaxy_is_on() && sys_info.total_gpu_num >= gpu_threshold as u64 {
                 phase_reward_info.galaxy_on_era = current_era;
                 PhaseRewardInfo::<T>::put(phase_reward_info);
-
                 GalaxyIsOn::<T>::put(true);
             }
+
             Ok(().into())
         }
 
@@ -370,7 +346,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn set_controller(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResultWithPostInfo {
             let stash = ensure_signed(origin)?;
-            // Not allow multiple stash have same controller
+            // Don't allow multiple stash have same controller
             ensure!(!<ControllerStash<T>>::contains_key(&controller), Error::<T>::AlreadyController);
 
             StashController::<T>::insert(stash.clone(), controller.clone());
@@ -393,19 +369,19 @@ pub mod pallet {
             let mut machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.machine_stash == stash, Error::<T>::NotMachineStash);
 
-            let old_controller = machine_info.controller.clone();
-            let mut old_controller_machines = Self::controller_machines(&old_controller);
+            let pre_controller = machine_info.controller.clone();
+            let mut pre_controller_machines = Self::controller_machines(&pre_controller);
             let mut new_controller_machines = Self::controller_machines(&new_controller);
 
             // Change machine_info & controller_machines
             machine_info.controller = new_controller.clone();
-            ItemList::rm_item(&mut old_controller_machines, &machine_id);
+            ItemList::rm_item(&mut pre_controller_machines, &machine_id);
             ItemList::add_item(&mut new_controller_machines, machine_id.clone());
 
-            ControllerMachines::<T>::insert(&old_controller, old_controller_machines);
+            ControllerMachines::<T>::insert(&pre_controller, pre_controller_machines);
             ControllerMachines::<T>::insert(&new_controller, new_controller_machines);
             MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
-            Self::deposit_event(Event::MachineControllerChanged(machine_id, old_controller, new_controller));
+            Self::deposit_event(Event::MachineControllerChanged(machine_id, pre_controller, new_controller));
             Ok(().into())
         }
 
@@ -857,11 +833,9 @@ pub mod pallet {
             // 下线机器，并退还奖励
             Self::change_pos_info_by_online(&machine_info, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
-            ensure!(
-                Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
-                    .is_ok(),
-                Error::<T>::ReduceStakeFailed
-            );
+            Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
+                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+
             machine_info.stake_amount = Zero::zero();
             machine_info.machine_status = MachineStatus::Exit;
 
@@ -896,10 +870,8 @@ pub mod pallet {
             machine_info.stake_amount = stake_need;
             machine_info.last_machine_restake = now;
             machine_info.init_stake_per_gpu = stake_per_gpu;
-            ensure!(
-                Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false).is_ok(),
-                Error::<T>::ReduceStakeFailed
-            );
+            Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false)
+                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
             MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
             Self::deposit_event(Event::MachineRestaked(machine_id, old_stake, machine_info.stake_amount));
@@ -923,15 +895,8 @@ pub mod pallet {
             ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
 
             // 补交质押
-            ensure!(
-                Self::change_user_total_stake(
-                    machine_info.machine_stash,
-                    online_stake_params.slash_review_stake,
-                    true,
-                )
-                .is_ok(),
-                Error::<T>::BalanceNotEnough
-            );
+            Self::change_user_total_stake(machine_info.machine_stash, online_stake_params.slash_review_stake, true)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             PendingSlashReview::<T>::insert(
                 slash_id,

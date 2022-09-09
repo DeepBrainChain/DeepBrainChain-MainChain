@@ -9,6 +9,21 @@ use serde::{Deserialize, Serialize};
 use sp_runtime::SaturatedConversion;
 use sp_std::{vec, vec::Vec};
 
+// TODO 1: 对于所有的machine_info: creating -> online，因为creating状态被弃用
+// TODO 2: 对于所有的machine_info: total_rented_duration 单位从天 -> BlockNumber
+// TODO 3: 对于所有的machine_info.last_machine_renter: Option<AccountId> -> machine_info.renters: Vec<AccountId>,
+//
+// TODO 4: 如果机器主动下线/因举报下线之后，几个租用订单陆续到期，则机器主动上线
+// 要根据几个订单的状态来判断机器是否是在线/租用状态
+// 需要在rentMachine中提供一个查询接口
+//
+// TODO 5: OPPendingSlashInfo
+// 新增： current_renter: Vec<AccountId字段>
+// 改动：OPPendingSlashInfo.reward_to_reporter -> OPPendingSlashInfo.reporter
+//
+// TODO 6: PendingExecMaxOfflineSlash(T::blocknum -> Vec<machineId>) -> PendingExecMaxOfflineSlash
+// ((T::Blocknum, machine_id) -> Vec<renter>)
+
 /// All details of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
