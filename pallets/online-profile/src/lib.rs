@@ -356,32 +356,33 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // - Writes: controller_machines, stash_controller, controller_stash, machine_info,
         /// Stash account reset controller for one machine
         #[pallet::weight(10000)]
         pub fn stash_reset_controller(
             origin: OriginFor<T>,
-            machine_id: MachineId,
             new_controller: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let stash = ensure_signed(origin)?;
             ensure!(!<ControllerStash<T>>::contains_key(&new_controller), Error::<T>::AlreadyController);
 
-            let mut machine_info = Self::machines_info(&machine_id);
-            ensure!(machine_info.machine_stash == stash, Error::<T>::NotMachineStash);
+            let pre_controller = Self::stash_controller(&stash).unwrap();
+            let controller_machines = Self::controller_machines(&pre_controller);
 
-            let pre_controller = machine_info.controller.clone();
-            let mut pre_controller_machines = Self::controller_machines(&pre_controller);
-            let mut new_controller_machines = Self::controller_machines(&new_controller);
+            for machine_id in controller_machines.iter() {
+                let mut machine_info = Self::machines_info(&machine_id);
+                machine_info.controller = new_controller.clone();
+                MachinesInfo::<T>::insert(machine_id, machine_info);
+            }
 
-            // Change machine_info & controller_machines
-            machine_info.controller = new_controller.clone();
-            ItemList::rm_item(&mut pre_controller_machines, &machine_id);
-            ItemList::add_item(&mut new_controller_machines, machine_id.clone());
+            ControllerMachines::<T>::remove(&pre_controller);
+            ControllerMachines::<T>::insert(&new_controller, controller_machines);
 
-            ControllerMachines::<T>::insert(&pre_controller, pre_controller_machines);
-            ControllerMachines::<T>::insert(&new_controller, new_controller_machines);
-            MachinesInfo::<T>::insert(machine_id.clone(), machine_info);
-            Self::deposit_event(Event::MachineControllerChanged(machine_id, pre_controller, new_controller));
+            StashController::<T>::insert(stash.clone(), new_controller.clone());
+            ControllerStash::<T>::remove(pre_controller.clone());
+            ControllerStash::<T>::insert(new_controller.clone(), stash.clone());
+
+            Self::deposit_event(Event::StashResetController(stash, pre_controller, new_controller));
             Ok(().into())
         }
 
@@ -931,6 +932,7 @@ pub mod pallet {
         BondMachine(T::AccountId, MachineId, BalanceOf<T>),
         Slash(T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
         ControllerStashBonded(T::AccountId, T::AccountId),
+        // 弃用
         MachineControllerChanged(MachineId, T::AccountId, T::AccountId),
         MachineOfflineToMutHardware(MachineId, BalanceOf<T>),
         StakeAdded(T::AccountId, BalanceOf<T>),
@@ -950,6 +952,8 @@ pub mod pallet {
         SlashExecuted(T::AccountId, MachineId, BalanceOf<T>),
         NewSlash(SlashId),
         SetTmpVal(u64),
+        // stash, pre_controller, post_controller
+        StashResetController(T::AccountId, T::AccountId, T::AccountId),
     }
 
     #[pallet::error]
