@@ -356,8 +356,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // - Writes: controller_machines, stash_controller, controller_stash,
-        // machine_info,
+        // - Writes: controller_machines, stash_controller, controller_stash, machine_info,
         /// Stash account reset controller for one machine
         #[pallet::weight(10000)]
         pub fn stash_reset_controller(
@@ -380,6 +379,7 @@ pub mod pallet {
             ControllerMachines::<T>::insert(&new_controller, controller_machines);
 
             StashController::<T>::insert(stash.clone(), new_controller.clone());
+            ControllerStash::<T>::remove(pre_controller.clone());
             ControllerStash::<T>::insert(new_controller.clone(), stash.clone());
 
             Self::deposit_event(Event::StashResetController(stash, pre_controller, new_controller));

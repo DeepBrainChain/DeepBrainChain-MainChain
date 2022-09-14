@@ -1,6 +1,7 @@
 use super::super::mock::*;
 use crate::mock::{new_test_ext_after_machine_online, run_to_block};
 use frame_support::assert_ok;
+use generic_func::MachineId;
 use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
 use pallet_balances::AccountData;
 use std::convert::TryInto;
@@ -162,6 +163,31 @@ fn fulfill_machine_works() {
                 LiveMachine { online_machine: vec![machine_id.clone(), machine_id2.clone()], ..Default::default() }
             );
         }
+    })
+}
+
+#[test]
+fn reset_controller_works() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let pre_controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let post_controller = sr25519::Public::from(Sr25519Keyring::Dave);
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+
+        assert_ok!(OnlineProfile::stash_reset_controller(Origin::signed(stash), post_controller));
+
+        // - Writes: controller_machines, stash_controller, controller_stash, machine_info,
+        let empty_machine_id: Vec<MachineId> = vec![];
+        assert_eq!(OnlineProfile::controller_machines(pre_controller), empty_machine_id);
+        assert_eq!(OnlineProfile::controller_machines(post_controller), vec![machine_id.clone()]);
+
+        assert_eq!(OnlineProfile::stash_controller(stash), Some(post_controller));
+
+        assert_eq!(OnlineProfile::controller_stash(pre_controller), None);
+        assert_eq!(OnlineProfile::controller_stash(post_controller), Some(stash));
+
+        let machine_info = OnlineProfile::machines_info(&machine_id);
+        assert_eq!(machine_info.controller, post_controller);
     })
 }
 
