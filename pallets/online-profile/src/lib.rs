@@ -3,7 +3,6 @@
 pub mod migrations;
 mod online_reward;
 mod rpc;
-pub mod rpc_types;
 mod slash;
 mod traits;
 mod types;
