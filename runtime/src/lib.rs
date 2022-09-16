@@ -86,7 +86,6 @@ pub use sp_runtime::BuildStorage;
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::Author;
-mod migrations;
 
 /// Constant values used within the runtime.
 pub mod constants;

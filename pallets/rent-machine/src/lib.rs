@@ -64,10 +64,11 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> Weight {
-            // TODO: 对于所有的pending_confirming，由 RentOrderId -> T::AccountId 改为了
-            // T::BlockNumber -> Vec<RentOrderId>
-
-            0
+            frame_support::debug::RuntimeLogger::init();
+            frame_support::debug::info!("🔍️ RentMachine Storage Migration start");
+            let weight = migrations::apply::<T>();
+            frame_support::debug::info!("🚀 RentMachineStorageMigration end");
+            weight
         }
     }
 

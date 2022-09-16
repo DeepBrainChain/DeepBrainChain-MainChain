@@ -47,6 +47,8 @@ fn clean_expired_storage<T: Config>() -> Weight {
         }
     }
 
+    // TODO: 对于所有的pending_confirming，由 RentOrderId -> T::AccountId 改为了
+    // T::BlockNumber -> Vec<RentOrderId>
     let pending_confirming: Vec<T::BlockNumber> =
         <PendingConfirming<T> as IterableStorageMap<T::BlockNumber, _>>::iter()
             .map(|(time, _)| time)
