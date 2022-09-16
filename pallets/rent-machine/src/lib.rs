@@ -624,7 +624,11 @@ impl<T: Config> Pallet<T> {
             PendingRentEnding::<T>::insert(rent_order.rent_end, pending_rent_ending);
         }
         RentOrder::<T>::remove(rent_order_id);
-        UserRented::<T>::insert(who, rent_order_list);
+        if rent_order_list.is_empty() {
+            UserRented::<T>::remove(who);
+        } else {
+            UserRented::<T>::insert(who, rent_order_list);
+        }
         if pending_confirming.is_empty() {
             PendingConfirming::<T>::remove(pending_confirming_deadline);
         } else {
