@@ -9,20 +9,18 @@ use serde::{Deserialize, Serialize};
 use sp_runtime::SaturatedConversion;
 use sp_std::{vec, vec::Vec};
 
-// TODO 1: 对于所有的machine_info: creating -> online，因为creating状态被弃用
-// TODO 2: 对于所有的machine_info: total_rented_duration 单位从天 -> BlockNumber
-// TODO 3: 对于所有的machine_info.last_machine_renter: Option<AccountId> -> machine_info.renters: Vec<AccountId>,
+// 1: machine_info:
+//      .machine_status: creating -> online，因为creating状态被弃用
+//      .total_rented_duration: 单位从天 -> BlockNumber
+//      .last_machine_renter: Option<AccountId> -> .renters: Vec<AccountId>,
 //
-// TODO 4: 如果机器主动下线/因举报下线之后，几个租用订单陆续到期，则机器主动上线
-// 要根据几个订单的状态来判断机器是否是在线/租用状态
-// 需要在rentMachine中提供一个查询接口
+// TODO 2: OPPendingSlashInfo
+//      新增：current_renter: Vec<AccountId字段>
+//      改动：.reward_to_reporter -> .reporter
 //
-// TODO 5: OPPendingSlashInfo
-// 新增： current_renter: Vec<AccountId字段>
-// 改动：OPPendingSlashInfo.reward_to_reporter -> OPPendingSlashInfo.reporter
-//
-// TODO 6: PendingExecMaxOfflineSlash(T::blocknum -> Vec<machineId>) -> PendingExecMaxOfflineSlash
-// ((T::Blocknum, machine_id) -> Vec<renter>)
+// TODO 3: PendingExecMaxOfflineSlash
+//      (T::blocknum -> Vec<machineId>) 变更为
+//      ((T::Blocknum, machine_id) -> Vec<Option<reporter>, renter>)
 
 /// All details of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -93,7 +91,7 @@ pub struct OldOPPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub slash_amount: Balance,
     pub slash_exec_time: BlockNumber,
 
-    // NOTE: V2变更为reporter: Option<AccountId>,
+    // NOTE: V2变更为 reporter: Option<AccountId>,
     pub reward_to_reporter: Option<AccountId>,
     // NOTE: V2新增 renters: Vec<AccountId>,
     pub reward_to_committee: Option<Vec<AccountId>>,

@@ -67,7 +67,7 @@ pub mod pallet {
             frame_support::debug::RuntimeLogger::init();
             frame_support::debug::info!("🔍️ RentMachine Storage Migration start");
             let weight = migrations::apply::<T>();
-            frame_support::debug::info!("🚀 RentMachineStorageMigration end");
+            frame_support::debug::info!("🚀 RentMachine Storage Migration end");
             weight
         }
     }

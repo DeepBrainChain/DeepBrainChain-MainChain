@@ -282,9 +282,9 @@ pub mod pallet {
 
         fn on_runtime_upgrade() -> Weight {
             frame_support::debug::RuntimeLogger::init();
-            frame_support::debug::info!("🔍️ OnlineProfileStorageMigration start");
+            frame_support::debug::info!("🔍️ OnlineProfile Storage Migration start");
             let weight = migrations::apply::<T>();
-            frame_support::debug::info!("🚀 OnlineProfileStorageMigration end");
+            frame_support::debug::info!("🚀 OnlineProfile Storage Migration end");
             weight
         }
     }
@@ -685,6 +685,9 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // NOTE: 如果机器主动下线/因举报下线之后，几个租用订单陆续到期，则机器主动上线
+        // 要根据几个订单的状态来判断机器是否是在线/租用状态
+        // 需要在rentMachine中提供一个查询接口
         /// 控制账户报告机器上线
         #[pallet::weight(10000)]
         pub fn controller_report_online(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
