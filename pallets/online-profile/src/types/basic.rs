@@ -134,6 +134,14 @@ impl PosInfo {
             self.offline_gpu = self.offline_gpu.saturating_add(gpu_num);
         }
     }
+
+    // NOTE: 与下线不同，退出时，不增加offline_gpu数量
+    // 返回是否为空
+    pub fn machine_exit(&mut self, gpu_num: u32, calc_point: u64) -> bool {
+        self.online_gpu = self.online_gpu.saturating_sub(gpu_num as u64);
+        self.online_gpu_calc_points = self.online_gpu_calc_points.saturating_sub(calc_point);
+        self == &PosInfo::default()
+    }
 }
 
 /// The reason why a stash account is punished

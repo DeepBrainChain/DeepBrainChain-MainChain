@@ -96,7 +96,7 @@ pub mod pallet {
     /// Statistics of gpu in one position
     #[pallet::storage]
     #[pallet::getter(fn pos_gpu_info)]
-    pub(super) type PosGPUInfo<T: Config> =
+    pub type PosGPUInfo<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, Longitude, Blake2_128Concat, Latitude, PosInfo, ValueQuery>;
 
     #[pallet::storage]
@@ -841,19 +841,7 @@ pub mod pallet {
             // 确保机器距离上次租用超过10天
             ensure!(now - machine_info.last_online_height >= 28800u32.into(), Error::<T>::TimeNotAllowed);
 
-            // 下线机器，并退还奖励
-            Self::change_pos_info_by_online(&machine_info, false);
-            Self::update_snap_by_online_status(machine_id.clone(), false);
-            Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
-                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
-
-            machine_info.stake_amount = Zero::zero();
-            machine_info.machine_status = MachineStatus::Exit;
-
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
-
-            Self::deposit_event(Event::MachineExit(machine_id));
-            Ok(().into())
+            Self::do_machine_exit(machine_id, machine_info)
         }
 
         /// 满足365天可以申请重新质押，退回质押币
@@ -1000,6 +988,45 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn do_machine_exit(
+        machine_id: MachineId,
+        mut machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+    ) -> DispatchResultWithPostInfo {
+        // 下线机器，并退还奖励
+        Self::change_pos_info_on_exit(&machine_info);
+        Self::update_snap_by_online_status(machine_id.clone(), false);
+        Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
+            .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+
+        machine_info.stake_amount = Zero::zero();
+        machine_info.machine_status = MachineStatus::Exit;
+
+        let mut live_machine = Self::live_machines();
+        ItemList::rm_item(&mut live_machine.online_machine, &machine_id);
+
+        let mut controller_machines = Self::controller_machines(&machine_info.controller);
+        ItemList::rm_item(&mut controller_machines, &machine_id);
+        if controller_machines.is_empty() {
+            ControllerMachines::<T>::remove(&machine_info.controller);
+        } else {
+            ControllerMachines::<T>::insert(&machine_info.controller, controller_machines);
+        }
+
+        let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
+        ItemList::rm_item(&mut stash_machine.total_machine, &machine_id);
+        if stash_machine == StashMachine::default() {
+            StashMachines::<T>::remove(&machine_info.machine_stash);
+        } else {
+            StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+        }
+
+        LiveMachines::<T>::put(live_machine);
+        MachinesInfo::<T>::insert(&machine_id, machine_info);
+
+        Self::deposit_event(Event::MachineExit(machine_id));
+        Ok(().into())
+    }
+
     pub fn get_pending_max_slash(
         time: T::BlockNumber,
     ) -> BTreeMap<MachineId, (Option<T::AccountId>, Vec<T::AccountId>)> {
@@ -1104,6 +1131,22 @@ impl<T: Config> Pallet<T> {
 
         pos_gpu_info.is_online(is_online, gpu_num, calc_point);
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
+    }
+
+    fn change_pos_info_on_exit(machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
+        let longitude = machine_info.longitude();
+        let latitude = machine_info.latitude();
+        let gpu_num = machine_info.gpu_num();
+        let calc_point = machine_info.calc_point();
+
+        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
+
+        let is_empty = pos_gpu_info.machine_exit(gpu_num, calc_point);
+        if is_empty {
+            PosGPUInfo::<T>::remove(longitude, latitude);
+        } else {
+            PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
+        }
     }
 
     /// GPU rented/surrender

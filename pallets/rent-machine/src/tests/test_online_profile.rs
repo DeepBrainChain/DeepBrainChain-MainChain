@@ -2,7 +2,7 @@ use super::super::mock::*;
 use crate::mock::{new_test_ext_after_machine_online, run_to_block};
 use frame_support::assert_ok;
 use generic_func::MachineId;
-use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
+use online_profile::{EraStashPoints, LiveMachine, MachineStatus, PosGPUInfo, StashMachine, SysInfoDetail};
 use pallet_balances::AccountData;
 use std::convert::TryInto;
 use system::AccountInfo;
@@ -197,7 +197,48 @@ fn galaxy_on_works() {
 }
 
 #[test]
-fn machine_exit_works() {}
+fn machine_exit_works() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+
+        let machine_info = OnlineProfile::machines_info(&machine_id);
+        assert_eq!(machine_info.reward_deadline, 1 + 365 * 2);
+
+        // run_to_block(366 * 2880 + 1);
+        // assert_ok!(OnlineProfile::machine_exit(Origin::signed(controller), machine_id.clone()));
+        OnlineProfile::do_machine_exit(machine_id.clone(), machine_info);
+
+        {
+            // 确保machine退出后，还能继续领奖励?还是说直接不能领奖励了
+            let machine_info = OnlineProfile::machines_info(&machine_id);
+            assert_eq!(machine_info.stake_amount, 0);
+            assert_eq!(machine_info.machine_status, MachineStatus::Exit);
+
+            // PosGPUInfo已经被清空
+            assert!(!PosGPUInfo::<TestRuntime>::contains_key(machine_info.longitude(), machine_info.latitude()));
+            // 从live_machine中被删除
+            let live_machine = OnlineProfile::live_machines();
+            assert!(!live_machine.machine_id_exist(&machine_id));
+
+            // 从controller_machines中删除
+            assert!(OnlineProfile::controller_machines(&controller).binary_search(&machine_id).is_err());
+
+            // ErasMachinePoints不应该再存在该变量
+
+            // stash_machines中删除
+            let stash_machines = OnlineProfile::stash_machines(&stash);
+            assert_eq!(
+                stash_machines,
+                StashMachine {
+                    // 因为total_rent_fee为0， total_burn_fee为0
+                    ..Default::default()
+                }
+            );
+        }
+    })
+}
 
 #[test]
 fn restake_online_machine_works() {}
