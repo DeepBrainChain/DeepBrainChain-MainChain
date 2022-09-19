@@ -2,7 +2,7 @@ use super::super::mock::*;
 use crate::mock::{new_test_ext_after_machine_online, run_to_block};
 use frame_support::assert_ok;
 use generic_func::MachineId;
-use online_profile::{EraStashPoints, LiveMachine, MachineStatus, PosGPUInfo, StashMachine, SysInfoDetail};
+use online_profile::{LiveMachine, MachineStatus, PosGPUInfo, StashMachine};
 use pallet_balances::AccountData;
 use std::convert::TryInto;
 use system::AccountInfo;
@@ -208,7 +208,7 @@ fn machine_exit_works() {
 
         // run_to_block(366 * 2880 + 1);
         // assert_ok!(OnlineProfile::machine_exit(Origin::signed(controller), machine_id.clone()));
-        OnlineProfile::do_machine_exit(machine_id.clone(), machine_info);
+        assert_ok!(OnlineProfile::do_machine_exit(machine_id.clone(), machine_info));
 
         {
             // 确保machine退出后，还能继续领奖励?还是说直接不能领奖励了
@@ -236,6 +236,14 @@ fn machine_exit_works() {
                     ..Default::default()
                 }
             );
+
+            // 确保质押是否变化
+            assert_eq!(OnlineProfile::sys_info(), online_profile::SysInfoDetail::default());
+
+            assert_eq!(OnlineProfile::stash_stake(&stash), 0);
+
+            assert_eq!(Balances::free_balance(&stash), INIT_BALANCE);
+            assert_eq!(Balances::reserved_balance(&stash), 0);
         }
     })
 }
