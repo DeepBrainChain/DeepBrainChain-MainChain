@@ -195,13 +195,13 @@ pub mod pallet {
             }
             Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
 
-            let _ = Self::do_report_machine_fault(
+            Self::do_report_machine_fault(
                 reporter.clone(),
                 report_reason,
                 None,
                 &mut live_report,
                 &mut reporter_report,
-            );
+            )?;
 
             LiveReport::<T>::put(live_report);
             ReporterReport::<T>::insert(&reporter, reporter_report);
