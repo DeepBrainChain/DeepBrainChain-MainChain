@@ -64,7 +64,6 @@ pub mod pallet {
         }
 
         fn on_finalize(_block_number: T::BlockNumber) {
-            // TODO: 更改为用户手动操作时触发
             // TODO: 记录惩罚时的当前租用人，当惩罚执行时所有租用人都能获得赔偿
             let _ = Self::summary_fault_hook();
             let _ = Self::summary_inaccessible_hook();

@@ -2,6 +2,9 @@ use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+use crate::{Config, Error};
+use frame_support::ensure;
+use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use generic_func::{ItemList, MachineId};
 use online_profile::CommitteeUploadInfo;
 use sp_runtime::RuntimeDebug;
@@ -32,6 +35,44 @@ pub struct OCCommitteeMachineList {
     pub online_machine: Vec<MachineId>,
 }
 
+impl OCCommitteeMachineList {
+    pub fn submit_hash(&mut self, machine_id: MachineId) {
+        ItemList::rm_item(&mut self.booked_machine, &machine_id);
+        ItemList::add_item(&mut self.hashed_machine, machine_id);
+    }
+
+    pub fn submit_raw(&mut self, machine_id: MachineId) -> Result<(), CustomErr> {
+        ensure!(self.hashed_machine.binary_search(&machine_id).is_ok(), CustomErr::NotSubmitHash);
+        ensure!(self.confirmed_machine.binary_search(&machine_id).is_err(), CustomErr::AlreadySubmitRaw);
+
+        ItemList::rm_item(&mut self.hashed_machine, &machine_id);
+        ItemList::add_item(&mut self.confirmed_machine, machine_id);
+        Ok(())
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum CustomErr {
+    NotInBookList,
+    TimeNotAllow,
+    AlreadySubmitHash,
+    AlreadySubmitRaw,
+    NotSubmitHash,
+}
+
+impl<T: Config> From<CustomErr> for Error<T> {
+    fn from(err: CustomErr) -> Self {
+        match err {
+            CustomErr::NotInBookList => Error::<T>::NotInBookList,
+            CustomErr::TimeNotAllow => Error::<T>::TimeNotAllow,
+            CustomErr::AlreadySubmitHash => Error::<T>::AlreadySubmitHash,
+            CustomErr::AlreadySubmitRaw => Error::<T>::AlreadySubmitRaw,
+            CustomErr::NotSubmitHash => Error::<T>::NotSubmitHash,
+        }
+    }
+}
+
 /// Machines' verifying committee
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -54,7 +95,38 @@ pub struct OCMachineCommitteeList<AccountId, BlockNumber> {
     pub status: OCVerifyStatus,
 }
 
-impl<AccountId: Clone + Ord, BlockNumber> OCMachineCommitteeList<AccountId, BlockNumber> {
+impl<AccountId, BlockNumber> OCMachineCommitteeList<AccountId, BlockNumber>
+where
+    AccountId: Clone + Ord,
+    BlockNumber: Copy + PartialOrd + std::ops::Add<Output = BlockNumber> + From<u32>,
+{
+    pub fn submit_hash(&mut self, committee: AccountId) -> Result<(), CustomErr> {
+        ensure!(self.booked_committee.binary_search(&committee).is_ok(), CustomErr::NotInBookList);
+        ensure!(self.hashed_committee.binary_search(&committee).is_err(), CustomErr::AlreadySubmitHash);
+
+        ItemList::add_item(&mut self.hashed_committee, committee);
+        // 如果委员会都提交了Hash,则直接进入提交原始信息的阶段
+        if self.booked_committee.len() == self.hashed_committee.len() {
+            self.status = OCVerifyStatus::SubmittingRaw;
+        }
+
+        Ok(())
+    }
+
+    pub fn submit_raw(&mut self, time: BlockNumber, committee: AccountId) -> Result<(), CustomErr> {
+        if self.status != OCVerifyStatus::SubmittingRaw {
+            ensure!(time >= self.confirm_start_time, CustomErr::TimeNotAllow);
+            ensure!(time <= self.book_time + SUBMIT_RAW_END.into(), CustomErr::TimeNotAllow);
+        }
+        ensure!(self.hashed_committee.binary_search(&committee).is_ok(), CustomErr::NotSubmitHash);
+
+        ItemList::add_item(&mut self.confirmed_committee, committee);
+        if self.confirmed_committee.len() == self.hashed_committee.len() {
+            self.status = OCVerifyStatus::Summarizing;
+        }
+        Ok(())
+    }
+
     // 记录没有提交原始信息的委员会
     pub fn summary_unruly(&self) -> Vec<AccountId> {
         let mut unruly = Vec::new();
@@ -95,6 +167,22 @@ pub struct OCCommitteeOps<BlockNumber, Balance> {
     pub confirm_time: BlockNumber,
     pub machine_status: OCMachineStatus,
     pub machine_info: CommitteeUploadInfo,
+}
+
+impl<BlockNumber, Balance> OCCommitteeOps<BlockNumber, Balance> {
+    pub fn submit_hash(&mut self, time: BlockNumber, hash: [u8; 16]) {
+        self.machine_status = OCMachineStatus::Hashed;
+        self.confirm_hash = hash;
+        self.hash_time = time;
+    }
+
+    // 添加用户对机器的操作记录
+    pub fn submit_raw(&mut self, time: BlockNumber, machine_info: CommitteeUploadInfo) {
+        self.confirm_time = time;
+        self.machine_status = OCMachineStatus::Confirmed;
+        self.machine_info = machine_info;
+        self.machine_info.rand_str = Vec::new();
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]

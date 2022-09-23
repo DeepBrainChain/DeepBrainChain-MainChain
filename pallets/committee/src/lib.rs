@@ -3,6 +3,7 @@
 mod rpc;
 mod traits;
 mod types;
+#[allow(clippy::all)]
 pub mod weights;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]

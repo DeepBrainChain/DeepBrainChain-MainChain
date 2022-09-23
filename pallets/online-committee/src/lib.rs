@@ -130,33 +130,17 @@ pub mod pallet {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            let mut machine_committee = Self::machine_committee(&machine_id);
             let mut machine_submited_hash = Self::machine_submited_hash(&machine_id);
-
-            ensure!(machine_committee.booked_committee.binary_search(&committee).is_ok(), Error::<T>::NotInBookList);
-            ensure!(
-                machine_committee.hashed_committee.binary_search(&committee).is_err(),
-                Error::<T>::AlreadySubmitHash
-            );
             ensure!(machine_submited_hash.binary_search(&hash).is_err(), Error::<T>::DuplicateHash);
             ItemList::add_item(&mut machine_submited_hash, hash);
 
-            let mut committee_ops = Self::committee_ops(&committee, &machine_id);
+            let mut machine_committee = Self::machine_committee(&machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
+            let mut committee_ops = Self::committee_ops(&committee, &machine_id);
 
-            ItemList::add_item(&mut machine_committee.hashed_committee, committee.clone());
-            ItemList::rm_item(&mut committee_machine.booked_machine, &machine_id);
-            ItemList::add_item(&mut committee_machine.hashed_machine, machine_id.clone());
-
-            // 添加用户对机器的操作记录
-            committee_ops.machine_status = OCMachineStatus::Hashed;
-            committee_ops.confirm_hash = hash;
-            committee_ops.hash_time = now;
-
-            // 如果委员会都提交了Hash,则直接进入提交原始信息的阶段
-            if machine_committee.booked_committee.len() == machine_committee.hashed_committee.len() {
-                machine_committee.status = OCVerifyStatus::SubmittingRaw;
-            }
+            machine_committee.submit_hash(committee.clone()).map_err::<Error<T>, _>(Into::into)?;
+            committee_machine.submit_hash(machine_id.clone());
+            committee_ops.submit_hash(now, hash);
 
             // 更新存储
             MachineSubmitedHash::<T>::insert(&machine_id, machine_submited_hash);
@@ -179,38 +163,17 @@ pub mod pallet {
 
             let mut machine_committee = Self::machine_committee(&machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
-            let mut machine_ops = Self::committee_ops(&committee, &machine_id);
+            let mut committee_ops = Self::committee_ops(&committee, &machine_id);
 
-            if machine_committee.status != OCVerifyStatus::SubmittingRaw {
-                ensure!(now >= machine_committee.confirm_start_time, Error::<T>::TimeNotAllow);
-                ensure!(now <= machine_committee.book_time + SUBMIT_RAW_END.into(), Error::<T>::TimeNotAllow);
-            }
-            ensure!(machine_committee.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotSubmitHash);
-            ensure!(committee_machine.hashed_machine.binary_search(&machine_id).is_ok(), Error::<T>::NotSubmitHash);
-            ensure!(
-                committee_machine.confirmed_machine.binary_search(&machine_id).is_err(),
-                Error::<T>::AlreadySubmitRaw
-            );
+            ensure!(machine_info_detail.hash() == committee_ops.confirm_hash, Error::<T>::InfoNotFeatHash);
 
-            let info_hash = machine_info_detail.hash();
-            ensure!(info_hash == machine_ops.confirm_hash, Error::<T>::InfoNotFeatHash);
-
-            ItemList::rm_item(&mut committee_machine.hashed_machine, &machine_id);
-            ItemList::add_item(&mut committee_machine.confirmed_machine, machine_id.clone());
-            ItemList::add_item(&mut machine_committee.confirmed_committee, committee.clone());
-
-            machine_ops.confirm_time = now;
-            machine_ops.machine_status = OCMachineStatus::Confirmed;
-            machine_ops.machine_info = machine_info_detail;
-            machine_ops.machine_info.rand_str = Vec::new();
-
-            if machine_committee.confirmed_committee.len() == machine_committee.hashed_committee.len() {
-                machine_committee.status = OCVerifyStatus::Summarizing;
-            }
+            committee_machine.submit_raw(machine_id.clone()).map_err::<Error<T>, _>(Into::into)?;
+            machine_committee.submit_raw(now, committee.clone()).map_err::<Error<T>, _>(Into::into)?;
+            committee_ops.submit_raw(now, machine_info_detail);
 
             CommitteeMachine::<T>::insert(&committee, committee_machine);
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            CommitteeOps::<T>::insert(&committee, &machine_id, machine_ops);
+            CommitteeOps::<T>::insert(&committee, &machine_id, committee_ops);
 
             Self::deposit_event(Event::AddConfirmRaw(committee, machine_id));
             Ok(().into())
@@ -329,8 +292,7 @@ impl<T: Config> Pallet<T> {
 
             if let Some(committee_workflows) = Self::committee_workflow() {
                 for committee_workflow in committee_workflows {
-                    if Self::book_one(machine_id.to_vec(), confirm_start, now, committee_workflow.clone()).is_err()
-                    {
+                    if Self::book_one(machine_id.to_vec(), confirm_start, now, committee_workflow.clone()).is_err() {
                         continue;
                     };
                 }
@@ -643,8 +605,7 @@ impl<T: Config> Pallet<T> {
         let max_support_group = support_committee_num.clone().into_iter().filter(|n| n == &max_support_num).count();
 
         if max_support_group == 1 {
-            let committee_group_index =
-                support_committee_num.into_iter().position(|r| r == max_support_num).unwrap();
+            let committee_group_index = support_committee_num.into_iter().position(|r| r == max_support_num).unwrap();
 
             // 记录所有的无效支持
             for (index, committees) in committee_for_machine_info.iter().enumerate() {
