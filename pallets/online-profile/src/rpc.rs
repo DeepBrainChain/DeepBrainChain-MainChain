@@ -14,11 +14,7 @@ type EraIndex = u32;
 
 impl<T: Config> Pallet<T> {
     pub fn get_total_staker_num() -> u64 {
-        let all_stash = <StashMachines<T> as IterableStorageMap<T::AccountId, _>>::iter()
-            .map(|(staker, _)| staker)
-            .collect::<Vec<_>>();
-
-        all_stash.len() as u64
+        <StashMachines<T> as IterableStorageMap<T::AccountId, _>>::iter().count() as u64
     }
 
     pub fn get_op_info() -> SysInfoDetail<BalanceOf<T>> {
@@ -32,17 +28,17 @@ impl<T: Config> Pallet<T> {
 
         let mut staker_machines = Vec::new();
 
-        for a_machine in &staker_info.total_machine {
-            let machine_info = Self::machines_info(a_machine);
+        for machine_id in &staker_info.total_machine {
+            let machine_info = Self::machines_info(machine_id);
             staker_machines.push(MachineBriefInfo {
-                machine_id: a_machine.to_vec(),
+                machine_id: machine_id.to_vec(),
                 gpu_num: machine_info.gpu_num(),
                 calc_point: machine_info.calc_point(),
                 machine_status: machine_info.machine_status,
             })
         }
 
-        StakerInfo { stash_statistic: staker_info.into(), bonded_machines: staker_machines }
+        StakerInfo { stash_statistic: staker_info, bonded_machines: staker_machines }
     }
 
     /// 获取机器列表

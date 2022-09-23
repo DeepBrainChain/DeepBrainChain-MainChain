@@ -830,7 +830,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn machine_exit(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let mut machine_info = Self::machines_info(&machine_id);
+            let machine_info = Self::machines_info(&machine_id);
             let now = <frame_system::Module<T>>::block_number();
             let current_era = Self::current_era();
 

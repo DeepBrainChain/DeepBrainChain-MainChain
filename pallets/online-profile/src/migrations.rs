@@ -76,7 +76,7 @@ where
             total_rented_times: info.total_rented_times,
             total_rent_fee: info.total_rent_fee,
             total_burn_fee: info.total_burn_fee,
-            machine_info_detail: info.machine_info_detail.into(),
+            machine_info_detail: info.machine_info_detail,
             reward_committee: info.reward_committee,
             reward_deadline: info.reward_deadline,
         }
