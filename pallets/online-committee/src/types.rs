@@ -4,11 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Config, Error};
 use frame_support::ensure;
-use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use generic_func::{ItemList, MachineId};
 use online_profile::CommitteeUploadInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::vec::Vec;
+use sp_std::{ops, vec::Vec};
 
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;
@@ -98,7 +97,7 @@ pub struct OCMachineCommitteeList<AccountId, BlockNumber> {
 impl<AccountId, BlockNumber> OCMachineCommitteeList<AccountId, BlockNumber>
 where
     AccountId: Clone + Ord,
-    BlockNumber: Copy + PartialOrd + std::ops::Add<Output = BlockNumber> + From<u32>,
+    BlockNumber: Copy + PartialOrd + ops::Add<Output = BlockNumber> + From<u32>,
 {
     pub fn submit_hash(&mut self, committee: AccountId) -> Result<(), CustomErr> {
         ensure!(self.booked_committee.binary_search(&committee).is_ok(), CustomErr::NotInBookList);
