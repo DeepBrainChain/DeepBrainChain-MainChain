@@ -33,49 +33,13 @@ pub struct LiveMachine {
 }
 
 impl LiveMachine {
-    pub fn is_bonding(&self, machine_id: &MachineId) -> bool {
-        self.bonding_machine.binary_search(machine_id).is_ok()
-    }
-    pub fn is_confirmed(&self, machine_id: &MachineId) -> bool {
-        self.confirmed_machine.binary_search(machine_id).is_ok()
-    }
-    pub fn is_booked(&self, machine_id: &MachineId) -> bool {
-        self.booked_machine.binary_search(machine_id).is_ok()
-    }
-    pub fn is_online(&self, machine_id: &MachineId) -> bool {
-        self.online_machine.binary_search(machine_id).is_ok()
-    }
-    pub fn is_fulfilling(&self, machine_id: &MachineId) -> bool {
-        self.fulfilling_machine.binary_search(machine_id).is_ok()
-    }
-    pub fn is_refused(&self, machine_id: &MachineId) -> bool {
-        self.refused_machine.binary_search(machine_id).is_ok()
-    }
-    pub fn is_rented(&self, machine_id: &MachineId) -> bool {
-        self.rented_machine.binary_search(machine_id).is_ok()
-    }
-    pub fn is_offline(&self, machine_id: &MachineId) -> bool {
-        self.offline_machine.binary_search(machine_id).is_ok()
-    }
-    pub fn is_refused_mut_hardware(&self, machine_id: &MachineId) -> bool {
-        self.refused_machine.binary_search(machine_id).is_ok()
-    }
-
-    /// Check if machine_id exist
-    pub fn machine_id_exist(&self, machine_id: &MachineId) -> bool {
-        self.is_bonding(machine_id)
-            || self.is_confirmed(machine_id)
-            || self.is_booked(machine_id)
-            || self.is_online(machine_id)
-            || self.is_fulfilling(machine_id)
-            || self.is_refused(machine_id)
-            || self.is_rented(machine_id)
-            || self.is_offline(machine_id)
-            || self.is_refused_mut_hardware(machine_id)
-    }
-
     // 添加到LiveMachine的bonding_machine字段
     pub fn new_bonding(&mut self, machine_id: MachineId) {
+        ItemList::add_item(&mut self.bonding_machine, machine_id);
+    }
+
+    pub fn offline_to_change_hardware(&mut self, machine_id: MachineId) {
+        ItemList::rm_item(&mut self.online_machine, &machine_id);
         ItemList::add_item(&mut self.bonding_machine, machine_id);
     }
 }

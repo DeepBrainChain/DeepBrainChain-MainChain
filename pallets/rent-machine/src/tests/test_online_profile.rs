@@ -219,8 +219,6 @@ fn machine_exit_works() {
             // PosGPUInfo已经被清空
             assert!(!PosGPUInfo::<TestRuntime>::contains_key(machine_info.longitude(), machine_info.latitude()));
             // 从live_machine中被删除
-            let live_machine = OnlineProfile::live_machines();
-            assert!(!live_machine.machine_id_exist(&machine_id));
 
             // 从controller_machines中删除
             assert!(OnlineProfile::controller_machines(&controller).binary_search(&machine_id).is_err());
