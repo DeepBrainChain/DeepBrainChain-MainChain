@@ -185,52 +185,49 @@ pub mod pallet {
             slash_id: SlashId,
             reason: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
+            // 申请人
             let applicant = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
-
-            ensure!(!PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::AlreadyApplied);
-
-            let committee_order_stake =
+            let slash_info = Self::pending_slash(slash_id);
+            let stake_amount =
                 <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
-            let slash_info = Self::pending_slash(slash_id);
+            // 确保一个惩罚只能有一个申述
+            ensure!(!PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::AlreadyApplied);
+            ensure!(slash_info.slash_exec_time > now, Error::<T>::TimeNotAllow);
+
+            // 判断申述人是machine_controller还是committee
 
             let controller_stash = <online_profile::Pallet<T>>::controller_stash(&applicant).unwrap_or_default();
-            let is_slashed_stash = match slash_info.book_result {
-                OCBookResultType::OnlineRefused => slash_info.machine_stash == controller_stash,
-                _ => false,
-            };
-            let is_slashed_committee = slash_info.inconsistent_committee.binary_search(&applicant).is_ok();
+            // 申述人是被惩罚stash账户的controller
+            let is_slashed_stash = slash_info.applicant_is_stash(controller_stash.clone());
+            // 申述人是被惩罚的委员会账户
+            // 只允许不一致的委员会申述，未遵守规则的不允许申述
+            let is_slashed_committee = slash_info.applicant_is_committee(&applicant);
 
             ensure!(is_slashed_stash || is_slashed_committee, Error::<T>::NotSlashed);
 
-            let real_slash = if is_slashed_stash { controller_stash } else { applicant };
+            let slashed = if is_slashed_stash { controller_stash } else { applicant };
+            ensure!(<T as Config>::Currency::can_reserve(&slashed, stake_amount), Error::<T>::BalanceNotEnough);
 
-            ensure!(
-                <T as Config>::Currency::can_reserve(&real_slash, committee_order_stake),
-                Error::<T>::BalanceNotEnough
-            );
-
+            // 支付质押
             if is_slashed_stash {
-                T::OCOperations::oc_change_staked_balance(real_slash.clone(), committee_order_stake, true)
+                // 如果是stash这边申请，则质押stash的币
+                T::OCOperations::oc_change_staked_balance(slashed.clone(), stake_amount, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
-            } else {
-                <T as Config>::ManageCommittee::change_total_stake(
-                    real_slash.clone(),
-                    committee_order_stake,
-                    true,
-                    true,
-                )
-                .map_err(|_| Error::<T>::Overflow)?;
-                <T as Config>::ManageCommittee::change_used_stake(real_slash.clone(), committee_order_stake, true)
+            } else if is_slashed_committee {
+                // 否则质押委员会的币
+                <T as Config>::ManageCommittee::change_total_stake(slashed.clone(), stake_amount, true, true)
+                    .map_err(|_| Error::<T>::Overflow)?;
+                <T as Config>::ManageCommittee::change_used_stake(slashed.clone(), stake_amount, true)
                     .map_err(|_| Error::<T>::Overflow)?;
             }
 
             PendingSlashReview::<T>::insert(
                 slash_id,
                 OCPendingSlashReviewInfo {
-                    applicant: real_slash,
-                    staked_amount: committee_order_stake,
+                    applicant: slashed,
+                    staked_amount: stake_amount,
                     apply_time: now,
                     expire_time: slash_info.slash_exec_time,
                     reason,

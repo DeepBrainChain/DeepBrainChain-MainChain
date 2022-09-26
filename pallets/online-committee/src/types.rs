@@ -7,7 +7,7 @@ use frame_support::ensure;
 use generic_func::{ItemList, MachineId};
 use online_profile::CommitteeUploadInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::{ops, vec::Vec};
+use sp_std::{cmp, ops, vec::Vec};
 
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;
@@ -253,6 +253,16 @@ pub struct OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
 
     pub book_result: OCBookResultType,
     pub slash_result: OCSlashResult,
+}
+
+impl<AccountId: PartialEq + cmp::Ord, BlockNumber, Balance> OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
+    pub fn applicant_is_stash(&self, stash: AccountId) -> bool {
+        self.book_result == OCBookResultType::OnlineRefused && self.machine_stash == stash
+    }
+
+    pub fn applicant_is_committee(&self, applicant: &AccountId) -> bool {
+        self.inconsistent_committee.binary_search(applicant).is_ok()
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
