@@ -452,7 +452,7 @@ pub mod pallet {
             let mut controller_machines = Self::controller_machines(&controller);
             let mut stash_machines = Self::stash_machines(&stash);
 
-            ensure!(MachinesInfo::<T>::contains_key(&machine_id), Error::<T>::MachineIdExist);
+            ensure!(!MachinesInfo::<T>::contains_key(&machine_id), Error::<T>::MachineIdExist);
 
             // 检查签名是否正确
             Self::check_bonding_msg(stash.clone(), machine_id.clone(), msg, sig)?;
