@@ -1,3 +1,4 @@
+use crate::{Config, Error};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -17,6 +18,20 @@ pub const REBOND_FREQUENCY: u32 = 365 * 2880;
 pub const MAX_SLASH_THRESHOLD: u32 = 2880 * 5;
 /// PendingSlash will be exec in two days
 pub const TWO_DAY: u32 = 5760;
+
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum CustomErr {
+    ClaimRewardFailed,
+}
+
+impl<T: Config> From<CustomErr> for Error<T> {
+    fn from(err: CustomErr) -> Self {
+        match err {
+            CustomErr::ClaimRewardFailed => Error::<T>::ClaimRewardFailed,
+        }
+    }
+}
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct UserMutHardwareStakeInfo<Balance, BlockNumber> {

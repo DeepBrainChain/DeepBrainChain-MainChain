@@ -632,22 +632,18 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn claim_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let stash_account = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashAccount)?;
+            let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashAccount)?;
 
-            ensure!(StashMachines::<T>::contains_key(&stash_account), Error::<T>::NotMachineController);
+            ensure!(StashMachines::<T>::contains_key(&stash), Error::<T>::NotMachineController);
 
-            let mut stash_machine = Self::stash_machines(&stash_account);
-            let can_claim = stash_machine.can_claim_reward;
+            let mut stash_machine = Self::stash_machines(&stash);
+            let can_claim = stash_machine.claim_reward().map_err::<Error<T>, _>(Into::into)?;
 
-            stash_machine.total_claimed_reward =
-                stash_machine.total_claimed_reward.checked_add(&can_claim).ok_or(Error::<T>::ClaimRewardFailed)?;
-            stash_machine.can_claim_reward = Zero::zero();
-
-            <T as pallet::Config>::Currency::deposit_into_existing(&stash_account, can_claim)
+            <T as pallet::Config>::Currency::deposit_into_existing(&stash, can_claim)
                 .map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
-            StashMachines::<T>::insert(&stash_account, stash_machine);
-            Self::deposit_event(Event::ClaimReward(stash_account, can_claim));
+            StashMachines::<T>::insert(&stash, stash_machine);
+            Self::deposit_event(Event::ClaimReward(stash, can_claim));
             Ok(().into())
         }
 
@@ -852,7 +848,7 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
             let mut machine_info = Self::machines_info(&machine_id);
-            let old_stake = machine_info.stake_amount;
+            let pre_stake = machine_info.stake_amount;
 
             ensure!(controller == machine_info.controller, Error::<T>::NotMachineController);
             ensure!(now - machine_info.last_machine_restake >= REBOND_FREQUENCY.into(), Error::<T>::TooFastToReStake);
@@ -873,7 +869,8 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
             MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
-            Self::deposit_event(Event::MachineRestaked(machine_id, old_stake, machine_info.stake_amount));
+
+            Self::deposit_event(Event::MachineRestaked(machine_id, pre_stake, machine_info.stake_amount));
             Ok(().into())
         }
 
@@ -1002,7 +999,7 @@ impl<T: Config> Pallet<T> {
         machine_info.machine_status = MachineStatus::Exit;
 
         let mut live_machine = Self::live_machines();
-        ItemList::rm_item(&mut live_machine.online_machine, &machine_id);
+        live_machine.machine_exit(&machine_id);
 
         let mut controller_machines = Self::controller_machines(&machine_info.controller);
         ItemList::rm_item(&mut controller_machines, &machine_id);
@@ -1089,7 +1086,7 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
-    /// 下架机器
+    /// 暂时下架机器
     fn machine_offline(machine_id: MachineId, machine_status: MachineStatus<T::BlockNumber, T::AccountId>) {
         let mut machine_info = Self::machines_info(&machine_id);
         let mut live_machine = Self::live_machines();
@@ -1104,9 +1101,7 @@ impl<T: Config> Pallet<T> {
         Self::change_pos_info_by_online(&machine_info, false);
         Self::update_snap_by_online_status(machine_id.clone(), false);
 
-        ItemList::rm_item(&mut live_machine.online_machine, &machine_id);
-        ItemList::rm_item(&mut live_machine.rented_machine, &machine_id);
-        ItemList::add_item(&mut live_machine.offline_machine, machine_id.clone());
+        live_machine.machine_offline(machine_id.clone());
 
         // After re-online, machine status is same as former
         machine_info.machine_status = machine_status;

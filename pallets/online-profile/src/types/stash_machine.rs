@@ -1,9 +1,13 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+use crate::CustomErr;
 use codec::{Decode, Encode};
 use generic_func::{ItemList, MachineId};
-use sp_runtime::{traits::Saturating, RuntimeDebug};
+use sp_runtime::{
+    traits::{CheckedAdd, Saturating, Zero},
+    RuntimeDebug,
+};
 use sp_std::vec::Vec;
 
 /// stash account overview self-status
@@ -34,7 +38,7 @@ pub struct StashMachine<Balance> {
     pub total_burn_fee: Balance,
 }
 
-impl<B: Saturating + Copy> StashMachine<B> {
+impl<B: Saturating + Copy + CheckedAdd + Zero> StashMachine<B> {
     // 新加入的机器，放到total_machine中
     pub fn new_bonding(&mut self, machine_id: MachineId) {
         ItemList::add_item(&mut self.total_machine, machine_id);
@@ -46,5 +50,13 @@ impl<B: Saturating + Copy> StashMachine<B> {
         } else {
             self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
         }
+    }
+
+    pub fn claim_reward(&mut self) -> Result<B, CustomErr> {
+        let can_claim = self.can_claim_reward;
+        self.can_claim_reward = Zero::zero();
+        self.total_claimed_reward =
+            self.total_claimed_reward.checked_add(&can_claim).ok_or(CustomErr::ClaimRewardFailed)?;
+        Ok(can_claim)
     }
 }

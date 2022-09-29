@@ -42,4 +42,15 @@ impl LiveMachine {
         ItemList::rm_item(&mut self.online_machine, &machine_id);
         ItemList::add_item(&mut self.bonding_machine, machine_id);
     }
+
+    // 机器从online/rented状态，暂时下线
+    pub fn machine_offline(&mut self, machine_id: MachineId) {
+        ItemList::rm_item(&mut self.online_machine, &machine_id);
+        ItemList::rm_item(&mut self.rented_machine, &machine_id);
+        ItemList::add_item(&mut self.offline_machine, machine_id);
+    }
+
+    pub fn machine_exit(&mut self, machine_id: &MachineId) {
+        ItemList::rm_item(&mut self.online_machine, machine_id);
+    }
 }
