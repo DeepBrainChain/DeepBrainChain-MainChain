@@ -1050,15 +1050,6 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
-    // 机器第一次上线时，因质押不足，需要补充质押
-    fn fulfill_on_first_online() -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
-    fn fulfill_on_mut_hardware() -> DispatchResultWithPostInfo {
-        Ok(().into())
-    }
-
     pub fn do_cancel_slash(slash_id: u64) -> DispatchResultWithPostInfo {
         ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIdNotExist);
 
