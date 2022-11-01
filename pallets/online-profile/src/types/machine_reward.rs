@@ -23,7 +23,7 @@ pub struct MachineRecentRewardInfo<AccountId, Balance> {
 // Add new reward first, then calc committee/stash released reward
 impl<AccountId, Balance> MachineRecentRewardInfo<AccountId, Balance>
 where
-    Balance: Default + Clone + Add<Output = Balance> + Sub<Output = Balance> + Copy,
+    Balance: Default + Clone + Add<Output = Balance> + Sub<Output = Balance> + Copy + sp_runtime::traits::Saturating,
 {
     pub fn add_new_reward(&mut self, reward_amount: Balance) {
         let mut reduce = Balance::default();
@@ -35,7 +35,7 @@ where
             self.recent_machine_reward.push_back(reward_amount);
         }
 
-        self.recent_reward_sum = self.recent_reward_sum + reward_amount - reduce;
+        self.recent_reward_sum = self.recent_reward_sum.saturating_add(reward_amount).saturating_sub(reduce);
     }
 }
 
@@ -83,13 +83,13 @@ where
             .entry(stash.clone())
             .or_insert(StashMachineStatistics { ..Default::default() });
 
-        let old_grade = staker_statistic.total_grades().unwrap();
+        let old_grade = staker_statistic.total_grades().unwrap_or_default();
 
         if is_online {
             staker_statistic.online_gpu_num = staker_statistic.online_gpu_num.saturating_add(gpu_num);
         } else {
             // 避免上线24小时即下线时，当前Era还没有初始化该值
-            staker_statistic.online_gpu_num = staker_statistic.online_gpu_num.checked_sub(gpu_num).unwrap_or_default();
+            staker_statistic.online_gpu_num = staker_statistic.online_gpu_num.saturating_sub(gpu_num);
         }
 
         // 根据显卡数量n更新inflation系数: inflation = min(10%, n/10000)
@@ -106,11 +106,11 @@ where
                 staker_statistic.machine_total_calc_point.saturating_add(basic_grade);
         } else {
             staker_statistic.machine_total_calc_point =
-                staker_statistic.machine_total_calc_point.checked_sub(basic_grade).unwrap_or_default();
+                staker_statistic.machine_total_calc_point.saturating_sub(basic_grade);
         }
 
         // 更新系统分数记录
-        let new_grade = staker_statistic.total_grades().unwrap();
+        let new_grade = staker_statistic.total_grades().unwrap_or_default();
 
         self.total = self.total.saturating_add(new_grade).saturating_sub(old_grade);
 
@@ -162,7 +162,7 @@ impl MachineGradeStatus {
         let rent_extra_grade =
             if self.is_rented { Perbill::from_rational_approximation(30u32, 100u32) * self.basic_grade } else { 0 };
         let inflation_extra_grade = inflation * self.basic_grade;
-        self.basic_grade + rent_extra_grade + inflation_extra_grade
+        self.basic_grade.saturating_add(rent_extra_grade).saturating_add(inflation_extra_grade)
     }
 }
 

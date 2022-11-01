@@ -299,6 +299,7 @@
     "reporter_stake": "Balance",
     "first_book_time": "BlockNumber",
     "machine_id": "MachineId",
+    "rent_order_id": "RentOrderId",
     "err_info": "Vec<u8>",
     "verifying_committee": "Option<AccountId>",
     "booked_committee": "Vec<AccountId>",
@@ -329,7 +330,7 @@
   },
   "MachineFaultType": {
     "_enum": {
-      "RentedInaccessible": "MachineId",
+      "RentedInaccessible": "(MachineId, RentOrderId)",
       "RentedHardwareMalfunction": "(ReportHash, BoxPubkey)",
       "RentedHardwareCounterfeit": "(ReportHash, BoxPubkey)",
       "OnlineRentFailed": "(ReportHash, BoxPubkey)"
