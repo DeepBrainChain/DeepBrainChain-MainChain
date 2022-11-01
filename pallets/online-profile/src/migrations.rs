@@ -9,18 +9,10 @@ use serde::{Deserialize, Serialize};
 use sp_runtime::SaturatedConversion;
 use sp_std::{vec, vec::Vec};
 
-// 1: machine_info:
-//      .machine_status: creating -> online，因为creating状态被弃用
-//      .total_rented_duration: 单位从天 -> BlockNumber
-//      .last_machine_renter: Option<AccountId> -> .renters: Vec<AccountId>,
-//
-// TODO 2: OPPendingSlashInfo
-//      新增：current_renter: Vec<AccountId字段>
-//      改动：.reward_to_reporter -> .reporter
-//
-// TODO 3: PendingExecMaxOfflineSlash
-//      (T::blocknum -> Vec<machineId>) 变更为
-//      ((T::Blocknum, machine_id) -> Vec<Option<reporter>, renter>)
+// machine_info:
+//    .machine_status: creating -> online (creating状态被弃用)
+//    .total_rented_duration: 单位从天 -> BlockNumber
+//    .last_machine_renter: Option<AccountId> -> .renters: Vec<AccountId>,
 
 /// All details of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -174,19 +166,3 @@ fn migrate_pending_slash_to_v2<T: Config>() -> Weight {
 
     <T as frame_system::Config>::DbWeight::get().reads_writes(count as Weight + 1, count as Weight + 1)
 }
-
-// TODO: 有可能进行迁移时找不到相关信息
-// fn migrate_pending_exec_max_offline_slash_to_v2<T: Config> -> Weight {
-//     PendingExecMaxOfflineSlash::<T>::translate::<Vec<MachineId>>, _>(
-//         |_, slash_info| Some(slash_info.into()),
-//     );
-//     let count = PendingSlash::<T>::iter_values().count();
-
-//     info!(
-//         target: "runtime::onlineProfile",
-//         "migrated {} onlineProfile PendingSlash.",
-//         count,
-//     );
-
-//     <T as frame_system::Config>::DbWeight::get().reads_writes(count as Weight + 1, count as Weight + 1)
-// }

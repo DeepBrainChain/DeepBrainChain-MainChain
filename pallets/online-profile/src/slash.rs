@@ -1,6 +1,6 @@
 use crate::{
     types::{MachineStatus, OPPendingSlashInfo, OPSlashReason, TWO_DAY},
-    BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecMaxOfflineSlash, PendingExecSlash, PendingSlash,
+    BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecSlash, PendingOfflineSlash, PendingSlash,
     PendingSlashReview, PendingSlashReviewChecking, StashStake, SysInfo,
 };
 use dbc_support::traits::GNOps;
@@ -164,7 +164,7 @@ impl<T: Config> Pallet<T> {
                 Self::deposit_event(Event::NewSlash(slash_id));
             }
 
-            PendingExecMaxOfflineSlash::<T>::remove(now, machine_id);
+            PendingOfflineSlash::<T>::remove(now, machine_id);
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::{
     types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachineRentedGPU, MachinesInfo,
-    Pallet, PendingExecMaxOfflineSlash, PendingExecSlash, PendingSlash, RentedFinished, StashMachines, StashStake,
-    SysInfo, UserMutHardwareStake,
+    Pallet, PendingExecSlash, PendingOfflineSlash, PendingSlash, RentedFinished, StashMachines, StashStake, SysInfo,
+    UserMutHardwareStake,
 };
 use dbc_support::traits::{MTOps, OCOps, OPRPCQuery, RTOps};
 use frame_support::IterableStorageMap;
@@ -409,7 +409,7 @@ impl<T: Config> MTOps for Pallet<T> {
 
         // When Reported offline, after 5 days, reach max slash amount;
         let now = <frame_system::Module<T>>::block_number();
-        PendingExecMaxOfflineSlash::<T>::insert(
+        PendingOfflineSlash::<T>::insert(
             now + (5 * BLOCK_PER_ERA).saturated_into::<T::BlockNumber>(),
             machine_id,
             (Some(reporter), machine_info.renters),

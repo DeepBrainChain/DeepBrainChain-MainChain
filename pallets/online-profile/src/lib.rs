@@ -247,8 +247,8 @@ pub mod pallet {
 
     // 机器主动下线后，记录机器下线超过最大值{5,10天}后，需要立即执行的惩罚
     #[pallet::storage]
-    #[pallet::getter(fn pending_exec_max_offline_slash)]
-    pub(super) type PendingExecMaxOfflineSlash<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn pending_offline_slash)]
+    pub(super) type PendingOfflineSlash<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::BlockNumber,
@@ -666,7 +666,7 @@ pub mod pallet {
             // NOTE: 当机器是被租用状态时，记录机器的租用人，
             // 惩罚执行时，租用人都能获得赔偿
             // let nobody: Option<T::AccountId> = None;
-            PendingExecMaxOfflineSlash::<T>::insert(
+            PendingOfflineSlash::<T>::insert(
                 now + max_slash_offline_threshold.saturated_into::<T::BlockNumber>(),
                 &machine_id,
                 (None::<T::AccountId>, machine_info.renters),
@@ -791,7 +791,7 @@ pub mod pallet {
 
                     let slash_id = Self::get_new_slash_id();
 
-                    PendingExecMaxOfflineSlash::<T>::remove(max_slash_offline_threshold, &machine_id);
+                    PendingOfflineSlash::<T>::remove(max_slash_offline_threshold, &machine_id);
 
                     let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
                     ItemList::add_item(&mut pending_exec_slash, slash_id);
@@ -1027,7 +1027,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_pending_max_slash(
         time: T::BlockNumber,
     ) -> BTreeMap<MachineId, (Option<T::AccountId>, Vec<T::AccountId>)> {
-        PendingExecMaxOfflineSlash::<T>::iter_prefix(time).collect()
+        PendingOfflineSlash::<T>::iter_prefix(time).collect()
     }
 
     pub fn check_bonding_msg(

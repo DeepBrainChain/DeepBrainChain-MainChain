@@ -187,8 +187,8 @@ pub mod pallet {
             // 支付
             if let MachineFaultType::RentedInaccessible(_machine_id, rent_order_id) = report_reason.clone() {
                 // 检查是否是机器租用者
-                let rent_order = <rent_machine::Module<T>>::rent_order(&rent_order_id);
-                ensure!(rent_order.renter == reporter, Error::<T>::NotMachineRenter);
+                let rent_info = <rent_machine::Module<T>>::rent_info(&rent_order_id);
+                ensure!(rent_info.renter == reporter, Error::<T>::NotMachineRenter);
                 <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
                     .map_err(|_| Error::<T>::PayTxFeeFailed)?;
             }

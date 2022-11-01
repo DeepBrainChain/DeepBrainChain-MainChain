@@ -1,5 +1,5 @@
 use super::super::mock::*;
-use crate::{MachineGPUOrder, PendingConfirming, RentOrder, RentOrderDetail, RentOrderId, RentStatus};
+use crate::{ConfirmingOrder, MachineGPUOrder, RentInfo, RentOrderDetail, RentOrderId, RentStatus};
 use frame_support::assert_ok;
 use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
 
@@ -17,8 +17,8 @@ fn report_individual_gpu() {
         // 检查 renter1 状态
         {
             // rent_machine:
-            // Balance: 支付10 DBC; UserTotalStake; NextRentId; RentOrder; UserRented;
-            // PendingRentEnding; PendingConfirming; MachineRentOrder;
+            // Balance: 支付10 DBC; UserTotalStake; NextRentId; RentInfo; UserOrder;
+            // RentEnding; ConfirmingOrder; MachineRentOrder;
             //
 
             // DBC 价格：1 DBC = 12_000 / 10^6 USD
@@ -28,7 +28,7 @@ fn report_individual_gpu() {
             assert_eq!(RentMachine::user_total_stake(renter1), 12477083333333333333);
             assert_eq!(RentMachine::next_rent_id(), 1);
             assert_eq!(
-                RentMachine::rent_order(0),
+                RentMachine::rent_info(0),
                 RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: renter1,
@@ -41,9 +41,9 @@ fn report_individual_gpu() {
                     gpu_index: vec![0, 1],
                 }
             );
-            assert_eq!(RentMachine::user_rented(&renter1), vec![0]);
-            assert_eq!(RentMachine::pending_rent_ending(11 + 2880), vec![0]);
-            assert_eq!(RentMachine::pending_confirming(11 + 30), vec![0]);
+            assert_eq!(RentMachine::user_order(&renter1), vec![0]);
+            assert_eq!(RentMachine::rent_ending(11 + 2880), vec![0]);
+            assert_eq!(RentMachine::confirming_order(11 + 30), vec![0]);
             assert_eq!(
                 RentMachine::machine_rent_order(&machine_id),
                 MachineGPUOrder { rent_order: vec![0], used_gpu: vec![0, 1] }
@@ -61,13 +61,13 @@ fn report_individual_gpu() {
         // 检查状态
         {
             // rent_machine:
-            // Balance: 支付10 DBC; UserTotalStake; NextRentId; RentOrder; UserRented;
-            // PendingRentEnding; PendingConfirming; MachineRentOrder;
+            // Balance: 支付10 DBC; UserTotalStake; NextRentId; RentInfo; UserOrder;
+            // RentEnding; ConfirmingOrder; MachineRentOrder;
 
             assert_eq!(RentMachine::user_total_stake(renter1), 12477083333333333333);
             assert_eq!(RentMachine::next_rent_id(), 2);
             assert_eq!(
-                RentMachine::rent_order(1),
+                RentMachine::rent_info(1),
                 RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: renter2,
@@ -80,9 +80,9 @@ fn report_individual_gpu() {
                     gpu_index: vec![2, 3],
                 }
             );
-            assert_eq!(RentMachine::user_rented(&renter1), vec![0]);
-            assert_eq!(RentMachine::pending_rent_ending(11 + 2880), vec![0, 1]);
-            assert_eq!(RentMachine::pending_confirming(11 + 30), vec![0, 1]);
+            assert_eq!(RentMachine::user_order(&renter1), vec![0]);
+            assert_eq!(RentMachine::rent_ending(11 + 2880), vec![0, 1]);
+            assert_eq!(RentMachine::confirming_order(11 + 30), vec![0, 1]);
             assert_eq!(
                 RentMachine::machine_rent_order(&machine_id),
                 MachineGPUOrder { rent_order: vec![0, 1], used_gpu: vec![0, 1, 2, 3] }
@@ -99,9 +99,9 @@ fn report_individual_gpu() {
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter1), 0));
         {
             // - confirm_rent()
-            // - Writes: RentOrder, PendingConfirming, UserTotakStake, Balance,
+            // - Writes: RentInfo, ConfirmingOrder, UserTotakStake, Balance,
             assert_eq!(
-                RentMachine::rent_order(0),
+                RentMachine::rent_info(0),
                 RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: renter1,
@@ -114,8 +114,8 @@ fn report_individual_gpu() {
                     gpu_index: vec![0, 1],
                 }
             );
-            // assert_eq!(RentMachine::pending_confirming(&0), );
-            assert!(!<PendingConfirming::<TestRuntime>>::contains_key(&0));
+            // assert_eq!(RentMachine::confirming_order(&0), );
+            assert!(!<ConfirmingOrder::<TestRuntime>>::contains_key(&0));
             assert_eq!(RentMachine::user_total_stake(renter1), 0);
 
             // online_profile:
@@ -159,9 +159,9 @@ fn report_individual_gpu() {
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter2), 1));
         {
             // - confirm_rent()
-            // - Writes: RentOrder, PendingConfirming, UserTotakStake, Balance,
+            // - Writes: RentInfo, ConfirmingOrder, UserTotakStake, Balance,
             assert_eq!(
-                RentMachine::rent_order(1),
+                RentMachine::rent_info(1),
                 RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: renter2,
@@ -174,8 +174,8 @@ fn report_individual_gpu() {
                     gpu_index: vec![2, 3],
                 }
             );
-            // assert_eq!(RentMachine::pending_confirming(&0), );
-            assert!(!<PendingConfirming::<TestRuntime>>::contains_key(&1));
+            // assert_eq!(RentMachine::confirming_order(&0), );
+            assert!(!<ConfirmingOrder::<TestRuntime>>::contains_key(&1));
             assert_eq!(RentMachine::user_total_stake(renter2), 0);
 
             // online_profile:
@@ -221,12 +221,12 @@ fn report_individual_gpu() {
         assert_ok!(RentMachine::relet_machine(Origin::signed(renter1), 0, 1));
         {
             // relet_machine:
-            // - Writes: OrderInfo, Balance, PendingRentEnding,
+            // - Writes: OrderInfo, Balance, RentEnding,
             //
             // OnlineProfile:
             // SysInfo, StashMachines, MachinesInfo,
             assert_eq!(
-                RentMachine::rent_order(0),
+                RentMachine::rent_info(0),
                 RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: renter1,
@@ -240,8 +240,8 @@ fn report_individual_gpu() {
                 }
             );
 
-            assert_eq!(RentMachine::pending_rent_ending(11 + 2880), vec![1]);
-            assert_eq!(RentMachine::pending_rent_ending(11 + 2880 * 2), vec![0]);
+            assert_eq!(RentMachine::rent_ending(11 + 2880), vec![1]);
+            assert_eq!(RentMachine::rent_ending(11 + 2880 * 2), vec![0]);
 
             assert_eq!(
                 OnlineProfile::sys_info(),
@@ -290,18 +290,18 @@ fn report_individual_gpu() {
             assert_eq!(machine_info.renters, vec![renter1]);
 
             // clean_order
-            // -Write: MachineRentOrder, PendingRentEnding, RentOrder,
-            // UserRented, PendingConfirming
+            // -Write: MachineRentOrder, RentEnding, RentInfo,
+            // UserOrder, ConfirmingOrder
             assert_eq!(
                 RentMachine::machine_rent_order(&machine_id),
                 MachineGPUOrder { rent_order: vec![0], used_gpu: vec![0, 1] }
             );
 
-            let user_rented: Vec<RentOrderId> = vec![];
-            assert_eq!(RentMachine::pending_rent_ending(12 + 2880), user_rented.clone());
-            assert!(!<RentOrder::<TestRuntime>>::contains_key(&1));
-            assert_eq!(RentMachine::user_rented(renter2), user_rented);
-            assert!(!<PendingConfirming::<TestRuntime>>::contains_key(&1));
+            let user_order: Vec<RentOrderId> = vec![];
+            assert_eq!(RentMachine::rent_ending(12 + 2880), user_order.clone());
+            assert!(!<RentInfo::<TestRuntime>>::contains_key(&1));
+            assert_eq!(RentMachine::user_order(renter2), user_order);
+            assert!(!<ConfirmingOrder::<TestRuntime>>::contains_key(&1));
         }
 
         // TODO: 租用人1进行举报
@@ -322,15 +322,15 @@ fn report_individual_gpu() {
             assert_eq!(machine_info.renters, vec![]);
 
             // clean_order
-            // -Write: MachineRentOrder, PendingRentEnding, RentOrder,
-            // UserRented, PendingConfirming
+            // -Write: MachineRentOrder, RentEnding, RentInfo,
+            // UserOrder, ConfirmingOrder
             assert_eq!(RentMachine::machine_rent_order(&machine_id), MachineGPUOrder::default());
 
-            let user_rented: Vec<RentOrderId> = vec![];
-            assert_eq!(RentMachine::pending_rent_ending(12 + 2880), user_rented.clone());
-            assert!(!<RentOrder::<TestRuntime>>::contains_key(&1));
-            assert_eq!(RentMachine::user_rented(renter2), user_rented);
-            assert!(!<PendingConfirming::<TestRuntime>>::contains_key(&1));
+            let user_order: Vec<RentOrderId> = vec![];
+            assert_eq!(RentMachine::rent_ending(12 + 2880), user_order.clone());
+            assert!(!<RentInfo::<TestRuntime>>::contains_key(&1));
+            assert_eq!(RentMachine::user_order(renter2), user_order);
+            assert!(!<ConfirmingOrder::<TestRuntime>>::contains_key(&1));
         }
     })
 }
