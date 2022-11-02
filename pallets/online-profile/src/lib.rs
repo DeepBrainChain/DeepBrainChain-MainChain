@@ -279,14 +279,6 @@ pub mod pallet {
             let _ = Self::check_pending_slash();
             0
         }
-
-        fn on_runtime_upgrade() -> Weight {
-            frame_support::debug::RuntimeLogger::init();
-            frame_support::debug::info!("🔍️ OnlineProfile Storage Migration start");
-            let weight = migrations::apply::<T>();
-            frame_support::debug::info!("🚀 OnlineProfile Storage Migration end");
-            weight
-        }
     }
 
     #[pallet::call]

@@ -1,6 +1,6 @@
 use crate::{
-    Config, ConfirmingOrder, Module, RentEnding, RentInfo, RentOrderDetail, RentStatus, StorageVersion, UserOrder,
-    WAITING_CONFIRMING_DELAY,
+    Config, ConfirmingOrder, MachineGPUOrder, MachineRentOrder, Module, RentEnding, RentInfo, RentOrderDetail,
+    RentStatus, StorageVersion, UserOrder, WAITING_CONFIRMING_DELAY,
 };
 use codec::{Decode, Encode};
 use frame_support::{debug::info, traits::Get, weights::Weight, IterableStorageMap};
@@ -8,7 +8,7 @@ use generic_func::{ItemList, MachineId};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Zero;
-use sp_std::vec::Vec;
+use sp_std::{vec, vec::Vec};
 
 /// Apply all of the migrations due to taproot.
 ///
@@ -103,33 +103,30 @@ fn migrate_rent_order_to_v2<T: Config>() -> Weight {
         ItemList::add_item(&mut user_order, rent_order_id);
         UserOrder::<T>::insert(rent_order.renter, user_order);
 
-        // TODO: 对于下面两个： confirming_rent; rent_ending，如果超过了当前时间
-        // 则不添加
+        MachineRentOrder::<T>::insert(
+            machine_info.machine_id(),
+            MachineGPUOrder { rent_order: vec![rent_order_id], used_gpu: (0..machine_info.gpu_num()).collect() },
+        );
+
         if rent_order.confirm_rent.is_zero() && !rent_order.rent_start.is_zero() {
-            let confirming_expire_at = rent_order.rent_start + WAITING_CONFIRMING_DELAY.into();
+            let confirming_expire_at = rent_order.rent_start + (2 * WAITING_CONFIRMING_DELAY).into();
             let mut pending_confirming = <Module<T>>::confirming_order(confirming_expire_at);
             ItemList::add_item(&mut pending_confirming, rent_order_id);
             ConfirmingOrder::<T>::insert(confirming_expire_at, pending_confirming);
+        } else {
+            let mut rent_ending = <Module<T>>::rent_ending(rent_order.rent_end);
+            ItemList::add_item(&mut rent_ending, rent_order_id);
+            RentEnding::<T>::insert(rent_order.rent_end, rent_ending);
         }
-
-        let mut rent_ending = <Module<T>>::rent_ending(rent_order.rent_end);
-        ItemList::add_item(&mut rent_ending, rent_order_id);
-        RentEnding::<T>::insert(rent_order.rent_end, rent_ending);
-
-        // TODO: 删除
-        // <deprecated::RentOrder<Module<T>>>::contains_key(machine_id);
-        // NOTE: 在该变量迁移完成之前不能删除
-        // <derepcated::UserRented<Module<T>>::remove(rent_order.renter);
-        // TODO: 删除deprecated::PendingRentEnding
     }
 
     let count = RentInfo::<T>::iter_values().count();
 
     info!(
         target: "runtime::rentMachine",
-        "migrated {} rentMachine::RentInfo, UserOrder, PendingRentEnding, PendingConfirming",
+        "migrated {} rentMachine::RentInfo, MachineRentOrder, UserOrder, PendingRentEnding, PendingConfirming",
         count,
     );
 
-    <T as frame_system::Config>::DbWeight::get().reads_writes(count as Weight + 1, count as Weight + 1)
+    <T as frame_system::Config>::DbWeight::get().reads_writes(count as Weight * 5 + 1, count as Weight * 5 + 1)
 }

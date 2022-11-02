@@ -65,10 +65,15 @@ pub mod pallet {
 
         fn on_runtime_upgrade() -> Weight {
             frame_support::debug::RuntimeLogger::init();
+            frame_support::debug::info!("🔍️ OnlineProfile Storage Migration start");
+            let weight1 = online_profile::migrations::apply::<T>();
+            frame_support::debug::info!("🚀 OnlineProfile Storage Migration end");
+
+            frame_support::debug::RuntimeLogger::init();
             frame_support::debug::info!("🔍️ RentMachine Storage Migration start");
-            let weight = migrations::apply::<T>();
+            let weight2 = migrations::apply::<T>();
             frame_support::debug::info!("🚀 RentMachine Storage Migration end");
-            weight
+            weight1 + weight2
         }
     }
 
