@@ -1,10 +1,11 @@
 use super::super::mock::*;
 use crate::MachineFaultType;
 use frame_support::assert_ok;
-use once_cell::sync::Lazy;
-use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
-use rent_machine::{MachineGPUOrder, PendingConfirming, RentOrderDetail, RentOrderId, RentStatus};
 use std::convert::TryInto;
+
+// use once_cell::sync::Lazy;
+// use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
+// use rent_machine::{ConfirmingOrder, MachineGPUOrder, RentOrderDetail, RentOrderId, RentStatus};
 
 // const controller: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Eve));
 // const committee1: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::One));
@@ -38,7 +39,7 @@ pub fn new_test_with_machine_two_renter() -> sp_io::TestExternalities {
 fn report_individual_gpu_inaccessible() {
     let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
     let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
-    let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
+    // let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
 
     let committee = sr25519::Public::from(Sr25519Keyring::One);
 
