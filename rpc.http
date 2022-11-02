@@ -3,9 +3,11 @@
 @url = https://httprentgpu.dbcwallet.io:9002
 @url2 = https://httpinfo.dbcwallet.io
 
-@controller = 5EnfvRoxQXHFmudw76KarcSdvom3aHGt1MEUj8wrLKTu3uDd
-@stash = 5HpcY5iuUzuZNtExdmqF4AH6o3fu5yR1Y2pe1bmkXGjpUM9n
-@machine_id = 7a79fd95e89c3db2e8bc052cb307d4130f6750cb715c44639e2c3faa7217ef1f
+@controller = 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+@stash = 5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY
+@machine_id = d43aab0afce785c28105b79785f377363781892d4c3fdc5f1f2049c16fb26c42
+@renter = 5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY
+@committee = 5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY
 
 ###
 # 1.1 查询某个资金账户控制的所有机器
@@ -30,10 +32,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "onlineProfile_getMachineEraReward",
-  "params": [
-    "ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875",
-    1
-  ]
+  "params": ["{{machine_id}}", 1]
 }
 
 ###
@@ -46,8 +45,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "onlineProfile_getMachineEraReleasedReward",
-  "params": [
-    "ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875", 1]
+  "params": ["{{machine_id}}", 1]
 }
 
 ###
@@ -60,7 +58,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "onlineProfile_getStashEraReward",
-  "params": ["5DhR2dxiPZquPhFjfPzFg5jZENdr375hbX643kr9FBXMVa2z", 1]
+  "params": ["{{stash}}", 1]
 }
 
 ###
@@ -73,7 +71,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "onlineProfile_getStashEraReward",
-  "params": ["5DhR2dxiPZquPhFjfPzFg5jZENdr375hbX643kr9FBXMVa2z", 1]
+  "params": ["{{stash}}", 1]
 }
 
 ###
@@ -86,7 +84,7 @@ content-type: application/json
   "jsonrpc":"2.0",
   "id":1,
   "method":"onlineProfile_getMachineInfo",
-  "params": ["ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875"]
+  "params": ["{{machine_id}}"]
 }
 
 ###
@@ -135,7 +133,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "onlineProfile_getStakerIdentity",
-  "params": ["5CqTCD23gTbfmP8s6g1ehbJ66i6wi4Er4AguAw7yggDAKmPu"]
+  "params": ["{{stash}}"]
 }
 
 ###
@@ -187,7 +185,7 @@ content-type: application/json
   "jsonrpc":"2.0",
   "id":1,
   "method":"onlineCommittee_getMachineCommitteeList",
-  "params": ["38f4a824e0dc1fc5a9a7dccff53417b300fc0edad208176d8770597d98f6eb5c"]
+  "params": ["{{machine_id}}"]
 }
 
 
@@ -200,10 +198,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "onlineCommittee_getCommitteeOps",
-  "params": [
-    "5D1vwMoK1DjBF7pfApKjT9Gi5C4DKHvZMztFRhTsMqo71B8r",
-    "74339d3413c1386d23d92e55586ccf25090c7eb762928f9bc69799b677f65f51"
-  ]
+  "params": ["{{committee}}", "{{machine_id}}"]
 }
 
 ###
@@ -215,7 +210,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "onilneCommittee_getCommitteeMachineList",
-  "params": ["5Gv3FyFA7bFbUqqgXWXwkgCkazMaaBpfbVnwtVVRP5vgUYRs"]
+  "params": ["{{committee}}"]
 }
 
 ###
@@ -239,7 +234,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "rentMachine_getRentList",
-  "params": ["5E7123qZExgZaYKnmTcJacu68c2GbLeSHo9qNWmUWcaw4RSR"]
+  "params": ["{{renter}}"]
 }
 
 
@@ -254,7 +249,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "rentMachine_isMachineRenter",
-  "params": ["ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875", "5E7123qZExgZaYKnmTcJacu68c2GbLeSHo9qNWmUWcaw4RSR"]
+  "params": ["{{machine_id}}", "{{renter}}"]
 }
 
 ###
@@ -266,5 +261,5 @@ content-type: application/json
   "jsonrpc": "2.0",
   "id": 1,
   "method": "rentMachine_getMachineRentId",
-  "params": ["ee0d003006f8ddbccb97dff96bcb4bee1b8c1aeaf7c64e0ca9d0f31752d17875"]
+  "params": ["{{machine_id}}"]
 }
