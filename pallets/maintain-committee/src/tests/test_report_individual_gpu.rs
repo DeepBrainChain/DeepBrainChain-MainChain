@@ -23,8 +23,8 @@ pub fn new_test_with_machine_two_renter() -> sp_io::TestExternalities {
     let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
 
     ext.execute_with(|| {
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 1));
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter2), machine_id.clone(), 2, 1));
+        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 1 * 2880));
+        assert_ok!(RentMachine::rent_machine(Origin::signed(renter2), machine_id.clone(), 2, 1 * 2880));
 
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter1), 0));
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter2), 1));

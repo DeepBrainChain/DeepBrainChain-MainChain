@@ -491,7 +491,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         // 报告人租用机器
         let reporter = sr25519::Public::from(Sr25519Keyring::Two);
         // rent machine for 1 days
-        assert_ok!(RentMachine::rent_machine(Origin::signed(reporter), machine_id.clone(), 4, 1));
+        assert_ok!(RentMachine::rent_machine(Origin::signed(reporter), machine_id.clone(), 4, 1 * 2880));
         assert_ok!(RentMachine::confirm_rent(Origin::signed(reporter), 0));
     });
 
