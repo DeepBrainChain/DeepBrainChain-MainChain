@@ -13,7 +13,7 @@ fn report_individual_gpu() {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
 
         // 两人各租用1台机器
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 1));
+        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 1 * 2880));
         // 检查 renter1 状态
         {
             // rent_machine:
@@ -57,7 +57,7 @@ fn report_individual_gpu() {
         }
 
         // 检查renter2 状态，应该与1一致
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter2), machine_id.clone(), 2, 1));
+        assert_ok!(RentMachine::rent_machine(Origin::signed(renter2), machine_id.clone(), 2, 1 * 2880));
         // 检查状态
         {
             // rent_machine:
@@ -218,7 +218,7 @@ fn report_individual_gpu() {
         }
 
         // 租用人1续租1天
-        assert_ok!(RentMachine::relet_machine(Origin::signed(renter1), 0, 1));
+        assert_ok!(RentMachine::relet_machine(Origin::signed(renter1), 0, 1 * 2880));
         {
             // relet_machine:
             // - Writes: OrderInfo, Balance, RentEnding,

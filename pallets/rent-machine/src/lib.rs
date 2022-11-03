@@ -150,28 +150,16 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 用户租用机器（按分钟租用）
-        #[pallet::weight(10000)]
-        pub fn rent_machine_by_minutes(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            rent_gpu_num: u32,
-            minutes: u32,
-        ) -> DispatchResultWithPostInfo {
-            let renter = ensure_signed(origin)?;
-            Self::rent_machine_by_block(renter, machine_id, rent_gpu_num, (minutes * 2).into())
-        }
-
         /// 用户租用机器(按天租用)
         #[pallet::weight(10000)]
         pub fn rent_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
             rent_gpu_num: u32,
-            duration: EraIndex,
+            duration: T::BlockNumber,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            Self::rent_machine_by_block(renter, machine_id, rent_gpu_num, (duration * BLOCK_PER_DAY).into())
+            Self::rent_machine_by_block(renter, machine_id, rent_gpu_num, duration)
         }
 
         /// 用户在租用15min(30个块)内确认机器租用成功
@@ -217,26 +205,15 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 用户续租(按分钟续租)
-        #[pallet::weight(10000)]
-        pub fn relet_machine_by_minutes(
-            origin: OriginFor<T>,
-            rent_id: RentOrderId,
-            minutes: u32, // 分钟
-        ) -> DispatchResultWithPostInfo {
-            let renter = ensure_signed(origin)?;
-            Self::relet_machine_by_block(renter, rent_id, (minutes * 2).into())
-        }
-
         /// 用户续租(按天续租), 通过order_id来续租
         #[pallet::weight(10000)]
         pub fn relet_machine(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
-            add_duration: EraIndex,
+            relet_duration: T::BlockNumber,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            Self::relet_machine_by_block(renter, rent_id, (add_duration * BLOCK_PER_DAY).into())
+            Self::relet_machine_by_block(renter, rent_id, relet_duration)
         }
     }
 
