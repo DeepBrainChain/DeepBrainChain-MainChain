@@ -7,11 +7,27 @@
 3. Fixed a bug that may punish too much when the punishment is executed
 4. After renting, the waiting time to confirm if the renting is successful is adjusted from 30 minutes to 15 minutes
 5. RentMachine pallet Event Change
-6. RPC changes to support single card rental, and serialization of some fields
+6. **RPC changes to support single card rental, and serialization of some fields.** Such as MachineId field in RPC output.
 7. Built-in sync node changes
 8. Clean up documentation that duplicates with wiki
 9. Add test cases
 10. Code refactoring and optimization
+
+### Rent machine API changed!
+
+In previous `rentMachine` pallet, we can rent a machine this way:
+
+(This means you can **rent a machine for some Era.** NOTE: **1 Era = 1 day = 2880 blocks.** And you have to rent all GPU of this machine.)
+
+![](./CHANGELOG/2022-11-04_16-29.png)
+
+
+
+Now, you can rent machine **integer multiples of half an hour.**:
+
+(This means you can rent 60 blocks (=30mins); 120 blocks, 180 blocks...;2880 blocks (=1 day). And you can rent some of machine's GPU num instead of all.)
+
+![](./CHANGELOG/2022-11-04_16-28.png)
 
 ### Data type changed：
 
