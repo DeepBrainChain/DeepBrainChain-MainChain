@@ -42,7 +42,10 @@ impl OCCommitteeMachineList {
 
     pub fn submit_raw(&mut self, machine_id: MachineId) -> Result<(), CustomErr> {
         ensure!(self.hashed_machine.binary_search(&machine_id).is_ok(), CustomErr::NotSubmitHash);
-        ensure!(self.confirmed_machine.binary_search(&machine_id).is_err(), CustomErr::AlreadySubmitRaw);
+        ensure!(
+            self.confirmed_machine.binary_search(&machine_id).is_err(),
+            CustomErr::AlreadySubmitRaw
+        );
 
         ItemList::rm_item(&mut self.hashed_machine, &machine_id);
         ItemList::add_item(&mut self.confirmed_machine, machine_id);
@@ -101,7 +104,10 @@ where
 {
     pub fn submit_hash(&mut self, committee: AccountId) -> Result<(), CustomErr> {
         ensure!(self.booked_committee.binary_search(&committee).is_ok(), CustomErr::NotInBookList);
-        ensure!(self.hashed_committee.binary_search(&committee).is_err(), CustomErr::AlreadySubmitHash);
+        ensure!(
+            self.hashed_committee.binary_search(&committee).is_err(),
+            CustomErr::AlreadySubmitHash
+        );
 
         ItemList::add_item(&mut self.hashed_committee, committee);
         // 如果委员会都提交了Hash,则直接进入提交原始信息的阶段
@@ -233,8 +239,8 @@ pub struct Summary<AccountId> {
 }
 
 // NOTE: If slash is from maintain committee, and reporter is slashed, but when
-// committee support the reporter's slash is canceled, reporter's slash is not canceled at the same time.
-// Mainwhile, if reporter's slash is canceled..
+// committee support the reporter's slash is canceled, reporter's slash is not canceled at the same
+// time. Mainwhile, if reporter's slash is canceled..
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub machine_id: MachineId,
@@ -255,7 +261,9 @@ pub struct OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub slash_result: OCSlashResult,
 }
 
-impl<AccountId: PartialEq + cmp::Ord, BlockNumber, Balance> OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
+impl<AccountId: PartialEq + cmp::Ord, BlockNumber, Balance>
+    OCPendingSlashInfo<AccountId, BlockNumber, Balance>
+{
     pub fn applicant_is_stash(&self, stash: AccountId) -> bool {
         self.book_result == OCBookResultType::OnlineRefused && self.machine_stash == stash
     }

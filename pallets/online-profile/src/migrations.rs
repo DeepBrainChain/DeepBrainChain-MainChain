@@ -1,6 +1,6 @@
 use crate::{
-    BalanceOf, Config, EraIndex, MachineId, MachineInfo, MachineInfoDetail, MachineStatus, MachinesInfo,
-    OPPendingSlashInfo, OPSlashReason, PendingSlash, StorageVersion,
+    BalanceOf, Config, EraIndex, MachineId, MachineInfo, MachineInfoDetail, MachineStatus,
+    MachinesInfo, OPPendingSlashInfo, OPSlashReason, PendingSlash, StorageVersion,
 };
 use codec::{Decode, Encode};
 use frame_support::{debug::info, traits::Get, weights::Weight, RuntimeDebug};
@@ -46,9 +46,16 @@ where
     AccountId: Ord,
     BlockNumber: From<u32> + sp_runtime::traits::Bounded,
 {
-    fn from(info: OldMachineInfo<AccountId, BlockNumber, Balance>) -> MachineInfo<AccountId, BlockNumber, Balance> {
-        let renters = if info.last_machine_renter.is_some() { vec![info.last_machine_renter.unwrap()] } else { vec![] };
-        let total_rented_duration = ((info.total_rented_duration as u32).saturating_mul(2880)).saturated_into();
+    fn from(
+        info: OldMachineInfo<AccountId, BlockNumber, Balance>,
+    ) -> MachineInfo<AccountId, BlockNumber, Balance> {
+        let renters = if info.last_machine_renter.is_some() {
+            vec![info.last_machine_renter.unwrap()]
+        } else {
+            vec![]
+        };
+        let total_rented_duration =
+            ((info.total_rented_duration as u32).saturating_mul(2880)).saturated_into();
         let machine_status = match info.machine_status {
             MachineStatus::Creating => MachineStatus::Rented,
             _ => info.machine_status,
@@ -138,9 +145,9 @@ pub fn apply<T: Config>() -> Weight {
 }
 
 fn migrate_machine_info_to_v2<T: Config>() -> Weight {
-    MachinesInfo::<T>::translate::<OldMachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, _>(|_, machine_info| {
-        Some(machine_info.into())
-    });
+    MachinesInfo::<T>::translate::<OldMachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, _>(
+        |_, machine_info| Some(machine_info.into()),
+    );
     let count = MachinesInfo::<T>::iter_values().count();
 
     info!(
@@ -149,13 +156,15 @@ fn migrate_machine_info_to_v2<T: Config>() -> Weight {
         count,
     );
 
-    <T as frame_system::Config>::DbWeight::get().reads_writes(count as Weight + 1, count as Weight + 1)
+    <T as frame_system::Config>::DbWeight::get()
+        .reads_writes(count as Weight + 1, count as Weight + 1)
 }
 
 fn migrate_pending_slash_to_v2<T: Config>() -> Weight {
-    PendingSlash::<T>::translate::<OldOPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, _>(
-        |_, slash_info| Some(slash_info.into()),
-    );
+    PendingSlash::<T>::translate::<
+        OldOPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        _,
+    >(|_, slash_info| Some(slash_info.into()));
     let count = PendingSlash::<T>::iter_values().count();
 
     info!(
@@ -164,5 +173,6 @@ fn migrate_pending_slash_to_v2<T: Config>() -> Weight {
         count,
     );
 
-    <T as frame_system::Config>::DbWeight::get().reads_writes(count as Weight + 1, count as Weight + 1)
+    <T as frame_system::Config>::DbWeight::get()
+        .reads_writes(count as Weight + 1, count as Weight + 1)
 }

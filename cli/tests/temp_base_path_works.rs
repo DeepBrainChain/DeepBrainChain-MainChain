@@ -39,7 +39,12 @@ pub mod common;
 fn temp_base_path_works() {
     let mut cmd = Command::new(cargo_bin("substrate"));
 
-    let mut cmd = cmd.args(&["--dev", "--tmp"]).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+    let mut cmd = cmd
+        .args(&["--dev", "--tmp"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
 
     // Let it produce some blocks.
     thread::sleep(Duration::from_secs(30));
@@ -53,7 +58,8 @@ fn temp_base_path_works() {
     let mut stderr = String::new();
     cmd.stderr.unwrap().read_to_string(&mut stderr).unwrap();
     let re = Regex::new(r"Database: .+ at (\S+)").unwrap();
-    let db_path = PathBuf::from(re.captures(stderr.as_str()).unwrap().get(1).unwrap().as_str().to_string());
+    let db_path =
+        PathBuf::from(re.captures(stderr.as_str()).unwrap().get(1).unwrap().as_str().to_string());
 
     assert!(!db_path.exists());
 }

@@ -21,7 +21,11 @@ impl<T: Config> ManageCommittee for Pallet<T> {
 
     // 改变委员会使用的质押数量
     // - Writes: CommitteeStake.used_stake(Add or Sub), Committee
-    fn change_used_stake(committee: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+    fn change_used_stake(
+        committee: T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> Result<(), ()> {
         Self::do_change_used_stake(committee, amount, is_add)
     }
 

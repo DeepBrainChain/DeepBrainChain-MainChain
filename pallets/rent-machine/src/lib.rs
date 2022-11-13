@@ -25,7 +25,8 @@ use sp_std::{prelude::*, str, vec::Vec};
 
 pub use types::*;
 
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// 等待30个块(15min)，用户确认是否租用成功
 pub const WAITING_CONFIRMING_DELAY: u32 = 30;
@@ -80,7 +81,8 @@ pub mod pallet {
     // 存储用户当前租用的机器列表
     #[pallet::storage]
     #[pallet::getter(fn user_order)]
-    pub(super) type UserOrder<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<RentOrderId>, ValueQuery>;
+    pub(super) type UserOrder<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<RentOrderId>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn machine_rent_order)]
@@ -106,7 +108,8 @@ pub mod pallet {
     // 等待用户确认租用成功的机器
     #[pallet::storage]
     #[pallet::getter(fn confirming_order)]
-    pub type ConfirmingOrder<T: Config> = StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<RentOrderId>, ValueQuery>;
+    pub type ConfirmingOrder<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<RentOrderId>, ValueQuery>;
 
     // 记录每个区块将要结束租用的机器
     #[pallet::storage]
@@ -117,7 +120,8 @@ pub mod pallet {
     // 存储每个用户在该模块中的总质押量
     #[pallet::storage]
     #[pallet::getter(fn user_total_stake)]
-    pub(super) type UserTotalStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+    pub(super) type UserTotalStake<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
     // 租金支付目标地址
     #[pallet::storage]
@@ -144,7 +148,10 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 设置机器租金支付目标地址
         #[pallet::weight(0)]
-        pub fn set_rent_fee_pot(origin: OriginFor<T>, pot_addr: T::AccountId) -> DispatchResultWithPostInfo {
+        pub fn set_rent_fee_pot(
+            origin: OriginFor<T>,
+            pot_addr: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             RentFeePot::<T>::put(pot_addr);
             Ok(().into())
@@ -164,7 +171,10 @@ pub mod pallet {
 
         /// 用户在租用15min(30个块)内确认机器租用成功
         #[pallet::weight(10000)]
-        pub fn confirm_rent(origin: OriginFor<T>, rent_id: RentOrderId) -> DispatchResultWithPostInfo {
+        pub fn confirm_rent(
+            origin: OriginFor<T>,
+            rent_id: RentOrderId,
+        ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -172,19 +182,34 @@ pub mod pallet {
             let machine_id = rent_info.machine_id.clone();
             let gpu_num = rent_info.gpu_num.clone();
             ensure!(rent_info.renter == renter, Error::<T>::NoOrderExist);
-            ensure!(rent_info.rent_status == RentStatus::WaitingVerifying, Error::<T>::NoOrderExist);
+            ensure!(
+                rent_info.rent_status == RentStatus::WaitingVerifying,
+                Error::<T>::NoOrderExist
+            );
 
             // 不能超过15分钟
-            let machine_start_duration = now.checked_sub(&rent_info.rent_start).ok_or(Error::<T>::Overflow)?;
-            ensure!(machine_start_duration <= WAITING_CONFIRMING_DELAY.into(), Error::<T>::ExpiredConfirm);
+            let machine_start_duration =
+                now.checked_sub(&rent_info.rent_start).ok_or(Error::<T>::Overflow)?;
+            ensure!(
+                machine_start_duration <= WAITING_CONFIRMING_DELAY.into(),
+                Error::<T>::ExpiredConfirm
+            );
 
             let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-            ensure!(machine_info.machine_status == MachineStatus::Rented, Error::<T>::StatusNotAllowed);
+            ensure!(
+                machine_info.machine_status == MachineStatus::Rented,
+                Error::<T>::StatusNotAllowed
+            );
 
             // 质押转到特定账户
             Self::change_renter_total_stake(&renter, rent_info.stake_amount, false)
                 .map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
-            Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_info.stake_amount)?;
+            Self::pay_rent_fee(
+                &renter,
+                machine_id.clone(),
+                machine_info.machine_stash,
+                rent_info.stake_amount,
+            )?;
 
             // 在stake_amount设置0前记录，用作事件
             let rent_fee = rent_info.stake_amount;
@@ -195,13 +220,24 @@ pub mod pallet {
             // 改变online_profile状态
             T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone());
 
-            let mut pending_confirming = Self::confirming_order(rent_info.rent_start + WAITING_CONFIRMING_DELAY.into());
+            let mut pending_confirming =
+                Self::confirming_order(rent_info.rent_start + WAITING_CONFIRMING_DELAY.into());
             ItemList::rm_item(&mut pending_confirming, &rent_id);
-            ConfirmingOrder::<T>::insert(rent_info.rent_start + WAITING_CONFIRMING_DELAY.into(), pending_confirming);
+            ConfirmingOrder::<T>::insert(
+                rent_info.rent_start + WAITING_CONFIRMING_DELAY.into(),
+                pending_confirming,
+            );
 
             RentInfo::<T>::insert(&rent_id, rent_info);
 
-            Self::deposit_event(Event::ConfirmRent(rent_id, renter, machine_id, gpu_num, rent_duration, rent_fee));
+            Self::deposit_event(Event::ConfirmRent(
+                rent_id,
+                renter,
+                machine_id,
+                gpu_num,
+                rent_duration,
+                rent_fee,
+            ));
             Ok(().into())
         }
 
@@ -268,8 +304,8 @@ impl<T: Config> Pallet<T> {
 
         // 检查machine_id状态是否可以租用
         ensure!(
-            machine_info.machine_status == MachineStatus::Online
-                || machine_info.machine_status == MachineStatus::Rented,
+            machine_info.machine_status == MachineStatus::Online ||
+                machine_info.machine_status == MachineStatus::Rented,
             Error::<T>::MachineNotRentable
         );
 
@@ -277,12 +313,14 @@ impl<T: Config> Pallet<T> {
         let duration = duration.min((Self::maximum_rental_duration() * BLOCK_PER_DAY).into());
 
         // NOTE: 用户提交订单，需要扣除10个DBC
-        <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+        <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone())
+            .map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
         // 获得machine_price(每天的价格)
         // 根据租用GPU数量计算价格
-        let machine_price = T::RTOps::get_machine_price(machine_info.calc_point(), rent_gpu_num, gpu_num)
-            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+        let machine_price =
+            T::RTOps::get_machine_price(machine_info.calc_point(), rent_gpu_num, gpu_num)
+                .ok_or(Error::<T>::GetMachinePriceFailed)?;
 
         // 根据租用时长计算rent_fee
         let rent_fee_value = machine_price
@@ -290,14 +328,15 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::Overflow)?
             .checked_div(BLOCK_PER_DAY as u64)
             .ok_or(Error::<T>::Overflow)?;
-        let rent_fee =
-            <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value).ok_or(Error::<T>::Overflow)?;
+        let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
+            .ok_or(Error::<T>::Overflow)?;
 
         // 获取用户租用的结束时间(块高)
         let rent_end = duration.checked_add(&now).ok_or(Error::<T>::Overflow)?;
 
         // 质押用户的资金，并修改机器状态
-        Self::change_renter_total_stake(&renter, rent_fee, true).map_err(|_| Error::<T>::InsufficientValue)?;
+        Self::change_renter_total_stake(&renter, rent_fee, true)
+            .map_err(|_| Error::<T>::InsufficientValue)?;
 
         let rent_id = Self::get_new_rent_id();
 
@@ -334,7 +373,14 @@ impl<T: Config> Pallet<T> {
         ConfirmingOrder::<T>::insert(now + WAITING_CONFIRMING_DELAY.into(), pending_confirming);
         MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
-        Self::deposit_event(Event::Rent(rent_id, renter, machine_id, rent_gpu_num, duration.into(), rent_fee));
+        Self::deposit_event(Event::Rent(
+            rent_id,
+            renter,
+            machine_id,
+            rent_gpu_num,
+            duration.into(),
+            rent_fee,
+        ));
         Ok(().into())
     }
 
@@ -359,7 +405,8 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         // 最大结束块高为 今天租用开始的时间 + 60天
         // 60 days * 24 hour/day * 60 min/hour * 2 block/min
-        let max_rent_end = now.checked_add(&(BLOCK_PER_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
+        let max_rent_end =
+            now.checked_add(&(BLOCK_PER_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
         let wanted_rent_end = old_rent_end + duration;
 
         // 计算实际可续租时间 (块高)
@@ -367,19 +414,20 @@ impl<T: Config> Pallet<T> {
             if max_rent_end >= wanted_rent_end { duration } else { max_rent_end - old_rent_end };
 
         if add_duration == 0u32.into() {
-            return Ok(().into());
+            return Ok(().into())
         }
 
         // 计算rent_fee
-        let machine_price = T::RTOps::get_machine_price(calc_point, gpu_num, machine_info.gpu_num())
-            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+        let machine_price =
+            T::RTOps::get_machine_price(calc_point, gpu_num, machine_info.gpu_num())
+                .ok_or(Error::<T>::GetMachinePriceFailed)?;
         let rent_fee_value = machine_price
             .checked_mul(add_duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
             .checked_div(2880)
             .ok_or(Error::<T>::Overflow)?;
-        let rent_fee =
-            <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value).ok_or(Error::<T>::Overflow)?;
+        let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
+            .ok_or(Error::<T>::Overflow)?;
 
         // 检查用户是否有足够的资金，来租用机器
         let user_balance = <T as pallet::Config>::Currency::free_balance(&renter);
@@ -388,7 +436,8 @@ impl<T: Config> Pallet<T> {
         Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_fee)?;
 
         // 获取用户租用的结束时间
-        rent_info.rent_end = rent_info.rent_end.checked_add(&add_duration).ok_or(Error::<T>::Overflow)?;
+        rent_info.rent_end =
+            rent_info.rent_end.checked_add(&add_duration).ok_or(Error::<T>::Overflow)?;
 
         let mut old_rent_ending = Self::rent_ending(old_rent_end);
         ItemList::rm_item(&mut old_rent_ending, &rent_id);
@@ -399,7 +448,14 @@ impl<T: Config> Pallet<T> {
         RentEnding::<T>::insert(rent_info.rent_end, rent_ending);
         RentInfo::<T>::insert(&rent_id, rent_info);
 
-        Self::deposit_event(Event::Relet(rent_id, renter, machine_id, gpu_num, add_duration, rent_fee));
+        Self::deposit_event(Event::Relet(
+            rent_id,
+            renter,
+            machine_id,
+            gpu_num,
+            add_duration,
+            rent_fee,
+        ));
         Ok(().into())
     }
 
@@ -410,7 +466,7 @@ impl<T: Config> Pallet<T> {
         let new_rent_id = loop {
             let new_rent_id = if rent_id == u64::MAX { 0 } else { rent_id + 1 };
             if !RentInfo::<T>::contains_key(new_rent_id) {
-                break new_rent_id;
+                break new_rent_id
             }
         };
 
@@ -440,7 +496,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
 
         if !<ConfirmingOrder<T>>::contains_key(now) {
-            return;
+            return
         }
 
         let pending_confirming = Self::confirming_order(now);
@@ -448,7 +504,10 @@ impl<T: Config> Pallet<T> {
             let rent_info = Self::rent_info(&rent_id);
 
             Self::clean_order(&rent_info.renter, rent_id);
-            T::RTOps::change_machine_status_on_confirm_expired(&rent_info.machine_id, rent_info.gpu_num);
+            T::RTOps::change_machine_status_on_confirm_expired(
+                &rent_info.machine_id,
+                rent_info.gpu_num,
+            );
         }
     }
 
@@ -495,7 +554,11 @@ impl<T: Config> Pallet<T> {
     }
 
     // - Write: UserTotalStake
-    fn change_renter_total_stake(who: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+    fn change_renter_total_stake(
+        who: &T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> Result<(), ()> {
         let current_stake = Self::user_total_stake(who);
 
         let new_stake = if is_add {
@@ -512,11 +575,12 @@ impl<T: Config> Pallet<T> {
     }
 
     // 这里修rentMachine模块通知onlineProfile机器已经租用完成，
-    // onlineProfile判断机器是否需要变成online状态，或者记录下之前是租用状态，以便机器再次上线时进行正确的惩罚
+    // onlineProfile判断机器是否需要变成online状态，或者记录下之前是租用状态，
+    // 以便机器再次上线时进行正确的惩罚
     fn check_if_rent_finished() {
         let now = <frame_system::Module<T>>::block_number();
         if !<RentEnding<T>>::contains_key(now) {
-            return;
+            return
         }
         let pending_ending = Self::rent_ending(now);
 

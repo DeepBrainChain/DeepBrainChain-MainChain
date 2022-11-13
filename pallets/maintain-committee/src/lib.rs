@@ -25,9 +25,11 @@ use sp_std::{str, vec, vec::Vec};
 pub use pallet::*;
 use types::*;
 
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type BalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as pallet::Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -39,7 +41,10 @@ pub mod pallet {
     {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
-        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+        type ManageCommittee: ManageCommittee<
+            AccountId = Self::AccountId,
+            Balance = BalanceOf<Self>,
+        >;
         type MTOps: MTOps<
             AccountId = Self::AccountId,
             MachineId = MachineId,
@@ -78,11 +83,13 @@ pub mod pallet {
     /// Number of available committees for maintain module
     #[pallet::storage]
     #[pallet::getter(fn committee_limit)]
-    pub(super) type CommitteeLimit<T: Config> = StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
+    pub(super) type CommitteeLimit<T: Config> =
+        StorageValue<_, u32, ValueQuery, CommitteeLimitDefault<T>>;
 
     #[pallet::storage]
     #[pallet::getter(fn reporter_stake_params)]
-    pub(super) type ReporterStakeParams<T: Config> = StorageValue<_, ReporterStakeParamsInfo<BalanceOf<T>>>;
+    pub(super) type ReporterStakeParams<T: Config> =
+        StorageValue<_, ReporterStakeParamsInfo<BalanceOf<T>>>;
 
     #[pallet::storage]
     #[pallet::getter(fn next_report_id)]
@@ -182,10 +189,13 @@ pub mod pallet {
 
             let mut live_report = Self::live_report();
             let mut reporter_report = Self::reporter_report(&reporter);
-            let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            let stake_params =
+                Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // 支付
-            if let MachineFaultType::RentedInaccessible(_machine_id, rent_order_id) = report_reason.clone() {
+            if let MachineFaultType::RentedInaccessible(_machine_id, rent_order_id) =
+                report_reason.clone()
+            {
                 // 检查是否是机器租用者
                 let rent_info = <rent_machine::Module<T>>::rent_info(&rent_order_id);
                 ensure!(rent_info.renter == reporter, Error::<T>::NotMachineRenter);
@@ -208,63 +218,97 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        pub fn reporter_add_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn reporter_add_stake(
+            origin: OriginFor<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             Self::change_reporter_stake(reporter, amount, true)
         }
 
         #[pallet::weight(10000)]
-        pub fn reporter_reduce_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn reporter_reduce_stake(
+            origin: OriginFor<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             Self::change_reporter_stake(reporter, amount, false)
         }
 
         // 报告人可以在抢单之前取消该报告
         #[pallet::weight(10000)]
-        pub fn reporter_cancel_report(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
+        pub fn reporter_cancel_report(
+            origin: OriginFor<T>,
+            report_id: ReportId,
+        ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             let report_info = Self::report_info(&report_id);
 
             ensure!(report_info.reporter == reporter, Error::<T>::NotReporter);
-            ensure!(report_info.report_status == ReportStatus::Reported, Error::<T>::OrderNotAllowCancel);
             ensure!(
-                Self::change_reporter_stake_on_report_close(&reporter, report_info.reporter_stake, false).is_ok(),
+                report_info.report_status == ReportStatus::Reported,
+                Error::<T>::OrderNotAllowCancel
+            );
+            ensure!(
+                Self::change_reporter_stake_on_report_close(
+                    &reporter,
+                    report_info.reporter_stake,
+                    false
+                )
+                .is_ok(),
                 Error::<T>::ReduceTotalStakeFailed
             );
 
             Self::do_reporter_cancel_report(&reporter, report_id);
-            Self::deposit_event(Event::ReportCanceld(reporter, report_id, report_info.machine_fault_type));
+            Self::deposit_event(Event::ReportCanceld(
+                reporter,
+                report_id,
+                report_info.machine_fault_type,
+            ));
             Ok(().into())
         }
 
         /// 委员会进行抢单
         #[pallet::weight(10000)]
-        pub fn committee_book_report(origin: OriginFor<T>, report_id: ReportId) -> DispatchResultWithPostInfo {
+        pub fn committee_book_report(
+            origin: OriginFor<T>,
+            report_id: ReportId,
+        ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
 
-            ensure!(<T as pallet::Config>::ManageCommittee::is_valid_committee(&committee), Error::<T>::NotCommittee);
+            ensure!(
+                <T as pallet::Config>::ManageCommittee::is_valid_committee(&committee),
+                Error::<T>::NotCommittee
+            );
 
             let mut report_info = Self::report_info(report_id);
             // 检查订单是否可以抢定
             ensure!(report_info.report_time != Zero::zero(), Error::<T>::OrderNotAllowBook);
             ensure!(
-                report_info.report_status == ReportStatus::Reported
-                    || report_info.report_status == ReportStatus::WaitingBook,
+                report_info.report_status == ReportStatus::Reported ||
+                    report_info.report_status == ReportStatus::WaitingBook,
                 Error::<T>::OrderNotAllowBook
             );
             ensure!(report_info.booked_committee.len() < 3, Error::<T>::OrderNotAllowBook);
-            ensure!(report_info.booked_committee.binary_search(&committee).is_err(), Error::<T>::AlreadyBooked);
+            ensure!(
+                report_info.booked_committee.binary_search(&committee).is_err(),
+                Error::<T>::AlreadyBooked
+            );
 
-            let order_stake =
-                <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            let order_stake = <T as pallet::Config>::ManageCommittee::stake_per_order()
+                .ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // 支付手续费或押金: 10 DBC | 1000 DBC
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
                 <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone())
                     .map_err(|_| Error::<T>::PayTxFeeFailed)?;
             } else {
-                <T as pallet::Config>::ManageCommittee::change_used_stake(committee.clone(), order_stake, true)
-                    .map_err(|_| Error::<T>::StakeFailed)?;
+                <T as pallet::Config>::ManageCommittee::change_used_stake(
+                    committee.clone(),
+                    order_stake,
+                    true,
+                )
+                .map_err(|_| Error::<T>::StakeFailed)?;
             }
 
             Self::do_book_reports(committee.clone(), report_id, &mut report_info, order_stake);
@@ -289,13 +333,22 @@ pub mod pallet {
             let mut committee_ops = Self::committee_ops(&to_committee, &report_id);
 
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-                return Err(Error::<T>::NotNeedEncryptedInfo.into());
+                return Err(Error::<T>::NotNeedEncryptedInfo.into())
             }
             ensure!(report_info.reporter == reporter, Error::<T>::NotOrderReporter);
-            ensure!(report_info.report_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
-            ensure!(report_info.booked_committee.binary_search(&to_committee).is_ok(), Error::<T>::NotOrderCommittee);
+            ensure!(
+                report_info.report_status == ReportStatus::Verifying,
+                Error::<T>::OrderStatusNotFeat
+            );
+            ensure!(
+                report_info.booked_committee.binary_search(&to_committee).is_ok(),
+                Error::<T>::NotOrderCommittee
+            );
 
-            ensure!(committee_ops.order_status == MTOrderStatus::WaitingEncrypt, Error::<T>::OrderStatusNotFeat);
+            ensure!(
+                committee_ops.order_status == MTOrderStatus::WaitingEncrypt,
+                Error::<T>::OrderStatusNotFeat
+            );
 
             // report_info中插入已经收到了加密信息的委员会
             ItemList::add_item(&mut report_info.get_encrypted_info_committee, to_committee.clone());
@@ -325,25 +378,35 @@ pub mod pallet {
             let mut report_info = Self::report_info(&report_id);
             let mut live_report = Self::live_report();
 
-            ensure!(committee_order.booked_report.binary_search(&report_id).is_ok(), Error::<T>::NotInBookedList);
-            ensure!(committee_ops.order_status == MTOrderStatus::Verifying, Error::<T>::OrderStatusNotFeat);
+            ensure!(
+                committee_order.booked_report.binary_search(&report_id).is_ok(),
+                Error::<T>::NotInBookedList
+            );
+            ensure!(
+                committee_ops.order_status == MTOrderStatus::Verifying,
+                Error::<T>::OrderStatusNotFeat
+            );
 
-            let is_inaccess = matches!(report_info.machine_fault_type, MachineFaultType::RentedInaccessible(..));
+            let is_inaccess =
+                matches!(report_info.machine_fault_type, MachineFaultType::RentedInaccessible(..));
 
             if is_inaccess {
                 ensure!(
-                    report_info.report_status == ReportStatus::WaitingBook
-                        || report_info.report_status == ReportStatus::Verifying,
+                    report_info.report_status == ReportStatus::WaitingBook ||
+                        report_info.report_status == ReportStatus::Verifying,
                     Error::<T>::OrderStatusNotFeat
                 );
             } else {
-                ensure!(report_info.report_status == ReportStatus::Verifying, Error::<T>::OrderStatusNotFeat);
+                ensure!(
+                    report_info.report_status == ReportStatus::Verifying,
+                    Error::<T>::OrderStatusNotFeat
+                );
             }
             // 判断Hash是否被提交过
             for a_committee in &report_info.hashed_committee {
                 let committee_ops = Self::committee_ops(&a_committee, report_id);
                 if committee_ops.confirm_hash == hash {
-                    return Err(Error::<T>::DuplicateHash.into());
+                    return Err(Error::<T>::DuplicateHash.into())
                 }
             }
 
@@ -390,13 +453,22 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let mut report_info = Self::report_info(report_id);
-            ensure!(report_info.report_status == ReportStatus::SubmittingRaw, Error::<T>::OrderStatusNotFeat);
+            ensure!(
+                report_info.report_status == ReportStatus::SubmittingRaw,
+                Error::<T>::OrderStatusNotFeat
+            );
 
             // 获取链上已经记录的Hash
-            let reporter_hash =
-                report_info.machine_fault_type.clone().get_hash().ok_or(Error::<T>::OrderStatusNotFeat)?;
+            let reporter_hash = report_info
+                .machine_fault_type
+                .clone()
+                .get_hash()
+                .ok_or(Error::<T>::OrderStatusNotFeat)?;
             // 检查是否提交了该订单的hash
-            ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
+            ensure!(
+                report_info.hashed_committee.binary_search(&committee).is_ok(),
+                Error::<T>::NotProperCommittee
+            );
 
             // 检查是否与报告人提交的Hash一致
             let reporter_report_hash = Self::get_hash(vec![
@@ -420,7 +492,10 @@ pub mod pallet {
                 is_support,
                 err_reason.clone(),
             ]);
-            ensure!(committee_report_hash == committee_ops.confirm_hash, Error::<T>::NotEqualCommitteeSubmit);
+            ensure!(
+                committee_report_hash == committee_ops.confirm_hash,
+                Error::<T>::NotEqualCommitteeSubmit
+            );
 
             // 更改report_info，添加提交Raw的记录
             report_info.add_raw(committee.clone(), support_report, Some(machine_id), err_reason);
@@ -451,19 +526,28 @@ pub mod pallet {
             let mut committee_order = Self::committee_order(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
 
-            ensure!(report_info.report_status == ReportStatus::SubmittingRaw, Error::<T>::OrderStatusNotFeat);
+            ensure!(
+                report_info.report_status == ReportStatus::SubmittingRaw,
+                Error::<T>::OrderStatusNotFeat
+            );
             match report_info.machine_fault_type {
                 MachineFaultType::RentedInaccessible(..) => {},
                 _ => return Err(Error::<T>::OrderStatusNotFeat.into()),
             }
             // 检查是否提交了该订单的hash
-            ensure!(report_info.hashed_committee.binary_search(&committee).is_ok(), Error::<T>::NotProperCommittee);
+            ensure!(
+                report_info.hashed_committee.binary_search(&committee).is_ok(),
+                Error::<T>::NotProperCommittee
+            );
 
             // 检查Hash是否一致
             let is_support_u8: Vec<u8> = if is_support { "1".into() } else { "0".into() };
             ensure!(
-                Self::get_hash(vec![report_id.to_string().into(), committee_rand_str, is_support_u8])
-                    == committee_ops.confirm_hash,
+                Self::get_hash(vec![
+                    report_id.to_string().into(),
+                    committee_rand_str,
+                    is_support_u8
+                ]) == committee_ops.confirm_hash,
                 Error::<T>::NotEqualCommitteeSubmit
             );
 
@@ -491,7 +575,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let applicant = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
-            let reporter_stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            let reporter_stake_params =
+                Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
             let report_result_info = Self::report_result(report_result_id);
 
             // 判断申请人角色
@@ -500,10 +585,19 @@ pub mod pallet {
             let is_slashed_committee = report_result_info.is_slashed_committee(&applicant);
             let is_slashed_stash = report_result_info.is_slashed_stash(&applicant);
 
-            ensure!(!PendingSlashReview::<T>::contains_key(report_result_id), Error::<T>::AlreadyApplied);
-            ensure!(is_slashed_reporter || is_slashed_committee || is_slashed_stash, Error::<T>::NotSlashed);
+            ensure!(
+                !PendingSlashReview::<T>::contains_key(report_result_id),
+                Error::<T>::AlreadyApplied
+            );
+            ensure!(
+                is_slashed_reporter || is_slashed_committee || is_slashed_stash,
+                Error::<T>::NotSlashed
+            );
             ensure!(now < report_result_info.slash_exec_time, Error::<T>::TimeNotAllowed);
-            ensure!(<T as Config>::Currency::can_reserve(&applicant, stake_per_report), Error::<T>::BalanceNotEnough);
+            ensure!(
+                <T as Config>::Currency::can_reserve(&applicant, stake_per_report),
+                Error::<T>::BalanceNotEnough
+            );
 
             // Add stake when apply for review
             // NOTE: here, should add total stake and **also add used stake**
@@ -520,8 +614,12 @@ pub mod pallet {
                 )
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
-                <T as pallet::Config>::ManageCommittee::change_used_stake(applicant.clone(), stake_per_report, true)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                <T as pallet::Config>::ManageCommittee::change_used_stake(
+                    applicant.clone(),
+                    stake_per_report,
+                    true,
+                )
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else if is_slashed_stash {
                 T::MTOps::mt_change_staked_balance(applicant.clone(), stake_per_report, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
@@ -543,15 +641,25 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn cancel_reporter_slash(origin: OriginFor<T>, slashed_report_id: ReportId) -> DispatchResultWithPostInfo {
+        pub fn cancel_reporter_slash(
+            origin: OriginFor<T>,
+            slashed_report_id: ReportId,
+        ) -> DispatchResultWithPostInfo {
             <T as pallet::Config>::CancelSlashOrigin::ensure_origin(origin)?;
-            ensure!(ReportResult::<T>::contains_key(slashed_report_id), Error::<T>::SlashIdNotExist);
-            ensure!(PendingSlashReview::<T>::contains_key(slashed_report_id), Error::<T>::NotPendingReviewSlash);
+            ensure!(
+                ReportResult::<T>::contains_key(slashed_report_id),
+                Error::<T>::SlashIdNotExist
+            );
+            ensure!(
+                PendingSlashReview::<T>::contains_key(slashed_report_id),
+                Error::<T>::NotPendingReviewSlash
+            );
 
             let now = <frame_system::Module<T>>::block_number();
             let mut report_result = Self::report_result(slashed_report_id);
             let slash_review_info = Self::pending_slash_review(slashed_report_id);
-            let (applicant, staked) = (slash_review_info.applicant, slash_review_info.staked_amount);
+            let (applicant, staked) =
+                (slash_review_info.applicant, slash_review_info.staked_amount);
 
             ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
@@ -670,29 +778,40 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     // is_add: ReporterStake改变，并reserve 一定金额
     // !is_add: ReporterStake改变，并unreserve一定金额
-    fn change_reporter_stake(reporter: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> DispatchResultWithPostInfo {
+    fn change_reporter_stake(
+        reporter: T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> DispatchResultWithPostInfo {
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
         let mut reporter_stake = Self::reporter_stake(&reporter);
 
         if is_add {
-            ensure!(<T as Config>::Currency::can_reserve(&reporter, amount), Error::<T>::BalanceNotEnough);
+            ensure!(
+                <T as Config>::Currency::can_reserve(&reporter, amount),
+                Error::<T>::BalanceNotEnough
+            );
             reporter_stake.staked_amount += amount;
         } else {
             ensure!(reporter_stake.staked_amount >= amount, Error::<T>::BalanceNotEnough);
             reporter_stake.staked_amount = reporter_stake.staked_amount.saturating_sub(amount);
-            ensure!(reporter_stake.staked_amount >= reporter_stake.used_stake, Error::<T>::StakeNotEnough);
+            ensure!(
+                reporter_stake.staked_amount >= reporter_stake.used_stake,
+                Error::<T>::StakeNotEnough
+            );
         }
 
         if reporter_stake.used_stake > Zero::zero() || is_add {
             ensure!(
-                reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake)
-                    >= stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake) >=
+                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                 Error::<T>::StakeNotEnough
             );
         }
 
         if is_add {
-            <T as pallet::Config>::Currency::reserve(&reporter, amount).map_err(|_| Error::<T>::BalanceNotEnough)?;
+            <T as pallet::Config>::Currency::reserve(&reporter, amount)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
             ReporterStake::<T>::insert(&reporter, reporter_stake);
             Self::deposit_event(Event::ReporterAddStake(reporter, amount));
         } else {
@@ -727,7 +846,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // 该类型错误可以由程序快速完成检测，因此可以提交并需记录machine_id
-        if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) = machine_fault_type.clone() {
+        if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) =
+            machine_fault_type.clone()
+        {
             report_info.machine_id = machine_id;
             report_info.rent_order_id = rent_order_id;
         }
@@ -782,13 +903,12 @@ impl<T: Config> Pallet<T> {
             };
         }
         report_info.report_status = match mft {
-            MachineFaultType::RentedInaccessible(..) => {
+            MachineFaultType::RentedInaccessible(..) =>
                 if report_info.booked_committee.len() == 3 {
                     ReportStatus::Verifying
                 } else {
                     ReportStatus::WaitingBook
-                }
-            },
+                },
             _ => {
                 // 仅在不是RentedInaccessible时进行记录，因为这些情况只能一次有一个验证委员会
                 report_info.verifying_committee = Some(committee.clone());
@@ -851,12 +971,15 @@ impl<T: Config> Pallet<T> {
     // - Writes:
     // ReportInfo, ReportResult, CommitteeOrder, CommitteeOps
     // LiveReport, UnhandledReportResult, ReporterReport,
-    fn summary_a_inaccessible(report_id: ReportId, live_report: &mut MTLiveReportList) -> Result<(), ()> {
+    fn summary_a_inaccessible(
+        report_id: ReportId,
+        live_report: &mut MTLiveReportList,
+    ) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let mut report_info = Self::report_info(&report_id);
 
         if report_info.first_book_time == Zero::zero() {
-            return Ok(());
+            return Ok(())
         }
 
         // 仅处理Inaccessible的情况
@@ -870,7 +993,9 @@ impl<T: Config> Pallet<T> {
             ReportStatus::Reported | ReportStatus::CommitteeConfirmed => return Ok(()),
             ReportStatus::WaitingBook | ReportStatus::Verifying => {
                 // 当大于等于5分钟或者hashed的委员会已经达到3人，则更改报告状态，允许提交原始值
-                if now - report_info.first_book_time >= FIVE_MINUTE.into() || report_info.hashed_committee.len() == 3 {
+                if now - report_info.first_book_time >= FIVE_MINUTE.into() ||
+                    report_info.hashed_committee.len() == 3
+                {
                     ItemList::rm_item(&mut live_report.bookable_report, &report_id); // 小于3人时处于bookable
                     ItemList::rm_item(&mut live_report.verifying_report, &report_id); // 等于3人时处于verifying
                     ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
@@ -878,14 +1003,14 @@ impl<T: Config> Pallet<T> {
                     report_info.report_status = ReportStatus::SubmittingRaw;
                     ReportInfo::<T>::insert(report_id, report_info);
                 }
-                return Ok(());
+                return Ok(())
             },
             ReportStatus::SubmittingRaw => {
                 // 不到10分钟，且没全部提交确认，允许继续提交
-                if now - report_info.first_book_time < TEN_MINUTE.into()
-                    && report_info.confirmed_committee.len() < report_info.hashed_committee.len()
+                if now - report_info.first_book_time < TEN_MINUTE.into() &&
+                    report_info.confirmed_committee.len() < report_info.hashed_committee.len()
                 {
-                    return Ok(());
+                    return Ok(())
                 }
             },
         }
@@ -956,7 +1081,7 @@ impl<T: Config> Pallet<T> {
 
             ItemList::add_item(&mut reporter_report.failed_report, report_id);
             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
-            return Ok(());
+            return Ok(())
         }
 
         // 处理支持报告人的情况
@@ -971,14 +1096,26 @@ impl<T: Config> Pallet<T> {
                 report_info.report_time,
             );
 
-            ItemList::expand_to_order(&mut report_result.inconsistent_committee, report_info.against_committee.clone());
-            ItemList::expand_to_order(&mut report_result.reward_committee, report_info.support_committee.clone());
+            ItemList::expand_to_order(
+                &mut report_result.inconsistent_committee,
+                report_info.against_committee.clone(),
+            );
+            ItemList::expand_to_order(
+                &mut report_result.reward_committee,
+                report_info.support_committee.clone(),
+            );
             ItemList::add_item(&mut reporter_report.succeed_report, report_id);
             report_result.report_result = ReportResultType::ReportSucceed;
         } else {
             // 处理拒绝报告人的情况
-            ItemList::expand_to_order(&mut report_result.inconsistent_committee, report_info.support_committee.clone());
-            ItemList::expand_to_order(&mut report_result.reward_committee, report_info.against_committee.clone());
+            ItemList::expand_to_order(
+                &mut report_result.inconsistent_committee,
+                report_info.support_committee.clone(),
+            );
+            ItemList::expand_to_order(
+                &mut report_result.reward_committee,
+                report_info.against_committee.clone(),
+            );
             ItemList::add_item(&mut reporter_report.failed_report, report_id);
 
             report_result.report_result = ReportResultType::ReportRefused;
@@ -1023,17 +1160,18 @@ impl<T: Config> Pallet<T> {
 
     fn summary_a_fault(report_id: ReportId, live_report: &mut MTLiveReportList) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
-        let committee_order_stake = <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
+        let committee_order_stake =
+            <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         let report_info = Self::report_info(&report_id);
 
         if report_info.first_book_time == Zero::zero() {
-            return Ok(());
+            return Ok(())
         }
 
         // 忽略掉线的类型
         if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-            return Ok(());
+            return Ok(())
         };
 
         let mut reporter_report = Self::reporter_report(&report_info.reporter);
@@ -1090,7 +1228,9 @@ impl<T: Config> Pallet<T> {
         let committee_ops = Self::committee_ops(&verifying_committee, &report_id);
 
         // 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
-        if now - committee_ops.booked_time >= HALF_HOUR.into() && committee_ops.encrypted_err_info.is_none() {
+        if now - committee_ops.booked_time >= HALF_HOUR.into() &&
+            committee_ops.encrypted_err_info.is_none()
+        {
             ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
             ItemList::add_item(&mut reporter_report.failed_report, report_id);
             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
@@ -1115,7 +1255,7 @@ impl<T: Config> Pallet<T> {
             Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
             ReportResult::<T>::insert(report_id, report_result);
 
-            return Ok(());
+            return Ok(())
         }
 
         // 委员会没有提交Hash，删除该委员会，并惩罚
@@ -1166,7 +1306,7 @@ impl<T: Config> Pallet<T> {
         if let ReportStatus::WaitingBook = report_info.report_status {
             report_info.report_status = ReportStatus::SubmittingRaw;
             ReportInfo::<T>::insert(report_id, report_info);
-            return Ok(());
+            return Ok(())
         }
 
         // 但是最后一个委员会订阅时间小于1个小时
@@ -1199,25 +1339,26 @@ impl<T: Config> Pallet<T> {
     // 统计正在waiting_raw的机器
     fn summary_waiting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) {
         let now = <frame_system::Module<T>>::block_number();
-        let committee_order_stake = <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
+        let committee_order_stake =
+            <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         let mut report_info = Self::report_info(&report_id);
         let mut report_result = Self::report_result(report_id);
 
         if report_info.first_book_time == Zero::zero() {
-            return;
+            return
         }
 
         // 禁止对快速报告进行检查，快速报告会处理这种情况
         if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-            return;
+            return
         }
 
         // 未全部提交了原始信息且未达到了四个小时，需要继续等待
-        if now - report_info.first_book_time < FOUR_HOUR.into()
-            && report_info.hashed_committee.len() != report_info.confirmed_committee.len()
+        if now - report_info.first_book_time < FOUR_HOUR.into() &&
+            report_info.hashed_committee.len() != report_info.confirmed_committee.len()
         {
-            return;
+            return
         }
 
         let fault_report_result = Self::summary_fault_report(report_id);
@@ -1226,7 +1367,10 @@ impl<T: Config> Pallet<T> {
             ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
                 // Slash against_committee and release support committee stake
                 for a_committee in against_committee {
-                    ItemList::add_item(&mut report_result.inconsistent_committee, a_committee.clone());
+                    ItemList::add_item(
+                        &mut report_result.inconsistent_committee,
+                        a_committee.clone(),
+                    );
 
                     // 改变committee_order
                     let mut committee_order = Self::committee_order(&a_committee);
@@ -1275,7 +1419,10 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // 记录unruly的委员会，两天后进行惩罚
-                ItemList::expand_to_order(&mut report_result.unruly_committee, report_info.booked_committee.clone());
+                ItemList::expand_to_order(
+                    &mut report_result.unruly_committee,
+                    report_info.booked_committee.clone(),
+                );
 
                 let mut reporter_report = Self::reporter_report(&report_info.reporter);
                 // 重新举报
@@ -1297,8 +1444,8 @@ impl<T: Config> Pallet<T> {
 
         // 根据报告结果，更改live_report的结果
         match fault_report_result {
-            ReportConfirmStatus::Confirmed(mut sp_committees, ag_committee, ..)
-            | ReportConfirmStatus::Refuse(mut sp_committees, ag_committee, ..) => {
+            ReportConfirmStatus::Confirmed(mut sp_committees, ag_committee, ..) |
+            ReportConfirmStatus::Refuse(mut sp_committees, ag_committee, ..) => {
                 ItemList::rm_item(&mut live_report.waiting_raw_report, &report_id);
                 ItemList::add_item(&mut live_report.finished_report, report_id);
 
@@ -1343,7 +1490,7 @@ impl<T: Config> Pallet<T> {
         let report_info = Self::report_info(&report_id);
 
         if report_info.confirmed_committee.is_empty() {
-            return ReportConfirmStatus::NoConsensus;
+            return ReportConfirmStatus::NoConsensus
         }
 
         if report_info.support_committee.len() >= report_info.against_committee.len() {
@@ -1351,7 +1498,7 @@ impl<T: Config> Pallet<T> {
                 report_info.support_committee,
                 report_info.against_committee,
                 report_info.err_info,
-            );
+            )
         }
         ReportConfirmStatus::Refuse(report_info.support_committee, report_info.against_committee)
     }
@@ -1365,14 +1512,14 @@ impl<T: Config> Pallet<T> {
         report_time: T::BlockNumber,
     ) {
         let fault_type = match raw_fault_type {
-            MachineFaultType::RentedInaccessible(..) => online_profile::OPSlashReason::RentedInaccessible(report_time),
-            MachineFaultType::RentedHardwareMalfunction(..) => {
-                online_profile::OPSlashReason::RentedHardwareMalfunction(report_time)
-            },
-            MachineFaultType::RentedHardwareCounterfeit(..) => {
-                online_profile::OPSlashReason::RentedHardwareCounterfeit(report_time)
-            },
-            MachineFaultType::OnlineRentFailed(..) => online_profile::OPSlashReason::OnlineRentFailed(report_time),
+            MachineFaultType::RentedInaccessible(..) =>
+                online_profile::OPSlashReason::RentedInaccessible(report_time),
+            MachineFaultType::RentedHardwareMalfunction(..) =>
+                online_profile::OPSlashReason::RentedHardwareMalfunction(report_time),
+            MachineFaultType::RentedHardwareCounterfeit(..) =>
+                online_profile::OPSlashReason::RentedHardwareCounterfeit(report_time),
+            MachineFaultType::OnlineRentFailed(..) =>
+                online_profile::OPSlashReason::OnlineRentFailed(report_time),
         };
 
         T::MTOps::mt_machine_offline(reporter, support_committee, machine_id, fault_type);

@@ -15,7 +15,9 @@ fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
     ext.execute_with(|| {
         let committee = sr25519::Public::from(Sr25519Keyring::One).into();
         let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
@@ -57,30 +59,45 @@ fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
 #[test]
 fn apply_slash_review_case1() {
     after_report_machine_inaccessible().execute_with(|| {
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
-        let machine_stash: sp_core::sr25519::Public = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+        let machine_stash: sp_core::sr25519::Public =
+            sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
         let committee = sr25519::Public::from(Sr25519Keyring::One).into();
         let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
 
         let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
         // 10万为质押，20000为委员会
-        assert_eq!(Balances::free_balance(machine_stash), INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC);
+        assert_eq!(
+            Balances::free_balance(machine_stash),
+            INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC
+        );
 
         assert_eq!(
             &OnlineProfile::live_machines(),
-            &online_profile::LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
+            &online_profile::LiveMachine {
+                offline_machine: vec![machine_id.clone()],
+                ..Default::default()
+            }
         );
 
         // Stash apply reonline
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
         let machine_info = OnlineProfile::machines_info(&machine_id);
         {
             assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
             assert_eq!(
                 &OnlineProfile::live_machines(),
-                &online_profile::LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
+                &online_profile::LiveMachine {
+                    rented_machine: vec![machine_id.clone()],
+                    ..Default::default()
+                }
             );
             assert_eq!(
                 &OnlineProfile::pending_slash(0),
@@ -119,7 +136,10 @@ fn apply_slash_review_case1() {
 
         assert_ok!(OnlineProfile::do_cancel_slash(0));
         {
-            assert_eq!(&OnlineProfile::pending_slash(0), &online_profile::OPPendingSlashInfo { ..Default::default() });
+            assert_eq!(
+                &OnlineProfile::pending_slash(0),
+                &online_profile::OPPendingSlashInfo { ..Default::default() }
+            );
             assert_eq!(
                 &OnlineProfile::pending_slash_review(0),
                 &online_profile::OPPendingSlashReviewInfo { ..Default::default() }
@@ -136,14 +156,19 @@ fn apply_slash_review_case1() {
 #[test]
 fn apply_slash_review_case1_1() {
     after_report_machine_inaccessible().execute_with(|| {
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
         let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
         let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
 
         // Stash apply reonline
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
         assert_ok!(OnlineProfile::apply_slash_review(Origin::signed(controller), 0, vec![]));
 
@@ -151,11 +176,18 @@ fn apply_slash_review_case1_1() {
         run_to_block(25 + 2880 * 2);
 
         // assert_eq!(<online_profile::PendingSlashReview<TestRuntime>>::contains_key(0), true);
-        assert_eq!(OnlineProfile::pending_slash_review(0), online_profile::OPPendingSlashReviewInfo::default());
+        assert_eq!(
+            OnlineProfile::pending_slash_review(0),
+            online_profile::OPPendingSlashReviewInfo::default()
+        );
         // 机器400000, 委员会质押20000, 申述1000， 罚款16000
         assert_eq!(
             Balances::free_balance(machine_stash),
-            INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC - 1000 * ONE_DBC - 16000 * ONE_DBC
+            INIT_BALANCE + rent_fee -
+                400000 * ONE_DBC -
+                20000 * ONE_DBC -
+                1000 * ONE_DBC -
+                16000 * ONE_DBC
         );
         assert_eq!(OnlineProfile::stash_stake(&machine_stash), 400000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&machine_stash), 400000 * ONE_DBC + 20000 * ONE_DBC);

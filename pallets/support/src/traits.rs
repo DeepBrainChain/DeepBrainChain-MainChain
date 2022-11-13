@@ -18,9 +18,16 @@ pub trait OCOps {
     fn oc_booked_machine(id: Self::MachineId);
     fn oc_revert_booked_machine(id: Self::MachineId);
 
-    fn oc_confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo) -> Result<(), ()>;
+    fn oc_confirm_machine(
+        who: Vec<Self::AccountId>,
+        machine_info: Self::CommitteeUploadInfo,
+    ) -> Result<(), ()>;
     fn oc_refuse_machine(machien_id: Self::MachineId) -> Option<(Self::AccountId, Self::Balance)>;
-    fn oc_change_staked_balance(stash: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
+    fn oc_change_staked_balance(
+        stash: Self::AccountId,
+        amount: Self::Balance,
+        is_add: bool,
+    ) -> Result<(), ()>;
     fn oc_exec_slash(stash: Self::AccountId, amount: Self::Balance) -> Result<(), ()>;
 }
 
@@ -63,7 +70,11 @@ pub trait ManageCommittee {
     fn is_valid_committee(who: &Self::AccountId) -> bool;
     fn available_committee() -> Option<Vec<Self::AccountId>>;
     // Only change stake record, not influence actual stake
-    fn change_used_stake(committee: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
+    fn change_used_stake(
+        committee: Self::AccountId,
+        amount: Self::Balance,
+        is_add: bool,
+    ) -> Result<(), ()>;
     // Only change stake record, not influence actual stake
     fn change_total_stake(
         committee: Self::AccountId,
@@ -93,7 +104,11 @@ pub trait MTOps {
         machine_id: Self::MachineId,
         fault_type: Self::FaultType,
     );
-    fn mt_change_staked_balance(stash: Self::AccountId, amount: Self::Balance, is_add: bool) -> Result<(), ()>;
+    fn mt_change_staked_balance(
+        stash: Self::AccountId,
+        amount: Self::Balance,
+        is_add: bool,
+    ) -> Result<(), ()>;
 
     fn mt_rm_stash_total_stake(stash: Self::AccountId, amount: Self::Balance) -> Result<(), ()>;
 }

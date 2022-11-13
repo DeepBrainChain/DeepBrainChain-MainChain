@@ -1,21 +1,32 @@
 use crate::{
-    mock::*, ConfirmingOrder, Error, MachineGPUOrder, RentOrderDetail, RentOrderId, RentStatus, BLOCK_PER_DAY,
+    mock::*, ConfirmingOrder, Error, MachineGPUOrder, RentOrderDetail, RentOrderId, RentStatus,
+    BLOCK_PER_DAY,
 };
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
 use online_profile::MachineStatus;
 use sp_runtime::Perbill;
 
-const renter_dave: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Dave));
-const stash: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Ferdie));
-const machine_id: Lazy<Vec<u8>> =
-    Lazy::new(|| "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec());
+const renter_dave: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Dave));
+const stash: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Ferdie));
+const machine_id: Lazy<Vec<u8>> = Lazy::new(|| {
+    "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+        .as_bytes()
+        .to_vec()
+});
 
 #[test]
 fn rent_machine_should_works() {
     new_test_ext_after_machine_online().execute_with(|| {
         // Dave rent machine for 10 days
-        assert_ok!(RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 4, 10 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            10 * 2880
+        ));
 
         // 过10个块之后执行租用成功
         run_to_block(10 + 20);
@@ -45,7 +56,10 @@ fn rent_machine_should_works() {
         // So, rent fee: 59890 / 1000 * 5000000 / 12000 * 10 =  249541.6666666667 DBC
         assert_eq!(stash_machines.total_rent_fee, 249541666666666666666);
         // Balance of stash account will increase
-        assert_eq!(Balances::free_balance(*stash), INIT_BALANCE - 400000 * ONE_DBC + 249541666666666666666);
+        assert_eq!(
+            Balances::free_balance(*stash),
+            INIT_BALANCE - 400000 * ONE_DBC + 249541666666666666666
+        );
         // Balance of renter will decrease, Dave is committee so - 20000
         assert_eq!(
             Balances::free_balance(*renter_dave),
@@ -72,7 +86,10 @@ fn rent_machine_should_works() {
         // So balance change should be right
         let stash_machines = OnlineProfile::stash_machines(&*stash);
         assert_eq!(stash_machines.total_rent_fee, 249541666666666666666 * 2);
-        assert_eq!(Balances::free_balance(*stash), INIT_BALANCE + 249541666666666666666 * 2 - 400000 * ONE_DBC);
+        assert_eq!(
+            Balances::free_balance(*stash),
+            INIT_BALANCE + 249541666666666666666 * 2 - 400000 * ONE_DBC
+        );
         assert_eq!(
             Balances::free_balance(*renter_dave),
             2 * INIT_BALANCE - 249541666666666666666 * 2 - 10 * ONE_DBC - 20000 * ONE_DBC
@@ -90,17 +107,26 @@ fn controller_report_offline_when_online_should_work() {
     new_test_ext_after_machine_online().execute_with(|| {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
         let machine_info = OnlineProfile::machines_info(&*machine_id);
         assert_eq!(
             machine_info.machine_status,
-            online_profile::MachineStatus::StakerReportOffline(11, Box::new(online_profile::MachineStatus::Online))
+            online_profile::MachineStatus::StakerReportOffline(
+                11,
+                Box::new(online_profile::MachineStatus::Online)
+            )
         );
 
         // Offline 20 block will result in slash
         run_to_block(20);
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
@@ -124,7 +150,10 @@ fn controller_report_offline_when_online_should_work() {
         assert_eq!(Balances::reserved_balance(*stash), 408000 * ONE_DBC);
 
         run_to_block(22 + 2880 * 2);
-        assert_eq!(OnlineProfile::pending_slash(0), online_profile::OPPendingSlashInfo { ..Default::default() });
+        assert_eq!(
+            OnlineProfile::pending_slash(0),
+            online_profile::OPPendingSlashInfo { ..Default::default() }
+        );
         assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
     })
 }
@@ -136,7 +165,12 @@ fn rent_machine_confirm_expired_should_work() {
         let init_rent_order = RentMachine::rent_info(0);
 
         // Dave rent machine for 10 days
-        assert_ok!(RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 4, 10 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            10 * 2880
+        ));
 
         let user_stake = RentMachine::user_total_stake(&*renter_dave);
         assert_eq!(user_stake, 249541666666666666666);
@@ -175,13 +209,24 @@ fn controller_report_offline_when_rented_should_work() {
     new_test_ext_after_machine_online().execute_with(|| {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        assert_ok!(RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 4, 2 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            2 * 2880
+        ));
         assert_ok!(RentMachine::confirm_rent(Origin::signed(*renter_dave), 0));
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
         run_to_block(20);
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
@@ -204,7 +249,10 @@ fn controller_report_offline_when_rented_should_work() {
         assert_eq!(Balances::reserved_balance(*stash), 408000 * ONE_DBC);
 
         run_to_block(22 + 2880 * 2);
-        assert_eq!(OnlineProfile::pending_slash(0), online_profile::OPPendingSlashInfo { ..Default::default() });
+        assert_eq!(
+            OnlineProfile::pending_slash(0),
+            online_profile::OPPendingSlashInfo { ..Default::default() }
+        );
         assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
     })
 }
@@ -216,7 +264,12 @@ fn rented_report_offline_rented_end_report_online() {
     new_test_ext_after_machine_online().execute_with(|| {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        assert_ok!(RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 4, 1 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            1 * 2880
+        ));
         assert_ok!(RentMachine::confirm_rent(Origin::signed(*renter_dave), 0));
 
         // now, rent is 10 block left
@@ -225,10 +278,16 @@ fn rented_report_offline_rented_end_report_online() {
         let machine_info = OnlineProfile::machines_info(&*machine_id);
         assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
         run_to_block(3000);
 
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
         assert_eq!(
             OnlineProfile::pending_slash(0),
             online_profile::OPPendingSlashInfo {
@@ -260,25 +319,60 @@ fn controller_report_offline_mutiple_times_should_work() {
     new_test_ext_after_machine_online().execute_with(|| {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
         run_to_block(2880 + 20);
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
         // Dave rent machine for 10 days
-        assert_ok!(RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 4, 2 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            2 * 2880
+        ));
         assert_ok!(RentMachine::confirm_rent(Origin::signed(*renter_dave), 0));
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
 
         run_to_block(2880 * 2 + 20);
-        assert_ok!(OnlineProfile::controller_report_offline(Origin::signed(controller), machine_id.clone()));
-        assert_ok!(OnlineProfile::controller_report_online(Origin::signed(controller), machine_id.clone()));
+        assert_ok!(OnlineProfile::controller_report_offline(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
+        assert_ok!(OnlineProfile::controller_report_online(
+            Origin::signed(controller),
+            machine_id.clone()
+        ));
     })
 }
 
@@ -286,7 +380,12 @@ fn controller_report_offline_mutiple_times_should_work() {
 fn rent_limit_should_works() {
     new_test_ext_after_machine_online().execute_with(|| {
         // Dave rent machine for 70 days
-        assert_ok!(RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 4, 70 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            70 * 2880
+        ));
 
         // DBC 价格： 12000 / 10^6 USD
         // 机器价格： 59890 / 1000 * (5000000 / 10^6) USD
@@ -377,11 +476,17 @@ fn rent_and_relet_by_minutes_works() {
             RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 4, 29 * 2),
             Error::<TestRuntime>::OnlyHalfHourAllowed
         );
-        assert_ok!(RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 4, 30 * 2));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            30 * 2
+        ));
         {
             // 检查租用人质押
-            // DBC price: {1000 points/ 5_000_000 usd }; 6825 points; 1/48 eras; DBC price: 12_000 usd
-            // So, rent fee: (59890 / 1000 * 5000000 / 12000) * 1/48 = 24954.166666666668 / 48  = 519.8784722222223 DBC
+            // DBC price: {1000 points/ 5_000_000 usd }; 6825 points; 1/48 eras; DBC price: 12_000
+            // usd So, rent fee: (59890 / 1000 * 5000000 / 12000) * 1/48 =
+            // 24954.166666666668 / 48  = 519.8784722222223 DBC
             let user_stake = RentMachine::user_total_stake(&*renter_dave);
             assert_eq!(user_stake, 519878416666666666); // 519.8784166666667 DBC
 
@@ -434,10 +539,18 @@ fn rent_and_relet_by_minutes_works() {
                 MachineGPUOrder { rent_order: vec![], used_gpu: vec![] }
             );
 
-            assert_eq!(Balances::free_balance(*renter_dave), 2 * INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC);
+            assert_eq!(
+                Balances::free_balance(*renter_dave),
+                2 * INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC
+            );
         }
 
-        assert_ok!(RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 4, 30 * 2));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            30 * 2
+        ));
         {
             assert_eq!(
                 RentMachine::rent_info(1),
@@ -531,7 +644,12 @@ fn rent_and_relet_by_minutes_works() {
 fn rent_machine_by_gpu_works() {
     new_test_ext_after_machine_online().execute_with(|| {
         // Dave rent 1 GPU machine for 10 days
-        assert_ok!(RentMachine::rent_machine(Origin::signed(*renter_dave), machine_id.clone(), 1, 10 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(*renter_dave),
+            machine_id.clone(),
+            1,
+            10 * 2880
+        ));
 
         // - Write: RentOrder, UserOrder, ConfirmingOrder, RentEnding
         {
@@ -585,9 +703,15 @@ fn gen_rentable_gpu_works() {
     assert_eq!(&machine_rent_order1, &MachineGPUOrder { rent_order: vec![], used_gpu: vec![0] });
 
     assert_eq!(machine_rent_order1.gen_rentable_gpu(2, 4), vec![1, 2,]);
-    assert_eq!(&machine_rent_order1, &MachineGPUOrder { rent_order: vec![], used_gpu: vec![0, 1, 2] });
+    assert_eq!(
+        &machine_rent_order1,
+        &MachineGPUOrder { rent_order: vec![], used_gpu: vec![0, 1, 2] }
+    );
 
     let mut machine_rent_order1 = MachineGPUOrder { rent_order: vec![], used_gpu: vec![1] };
     assert_eq!(machine_rent_order1.gen_rentable_gpu(2, 4), vec![0, 2,]);
-    assert_eq!(&machine_rent_order1, &MachineGPUOrder { rent_order: vec![], used_gpu: vec![0, 1, 2] });
+    assert_eq!(
+        &machine_rent_order1,
+        &MachineGPUOrder { rent_order: vec![], used_gpu: vec![0, 1, 2] }
+    );
 }

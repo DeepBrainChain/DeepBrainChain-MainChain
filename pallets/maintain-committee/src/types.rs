@@ -92,8 +92,19 @@ where
     B: Default,
     C: Default,
 {
-    pub fn new(reporter: A, report_time: B, machine_fault_type: MachineFaultType, reporter_stake: C) -> Self {
-        MTReportInfoDetail { reporter, report_time, machine_fault_type, reporter_stake, ..Default::default() }
+    pub fn new(
+        reporter: A,
+        report_time: B,
+        machine_fault_type: MachineFaultType,
+        reporter_stake: C,
+    ) -> Self {
+        MTReportInfoDetail {
+            reporter,
+            report_time,
+            machine_fault_type,
+            reporter_stake,
+            ..Default::default()
+        }
     }
     pub fn add_hash(&mut self, who: A, book_limit: u32, is_inaccess: bool) {
         // 添加到report的已提交Hash的委员会列表
@@ -108,7 +119,13 @@ where
             self.report_status = ReportStatus::WaitingBook;
         }
     }
-    pub fn add_raw(&mut self, who: A, is_support: bool, machine_id: Option<MachineId>, err_reason: Vec<u8>) {
+    pub fn add_raw(
+        &mut self,
+        who: A,
+        is_support: bool,
+        machine_id: Option<MachineId>,
+        err_reason: Vec<u8>,
+    ) {
         // 添加到Report的已提交Raw的列表
         ItemList::add_item(&mut self.confirmed_committee, who.clone());
 
@@ -168,9 +185,9 @@ impl Default for MachineFaultType {
 impl MachineFaultType {
     pub fn get_hash(self) -> Option<ReportHash> {
         match self {
-            MachineFaultType::RentedHardwareMalfunction(hash, ..)
-            | MachineFaultType::RentedHardwareCounterfeit(hash, ..)
-            | MachineFaultType::OnlineRentFailed(hash, ..) => Some(hash),
+            MachineFaultType::RentedHardwareMalfunction(hash, ..) |
+            MachineFaultType::RentedHardwareCounterfeit(hash, ..) |
+            MachineFaultType::OnlineRentFailed(hash, ..) => Some(hash),
             MachineFaultType::RentedInaccessible(..) => None,
         }
     }
@@ -344,13 +361,15 @@ where
 {
     pub fn is_slashed_reporter(&self, who: &A) -> bool {
         match self.report_result {
-            ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo => &self.reporter == who,
+            ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo =>
+                &self.reporter == who,
             _ => false,
         }
     }
 
     pub fn is_slashed_committee(&self, who: &A) -> bool {
-        self.inconsistent_committee.binary_search(who).is_ok() || self.unruly_committee.binary_search(who).is_ok()
+        self.inconsistent_committee.binary_search(who).is_ok() ||
+            self.unruly_committee.binary_search(who).is_ok()
     }
 
     pub fn is_slashed_stash(&self, who: &A) -> bool {

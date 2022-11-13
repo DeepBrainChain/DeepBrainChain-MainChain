@@ -36,8 +36,8 @@ use codec::{Decode, Encode};
 use futures::executor;
 use node_primitives::Block;
 use node_runtime::{
-    constants::currency::DOLLARS, AccountId, BalancesCall, Call, CheckedExtrinsic, MinimumPeriod, Signature,
-    SystemCall, UncheckedExtrinsic,
+    constants::currency::DOLLARS, AccountId, BalancesCall, Call, CheckedExtrinsic, MinimumPeriod,
+    Signature, SystemCall, UncheckedExtrinsic,
 };
 use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::{
@@ -48,7 +48,9 @@ use sc_client_db::PruningMode;
 use sc_executor::{NativeExecutor, WasmExecutionMethod};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
-use sp_consensus::{BlockImport, BlockImportParams, BlockOrigin, ForkChoiceStrategy, ImportResult, ImportedAux};
+use sp_consensus::{
+    BlockImport, BlockImportParams, BlockOrigin, ForkChoiceStrategy, ImportResult, ImportedAux,
+};
 use sp_core::{blake2_256, ed25519, sr25519, traits::SpawnNamed, ExecutionContext, Pair, Public};
 use sp_inherents::InherentData;
 use sp_runtime::{
@@ -94,10 +96,12 @@ pub fn drop_system_cache() {
             target: "bench-logistics",
             "Clearing system cache on windows is not supported. Benchmark might totally be wrong.",
         );
-        return;
+        return
     }
 
-    std::process::Command::new("sync").output().expect("Failed to execute system cache clear");
+    std::process::Command::new("sync")
+        .output()
+        .expect("Failed to execute system cache clear");
 
     #[cfg(target_os = "linux")]
     {
@@ -117,9 +121,14 @@ pub fn drop_system_cache() {
             .expect("Failed to execute dd for cache clear");
 
         // remove tempfile of previous command
-        std::process::Command::new("rm").arg(&temp_file_path).output().expect("Failed to remove temp file");
+        std::process::Command::new("rm")
+            .arg(&temp_file_path)
+            .output()
+            .expect("Failed to remove temp file");
 
-        std::process::Command::new("sync").output().expect("Failed to execute system cache clear");
+        std::process::Command::new("sync")
+            .output()
+            .expect("Failed to execute system cache clear");
 
         log::trace!(target: "bench-logistics", "Clearing system cache done!");
     }
@@ -255,8 +264,9 @@ pub struct BlockContentIterator<'a> {
 
 impl<'a> BlockContentIterator<'a> {
     fn new(content: BlockContent, keyring: &'a BenchKeyring, client: &Client) -> Self {
-        let runtime_version =
-            client.runtime_version_at(&BlockId::number(0)).expect("There should be runtime version at 0");
+        let runtime_version = client
+            .runtime_version_at(&BlockId::number(0))
+            .expect("There should be runtime version at 0");
 
         let genesis_hash = client
             .block_hash(Zero::zero())
@@ -273,25 +283,33 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.content.size.map(|size| size <= self.iteration).unwrap_or(false) {
-            return None;
+            return None
         }
 
         let sender = self.keyring.at(self.iteration);
-        let receiver = get_account_id_from_seed::<sr25519::Public>(&format!("random-user//{}", self.iteration));
+        let receiver = get_account_id_from_seed::<sr25519::Public>(&format!(
+            "random-user//{}",
+            self.iteration
+        ));
 
         let signed = self.keyring.sign(
             CheckedExtrinsic {
-                signed: Some((sender, signed_extra(0, node_runtime::ExistentialDeposit::get() + 1))),
+                signed: Some((
+                    sender,
+                    signed_extra(0, node_runtime::ExistentialDeposit::get() + 1),
+                )),
                 function: match self.content.block_type {
-                    BlockType::RandomTransfersKeepAlive => Call::Balances(BalancesCall::transfer_keep_alive(
-                        sp_runtime::MultiAddress::Id(receiver),
-                        node_runtime::ExistentialDeposit::get() + 1,
-                    )),
+                    BlockType::RandomTransfersKeepAlive =>
+                        Call::Balances(BalancesCall::transfer_keep_alive(
+                            sp_runtime::MultiAddress::Id(receiver),
+                            node_runtime::ExistentialDeposit::get() + 1,
+                        )),
                     BlockType::RandomTransfersReaping => {
                         Call::Balances(BalancesCall::transfer(
                             sp_runtime::MultiAddress::Id(receiver),
-                            // Transfer so that ending balance would be 1 less than existential deposit
-                            // so that we kill the sender account.
+                            // Transfer so that ending balance would be 1 less than existential
+                            // deposit so that we kill the sender
+                            // account.
                             100 * DOLLARS - (node_runtime::ExistentialDeposit::get() - 1),
                         ))
                     },
@@ -318,7 +336,11 @@ impl BenchDb {
     ///
     /// See [`BenchDb::new`] method documentation for more information about the purpose
     /// of this structure.
-    pub fn with_key_types(database_type: DatabaseType, keyring_length: usize, key_types: KeyTypes) -> Self {
+    pub fn with_key_types(
+        database_type: DatabaseType,
+        keyring_length: usize,
+        key_types: KeyTypes,
+    ) -> Self {
         let keyring = BenchKeyring::new(keyring_length, key_types);
 
         let dir = tempfile::tempdir().expect("temp dir creation failed");
@@ -390,11 +412,17 @@ impl BenchDb {
         let mut inherent_data = InherentData::new();
         let timestamp = 1 * MinimumPeriod::get();
 
-        inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp).expect("Put timestamp failed");
+        inherent_data
+            .put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
+            .expect("Put timestamp failed");
 
         client
             .runtime_api()
-            .inherent_extrinsics_with_context(&BlockId::number(0), ExecutionContext::BlockConstruction, inherent_data)
+            .inherent_extrinsics_with_context(
+                &BlockId::number(0),
+                ExecutionContext::BlockConstruction,
+                inherent_data,
+            )
             .expect("Get inherents failed")
     }
 
@@ -405,8 +433,12 @@ impl BenchDb {
 
     /// Get cliet for this database operations.
     pub fn client(&mut self) -> Client {
-        let (client, _backend, _task_executor) =
-            Self::bench_client(self.database_type, self.directory_guard.path(), Profile::Wasm, &self.keyring);
+        let (client, _backend, _task_executor) = Self::bench_client(
+            self.database_type,
+            self.directory_guard.path(),
+            Profile::Wasm,
+            &self.keyring,
+        );
 
         client
     }
@@ -424,11 +456,9 @@ impl BenchDb {
         let start = std::time::Instant::now();
         for opaque in self.block_content(content, &client) {
             match block.push(opaque) {
-                Err(sp_blockchain::Error::ApplyExtrinsicFailed(sp_blockchain::ApplyExtrinsicFailed::Validity(e)))
-                    if e.exhausted_resources() =>
-                {
-                    break
-                },
+                Err(sp_blockchain::Error::ApplyExtrinsicFailed(
+                    sp_blockchain::ApplyExtrinsicFailed::Validity(e),
+                )) if e.exhausted_resources() => break,
                 Err(err) => panic!("Error pushing transaction: {:?}", err),
                 Ok(_) => {},
             }
@@ -484,7 +514,8 @@ impl BenchKeyring {
             let seed = format!("//endowed-user/{}", n);
             let (account_id, pair) = match key_types {
                 KeyTypes::Sr25519 => {
-                    let pair = sr25519::Pair::from_string(&seed, None).expect("failed to generate pair");
+                    let pair =
+                        sr25519::Pair::from_string(&seed, None).expect("failed to generate pair");
                     let account_id = AccountPublic::from(pair.public()).into_account();
                     (account_id, BenchPair::Sr25519(pair))
                 },
@@ -520,18 +551,24 @@ impl BenchKeyring {
     ) -> UncheckedExtrinsic {
         match xt.signed {
             Some((signed, extra)) => {
-                let payload = (xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
+                let payload = (
+                    xt.function,
+                    extra.clone(),
+                    spec_version,
+                    tx_version,
+                    genesis_hash,
+                    genesis_hash,
+                );
                 let key = self.accounts.get(&signed).expect("Account id not found in keyring");
-                let signature =
-                    payload
-                        .using_encoded(|b| {
-                            if b.len() > 256 {
-                                key.sign(&sp_io::hashing::blake2_256(b))
-                            } else {
-                                key.sign(b)
-                            }
-                        })
-                        .into();
+                let signature = payload
+                    .using_encoded(|b| {
+                        if b.len() > 256 {
+                            key.sign(&sp_io::hashing::blake2_256(b))
+                        } else {
+                            key.sign(b)
+                        }
+                    })
+                    .into();
                 UncheckedExtrinsic {
                     signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
                     function: payload.0,
@@ -543,7 +580,11 @@ impl BenchKeyring {
 
     /// Generate genesis with accounts from this keyring endowed with some balance.
     pub fn generate_genesis(&self) -> node_runtime::GenesisConfig {
-        crate::genesis::config_endowed(false, Some(node_runtime::wasm_binary_unwrap()), self.collect_account_ids())
+        crate::genesis::config_endowed(
+            false,
+            Some(node_runtime::wasm_binary_unwrap()),
+            self.collect_account_ids(),
+        )
     }
 }
 
@@ -615,14 +656,17 @@ where
 impl BenchContext {
     /// Import some block.
     pub fn import_block(&mut self, block: Block) {
-        let mut import_params = BlockImportParams::new(BlockOrigin::NetworkBroadcast, block.header.clone());
+        let mut import_params =
+            BlockImportParams::new(BlockOrigin::NetworkBroadcast, block.header.clone());
         import_params.body = Some(block.extrinsics().to_vec());
         import_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 
         assert_eq!(self.client.chain_info().best_number, 0);
 
         assert_eq!(
-            self.client.import_block(import_params, Default::default()).expect("Failed to import block"),
+            self.client
+                .import_block(import_params, Default::default())
+                .expect("Failed to import block"),
             ImportResult::Imported(ImportedAux {
                 header_only: false,
                 clear_justification_requests: false,

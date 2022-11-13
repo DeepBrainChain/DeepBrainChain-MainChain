@@ -10,7 +10,9 @@ pub use sp_core::{
     u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
-pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
+pub use sp_keyring::{
+    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
+};
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
@@ -161,7 +163,8 @@ impl online_profile::Config for TestRuntime {
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -176,7 +179,8 @@ impl online_committee::Config for TestRuntime {
     type Currency = Balances;
     type OCOperations = OnlineProfile;
     type ManageCommittee = Committee;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -238,7 +242,8 @@ frame_support::construct_runtime!(
 );
 
 pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
-    let mut storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    let mut storage =
+        frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {
@@ -266,7 +271,9 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
     let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
 
     // Bob pubkey
-    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+        .as_bytes()
+        .to_vec();
     let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
     let sig = "b4084f70730b183127e9db78c6d8dcf79039f23466cd1ee8b536c40c3027a83d\
@@ -370,30 +377,43 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
 
-        let one_box_pubkey: [u8; 32] = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), one_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), one_box_pubkey.clone()));
+        let one_box_pubkey: [u8; 32] =
+            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        assert_ok!(Committee::committee_set_box_pubkey(
+            Origin::signed(committee1),
+            one_box_pubkey.clone()
+        ));
+        assert_ok!(Committee::committee_set_box_pubkey(
+            Origin::signed(committee2),
+            one_box_pubkey.clone()
+        ));
+        assert_ok!(Committee::committee_set_box_pubkey(
+            Origin::signed(committee3),
+            one_box_pubkey.clone()
+        ));
 
         run_to_block(5);
 
         // 委员会提交机器Hash
-        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] =
+            hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
-        let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] =
+            hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
-        let machine_info_hash3: [u8; 16] = hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
+        let machine_info_hash3: [u8; 16] =
+            hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee3),
             machine_id.clone(),
@@ -419,11 +439,20 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         };
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(committee1),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(committee2),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(committee3),
+            committee_upload_info.clone()
+        ));
 
         run_to_block(10);
     });

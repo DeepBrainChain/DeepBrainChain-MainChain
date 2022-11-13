@@ -1,6 +1,6 @@
 use crate::{
-    Config, ConfirmingOrder, MachineGPUOrder, MachineRentOrder, Module, RentEnding, RentInfo, RentOrderDetail,
-    RentStatus, StorageVersion, UserOrder, WAITING_CONFIRMING_DELAY,
+    Config, ConfirmingOrder, MachineGPUOrder, MachineRentOrder, Module, RentEnding, RentInfo,
+    RentOrderDetail, RentStatus, StorageVersion, UserOrder, WAITING_CONFIRMING_DELAY,
 };
 use codec::{Decode, Encode};
 use frame_support::{debug::info, traits::Get, weights::Weight, IterableStorageMap};
@@ -76,9 +76,10 @@ pub mod deprecated {
 
 // 根据OldRentOrder生成新的RentOrder, UserOrder
 fn migrate_rent_order_to_v2<T: Config>() -> Weight {
-    let all_rent_order: Vec<MachineId> = <deprecated::RentOrder<T> as IterableStorageMap<MachineId, _>>::iter()
-        .map(|(machine_id, _)| machine_id)
-        .collect::<Vec<_>>();
+    let all_rent_order: Vec<MachineId> =
+        <deprecated::RentOrder<T> as IterableStorageMap<MachineId, _>>::iter()
+            .map(|(machine_id, _)| machine_id)
+            .collect::<Vec<_>>();
 
     for machine_id in all_rent_order {
         let rent_order = <deprecated::Module<T>>::rent_order(&machine_id);
@@ -105,11 +106,15 @@ fn migrate_rent_order_to_v2<T: Config>() -> Weight {
 
         MachineRentOrder::<T>::insert(
             machine_info.machine_id(),
-            MachineGPUOrder { rent_order: vec![rent_order_id], used_gpu: (0..machine_info.gpu_num()).collect() },
+            MachineGPUOrder {
+                rent_order: vec![rent_order_id],
+                used_gpu: (0..machine_info.gpu_num()).collect(),
+            },
         );
 
         if rent_order.confirm_rent.is_zero() && !rent_order.rent_start.is_zero() {
-            let confirming_expire_at = rent_order.rent_start + (2 * WAITING_CONFIRMING_DELAY).into();
+            let confirming_expire_at =
+                rent_order.rent_start + (2 * WAITING_CONFIRMING_DELAY).into();
             let mut pending_confirming = <Module<T>>::confirming_order(confirming_expire_at);
             ItemList::add_item(&mut pending_confirming, rent_order_id);
             ConfirmingOrder::<T>::insert(confirming_expire_at, pending_confirming);
@@ -128,5 +133,6 @@ fn migrate_rent_order_to_v2<T: Config>() -> Weight {
         count,
     );
 
-    <T as frame_system::Config>::DbWeight::get().reads_writes(count as Weight * 5 + 1, count as Weight * 5 + 1)
+    <T as frame_system::Config>::DbWeight::get()
+        .reads_writes(count as Weight * 5 + 1, count as Weight * 5 + 1)
 }

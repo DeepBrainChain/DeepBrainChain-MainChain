@@ -96,11 +96,22 @@ fn main() {
         ]
         .iter()
         {
-            for block_type in
-                [BlockType::RandomTransfersKeepAlive, BlockType::RandomTransfersReaping, BlockType::Noop].iter()
+            for block_type in [
+                BlockType::RandomTransfersKeepAlive,
+                BlockType::RandomTransfersReaping,
+                BlockType::Noop,
+            ]
+            .iter()
             {
-                for database_type in [BenchDataBaseType::RocksDb, BenchDataBaseType::ParityDb].iter() {
-                    import_benchmarks.push((profile, size.clone(), block_type.clone(), database_type));
+                for database_type in
+                    [BenchDataBaseType::RocksDb, BenchDataBaseType::ParityDb].iter()
+                {
+                    import_benchmarks.push((
+                        profile,
+                        size.clone(),
+                        block_type.clone(),
+                        database_type,
+                    ));
                 }
             }
         }
@@ -164,7 +175,7 @@ fn main() {
                 println!("{}: {}", benchmark.name(), benchmark.path().full())
             }
         }
-        return;
+        return
     }
 
     let mut results = Vec::new();
@@ -184,7 +195,8 @@ fn main() {
     }
 
     if opt.json {
-        let json_result: String = serde_json::to_string(&results).expect("Failed to construct json");
+        let json_result: String =
+            serde_json::to_string(&results).expect("Failed to construct json");
         println!("{}", json_result);
     }
 }

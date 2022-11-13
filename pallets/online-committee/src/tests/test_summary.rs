@@ -5,7 +5,9 @@ use online_profile::CommitteeUploadInfo;
 use std::convert::TryInto;
 
 fn get_machine_id() -> Vec<u8> {
-    "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec()
+    "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241"
+        .as_bytes()
+        .to_vec()
 }
 
 fn get_base_machine_info() -> online_profile::CommitteeUploadInfo {
@@ -88,7 +90,8 @@ fn test_summary_confirmation1() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
 
         let committee_upload_info = get_base_machine_info();
 
@@ -131,7 +134,10 @@ fn test_summary_confirmation1() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
+        assert_eq!(
+            OnlineCommittee::summary_confirmation(&machine_id),
+            MachineConfirmStatus::Confirmed(summary)
+        );
     })
 }
 
@@ -157,7 +163,8 @@ fn test_summary_confirmation2() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -201,7 +208,10 @@ fn test_summary_confirmation2() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
+        assert_eq!(
+            OnlineCommittee::summary_confirmation(&machine_id),
+            MachineConfirmStatus::Confirmed(summary)
+        );
     })
 }
 
@@ -226,7 +236,8 @@ fn test_summary_confirmation3() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -254,7 +265,11 @@ fn test_summary_confirmation3() {
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
             confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
+            machine_info: CommitteeUploadInfo {
+                gpu_num: 3,
+                is_support: false,
+                ..committee_ops.machine_info.clone()
+            },
             ..committee_ops.clone()
         };
 
@@ -270,7 +285,10 @@ fn test_summary_confirmation3() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
+        assert_eq!(
+            OnlineCommittee::summary_confirmation(&machine_id),
+            MachineConfirmStatus::Confirmed(summary)
+        );
     })
 }
 
@@ -296,7 +314,8 @@ fn test_summary_confirmation4() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -367,7 +386,8 @@ fn test_summary_confirmation5() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -399,7 +419,11 @@ fn test_summary_confirmation5() {
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
             confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
+            machine_info: CommitteeUploadInfo {
+                gpu_num: 3,
+                is_support: false,
+                ..committee_ops.machine_info.clone()
+            },
             ..committee_ops
         };
 
@@ -414,7 +438,10 @@ fn test_summary_confirmation5() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::NoConsensus(summary));
+        assert_eq!(
+            OnlineCommittee::summary_confirmation(&machine_id),
+            MachineConfirmStatus::NoConsensus(summary)
+        );
     })
 }
 
@@ -439,7 +466,8 @@ fn test_summary_confirmation6() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -455,7 +483,11 @@ fn test_summary_confirmation6() {
         let committee1_ops = OCCommitteeOps {
             verify_time: vec![1622, 3062, 4502],
             confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
+            machine_info: CommitteeUploadInfo {
+                gpu_num: 3,
+                is_support: false,
+                ..committee_ops.machine_info.clone()
+            },
             ..committee_ops.clone()
         };
 
@@ -469,7 +501,11 @@ fn test_summary_confirmation6() {
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
             confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
+            machine_info: CommitteeUploadInfo {
+                gpu_num: 3,
+                is_support: false,
+                ..committee_ops.machine_info.clone()
+            },
             ..committee_ops
         };
 
@@ -484,7 +520,10 @@ fn test_summary_confirmation6() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Refuse(summary.clone()));
+        assert_eq!(
+            OnlineCommittee::summary_confirmation(&machine_id),
+            MachineConfirmStatus::Refuse(summary.clone())
+        );
     })
 }
 
@@ -510,7 +549,8 @@ fn test_summary_confirmation7() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -526,21 +566,33 @@ fn test_summary_confirmation7() {
         let committee1_ops = OCCommitteeOps {
             verify_time: vec![1622, 3062, 4502],
             confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
+            machine_info: CommitteeUploadInfo {
+                gpu_num: 3,
+                is_support: false,
+                ..committee_ops.machine_info.clone()
+            },
             ..committee_ops.clone()
         };
 
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
             confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
+            machine_info: CommitteeUploadInfo {
+                gpu_num: 3,
+                is_support: false,
+                ..committee_ops.machine_info.clone()
+            },
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
             confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
+            machine_info: CommitteeUploadInfo {
+                gpu_num: 3,
+                is_support: false,
+                ..committee_ops.machine_info.clone()
+            },
             ..committee_ops
         };
 
@@ -549,9 +601,13 @@ fn test_summary_confirmation7() {
         CommitteeOps::<TestRuntime>::insert(&*committee2, &machine_id, committee2_ops);
         CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
 
-        let summary = Summary { against: vec![*committee3, *committee2, *committee1], ..Default::default() };
+        let summary =
+            Summary { against: vec![*committee3, *committee2, *committee1], ..Default::default() };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Refuse(summary.clone()));
+        assert_eq!(
+            OnlineCommittee::summary_confirmation(&machine_id),
+            MachineConfirmStatus::Refuse(summary.clone())
+        );
     })
 }
 
@@ -577,7 +633,8 @@ fn test_summary_confirmation8() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -593,14 +650,22 @@ fn test_summary_confirmation8() {
         let committee2_ops = OCCommitteeOps {
             verify_time: vec![1142, 2582, 4022],
             confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
+            machine_info: CommitteeUploadInfo {
+                gpu_num: 3,
+                is_support: false,
+                ..committee_ops.machine_info.clone()
+            },
             ..committee_ops.clone()
         };
 
         let committee3_ops = OCCommitteeOps {
             verify_time: vec![662, 2102, 3542],
             confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
+            machine_info: CommitteeUploadInfo {
+                gpu_num: 3,
+                is_support: false,
+                ..committee_ops.machine_info.clone()
+            },
             ..committee_ops
         };
 
@@ -608,10 +673,16 @@ fn test_summary_confirmation8() {
         CommitteeOps::<TestRuntime>::insert(&*committee2, &machine_id, committee2_ops);
         CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
 
-        let summary =
-            Summary { unruly: vec![*committee1], against: vec![*committee3, *committee2], ..Default::default() };
+        let summary = Summary {
+            unruly: vec![*committee1],
+            against: vec![*committee3, *committee2],
+            ..Default::default()
+        };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Refuse(summary.clone()));
+        assert_eq!(
+            OnlineCommittee::summary_confirmation(&machine_id),
+            MachineConfirmStatus::Refuse(summary.clone())
+        );
     })
 }
 
@@ -637,7 +708,8 @@ fn test_summary_confirmation9() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -673,7 +745,10 @@ fn test_summary_confirmation9() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
+        assert_eq!(
+            OnlineCommittee::summary_confirmation(&machine_id),
+            MachineConfirmStatus::Confirmed(summary)
+        );
     })
 }
 
@@ -699,7 +774,8 @@ fn test_summary_confirmation10() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -719,8 +795,11 @@ fn test_summary_confirmation10() {
             ..committee_ops.clone()
         };
 
-        let committee3_ops =
-            OCCommitteeOps { verify_time: vec![662, 2102, 3542], confirm_hash: machine_info_hash, ..committee_ops };
+        let committee3_ops = OCCommitteeOps {
+            verify_time: vec![662, 2102, 3542],
+            confirm_hash: machine_info_hash,
+            ..committee_ops
+        };
 
         // 构建committee_ops
         <CommitteeOps<TestRuntime>>::insert(&*committee2, &machine_id, committee2_ops);
@@ -759,7 +838,8 @@ fn test_summary_confirmation11() {
             },
         );
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
+        let machine_info_hash: [u8; 16] =
+            hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
         let committee_upload_info = get_base_machine_info();
 
         let committee_ops = OCCommitteeOps {
@@ -804,24 +884,30 @@ fn test_summary_confirmation11() {
 #[test]
 fn test_machine_online_succeed_slash_execed() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee2_box_pubkey = hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee3_box_pubkey = hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee4_box_pubkey = hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let committee1_box_pubkey =
+            hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee2_box_pubkey =
+            hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee3_box_pubkey =
+            hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee4_box_pubkey =
+            hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
+                .unwrap()
+                .try_into()
+                .unwrap();
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
         // let mut committee_upload_info = get_base_machine_info();
         // committee_upload_info.rand_str = "abcdefg1".as_bytes().to_vec();
 
@@ -845,20 +931,23 @@ fn test_machine_online_succeed_slash_execed() {
         };
 
         // 委员会提交机器Hash
-        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] =
+            hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
-        let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] =
+            hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
 
-        let machine_info_hash3: [u8; 16] = hex::decode("fe3d8c7eb5dc36f3f923aff6f3367544").unwrap().try_into().unwrap();
+        let machine_info_hash3: [u8; 16] =
+            hex::decode("fe3d8c7eb5dc36f3f923aff6f3367544").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee4),
             machine_id.clone(),
@@ -866,20 +955,32 @@ fn test_machine_online_succeed_slash_execed() {
         ));
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee1), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee1),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee2),
+            committee_upload_info.clone()
+        ));
 
         // 第三个委员会提交错误的机器信息
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.mem_num = 450;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee4), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee4),
+            committee_upload_info.clone()
+        ));
 
         run_to_block(11);
         let current_machine_info = OnlineProfile::machines_info(&machine_id);
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
+            online_profile::LiveMachine {
+                online_machine: vec![machine_id.clone()],
+                ..Default::default()
+            }
         );
         assert_eq!(current_machine_info.reward_committee, vec![*committee2, *committee1]);
 
@@ -1009,20 +1110,25 @@ fn test_machine_online_succeed_slash_execed() {
 #[test]
 fn test_machine_online_failed_slash_execed() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee2_box_pubkey = hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee3_box_pubkey = hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let committee1_box_pubkey =
+            hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee2_box_pubkey =
+            hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee3_box_pubkey =
+            hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
+                .unwrap()
+                .try_into()
+                .unwrap();
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         // 三个委员会提交Hash
         let mut committee_upload_info = CommitteeUploadInfo {
@@ -1045,20 +1151,23 @@ fn test_machine_online_failed_slash_execed() {
 
         // 委员会提交机器Hash
         // 委员会1，2反对，3支持
-        let machine_info_hash1: [u8; 16] = hex::decode("cee14a520ba6a988c306aab9dc3794b1").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] =
+            hex::decode("cee14a520ba6a988c306aab9dc3794b1").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
-        let machine_info_hash2: [u8; 16] = hex::decode("8c7e7ca563169689f1c789f8d4f510f8").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] =
+            hex::decode("8c7e7ca563169689f1c789f8d4f510f8").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
 
-        let machine_info_hash3: [u8; 16] = hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
+        let machine_info_hash3: [u8; 16] =
+            hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee4),
             machine_id.clone(),
@@ -1066,14 +1175,23 @@ fn test_machine_online_failed_slash_execed() {
         ));
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee1), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee1),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee2),
+            committee_upload_info.clone()
+        ));
 
         // 第三个委员会提交错误的机器信息
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.is_support = true;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee4), committee_upload_info));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee4),
+            committee_upload_info
+        ));
 
         run_to_block(11);
         // 机器被拒绝上线，将会产生对委员会3和satsh账户的pending_slash
@@ -1188,24 +1306,30 @@ fn test_machine_online_failed_slash_execed() {
 #[test]
 fn test_machine_online_succeed_against_committee_apply_review() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        // let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
+        // let committee1_box_pubkey =
+        // hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
         //     .unwrap()
         //     .try_into()
         //     .unwrap();
-        // let committee2_box_pubkey = hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
+        // let committee2_box_pubkey =
+        // hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
         //     .unwrap()
         //     .try_into()
         //     .unwrap();
-        // let committee3_box_pubkey = hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
+        // let committee3_box_pubkey =
+        // hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
         //     .unwrap()
         //     .try_into()
         //     .unwrap();
-        // let committee4_box_pubkey = hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
+        // let committee4_box_pubkey =
+        // hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
         //     .unwrap()
         //     .try_into()
         //     .unwrap();
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         // 三个委员会提交Hash
         let mut committee_upload_info = CommitteeUploadInfo {
@@ -1227,37 +1351,57 @@ fn test_machine_online_succeed_against_committee_apply_review() {
         };
 
         // 委员会提交机器Hash
-        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] =
+            hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
-        let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] =
+            hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
 
-        let machine_info_hash3: [u8; 16] = hex::decode("fe3d8c7eb5dc36f3f923aff6f3367544").unwrap().try_into().unwrap();
-        assert_ok!(OnlineCommittee::submit_confirm_hash(Origin::signed(*committee4), machine_id, machine_info_hash3));
+        let machine_info_hash3: [u8; 16] =
+            hex::decode("fe3d8c7eb5dc36f3f923aff6f3367544").unwrap().try_into().unwrap();
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(*committee4),
+            machine_id,
+            machine_info_hash3
+        ));
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee1), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee1),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee2),
+            committee_upload_info.clone()
+        ));
 
         // 第三个委员会提交错误的机器信息
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.mem_num = 450;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee4), committee_upload_info));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee4),
+            committee_upload_info
+        ));
 
         run_to_block(12);
 
         // committee 3 apply_slash_review
         let slash_reason = "They are wrong.".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(*committee4), 0, slash_reason.clone()));
+        assert_ok!(OnlineCommittee::apply_slash_review(
+            Origin::signed(*committee4),
+            0,
+            slash_reason.clone()
+        ));
 
         assert_eq!(
             OnlineCommittee::pending_slash_review(0),

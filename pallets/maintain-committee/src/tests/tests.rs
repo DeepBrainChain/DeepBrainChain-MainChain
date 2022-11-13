@@ -4,8 +4,8 @@ use std::convert::TryInto;
 
 // 1. case1. 第一个报告人没有在半个小时内提交错误信息, ..第二个， ..第三个
 // 2. case2. 第一个委员会没有在抢单1小时内提交错误Hash, ..第二个，..第三个
-// 3. case3. 该订单提前结束，且结束时，距离委员会抢单还没到一个小时，最后一个委员会是第三个抢单委员会，
-// ..是第二个委员会， ..是第三个委员会
+// 3. case3. 该订单提前结束，且结束时，距离委员会抢单还没到一个小时，
+// 最后一个委员会是第三个抢单委员会， ..是第二个委员会， ..是第三个委员会
 
 // 1. case1. 第一个报告人没有在半个小时内提交错误信息, ..第二个， ..第三个
 #[test]
@@ -14,11 +14,13 @@ fn test_heart_beat1() {
         let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
 
         let reporter = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+        let reporter_boxpubkey =
+            hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let report_hash: [u8; 16] =
+            hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
@@ -42,7 +44,10 @@ fn test_heart_beat1() {
         // hertbeat will run, and report info will be deleted
         // - Writes:
         // LiveReport, CommitteeOrder, CommitteeOps, ReportInfo
-        assert_eq!(MaintainCommittee::live_report(), crate::MTLiveReportList { ..Default::default() });
+        assert_eq!(
+            MaintainCommittee::live_report(),
+            crate::MTLiveReportList { ..Default::default() }
+        );
         assert_eq!(
             MaintainCommittee::committee_order(&committee1),
             crate::MTCommitteeOrderList { ..Default::default() }
@@ -62,7 +67,10 @@ fn test_heart_beat1() {
                 booked_committee: vec![committee1],
                 confirm_start: 371,
                 report_status: crate::ReportStatus::Verifying,
-                machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
+                machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(
+                    report_hash,
+                    reporter_boxpubkey
+                ),
                 ..Default::default()
             }
         );
@@ -99,11 +107,13 @@ fn test_heart_beat2() {
         let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
 
         let reporter = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+        let reporter_boxpubkey =
+            hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let report_hash: [u8; 16] =
+            hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
@@ -122,10 +132,11 @@ fn test_heart_beat2() {
         // LiveReport, ReportInfo, CommitteeOps, CommitteeOrder
 
         // 提交加密信息
-        let encrypted_err_info: Vec<u8> = hex::decode("01405deeef2a8b0f4a09380d14431dd10fde1ad62b3c27b3fbea4701311d")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let encrypted_err_info: Vec<u8> =
+            hex::decode("01405deeef2a8b0f4a09380d14431dd10fde1ad62b3c27b3fbea4701311d")
+                .unwrap()
+                .try_into()
+                .unwrap();
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
             Origin::signed(reporter),
             0,
@@ -169,7 +180,10 @@ fn test_heart_beat2() {
                 get_encrypted_info_committee: vec![],
                 confirm_start: 0,
                 report_status: crate::ReportStatus::Reported,
-                machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
+                machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(
+                    report_hash,
+                    reporter_boxpubkey
+                ),
                 ..Default::default()
             }
         );
@@ -201,7 +215,8 @@ fn test_heart_beat2() {
     })
 }
 
-// 3. case3. 该订单提前结束，且结束时，距离委员会抢单还没到一个小时，最后一个委员会是第二个抢单委员会，
+// 3. case3. 该订单提前结束，且结束时，距离委员会抢单还没到一个小时，
+// 最后一个委员会是第二个抢单委员会，
 #[test]
 fn test_heart_beat3() {
     new_test_with_init_params_ext().execute_with(|| {
@@ -209,11 +224,13 @@ fn test_heart_beat3() {
         let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
 
         let reporter = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+        let reporter_boxpubkey =
+            hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let report_hash: [u8; 16] =
+            hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
@@ -232,10 +249,11 @@ fn test_heart_beat3() {
         // LiveReport, ReportInfo, CommitteeOps, CommitteeOrder
 
         // 提交加密信息
-        let encrypted_err_info: Vec<u8> = hex::decode("01405deeef2a8b0f4a09380d14431dd10fde1ad62b3c27b3fbea4701311d")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let encrypted_err_info: Vec<u8> =
+            hex::decode("01405deeef2a8b0f4a09380d14431dd10fde1ad62b3c27b3fbea4701311d")
+                .unwrap()
+                .try_into()
+                .unwrap();
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
             Origin::signed(reporter),
             0,
@@ -251,7 +269,8 @@ fn test_heart_beat3() {
         run_to_block(11 + 60);
 
         // 提交验证Hash
-        let committee_hash: [u8; 16] = hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
+        let committee_hash: [u8; 16] =
+            hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
         assert_ok!(MaintainCommittee::committee_submit_verify_hash(
             Origin::signed(committee1),
             0,
@@ -302,7 +321,10 @@ fn test_heart_beat3() {
 
                 report_status: crate::ReportStatus::Verifying,
                 // report_status: crate::ReportStatus::SubmittingRaw,
-                machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
+                machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(
+                    report_hash,
+                    reporter_boxpubkey
+                ),
                 ..Default::default()
             }
         );
@@ -322,19 +344,24 @@ fn test_apply_slash_review() {
         let committee1 = sr25519::Public::from(Sr25519Keyring::One).into();
         let committee2 = sr25519::Public::from(Sr25519Keyring::Two).into();
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
         let reporter_rand_str = "abcdef".as_bytes().to_vec();
         let committee_rand_str = "abc1".as_bytes().to_vec();
         let err_reason = "补充信息，可留空".as_bytes().to_vec();
-        let committee_hash: [u8; 16] = hex::decode("7980cfd18a2e6cb338f4924ae0fff495").unwrap().try_into().unwrap();
+        let committee_hash: [u8; 16] =
+            hex::decode("7980cfd18a2e6cb338f4924ae0fff495").unwrap().try_into().unwrap();
         let extra_err_info = Vec::new();
 
         let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let report_hash: [u8; 16] = hex::decode("2611557f5306f050019eeb27648c5494").unwrap().try_into().unwrap();
+        let reporter_boxpubkey =
+            hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let report_hash: [u8; 16] =
+            hex::decode("2611557f5306f050019eeb27648c5494").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
             Origin::signed(reporter),
@@ -359,7 +386,10 @@ fn test_apply_slash_review() {
 
                 confirm_start: 11 + 360,
                 report_status: crate::ReportStatus::Verifying,
-                machine_fault_type: crate::MachineFaultType::OnlineRentFailed(report_hash, reporter_boxpubkey),
+                machine_fault_type: crate::MachineFaultType::OnlineRentFailed(
+                    report_hash,
+                    reporter_boxpubkey
+                ),
 
                 ..Default::default()
             }
@@ -374,10 +404,11 @@ fn test_apply_slash_review() {
             }
         );
 
-        let encrypted_err_info: Vec<u8> = hex::decode("01405deeef2a8b0f4a09380d14431dd10fde1ad62b3c27b3fbea4701311d")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let encrypted_err_info: Vec<u8> =
+            hex::decode("01405deeef2a8b0f4a09380d14431dd10fde1ad62b3c27b3fbea4701311d")
+                .unwrap()
+                .try_into()
+                .unwrap();
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
             Origin::signed(reporter),
             0,
@@ -439,7 +470,10 @@ fn test_apply_slash_review() {
                 support_committee: vec![committee1],
                 against_committee: vec![],
                 report_status: crate::ReportStatus::CommitteeConfirmed,
-                machine_fault_type: crate::MachineFaultType::OnlineRentFailed(report_hash, reporter_boxpubkey),
+                machine_fault_type: crate::MachineFaultType::OnlineRentFailed(
+                    report_hash,
+                    reporter_boxpubkey
+                ),
             }
         );
         // check report report result

@@ -50,8 +50,8 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos/>
 
 use super::{
-    BalanceOf, Config, EraIndex, Error, Exposure, Module, NegativeImbalanceOf, Perbill, SessionInterface, Store,
-    UnappliedSlash,
+    BalanceOf, Config, EraIndex, Error, Exposure, Module, NegativeImbalanceOf, Perbill,
+    SessionInterface, Store, UnappliedSlash,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -123,7 +123,7 @@ impl SlashingSpans {
     pub(crate) fn end_span(&mut self, now: EraIndex) -> bool {
         let next_start = now + 1;
         if next_start <= self.last_start {
-            return false;
+            return false
         }
 
         let last_length = next_start - self.last_start;
@@ -221,8 +221,11 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 ///
 /// The pending slash record returned does not have initialized reporters. Those have
 /// to be set at a higher level, if any.
-pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<UnappliedSlash<T::AccountId, BalanceOf<T>>> {
-    let SlashParams { stash, slash, exposure, slash_era, window_start, now, reward_proportion } = params.clone();
+pub(crate) fn compute_slash<T: Config>(
+    params: SlashParams<T>,
+) -> Option<UnappliedSlash<T::AccountId, BalanceOf<T>>> {
+    let SlashParams { stash, slash, exposure, slash_era, window_start, now, reward_proportion } =
+        params.clone();
 
     let mut reward_payout = Zero::zero();
     let mut val_slashed = Zero::zero();
@@ -233,11 +236,12 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
         // kick out the validator even if they won't be slashed,
         // as long as the misbehavior is from their most recent slashing span.
         kick_out_if_recent::<T>(params);
-        return None;
+        return None
     }
 
     let (prior_slash_p, _era_slash) =
-        <Module<T> as Store>::ValidatorSlashInEra::get(&slash_era, stash).unwrap_or((Perbill::zero(), Zero::zero()));
+        <Module<T> as Store>::ValidatorSlashInEra::get(&slash_era, stash)
+            .unwrap_or((Perbill::zero(), Zero::zero()));
 
     // compare slash proportions rather than slash values to avoid issues due to rounding
     // error.
@@ -251,12 +255,18 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
         // pays out some reward even if the latest report is not max-in-era.
         // we opt to avoid the nominator lookups and edits and leave more rewards
         // for more drastic misbehavior.
-        return None;
+        return None
     }
 
     // apply slash to validator.
     {
-        let mut spans = fetch_spans::<T>(stash, window_start, &mut reward_payout, &mut val_slashed, reward_proportion);
+        let mut spans = fetch_spans::<T>(
+            stash,
+            window_start,
+            &mut reward_payout,
+            &mut val_slashed,
+            reward_proportion,
+        );
 
         let target_span = spans.compare_and_update_span_slash(slash_era, own_slash);
 
@@ -323,7 +333,8 @@ fn slash_nominators<T: Config>(
     prior_slash_p: Perbill,
     nominators_slashed: &mut Vec<(T::AccountId, BalanceOf<T>)>,
 ) -> BalanceOf<T> {
-    let SlashParams { stash: _, slash, exposure, slash_era, window_start, now, reward_proportion } = params;
+    let SlashParams { stash: _, slash, exposure, slash_era, window_start, now, reward_proportion } =
+        params;
 
     let mut reward_payout = Zero::zero();
 
@@ -339,8 +350,8 @@ fn slash_nominators<T: Config>(
             let own_slash_by_validator = slash * nominator.value;
             let own_slash_difference = own_slash_by_validator.saturating_sub(own_slash_prior);
 
-            let mut era_slash =
-                <Module<T> as Store>::NominatorSlashInEra::get(&slash_era, stash).unwrap_or_else(|| Zero::zero());
+            let mut era_slash = <Module<T> as Store>::NominatorSlashInEra::get(&slash_era, stash)
+                .unwrap_or_else(|| Zero::zero());
 
             era_slash += own_slash_difference;
 
@@ -351,8 +362,13 @@ fn slash_nominators<T: Config>(
 
         // compare the era slash against other eras in the same span.
         {
-            let mut spans =
-                fetch_spans::<T>(stash, window_start, &mut reward_payout, &mut nom_slashed, reward_proportion);
+            let mut spans = fetch_spans::<T>(
+                stash,
+                window_start,
+                &mut reward_payout,
+                &mut nom_slashed,
+                reward_proportion,
+            );
 
             let target_span = spans.compare_and_update_span_slash(slash_era, era_slash);
 
@@ -439,7 +455,11 @@ impl<'a, T: 'a + Config> InspectingSpans<'a, T> {
     // if it's higher, applies the difference of the slashes and then updates the span on disk.
     //
     // returns the span index of the era where the slash occurred, if any.
-    fn compare_and_update_span_slash(&mut self, slash_era: EraIndex, slash: BalanceOf<T>) -> Option<SpanIndex> {
+    fn compare_and_update_span_slash(
+        &mut self,
+        slash_era: EraIndex,
+        slash: BalanceOf<T>,
+    ) -> Option<SpanIndex> {
         let target_span = self.era_span(slash_era)?;
         let span_slash_key = (self.stash.clone(), target_span.index);
         let mut span_record = <Module<T> as Store>::SpanSlash::get(&span_slash_key);
@@ -451,7 +471,8 @@ impl<'a, T: 'a + Config> InspectingSpans<'a, T> {
             span_record.slashed = slash;
 
             // compute reward.
-            let reward = REWARD_F1 * (self.reward_proportion * slash).saturating_sub(span_record.paid_out);
+            let reward =
+                REWARD_F1 * (self.reward_proportion * slash).saturating_sub(span_record.paid_out);
 
             self.add_slash(difference, slash_era);
             changed = true;
@@ -483,7 +504,7 @@ impl<'a, T: 'a + Config> Drop for InspectingSpans<'a, T> {
     fn drop(&mut self) {
         // only update on disk if we slashed this account.
         if !self.dirty {
-            return;
+            return
         }
 
         if let Some((start, end)) = self.spans.prune(self.window_start) {
@@ -503,13 +524,19 @@ pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
 }
 
 /// Clear slashing metadata for a dead account.
-pub(crate) fn clear_stash_metadata<T: Config>(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
+pub(crate) fn clear_stash_metadata<T: Config>(
+    stash: &T::AccountId,
+    num_slashing_spans: u32,
+) -> DispatchResult {
     let spans = match <Module<T> as Store>::SlashingSpans::get(stash) {
         None => return Ok(()),
         Some(s) => s,
     };
 
-    ensure!(num_slashing_spans as usize >= spans.iter().count(), Error::<T>::IncorrectSlashingSpans);
+    ensure!(
+        num_slashing_spans as usize >= spans.iter().count(),
+        Error::<T>::IncorrectSlashingSpans
+    );
 
     <Module<T> as Store>::SlashingSpans::remove(stash);
 
@@ -567,7 +594,12 @@ pub(crate) fn apply_slash<T: Config>(unapplied_slash: UnappliedSlash<T::AccountI
     let mut slashed_imbalance = NegativeImbalanceOf::<T>::zero();
     let mut reward_payout = unapplied_slash.payout;
 
-    do_slash::<T>(&unapplied_slash.validator, unapplied_slash.own, &mut reward_payout, &mut slashed_imbalance);
+    do_slash::<T>(
+        &unapplied_slash.validator,
+        unapplied_slash.own,
+        &mut reward_payout,
+        &mut slashed_imbalance,
+    );
 
     for &(ref nominator, nominator_slash) in &unapplied_slash.others {
         do_slash::<T>(&nominator, nominator_slash, &mut reward_payout, &mut slashed_imbalance);
@@ -586,7 +618,7 @@ fn pay_reporters<T: Config>(
         // nobody to pay out to or nothing to pay;
         // just treat the whole value as slashed.
         T::Slash::on_unbalanced(slashed_imbalance);
-        return;
+        return
     }
 
     // take rewards out of the slashed imbalance.
@@ -637,15 +669,27 @@ mod tests {
 
     #[test]
     fn single_slashing_span() {
-        let spans = SlashingSpans { span_index: 0, last_start: 1000, last_nonzero_slash: 0, prior: Vec::new() };
+        let spans = SlashingSpans {
+            span_index: 0,
+            last_start: 1000,
+            last_nonzero_slash: 0,
+            prior: Vec::new(),
+        };
 
-        assert_eq!(spans.iter().collect::<Vec<_>>(), vec![SlashingSpan { index: 0, start: 1000, length: None }],);
+        assert_eq!(
+            spans.iter().collect::<Vec<_>>(),
+            vec![SlashingSpan { index: 0, start: 1000, length: None }],
+        );
     }
 
     #[test]
     fn many_prior_spans() {
-        let spans =
-            SlashingSpans { span_index: 10, last_start: 1000, last_nonzero_slash: 0, prior: vec![10, 9, 8, 10] };
+        let spans = SlashingSpans {
+            span_index: 10,
+            last_start: 1000,
+            last_nonzero_slash: 0,
+            prior: vec![10, 9, 8, 10],
+        };
 
         assert_eq!(
             spans.iter().collect::<Vec<_>>(),
@@ -661,8 +705,12 @@ mod tests {
 
     #[test]
     fn pruning_spans() {
-        let mut spans =
-            SlashingSpans { span_index: 10, last_start: 1000, last_nonzero_slash: 0, prior: vec![10, 9, 8, 10] };
+        let mut spans = SlashingSpans {
+            span_index: 10,
+            last_start: 1000,
+            last_nonzero_slash: 0,
+            prior: vec![10, 9, 8, 10],
+        };
 
         assert_eq!(spans.prune(981), Some((6, 8)));
         assert_eq!(
@@ -695,21 +743,39 @@ mod tests {
         );
 
         assert_eq!(spans.prune(1000), Some((8, 10)));
-        assert_eq!(spans.iter().collect::<Vec<_>>(), vec![SlashingSpan { index: 10, start: 1000, length: None },],);
+        assert_eq!(
+            spans.iter().collect::<Vec<_>>(),
+            vec![SlashingSpan { index: 10, start: 1000, length: None },],
+        );
 
         assert_eq!(spans.prune(2000), None);
-        assert_eq!(spans.iter().collect::<Vec<_>>(), vec![SlashingSpan { index: 10, start: 2000, length: None },],);
+        assert_eq!(
+            spans.iter().collect::<Vec<_>>(),
+            vec![SlashingSpan { index: 10, start: 2000, length: None },],
+        );
 
         // now all in one shot.
-        let mut spans =
-            SlashingSpans { span_index: 10, last_start: 1000, last_nonzero_slash: 0, prior: vec![10, 9, 8, 10] };
+        let mut spans = SlashingSpans {
+            span_index: 10,
+            last_start: 1000,
+            last_nonzero_slash: 0,
+            prior: vec![10, 9, 8, 10],
+        };
         assert_eq!(spans.prune(2000), Some((6, 10)));
-        assert_eq!(spans.iter().collect::<Vec<_>>(), vec![SlashingSpan { index: 10, start: 2000, length: None },],);
+        assert_eq!(
+            spans.iter().collect::<Vec<_>>(),
+            vec![SlashingSpan { index: 10, start: 2000, length: None },],
+        );
     }
 
     #[test]
     fn ending_span() {
-        let mut spans = SlashingSpans { span_index: 1, last_start: 10, last_nonzero_slash: 0, prior: Vec::new() };
+        let mut spans = SlashingSpans {
+            span_index: 1,
+            last_start: 10,
+            last_nonzero_slash: 0,
+            prior: Vec::new(),
+        };
 
         assert!(spans.end_span(10));
 

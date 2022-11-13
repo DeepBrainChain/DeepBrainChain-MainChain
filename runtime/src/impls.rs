@@ -34,8 +34,8 @@ mod multiplier_tests {
 
     use crate::{
         constants::{currency::*, time::*},
-        AdjustmentVariable, MinimumMultiplier, Runtime, RuntimeBlockWeights as BlockWeights, System,
-        TargetBlockFullness, TransactionPayment,
+        AdjustmentVariable, MinimumMultiplier, Runtime, RuntimeBlockWeights as BlockWeights,
+        System, TargetBlockFullness, TransactionPayment,
     };
     use frame_support::weights::{DispatchClass, Weight, WeightToFeePolynomial};
 
@@ -87,8 +87,10 @@ mod multiplier_tests {
     where
         F: Fn() -> (),
     {
-        let mut t: sp_io::TestExternalities =
-            frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap().into();
+        let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::default()
+            .build_storage::<Runtime>()
+            .unwrap()
+            .into();
         t.execute_with(|| {
             System::set_block_consumed_resources(w, 0);
             assertions()
@@ -157,7 +159,7 @@ mod multiplier_tests {
                 let next = runtime_multiplier_update(fm);
                 fm = next;
                 if fm == min_multiplier() {
-                    break;
+                    break
                 }
                 iterations += 1;
             }
@@ -204,7 +206,8 @@ mod multiplier_tests {
                 }
                 fm = next;
                 iterations += 1;
-                let fee = <Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(&tx_weight);
+                let fee =
+                    <Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(&tx_weight);
                 let adjusted_fee = fm.saturating_mul_acc_int(fee);
                 println!(
                     "iteration {}, new fm = {:?}. Fee at this point is: {} units / {} millicents, \
@@ -225,7 +228,11 @@ mod multiplier_tests {
         let fm = Multiplier::saturating_from_rational(1, 2);
         run_with_system_weight(target() / 4, || {
             let next = runtime_multiplier_update(fm);
-            assert_eq_error_rate!(next, truth_value_update(target() / 4, fm), Multiplier::from_inner(100),);
+            assert_eq_error_rate!(
+                next,
+                truth_value_update(target() / 4, fm),
+                Multiplier::from_inner(100),
+            );
 
             // Light block. Multiplier is reduced a little.
             assert!(next < fm);
@@ -233,20 +240,32 @@ mod multiplier_tests {
 
         run_with_system_weight(target() / 2, || {
             let next = runtime_multiplier_update(fm);
-            assert_eq_error_rate!(next, truth_value_update(target() / 2, fm), Multiplier::from_inner(100),);
+            assert_eq_error_rate!(
+                next,
+                truth_value_update(target() / 2, fm),
+                Multiplier::from_inner(100),
+            );
             // Light block. Multiplier is reduced a little.
             assert!(next < fm);
         });
         run_with_system_weight(target(), || {
             let next = runtime_multiplier_update(fm);
-            assert_eq_error_rate!(next, truth_value_update(target(), fm), Multiplier::from_inner(100),);
+            assert_eq_error_rate!(
+                next,
+                truth_value_update(target(), fm),
+                Multiplier::from_inner(100),
+            );
             // ideal. No changes.
             assert_eq!(next, fm)
         });
         run_with_system_weight(target() * 2, || {
             // More than ideal. Fee is increased.
             let next = runtime_multiplier_update(fm);
-            assert_eq_error_rate!(next, truth_value_update(target() * 2, fm), Multiplier::from_inner(100),);
+            assert_eq_error_rate!(
+                next,
+                truth_value_update(target() * 2, fm),
+                Multiplier::from_inner(100),
+            );
 
             // Heavy block. Fee is increased a little.
             assert!(next > fm);
@@ -261,7 +280,11 @@ mod multiplier_tests {
 
             (0..1_000).for_each(|_| {
                 next = runtime_multiplier_update(original);
-                assert_eq_error_rate!(next, truth_value_update(target() * 2, original), Multiplier::from_inner(100),);
+                assert_eq_error_rate!(
+                    next,
+                    truth_value_update(target() * 2, original),
+                    Multiplier::from_inner(100),
+                );
                 // must always increase
                 assert!(next > original, "{:?} !>= {:?}", next, original);
                 original = next;

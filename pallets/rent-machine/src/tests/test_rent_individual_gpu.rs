@@ -10,10 +10,17 @@ fn report_individual_gpu() {
         let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         // 两人各租用1台机器
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 1 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(renter1),
+            machine_id.clone(),
+            2,
+            1 * 2880
+        ));
         // 检查 renter1 状态
         {
             // rent_machine:
@@ -57,7 +64,12 @@ fn report_individual_gpu() {
         }
 
         // 检查renter2 状态，应该与1一致
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter2), machine_id.clone(), 2, 1 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(renter2),
+            machine_id.clone(),
+            2,
+            1 * 2880
+        ));
         // 检查状态
         {
             // rent_machine:
@@ -123,7 +135,10 @@ fn report_individual_gpu() {
             // EraStashPoints, ErasMachinePoints, SysInfo, StashMachines
 
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(OnlineProfile::eras_stash_points(1), EraStashPoints { ..Default::default() });
+            assert_eq!(
+                OnlineProfile::eras_stash_points(1),
+                EraStashPoints { ..Default::default() }
+            );
             assert_eq!(
                 OnlineProfile::live_machines(),
                 LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
@@ -184,7 +199,10 @@ fn report_individual_gpu() {
 
             let machine_info = OnlineProfile::machines_info(&machine_id);
             assert_eq!(machine_info.renters, vec![renter2, renter1]);
-            assert_eq!(OnlineProfile::eras_stash_points(1), EraStashPoints { ..Default::default() });
+            assert_eq!(
+                OnlineProfile::eras_stash_points(1),
+                EraStashPoints { ..Default::default() }
+            );
             assert_eq!(
                 OnlineProfile::live_machines(),
                 LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }

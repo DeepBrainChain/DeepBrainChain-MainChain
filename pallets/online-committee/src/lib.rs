@@ -25,14 +25,17 @@ use sp_std::{prelude::*, str, vec::Vec};
 pub use pallet::*;
 pub use types::*;
 
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config + committee::Config {
+    pub trait Config:
+        frame_system::Config + online_profile::Config + generic_func::Config + committee::Config
+    {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type OCOperations: OCOps<
@@ -41,7 +44,10 @@ pub mod pallet {
             CommitteeUploadInfo = CommitteeUploadInfo,
             Balance = BalanceOf<Self>,
         >;
-        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+        type ManageCommittee: ManageCommittee<
+            AccountId = Self::AccountId,
+            Balance = BalanceOf<Self>,
+        >;
         type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
         type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
     }
@@ -72,12 +78,18 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn machine_committee)]
-    pub(super) type MachineCommittee<T: Config> =
-        StorageMap<_, Blake2_128Concat, MachineId, OCMachineCommitteeList<T::AccountId, T::BlockNumber>, ValueQuery>;
+    pub(super) type MachineCommittee<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        OCMachineCommitteeList<T::AccountId, T::BlockNumber>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn machine_submited_hash)]
-    pub(super) type MachineSubmitedHash<T> = StorageMap<_, Blake2_128Concat, MachineId, Vec<[u8; 16]>, ValueQuery>;
+    pub(super) type MachineSubmitedHash<T> =
+        StorageMap<_, Blake2_128Concat, MachineId, Vec<[u8; 16]>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn committee_ops)]
@@ -138,7 +150,9 @@ pub mod pallet {
             let mut committee_machine = Self::committee_machine(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &machine_id);
 
-            machine_committee.submit_hash(committee.clone()).map_err::<Error<T>, _>(Into::into)?;
+            machine_committee
+                .submit_hash(committee.clone())
+                .map_err::<Error<T>, _>(Into::into)?;
             committee_machine.submit_hash(machine_id.clone());
             committee_ops.submit_hash(now, hash);
 
@@ -165,10 +179,17 @@ pub mod pallet {
             let mut committee_machine = Self::committee_machine(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &machine_id);
 
-            ensure!(machine_info_detail.hash() == committee_ops.confirm_hash, Error::<T>::InfoNotFeatHash);
+            ensure!(
+                machine_info_detail.hash() == committee_ops.confirm_hash,
+                Error::<T>::InfoNotFeatHash
+            );
 
-            committee_machine.submit_raw(machine_id.clone()).map_err::<Error<T>, _>(Into::into)?;
-            machine_committee.submit_raw(now, committee.clone()).map_err::<Error<T>, _>(Into::into)?;
+            committee_machine
+                .submit_raw(machine_id.clone())
+                .map_err::<Error<T>, _>(Into::into)?;
+            machine_committee
+                .submit_raw(now, committee.clone())
+                .map_err::<Error<T>, _>(Into::into)?;
             committee_ops.submit_raw(now, machine_info_detail);
 
             CommitteeMachine::<T>::insert(&committee, committee_machine);
@@ -189,8 +210,8 @@ pub mod pallet {
             let applicant = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
             let slash_info = Self::pending_slash(slash_id);
-            let stake_amount =
-                <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
+            let stake_amount = <T as pallet::Config>::ManageCommittee::stake_per_order()
+                .ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // 确保一个惩罚只能有一个申述
             ensure!(!PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::AlreadyApplied);
@@ -198,7 +219,8 @@ pub mod pallet {
 
             // 判断申述人是machine_controller还是committee
 
-            let controller_stash = <online_profile::Pallet<T>>::controller_stash(&applicant).unwrap_or_default();
+            let controller_stash =
+                <online_profile::Pallet<T>>::controller_stash(&applicant).unwrap_or_default();
             // 申述人是被惩罚stash账户的controller
             let is_slashed_stash = slash_info.applicant_is_stash(controller_stash.clone());
             // 申述人是被惩罚的委员会账户
@@ -208,7 +230,10 @@ pub mod pallet {
             ensure!(is_slashed_stash || is_slashed_committee, Error::<T>::NotSlashed);
 
             let slashed = if is_slashed_stash { controller_stash } else { applicant };
-            ensure!(<T as Config>::Currency::can_reserve(&slashed, stake_amount), Error::<T>::BalanceNotEnough);
+            ensure!(
+                <T as Config>::Currency::can_reserve(&slashed, stake_amount),
+                Error::<T>::BalanceNotEnough
+            );
 
             // 支付质押
             if is_slashed_stash {
@@ -217,10 +242,19 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else if is_slashed_committee {
                 // 否则质押委员会的币
-                <T as Config>::ManageCommittee::change_total_stake(slashed.clone(), stake_amount, true, true)
-                    .map_err(|_| Error::<T>::Overflow)?;
-                <T as Config>::ManageCommittee::change_used_stake(slashed.clone(), stake_amount, true)
-                    .map_err(|_| Error::<T>::Overflow)?;
+                <T as Config>::ManageCommittee::change_total_stake(
+                    slashed.clone(),
+                    stake_amount,
+                    true,
+                    true,
+                )
+                .map_err(|_| Error::<T>::Overflow)?;
+                <T as Config>::ManageCommittee::change_used_stake(
+                    slashed.clone(),
+                    stake_amount,
+                    true,
+                )
+                .map_err(|_| Error::<T>::Overflow)?;
             }
 
             PendingSlashReview::<T>::insert(
@@ -289,8 +323,15 @@ impl<T: Config> Pallet<T> {
 
             if let Some(committee_workflows) = Self::committee_workflow() {
                 for committee_workflow in committee_workflows {
-                    if Self::book_one(machine_id.to_vec(), confirm_start, now, committee_workflow.clone()).is_err() {
-                        continue;
+                    if Self::book_one(
+                        machine_id.to_vec(),
+                        confirm_start,
+                        now,
+                        committee_workflow.clone(),
+                    )
+                    .is_err()
+                    {
+                        continue
                     };
                 }
                 // 将机器状态从ocw_confirmed_machine改为booked_machine
@@ -309,7 +350,8 @@ impl<T: Config> Pallet<T> {
         let mut lucky_committee = Vec::new();
 
         for _ in 0..lucky_committee_num {
-            let lucky_index = <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+            let lucky_index =
+                <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
             lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
             committee.remove(lucky_index);
         }
@@ -332,7 +374,11 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
         // Change committee usedstake will nerver fail after set proper params
-        <T as pallet::Config>::ManageCommittee::change_used_stake(work_time.0.clone(), stake_need, true)?;
+        <T as pallet::Config>::ManageCommittee::change_used_stake(
+            work_time.0.clone(),
+            stake_need,
+            true,
+        )?;
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
@@ -347,8 +393,11 @@ impl<T: Config> Pallet<T> {
 
         // 修改委员会的操作
         let mut committee_ops = OCCommitteeOps { ..Default::default() };
-        let start_time: Vec<_> =
-            work_time.1.into_iter().map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into()).collect();
+        let start_time: Vec<_> = work_time
+            .1
+            .into_iter()
+            .map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into())
+            .collect();
 
         committee_ops.staked_dbc = stake_need;
         committee_ops.verify_time = start_time;
@@ -366,14 +415,19 @@ impl<T: Config> Pallet<T> {
     fn statistic_result() {
         let now = <frame_system::Module<T>>::block_number();
         let booked_machine = <online_profile::Pallet<T>>::live_machines().booked_machine;
-        let committee_stake_per_order = <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
+        let committee_stake_per_order =
+            <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         for machine_id in booked_machine {
             Self::statistic_a_machine(machine_id, now, committee_stake_per_order);
         }
     }
 
-    fn statistic_a_machine(machine_id: MachineId, now: T::BlockNumber, committee_stake_per_order: BalanceOf<T>) {
+    fn statistic_a_machine(
+        machine_id: MachineId,
+        now: T::BlockNumber,
+        committee_stake_per_order: BalanceOf<T>,
+    ) {
         let mut machine_committee = Self::machine_committee(&machine_id);
 
         match machine_committee.status {
@@ -381,14 +435,14 @@ impl<T: Config> Pallet<T> {
                 if now >= machine_committee.book_time + SUBMIT_RAW_START.into() {
                     machine_committee.status = OCVerifyStatus::SubmittingRaw;
                     MachineCommittee::<T>::insert(&machine_id, machine_committee);
-                    return;
+                    return
                 } else {
-                    return;
+                    return
                 }
             },
             OCVerifyStatus::SubmittingRaw => {
                 if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
-                    return;
+                    return
                 }
             },
             OCVerifyStatus::Summarizing => {},
@@ -417,11 +471,19 @@ impl<T: Config> Pallet<T> {
                     ItemList::add_item(&mut inconsistent_committee, a_committee);
                 }
 
-                if T::OCOperations::oc_confirm_machine(summary.valid_support.clone(), summary.info.unwrap()).is_ok() {
+                if T::OCOperations::oc_confirm_machine(
+                    summary.valid_support.clone(),
+                    summary.info.unwrap(),
+                )
+                .is_ok()
+                {
                     for a_committee in &summary.valid_support {
                         // 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
                         let mut committee_machine = Self::committee_machine(a_committee);
-                        ItemList::add_item(&mut committee_machine.online_machine, machine_id.clone());
+                        ItemList::add_item(
+                            &mut committee_machine.online_machine,
+                            machine_id.clone(),
+                        );
                         CommitteeMachine::<T>::insert(a_committee, committee_machine);
                     }
 
@@ -549,7 +611,8 @@ impl<T: Config> Pallet<T> {
     // 返回三种状态：
     // 1. 无共识：处理办法：退还委员会质押，机器重新派单。
     // 2. 支持上线: 处理办法：扣除所有反对上线，支持上线但提交无效信息的委员会的质押。
-    // 3. 反对上线: 处理办法：反对的委员会平分支持的委员会的质押。扣5%矿工质押，允许矿工再次质押而上线。
+    // 3. 反对上线: 处理办法：反对的委员会平分支持的委员会的质押。扣5%矿工质押，
+    // 允许矿工再次质押而上线。
     pub fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
         let machine_committee = Self::machine_committee(machine_id);
 
@@ -564,12 +627,13 @@ impl<T: Config> Pallet<T> {
 
         // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
         if machine_committee.confirmed_committee.is_empty() {
-            return MachineConfirmStatus::NoConsensus(summary);
+            return MachineConfirmStatus::NoConsensus(summary)
         }
 
         // 记录上反对上线的委员会
         for a_committee in machine_committee.confirmed_committee {
-            let submit_machine_info = Self::committee_ops(a_committee.clone(), machine_id).machine_info;
+            let submit_machine_info =
+                Self::committee_ops(a_committee.clone(), machine_id).machine_info;
             if !submit_machine_info.is_support {
                 ItemList::add_item(&mut summary.against, a_committee);
             } else {
@@ -578,31 +642,38 @@ impl<T: Config> Pallet<T> {
                         uniq_machine_info.push(submit_machine_info.clone());
                         committee_for_machine_info.push(vec![a_committee.clone()]);
                     },
-                    Some(index) => ItemList::add_item(&mut committee_for_machine_info[index], a_committee),
+                    Some(index) =>
+                        ItemList::add_item(&mut committee_for_machine_info[index], a_committee),
                 };
             }
         }
 
         // 统计committee_for_machine_info中有多少委员会站队最多
-        let support_committee_num: Vec<usize> = committee_for_machine_info.iter().map(|item| item.len()).collect();
+        let support_committee_num: Vec<usize> =
+            committee_for_machine_info.iter().map(|item| item.len()).collect();
         // 最多多少个委员会达成一致意见
         let max_support = support_committee_num.clone().into_iter().max();
         if max_support.is_none() {
             // 如果没有支持者，且有反对者，则拒绝接入。
             if !summary.against.is_empty() {
-                return MachineConfirmStatus::Refuse(summary);
+                return MachineConfirmStatus::Refuse(summary)
             }
             // 反对者支持者都为0
-            return MachineConfirmStatus::NoConsensus(summary);
+            return MachineConfirmStatus::NoConsensus(summary)
         }
 
         let max_support_num = max_support.unwrap();
 
         // 多少个机器信息的支持等于最大的支持
-        let max_support_group = support_committee_num.clone().into_iter().filter(|n| n == &max_support_num).count();
+        let max_support_group = support_committee_num
+            .clone()
+            .into_iter()
+            .filter(|n| n == &max_support_num)
+            .count();
 
         if max_support_group == 1 {
-            let committee_group_index = support_committee_num.into_iter().position(|r| r == max_support_num).unwrap();
+            let committee_group_index =
+                support_committee_num.into_iter().position(|r| r == max_support_num).unwrap();
 
             // 记录所有的无效支持
             for (index, committees) in committee_for_machine_info.iter().enumerate() {
@@ -618,20 +689,20 @@ impl<T: Config> Pallet<T> {
                 for a_committee in committee_for_machine_info[committee_group_index].clone() {
                     ItemList::add_item(&mut summary.invalid_support, a_committee);
                 }
-                return MachineConfirmStatus::Refuse(summary);
+                return MachineConfirmStatus::Refuse(summary)
             } else if summary.against.len() == max_support_num {
                 // 反对等于支持
                 for a_committee in committee_for_machine_info[committee_group_index].clone() {
                     ItemList::add_item(&mut summary.invalid_support, a_committee);
                 }
                 summary.invalid_support = committee_for_machine_info[committee_group_index].clone();
-                return MachineConfirmStatus::NoConsensus(summary);
+                return MachineConfirmStatus::NoConsensus(summary)
             } else {
                 // 反对小于支持
                 // 记录上所有的有效支持
                 summary.valid_support = committee_for_machine_info[committee_group_index].clone();
                 summary.info = Some(uniq_machine_info[committee_group_index].clone());
-                return MachineConfirmStatus::Confirmed(summary);
+                return MachineConfirmStatus::Confirmed(summary)
             }
         } else {
             // 如果多于两组是Max个委员会支, 则所有的支持都是无效的支持
@@ -642,10 +713,10 @@ impl<T: Config> Pallet<T> {
             }
             // Now will be Refuse or NoConsensus
             if summary.against.len() > max_support_num {
-                return MachineConfirmStatus::Refuse(summary);
+                return MachineConfirmStatus::Refuse(summary)
             } else {
                 // against <= max_support 且 max_support_group > 1，且反对的不占多数
-                return MachineConfirmStatus::NoConsensus(summary);
+                return MachineConfirmStatus::NoConsensus(summary)
             }
         }
     }
@@ -657,7 +728,12 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         for a_committee in committee_list {
             if is_slash {
-                <T as pallet::Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false, false)?;
+                <T as pallet::Config>::ManageCommittee::change_total_stake(
+                    a_committee.clone(),
+                    amount,
+                    false,
+                    false,
+                )?;
             }
 
             <T as pallet::Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
@@ -672,13 +748,14 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let mut slash_info = Self::pending_slash(slash_id);
         let slash_review_info = Self::pending_slash_review(slash_id);
-        let committee_order_stake =
-            <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)?;
+        let committee_order_stake = <T as pallet::Config>::ManageCommittee::stake_per_order()
+            .ok_or(Error::<T>::GetStakeAmountFailed)?;
 
         ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
         let is_applicant_slashed_stash = match slash_info.book_result {
-            OCBookResultType::OnlineRefused => slash_info.machine_stash == slash_review_info.applicant,
+            OCBookResultType::OnlineRefused =>
+                slash_info.machine_stash == slash_review_info.applicant,
             _ => false,
         };
 
@@ -744,11 +821,19 @@ impl<T: Config> Pallet<T> {
                 false,
                 false,
             );
-            let _ = <T as Config>::ManageCommittee::change_used_stake(a_committee, committee_order_stake, false);
+            let _ = <T as Config>::ManageCommittee::change_used_stake(
+                a_committee,
+                committee_order_stake,
+                false,
+            );
         }
         // 如果委员会应该被奖励，则改变已使用的质押即可
         for a_committee in should_reward {
-            let _ = <T as Config>::ManageCommittee::change_used_stake(a_committee, committee_order_stake, false);
+            let _ = <T as Config>::ManageCommittee::change_used_stake(
+                a_committee,
+                committee_order_stake,
+                false,
+            );
         }
 
         ItemList::rm_item(&mut unhandled_slash, &slash_id);

@@ -20,7 +20,8 @@ pub struct StashMachine<Balance> {
     pub total_machine: Vec<MachineId>,
     /// Machines, that is in passed committee verification
     pub online_machine: Vec<MachineId>,
-    /// Total grades of all online machine, inflation(for multiple GPU of one stash / reward by rent) is counted
+    /// Total grades of all online machine, inflation(for multiple GPU of one stash / reward by
+    /// rent) is counted
     pub total_calc_points: u64,
     /// Total online gpu num, will be added after online, reduced after offline
     pub total_gpu_num: u64,
@@ -55,8 +56,10 @@ impl<B: Saturating + Copy + CheckedAdd + Zero> StashMachine<B> {
     pub fn claim_reward(&mut self) -> Result<B, CustomErr> {
         let can_claim = self.can_claim_reward;
         self.can_claim_reward = Zero::zero();
-        self.total_claimed_reward =
-            self.total_claimed_reward.checked_add(&can_claim).ok_or(CustomErr::ClaimRewardFailed)?;
+        self.total_claimed_reward = self
+            .total_claimed_reward
+            .checked_add(&can_claim)
+            .ok_or(CustomErr::ClaimRewardFailed)?;
         Ok(can_claim)
     }
 }

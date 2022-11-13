@@ -52,9 +52,11 @@ pub type SlashId = u64;
 pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
 
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type BalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -95,7 +97,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn total_destroy)]
-    pub(super) type TotalDestroy<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+    pub(super) type TotalDestroy<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -105,7 +108,7 @@ pub mod pallet {
             match frequency {
                 Some(frequency) => {
                     if frequency.1 == 0u32.into() {
-                        return 0;
+                        return 0
                     }
                     if block_number % frequency.1 == 0u32.into() {
                         Self::auto_destroy(frequency.0);
@@ -117,7 +120,8 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> Weight {
-            let rent_fee_pot: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
+            let rent_fee_pot: Vec<u8> =
+                b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
 
             let account_id32: [u8; 32] = Self::get_accountid32(&rent_fee_pot).unwrap_or_default();
             let account = T::AccountId::decode(&mut &account_id32[..]).ok().unwrap_or_default();
@@ -133,16 +137,25 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 设置租用机器手续费：10 DBC
         #[pallet::weight(0)]
-        pub fn set_fixed_tx_fee(origin: OriginFor<T>, tx_fee: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn set_fixed_tx_fee(
+            origin: OriginFor<T>,
+            tx_fee: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             FixedTxFee::<T>::put(tx_fee);
             Ok(().into())
         }
 
         #[pallet::weight(0)]
-        pub fn deposit_into_treasury(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn deposit_into_treasury(
+            origin: OriginFor<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            ensure!(<T as pallet::Config>::Currency::can_slash(&who, amount), Error::<T>::FreeBalanceNotEnough);
+            ensure!(
+                <T as pallet::Config>::Currency::can_slash(&who, amount),
+                Error::<T>::FreeBalanceNotEnough
+            );
 
             let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, amount);
             T::FixedTxFee::on_unbalanced(imbalance);
@@ -168,7 +181,10 @@ pub mod pallet {
 
         // 将DBC销毁
         #[pallet::weight(0)]
-        pub fn destroy_free_dbc(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn destroy_free_dbc(
+            origin: OriginFor<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             Self::do_destroy_dbc(who, amount);
             Ok(().into())
@@ -263,7 +279,7 @@ impl<T: Config> Pallet<T> {
 
         let length = bs58::decode(addr).into(&mut data).ok()?;
         if length != 35 {
-            return None;
+            return None
         }
 
         let (_prefix_len, _ident) = match data[0] {

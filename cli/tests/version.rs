@@ -22,7 +22,8 @@ use regex::Regex;
 use std::process::Command;
 
 fn expected_regex() -> Regex {
-    Regex::new(r"^substrate (\d+\.\d+\.\d+(?:-.+?)?)-([a-f\d]+|unknown)-(.+?)-(.+?)(?:-(.+))?$").unwrap()
+    Regex::new(r"^substrate (\d+\.\d+\.\d+(?:-.+?)?)-([a-f\d]+|unknown)-(.+?)-(.+?)(?:-(.+))?$")
+        .unwrap()
 }
 
 #[test]

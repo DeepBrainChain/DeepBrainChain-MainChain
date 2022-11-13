@@ -26,8 +26,8 @@ use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{
-        Currency, Imbalance, InstanceFilter, KeyOwnerProofSystem, LockIdentifier, OnUnbalanced, Randomness,
-        U128CurrencyToVote,
+        Currency, Imbalance, InstanceFilter, KeyOwnerProofSystem, LockIdentifier, OnUnbalanced,
+        Randomness, U128CurrencyToVote,
     },
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -42,7 +42,9 @@ use frame_system::{
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use pallet_contracts::WeightInfo;
-use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_grandpa::{
+    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
@@ -60,7 +62,8 @@ use sp_runtime::{
     curve::PiecewiseLinear,
     generic, impl_opaque_keys,
     traits::{
-        self, BlakeTwo256, Block as BlockT, ConvertInto, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
+        self, BlakeTwo256, Block as BlockT, ConvertInto, NumberFor, OpaqueKeys,
+        SaturatedConversion, StaticLookup,
     },
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber, ModuleId, Perbill, Percent, Permill, Perquintill,
@@ -261,18 +264,18 @@ impl InstanceFilter<Call> for ProxyType {
             ProxyType::Any => true,
             ProxyType::NonTransfer => !matches!(
                 c,
-                Call::Balances(..)
-                    | Call::Vesting(pallet_vesting::Call::vested_transfer(..))
-                    | Call::Indices(pallet_indices::Call::transfer(..))
+                Call::Balances(..) |
+                    Call::Vesting(pallet_vesting::Call::vested_transfer(..)) |
+                    Call::Indices(pallet_indices::Call::transfer(..))
             ),
             ProxyType::Governance => matches!(
                 c,
-                Call::Democracy(..)
-                    | Call::Council(..)
-                    | Call::Society(..)
-                    | Call::TechnicalCommittee(..)
-                    | Call::Elections(..)
-                    | Call::Treasury(..)
+                Call::Democracy(..) |
+                    Call::Council(..) |
+                    Call::Society(..) |
+                    Call::TechnicalCommittee(..) |
+                    Call::Elections(..) |
+                    Call::Treasury(..)
             ),
             ProxyType::Staking => matches!(c, Call::Staking(..)),
         }
@@ -334,13 +337,18 @@ impl pallet_babe::Config for Runtime {
 
     type KeyOwnerProofSystem = Historical;
 
-    type KeyOwnerProof =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
+    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::Proof;
 
-    type KeyOwnerIdentification =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::IdentificationTuple;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::IdentificationTuple;
 
-    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, Offences, ReportLongevity>;
+    type HandleEquivocation =
+        pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, Offences, ReportLongevity>;
 
     type WeightInfo = ();
 }
@@ -385,7 +393,8 @@ impl pallet_transaction_payment::Config for Runtime {
     type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
-    type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
+    type FeeMultiplierUpdate =
+        TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 }
 
 parameter_types! {
@@ -523,20 +532,26 @@ impl pallet_democracy::Config for Runtime {
     type VotingPeriod = VotingPeriod;
     type MinimumDeposit = MinimumDeposit;
     /// A straight majority of the council can decide what their next motion is.
-    type ExternalOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective>;
+    type ExternalOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective>;
     /// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
-    type ExternalMajorityOrigin = pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
+    type ExternalMajorityOrigin =
+        pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
     /// A unanimous council can have the next scheduled referendum be a straight default-carries
     /// (NTB) vote.
-    type ExternalDefaultOrigin = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
+    type ExternalDefaultOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
     /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
-    type FastTrackOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
-    type InstantOrigin = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCollective>;
+    type FastTrackOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
+    type InstantOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCollective>;
     type InstantAllowed = InstantAllowed;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     // To cancel a proposal which has been passed, 2/3 of the council must agree to it.
-    type CancellationOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
+    type CancellationOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
     // To cancel a proposal before it has been passed, the technical committee must be unanimous or
     // Root must agree.
     type CancelProposalOrigin = EnsureOneOf<
@@ -781,7 +796,8 @@ where
     ) -> Option<(Call, <UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload)> {
         let tip = 0;
         // take the biggest period possible.
-        let period = BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+        let period =
+            BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
         let current_block = System::block_number()
             .saturated_into::<u64>()
             // The `System::block_number` is initialized with `n+1`,
@@ -852,13 +868,19 @@ impl pallet_grandpa::Config for Runtime {
 
     type KeyOwnerProofSystem = Historical;
 
-    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+    type KeyOwnerProof =
+        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 
-    type KeyOwnerIdentification =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::IdentificationTuple;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        GrandpaId,
+    )>>::IdentificationTuple;
 
-    type HandleEquivocation =
-        pallet_grandpa::EquivocationHandler<Self::KeyOwnerIdentification, Offences, ReportLongevity>;
+    type HandleEquivocation = pallet_grandpa::EquivocationHandler<
+        Self::KeyOwnerIdentification,
+        Offences,
+        ReportLongevity,
+    >;
 
     type WeightInfo = ();
 }
@@ -927,7 +949,8 @@ impl pallet_society::Config for Runtime {
     type MembershipChanged = ();
     type RotationPeriod = RotationPeriod;
     type MaxLockDuration = MaxLockDuration;
-    type FounderSetOrigin = pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
+    type FounderSetOrigin =
+        pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
     type SuspensionJudgementOrigin = pallet_society::EnsureFounder<Runtime>;
     type ChallengePeriod = ChallengePeriod;
 }
@@ -1020,7 +1043,8 @@ impl online_profile::Config for Runtime {
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -1040,7 +1064,8 @@ impl online_committee::Config for Runtime {
     type Event = Event;
     type OCOperations = OnlineProfile;
     type ManageCommittee = Committee;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -1050,7 +1075,8 @@ impl maintain_committee::Config for Runtime {
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -1145,8 +1171,13 @@ pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllModules>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    frame_system::ChainContext<Runtime>,
+    Runtime,
+    AllModules,
+>;
 
 /// MMR helper types.
 mod mmr {

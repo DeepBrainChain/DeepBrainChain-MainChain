@@ -47,7 +47,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// 获取机器详情
-    pub fn get_machine_info(machine_id: MachineId) -> MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+    pub fn get_machine_info(
+        machine_id: MachineId,
+    ) -> MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
         Self::machines_info(&machine_id)
     }
 
@@ -64,7 +66,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// 获得某个机器某个Era实际奖励数量
-    pub fn get_machine_era_released_reward(machine_id: MachineId, era_index: EraIndex) -> BalanceOf<T> {
+    pub fn get_machine_era_released_reward(
+        machine_id: MachineId,
+        era_index: EraIndex,
+    ) -> BalanceOf<T> {
         Self::eras_machine_released_reward(era_index, machine_id)
     }
 

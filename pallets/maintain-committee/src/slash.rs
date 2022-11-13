@@ -151,11 +151,13 @@ impl<T: Config> Pallet<T> {
             let report_result_info = Self::report_result(&a_pending_review);
 
             if review_info.expire_time < now {
-                continue;
+                continue
             }
 
-            let is_slashed_reporter = report_result_info.is_slashed_reporter(&review_info.applicant);
-            let is_slashed_committee = report_result_info.is_slashed_committee(&review_info.applicant);
+            let is_slashed_reporter =
+                report_result_info.is_slashed_reporter(&review_info.applicant);
+            let is_slashed_committee =
+                report_result_info.is_slashed_committee(&review_info.applicant);
             let is_slashed_stash = report_result_info.is_slashed_stash(&review_info.applicant);
 
             if is_slashed_reporter {
@@ -171,7 +173,10 @@ impl<T: Config> Pallet<T> {
                     true,
                 );
             } else if is_slashed_stash {
-                let _ = T::MTOps::mt_rm_stash_total_stake(review_info.applicant.clone(), review_info.staked_amount);
+                let _ = T::MTOps::mt_rm_stash_total_stake(
+                    review_info.applicant.clone(),
+                    review_info.staked_amount,
+                );
             }
 
             let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(

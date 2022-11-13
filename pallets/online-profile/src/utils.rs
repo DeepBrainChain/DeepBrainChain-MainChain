@@ -13,7 +13,7 @@ pub fn get_accountid32(addr: &[u8]) -> Option<[u8; 32]> {
 
     let length = bs58::decode(addr).into(&mut data).ok()?;
     if length != 35 {
-        return None;
+        return None
     }
 
     let (_prefix_len, _ident) = match data[0] {
@@ -31,8 +31,10 @@ pub fn verify_sig(msg: Vec<u8>, sig: Vec<u8>, account: Vec<u8>) -> Option<()> {
     // let public = Self::get_public_from_str(&account)?;
 
     let pubkey_str = str::from_utf8(&account).ok()?;
-    let pubkey_hex: Result<Vec<u8>, _> =
-        (0..pubkey_str.len()).step_by(2).map(|i| u8::from_str_radix(&pubkey_str[i..i + 2], 16)).collect();
+    let pubkey_hex: Result<Vec<u8>, _> = (0..pubkey_str.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&pubkey_str[i..i + 2], 16))
+        .collect();
     let pubkey_hex = pubkey_hex.ok()?;
 
     let account_id32: [u8; 32] = pubkey_hex.try_into().ok()?;

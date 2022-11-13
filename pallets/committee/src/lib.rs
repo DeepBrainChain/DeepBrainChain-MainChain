@@ -24,7 +24,8 @@ use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Zero};
 use sp_std::{prelude::*, str};
 
 pub type ReportId = u64;
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub use pallet::*;
 pub use traits::*;
@@ -56,7 +57,8 @@ pub mod pallet {
     /// 委员会质押模块基本参数
     #[pallet::storage]
     #[pallet::getter(fn committee_stake_params)]
-    pub(super) type CommitteeStakeParams<T: Config> = StorageValue<_, CommitteeStakeParamsInfo<BalanceOf<T>>>;
+    pub(super) type CommitteeStakeParams<T: Config> =
+        StorageValue<_, CommitteeStakeParamsInfo<BalanceOf<T>>>;
 
     /// 委员会质押与收益情况
     #[pallet::storage]
@@ -78,10 +80,13 @@ pub mod pallet {
         }
 
         // 该操作由社区决定
-        // 添加到委员会，直接添加到fulfill列表中。每次finalize将会读取委员会币数量，币足则放到committee中
-        // TODO: add max_committee config for better weight
+        // 添加到委员会，直接添加到fulfill列表中。每次finalize将会读取委员会币数量，
+        // 币足则放到committee中 TODO: add max_committee config for better weight
         #[pallet::weight(<T as Config>::WeightInfo::add_committee(100u32))]
-        pub fn add_committee(origin: OriginFor<T>, member: T::AccountId) -> DispatchResultWithPostInfo {
+        pub fn add_committee(
+            origin: OriginFor<T>,
+            member: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             let mut committee = Self::committee();
@@ -98,9 +103,13 @@ pub mod pallet {
 
         /// 委员会添用于非对称加密的公钥信息，并绑定质押
         #[pallet::weight(10000)]
-        pub fn committee_set_box_pubkey(origin: OriginFor<T>, box_pubkey: [u8; 32]) -> DispatchResultWithPostInfo {
+        pub fn committee_set_box_pubkey(
+            origin: OriginFor<T>,
+            box_pubkey: [u8; 32],
+        ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let committee_stake_params = Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
+            let committee_stake_params =
+                Self::committee_stake_params().ok_or(Error::<T>::GetStakeParamsFailed)?;
 
             let mut committee_list = Self::committee();
 
@@ -108,34 +117,46 @@ pub mod pallet {
             if committee_list.is_waiting_puk(&committee) {
                 Self::check_stake_health(&committee, committee_stake_params.stake_baseline, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
-                Self::do_change_reserved(committee.clone(), committee_stake_params.stake_baseline, true, true)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                Self::do_change_reserved(
+                    committee.clone(),
+                    committee_stake_params.stake_baseline,
+                    true,
+                    true,
+                )
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
                 ItemList::rm_item(&mut committee_list.waiting_box_pubkey, &committee);
                 ItemList::add_item(&mut committee_list.normal, committee.clone());
                 Committee::<T>::put(committee_list);
             } else if !committee_list.is_normal(&committee) {
-                return Err(Error::<T>::StatusNotAllowed.into());
+                return Err(Error::<T>::StatusNotAllowed.into())
             }
 
             let mut committee_stake = Self::committee_stake(&committee);
             committee_stake.box_pubkey = box_pubkey;
             CommitteeStake::<T>::insert(&committee, committee_stake);
 
-            Self::deposit_event(Event::StakeAdded(committee.clone(), committee_stake_params.stake_baseline));
+            Self::deposit_event(Event::StakeAdded(
+                committee.clone(),
+                committee_stake_params.stake_baseline,
+            ));
             Self::deposit_event(Event::CommitteeSetBoxPubkey(committee, box_pubkey));
             Ok(().into())
         }
 
         /// 委员会增加质押
         #[pallet::weight(10000)]
-        pub fn committee_add_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn committee_add_stake(
+            origin: OriginFor<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let mut committee_list = Self::committee();
             ensure!(committee_list.is_committee(&committee), Error::<T>::NotCommittee);
 
             // 增加委员会质押
-            Self::check_stake_health(&committee, amount, true).map_err(|_| Error::<T>::BalanceNotEnough)?;
+            Self::check_stake_health(&committee, amount, true)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
             Self::do_change_reserved(committee.clone(), amount, true, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
@@ -150,13 +171,17 @@ pub mod pallet {
         }
 
         #[pallet::weight(10000)]
-        pub fn committee_reduce_stake(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn committee_reduce_stake(
+            origin: OriginFor<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let committee_list = Self::committee();
             ensure!(committee_list.is_normal(&committee), Error::<T>::NotInNormalList);
 
             // 减少委员会质押
-            Self::check_stake_health(&committee, amount, false).map_err(|_| Error::<T>::BalanceNotEnough)?;
+            Self::check_stake_health(&committee, amount, false)
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
             Self::do_change_reserved(committee.clone(), amount, false, true)
                 .map_err(|_| Error::<T>::ChangeReservedFailed)?;
 
@@ -191,7 +216,7 @@ pub mod pallet {
 
             ensure!(committee_list.is_committee(&committee), Error::<T>::NotCommittee);
             if committee_list.is_chill(&committee) {
-                return Ok(().into());
+                return Ok(().into())
             }
             // waiting_box_pubkey不能执行该操作
             ensure!(!committee_list.is_waiting_puk(&committee), Error::<T>::PubkeyNotSet);
@@ -239,7 +264,10 @@ pub mod pallet {
             ensure!(committee_list.is_chill(&committee), Error::<T>::StatusNotFeat);
 
             ItemList::rm_item(&mut committee_list.chill_list, &committee);
-            let _ = <T as pallet::Config>::Currency::unreserve(&committee, committee_stake.staked_amount);
+            let _ = <T as pallet::Config>::Currency::unreserve(
+                &committee,
+                committee_stake.staked_amount,
+            );
 
             committee_stake.staked_amount = Zero::zero();
 
@@ -289,20 +317,26 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn check_stake_health(who: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+    fn check_stake_health(
+        who: &T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> Result<(), ()> {
         let committee_stake_params = Self::committee_stake_params().ok_or(())?;
         let mut committee_stake = Self::committee_stake(who);
 
         if is_add {
-            committee_stake.staked_amount = committee_stake.staked_amount.checked_add(&amount).ok_or(())?;
+            committee_stake.staked_amount =
+                committee_stake.staked_amount.checked_add(&amount).ok_or(())?;
         } else {
-            committee_stake.staked_amount = committee_stake.staked_amount.checked_sub(&amount).ok_or(())?;
+            committee_stake.staked_amount =
+                committee_stake.staked_amount.checked_sub(&amount).ok_or(())?;
         }
 
         ensure!(committee_stake.staked_amount >= committee_stake_params.stake_baseline, ());
         ensure!(
-            committee_stake.staked_amount.saturating_sub(committee_stake.used_stake)
-                >= committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
+            committee_stake.staked_amount.saturating_sub(committee_stake.used_stake) >=
+                committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
             ()
         );
 
@@ -318,9 +352,11 @@ impl<T: Config> Pallet<T> {
         let mut committee_stake = Self::committee_stake(&who);
 
         if is_add {
-            committee_stake.staked_amount = committee_stake.staked_amount.checked_add(&amount).ok_or(())?;
+            committee_stake.staked_amount =
+                committee_stake.staked_amount.checked_add(&amount).ok_or(())?;
         } else {
-            committee_stake.staked_amount = committee_stake.staked_amount.checked_sub(&amount).ok_or(())?;
+            committee_stake.staked_amount =
+                committee_stake.staked_amount.checked_sub(&amount).ok_or(())?;
         }
 
         if change_reserve {
@@ -337,7 +373,11 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_change_used_stake(who: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+    fn do_change_used_stake(
+        who: T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> Result<(), ()> {
         let mut committee_stake = Self::committee_stake(&who);
         let mut committee_list = Self::committee();
 
@@ -348,8 +388,11 @@ impl<T: Config> Pallet<T> {
             committee_stake.used_stake.checked_sub(&amount).ok_or(())?
         };
 
-        let is_committee_list_changed =
-            Self::do_change_status_when_stake_changed(who.clone(), &mut committee_list, &committee_stake);
+        let is_committee_list_changed = Self::do_change_status_when_stake_changed(
+            who.clone(),
+            &mut committee_list,
+            &committee_stake,
+        );
 
         if is_committee_list_changed {
             Committee::<T>::put(committee_list);
@@ -366,9 +409,10 @@ impl<T: Config> Pallet<T> {
         committee_stake: &CommitteeStakeInfo<BalanceOf<T>>,
     ) -> bool {
         let committee_stake_params = Self::committee_stake_params().unwrap_or_default();
-        let is_free_stake_enough = committee_stake.staked_amount >= committee_stake_params.stake_baseline
-            && committee_stake.staked_amount.saturating_sub(committee_stake.used_stake)
-                >= committee_stake_params.min_free_stake_percent * committee_stake.staked_amount;
+        let is_free_stake_enough = committee_stake.staked_amount >=
+            committee_stake_params.stake_baseline &&
+            committee_stake.staked_amount.saturating_sub(committee_stake.used_stake) >=
+                committee_stake_params.min_free_stake_percent * committee_stake.staked_amount;
         let mut is_status_changed = false;
 
         if is_free_stake_enough && committee_list.is_fulfilling(&committee) {

@@ -34,7 +34,7 @@ const MAX_SLASHES: u32 = 1000;
 // read and write operations.
 fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
     if spans == 0 {
-        return;
+        return
     }
 
     // For the first slashing span, we initialize
@@ -63,7 +63,8 @@ pub fn create_validator_with_nominators<T: Config>(
     let mut points_individual = Vec::new();
 
     let (v_stash, v_controller) = create_stash_controller::<T>(0, 100, destination.clone())?;
-    let validator_prefs = ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+    let validator_prefs =
+        ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
     Staking::<T>::validate(RawOrigin::Signed(v_controller).into(), validator_prefs)?;
     let stash_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(v_stash.clone());
 
@@ -80,7 +81,10 @@ pub fn create_validator_with_nominators<T: Config>(
             create_stash_and_dead_controller::<T>(u32::max_value() - i, 100, destination.clone())?
         };
         if i < n {
-            Staking::<T>::nominate(RawOrigin::Signed(n_controller.clone()).into(), vec![stash_lookup.clone()])?;
+            Staking::<T>::nominate(
+                RawOrigin::Signed(n_controller.clone()).into(),
+                vec![stash_lookup.clone()],
+            )?;
             nominators.push((n_stash, n_controller));
         }
     }
@@ -94,14 +98,18 @@ pub fn create_validator_with_nominators<T: Config>(
     assert!(new_validators[0] == v_stash, "Our validator was not selected!");
 
     // Give Era Points
-    let reward =
-        EraRewardPoints::<T::AccountId> { total: points_total, individual: points_individual.into_iter().collect() };
+    let reward = EraRewardPoints::<T::AccountId> {
+        total: points_total,
+        individual: points_individual.into_iter().collect(),
+    };
 
     let current_era = CurrentEra::get().unwrap();
     ErasRewardPoints::<T>::insert(current_era, reward);
 
     // Create reward pool
-    let total_payout = T::Currency::minimum_balance().saturating_mul(upper_bound.into()).saturating_mul(1000u32.into());
+    let total_payout = T::Currency::minimum_balance()
+        .saturating_mul(upper_bound.into())
+        .saturating_mul(1000u32.into());
     <ErasValidatorReward<T>>::insert(current_era, total_payout);
 
     Ok((v_stash, nominators))
@@ -771,7 +779,8 @@ mod tests {
             let v = 10;
             let n = 100;
 
-            create_validators_with_nominators_for_era::<Test>(v, n, MAX_NOMINATIONS, false, None).unwrap();
+            create_validators_with_nominators_for_era::<Test>(v, n, MAX_NOMINATIONS, false, None)
+                .unwrap();
 
             let count_validators = Validators::<Test>::iter().count();
             let count_nominators = Nominators::<Test>::iter().count();
@@ -845,14 +854,17 @@ mod tests {
             let n = 100;
 
             let selected_benchmark = SelectedBenchmark::payout_all;
-            let c =
-                vec![(frame_benchmarking::BenchmarkParameter::v, v), (frame_benchmarking::BenchmarkParameter::n, n)];
-            let closure_to_benchmark = <SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::instance(
-                &selected_benchmark,
-                &c,
-                true,
-            )
-            .unwrap();
+            let c = vec![
+                (frame_benchmarking::BenchmarkParameter::v, v),
+                (frame_benchmarking::BenchmarkParameter::n, n),
+            ];
+            let closure_to_benchmark =
+                <SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::instance(
+                    &selected_benchmark,
+                    &c,
+                    true,
+                )
+                .unwrap();
 
             assert_ok!(closure_to_benchmark());
         });

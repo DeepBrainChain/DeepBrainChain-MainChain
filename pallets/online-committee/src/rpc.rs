@@ -1,6 +1,6 @@
 use crate::{
-    types::OCMachineCommitteeList, BalanceOf, CommitteeUploadInfo, Config, OCCommitteeMachineList, OCMachineStatus,
-    Pallet,
+    types::OCMachineCommitteeList, BalanceOf, CommitteeUploadInfo, Config, OCCommitteeMachineList,
+    OCMachineStatus, Pallet,
 };
 use codec::{Decode, Encode};
 use generic_func::MachineId;
@@ -26,7 +26,9 @@ pub struct RpcOCCommitteeOps<BlockNumber, Balance> {
 
 // RPC
 impl<T: Config> Pallet<T> {
-    pub fn get_machine_committee_list(machine_id: MachineId) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
+    pub fn get_machine_committee_list(
+        machine_id: MachineId,
+    ) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
         Self::machine_committee(machine_id)
     }
 

@@ -7,24 +7,38 @@ use std::convert::TryInto;
 // use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
 // use rent_machine::{ConfirmingOrder, MachineGPUOrder, RentOrderDetail, RentOrderId, RentStatus};
 
-// const controller: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Eve));
-// const committee1: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::One));
-// const committee2: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Two));
-// const committee3: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Ferdie));
-// const reporter: Lazy<sp_core::sr25519::Public> = committee2;
+// const controller: Lazy<sp_core::sr25519::Public> = Lazy::new(||
+// sr25519::Public::from(Sr25519Keyring::Eve)); const committee1: Lazy<sp_core::sr25519::Public> =
+// Lazy::new(|| sr25519::Public::from(Sr25519Keyring::One)); const committee2:
+// Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Two));
+// const committee3: Lazy<sp_core::sr25519::Public> = Lazy::new(||
+// sr25519::Public::from(Sr25519Keyring::Ferdie)); const reporter: Lazy<sp_core::sr25519::Public> =
+// committee2;
 
 // TODO: 增加15min每确认租用，清理状态后正常
 
 pub fn new_test_with_machine_two_renter() -> sp_io::TestExternalities {
     let mut ext = new_test_with_init_machine_online();
 
-    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+        .as_bytes()
+        .to_vec();
     let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
     let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
 
     ext.execute_with(|| {
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 1 * 2880));
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter2), machine_id.clone(), 2, 1 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(renter1),
+            machine_id.clone(),
+            2,
+            1 * 2880
+        ));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(renter2),
+            machine_id.clone(),
+            2,
+            1 * 2880
+        ));
 
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter1), 0));
         assert_ok!(RentMachine::confirm_rent(Origin::signed(renter2), 1));
@@ -37,7 +51,9 @@ pub fn new_test_with_machine_two_renter() -> sp_io::TestExternalities {
 // 举报成功之后，两个订单都变成"因举报下架"
 #[test]
 fn report_individual_gpu_inaccessible() {
-    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+        .as_bytes()
+        .to_vec();
     let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
     // let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
 

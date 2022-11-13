@@ -14,7 +14,8 @@ use sp_std::{collections::vec_deque::VecDeque, str, vec::Vec};
 pub use pallet::*;
 pub mod parse_price;
 
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -29,7 +30,9 @@ pub mod pallet {
     type URL = Vec<u8>;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> + generic_func::Config {
+    pub trait Config:
+        frame_system::Config + CreateSignedTransaction<Call<Self>> + generic_func::Config
+    {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type RandomnessSource: Randomness<H256>;
         type Currency: ReservableCurrency<Self::AccountId>;
@@ -46,7 +49,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn price_update_frequency)]
-    pub(super) type PriceUpdateFrequency<T: Config> = StorageValue<_, u32, ValueQuery, PriceUpdateFrequencyDefault<T>>;
+    pub(super) type PriceUpdateFrequency<T: Config> =
+        StorageValue<_, u32, ValueQuery, PriceUpdateFrequencyDefault<T>>;
 
     #[pallet::storage]
     #[pallet::getter(fn prices)]
@@ -84,11 +88,11 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             if Self::price_url().is_none() {
-                return;
+                return
             };
             let price_update_frequency = Self::price_update_frequency();
             if price_update_frequency == 0 {
-                return;
+                return
             }
 
             if block_number % price_update_frequency.into() == 0u32.into() {
@@ -100,7 +104,10 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
-        pub fn submit_price_unsigned(origin: OriginFor<T>, price: u64) -> DispatchResultWithPostInfo {
+        pub fn submit_price_unsigned(
+            origin: OriginFor<T>,
+            price: u64,
+        ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
             Self::add_price(price);
             Self::add_avg_price();
@@ -108,7 +115,10 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn submit_price_by_root(origin: OriginFor<T>, price: u64) -> DispatchResultWithPostInfo {
+        pub fn submit_price_by_root(
+            origin: OriginFor<T>,
+            price: u64,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Self::add_price(price);
             Self::add_avg_price();
@@ -125,17 +135,23 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_price_update_frequency(origin: OriginFor<T>, frequency: u32) -> DispatchResultWithPostInfo {
+        pub fn set_price_update_frequency(
+            origin: OriginFor<T>,
+            frequency: u32,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             if frequency == 0 {
-                return Ok(().into());
+                return Ok(().into())
             }
             PriceUpdateFrequency::<T>::put(frequency);
             Ok(().into())
         }
 
         #[pallet::weight(0)]
-        pub fn rm_price_url_by_index(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
+        pub fn rm_price_url_by_index(
+            origin: OriginFor<T>,
+            index: u32,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut price_url = Self::price_url().unwrap_or_default();
             ensure!(index < price_url.len() as u32, Error::<T>::IndexOutOfRange);
@@ -193,7 +209,8 @@ impl<T: Config> Pallet<T> {
 
         let rand_price_url_index = Self::gen_rand_url().ok_or(http::Error::Unknown)?;
 
-        let price_url = str::from_utf8(&price_url[rand_price_url_index as usize]).map_err(|_| http::Error::Unknown)?;
+        let price_url = str::from_utf8(&price_url[rand_price_url_index as usize])
+            .map_err(|_| http::Error::Unknown)?;
 
         let request = http::Request::get(price_url);
 
@@ -202,7 +219,7 @@ impl<T: Config> Pallet<T> {
         let response = pending.try_wait(timeout).map_err(|_| http::Error::DeadlineReached)??;
         // Let's check the status code before we proceed to reading the response.
         if response.code != 200 {
-            return Err(http::Error::Unknown);
+            return Err(http::Error::Unknown)
         }
         let body = response.body().collect::<Vec<u8>>();
 
@@ -227,9 +244,10 @@ impl<T: Config> Pallet<T> {
     pub fn add_avg_price() {
         let prices = Prices::<T>::get();
         if prices.len() != MAX_LEN {
-            return;
+            return
         }
-        let avg_price = prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64;
+        let avg_price =
+            prices.iter().fold(0_u64, |a, b| a.saturating_add(*b)) / prices.len() as u64;
 
         AvgPrice::<T>::put(avg_price);
         Self::deposit_event(Event::AddAvgPrice(avg_price));
@@ -242,6 +260,9 @@ impl<T: Config> DbcPrice for Pallet<T> {
     fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance> {
         let one_dbc: Self::Balance = 1_000_000_000_000_000_u64.saturated_into();
         let dbc_price: Self::Balance = Self::avg_price()?.saturated_into();
-        value.saturated_into::<Self::Balance>().checked_mul(&one_dbc)?.checked_div(&dbc_price)
+        value
+            .saturated_into::<Self::Balance>()
+            .checked_mul(&one_dbc)?
+            .checked_div(&dbc_price)
     }
 }

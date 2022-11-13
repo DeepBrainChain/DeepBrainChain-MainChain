@@ -28,7 +28,11 @@ impl<T: Config> Pallet<T> {
         report_id
     }
 
-    pub fn update_unhandled_report(report_id: ReportId, is_add: bool, slash_exec_time: T::BlockNumber) {
+    pub fn update_unhandled_report(
+        report_id: ReportId,
+        is_add: bool,
+        slash_exec_time: T::BlockNumber,
+    ) {
         let mut unhandled_report_result = Self::unhandled_report_result(slash_exec_time);
         if is_add {
             ItemList::add_item(&mut unhandled_report_result, report_id);
@@ -59,8 +63,8 @@ impl<T: Config> Pallet<T> {
         } else {
             reporter_stake.used_stake += stake_params.stake_per_report;
             ensure!(
-                reporter_stake.staked_amount - reporter_stake.used_stake
-                    >= stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                reporter_stake.staked_amount - reporter_stake.used_stake >=
+                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                 Error::<T>::StakeNotEnough
             );
         }
@@ -83,7 +87,8 @@ impl<T: Config> Pallet<T> {
         reporter_stake.used_stake = reporter_stake.used_stake.checked_sub(&amount).ok_or(())?;
 
         if is_slash {
-            reporter_stake.staked_amount = reporter_stake.staked_amount.checked_sub(&amount).ok_or(())?;
+            reporter_stake.staked_amount =
+                reporter_stake.staked_amount.checked_sub(&amount).ok_or(())?;
         }
 
         ReporterStake::<T>::insert(reporter, reporter_stake);
@@ -102,7 +107,12 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         for a_committee in committee_list {
             if is_slash {
-                <T as Config>::ManageCommittee::change_total_stake(a_committee.clone(), amount, false, false)?;
+                <T as Config>::ManageCommittee::change_total_stake(
+                    a_committee.clone(),
+                    amount,
+                    false,
+                    false,
+                )?;
             }
 
             <T as Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;

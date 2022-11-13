@@ -32,28 +32,27 @@ use syn::parse::{Parse, ParseStream};
 /// [here](https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model))
 /// for those parameters. Parameters are:
 /// - `min_inflation`: the minimal amount to be rewarded between validators, expressed as a fraction
-///   of total issuance. Known as `I_0` in the literature.
-///   Expressed in millionth, must be between 0 and 1_000_000.
+///   of total issuance. Known as `I_0` in the literature. Expressed in millionth, must be between 0
+///   and 1_000_000.
 ///
 /// - `max_inflation`: the maximum amount to be rewarded between validators, expressed as a fraction
-///   of total issuance. This is attained only when `ideal_stake` is achieved.
-///   Expressed in millionth, must be between min_inflation and 1_000_000.
+///   of total issuance. This is attained only when `ideal_stake` is achieved. Expressed in
+///   millionth, must be between min_inflation and 1_000_000.
 ///
 /// - `ideal_stake`: the fraction of total issued tokens that should be actively staked behind
-///   validators. Known as `x_ideal` in the literature.
-///   Expressed in millionth, must be between 0_100_000 and 0_900_000.
+///   validators. Known as `x_ideal` in the literature. Expressed in millionth, must be between
+///   0_100_000 and 0_900_000.
 ///
 /// - `falloff`: Known as `decay_rate` in the literature. A co-efficient dictating the strength of
 ///   the global incentivization to get the `ideal_stake`. A higher number results in less typical
-///   inflation at the cost of greater volatility for validators.
-///   Expressed in millionth, must be between 0 and 1_000_000.
+///   inflation at the cost of greater volatility for validators. Expressed in millionth, must be
+///   between 0 and 1_000_000.
 ///
 /// - `max_piece_count`: The maximum number of pieces in the curve. A greater number uses more
-///   resources but results in higher accuracy.
-///   Must be between 2 and 1_000.
+///   resources but results in higher accuracy. Must be between 2 and 1_000.
 ///
-/// - `test_precision`: The maximum error allowed in the generated test.
-///   Expressed in millionth, must be between 0 and 1_000_000.
+/// - `test_precision`: The maximum error allowed in the generated test. Expressed in millionth,
+///   must be between 0 and 1_000_000.
 ///
 /// # Example
 ///
@@ -134,10 +133,10 @@ struct Bounds {
 
 impl Bounds {
     fn check(&self, value: u32) -> bool {
-        let wrong = (self.min_strict && value <= self.min)
-            || (!self.min_strict && value < self.min)
-            || (self.max_strict && value >= self.max)
-            || (!self.max_strict && value > self.max);
+        let wrong = (self.min_strict && value <= self.min) ||
+            (!self.min_strict && value < self.min) ||
+            (self.max_strict && value >= self.max) ||
+            (!self.max_strict && value > self.max);
 
         !wrong
     }
@@ -156,7 +155,10 @@ impl core::fmt::Display for Bounds {
     }
 }
 
-fn parse_field<Token: Parse + Default + ToTokens>(input: ParseStream, bounds: Bounds) -> syn::Result<u32> {
+fn parse_field<Token: Parse + Default + ToTokens>(
+    input: ParseStream,
+    bounds: Bounds,
+) -> syn::Result<u32> {
     <Token>::parse(&input)?;
     <syn::Token![:]>::parse(&input)?;
     let value_lit = syn::LitInt::parse(&input)?;
@@ -164,8 +166,13 @@ fn parse_field<Token: Parse + Default + ToTokens>(input: ParseStream, bounds: Bo
     if !bounds.check(value) {
         return Err(syn::Error::new(
             value_lit.span(),
-            format!("Invalid {}: {},  must be in {}", Token::default().to_token_stream(), value, bounds,),
-        ));
+            format!(
+                "Invalid {}: {},  must be in {}",
+                Token::default().to_token_stream(),
+                value,
+                bounds,
+            ),
+        ))
     }
 
     Ok(value)
@@ -186,7 +193,7 @@ impl Parse for INposInput {
         <syn::Token![;]>::parse(&input)?;
 
         if !input.is_empty() {
-            return Err(input.error("expected end of input stream, no token expected"));
+            return Err(input.error("expected end of input stream, no token expected"))
         }
 
         let min_inflation = parse_field::<keyword::min_inflation>(
@@ -221,10 +228,19 @@ impl Parse for INposInput {
         <Option<syn::Token![,]>>::parse(&args_input)?;
 
         if !args_input.is_empty() {
-            return Err(args_input.error("expected end of input stream, no token expected"));
+            return Err(args_input.error("expected end of input stream, no token expected"))
         }
 
-        Ok(Self { ident, typ, min_inflation, ideal_stake, max_inflation, falloff, max_piece_count, test_precision })
+        Ok(Self {
+            ident,
+            typ,
+            min_inflation,
+            ideal_stake,
+            max_inflation,
+            falloff,
+            max_piece_count,
+            test_precision,
+        })
     }
 }
 
@@ -240,7 +256,9 @@ impl INPoS {
     fn from_input(input: &INposInput) -> Self {
         INPoS {
             i_0: input.min_inflation,
-            i_ideal: (input.max_inflation as u64 * MILLION as u64 / input.ideal_stake as u64).try_into().unwrap(),
+            i_ideal: (input.max_inflation as u64 * MILLION as u64 / input.ideal_stake as u64)
+                .try_into()
+                .unwrap(),
             i_ideal_times_x_ideal: input.max_inflation,
             x_ideal: input.ideal_stake,
             d: input.falloff,
@@ -252,7 +270,7 @@ impl INPoS {
     // See web3 docs for the details
     fn compute_opposite_after_x_ideal(&self, y: u32) -> u32 {
         if y == self.i_0 {
-            return u32::max_value();
+            return u32::max_value()
         }
         // Note: the log term calculated here represents a per_million value
         let log = log2(self.i_ideal_times_x_ideal - self.i_0, y - self.i_0);
@@ -272,8 +290,8 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 
     // For each point p: (next_p.0 - p.0) < segment_length && (next_p.1 - p.1) < segment_length.
     // This ensures that the total number of segment doesn't overflow max_piece_count.
-    let max_length =
-        (input.max_inflation - input.min_inflation + 1_000_000 - inpos.x_ideal) / (input.max_piece_count - 1);
+    let max_length = (input.max_inflation - input.min_inflation + 1_000_000 - inpos.x_ideal) /
+        (input.max_piece_count - 1);
 
     let mut delta_y = max_length;
     let mut y = input.max_inflation;
@@ -285,28 +303,29 @@ fn compute_points(input: &INposInput) -> Vec<(u32, u32)> {
 
         if next_y <= input.min_inflation {
             delta_y = delta_y.saturating_sub(1);
-            continue;
+            continue
         }
 
         let next_x = inpos.compute_opposite_after_x_ideal(next_y);
 
         if (next_x - points.last().unwrap().0) > max_length {
             delta_y = delta_y.saturating_sub(1);
-            continue;
+            continue
         }
 
         if next_x >= 1_000_000 {
             let prev = points.last().unwrap();
             // Compute the y corresponding to x=1_000_000 using the this point and the previous one.
 
-            let delta_y: u32 = ((next_x - 1_000_000) as u64 * (prev.1 - next_y) as u64 / (next_x - prev.0) as u64)
+            let delta_y: u32 = ((next_x - 1_000_000) as u64 * (prev.1 - next_y) as u64 /
+                (next_x - prev.0) as u64)
                 .try_into()
                 .unwrap();
 
             let y = next_y + delta_y;
 
             points.push((1_000_000, y));
-            return points;
+            return points
         }
         points.push((next_x, next_y));
         y = next_y;

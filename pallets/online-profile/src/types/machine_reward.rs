@@ -23,7 +23,12 @@ pub struct MachineRecentRewardInfo<AccountId, Balance> {
 // Add new reward first, then calc committee/stash released reward
 impl<AccountId, Balance> MachineRecentRewardInfo<AccountId, Balance>
 where
-    Balance: Default + Clone + Add<Output = Balance> + Sub<Output = Balance> + Copy + sp_runtime::traits::Saturating,
+    Balance: Default
+        + Clone
+        + Add<Output = Balance>
+        + Sub<Output = Balance>
+        + Copy
+        + sp_runtime::traits::Saturating,
 {
     pub fn add_new_reward(&mut self, reward_amount: Balance) {
         let mut reduce = Balance::default();
@@ -35,7 +40,8 @@ where
             self.recent_machine_reward.push_back(reward_amount);
         }
 
-        self.recent_reward_sum = self.recent_reward_sum.saturating_add(reward_amount).saturating_sub(reduce);
+        self.recent_reward_sum =
+            self.recent_reward_sum.saturating_add(reward_amount).saturating_sub(reduce);
     }
 }
 
@@ -77,7 +83,13 @@ where
 {
     /// 增加一台在线的机器，gpu数量 + gpu的总得分
     /// NOTE: 只修改当前Era，调用下线逻辑前应检查机器存在
-    pub fn change_machine_online_status(&mut self, stash: AccountId, gpu_num: u64, basic_grade: u64, is_online: bool) {
+    pub fn change_machine_online_status(
+        &mut self,
+        stash: AccountId,
+        gpu_num: u64,
+        basic_grade: u64,
+        is_online: bool,
+    ) {
         let mut staker_statistic = self
             .staker_statistic
             .entry(stash.clone())
@@ -86,10 +98,12 @@ where
         let old_grade = staker_statistic.total_grades().unwrap_or_default();
 
         if is_online {
-            staker_statistic.online_gpu_num = staker_statistic.online_gpu_num.saturating_add(gpu_num);
+            staker_statistic.online_gpu_num =
+                staker_statistic.online_gpu_num.saturating_add(gpu_num);
         } else {
             // 避免上线24小时即下线时，当前Era还没有初始化该值
-            staker_statistic.online_gpu_num = staker_statistic.online_gpu_num.saturating_sub(gpu_num);
+            staker_statistic.online_gpu_num =
+                staker_statistic.online_gpu_num.saturating_sub(gpu_num);
         }
 
         // 根据显卡数量n更新inflation系数: inflation = min(10%, n/10000)
@@ -124,7 +138,12 @@ where
     }
 
     /// 因机器租用状态改变，而影响得分
-    pub fn change_machine_rent_status(&mut self, stash: AccountId, basic_grade: u64, is_rented: bool) {
+    pub fn change_machine_rent_status(
+        &mut self,
+        stash: AccountId,
+        basic_grade: u64,
+        is_rented: bool,
+    ) {
         let mut staker_statistic = self
             .staker_statistic
             .entry(stash.clone())
@@ -136,10 +155,12 @@ where
         // 更新rent_extra_grade
         if is_rented {
             self.total = self.total.saturating_add(grade_by_rent);
-            staker_statistic.rent_extra_grade = staker_statistic.rent_extra_grade.saturating_add(grade_by_rent);
+            staker_statistic.rent_extra_grade =
+                staker_statistic.rent_extra_grade.saturating_add(grade_by_rent);
         } else {
             self.total = self.total.saturating_sub(grade_by_rent);
-            staker_statistic.rent_extra_grade = staker_statistic.rent_extra_grade.saturating_sub(grade_by_rent);
+            staker_statistic.rent_extra_grade =
+                staker_statistic.rent_extra_grade.saturating_sub(grade_by_rent);
         }
 
         let staker_statistic = (*staker_statistic).clone();
@@ -159,10 +180,15 @@ impl StashMachineStatistics {
 
 impl MachineGradeStatus {
     pub fn machine_actual_grade(&self, inflation: Perbill) -> u64 {
-        let rent_extra_grade =
-            if self.is_rented { Perbill::from_rational_approximation(30u32, 100u32) * self.basic_grade } else { 0 };
+        let rent_extra_grade = if self.is_rented {
+            Perbill::from_rational_approximation(30u32, 100u32) * self.basic_grade
+        } else {
+            0
+        };
         let inflation_extra_grade = inflation * self.basic_grade;
-        self.basic_grade.saturating_add(rent_extra_grade).saturating_add(inflation_extra_grade)
+        self.basic_grade
+            .saturating_add(rent_extra_grade)
+            .saturating_add(inflation_extra_grade)
     }
 }
 

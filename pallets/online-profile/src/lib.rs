@@ -28,9 +28,11 @@ pub use pallet::*;
 pub use traits::*;
 pub use types::*;
 
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type BalanceOf<T> =
+    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as pallet::Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -42,7 +44,10 @@ pub mod pallet {
         type Currency: ReservableCurrency<Self::AccountId>;
         type BondingDuration: Get<EraIndex>;
         type DbcPrice: DbcPrice<Balance = BalanceOf<Self>>;
-        type ManageCommittee: ManageCommittee<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+        type ManageCommittee: ManageCommittee<
+            AccountId = Self::AccountId,
+            Balance = BalanceOf<Self>,
+        >;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
         type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
@@ -54,7 +59,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn online_stake_params)]
-    pub(super) type OnlineStakeParams<T: Config> = StorageValue<_, OnlineStakeParamsInfo<BalanceOf<T>>>;
+    pub(super) type OnlineStakeParams<T: Config> =
+        StorageValue<_, OnlineStakeParamsInfo<BalanceOf<T>>>;
 
     /// A standard example for rent fee calculation(price: USD*10^6)
     #[pallet::storage]
@@ -86,7 +92,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn galaxy_on_gpu_threshold)]
-    pub(super) type GalaxyOnGPUThreshold<T: Config> = StorageValue<_, u32, ValueQuery, GalaxyOnGPUThresholdDefault<T>>;
+    pub(super) type GalaxyOnGPUThreshold<T: Config> =
+        StorageValue<_, u32, ValueQuery, GalaxyOnGPUThresholdDefault<T>>;
 
     /// Statistics of gpu and stake
     #[pallet::storage]
@@ -96,27 +103,42 @@ pub mod pallet {
     /// Statistics of gpu in one position
     #[pallet::storage]
     #[pallet::getter(fn pos_gpu_info)]
-    pub type PosGPUInfo<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, Longitude, Blake2_128Concat, Latitude, PosInfo, ValueQuery>;
+    pub type PosGPUInfo<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        Longitude,
+        Blake2_128Concat,
+        Latitude,
+        PosInfo,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn stash_controller)]
-    pub(super) type StashController<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
+    pub(super) type StashController<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
 
     #[pallet::storage]
     #[pallet::getter(fn controller_stash)]
-    pub(super) type ControllerStash<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
+    pub(super) type ControllerStash<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
 
     /// Detail info of machines
     #[pallet::storage]
     #[pallet::getter(fn machines_info)]
-    pub type MachinesInfo<T: Config> =
-        StorageMap<_, Blake2_128Concat, MachineId, MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+    pub type MachinesInfo<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
 
     /// 记录机器被租用的GPU个数
     #[pallet::storage]
     #[pallet::getter(fn machine_rented_gpu)]
-    pub type MachineRentedGPU<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, u32, ValueQuery>;
+    pub type MachineRentedGPU<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, u32, ValueQuery>;
 
     /// Statistics of stash account
     #[pallet::storage]
@@ -127,7 +149,8 @@ pub mod pallet {
     /// Server rooms in stash account
     #[pallet::storage]
     #[pallet::getter(fn stash_server_rooms)]
-    pub(super) type StashServerRooms<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<H256>, ValueQuery>;
+    pub(super) type StashServerRooms<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<H256>, ValueQuery>;
 
     /// All machines controlled by controller
     #[pallet::storage]
@@ -154,56 +177,98 @@ pub mod pallet {
     /// 每个Era机器的得分快照
     #[pallet::storage]
     #[pallet::getter(fn eras_machine_points)]
-    pub(super) type ErasMachinePoints<T: Config> =
-        StorageMap<_, Blake2_128Concat, EraIndex, BTreeMap<MachineId, MachineGradeStatus>, ValueQuery>;
+    pub(super) type ErasMachinePoints<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EraIndex,
+        BTreeMap<MachineId, MachineGradeStatus>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn phase_reward_info)]
-    pub(super) type PhaseRewardInfo<T: Config> = StorageValue<_, PhaseRewardInfoDetail<BalanceOf<T>>>;
+    pub(super) type PhaseRewardInfo<T: Config> =
+        StorageValue<_, PhaseRewardInfoDetail<BalanceOf<T>>>;
 
     #[pallet::storage]
     #[pallet::getter(fn era_reward)]
-    pub(super) type EraReward<T: Config> = StorageMap<_, Blake2_128Concat, EraIndex, BalanceOf<T>, ValueQuery>;
+    pub(super) type EraReward<T: Config> =
+        StorageMap<_, Blake2_128Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
     /// 某个Era机器获得的总奖励
     #[pallet::storage]
     #[pallet::getter(fn eras_machine_reward)]
-    pub(super) type ErasMachineReward<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, MachineId, BalanceOf<T>, ValueQuery>;
+    pub(super) type ErasMachineReward<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        EraIndex,
+        Blake2_128Concat,
+        MachineId,
+        BalanceOf<T>,
+        ValueQuery,
+    >;
 
     /// 某个Era机器释放的总奖励
     #[pallet::storage]
     #[pallet::getter(fn eras_machine_released_reward)]
-    pub(super) type ErasMachineReleasedReward<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, MachineId, BalanceOf<T>, ValueQuery>;
+    pub(super) type ErasMachineReleasedReward<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        EraIndex,
+        Blake2_128Concat,
+        MachineId,
+        BalanceOf<T>,
+        ValueQuery,
+    >;
 
     /// 某个Era Stash获得的总奖励
     #[pallet::storage]
     #[pallet::getter(fn eras_stash_reward)]
-    pub(super) type ErasStashReward<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+    pub(super) type ErasStashReward<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        EraIndex,
+        Blake2_128Concat,
+        T::AccountId,
+        BalanceOf<T>,
+        ValueQuery,
+    >;
 
     /// 某个Era Stash解锁的总奖励
     #[pallet::storage]
     #[pallet::getter(fn eras_stash_released_reward)]
-    pub(super) type ErasStashReleasedReward<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, EraIndex, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+    pub(super) type ErasStashReleasedReward<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        EraIndex,
+        Blake2_128Concat,
+        T::AccountId,
+        BalanceOf<T>,
+        ValueQuery,
+    >;
 
     /// store max 150 era reward
     #[pallet::storage]
     #[pallet::getter(fn machine_recent_reward)]
-    pub(super) type MachineRecentReward<T: Config> =
-        StorageMap<_, Blake2_128Concat, MachineId, MachineRecentRewardInfo<T::AccountId, BalanceOf<T>>, ValueQuery>;
+    pub(super) type MachineRecentReward<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        MachineRecentRewardInfo<T::AccountId, BalanceOf<T>>,
+        ValueQuery,
+    >;
 
     /// 将要发放奖励的机器
     #[pallet::storage]
     #[pallet::getter(fn all_machine_id_snap)]
-    pub(super) type AllMachineIdSnap<T: Config> = StorageValue<_, types::AllMachineIdSnapDetail, ValueQuery>;
+    pub(super) type AllMachineIdSnap<T: Config> =
+        StorageValue<_, types::AllMachineIdSnapDetail, ValueQuery>;
 
     /// 资金账户的质押总计
     #[pallet::storage]
     #[pallet::getter(fn stash_stake)]
-    pub(super) type StashStake<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+    pub(super) type StashStake<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn next_slash_id)]
@@ -237,7 +302,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn rented_finished)]
-    pub(super) type RentedFinished<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
+    pub(super) type RentedFinished<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
 
     // 记录某个时间需要执行的惩罚
     #[pallet::storage]
@@ -323,7 +389,10 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_galaxy_on_gpu_threshold(origin: OriginFor<T>, gpu_threshold: u32) -> DispatchResultWithPostInfo {
+        pub fn set_galaxy_on_gpu_threshold(
+            origin: OriginFor<T>,
+            gpu_threshold: u32,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             GalaxyOnGPUThreshold::<T>::put(gpu_threshold);
 
@@ -343,10 +412,16 @@ pub mod pallet {
 
         /// Stash account set a controller
         #[pallet::weight(10000)]
-        pub fn set_controller(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResultWithPostInfo {
+        pub fn set_controller(
+            origin: OriginFor<T>,
+            controller: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
             let stash = ensure_signed(origin)?;
             // Don't allow multiple stash have same controller
-            ensure!(!<ControllerStash<T>>::contains_key(&controller), Error::<T>::AlreadyController);
+            ensure!(
+                !<ControllerStash<T>>::contains_key(&controller),
+                Error::<T>::AlreadyController
+            );
 
             StashController::<T>::insert(stash.clone(), controller.clone());
             ControllerStash::<T>::insert(controller.clone(), stash.clone());
@@ -363,7 +438,10 @@ pub mod pallet {
             new_controller: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let stash = ensure_signed(origin)?;
-            ensure!(!<ControllerStash<T>>::contains_key(&new_controller), Error::<T>::AlreadyController);
+            ensure!(
+                !<ControllerStash<T>>::contains_key(&new_controller),
+                Error::<T>::AlreadyController
+            );
 
             let pre_controller = Self::stash_controller(&stash).unwrap();
             let controller_machines = Self::controller_machines(&pre_controller);
@@ -402,14 +480,20 @@ pub mod pallet {
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
             // 只允许在线状态的机器修改信息
-            ensure!(machine_info.machine_status == MachineStatus::Online, Error::<T>::MachineStatusNotAllowed);
+            ensure!(
+                machine_info.machine_status == MachineStatus::Online,
+                Error::<T>::MachineStatusNotAllowed
+            );
 
             // 重新上链需要质押一定的手续费
-            let online_stake_params = Self::online_stake_params().ok_or(Error::<T>::GetReonlineStakeFailed)?;
-            let stake_amount = T::DbcPrice::get_dbc_amount_by_value(online_stake_params.reonline_stake)
-                .ok_or(Error::<T>::GetReonlineStakeFailed)?;
+            let online_stake_params =
+                Self::online_stake_params().ok_or(Error::<T>::GetReonlineStakeFailed)?;
+            let stake_amount =
+                T::DbcPrice::get_dbc_amount_by_value(online_stake_params.reonline_stake)
+                    .ok_or(Error::<T>::GetReonlineStakeFailed)?;
 
-            machine_info.machine_status = MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
+            machine_info.machine_status =
+                MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
             live_machines.offline_to_change_hardware(machine_id.clone());
 
@@ -457,10 +541,12 @@ pub mod pallet {
             ItemList::add_item(&mut controller_machines, machine_id.clone());
             stash_machines.new_bonding(machine_id.clone());
             live_machines.new_bonding(machine_id.clone());
-            let machine_info = MachineInfo::new_bonding(controller.clone(), stash.clone(), now, stake_amount);
+            let machine_info =
+                MachineInfo::new_bonding(controller.clone(), stash.clone(), now, stake_amount);
 
             // 扣除10个Dbc作为交易手续费; 并质押
-            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone())
+                .map_err(|_| Error::<T>::PayTxFeeFailed)?;
             Self::change_user_total_stake(stash.clone(), stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
@@ -479,7 +565,8 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
 
-            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone()).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone())
+                .map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
             let mut stash_server_rooms = Self::stash_server_rooms(&stash);
 
@@ -500,7 +587,10 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
 
-            ensure!(!customize_machine_info.telecom_operators.is_empty(), Error::<T>::TelecomIsNull);
+            ensure!(
+                !customize_machine_info.telecom_operators.is_empty(),
+                Error::<T>::TelecomIsNull
+            );
             // 查询机器Id是否在该账户的控制下
             let mut machine_info = Self::machines_info(&machine_id);
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
@@ -511,7 +601,10 @@ pub mod pallet {
                 Error::<T>::ServerRoomNotFound
             );
             // 检查当前机器状态是否允许
-            ensure!(&machine_info.can_add_customize_info(), Error::<T>::NotAllowedChangeMachineInfo);
+            ensure!(
+                &machine_info.can_add_customize_info(),
+                Error::<T>::NotAllowedChangeMachineInfo
+            );
 
             machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
 
@@ -531,7 +624,10 @@ pub mod pallet {
 
         /// 机器第一次上线后处于补交质押状态时，需要补交质押才能上线
         #[pallet::weight(10000)]
-        pub fn fulfill_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn fulfill_machine(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
             let current_era = Self::current_era();
@@ -555,15 +651,20 @@ pub mod pallet {
             // 当出现需要补交质押时，补充质押并记录到机器信息中
             if machine_info.stake_amount < stake_need {
                 let extra_stake = stake_need - machine_info.stake_amount;
-                Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                Self::change_user_total_stake(
+                    machine_info.machine_stash.clone(),
+                    extra_stake,
+                    true,
+                )
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
                 machine_info.stake_amount = stake_need;
             }
             machine_info.machine_status = MachineStatus::Online;
 
             if UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id) {
                 // 根据质押，奖励给这些委员会
-                let reonline_stake = Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
+                let reonline_stake =
+                    Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
                 // 根据下线时间，惩罚stash
                 let offline_duration = now - reonline_stake.offline_time;
@@ -580,15 +681,20 @@ pub mod pallet {
                     );
                     let slash_id = Self::get_new_slash_id();
 
-                    let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
+                    let mut pending_exec_slash =
+                        Self::pending_exec_slash(slash_info.slash_exec_time);
                     ItemList::add_item(&mut pending_exec_slash, slash_id);
                     PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
 
                     PendingSlash::<T>::insert(slash_id, slash_info);
                 }
                 // 退还reonline_stake
-                Self::change_user_total_stake(machine_info.machine_stash.clone(), reonline_stake.stake_amount, false)
-                    .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+                Self::change_user_total_stake(
+                    machine_info.machine_stash.clone(),
+                    reonline_stake.stake_amount,
+                    false,
+                )
+                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
                 UserMutHardwareStake::<T>::remove(&machine_info.machine_stash, &machine_id);
             } else {
                 machine_info.online_height = now;
@@ -641,7 +747,10 @@ pub mod pallet {
 
         /// 控制账户报告机器下线:Online/Rented时允许
         #[pallet::weight(10000)]
-        pub fn controller_report_offline(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn controller_report_offline(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
             let machine_info = Self::machines_info(&machine_id);
@@ -678,7 +787,10 @@ pub mod pallet {
         // 需要在rentMachine中提供一个查询接口
         /// 控制账户报告机器上线
         #[pallet::weight(10000)]
-        pub fn controller_report_online(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn controller_report_online(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
@@ -693,10 +805,10 @@ pub mod pallet {
             let offline_time = match machine_info.machine_status.clone() {
                 MachineStatus::StakerReportOffline(offline_time, _) => offline_time,
                 MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
-                    OPSlashReason::RentedInaccessible(duration)
-                    | OPSlashReason::RentedHardwareMalfunction(duration)
-                    | OPSlashReason::RentedHardwareCounterfeit(duration)
-                    | OPSlashReason::OnlineRentFailed(duration) => duration,
+                    OPSlashReason::RentedInaccessible(duration) |
+                    OPSlashReason::RentedHardwareMalfunction(duration) |
+                    OPSlashReason::RentedHardwareCounterfeit(duration) |
+                    OPSlashReason::OnlineRentFailed(duration) => duration,
                     _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
@@ -775,8 +887,12 @@ pub mod pallet {
             // 否则，补交质押，不插入新惩罚
             if slash_info.slash_amount != Zero::zero() {
                 // 任何情况重新上链都需要补交质押
-                Self::change_user_total_stake(machine_info.machine_stash.clone(), slash_info.slash_amount, true)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                Self::change_user_total_stake(
+                    machine_info.machine_stash.clone(),
+                    slash_info.slash_amount,
+                    true,
+                )
+                .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
                 if should_add_new_slash {
                     // NOTE: Only after pay slash amount succeed, then make machine online.
@@ -785,7 +901,8 @@ pub mod pallet {
 
                     PendingOfflineSlash::<T>::remove(max_slash_offline_threshold, &machine_id);
 
-                    let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
+                    let mut pending_exec_slash =
+                        Self::pending_exec_slash(slash_info.slash_exec_time);
                     ItemList::add_item(&mut pending_exec_slash, slash_id);
                     PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
 
@@ -816,18 +933,27 @@ pub mod pallet {
 
         /// 超过365天的机器可以在距离上次租用10天，且没被租用时退出
         #[pallet::weight(10000)]
-        pub fn machine_exit(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn machine_exit(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let machine_info = Self::machines_info(&machine_id);
             let now = <frame_system::Module<T>>::block_number();
             let current_era = Self::current_era();
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-            ensure!(MachineStatus::Online == machine_info.machine_status, Error::<T>::MachineStatusNotAllowed);
+            ensure!(
+                MachineStatus::Online == machine_info.machine_status,
+                Error::<T>::MachineStatusNotAllowed
+            );
             // 确保机器已经上线一年：即reward_deadline - 365 <= current_era
             ensure!(machine_info.reward_deadline <= current_era + 365, Error::<T>::TimeNotAllowed);
             // 确保机器距离上次租用超过10天
-            ensure!(now - machine_info.last_online_height >= 28800u32.into(), Error::<T>::TimeNotAllowed);
+            ensure!(
+                now - machine_info.last_online_height >= 28800u32.into(),
+                Error::<T>::TimeNotAllowed
+            );
 
             Self::do_machine_exit(machine_id, machine_info)
         }
@@ -836,14 +962,20 @@ pub mod pallet {
         /// 在系统中上线满365天之后，可以按当时机器需要的质押数量，重新入网。多余的币解绑
         /// 在重新上线之后，下次再执行本操作，需要等待365天
         #[pallet::weight(10000)]
-        pub fn restake_online_machine(origin: OriginFor<T>, machine_id: MachineId) -> DispatchResultWithPostInfo {
+        pub fn restake_online_machine(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
             let mut machine_info = Self::machines_info(&machine_id);
             let pre_stake = machine_info.stake_amount;
 
             ensure!(controller == machine_info.controller, Error::<T>::NotMachineController);
-            ensure!(now - machine_info.last_machine_restake >= REBOND_FREQUENCY.into(), Error::<T>::TooFastToReStake);
+            ensure!(
+                now - machine_info.last_machine_restake >= REBOND_FREQUENCY.into(),
+                Error::<T>::TooFastToReStake
+            );
 
             let stake_per_gpu = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
             let stake_need = stake_per_gpu
@@ -851,8 +983,10 @@ pub mod pallet {
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
             ensure!(machine_info.stake_amount > stake_need, Error::<T>::NoStakeToReduce);
 
-            let extra_stake =
-                machine_info.stake_amount.checked_sub(&stake_need).ok_or(Error::<T>::ReduceStakeFailed)?;
+            let extra_stake = machine_info
+                .stake_amount
+                .checked_sub(&stake_need)
+                .ok_or(Error::<T>::ReduceStakeFailed)?;
 
             machine_info.stake_amount = stake_need;
             machine_info.last_machine_restake = now;
@@ -862,7 +996,11 @@ pub mod pallet {
 
             MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
 
-            Self::deposit_event(Event::MachineRestaked(machine_id, pre_stake, machine_info.stake_amount));
+            Self::deposit_event(Event::MachineRestaked(
+                machine_id,
+                pre_stake,
+                machine_info.stake_amount,
+            ));
             Ok(().into())
         }
 
@@ -877,14 +1015,19 @@ pub mod pallet {
 
             let slash_info = Self::pending_slash(slash_id);
             let machine_info = Self::machines_info(&slash_info.machine_id);
-            let online_stake_params = Self::online_stake_params().ok_or(Error::<T>::GetReonlineStakeFailed)?;
+            let online_stake_params =
+                Self::online_stake_params().ok_or(Error::<T>::GetReonlineStakeFailed)?;
 
             ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
             ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
 
             // 补交质押
-            Self::change_user_total_stake(machine_info.machine_stash, online_stake_params.slash_review_stake, true)
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
+            Self::change_user_total_stake(
+                machine_info.machine_stash,
+                online_stake_params.slash_review_stake,
+                true,
+            )
+            .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             PendingSlashReview::<T>::insert(
                 slash_id,
@@ -897,9 +1040,13 @@ pub mod pallet {
                 },
             );
 
-            let mut pending_review_checking = Self::pending_slash_review_checking(slash_info.slash_exec_time);
+            let mut pending_review_checking =
+                Self::pending_slash_review_checking(slash_info.slash_exec_time);
             ItemList::add_item(&mut pending_review_checking, slash_id);
-            PendingSlashReviewChecking::<T>::insert(slash_info.slash_exec_time, pending_review_checking);
+            PendingSlashReviewChecking::<T>::insert(
+                slash_info.slash_exec_time,
+                pending_review_checking,
+            );
 
             Self::deposit_event(Event::ApplySlashReview(slash_id));
             Ok(().into())
@@ -984,8 +1131,12 @@ impl<T: Config> Pallet<T> {
         // 下线机器，并退还奖励
         Self::change_pos_info_on_exit(&machine_info);
         Self::update_snap_by_online_status(machine_id.clone(), false);
-        Self::change_user_total_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
-            .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+        Self::change_user_total_stake(
+            machine_info.machine_stash.clone(),
+            machine_info.stake_amount,
+            false,
+        )
+        .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
         machine_info.stake_amount = Zero::zero();
         machine_info.machine_status = MachineStatus::Exit;
@@ -1033,8 +1184,8 @@ impl<T: Config> Pallet<T> {
 
         let (sig_machine_id, sig_stash_account) = (msg[..64].to_vec(), msg[64..].to_vec());
         ensure!(machine_id == sig_machine_id, Error::<T>::SigMachineIdNotEqualBondedMachineId);
-        let sig_stash_account =
-            Self::get_account_from_str(&sig_stash_account).ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
+        let sig_stash_account = Self::get_account_from_str(&sig_stash_account)
+            .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
         ensure!(sig_stash_account == stash, Error::<T>::MachineStashNotEqualControllerStash);
 
         // 验证签名是否为MachineId发出
@@ -1051,12 +1202,20 @@ impl<T: Config> Pallet<T> {
         Self::change_user_total_stake(slash_info.slash_who.clone(), slash_info.slash_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
-        Self::change_user_total_stake(slash_info.slash_who.clone(), pending_slash_review.staked_amount, false)
-            .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+        Self::change_user_total_stake(
+            slash_info.slash_who.clone(),
+            pending_slash_review.staked_amount,
+            false,
+        )
+        .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
-        let mut pending_review_checking = Self::pending_slash_review_checking(slash_info.slash_exec_time);
+        let mut pending_review_checking =
+            Self::pending_slash_review_checking(slash_info.slash_exec_time);
         ItemList::rm_item(&mut pending_review_checking, &slash_id);
-        PendingSlashReviewChecking::<T>::insert(slash_info.slash_exec_time, pending_review_checking);
+        PendingSlashReviewChecking::<T>::insert(
+            slash_info.slash_exec_time,
+            pending_review_checking,
+        );
 
         let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
         ItemList::rm_item(&mut pending_exec_slash, &slash_id);
@@ -1065,12 +1224,19 @@ impl<T: Config> Pallet<T> {
         PendingSlash::<T>::remove(slash_id);
         PendingSlashReview::<T>::remove(slash_id);
 
-        Self::deposit_event(Event::SlashCanceled(slash_id, slash_info.slash_who, slash_info.slash_amount));
+        Self::deposit_event(Event::SlashCanceled(
+            slash_id,
+            slash_info.slash_who,
+            slash_info.slash_amount,
+        ));
         Ok(().into())
     }
 
     /// 暂时下架机器
-    fn machine_offline(machine_id: MachineId, machine_status: MachineStatus<T::BlockNumber, T::AccountId>) {
+    fn machine_offline(
+        machine_id: MachineId,
+        machine_status: MachineStatus<T::BlockNumber, T::AccountId>,
+    ) {
         let mut machine_info = Self::machines_info(&machine_id);
         let mut live_machine = Self::live_machines();
 
@@ -1111,7 +1277,9 @@ impl<T: Config> Pallet<T> {
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
     }
 
-    fn change_pos_info_on_exit(machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>) {
+    fn change_pos_info_on_exit(
+        machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+    ) {
         let longitude = machine_info.longitude();
         let latitude = machine_info.latitude();
         let gpu_num = machine_info.gpu_num();
@@ -1142,7 +1310,11 @@ impl<T: Config> Pallet<T> {
         PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
     }
 
-    fn change_user_total_stake(who: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+    fn change_user_total_stake(
+        who: T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> Result<(), ()> {
         let mut stash_stake = Self::stash_stake(&who);
         let mut sys_info = Self::sys_info();
 
@@ -1174,17 +1346,16 @@ impl<T: Config> Pallet<T> {
         let next_era_stash_snapshot = Self::eras_stash_points(era_index);
 
         if let Some(stash_snapshot) = next_era_stash_snapshot.staker_statistic.get(stash) {
-            return stash_snapshot.total_grades().unwrap_or_default();
+            return stash_snapshot.total_grades().unwrap_or_default()
         }
         0
     }
 
     // When Online:
-    // - Writes:(currentEra) ErasStashPoints, ErasMachinePoints,
-    //   SysInfo, StashMachines
+    // - Writes:(currentEra) ErasStashPoints, ErasMachinePoints, SysInfo, StashMachines
     // When Offline:
-    // - Writes: (currentEra) ErasStashPoints, ErasMachinePoints, (nextEra) ErasStashPoints, ErasMachinePoints
-    //   SysInfo, StashMachines
+    // - Writes: (currentEra) ErasStashPoints, ErasMachinePoints, (nextEra) ErasStashPoints,
+    //   ErasMachinePoints SysInfo, StashMachines
     fn update_snap_by_online_status(machine_id: MachineId, is_online: bool) {
         let machine_info = Self::machines_info(&machine_id);
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info.clone();
@@ -1216,8 +1387,10 @@ impl<T: Config> Pallet<T> {
 
             ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
 
-            stash_machine.total_gpu_num = stash_machine.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
-            sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
+            stash_machine.total_gpu_num =
+                stash_machine.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
+            sys_info.total_gpu_num =
+                sys_info.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
         } else {
             if current_era_is_online {
                 // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
@@ -1233,8 +1406,10 @@ impl<T: Config> Pallet<T> {
             }
 
             ItemList::rm_item(&mut stash_machine.online_machine, &machine_id);
-            stash_machine.total_gpu_num = stash_machine.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
-            sys_info.total_gpu_num = sys_info.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
+            stash_machine.total_gpu_num =
+                stash_machine.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
+            sys_info.total_gpu_num =
+                sys_info.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
         }
 
         // 机器上线或者下线都会影响下一era得分，而只有下线才影响当前era得分
@@ -1246,11 +1421,13 @@ impl<T: Config> Pallet<T> {
         }
 
         let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
-        stash_machine.total_calc_points = stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
+        stash_machine.total_calc_points =
+            stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
         sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
         // NOTE: 5000张卡开启银河竞赛
-        if !Self::galaxy_is_on() && sys_info.total_gpu_num >= Self::galaxy_on_gpu_threshold() as u64 {
+        if !Self::galaxy_is_on() && sys_info.total_gpu_num >= Self::galaxy_on_gpu_threshold() as u64
+        {
             let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
             phase_reward_info.galaxy_on_era = current_era;
             PhaseRewardInfo::<T>::put(phase_reward_info);
@@ -1297,8 +1474,10 @@ impl<T: Config> Pallet<T> {
             machine_info.calc_point(),
             is_rented,
         );
-        next_era_machine_snap
-            .insert(machine_id.clone(), MachineGradeStatus { basic_grade: machine_info.calc_point(), is_rented });
+        next_era_machine_snap.insert(
+            machine_id.clone(),
+            MachineGradeStatus { basic_grade: machine_info.calc_point(), is_rented },
+        );
 
         if !is_rented {
             if current_era_is_rented {
@@ -1309,8 +1488,10 @@ impl<T: Config> Pallet<T> {
                 );
             }
 
-            current_era_machine_snap
-                .insert(machine_id, MachineGradeStatus { basic_grade: machine_info.calc_point(), is_rented });
+            current_era_machine_snap.insert(
+                machine_id,
+                MachineGradeStatus { basic_grade: machine_info.calc_point(), is_rented },
+            );
         }
 
         // 被租用或者退租都影响下一Era记录，而退租直接影响当前得分
@@ -1329,7 +1510,8 @@ impl<T: Config> Pallet<T> {
         }
 
         let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
-        stash_machine.total_calc_points = stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
+        stash_machine.total_calc_points =
+            stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
         sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
 
         SysInfo::<T>::put(sys_info);

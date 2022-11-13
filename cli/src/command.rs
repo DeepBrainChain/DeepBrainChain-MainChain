@@ -54,7 +54,8 @@ impl SubstrateCli for Cli {
             "local" => Box::new(chain_spec::local_testnet_config()),
             "fir" | "flaming-fir" => Box::new(chain_spec::flaming_fir_config()?),
             "staging" => Box::new(chain_spec::staging_testnet_config()),
-            path => Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+            path =>
+                Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
         };
         Ok(spec)
     }
@@ -84,7 +85,7 @@ pub fn run() -> Result<()> {
 
             runner.sync_run(|config| cmd.run::<Block, RuntimeApi, Executor>(config))
         },
-        Some(Subcommand::Benchmark(cmd)) => {
+        Some(Subcommand::Benchmark(cmd)) =>
             if cfg!(feature = "runtime-benchmarks") {
                 let runner = cli.create_runner(cmd)?;
 
@@ -93,8 +94,7 @@ pub fn run() -> Result<()> {
                 Err("Benchmarking wasn't enabled when building the node. \
 				You can enable it with `--features runtime-benchmarks`."
                     .into())
-            }
-        },
+            },
         Some(Subcommand::Key(cmd)) => cmd.run(&cli),
         Some(Subcommand::Sign(cmd)) => cmd.run(),
         Some(Subcommand::Verify(cmd)) => cmd.run(),
@@ -106,7 +106,8 @@ pub fn run() -> Result<()> {
         Some(Subcommand::CheckBlock(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|config| {
-                let PartialComponents { client, task_manager, import_queue, .. } = new_partial(&config)?;
+                let PartialComponents { client, task_manager, import_queue, .. } =
+                    new_partial(&config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         },
@@ -127,7 +128,8 @@ pub fn run() -> Result<()> {
         Some(Subcommand::ImportBlocks(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|config| {
-                let PartialComponents { client, task_manager, import_queue, .. } = new_partial(&config)?;
+                let PartialComponents { client, task_manager, import_queue, .. } =
+                    new_partial(&config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         },

@@ -172,7 +172,9 @@ fn reset_controller_works() {
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let pre_controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let post_controller = sr25519::Public::from(Sr25519Keyring::Dave);
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         assert_ok!(OnlineProfile::stash_reset_controller(Origin::signed(stash), post_controller));
 
@@ -199,7 +201,9 @@ fn galaxy_on_works() {
 #[test]
 fn machine_exit_works() {
     new_test_ext_after_machine_online().execute_with(|| {
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
@@ -217,11 +221,16 @@ fn machine_exit_works() {
             assert_eq!(machine_info.machine_status, MachineStatus::Exit);
 
             // PosGPUInfo已经被清空
-            assert!(!PosGPUInfo::<TestRuntime>::contains_key(machine_info.longitude(), machine_info.latitude()));
+            assert!(!PosGPUInfo::<TestRuntime>::contains_key(
+                machine_info.longitude(),
+                machine_info.latitude()
+            ));
             // 从live_machine中被删除
 
             // 从controller_machines中删除
-            assert!(OnlineProfile::controller_machines(&controller).binary_search(&machine_id).is_err());
+            assert!(OnlineProfile::controller_machines(&controller)
+                .binary_search(&machine_id)
+                .is_err());
 
             // ErasMachinePoints不应该再存在该变量
 

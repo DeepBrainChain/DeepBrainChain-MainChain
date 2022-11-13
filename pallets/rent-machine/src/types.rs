@@ -51,7 +51,7 @@ impl MachineGPUOrder {
 
         for i in 0..total_gpu {
             if out.len() == need_gpu as usize {
-                return out;
+                return out
             }
 
             if self.used_gpu.binary_search(&i).is_err() {

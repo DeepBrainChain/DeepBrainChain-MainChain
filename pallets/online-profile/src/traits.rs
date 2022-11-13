@@ -1,7 +1,7 @@
 use crate::{
-    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward, MachineRentedGPU, MachinesInfo,
-    Pallet, PendingExecSlash, PendingOfflineSlash, PendingSlash, RentedFinished, StashMachines, StashStake, SysInfo,
-    UserMutHardwareStake,
+    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward,
+    MachineRentedGPU, MachinesInfo, Pallet, PendingExecSlash, PendingOfflineSlash, PendingSlash,
+    RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
 use dbc_support::traits::{MTOps, OCOps, OPRPCQuery, RTOps};
 use frame_support::IterableStorageMap;
@@ -62,7 +62,8 @@ impl<T: Config> OCOps for Pallet<T> {
         let mut machine_info = Self::machines_info(&machine_id);
         let mut live_machines = Self::live_machines();
 
-        let is_reonline = UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
+        let is_reonline =
+            UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
 
         ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
 
@@ -77,7 +78,9 @@ impl<T: Config> OCOps for Pallet<T> {
             .checked_mul(&committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>())
             .ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
-            if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true).is_ok() {
+            if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true)
+                .is_ok()
+            {
                 ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
                 machine_info.stake_amount = stake_need;
                 machine_info.machine_status = MachineStatus::Online;
@@ -105,7 +108,8 @@ impl<T: Config> OCOps for Pallet<T> {
 
         if is_reonline {
             // 根据质押，奖励给这些委员会
-            let reonline_stake = Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
+            let reonline_stake =
+                Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
             let _ = Self::slash_and_reward(
                 machine_info.machine_stash.clone(),
@@ -121,10 +125,15 @@ impl<T: Config> OCOps for Pallet<T> {
 
             if is_reonline {
                 // 仅在Oline成功时删掉reonline_stake记录，以便补充质押时惩罚时检查状态
-                let reonline_stake =
-                    Self::user_mut_hardware_stake(&machine_info.machine_stash, &committee_upload_info.machine_id);
+                let reonline_stake = Self::user_mut_hardware_stake(
+                    &machine_info.machine_stash,
+                    &committee_upload_info.machine_id,
+                );
 
-                UserMutHardwareStake::<T>::remove(&machine_info.machine_stash, &committee_upload_info.machine_id);
+                UserMutHardwareStake::<T>::remove(
+                    &machine_info.machine_stash,
+                    &committee_upload_info.machine_id,
+                );
 
                 // 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
                 let offline_duration = now - reonline_stake.offline_time;
@@ -160,23 +169,26 @@ impl<T: Config> OCOps for Pallet<T> {
         Ok(())
     }
 
-    // When committees reach an agreement to refuse machine, change machine status and record refuse time
+    // When committees reach an agreement to refuse machine, change machine status and record refuse
+    // time
     fn oc_refuse_machine(machine_id: MachineId) -> Option<(T::AccountId, BalanceOf<T>)> {
         // Refuse controller bond machine, and clean storage
         let machine_info = Self::machines_info(&machine_id);
         let mut live_machines = Self::live_machines();
 
-        // In case this offline is for change hardware info, when reonline is refused, reward to committee and
-        // machine info should not be deleted
-        let is_mut_hardware = UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
+        // In case this offline is for change hardware info, when reonline is refused, reward to
+        // committee and machine info should not be deleted
+        let is_mut_hardware =
+            UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
         if is_mut_hardware {
-            let reonline_stake = Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
+            let reonline_stake =
+                Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
             ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
             ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
 
             LiveMachines::<T>::put(live_machines);
-            return Some((machine_info.machine_stash, reonline_stake.stake_amount));
+            return Some((machine_info.machine_stash, reonline_stake.stake_amount))
         }
 
         // let mut sys_info = Self::sys_info();
@@ -189,7 +201,8 @@ impl<T: Config> OCOps for Pallet<T> {
         let left_stake = machine_info.stake_amount.checked_sub(&slash)?;
         // Remain 5% of init stake(5% of one gpu stake)
         // Return 95% left stake(95% of one gpu stake)
-        let _ = Self::change_user_total_stake(machine_info.machine_stash.clone(), left_stake, false);
+        let _ =
+            Self::change_user_total_stake(machine_info.machine_stash.clone(), left_stake, false);
 
         // Clean storage
         ItemList::rm_item(&mut controller_machines, &machine_id);
@@ -209,7 +222,11 @@ impl<T: Config> OCOps for Pallet<T> {
 
     // stake some balance when apply for slash review
     // Should stake some balance when apply for slash review
-    fn oc_change_staked_balance(stash: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+    fn oc_change_staked_balance(
+        stash: T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> Result<(), ()> {
         Self::change_user_total_stake(stash, amount, is_add)
     }
 
@@ -240,7 +257,7 @@ impl<T: Config> RTOps for Pallet<T> {
     // machine_price = standard_price * machine_point / standard_point
     fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64> {
         if total_gpu == 0 {
-            return None;
+            return None
         }
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
         standard_gpu_point_price
@@ -304,7 +321,7 @@ impl<T: Config> RTOps for Pallet<T> {
         // 租用结束
         let gpu_num = machine_info.gpu_num();
         if gpu_num == 0 {
-            return;
+            return
         }
         machine_info.total_rented_duration +=
             Perbill::from_rational_approximation(rented_gpu_num, gpu_num) * rent_duration;
@@ -418,7 +435,11 @@ impl<T: Config> MTOps for Pallet<T> {
 
     // stake some balance when apply for slash review
     // Should stake some balance when apply for slash review
-    fn mt_change_staked_balance(stash: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+    fn mt_change_staked_balance(
+        stash: T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> Result<(), ()> {
         Self::change_user_total_stake(stash, amount, is_add)
     }
 

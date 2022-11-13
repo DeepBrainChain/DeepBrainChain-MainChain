@@ -60,16 +60,26 @@ impl ToString for SubCommand {
 }
 
 impl<'a> ExportImportRevertExecutor<'a> {
-    fn new(base_path: &'a TempDir, exported_blocks_file: &'a PathBuf, db_path: &'a PathBuf) -> Self {
+    fn new(
+        base_path: &'a TempDir,
+        exported_blocks_file: &'a PathBuf,
+        db_path: &'a PathBuf,
+    ) -> Self {
         Self { base_path, exported_blocks_file, db_path, num_exported_blocks: None }
     }
 
     /// Helper method to run a command. Returns a string corresponding to what has been logged.
-    fn run_block_command(&self, sub_command: SubCommand, format_opt: FormatOpt, expected_to_fail: bool) -> String {
+    fn run_block_command(
+        &self,
+        sub_command: SubCommand,
+        format_opt: FormatOpt,
+        expected_to_fail: bool,
+    ) -> String {
         let sub_command_str = sub_command.to_string();
         // Adding "--binary" if need be.
         let arguments: Vec<&str> = match format_opt {
-            FormatOpt::Binary => vec![&sub_command_str, "--dev", "--pruning", "archive", "--binary", "-d"],
+            FormatOpt::Binary =>
+                vec![&sub_command_str, "--dev", "--pruning", "archive", "--binary", "-d"],
             FormatOpt::Json => vec![&sub_command_str, "--dev", "--pruning", "archive", "-d"],
         };
 
@@ -131,7 +141,8 @@ impl<'a> ExportImportRevertExecutor<'a> {
         if !expected_to_fail {
             // Using regex to find out how much block we imported,
             // and what's the best current block.
-            let re = Regex::new(r"Imported (?P<imported>\d*) blocks. Best: #(?P<best>\d*)").unwrap();
+            let re =
+                Regex::new(r"Imported (?P<imported>\d*) blocks. Best: #(?P<best>\d*)").unwrap();
             let caps = re.captures(&log).expect("capture should have succeeded");
             let imported = caps["imported"].parse::<u64>().unwrap();
             let best = caps["best"].parse::<u64>().unwrap();
