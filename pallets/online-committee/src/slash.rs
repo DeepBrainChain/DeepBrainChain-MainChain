@@ -104,17 +104,13 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
-        // Change committee stake amount
-        Self::change_committee_stake(
-            slash_info.inconsistent_committee.clone(),
-            slash_info.committee_stake,
-            true,
-        )?;
-        Self::change_committee_stake(
-            slash_info.unruly_committee.clone(),
-            slash_info.committee_stake,
-            true,
-        )?;
+        // 将资金退还给已经完成了任务的委员会（降低已使用的质押）
+        let mut slashed_committee = vec![];
+        slashed_committee.extend_from_slice(&slash_info.inconsistent_committee);
+        slashed_committee.extend_from_slice(&slash_info.unruly_committee);
+
+        Self::change_committee_stake(slashed_committee.clone(), slash_info.committee_stake, true)?;
+
         Self::change_committee_stake(
             slash_info.reward_committee.clone(),
             slash_info.committee_stake,
@@ -122,13 +118,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         <T as Config>::SlashAndReward::slash_and_reward(
-            slash_info.unruly_committee.clone(),
-            slash_info.committee_stake,
-            vec![],
-        )?;
-
-        <T as Config>::SlashAndReward::slash_and_reward(
-            slash_info.inconsistent_committee.clone(),
+            slashed_committee,
             slash_info.committee_stake,
             vec![],
         )?;
