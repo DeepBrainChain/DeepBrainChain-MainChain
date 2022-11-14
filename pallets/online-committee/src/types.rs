@@ -51,6 +51,21 @@ impl OCCommitteeMachineList {
         ItemList::add_item(&mut self.confirmed_machine, machine_id);
         Ok(())
     }
+
+    // 将要重新派单的机器从订单里清除
+    pub fn revert_book(&mut self, machine_id: &MachineId) {
+        ItemList::rm_item(&mut self.booked_machine, &machine_id);
+        ItemList::rm_item(&mut self.hashed_machine, &machine_id);
+        ItemList::rm_item(&mut self.confirmed_machine, &machine_id);
+    }
+
+    // 机器成功上线后，从其他字段中清理掉机器记录
+    // (如果未完成某一阶段的任务，机器ID将记录在那个阶段，需要进行清理)
+    pub fn online_cleanup(&mut self, machine_id: &MachineId) {
+        ItemList::rm_item(&mut self.booked_machine, &machine_id);
+        ItemList::rm_item(&mut self.hashed_machine, &machine_id);
+        ItemList::rm_item(&mut self.confirmed_machine, &machine_id);
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]

@@ -564,12 +564,9 @@ impl<T: Config> Pallet<T> {
             MachineSubmitedHash::<T>::remove(&machine_id);
 
             // 改变committee_machine
-            let mut committee_machine = Self::committee_machine(&a_committee);
-            ItemList::rm_item(&mut committee_machine.booked_machine, &machine_id);
-            ItemList::rm_item(&mut committee_machine.hashed_machine, &machine_id);
-            ItemList::rm_item(&mut committee_machine.confirmed_machine, &machine_id);
-
-            CommitteeMachine::<T>::insert(&a_committee, committee_machine);
+            CommitteeMachine::<T>::mutate(&a_committee, |committee_machine| {
+                committee_machine.online_cleanup(&machine_id)
+            });
         }
     }
 
@@ -582,13 +579,9 @@ impl<T: Config> Pallet<T> {
         // 清除预订了机器的委员会
         for booked_committee in machine_committee.booked_committee {
             CommitteeOps::<T>::remove(&booked_committee, &machine_id);
-
-            let mut committee_machine = Self::committee_machine(&booked_committee);
-            ItemList::rm_item(&mut committee_machine.booked_machine, &machine_id);
-            ItemList::rm_item(&mut committee_machine.hashed_machine, &machine_id);
-            ItemList::rm_item(&mut committee_machine.confirmed_machine, &machine_id);
-
-            CommitteeMachine::<T>::insert(booked_committee, committee_machine);
+            CommitteeMachine::<T>::mutate(&booked_committee, |committee_machine| {
+                committee_machine.revert_book(&machine_id)
+            })
         }
 
         MachineCommittee::<T>::remove(&machine_id);
