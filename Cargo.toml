@@ -30,6 +30,9 @@ members = [
   'pallets/rent-machine/rpc',
   'pallets/rent-machine/rpc/runtime-api',
   'pallets/support',
+  'pallets/terminating-rental',
+  'pallets/terminating-rental/rpc',
+  'pallets/terminating-rental/rpc/runtime-api',
 ]
 
 [profile.release]

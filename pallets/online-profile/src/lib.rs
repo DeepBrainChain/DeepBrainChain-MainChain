@@ -425,6 +425,7 @@ pub mod pallet {
                 !<ControllerStash<T>>::contains_key(&controller),
                 Error::<T>::AlreadyController
             );
+            ensure!(!<StashController<T>>::contains_key(&stash), Error::<T>::AlreadyController);
 
             StashController::<T>::insert(stash.clone(), controller.clone());
             ControllerStash::<T>::insert(controller.clone(), stash.clone());

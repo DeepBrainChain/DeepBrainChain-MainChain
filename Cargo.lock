@@ -1359,6 +1359,9 @@ dependencies = [
 name = "dbc-support"
 version = "0.1.0"
 dependencies = [
+ "bs58",
+ "sp-core",
+ "sp-runtime",
  "sp-std",
 ]
 
@@ -4101,6 +4104,8 @@ dependencies = [
  "sp-runtime",
  "sp-transaction-pool",
  "substrate-frame-rpc-system",
+ "terminating-rental-rpc",
+ "terminating-rental-runtime-api",
 ]
 
 [[package]]
@@ -4200,6 +4205,8 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
+ "terminating-rental",
+ "terminating-rental-runtime-api",
 ]
 
 [[package]]
@@ -8897,6 +8904,60 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "terminating-rental"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "committee",
+ "dbc-price-ocw",
+ "dbc-support",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "online-committee",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "terminating-rental-rpc"
+version = "0.1.0"
+dependencies = [
+ "generic-func",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+ "terminating-rental",
+ "terminating-rental-runtime-api",
+]
+
+[[package]]
+name = "terminating-rental-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "generic-func",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+ "terminating-rental",
 ]
 
 [[package]]

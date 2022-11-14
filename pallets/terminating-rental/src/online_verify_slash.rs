@@ -1,0 +1,103 @@
+use crate::{BalanceOf, Config, IRSlashResult, Pallet, PendingSlash, StashStake, UnhandledSlash};
+use dbc_support::traits::{GNOps, ManageCommittee};
+use generic_func::{ItemList, SlashId};
+use sp_runtime::traits::{CheckedSub, Zero};
+use sp_std::{vec, vec::Vec};
+
+impl<T: Config> Pallet<T> {
+    fn change_committee_stake(
+        committee_list: Vec<T::AccountId>,
+        amount: BalanceOf<T>,
+        is_slash: bool,
+    ) -> Result<(), ()> {
+        for a_committee in committee_list {
+            if is_slash {
+                <T as Config>::ManageCommittee::change_total_stake(
+                    a_committee.clone(),
+                    amount,
+                    false,
+                    false,
+                )?;
+            }
+
+            <T as Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
+        }
+
+        Ok(())
+    }
+
+    // just change stash_stake & sys_info, slash and reward should be execed in oc module
+    fn oc_exec_slash(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        let mut stash_stake = Self::stash_stake(&stash);
+
+        stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
+
+        StashStake::<T>::insert(&stash, stash_stake);
+        Ok(())
+    }
+
+    pub fn check_and_exec_pending_slash() {
+        let mut pending_unhandled_id = Self::unhandled_slash();
+
+        for slash_id in pending_unhandled_id.clone() {
+            if Self::do_a_slash(slash_id, &mut pending_unhandled_id).is_err() {
+                continue
+            };
+        }
+        UnhandledSlash::<T>::put(pending_unhandled_id);
+    }
+
+    fn do_a_slash(slash_id: SlashId, pending_unhandled_slash: &mut Vec<SlashId>) -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+        let mut slash_info = Self::pending_slash(slash_id);
+        if now < slash_info.slash_exec_time {
+            return Ok(())
+        }
+
+        if !slash_info.stash_slash_amount.is_zero() {
+            // stash is slashed
+            Self::oc_exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount)?;
+
+            <T as Config>::SlashAndReward::slash_and_reward(
+                vec![slash_info.machine_stash.clone()],
+                slash_info.stash_slash_amount,
+                slash_info.reward_committee.clone(),
+            )?;
+        }
+
+        // Change committee stake amount
+        Self::change_committee_stake(
+            slash_info.inconsistent_committee.clone(),
+            slash_info.committee_stake,
+            true,
+        )?;
+        Self::change_committee_stake(
+            slash_info.unruly_committee.clone(),
+            slash_info.committee_stake,
+            true,
+        )?;
+        Self::change_committee_stake(
+            slash_info.reward_committee.clone(),
+            slash_info.committee_stake,
+            false,
+        )?;
+
+        <T as Config>::SlashAndReward::slash_and_reward(
+            slash_info.unruly_committee.clone(),
+            slash_info.committee_stake,
+            vec![],
+        )?;
+
+        <T as Config>::SlashAndReward::slash_and_reward(
+            slash_info.inconsistent_committee.clone(),
+            slash_info.committee_stake,
+            vec![],
+        )?;
+
+        slash_info.slash_result = IRSlashResult::Executed;
+        ItemList::rm_item(pending_unhandled_slash, &slash_id);
+        PendingSlash::<T>::insert(slash_id, slash_info);
+
+        Ok(())
+    }
+}

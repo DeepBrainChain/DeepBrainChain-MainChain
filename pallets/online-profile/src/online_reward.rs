@@ -17,7 +17,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
 impl<T: Config> Pallet<T> {
     pub fn get_account_from_str(addr: &[u8]) -> Option<T::AccountId> {
-        let account_id32: [u8; 32] = crate::utils::get_accountid32(addr)?;
+        let account_id32: [u8; 32] = dbc_support::utils::get_accountid32(addr)?;
         T::AccountId::decode(&mut &account_id32[..]).ok()
     }
 

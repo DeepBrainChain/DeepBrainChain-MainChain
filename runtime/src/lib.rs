@@ -1087,6 +1087,15 @@ impl rent_machine::Config for Runtime {
     type DbcPrice = DBCPriceOCW;
 }
 
+impl terminating_rental::Config for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type Slash = Treasury;
+    type ManageCommittee = Committee;
+    type DbcPrice = DBCPriceOCW;
+    type SlashAndReward = GenericFunc;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1137,6 +1146,7 @@ construct_runtime!(
         OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
+        TerminatingRental: terminating_rental::{Module, Storage, Call, Event<T>},
     }
 );
 
@@ -1280,6 +1290,52 @@ impl_runtime_apis! {
     impl committee_runtime_api::CmRpcApi<Block, AccountId> for Runtime {
         fn get_committee_list() -> committee::CommitteeList<AccountId> {
             Committee::get_committee_list()
+        }
+    }
+
+    impl terminating_rental_runtime_api::IrRpcApi<Block, AccountId, Balance, BlockNumber> for Runtime {
+        fn get_total_staker_num() -> u64 {
+            TerminatingRental::get_total_staker_num()
+        }
+
+        fn get_staker_info(who: AccountId) -> terminating_rental::rpc_types::StakerInfo<Balance, BlockNumber, AccountId> {
+            TerminatingRental::get_staker_info(who)
+        }
+
+        fn get_machine_list() -> terminating_rental::IRLiveMachine {
+            TerminatingRental::get_machine_list()
+        }
+
+        fn get_machine_info(machine_id: MachineId) -> terminating_rental::IRMachineInfo<AccountId, BlockNumber, Balance> {
+            TerminatingRental::get_machine_info(machine_id)
+        }
+
+        fn get_committee_machine_list(committee: AccountId) -> terminating_rental::IRCommitteeMachineList {
+            TerminatingRental::get_committee_machine_list(committee)
+        }
+
+        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> terminating_rental::rpc_types::RpcIRCommitteeOps<BlockNumber, Balance> {
+            TerminatingRental::get_committee_ops(committee, machine_id)
+        }
+
+        fn get_machine_committee_list(machine_id: MachineId) -> terminating_rental::IRMachineCommitteeList<AccountId, BlockNumber> {
+            TerminatingRental::get_machine_committee_list(machine_id)
+        }
+
+        fn get_rent_order(rent_id: RentOrderId) -> terminating_rental::IRRentOrderDetail<AccountId, BlockNumber, Balance> {
+            TerminatingRental::get_rent_order(rent_id)
+        }
+
+        fn get_rent_list(renter: AccountId) -> Vec<RentOrderId> {
+            TerminatingRental::get_rent_list(renter)
+        }
+
+        fn is_machine_renter(machine_id: MachineId, renter: AccountId) -> bool {
+            TerminatingRental::is_machine_renter(machine_id, renter)
+        }
+
+        fn get_machine_rent_id(machine_id: MachineId) -> terminating_rental::IRMachineGPUOrder {
+            TerminatingRental::get_machine_rent_id(machine_id)
         }
     }
 
