@@ -315,6 +315,5 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         ));
     });
 
-    // storage.into()
     ext
 }

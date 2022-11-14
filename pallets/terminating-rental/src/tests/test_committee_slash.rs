@@ -1,10 +1,10 @@
 use crate::{
-    IRBookResultType, IRCommitteeMachineList, IRCommitteeOps, IRCommitteeUploadInfo, IRLiveMachine,
-    IRMachineCommitteeList, IRMachineInfo, IRMachineStatus, IRPendingSlashInfo, IRSlashResult,
-    IRStakerCustomizeInfo, IRStashMachine, IRVerifyMachineStatus, IRVerifyStatus,
+    IRBookResultType, IRCommitteeMachineList, IRCommitteeUploadInfo, IRLiveMachine,
+    IRMachineCommitteeList, IRPendingSlashInfo, IRSlashResult, IRStakerCustomizeInfo,
+    IRVerifyStatus,
 };
 
-use super::super::mock::{TerminatingRental as IRMachine, *};
+use super::super::mock::{TerminatingRental as IRMachine, INIT_BALANCE, *};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -74,7 +74,7 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
 #[test]
 fn committee_not_submit_slash_works() {
     new_test_after_machine_distribute().execute_with(|| {
-        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let _stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
@@ -174,8 +174,21 @@ fn committee_not_submit_slash_works() {
             );
         }
 
-        // 自动执行惩罚
+        // 自动执行惩罚: committee4 被惩罚，惩罚到国库
         run_to_block(4 + 4320 + 2880 * 2 + 1);
+        {
+            // committee4 is also machien controller
+            assert_eq!(
+                Balances::free_balance(committee4),
+                INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC
+            );
+            assert_eq!(Balances::free_balance(committee2), INIT_BALANCE - 20000 * ONE_DBC);
+            assert_eq!(Balances::free_balance(committee3), INIT_BALANCE - 20000 * ONE_DBC);
+
+            assert_eq!(Balances::reserved_balance(committee4), 20000 * ONE_DBC - 1000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(committee2), 20000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(committee3), 20000 * ONE_DBC);
+        }
     })
 }
 
