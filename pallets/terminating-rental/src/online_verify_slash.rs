@@ -61,7 +61,8 @@ impl<T: Config> Pallet<T> {
             <T as Config>::SlashAndReward::slash_and_reward(
                 vec![slash_info.machine_stash.clone()],
                 slash_info.stash_slash_amount,
-                slash_info.reward_committee.clone(),
+                // 拒绝上线，将stash质押的金额惩罚到国库，而不用来奖励委员会
+                vec![],
             )?;
         }
 

@@ -1,7 +1,7 @@
 use crate::{
     IRBookResultType, IRCommitteeMachineList, IRCommitteeUploadInfo, IRLiveMachine,
-    IRMachineCommitteeList, IRPendingSlashInfo, IRSlashResult, IRStakerCustomizeInfo,
-    IRVerifyStatus,
+    IRMachineCommitteeList, IRMachineStatus, IRPendingSlashInfo, IRSlashResult,
+    IRStakerCustomizeInfo, IRStashMachine, IRVerifyStatus,
 };
 
 use super::super::mock::{TerminatingRental as IRMachine, INIT_BALANCE, *};
@@ -70,7 +70,7 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
     ext
 }
 
-//  1. Commttee not submit hash works
+//  1. Commttee not submit hash
 #[test]
 fn committee_not_submit_slash_works() {
     new_test_after_machine_distribute().execute_with(|| {
@@ -192,11 +192,133 @@ fn committee_not_submit_slash_works() {
     })
 }
 
-//  2. Commttee not submit hash
+//  2. Commttee not submit raw
 #[test]
 fn committee_not_submit_raw_slash_works() {
     new_test_after_machine_distribute().execute_with(|| {
         //
+    })
+}
+
+// 机器被拒绝后，惩罚矿工
+// 机器上链需要验证，每台机器上链需要10000dbc作为保证金，当验证通过保证金解锁，
+// 如果验证没通过保证金没收进入国库。
+#[test]
+fn machine_refused_slash_works() {
+    new_test_after_machine_distribute().execute_with(|| {
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
+        let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
+
+        // 委员会添加机器Hash
+
+        let hash1: [u8; 16] =
+            hex::decode("cee14a520ba6a988c306aab9dc3794b1").unwrap().try_into().unwrap();
+        let hash2: [u8; 16] =
+            hex::decode("8c7e7ca563169689f1c789f8d4f510f8").unwrap().try_into().unwrap();
+        let hash3: [u8; 16] =
+            hex::decode("73af18cb31a2ebbea4eab9e9e519539e").unwrap().try_into().unwrap();
+
+        assert_ok!(IRMachine::submit_confirm_hash(
+            Origin::signed(committee2),
+            machine_id.clone(),
+            hash1
+        ));
+        assert_ok!(IRMachine::submit_confirm_hash(
+            Origin::signed(committee3),
+            machine_id.clone(),
+            hash2
+        ));
+        assert_ok!(IRMachine::submit_confirm_hash(
+            Origin::signed(committee4),
+            machine_id.clone(),
+            hash3
+        ));
+
+        // 委员会提交原始信息
+        let mut upload_info = IRCommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
+            gpu_num: 4,
+            cuda_core: 8704,
+            gpu_mem: 10,
+            calc_point: 59890,
+            sys_disk: 500,
+            data_disk: 3905,
+            cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
+            cpu_core_num: 46,
+            cpu_rate: 2400,
+            mem_num: 440,
+
+            rand_str: "abcdefg1".as_bytes().to_vec(),
+            is_support: false,
+        };
+
+        // 委员会添加机器原始值
+        assert_ok!(IRMachine::submit_confirm_raw(Origin::signed(committee2), upload_info.clone()));
+        upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
+        assert_ok!(IRMachine::submit_confirm_raw(Origin::signed(committee3), upload_info.clone()));
+        upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
+        assert_ok!(IRMachine::submit_confirm_raw(Origin::signed(committee4), upload_info.clone()));
+
+        run_to_block(4);
+        {
+            assert_eq!(
+                IRMachine::live_machines(),
+                IRLiveMachine { refused_machine: vec![machine_id.clone()], ..Default::default() }
+            );
+            let machine_info = IRMachine::machines_info(&machine_id);
+            // MachineInfo 被删除
+            assert_eq!(machine_info.machine_status, IRMachineStatus::AddingCustomizeInfo);
+            assert_eq!(IRMachine::stash_machines(&stash), IRStashMachine::default());
+
+            // 当机器审核通过，应该解锁保证金
+            assert_eq!(Balances::free_balance(stash), INIT_BALANCE - 10000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(stash), 10000 * ONE_DBC);
+
+            // 检查惩罚
+            assert_eq!(
+                IRMachine::pending_slash(0),
+                IRPendingSlashInfo {
+                    machine_id: machine_id.clone(),
+                    machine_stash: stash,
+                    stash_slash_amount: 10000 * ONE_DBC,
+                    committee_stake: 1000 * ONE_DBC,
+
+                    reward_committee: vec![committee3, committee2, committee4],
+
+                    slash_time: 4,
+                    slash_exec_time: 4 + 2880 * 2,
+
+                    book_result: IRBookResultType::OnlineRefused,
+                    slash_result: IRSlashResult::Pending,
+                    ..Default::default()
+                }
+            );
+        }
+
+        run_to_block(4 + 2880 * 2 + 1);
+        {
+            assert_eq!(Balances::free_balance(stash), INIT_BALANCE - 10000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(stash), 0);
+
+            assert_eq!(Balances::free_balance(committee2), INIT_BALANCE - 20000 * ONE_DBC);
+            assert_eq!(Balances::free_balance(committee3), INIT_BALANCE - 20000 * ONE_DBC);
+            // 为controller，多支付10 DBC
+            assert_eq!(
+                Balances::free_balance(committee4),
+                INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC
+            );
+
+            assert_eq!(Balances::reserved_balance(committee2), 20000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(committee3), 20000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(committee4), 20000 * ONE_DBC);
+        }
     })
 }
 
