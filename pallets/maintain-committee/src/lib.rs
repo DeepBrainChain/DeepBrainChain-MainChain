@@ -189,20 +189,14 @@ pub mod pallet {
 
             let mut live_report = Self::live_report();
             let mut reporter_report = Self::reporter_report(&reporter);
-            let stake_params =
-                Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // 支付
-            if let MachineFaultType::RentedInaccessible(_machine_id, rent_order_id) =
-                report_reason.clone()
-            {
-                // 检查是否是机器租用者
+            if let MachineFaultType::RentedInaccessible(_, rent_order_id) = report_reason.clone() {
                 let rent_info = <rent_machine::Module<T>>::rent_info(&rent_order_id);
                 ensure!(rent_info.renter == reporter, Error::<T>::NotMachineRenter);
-                <generic_func::Module<T>>::pay_fixed_tx_fee(reporter.clone())
-                    .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+                Self::pay_fixed_tx_fee(reporter.clone())?;
             }
-            Self::pay_stake_when_report(reporter.clone(), &stake_params)?;
+            Self::pay_stake_when_report(reporter.clone())?;
 
             Self::do_report_machine_fault(
                 reporter.clone(),
@@ -253,8 +247,14 @@ pub mod pallet {
             ReporterStake::<T>::mutate(&reporter, |reporter_stake| {
                 reporter_stake.change_stake_on_report_close(report_info.reporter_stake, false);
             });
+            LiveReport::<T>::mutate(|live_report| {
+                live_report.cancel_report(&report_id);
+            });
+            ReporterReport::<T>::mutate(&reporter, |reporter_report| {
+                reporter_report.cancel_report(report_id);
+            });
+            ReportInfo::<T>::remove(&report_id);
 
-            Self::do_reporter_cancel_report(&reporter, report_id);
             Self::deposit_event(Event::ReportCanceld(
                 reporter,
                 report_id,
@@ -270,33 +270,16 @@ pub mod pallet {
             report_id: ReportId,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-
-            ensure!(
-                <T as pallet::Config>::ManageCommittee::is_valid_committee(&committee),
-                Error::<T>::NotCommittee
-            );
+            Self::is_valid_committee(&committee)?;
 
             let mut report_info = Self::report_info(report_id);
             // 检查订单是否可以抢定
-            ensure!(report_info.report_time != Zero::zero(), Error::<T>::OrderNotAllowBook);
-            ensure!(
-                report_info.report_status == ReportStatus::Reported ||
-                    report_info.report_status == ReportStatus::WaitingBook,
-                Error::<T>::OrderNotAllowBook
-            );
-            ensure!(report_info.booked_committee.len() < 3, Error::<T>::OrderNotAllowBook);
-            ensure!(
-                report_info.booked_committee.binary_search(&committee).is_err(),
-                Error::<T>::AlreadyBooked
-            );
-
-            let order_stake = <T as pallet::Config>::ManageCommittee::stake_per_order()
-                .ok_or(Error::<T>::GetStakeAmountFailed)?;
+            report_info.committee_can_book(&committee).map_err::<Error<T>, _>(Into::into)?;
+            let order_stake = Self::get_stake_per_order()?;
 
             // 支付手续费或押金: 10 DBC | 1000 DBC
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-                <generic_func::Module<T>>::pay_fixed_tx_fee(committee.clone())
-                    .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+                Self::pay_fixed_tx_fee(committee.clone())?;
             } else {
                 <T as pallet::Config>::ManageCommittee::change_used_stake(
                     committee.clone(),
@@ -598,7 +581,7 @@ pub mod pallet {
             // NOTE: here, should add total stake and **also add used stake**
             if is_slashed_reporter {
                 Self::change_reporter_stake(applicant.clone(), stake_per_report, true)?;
-                Self::pay_stake_when_report(applicant.clone(), &reporter_stake_params)?;
+                Self::pay_stake_when_report(applicant.clone())?;
             } else if is_slashed_committee {
                 // Change committee stake
                 <T as pallet::Config>::ManageCommittee::change_total_stake(
@@ -782,21 +765,17 @@ impl<T: Config> Pallet<T> {
         let mut reporter_stake = Self::reporter_stake(&reporter);
 
         if is_add {
-            ensure!(
-                <T as Config>::Currency::can_reserve(&reporter, amount),
-                Error::<T>::BalanceNotEnough
-            );
-            reporter_stake.staked_amount += amount;
+            reporter_stake.staked_amount = reporter_stake.staked_amount.saturating_add(amount);
         } else {
-            ensure!(reporter_stake.staked_amount >= amount, Error::<T>::BalanceNotEnough);
             reporter_stake.staked_amount = reporter_stake.staked_amount.saturating_sub(amount);
+        }
+
+        if is_add || reporter_stake.used_stake > Zero::zero() {
             ensure!(
                 reporter_stake.staked_amount >= reporter_stake.used_stake,
                 Error::<T>::StakeNotEnough
             );
-        }
 
-        if reporter_stake.used_stake > Zero::zero() || is_add {
             ensure!(
                 reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake) >=
                     stake_params.min_free_stake_percent * reporter_stake.staked_amount,
@@ -830,45 +809,24 @@ impl<T: Config> Pallet<T> {
         // 获取处理报告需要的信息
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
         let report_id = Self::get_new_report_id();
-
         let report_time = report_time.unwrap_or_else(|| <frame_system::Module<T>>::block_number());
 
-        let mut report_info = MTReportInfoDetail::new(
-            reporter.clone(),
-            report_time,
-            machine_fault_type.clone(),
-            stake_params.stake_per_report,
-        );
-
-        // 该类型错误可以由程序快速完成检测，因此可以提交并需记录machine_id
-        if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) =
-            machine_fault_type.clone()
-        {
-            report_info.machine_id = machine_id;
-            report_info.rent_order_id = rent_order_id;
-        }
-
         // 记录到 live_report & reporter_report
-        ItemList::add_item(&mut live_report.bookable_report, report_id);
-        ItemList::add_item(&mut reporter_report.processing_report, report_id);
+        live_report.new_report(report_id);
+        reporter_report.new_report(report_id);
 
-        ReportInfo::<T>::insert(&report_id, report_info);
+        ReportInfo::<T>::insert(
+            &report_id,
+            MTReportInfoDetail::new(
+                reporter.clone(),
+                report_time,
+                machine_fault_type.clone(),
+                stake_params.stake_per_report,
+            ),
+        );
 
         Self::deposit_event(Event::ReportMachineFault(reporter, machine_fault_type));
         Ok(().into())
-    }
-
-    fn do_reporter_cancel_report(reporter: &T::AccountId, report_id: ReportId) {
-        let mut live_report = Self::live_report();
-        ItemList::rm_item(&mut live_report.bookable_report, &report_id);
-
-        let mut reporter_report = Self::reporter_report(reporter);
-        ItemList::rm_item(&mut reporter_report.processing_report, &report_id);
-        ItemList::add_item(&mut reporter_report.canceled_report, report_id);
-
-        ReporterReport::<T>::insert(reporter, reporter_report);
-        LiveReport::<T>::put(live_report);
-        ReportInfo::<T>::remove(&report_id);
     }
 
     fn do_book_reports(
@@ -882,45 +840,11 @@ impl<T: Config> Pallet<T> {
         let mut live_report = Self::live_report();
         let mut committee_ops = Self::committee_ops(&committee, &report_id);
         let mut is_live_report_changed = false;
-        let is_first_book = report_info.report_status == ReportStatus::Reported;
         let mft = report_info.machine_fault_type.clone();
 
         // 更改report_info
-        ItemList::add_item(&mut report_info.booked_committee, committee.clone());
-        // 记录第一个预订订单的时间, 3个小时(360个块)之后开始提交原始值
-        if is_first_book {
-            report_info.first_book_time = now;
-            report_info.confirm_start = match report_info.machine_fault_type {
-                // 如果是第一个抢单，如果是rentedInaccessible，将在5分钟后开始提交委员会的验证结果
-                MachineFaultType::RentedInaccessible(..) => now + 10u32.into(),
-                // 将在三个小时之后开始提交委员会的验证结果
-                _ => now + THREE_HOUR.into(),
-            };
-        }
-        report_info.report_status = match mft {
-            MachineFaultType::RentedInaccessible(..) =>
-                if report_info.booked_committee.len() == 3 {
-                    ReportStatus::Verifying
-                } else {
-                    ReportStatus::WaitingBook
-                },
-            _ => {
-                // 仅在不是RentedInaccessible时进行记录，因为这些情况只能一次有一个验证委员会
-                report_info.verifying_committee = Some(committee.clone());
-                // 改变report状态为正在验证中，此时禁止其他委员会预订
-                ReportStatus::Verifying
-            },
-        };
-
-        // 更改committee_ps
-        committee_ops.booked_time = now;
-        committee_ops.order_status = match mft {
-            MachineFaultType::RentedInaccessible(..) => MTOrderStatus::Verifying,
-            _ => {
-                committee_ops.staked_balance = order_stake;
-                MTOrderStatus::WaitingEncrypt
-            },
-        };
+        report_info.book_report(committee.clone(), now);
+        committee_ops.book_report(mft.clone(), now, order_stake);
 
         // 更改live_report
         if let MachineFaultType::RentedInaccessible(..) = mft {
@@ -1156,8 +1080,7 @@ impl<T: Config> Pallet<T> {
 
     fn summary_a_fault(report_id: ReportId, live_report: &mut MTLiveReportList) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
-        let committee_order_stake =
-            <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
+        let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
         let report_info = Self::report_info(&report_id);
 
@@ -1335,8 +1258,7 @@ impl<T: Config> Pallet<T> {
     // 统计正在waiting_raw的机器
     fn summary_waiting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) {
         let now = <frame_system::Module<T>>::block_number();
-        let committee_order_stake =
-            <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
+        let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
         let mut report_info = Self::report_info(&report_id);
         let mut report_result = Self::report_result(report_id);

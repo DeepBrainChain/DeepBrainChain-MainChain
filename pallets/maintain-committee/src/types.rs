@@ -1,8 +1,16 @@
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
+use crate::{Config, Error};
 use codec::{Decode, Encode};
+use frame_support::ensure;
 use generic_func::{ItemList, MachineId};
 use rent_machine::RentOrderId;
-use sp_runtime::{traits::Saturating, Perbill, RuntimeDebug};
-use sp_std::{vec, vec::Vec};
+use sp_runtime::{
+    traits::{Saturating, Zero},
+    Perbill, RuntimeDebug,
+};
+use sp_std::{cmp::PartialEq, vec, vec::Vec};
 
 pub const FIVE_MINUTE: u32 = 10;
 pub const TEN_MINUTE: u32 = 20;
@@ -15,6 +23,22 @@ pub const TWO_DAY: u32 = 5760;
 pub type ReportId = u64;
 pub type BoxPubkey = [u8; 32];
 pub type ReportHash = [u8; 16];
+
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum CustomErr {
+    OrderNotAllowBook,
+    AlreadyBooked,
+}
+
+impl<T: Config> From<CustomErr> for Error<T> {
+    fn from(err: CustomErr) -> Self {
+        match err {
+            CustomErr::OrderNotAllowBook => Error::<T>::OrderNotAllowBook,
+            CustomErr::AlreadyBooked => Error::<T>::AlreadyBooked,
+        }
+    }
+}
 
 /// 机器故障的报告列表
 /// 记录该模块中所有活跃的报告, 根据ReportStatus来区分
@@ -31,6 +55,14 @@ pub struct MTLiveReportList {
 }
 
 impl MTLiveReportList {
+    pub fn new_report(&mut self, report_id: ReportId) {
+        ItemList::add_item(&mut self.bookable_report, report_id);
+    }
+
+    pub fn cancel_report(&mut self, report_id: &ReportId) {
+        ItemList::rm_item(&mut self.bookable_report, report_id);
+    }
+
     pub fn clean_unfinished_report(&mut self, report_id: &ReportId) {
         ItemList::rm_item(&mut self.bookable_report, report_id);
         ItemList::rm_item(&mut self.verifying_report, report_id);
@@ -45,6 +77,17 @@ pub struct ReporterReportList {
     pub canceled_report: Vec<ReportId>,
     pub succeed_report: Vec<ReportId>,
     pub failed_report: Vec<ReportId>,
+}
+
+impl ReporterReportList {
+    pub fn new_report(&mut self, report_id: ReportId) {
+        ItemList::add_item(&mut self.processing_report, report_id);
+    }
+
+    pub fn cancel_report(&mut self, report_id: ReportId) {
+        ItemList::rm_item(&mut self.processing_report, &report_id);
+        ItemList::add_item(&mut self.canceled_report, report_id);
+    }
 }
 
 // 报告的详细信息
@@ -86,27 +129,80 @@ pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
     pub machine_fault_type: MachineFaultType,
 }
 
-impl<A, B, C> MTReportInfoDetail<A, B, C>
+impl<Account, BlockNumber, Balance> MTReportInfoDetail<Account, BlockNumber, Balance>
 where
-    A: Default + Clone + Ord,
-    B: Default,
-    C: Default,
+    Account: Default + Clone + Ord,
+    BlockNumber: Default + PartialEq + Zero + From<u32> + Copy,
+    Balance: Default,
 {
     pub fn new(
-        reporter: A,
-        report_time: B,
+        reporter: Account,
+        report_time: BlockNumber,
         machine_fault_type: MachineFaultType,
-        reporter_stake: C,
+        reporter_stake: Balance,
     ) -> Self {
-        MTReportInfoDetail {
+        let mut report_info = MTReportInfoDetail {
             reporter,
             report_time,
-            machine_fault_type,
+            machine_fault_type: machine_fault_type.clone(),
             reporter_stake,
             ..Default::default()
+        };
+
+        // 该类型错误可以由程序快速完成检测，因此可以提交并需记录machine_id
+        if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) =
+            machine_fault_type.clone()
+        {
+            report_info.machine_id = machine_id;
+            report_info.rent_order_id = rent_order_id;
         }
+
+        report_info
     }
-    pub fn add_hash(&mut self, who: A, book_limit: u32, is_inaccess: bool) {
+
+    pub fn committee_can_book(&self, committee: &Account) -> Result<(), CustomErr> {
+        // 检查订单是否可以抢定
+        ensure!(self.report_time != Zero::zero(), CustomErr::OrderNotAllowBook);
+        ensure!(
+            matches!(self.report_status, ReportStatus::Reported | ReportStatus::WaitingBook),
+            CustomErr::OrderNotAllowBook
+        );
+        ensure!(self.booked_committee.len() < 3, CustomErr::OrderNotAllowBook);
+        ensure!(self.booked_committee.binary_search(committee).is_err(), CustomErr::AlreadyBooked);
+        Ok(())
+    }
+
+    pub fn book_report(&mut self, committee: Account, now: BlockNumber) {
+        ItemList::add_item(&mut self.booked_committee, committee.clone());
+
+        if self.report_status == ReportStatus::Reported {
+            // 是第一个预订的委员会时:
+            self.first_book_time = now;
+            self.confirm_start = match self.machine_fault_type {
+                // 将在5分钟后开始提交委员会的验证结果
+                MachineFaultType::RentedInaccessible(..) => now + 10u32.into(),
+                // 将在三个小时之后开始提交委员会的验证结果
+                _ => now + THREE_HOUR.into(),
+            };
+        }
+
+        self.report_status = match self.machine_fault_type {
+            MachineFaultType::RentedInaccessible(..) =>
+                if self.booked_committee.len() == 3 {
+                    ReportStatus::Verifying
+                } else {
+                    ReportStatus::WaitingBook
+                },
+            _ => {
+                // 仅在不是RentedInaccessible时进行记录，因为这些情况只能一次有一个验证委员会
+                self.verifying_committee = Some(committee);
+                // 改变report状态为正在验证中，此时禁止其他委员会预订
+                ReportStatus::Verifying
+            },
+        };
+    }
+
+    pub fn add_hash(&mut self, who: Account, book_limit: u32, is_inaccess: bool) {
         // 添加到report的已提交Hash的委员会列表
         ItemList::add_item(&mut self.hashed_committee, who.clone());
         self.verifying_committee = None;
@@ -119,9 +215,10 @@ where
             self.report_status = ReportStatus::WaitingBook;
         }
     }
+
     pub fn add_raw(
         &mut self,
-        who: A,
+        who: Account,
         is_support: bool,
         machine_id: Option<MachineId>,
         err_reason: Vec<u8>,
@@ -249,18 +346,36 @@ pub struct MTCommitteeOpsDetail<BlockNumber, Balance> {
     pub order_status: MTOrderStatus,
 }
 
-impl<A, B> MTCommitteeOpsDetail<A, B> {
-    pub fn add_encry_info(&mut self, info: Vec<u8>, time: A) {
+impl<BlockNumber, Balance> MTCommitteeOpsDetail<BlockNumber, Balance> {
+    pub fn add_encry_info(&mut self, info: Vec<u8>, time: BlockNumber) {
         self.encrypted_err_info = Some(info);
         self.encrypted_time = time;
         self.order_status = MTOrderStatus::Verifying;
     }
-    pub fn add_hash(&mut self, hash: ReportHash, time: A) {
+
+    pub fn book_report(
+        &mut self,
+        fault_type: MachineFaultType,
+        now: BlockNumber,
+        order_stake: Balance,
+    ) {
+        // 更改committee_ps
+        self.booked_time = now;
+        self.order_status = match fault_type {
+            MachineFaultType::RentedInaccessible(..) => MTOrderStatus::Verifying,
+            _ => {
+                self.staked_balance = order_stake;
+                MTOrderStatus::WaitingEncrypt
+            },
+        };
+    }
+
+    pub fn add_hash(&mut self, hash: ReportHash, time: BlockNumber) {
         self.confirm_hash = hash;
         self.hash_time = time;
         self.order_status = MTOrderStatus::WaitingRaw;
     }
-    pub fn add_raw(&mut self, time: A, is_support: bool, extra_err_info: Vec<u8>) {
+    pub fn add_raw(&mut self, time: BlockNumber, is_support: bool, extra_err_info: Vec<u8>) {
         self.confirm_time = time;
         self.extra_err_info = extra_err_info;
         self.confirm_result = is_support;

@@ -1,15 +1,29 @@
 use crate::{
-    types::{ReportId, ReportResultType, ReporterStakeParamsInfo},
+    types::{ReportId, ReportResultType},
     BalanceOf, Config, Error, NextReportId, Pallet, ReporterStake, UnhandledReportResult,
 };
 use dbc_support::traits::{GNOps, ManageCommittee};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
 use generic_func::ItemList;
 use sp_io::hashing::blake2_128;
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::{Saturating, Zero};
 use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
+    pub fn get_stake_per_order() -> Result<BalanceOf<T>, Error<T>> {
+        <T as Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)
+    }
+
+    pub fn is_valid_committee(who: &T::AccountId) -> DispatchResultWithPostInfo {
+        ensure!(<T as Config>::ManageCommittee::is_valid_committee(who), Error::<T>::NotCommittee);
+        Ok(().into())
+    }
+
+    pub fn pay_fixed_tx_fee(who: T::AccountId) -> DispatchResultWithPostInfo {
+        <generic_func::Module<T>>::pay_fixed_tx_fee(who).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+        Ok(().into())
+    }
+
     // Warp for SlashAndReward::slash_and_reward
     pub fn slash_and_reward(
         slash_who: Vec<T::AccountId>,
@@ -51,35 +65,29 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    pub fn pay_stake_when_report(
-        reporter: T::AccountId,
-        stake_params: &ReporterStakeParamsInfo<BalanceOf<T>>,
-    ) -> DispatchResultWithPostInfo {
-        let mut reporter_stake = Self::reporter_stake(&reporter);
+    // 各种报告类型，都需要质押 1000 DBC
+    // 如果是第一次绑定，则需要质押2w DBC，其他情况:
+    pub fn pay_stake_when_report(reporter: T::AccountId) -> DispatchResultWithPostInfo {
+        let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
 
-        // 各种报告类型，都需要质押 1000 DBC
-        // 如果是第一次绑定，则需要质押2w DBC，其他情况:
-        if reporter_stake.staked_amount == Zero::zero() {
-            ensure!(
-                <T as Config>::Currency::can_reserve(&reporter, stake_params.stake_baseline),
-                Error::<T>::BalanceNotEnough
-            );
+        ReporterStake::<T>::mutate(&reporter, |reporter_stake| {
+            if reporter_stake.staked_amount == Zero::zero() {
+                <T as Config>::Currency::reserve(&reporter, stake_params.stake_baseline)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                reporter_stake.staked_amount = stake_params.stake_baseline;
+                reporter_stake.used_stake = stake_params.stake_per_report;
+            } else {
+                reporter_stake.used_stake =
+                    reporter_stake.used_stake.saturating_add(stake_params.stake_per_report);
+                ensure!(
+                    reporter_stake.staked_amount - reporter_stake.used_stake >=
+                        stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                    Error::<T>::StakeNotEnough
+                );
+            }
 
-            <T as Config>::Currency::reserve(&reporter, stake_params.stake_baseline)
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
-            reporter_stake.staked_amount = stake_params.stake_baseline;
-            reporter_stake.used_stake = stake_params.stake_per_report;
-        } else {
-            reporter_stake.used_stake += stake_params.stake_per_report;
-            ensure!(
-                reporter_stake.staked_amount - reporter_stake.used_stake >=
-                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
-                Error::<T>::StakeNotEnough
-            );
-        }
-
-        ReporterStake::<T>::insert(&reporter, reporter_stake);
-        Ok(().into())
+            Ok(().into())
+        })
     }
 
     // - Writes:
