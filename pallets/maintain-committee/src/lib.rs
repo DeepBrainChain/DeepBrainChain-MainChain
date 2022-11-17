@@ -63,8 +63,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
-            let _ = Self::check_and_exec_pending_review();
-            let _ = Self::check_and_exec_slash();
+            let _ = Self::exec_review();
+            let _ = Self::exec_slash();
             0
         }
 
@@ -249,15 +249,10 @@ pub mod pallet {
                 report_info.report_status == ReportStatus::Reported,
                 Error::<T>::OrderNotAllowCancel
             );
-            ensure!(
-                Self::change_reporter_stake_on_report_close(
-                    &reporter,
-                    report_info.reporter_stake,
-                    false
-                )
-                .is_ok(),
-                Error::<T>::ReduceTotalStakeFailed
-            );
+
+            ReporterStake::<T>::mutate(&reporter, |reporter_stake| {
+                reporter_stake.change_stake_on_report_close(report_info.reporter_stake, false);
+            });
 
             Self::do_reporter_cancel_report(&reporter, report_id);
             Self::deposit_event(Event::ReportCanceld(
@@ -691,24 +686,24 @@ pub mod pallet {
             let mut should_reward = report_result.inconsistent_committee.clone();
 
             // 执行与之前是否惩罚相反的质押操作
-            let _ = Self::change_reporter_stake_on_report_close(
-                &report_result.reporter,
-                report_result.reporter_stake,
-                !is_reporter_slashed,
-            );
+            ReporterStake::<T>::mutate(&report_result.reporter, |reporter_stake| {
+                reporter_stake.change_stake_on_report_close(
+                    report_result.reporter_stake,
+                    !is_reporter_slashed,
+                );
+            });
 
             if is_reporter_slashed {
                 ItemList::add_item(&mut should_reward, report_result.reporter.clone());
             } else {
-                // slash reporter
-                let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+                let _ = Self::slash_and_reward(
                     vec![report_result.reporter.clone()],
                     report_result.reporter_stake,
                     should_reward.clone(),
                 );
             }
 
-            let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+            let _ = Self::slash_and_reward(
                 should_slash,
                 report_result.committee_stake,
                 should_reward.clone(),
@@ -1042,6 +1037,7 @@ impl<T: Config> Pallet<T> {
             let mut committee_order = Self::committee_order(&a_committee);
 
             if report_info.confirmed_committee.binary_search(&a_committee).is_ok() {
+                // TODO: refa code
                 ItemList::rm_item(&mut committee_order.hashed_report, &report_id);
                 ItemList::rm_item(&mut committee_order.confirmed_report, &report_id);
                 ItemList::add_item(&mut committee_order.finished_report, report_id);

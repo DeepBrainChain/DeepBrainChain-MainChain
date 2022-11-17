@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use generic_func::{ItemList, MachineId};
 use rent_machine::RentOrderId;
-use sp_runtime::{Perbill, RuntimeDebug};
+use sp_runtime::{traits::Saturating, Perbill, RuntimeDebug};
 use sp_std::{vec, vec::Vec};
 
 pub const FIVE_MINUTE: u32 = 10;
@@ -307,6 +307,16 @@ pub struct ReporterStakeInfo<Balance> {
     pub claimed_reward: Balance,
 }
 
+impl<Balance: Saturating + Copy> ReporterStakeInfo<Balance> {
+    pub fn change_stake_on_report_close(&mut self, amount: Balance, is_slashed: bool) {
+        self.used_stake = self.used_stake.saturating_sub(amount);
+        if is_slashed {
+            self.staked_amount = self.staked_amount.saturating_sub(amount);
+        }
+    }
+}
+
+/// 报告的处理结果
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct MTReportResultInfo<AccountId, BlockNumber, Balance> {
     pub report_id: ReportId,

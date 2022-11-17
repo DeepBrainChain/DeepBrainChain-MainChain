@@ -1,15 +1,24 @@
 use crate::{
-    types::{ReportId, ReporterStakeParamsInfo},
+    types::{ReportId, ReportResultType, ReporterStakeParamsInfo},
     BalanceOf, Config, Error, NextReportId, Pallet, ReporterStake, UnhandledReportResult,
 };
-use dbc_support::traits::ManageCommittee;
+use dbc_support::traits::{GNOps, ManageCommittee};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
 use generic_func::ItemList;
 use sp_io::hashing::blake2_128;
-use sp_runtime::traits::{CheckedSub, Zero};
+use sp_runtime::traits::Zero;
 use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
+    // Warp for SlashAndReward::slash_and_reward
+    pub fn slash_and_reward(
+        slash_who: Vec<T::AccountId>,
+        slash_amount: BalanceOf<T>,
+        reward_who: Vec<T::AccountId>,
+    ) -> Result<(), ()> {
+        <T as Config>::SlashAndReward::slash_and_reward(slash_who, slash_amount, reward_who)
+    }
+
     pub fn get_hash(raw_str: Vec<Vec<u8>>) -> [u8; 16] {
         let mut full_str = Vec::new();
         for a_str in raw_str {
@@ -33,13 +42,13 @@ impl<T: Config> Pallet<T> {
         is_add: bool,
         slash_exec_time: T::BlockNumber,
     ) {
-        let mut unhandled_report_result = Self::unhandled_report_result(slash_exec_time);
-        if is_add {
-            ItemList::add_item(&mut unhandled_report_result, report_id);
-        } else {
-            ItemList::rm_item(&mut unhandled_report_result, &report_id);
-        }
-        UnhandledReportResult::<T>::insert(slash_exec_time, unhandled_report_result);
+        UnhandledReportResult::<T>::mutate(slash_exec_time, |unhandled_report_result| {
+            if is_add {
+                ItemList::add_item(unhandled_report_result, report_id);
+            } else {
+                ItemList::rm_item(unhandled_report_result, &report_id);
+            }
+        });
     }
 
     pub fn pay_stake_when_report(
@@ -74,32 +83,32 @@ impl<T: Config> Pallet<T> {
     }
 
     // - Writes:
-    // if is_slash:
-    //      used_stake, total_stake
-    // else:
-    //      used_stake
+    // if is_slash: used_stake, total_stake
+    // else:        used_stake
     pub fn change_reporter_stake_on_report_close(
         reporter: &T::AccountId,
         amount: BalanceOf<T>,
-        is_slash: bool,
-    ) -> Result<(), ()> {
-        let mut reporter_stake = Self::reporter_stake(reporter);
-        reporter_stake.used_stake = reporter_stake.used_stake.checked_sub(&amount).ok_or(())?;
-
-        if is_slash {
-            reporter_stake.staked_amount =
-                reporter_stake.staked_amount.checked_sub(&amount).ok_or(())?;
+        report_result: ReportResultType,
+    ) {
+        // 未达成共识，则退还报告人质押
+        if let ReportResultType::NoConsensus = report_result {
+            return
         }
 
-        ReporterStake::<T>::insert(reporter, reporter_stake);
-        Ok(())
+        ReporterStake::<T>::mutate(reporter, |reporter_stake| {
+            // 报告被拒绝或报告人没完成工作，将被惩罚，否则不惩罚并退还
+            let is_slashed = matches!(
+                report_result,
+                ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo
+            );
+
+            reporter_stake.change_stake_on_report_close(amount, is_slashed);
+        });
     }
 
     // - Writes:
-    // if is_slash:
-    //      used_stake, total_stake
-    // else:
-    //      used_stake
+    // if is_slash: used_stake, total_stake
+    // else:        used_stake
     pub fn change_committee_stake_on_report_close(
         committee_list: Vec<T::AccountId>,
         amount: BalanceOf<T>,
