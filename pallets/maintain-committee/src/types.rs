@@ -215,7 +215,7 @@ where
 
     pub fn can_submit_encrypted_info(&self, from: &Account, to: &Account) -> Result<(), CustomErr> {
         ensure!(
-            matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)),
+            !matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)),
             CustomErr::NotNeedEncryptedInfo
         );
         ensure!(&self.reporter == from, CustomErr::NotOrderReporter);

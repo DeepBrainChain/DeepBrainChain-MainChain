@@ -345,8 +345,8 @@ pub mod pallet {
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
             let mut report_info = Self::report_info(&report_id);
 
-            committee_ops.can_submit_hash().map_err::<Error<T>, _>(Into::into)?;
             committee_order.can_submit_hash(report_id).map_err::<Error<T>, _>(Into::into)?;
+            committee_ops.can_submit_hash().map_err::<Error<T>, _>(Into::into)?;
             report_info.can_submit_hash().map_err::<Error<T>, _>(Into::into)?;
             Self::is_uniq_hash(report_id, &report_info, hash)?;
 
@@ -796,6 +796,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let mft = report_info.machine_fault_type.clone();
 
+        report_info.book_report(committee.clone(), now);
         CommitteeOrder::<T>::mutate(&committee, |committee_order| {
             ItemList::add_item(&mut committee_order.booked_report, report_id);
         });
@@ -806,7 +807,6 @@ impl<T: Config> Pallet<T> {
             live_report.book_report(report_id, mft, report_info.booked_committee.len());
         });
 
-        report_info.book_report(committee, now);
         ReportInfo::<T>::insert(&report_id, report_info);
     }
 
