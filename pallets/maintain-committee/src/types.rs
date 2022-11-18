@@ -306,6 +306,43 @@ where
         Ok(())
     }
 
+    // Other fault type
+    pub fn can_summary(&self, now: BlockNumber) -> bool {
+        if self.first_book_time == Zero::zero() {
+            return false
+        }
+
+        // 禁止对快速报告进行检查，快速报告会处理这种情况
+        if let MachineFaultType::RentedInaccessible(..) = self.machine_fault_type {
+            return false
+        }
+
+        // 未全部提交了原始信息且未达到了四个小时，需要继续等待
+        if now - self.first_book_time < FOUR_HOUR.into() &&
+            self.hashed_committee.len() != self.confirmed_committee.len()
+        {
+            return false
+        }
+
+        true
+    }
+
+    // Summary committee's handle result depend on support & against votes
+    pub fn summary(&self) -> ReportConfirmStatus<Account> {
+        if self.confirmed_committee.is_empty() {
+            return ReportConfirmStatus::NoConsensus
+        }
+
+        if self.support_committee.len() >= self.against_committee.len() {
+            return ReportConfirmStatus::Confirmed(
+                self.support_committee.clone(),
+                self.against_committee.clone(),
+                self.err_info.clone(),
+            )
+        }
+        ReportConfirmStatus::Refuse(self.support_committee.clone(), self.against_committee.clone())
+    }
+
     pub fn is_confirmed_committee(&self, who: &Account) -> bool {
         self.confirmed_committee.binary_search(who).is_ok()
     }

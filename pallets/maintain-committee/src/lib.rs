@@ -1148,23 +1148,10 @@ impl<T: Config> Pallet<T> {
         let mut report_info = Self::report_info(&report_id);
         let mut report_result = Self::report_result(report_id);
 
-        if report_info.first_book_time == Zero::zero() {
+        if !report_info.can_summary(now) {
             return
         }
-
-        // 禁止对快速报告进行检查，快速报告会处理这种情况
-        if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-            return
-        }
-
-        // 未全部提交了原始信息且未达到了四个小时，需要继续等待
-        if now - report_info.first_book_time < FOUR_HOUR.into() &&
-            report_info.hashed_committee.len() != report_info.confirmed_committee.len()
-        {
-            return
-        }
-
-        let fault_report_result = Self::summary_fault_report(report_id);
+        let fault_report_result = report_info.summary();
 
         match fault_report_result.clone() {
             ReportConfirmStatus::Confirmed(support_committees, against_committee, _) => {
@@ -1286,24 +1273,6 @@ impl<T: Config> Pallet<T> {
         }
         ReportResult::<T>::insert(report_id, report_result);
         ReportInfo::<T>::insert(report_id, report_info);
-    }
-
-    // Summary committee's handle result depend on support & against votes
-    fn summary_fault_report(report_id: ReportId) -> ReportConfirmStatus<T::AccountId> {
-        let report_info = Self::report_info(&report_id);
-
-        if report_info.confirmed_committee.is_empty() {
-            return ReportConfirmStatus::NoConsensus
-        }
-
-        if report_info.support_committee.len() >= report_info.against_committee.len() {
-            return ReportConfirmStatus::Confirmed(
-                report_info.support_committee,
-                report_info.against_committee,
-                report_info.err_info,
-            )
-        }
-        ReportConfirmStatus::Refuse(report_info.support_committee, report_info.against_committee)
     }
 
     // 根据错误类型，匹配到新的错误，并进行下线机器的操作

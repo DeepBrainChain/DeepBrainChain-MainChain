@@ -215,7 +215,7 @@ fn report_machine_fault_works_case1() {
                 &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
             );
 
-            assert!(match MaintainCommittee::summary_fault_report(0) {
+            assert!(match report_info.summary() {
                 crate::ReportConfirmStatus::Confirmed(..) => true,
                 _ => false,
             });
@@ -548,7 +548,7 @@ fn report_machine_fault_works_case2() {
                 &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
             );
 
-            assert!(match MaintainCommittee::summary_fault_report(0) {
+            assert!(match report_info.summary() {
                 crate::ReportConfirmStatus::Confirmed(..) => true,
                 _ => false,
             });
@@ -870,7 +870,7 @@ fn report_machine_fault_works_case3() {
                 &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
             );
 
-            assert!(match MaintainCommittee::summary_fault_report(0) {
+            assert!(match report_info.summary() {
                 crate::ReportConfirmStatus::Refuse(..) => true,
                 _ => false,
             });
