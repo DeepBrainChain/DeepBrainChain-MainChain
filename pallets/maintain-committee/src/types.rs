@@ -29,13 +29,23 @@ pub type ReportHash = [u8; 16];
 pub enum CustomErr {
     OrderNotAllowBook,
     AlreadyBooked,
+    NotNeedEncryptedInfo,
+    NotOrderReporter,
+    OrderStatusNotFeat,
+    NotOrderCommittee,
+    NotInBookedList,
 }
 
 impl<T: Config> From<CustomErr> for Error<T> {
     fn from(err: CustomErr) -> Self {
         match err {
-            CustomErr::OrderNotAllowBook => Error::<T>::OrderNotAllowBook,
-            CustomErr::AlreadyBooked => Error::<T>::AlreadyBooked,
+            CustomErr::OrderNotAllowBook => Error::OrderNotAllowBook,
+            CustomErr::AlreadyBooked => Error::AlreadyBooked,
+            CustomErr::NotNeedEncryptedInfo => Error::NotNeedEncryptedInfo,
+            CustomErr::NotOrderReporter => Error::NotOrderReporter,
+            CustomErr::OrderStatusNotFeat => Error::OrderStatusNotFeat,
+            CustomErr::NotOrderCommittee => Error::NotOrderCommittee,
+            CustomErr::NotInBookedList => Error::NotInBookedList,
         }
     }
 }
@@ -61,6 +71,37 @@ impl MTLiveReportList {
 
     pub fn cancel_report(&mut self, report_id: &ReportId) {
         ItemList::rm_item(&mut self.bookable_report, report_id);
+    }
+
+    pub fn book_report(
+        &mut self,
+        report_id: ReportId,
+        report_type: MachineFaultType,
+        booked_committee_count: usize,
+    ) {
+        if booked_committee_count == 3 ||
+            !matches!(report_type, MachineFaultType::RentedInaccessible(..))
+        {
+            ItemList::rm_item(&mut self.bookable_report, &report_id);
+            ItemList::add_item(&mut self.verifying_report, report_id);
+        }
+    }
+
+    pub fn submit_hash(
+        &mut self,
+        report_id: ReportId,
+        report_type: MachineFaultType,
+        hashed_committee_count: usize,
+    ) {
+        if hashed_committee_count == 3 {
+            // 全都提交了hash后，进入提交raw的阶段
+            ItemList::rm_item(&mut self.verifying_report, &report_id);
+            ItemList::add_item(&mut self.waiting_raw_report, report_id);
+        } else if !matches!(report_type, MachineFaultType::RentedInaccessible(..)) {
+            // 否则，是普通错误时，继续允许预订
+            ItemList::rm_item(&mut self.verifying_report, &report_id);
+            ItemList::add_item(&mut self.bookable_report, report_id);
+        }
     }
 
     pub fn clean_unfinished_report(&mut self, report_id: &ReportId) {
@@ -160,7 +201,7 @@ where
         report_info
     }
 
-    pub fn committee_can_book(&self, committee: &Account) -> Result<(), CustomErr> {
+    pub fn can_book(&self, committee: &Account) -> Result<(), CustomErr> {
         // 检查订单是否可以抢定
         ensure!(self.report_time != Zero::zero(), CustomErr::OrderNotAllowBook);
         ensure!(
@@ -169,6 +210,30 @@ where
         );
         ensure!(self.booked_committee.len() < 3, CustomErr::OrderNotAllowBook);
         ensure!(self.booked_committee.binary_search(committee).is_err(), CustomErr::AlreadyBooked);
+        Ok(())
+    }
+
+    pub fn can_submit_encrypted_info(&self, from: &Account, to: &Account) -> Result<(), CustomErr> {
+        ensure!(
+            matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)),
+            CustomErr::NotNeedEncryptedInfo
+        );
+        ensure!(&self.reporter == from, CustomErr::NotOrderReporter);
+        ensure!(self.report_status == ReportStatus::Verifying, CustomErr::OrderStatusNotFeat);
+        ensure!(self.booked_committee.binary_search(to).is_ok(), CustomErr::NotOrderCommittee);
+        Ok(())
+    }
+
+    pub fn can_submit_hash(&self) -> Result<(), CustomErr> {
+        if matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)) {
+            ensure!(
+                matches!(self.report_status, ReportStatus::WaitingBook | ReportStatus::Verifying),
+                CustomErr::OrderStatusNotFeat
+            );
+        } else {
+            ensure!(self.report_status == ReportStatus::Verifying, CustomErr::OrderStatusNotFeat);
+        }
+
         Ok(())
     }
 
@@ -202,15 +267,15 @@ where
         };
     }
 
-    pub fn add_hash(&mut self, who: Account, book_limit: u32, is_inaccess: bool) {
+    pub fn add_hash(&mut self, who: Account) {
         // 添加到report的已提交Hash的委员会列表
         ItemList::add_item(&mut self.hashed_committee, who.clone());
         self.verifying_committee = None;
 
-        // 达到book_limit
-        if self.hashed_committee.len() == book_limit as usize {
+        // 达到book_limit，则允许提交Raw
+        if self.hashed_committee.len() == 3 {
             self.report_status = ReportStatus::SubmittingRaw;
-        } else if !is_inaccess {
+        } else if !matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)) {
             // 否则，是普通错误时，继续允许预订
             self.report_status = ReportStatus::WaitingBook;
         }
@@ -317,11 +382,18 @@ impl MTCommitteeOrderList {
         ItemList::rm_item(&mut self.hashed_report, report_id);
         ItemList::rm_item(&mut self.confirmed_report, report_id);
     }
+
+    pub fn can_submit_hash(&self, report_id: ReportId) -> Result<(), CustomErr> {
+        ensure!(self.booked_report.binary_search(&report_id).is_ok(), CustomErr::NotInBookedList);
+        Ok(())
+    }
+
     pub fn add_hash(&mut self, report_id: ReportId) {
         // 将订单从委员会已预订移动到已Hash
         ItemList::rm_item(&mut self.booked_report, &report_id);
         ItemList::add_item(&mut self.hashed_report, report_id);
     }
+
     pub fn add_raw(&mut self, report_id: ReportId) {
         ItemList::rm_item(&mut self.hashed_report, &report_id);
         ItemList::add_item(&mut self.confirmed_report, report_id);
@@ -368,6 +440,11 @@ impl<BlockNumber, Balance> MTCommitteeOpsDetail<BlockNumber, Balance> {
                 MTOrderStatus::WaitingEncrypt
             },
         };
+    }
+
+    pub fn can_submit_hash(&self) -> Result<(), CustomErr> {
+        ensure!(self.order_status == MTOrderStatus::Verifying, CustomErr::OrderStatusNotFeat);
+        Ok(())
     }
 
     pub fn add_hash(&mut self, hash: ReportHash, time: BlockNumber) {

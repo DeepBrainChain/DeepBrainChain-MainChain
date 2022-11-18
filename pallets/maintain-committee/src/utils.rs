@@ -1,5 +1,5 @@
 use crate::{
-    types::{ReportId, ReportResultType},
+    types::{MTReportInfoDetail, ReportHash, ReportId, ReportResultType},
     BalanceOf, Config, Error, NextReportId, Pallet, ReporterStake, UnhandledReportResult,
 };
 use dbc_support::traits::{GNOps, ManageCommittee};
@@ -21,6 +21,21 @@ impl<T: Config> Pallet<T> {
 
     pub fn pay_fixed_tx_fee(who: T::AccountId) -> DispatchResultWithPostInfo {
         <generic_func::Module<T>>::pay_fixed_tx_fee(who).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+        Ok(().into())
+    }
+
+    // 判断Hash是否被提交过
+    pub fn is_uniq_hash(
+        report_id: ReportId,
+        report_info: &MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        hash: ReportHash,
+    ) -> DispatchResultWithPostInfo {
+        for a_committee in &report_info.hashed_committee {
+            let committee_ops = Self::committee_ops(a_committee, report_id);
+            if committee_ops.confirm_hash == hash {
+                return Err(Error::<T>::DuplicateHash.into())
+            }
+        }
         Ok(().into())
     }
 

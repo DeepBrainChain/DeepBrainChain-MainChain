@@ -274,7 +274,7 @@ pub mod pallet {
 
             let mut report_info = Self::report_info(report_id);
             // 检查订单是否可以抢定
-            report_info.committee_can_book(&committee).map_err::<Error<T>, _>(Into::into)?;
+            report_info.can_book(&committee).map_err::<Error<T>, _>(Into::into)?;
             let order_stake = Self::get_stake_per_order()?;
 
             // 支付手续费或押金: 10 DBC | 1000 DBC
@@ -289,7 +289,7 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::StakeFailed)?;
             }
 
-            Self::do_book_reports(committee.clone(), report_id, &mut report_info, order_stake);
+            Self::book_report(committee.clone(), report_id, &mut report_info, order_stake);
             Self::deposit_event(Event::CommitteeBookReport(committee, report_id));
             Ok(().into())
         }
@@ -306,23 +306,14 @@ pub mod pallet {
             let reporter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            // 该orde处于验证中, 且还没有提交过加密信息
             let mut report_info = Self::report_info(&report_id);
             let mut committee_ops = Self::committee_ops(&to_committee, &report_id);
 
-            if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-                return Err(Error::<T>::NotNeedEncryptedInfo.into())
-            }
-            ensure!(report_info.reporter == reporter, Error::<T>::NotOrderReporter);
-            ensure!(
-                report_info.report_status == ReportStatus::Verifying,
-                Error::<T>::OrderStatusNotFeat
-            );
-            ensure!(
-                report_info.booked_committee.binary_search(&to_committee).is_ok(),
-                Error::<T>::NotOrderCommittee
-            );
-
+            // 检查报告可以提供加密信息
+            // 该orde处于验证中, 且还没有提交过加密信息
+            report_info
+                .can_submit_encrypted_info(&reporter, &to_committee)
+                .map_err::<Error<T>, _>(Into::into)?;
             ensure!(
                 committee_ops.order_status == MTOrderStatus::WaitingEncrypt,
                 Error::<T>::OrderStatusNotFeat
@@ -349,64 +340,31 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
-            let committee_limit = Self::committee_limit();
 
             let mut committee_order = Self::committee_order(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
             let mut report_info = Self::report_info(&report_id);
-            let mut live_report = Self::live_report();
 
-            ensure!(
-                committee_order.booked_report.binary_search(&report_id).is_ok(),
-                Error::<T>::NotInBookedList
-            );
-            ensure!(
-                committee_ops.order_status == MTOrderStatus::Verifying,
-                Error::<T>::OrderStatusNotFeat
-            );
-
-            let is_inaccess =
-                matches!(report_info.machine_fault_type, MachineFaultType::RentedInaccessible(..));
-
-            if is_inaccess {
-                ensure!(
-                    report_info.report_status == ReportStatus::WaitingBook ||
-                        report_info.report_status == ReportStatus::Verifying,
-                    Error::<T>::OrderStatusNotFeat
-                );
-            } else {
-                ensure!(
-                    report_info.report_status == ReportStatus::Verifying,
-                    Error::<T>::OrderStatusNotFeat
-                );
-            }
-            // 判断Hash是否被提交过
-            for a_committee in &report_info.hashed_committee {
-                let committee_ops = Self::committee_ops(&a_committee, report_id);
-                if committee_ops.confirm_hash == hash {
-                    return Err(Error::<T>::DuplicateHash.into())
-                }
-            }
+            committee_ops.can_submit_hash().map_err::<Error<T>, _>(Into::into)?;
+            committee_order.can_submit_hash(report_id).map_err::<Error<T>, _>(Into::into)?;
+            report_info.can_submit_hash().map_err::<Error<T>, _>(Into::into)?;
+            Self::is_uniq_hash(report_id, &report_info, hash)?;
 
             // 修改report_info
-            report_info.add_hash(committee.clone(), committee_limit, is_inaccess);
-            // 修改live_report
-            if report_info.hashed_committee.len() == committee_limit as usize {
-                // 全都提交了hash后，进入提交raw的阶段
-                ItemList::rm_item(&mut live_report.verifying_report, &report_id);
-                ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
-            } else if !is_inaccess {
-                // 否则，是普通错误时，继续允许预订
-                ItemList::rm_item(&mut live_report.verifying_report, &report_id);
-                ItemList::add_item(&mut live_report.bookable_report, report_id);
-            }
+            report_info.add_hash(committee.clone());
             // 修改committeeOps存储/状态
             committee_ops.add_hash(hash, now);
             // 修改committee_order 预订 -> Hash
             committee_order.add_hash(report_id);
 
+            LiveReport::<T>::mutate(|live_report| {
+                live_report.submit_hash(
+                    report_id,
+                    report_info.machine_fault_type.clone(),
+                    report_info.hashed_committee.len(),
+                )
+            });
             ReportInfo::<T>::insert(&report_id, report_info);
-            LiveReport::<T>::put(live_report);
             CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
             CommitteeOrder::<T>::insert(&committee, committee_order);
 
@@ -829,47 +787,27 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
-    fn do_book_reports(
+    fn book_report(
         committee: T::AccountId,
         report_id: ReportId,
         report_info: &mut MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         order_stake: BalanceOf<T>,
     ) {
         let now = <frame_system::Module<T>>::block_number();
-
-        let mut live_report = Self::live_report();
-        let mut committee_ops = Self::committee_ops(&committee, &report_id);
-        let mut is_live_report_changed = false;
         let mft = report_info.machine_fault_type.clone();
 
-        // 更改report_info
-        report_info.book_report(committee.clone(), now);
-        committee_ops.book_report(mft.clone(), now, order_stake);
+        CommitteeOrder::<T>::mutate(&committee, |committee_order| {
+            ItemList::add_item(&mut committee_order.booked_report, report_id);
+        });
+        CommitteeOps::<T>::mutate(&committee, &report_id, |committee_ops| {
+            committee_ops.book_report(mft.clone(), now, order_stake);
+        });
+        LiveReport::<T>::mutate(|live_report| {
+            live_report.book_report(report_id, mft, report_info.booked_committee.len());
+        });
 
-        // 更改live_report
-        if let MachineFaultType::RentedInaccessible(..) = mft {
-            if report_info.booked_committee.len() == 3 {
-                ItemList::rm_item(&mut live_report.bookable_report, &report_id);
-                ItemList::add_item(&mut live_report.verifying_report, report_id);
-                is_live_report_changed = true;
-            }
-        } else {
-            // 从bookable_report移动到verifying_report
-            ItemList::rm_item(&mut live_report.bookable_report, &report_id);
-            ItemList::add_item(&mut live_report.verifying_report, report_id);
-            is_live_report_changed = true;
-        }
-
-        // 更改committee_order
-        let mut committee_order = Self::committee_order(&committee);
-        ItemList::add_item(&mut committee_order.booked_report, report_id);
-
+        report_info.book_report(committee, now);
         ReportInfo::<T>::insert(&report_id, report_info);
-        CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
-        if is_live_report_changed {
-            LiveReport::<T>::put(live_report);
-        }
-        CommitteeOrder::<T>::insert(&committee, committee_order);
     }
 
     // Hook: Summary inaccessible report
