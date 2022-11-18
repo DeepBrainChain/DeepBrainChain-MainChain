@@ -10,7 +10,12 @@ use sp_runtime::{
     traits::{Saturating, Zero},
     Perbill, RuntimeDebug,
 };
-use sp_std::{cmp::PartialEq, vec, vec::Vec};
+use sp_std::{
+    cmp::PartialEq,
+    ops::{Add, Sub},
+    vec,
+    vec::Vec,
+};
 
 pub const FIVE_MINUTE: u32 = 10;
 pub const TEN_MINUTE: u32 = 20;
@@ -34,6 +39,7 @@ pub enum CustomErr {
     OrderStatusNotFeat,
     NotOrderCommittee,
     NotInBookedList,
+    NotProperCommittee,
 }
 
 impl<T: Config> From<CustomErr> for Error<T> {
@@ -46,6 +52,7 @@ impl<T: Config> From<CustomErr> for Error<T> {
             CustomErr::OrderStatusNotFeat => Error::OrderStatusNotFeat,
             CustomErr::NotOrderCommittee => Error::NotOrderCommittee,
             CustomErr::NotInBookedList => Error::NotInBookedList,
+            CustomErr::NotProperCommittee => Error::NotProperCommittee,
         }
     }
 }
@@ -103,6 +110,16 @@ impl MTLiveReportList {
             ItemList::add_item(&mut self.bookable_report, report_id);
         }
     }
+
+    pub fn time_to_submit_raw(&mut self, report_id: ReportId) {
+        ItemList::rm_item(&mut self.bookable_report, &report_id); // 小于3人时处于bookable
+        ItemList::rm_item(&mut self.verifying_report, &report_id); // 等于3人时处于verifying
+        ItemList::add_item(&mut self.waiting_raw_report, report_id);
+    }
+
+    // pub fn summary(&mut self, report_id: ReportId) {
+    //     ItemList::rm_item(&mut self.waiting_raw_report, &report_id);
+    // }
 
     pub fn clean_unfinished_report(&mut self, report_id: &ReportId) {
         ItemList::rm_item(&mut self.bookable_report, report_id);
@@ -173,7 +190,8 @@ pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
 impl<Account, BlockNumber, Balance> MTReportInfoDetail<Account, BlockNumber, Balance>
 where
     Account: Default + Clone + Ord,
-    BlockNumber: Default + PartialEq + Zero + From<u32> + Copy,
+    BlockNumber:
+        Default + PartialEq + Zero + From<u32> + Copy + Sub<Output = BlockNumber> + PartialOrd,
     Balance: Default,
 {
     pub fn new(
@@ -235,6 +253,61 @@ where
         }
 
         Ok(())
+    }
+
+    pub fn can_submit_raw(&self, who: &Account) -> Result<(), CustomErr> {
+        ensure!(self.report_status == ReportStatus::SubmittingRaw, CustomErr::OrderStatusNotFeat);
+        // 检查是否提交了该订单的hash
+        ensure!(self.hashed_committee.binary_search(who).is_ok(), CustomErr::NotProperCommittee);
+        Ok(())
+    }
+
+    // 获取链上已经记录的报告人提交的Hash
+    pub fn get_reporter_hash(&self) -> Result<ReportHash, CustomErr> {
+        self.machine_fault_type.clone().get_hash().ok_or(CustomErr::OrderStatusNotFeat)
+    }
+
+    pub fn can_submit_inaccessible_raw(&self, who: &Account) -> Result<(), CustomErr> {
+        ensure!(self.report_status == ReportStatus::SubmittingRaw, CustomErr::OrderStatusNotFeat);
+        ensure!(
+            matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)),
+            CustomErr::OrderStatusNotFeat
+        );
+
+        // 检查是否提交了该订单的hash
+        ensure!(self.hashed_committee.binary_search(&who).is_ok(), CustomErr::NotProperCommittee);
+        Ok(())
+    }
+
+    pub fn can_summary_inaccessible(&self, now: BlockNumber) -> Result<(), ()> {
+        // 仅处理被抢单的报告
+        if self.first_book_time == Zero::zero() {
+            return Err(())
+        }
+        // 仅处理Inaccessible的情况
+        if !matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)) {
+            return Err(())
+        }
+
+        // 忽略未被抢单的报告或已完成的报告
+        if matches!(self.report_status, ReportStatus::Reported | ReportStatus::CommitteeConfirmed) {
+            return Err(())
+        }
+
+        if matches!(self.report_status, ReportStatus::SubmittingRaw) {
+            // 不到10分钟，且没全部提交确认，允许继续提交
+            if now - self.first_book_time < TEN_MINUTE.into() &&
+                self.confirmed_committee.len() < self.hashed_committee.len()
+            {
+                return Err(())
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn is_confirmed_committee(&self, who: &Account) -> bool {
+        self.confirmed_committee.binary_search(who).is_ok()
     }
 
     pub fn book_report(&mut self, committee: Account, now: BlockNumber) {
@@ -398,6 +471,16 @@ impl MTCommitteeOrderList {
         ItemList::rm_item(&mut self.hashed_report, &report_id);
         ItemList::add_item(&mut self.confirmed_report, report_id);
     }
+
+    pub fn clean_when_summary(&mut self, report_id: ReportId, is_confirmed_committee: bool) {
+        ItemList::rm_item(&mut self.hashed_report, &report_id);
+        if is_confirmed_committee {
+            ItemList::rm_item(&mut self.confirmed_report, &report_id);
+            ItemList::add_item(&mut self.finished_report, report_id);
+        } else {
+            ItemList::rm_item(&mut self.booked_report, &report_id);
+        }
+    }
 }
 
 /// 委员会对报告的操作信息
@@ -527,6 +610,37 @@ pub struct MTReportResultInfo<AccountId, BlockNumber, Balance> {
     pub slash_exec_time: BlockNumber,
     pub report_result: ReportResultType,
     pub slash_result: MCSlashResult,
+}
+
+impl<AccountId, BlockNumber, Balance> MTReportResultInfo<AccountId, BlockNumber, Balance>
+where
+    AccountId: Default + Clone + Ord,
+    BlockNumber: From<u32> + Add<Output = BlockNumber> + Default + Copy,
+    Balance: Default + Copy,
+{
+    pub fn new_inaccessible_result(
+        now: BlockNumber,
+        report_id: ReportId,
+        report_info: &MTReportInfoDetail<AccountId, BlockNumber, Balance>,
+        machine_stash: AccountId,
+    ) -> Self {
+        Self {
+            report_id,
+            reporter: report_info.reporter.clone(),
+            slash_time: now,
+            slash_exec_time: now + TWO_DAY.into(),
+            slash_result: MCSlashResult::Pending,
+            machine_stash,
+            machine_id: report_info.machine_id.clone(),
+            reporter_stake: report_info.reporter_stake,
+
+            ..Default::default()
+        }
+    }
+
+    pub fn add_unruly(&mut self, who: AccountId) {
+        ItemList::add_item(&mut self.unruly_committee, who);
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
