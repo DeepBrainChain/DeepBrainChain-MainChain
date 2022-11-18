@@ -26,8 +26,8 @@ pub use pallet::*;
 use types::*;
 
 type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as pallet::Config>::Currency as Currency<
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -281,7 +281,7 @@ pub mod pallet {
             if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
                 Self::pay_fixed_tx_fee(committee.clone())?;
             } else {
-                <T as pallet::Config>::ManageCommittee::change_used_stake(
+                <T as Config>::ManageCommittee::change_used_stake(
                     committee.clone(),
                     order_stake,
                     true,
@@ -584,7 +584,7 @@ pub mod pallet {
                 Self::pay_stake_when_report(applicant.clone())?;
             } else if is_slashed_committee {
                 // Change committee stake
-                <T as pallet::Config>::ManageCommittee::change_total_stake(
+                <T as Config>::ManageCommittee::change_total_stake(
                     applicant.clone(),
                     stake_per_report,
                     true,
@@ -592,7 +592,7 @@ pub mod pallet {
                 )
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
-                <T as pallet::Config>::ManageCommittee::change_used_stake(
+                <T as Config>::ManageCommittee::change_used_stake(
                     applicant.clone(),
                     stake_per_report,
                     true,
@@ -623,7 +623,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             slashed_report_id: ReportId,
         ) -> DispatchResultWithPostInfo {
-            <T as pallet::Config>::CancelSlashOrigin::ensure_origin(origin)?;
+            <T as Config>::CancelSlashOrigin::ensure_origin(origin)?;
             ensure!(
                 ReportResult::<T>::contains_key(slashed_report_id),
                 Error::<T>::SlashIdNotExist
@@ -784,12 +784,12 @@ impl<T: Config> Pallet<T> {
         }
 
         if is_add {
-            <T as pallet::Config>::Currency::reserve(&reporter, amount)
+            <T as Config>::Currency::reserve(&reporter, amount)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
             ReporterStake::<T>::insert(&reporter, reporter_stake);
             Self::deposit_event(Event::ReporterAddStake(reporter, amount));
         } else {
-            <T as pallet::Config>::Currency::unreserve(&reporter, amount);
+            <T as Config>::Currency::unreserve(&reporter, amount);
             ReporterStake::<T>::insert(&reporter, reporter_stake);
             Self::deposit_event(Event::ReporterReduceStake(reporter, amount));
         }
@@ -1157,7 +1157,7 @@ impl<T: Config> Pallet<T> {
             // 清理存储: CommitteeOps, LiveReport, CommitteeOrder, ReporterRecord
             for a_committee in &report_info.booked_committee {
                 let committee_ops = Self::committee_ops(a_committee, &report_id);
-                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                let _ = <T as Config>::ManageCommittee::change_used_stake(
                     a_committee.clone(),
                     committee_ops.staked_balance,
                     false,
@@ -1243,7 +1243,7 @@ impl<T: Config> Pallet<T> {
             committee_order.clean_unfinished_order(&report_id);
             CommitteeOrder::<T>::insert(&verifying_committee, committee_order);
 
-            let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+            let _ = <T as Config>::ManageCommittee::change_used_stake(
                 verifying_committee.clone(),
                 committee_ops.staked_balance,
                 false,

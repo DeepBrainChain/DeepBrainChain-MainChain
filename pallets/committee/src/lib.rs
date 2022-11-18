@@ -25,7 +25,7 @@ use sp_std::{prelude::*, str};
 
 pub type ReportId = u64;
 type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub use pallet::*;
 pub use traits::*;
@@ -200,7 +200,7 @@ pub mod pallet {
             committee_stake.claimed_reward += can_claim_reward;
             committee_stake.can_claim_reward = Zero::zero();
 
-            <T as pallet::Config>::Currency::deposit_into_existing(&committee, can_claim_reward)
+            <T as Config>::Currency::deposit_into_existing(&committee, can_claim_reward)
                 .map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
             CommitteeStake::<T>::insert(&committee, committee_stake);
@@ -264,10 +264,7 @@ pub mod pallet {
             ensure!(committee_list.is_chill(&committee), Error::<T>::StatusNotFeat);
 
             ItemList::rm_item(&mut committee_list.chill_list, &committee);
-            let _ = <T as pallet::Config>::Currency::unreserve(
-                &committee,
-                committee_stake.staked_amount,
-            );
+            let _ = <T as Config>::Currency::unreserve(&committee, committee_stake.staked_amount);
 
             committee_stake.staked_amount = Zero::zero();
 
@@ -362,9 +359,9 @@ impl<T: Config> Pallet<T> {
         if change_reserve {
             if is_add {
                 ensure!(<T as Config>::Currency::can_reserve(&who, amount), ());
-                <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
+                <T as Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
             } else {
-                let _ = <T as pallet::Config>::Currency::unreserve(&who, amount);
+                let _ = <T as Config>::Currency::unreserve(&who, amount);
             }
         }
 

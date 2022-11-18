@@ -29,8 +29,8 @@ pub use traits::*;
 pub use types::*;
 
 type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as pallet::Config>::Currency as Currency<
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -737,7 +737,7 @@ pub mod pallet {
             let mut stash_machine = Self::stash_machines(&stash);
             let can_claim = stash_machine.claim_reward().map_err::<Error<T>, _>(Into::into)?;
 
-            <T as pallet::Config>::Currency::deposit_into_existing(&stash, can_claim)
+            <T as Config>::Currency::deposit_into_existing(&stash, can_claim)
                 .map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
             StashMachines::<T>::insert(&stash, stash_machine);
@@ -1322,10 +1322,10 @@ impl<T: Config> Pallet<T> {
         if is_add {
             stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
             ensure!(<T as Config>::Currency::can_reserve(&who, amount), ());
-            <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
+            <T as Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
         } else {
             stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
-            <T as pallet::Config>::Currency::unreserve(&who, amount);
+            <T as Config>::Currency::unreserve(&who, amount);
         }
         // 更改sys_info
         sys_info.change_stake(amount, is_add);

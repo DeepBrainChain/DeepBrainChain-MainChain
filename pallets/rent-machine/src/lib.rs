@@ -26,7 +26,7 @@ use sp_std::{prelude::*, str, vec::Vec};
 pub use types::*;
 
 type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// 等待30个块(15min)，用户确认是否租用成功
 pub const WAITING_CONFIRMING_DELAY: u32 = 30;
@@ -328,7 +328,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::Overflow)?
             .checked_div(BLOCK_PER_DAY as u64)
             .ok_or(Error::<T>::Overflow)?;
-        let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
+        let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
             .ok_or(Error::<T>::Overflow)?;
 
         // 获取用户租用的结束时间(块高)
@@ -426,11 +426,11 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::Overflow)?
             .checked_div(2880)
             .ok_or(Error::<T>::Overflow)?;
-        let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
+        let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
             .ok_or(Error::<T>::Overflow)?;
 
         // 检查用户是否有足够的资金，来租用机器
-        let user_balance = <T as pallet::Config>::Currency::free_balance(&renter);
+        let user_balance = <T as Config>::Currency::free_balance(&renter);
         ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
 
         Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_fee)?;
@@ -486,7 +486,7 @@ impl<T: Config> Pallet<T> {
         let galaxy_is_on = <online_profile::Module<T>>::galaxy_is_on();
         let rent_fee_to = if galaxy_is_on { rent_fee_pot } else { machine_stash };
 
-        <T as pallet::Config>::Currency::transfer(renter, &rent_fee_to, fee_amount, KeepAlive)?;
+        <T as Config>::Currency::transfer(renter, &rent_fee_to, fee_amount, KeepAlive)?;
         T::RTOps::change_machine_rent_fee(fee_amount, machine_id, galaxy_is_on);
         Ok(())
     }
@@ -562,12 +562,12 @@ impl<T: Config> Pallet<T> {
         let current_stake = Self::user_total_stake(who);
 
         let new_stake = if is_add {
-            ensure!(<T as pallet::Config>::Currency::can_reserve(who, amount), ());
-            <T as pallet::Config>::Currency::reserve(who, amount).map_err(|_| ())?;
+            ensure!(<T as Config>::Currency::can_reserve(who, amount), ());
+            <T as Config>::Currency::reserve(who, amount).map_err(|_| ())?;
             current_stake.checked_add(&amount).ok_or(())?
         } else {
             ensure!(current_stake >= amount, ());
-            let _ = <T as pallet::Config>::Currency::unreserve(who, amount);
+            let _ = <T as Config>::Currency::unreserve(who, amount);
             current_stake.checked_sub(&amount).ok_or(())?
         };
         UserTotalStake::<T>::insert(who, new_stake);

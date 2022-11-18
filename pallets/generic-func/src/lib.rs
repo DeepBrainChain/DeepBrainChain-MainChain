@@ -53,7 +53,7 @@ pub type MachineId = Vec<u8>;
 pub type EraIndex = u32;
 
 type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
@@ -153,11 +153,11 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             ensure!(
-                <T as pallet::Config>::Currency::can_slash(&who, amount),
+                <T as Config>::Currency::can_slash(&who, amount),
                 Error::<T>::FreeBalanceNotEnough
             );
 
-            let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, amount);
+            let (imbalance, _) = <T as Config>::Currency::slash(&who, amount);
             T::FixedTxFee::on_unbalanced(imbalance);
             Self::deposit_event(Event::DonateToTreasury(who, amount));
             Ok(().into())
@@ -245,9 +245,9 @@ impl<T: Config> Pallet<T> {
     // 交易费直接转给国库
     pub fn pay_fixed_tx_fee(who: T::AccountId) -> Result<(), ()> {
         let fixed_tx_fee = Self::fixed_tx_fee().ok_or(())?;
-        ensure!(<T as pallet::Config>::Currency::can_slash(&who, fixed_tx_fee), ());
+        ensure!(<T as Config>::Currency::can_slash(&who, fixed_tx_fee), ());
 
-        let (imbalance, _) = <T as pallet::Config>::Currency::slash(&who, fixed_tx_fee);
+        let (imbalance, _) = <T as Config>::Currency::slash(&who, fixed_tx_fee);
         T::FixedTxFee::on_unbalanced(imbalance);
 
         Self::deposit_event(Event::TxFeeToTreasury(who, fixed_tx_fee));

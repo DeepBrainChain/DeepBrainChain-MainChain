@@ -26,7 +26,7 @@ pub use pallet::*;
 pub use types::*;
 
 type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -210,7 +210,7 @@ pub mod pallet {
             let applicant = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
             let slash_info = Self::pending_slash(slash_id);
-            let stake_amount = <T as pallet::Config>::ManageCommittee::stake_per_order()
+            let stake_amount = <T as Config>::ManageCommittee::stake_per_order()
                 .ok_or(Error::<T>::GetStakeAmountFailed)?;
 
             // 确保一个惩罚只能有一个申述
@@ -273,7 +273,7 @@ pub mod pallet {
 
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
-            <T as pallet::Config>::CancelSlashOrigin::ensure_origin(origin)?;
+            <T as Config>::CancelSlashOrigin::ensure_origin(origin)?;
 
             Self::do_cancel_slash(slash_id)
         }
@@ -372,13 +372,9 @@ impl<T: Config> Pallet<T> {
         now: T::BlockNumber,
         work_time: (T::AccountId, Vec<usize>),
     ) -> Result<(), ()> {
-        let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
+        let stake_need = <T as Config>::ManageCommittee::stake_per_order().ok_or(())?;
         // Change committee usedstake will nerver fail after set proper params
-        <T as pallet::Config>::ManageCommittee::change_used_stake(
-            work_time.0.clone(),
-            stake_need,
-            true,
-        )?;
+        <T as Config>::ManageCommittee::change_used_stake(work_time.0.clone(), stake_need, true)?;
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
@@ -416,7 +412,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let booked_machine = <online_profile::Pallet<T>>::live_machines().booked_machine;
         let committee_stake_per_order =
-            <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
+            <T as Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         for machine_id in booked_machine {
             Self::statistic_a_machine(machine_id, now, committee_stake_per_order);
@@ -525,7 +521,7 @@ impl<T: Config> Pallet<T> {
 
         if inconsistent_committee.is_empty() && unruly_committee.is_empty() && !is_refused {
             for a_committee in reward_committee {
-                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                let _ = <T as Config>::ManageCommittee::change_used_stake(
                     a_committee,
                     committee_stake_per_order,
                     false,
@@ -721,7 +717,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         for a_committee in committee_list {
             if is_slash {
-                <T as pallet::Config>::ManageCommittee::change_total_stake(
+                <T as Config>::ManageCommittee::change_total_stake(
                     a_committee.clone(),
                     amount,
                     false,
@@ -729,7 +725,7 @@ impl<T: Config> Pallet<T> {
                 )?;
             }
 
-            <T as pallet::Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
+            <T as Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
         }
 
         Ok(())
@@ -741,7 +737,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let mut slash_info = Self::pending_slash(slash_id);
         let slash_review_info = Self::pending_slash_review(slash_id);
-        let committee_order_stake = <T as pallet::Config>::ManageCommittee::stake_per_order()
+        let committee_order_stake = <T as Config>::ManageCommittee::stake_per_order()
             .ok_or(Error::<T>::GetStakeAmountFailed)?;
 
         ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
@@ -761,7 +757,7 @@ impl<T: Config> Pallet<T> {
             );
         } else {
             // 否则，申请人是被惩罚的委员会
-            let _ = <T as pallet::Config>::Currency::unreserve(
+            let _ = <T as Config>::Currency::unreserve(
                 &slash_review_info.applicant,
                 slash_review_info.staked_amount,
             );
@@ -787,7 +783,7 @@ impl<T: Config> Pallet<T> {
             ItemList::add_item(&mut should_reward, slash_info.machine_stash.clone());
         }
 
-        let _ = <T as pallet::Config>::SlashAndReward::slash_and_reward(
+        let _ = <T as Config>::SlashAndReward::slash_and_reward(
             should_slash.clone(),
             committee_order_stake,
             should_reward.clone(),
