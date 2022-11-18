@@ -38,8 +38,8 @@ pub const WAITING_CONFIRMING_DELAY: u32 = 30;
 pub const BLOCK_PER_DAY: u32 = 2880;
 
 type BalanceOf<T> =
-    <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as pallet::Config>::Currency as Currency<
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -543,7 +543,7 @@ pub mod pallet {
                 .ok_or(Error::<T>::Overflow)?
                 .checked_div(24 * 60 * 2)
                 .ok_or(Error::<T>::Overflow)?;
-            let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
+            let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
 
             // 获取用户租用的结束时间(块高)
@@ -717,11 +717,11 @@ pub mod pallet {
                 .ok_or(Error::<T>::Overflow)?
                 .checked_div(2880)
                 .ok_or(Error::<T>::Overflow)?;
-            let rent_fee = <T as pallet::Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
+            let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
 
             // 检查用户是否有足够的资金，来租用机器
-            let user_balance = <T as pallet::Config>::Currency::free_balance(&renter);
+            let user_balance = <T as Config>::Currency::free_balance(&renter);
             ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
 
             // 质押用户的资金，并修改机器状态
@@ -866,7 +866,7 @@ pub mod pallet {
             MachineRentOrder::<T>::remove(&machine_id);
 
             // 解压机器质押的币
-            <T as pallet::Config>::Currency::unreserve(
+            <T as Config>::Currency::unreserve(
                 &machine_info.machine_stash,
                 machine_info.stake_amount,
             );
@@ -1004,10 +1004,10 @@ impl<T: Config> Pallet<T> {
         if is_add {
             stash_stake = stash_stake.checked_add(&amount).ok_or(())?;
             ensure!(<T as Config>::Currency::can_reserve(&who, amount), ());
-            <T as pallet::Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
+            <T as Config>::Currency::reserve(&who, amount).map_err(|_| ())?;
         } else {
             stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
-            <T as pallet::Config>::Currency::unreserve(&who, amount);
+            <T as Config>::Currency::unreserve(&who, amount);
         }
 
         StashStake::<T>::insert(&who, stash_stake);
@@ -1085,13 +1085,9 @@ impl<T: Config> Pallet<T> {
         now: T::BlockNumber,
         work_time: (T::AccountId, Vec<usize>),
     ) -> Result<(), ()> {
-        let stake_need = <T as pallet::Config>::ManageCommittee::stake_per_order().ok_or(())?;
+        let stake_need = <T as Config>::ManageCommittee::stake_per_order().ok_or(())?;
         // Change committee usedstake will nerver fail after set proper params
-        <T as pallet::Config>::ManageCommittee::change_used_stake(
-            work_time.0.clone(),
-            stake_need,
-            true,
-        )?;
+        <T as Config>::ManageCommittee::change_used_stake(work_time.0.clone(), stake_need, true)?;
 
         // 修改machine对应的委员会
         let mut machine_committee = Self::machine_committee(&machine_id);
@@ -1168,7 +1164,7 @@ impl<T: Config> Pallet<T> {
 
     fn summary_committee_raw(machine_id: MachineId) {
         let committee_order_stake =
-            <T as pallet::Config>::ManageCommittee::stake_per_order().unwrap_or_default();
+            <T as Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         let mut machine_committee = Self::machine_committee(&machine_id);
 
@@ -1245,7 +1241,7 @@ impl<T: Config> Pallet<T> {
 
         if inconsistent_committee.is_empty() && unruly_committee.is_empty() && !is_refused {
             for a_committee in reward_committee {
-                let _ = <T as pallet::Config>::ManageCommittee::change_used_stake(
+                let _ = <T as Config>::ManageCommittee::change_used_stake(
                     a_committee,
                     committee_order_stake,
                     false,
@@ -1545,12 +1541,12 @@ impl<T: Config> Pallet<T> {
         let current_stake = Self::renter_total_stake(who);
 
         let new_stake = if is_add {
-            ensure!(<T as pallet::Config>::Currency::can_reserve(who, amount), ());
-            <T as pallet::Config>::Currency::reserve(who, amount).map_err(|_| ())?;
+            ensure!(<T as Config>::Currency::can_reserve(who, amount), ());
+            <T as Config>::Currency::reserve(who, amount).map_err(|_| ())?;
             current_stake.checked_add(&amount).ok_or(())?
         } else {
             ensure!(current_stake >= amount, ());
-            let _ = <T as pallet::Config>::Currency::unreserve(who, amount);
+            let _ = <T as Config>::Currency::unreserve(who, amount);
             current_stake.checked_sub(&amount).ok_or(())?
         };
         RenterTotalStake::<T>::insert(who, new_stake);
@@ -1622,9 +1618,9 @@ impl<T: Config> Pallet<T> {
         let mut machine_info = Self::machines_info(&machine_id);
 
         // 可能足用人质押数量大于需要支付的租金，因此需要解绑质押，再转对应的租金
-        <T as pallet::Config>::Currency::unreserve(&rent_order.renter, rent_order.stake_amount);
+        <T as Config>::Currency::unreserve(&rent_order.renter, rent_order.stake_amount);
 
-        <T as pallet::Config>::Currency::transfer(
+        <T as Config>::Currency::transfer(
             &rent_order.renter,
             &machine_info.machine_stash,
             rent_fee,
@@ -1643,7 +1639,7 @@ impl<T: Config> Pallet<T> {
             // machine_info.stake_amount, 则质押 rent_fee
             let stake_amount = rent_fee.min(max_stake - machine_info.stake_amount);
 
-            <T as pallet::Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)?;
+            <T as Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)?;
             machine_info.stake_amount = machine_info.stake_amount.saturating_add(stake_amount);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
         }
