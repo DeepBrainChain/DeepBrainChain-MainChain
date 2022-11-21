@@ -5,6 +5,7 @@ use crate::{Config, Error};
 use codec::{Decode, Encode};
 use frame_support::ensure;
 use generic_func::{ItemList, MachineId};
+use online_profile::OPSlashReason;
 use rent_machine::RentOrderId;
 use sp_runtime::{
     traits::{Saturating, Zero},
@@ -125,6 +126,23 @@ impl MTLiveReportList {
         ItemList::rm_item(&mut self.bookable_report, report_id);
         ItemList::rm_item(&mut self.verifying_report, report_id);
         ItemList::rm_item(&mut self.waiting_raw_report, report_id);
+    }
+
+    // TODO: func rename
+    pub fn get_verify_result<Account>(
+        &mut self,
+        report_id: ReportId,
+        summary_result: ReportConfirmStatus<Account>,
+    ) {
+        match summary_result {
+            ReportConfirmStatus::Confirmed(..) | ReportConfirmStatus::Refuse(..) => {
+                ItemList::rm_item(&mut self.waiting_raw_report, &report_id);
+                ItemList::add_item(&mut self.finished_report, report_id);
+            },
+            ReportConfirmStatus::NoConsensus => {
+                ItemList::rm_item(&mut self.waiting_raw_report, &report_id);
+            },
+        }
     }
 }
 
@@ -463,6 +481,17 @@ impl MachineFaultType {
             MachineFaultType::RentedInaccessible(..) => None,
         }
     }
+
+    pub fn into_op_err<BlockNumber>(&self, report_time: BlockNumber) -> OPSlashReason<BlockNumber> {
+        match self {
+            Self::RentedInaccessible(..) => OPSlashReason::RentedInaccessible(report_time),
+            Self::RentedHardwareMalfunction(..) =>
+                OPSlashReason::RentedHardwareMalfunction(report_time),
+            Self::RentedHardwareCounterfeit(..) =>
+                OPSlashReason::RentedHardwareCounterfeit(report_time),
+            Self::OnlineRentFailed(..) => OPSlashReason::OnlineRentFailed(report_time),
+        }
+    }
 }
 
 /// Summary after all committee submit raw info
@@ -708,39 +737,99 @@ impl Default for MCSlashResult {
 }
 
 // A: Account, B: Block, C: Balance
-impl<A, B, C> MTReportResultInfo<A, B, C>
+impl<Account, Block, Balance> MTReportResultInfo<Account, Block, Balance>
 where
-    A: Ord,
+    Account: Ord + Clone,
+    Balance: Zero,
 {
-    pub fn is_slashed_reporter(&self, who: &A) -> bool {
-        match self.report_result {
-            ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo =>
-                &self.reporter == who,
-            _ => false,
-        }
+    pub fn is_slashed_reporter(&self, who: &Account) -> bool {
+        matches!(
+            self.report_result,
+            ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo
+        ) && &self.reporter == who
     }
 
-    pub fn is_slashed_committee(&self, who: &A) -> bool {
+    pub fn is_slashed_committee(&self, who: &Account) -> bool {
         self.inconsistent_committee.binary_search(who).is_ok() ||
             self.unruly_committee.binary_search(who).is_ok()
     }
 
-    pub fn is_slashed_stash(&self, who: &A) -> bool {
+    pub fn is_slashed_stash(&self, who: &Account) -> bool {
         match self.report_result {
             ReportResultType::ReportSucceed => &self.machine_stash == who,
             _ => false,
         }
     }
 
-    pub fn i_exten_sorted(&mut self, a_list: Vec<A>) {
+    pub fn i_exten_sorted(&mut self, a_list: Vec<Account>) {
         for a_item in a_list {
             ItemList::add_item(&mut self.inconsistent_committee, a_item);
         }
     }
 
-    pub fn r_exten_sorted(&mut self, a_list: Vec<A>) {
+    pub fn r_exten_sorted(&mut self, a_list: Vec<Account>) {
         for a_item in a_list {
             ItemList::add_item(&mut self.reward_committee, a_item);
+        }
+    }
+
+    // 接收report_info.summary结果，修改自身
+    // 仅仅在summary_waiting_raw中使用
+    pub fn get_verify_result(
+        &mut self,
+        now: Block,
+        report_id: ReportId,
+        committee_order_stake: Balance,
+        report_info: &MTReportInfoDetail<Account, Block, Balance>,
+    ) where
+        Account: Default + Clone + Ord,
+        Block: Default + PartialEq + Zero + From<u32> + Copy + Sub<Output = Block> + PartialOrd,
+        Balance: Default + Copy,
+    {
+        self.report_id = report_id;
+        self.slash_result = MCSlashResult::Pending;
+        self.slash_time = now;
+        self.slash_exec_time = now + TWO_DAY.into();
+        self.reporter = report_info.reporter.clone();
+        self.committee_stake = committee_order_stake;
+
+        let verify_summary = report_info.summary();
+        match verify_summary {
+            // 报告成功
+            ReportConfirmStatus::Confirmed(support, against, _) => {
+                self.report_result = ReportResultType::ReportSucceed;
+                self.reporter_stake = report_info.reporter_stake;
+
+                for a_committee in against {
+                    ItemList::add_item(&mut self.inconsistent_committee, a_committee.clone());
+                }
+
+                for a_committee in support.clone() {
+                    ItemList::add_item(&mut self.reward_committee, a_committee.clone());
+                }
+            },
+            // 报告失败
+            ReportConfirmStatus::Refuse(support_committee, against_committee) => {
+                self.report_result = ReportResultType::ReportRefused;
+                self.reporter_stake = report_info.reporter_stake;
+
+                // Slash support committee and release against committee stake
+                self.i_exten_sorted(support_committee);
+                self.r_exten_sorted(against_committee);
+            },
+            // 如果没有人提交，会出现NoConsensus的情况，并重新派单
+            ReportConfirmStatus::NoConsensus => {
+                self.report_result = ReportResultType::NoConsensus;
+
+                // 记录unruly的委员会，两天后进行惩罚
+                ItemList::expand_to_order(
+                    &mut self.unruly_committee,
+                    report_info.booked_committee.clone(),
+                );
+
+                // 重新举报时，记录报告人的质押将被重新使用，因此不再退还。
+                self.reporter_stake = Zero::zero();
+            },
         }
     }
 }
