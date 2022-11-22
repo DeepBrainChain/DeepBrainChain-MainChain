@@ -448,15 +448,14 @@ pub mod pallet {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            let mut report_info = Self::report_info(report_id);
-            let mut committee_order = Self::committee_order(&committee);
-            let mut committee_ops = Self::committee_ops(&committee, &report_id);
+            let report_info = Self::report_info(report_id);
+            let committee_ops = Self::committee_ops(&committee, &report_id);
 
             report_info
                 .can_submit_inaccessible_raw(&committee)
                 .map_err::<Error<T>, _>(Into::into)?;
             // 检查Hash是否一致
-            let is_support_u8: Vec<u8> = if is_support { "1".into() } else { "0".into() };
+            let is_support_u8 = if is_support { "1".into() } else { "0".into() };
             ensure!(
                 Self::get_hash(vec![
                     report_id.to_string().into(),
@@ -466,16 +465,15 @@ pub mod pallet {
                 Error::<T>::NotEqualCommitteeSubmit
             );
 
-            // 记录到report_info中
-            report_info.add_raw(committee.clone(), is_support, None, vec![]);
-            // 记录到committee_ops
-            committee_ops.add_raw(now, is_support, vec![]);
-            // 记录到committee_order
-            committee_order.add_raw(report_id);
-
-            ReportInfo::<T>::insert(&report_id, report_info);
-            CommitteeOps::<T>::insert(&committee, &report_id, committee_ops);
-            CommitteeOrder::<T>::insert(&committee, committee_order);
+            ReportInfo::<T>::mutate(report_id, |report_info| {
+                report_info.add_raw(committee.clone(), is_support, None, vec![]);
+            });
+            CommitteeOps::<T>::mutate(&committee, &report_id, |committee_ops| {
+                committee_ops.add_raw(now, is_support, vec![]);
+            });
+            CommitteeOrder::<T>::mutate(&committee, |committee_order| {
+                committee_order.add_raw(report_id);
+            });
 
             Self::deposit_event(Event::RawInfoSubmited(report_id, committee));
             Ok(().into())
