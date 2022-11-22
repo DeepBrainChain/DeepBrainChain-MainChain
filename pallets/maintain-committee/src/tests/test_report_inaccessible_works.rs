@@ -1,5 +1,5 @@
 use super::super::{mock::*, Error};
-use crate::types::{MTOrderStatus, ReportStatus};
+use crate::{MTOrderStatus, ReportStatus};
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
 use std::convert::TryInto;

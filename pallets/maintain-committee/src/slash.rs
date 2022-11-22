@@ -1,6 +1,6 @@
 use crate::{
-    types::{MCSlashResult, MTReportResultInfo, ReportId, ReportResultType},
-    Config, Pallet, PendingSlashReview, ReportResult, ReporterStake, UnhandledReportResult,
+    Config, MCSlashResult, MTReportResultInfo, Pallet, PendingSlashReview, ReportId, ReportResult,
+    ReportResultType, ReporterStake, UnhandledReportResult,
 };
 use dbc_support::traits::MTOps;
 use frame_support::IterableStorageMap;

@@ -1090,7 +1090,7 @@ fn report_machine_fault_works_case4() {
                     slash_time: 11 + 480,
                     slash_exec_time: 11 + 480 + 2880 * 2,
                     report_result: crate::ReportResultType::NoConsensus,
-                    slash_result: crate::types::MCSlashResult::Pending,
+                    slash_result: crate::MCSlashResult::Pending,
                     ..Default::default()
                 }
             );

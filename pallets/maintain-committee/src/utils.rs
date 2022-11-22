@@ -1,6 +1,6 @@
 use crate::{
-    types::{MTReportInfoDetail, ReportHash, ReportId, ReportResultType},
-    BalanceOf, Config, Error, NextReportId, Pallet, ReporterStake, UnhandledReportResult,
+    BalanceOf, Config, Error, MTReportInfoDetail, NextReportId, Pallet, ReportHash, ReportId,
+    ReportResultType, ReporterStake, UnhandledReportResult,
 };
 use dbc_support::traits::{GNOps, ManageCommittee};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
