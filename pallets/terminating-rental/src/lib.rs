@@ -284,6 +284,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
+        // 设置每张卡质押数量
         pub fn set_stake_per_gpu(
             origin: OriginFor<T>,
             stake_per_gpu: BalanceOf<T>,
@@ -293,6 +294,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // 需要质押10000DBC作为保证金，验证通过保证金解锁
         #[pallet::weight(0)]
         pub fn set_online_deposit(
             origin: OriginFor<T>,
@@ -303,7 +305,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 设置标准GPU标准算力与租用价格
+        // 设置特定GPU标准算力与对应的每天租用价格
         #[pallet::weight(0)]
         pub fn set_standard_gpu_point_price(
             origin: OriginFor<T>,
@@ -314,7 +316,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Stash account set a controller
+        // 资金账户设置控制账户
         #[pallet::weight(10000)]
         pub fn set_controller(
             origin: OriginFor<T>,
@@ -336,7 +338,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Controller generate new server room id, record to stash account
+        // Controller generate new server room id, record to stash account
         #[pallet::weight(10000)]
         pub fn gen_server_room(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
@@ -397,28 +399,22 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
             let mut machine_info = Self::machines_info(&machine_id);
 
-            ensure!(!add_machine_info.telecom_operators.is_empty(), Error::<T>::TelecomIsNull);
             // 查询机器Id是否在该账户的控制下
             ensure!(
                 Self::stash_controller(&machine_info.machine_stash) == Some(controller),
                 Error::<T>::NotMachineController
             );
 
+            // 确保机房ID存在
             let stash_server_rooms = Self::stash_server_rooms(&machine_info.machine_stash);
             ensure!(
                 stash_server_rooms.binary_search(&add_machine_info.server_room).is_ok(),
                 Error::<T>::ServerRoomNotFound
             );
-            // TODO: 应该返回一个更合适的错误
-            // TODO: onlineProfile同样应该返回一个更合适的错误
-            // 检查当前机器状态是否允许
-            ensure!(
-                &machine_info.can_add_customize_info(),
-                Error::<T>::NotAllowedChangeMachineInfo
-            );
 
-            machine_info.machine_info_detail.staker_customize_info = add_machine_info;
-            machine_info.machine_status = IRMachineStatus::DistributingOrder;
+            machine_info
+                .add_machine_info(add_machine_info)
+                .map_err::<Error<T>, _>(Into::into)?;
 
             LiveMachines::<T>::mutate(|live_machines| {
                 live_machines.add_machine_info(machine_id.clone())

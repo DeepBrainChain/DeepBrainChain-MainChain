@@ -144,16 +144,20 @@ pub enum CustomErr {
     AlreadySubmitHash,
     AlreadySubmitRaw,
     NotSubmitHash,
+    NotAllowedChangeMachineInfo,
+    TelecomIsNull,
 }
 
 impl<T: Config> From<CustomErr> for Error<T> {
     fn from(err: CustomErr) -> Self {
         match err {
-            CustomErr::NotInBookList => Error::<T>::NotInBookList,
-            CustomErr::TimeNotAllow => Error::<T>::TimeNotAllow,
-            CustomErr::AlreadySubmitHash => Error::<T>::AlreadySubmitHash,
-            CustomErr::AlreadySubmitRaw => Error::<T>::AlreadySubmitRaw,
-            CustomErr::NotSubmitHash => Error::<T>::NotSubmitHash,
+            CustomErr::NotInBookList => Error::NotInBookList,
+            CustomErr::TimeNotAllow => Error::TimeNotAllow,
+            CustomErr::AlreadySubmitHash => Error::AlreadySubmitHash,
+            CustomErr::AlreadySubmitRaw => Error::AlreadySubmitRaw,
+            CustomErr::NotSubmitHash => Error::NotSubmitHash,
+            CustomErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
+            CustomErr::TelecomIsNull => Error::TelecomIsNull,
         }
     }
 }

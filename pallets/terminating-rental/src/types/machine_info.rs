@@ -4,6 +4,7 @@ use generic_func::rpc_types::serde_text;
 use serde::{Deserialize, Serialize};
 
 use codec::{alloc::string::ToString, Decode, Encode};
+use frame_support::ensure;
 use generic_func::MachineId;
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
@@ -13,7 +14,7 @@ use sp_runtime::{
 };
 use sp_std::{prelude::Box, vec, vec::Vec};
 
-use crate::OPSlashReason;
+use crate::{CustomErr, OPSlashReason};
 
 /// All details of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -200,7 +201,7 @@ where
         }
     }
 
-    pub fn can_add_customize_info(&self) -> bool {
+    fn can_add_customize_info(&self) -> bool {
         matches!(
             self.machine_status,
             IRMachineStatus::AddingCustomizeInfo |
@@ -209,6 +210,21 @@ where
                 IRMachineStatus::WaitingFulfill |
                 IRMachineStatus::StakerReportOffline(_)
         )
+    }
+
+    pub fn add_machine_info(
+        &mut self,
+        add_machine_info: IRStakerCustomizeInfo,
+    ) -> Result<(), CustomErr> {
+        // 必须提供网络运营商
+        ensure!(!add_machine_info.telecom_operators.is_empty(), CustomErr::TelecomIsNull);
+
+        // 检查当前机器状态是否允许
+        ensure!(&self.can_add_customize_info(), CustomErr::NotAllowedChangeMachineInfo);
+        self.machine_info_detail.staker_customize_info = add_machine_info;
+        self.machine_status = IRMachineStatus::DistributingOrder;
+
+        Ok(())
     }
 
     // 通过了委员会验证
