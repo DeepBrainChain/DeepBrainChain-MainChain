@@ -19,6 +19,12 @@ pub const SUBMIT_RAW_START: u32 = 4320;
 pub const SUBMIT_RAW_END: u32 = 5760;
 pub const TWO_DAY: u32 = 5760;
 
+#[derive(Clone, Debug)]
+pub struct VerifySequence<AccountId> {
+    pub who: AccountId,
+    pub index: Vec<usize>,
+}
+
 /// Query distributed machines by committee address
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -76,16 +82,18 @@ pub enum CustomErr {
     AlreadySubmitHash,
     AlreadySubmitRaw,
     NotSubmitHash,
+    Overflow,
 }
 
 impl<T: Config> From<CustomErr> for Error<T> {
     fn from(err: CustomErr) -> Self {
         match err {
-            CustomErr::NotInBookList => Error::<T>::NotInBookList,
-            CustomErr::TimeNotAllow => Error::<T>::TimeNotAllow,
-            CustomErr::AlreadySubmitHash => Error::<T>::AlreadySubmitHash,
-            CustomErr::AlreadySubmitRaw => Error::<T>::AlreadySubmitRaw,
-            CustomErr::NotSubmitHash => Error::<T>::NotSubmitHash,
+            CustomErr::NotInBookList => Error::NotInBookList,
+            CustomErr::TimeNotAllow => Error::TimeNotAllow,
+            CustomErr::AlreadySubmitHash => Error::AlreadySubmitHash,
+            CustomErr::AlreadySubmitRaw => Error::AlreadySubmitRaw,
+            CustomErr::NotSubmitHash => Error::NotSubmitHash,
+            CustomErr::Overflow => Error::Overflow,
         }
     }
 }
@@ -145,6 +153,13 @@ where
             self.status = OCVerifyStatus::Summarizing;
         }
         Ok(())
+    }
+
+    // 是Summarizing的状态或 是SummitingRaw 且在有效时间内
+    pub fn can_summary(&mut self, now: BlockNumber) -> bool {
+        matches!(self.status, OCVerifyStatus::Summarizing) ||
+            matches!(self.status, OCVerifyStatus::SubmittingRaw) &&
+                now >= self.book_time + SUBMIT_RAW_END.into()
     }
 
     // 记录没有提交原始信息的委员会

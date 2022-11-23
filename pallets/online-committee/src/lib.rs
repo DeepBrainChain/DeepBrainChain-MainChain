@@ -10,6 +10,7 @@ mod mock;
 #[cfg(test)]
 #[allow(non_upper_case_globals)]
 mod tests;
+mod utils;
 
 use dbc_support::traits::{GNOps, ManageCommittee, OCOps};
 use frame_support::{
@@ -200,6 +201,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // TODO: refactor
         #[pallet::weight(10000)]
         pub fn apply_slash_review(
             origin: OriginFor<T>,
@@ -242,19 +244,10 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
             } else if is_slashed_committee {
                 // 否则质押委员会的币
-                <T as Config>::ManageCommittee::change_total_stake(
-                    slashed.clone(),
-                    stake_amount,
-                    true,
-                    true,
-                )
-                .map_err(|_| Error::<T>::Overflow)?;
-                <T as Config>::ManageCommittee::change_used_stake(
-                    slashed.clone(),
-                    stake_amount,
-                    true,
-                )
-                .map_err(|_| Error::<T>::Overflow)?;
+                Self::change_committee_total_stake(slashed.clone(), stake_amount, true, true)
+                    .map_err(|_| Error::<T>::Overflow)?;
+                Self::change_committee_used_stake(slashed.clone(), stake_amount, true)
+                    .map_err(|_| Error::<T>::Overflow)?;
             }
 
             PendingSlashReview::<T>::insert(
@@ -271,6 +264,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // TODO: refactor
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
             <T as Config>::CancelSlashOrigin::ensure_origin(origin)?;
@@ -316,20 +310,15 @@ impl<T: Config> Pallet<T> {
         let confirm_start = now + SUBMIT_RAW_START.into();
 
         for machine_id in live_machines.confirmed_machine {
-            // 重新分配: 必须清空该状态
+            // 重新分配时必须清空该状态
             if MachineCommittee::<T>::contains_key(&machine_id) {
                 MachineCommittee::<T>::remove(&machine_id);
             }
 
-            if let Some(committee_workflows) = Self::committee_workflow() {
-                for committee_workflow in committee_workflows {
-                    if Self::book_one(
-                        machine_id.to_vec(),
-                        confirm_start,
-                        now,
-                        committee_workflow.clone(),
-                    )
-                    .is_err()
+            if let Some(committee_work_index) = Self::work_index() {
+                for work_index in committee_work_index {
+                    if Self::book_one(machine_id.to_vec(), confirm_start, now, work_index.clone())
+                        .is_err()
                     {
                         continue
                     };
@@ -341,27 +330,24 @@ impl<T: Config> Pallet<T> {
     }
 
     // 分派一个machineId给随机的委员会
-    // 返回Distribution(9)个随机顺序的账户列表
-    pub fn committee_workflow() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
+    // 返回3个随机顺序的账户及其对应的验证顺序
+    pub fn work_index() -> Option<Vec<VerifySequence<T::AccountId>>> {
         let mut committee = <committee::Module<T>>::available_committee()?;
-        // Require committee_num at lease 3
-        let lucky_committee_num = if committee.len() < 3 { return None } else { 3 };
-        // 选出lucky_committee_num个委员会
-        let mut lucky_committee = Vec::new();
+        if committee.len() < 3 {
+            return None
+        };
 
-        for _ in 0..lucky_committee_num {
+        let mut verify_sequence = Vec::new();
+        for i in 0..3 {
             let lucky_index =
                 <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
-            lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
+            verify_sequence.push(VerifySequence {
+                who: committee[lucky_index].clone(),
+                index: (i..DISTRIBUTION as usize).step_by(3).collect(),
+            });
             committee.remove(lucky_index);
         }
-
-        for i in 0..DISTRIBUTION as usize {
-            let index = i % lucky_committee_num;
-            lucky_committee[index].1.push(i);
-        }
-
-        Some(lucky_committee)
+        Some(verify_sequence)
     }
 
     // 一个委员会进行操作
@@ -370,41 +356,40 @@ impl<T: Config> Pallet<T> {
         machine_id: MachineId,
         confirm_start: T::BlockNumber,
         now: T::BlockNumber,
-        work_time: (T::AccountId, Vec<usize>),
+        work_index: VerifySequence<T::AccountId>,
     ) -> Result<(), ()> {
         let stake_need = <T as Config>::ManageCommittee::stake_per_order().ok_or(())?;
         // Change committee usedstake will nerver fail after set proper params
-        <T as Config>::ManageCommittee::change_used_stake(work_time.0.clone(), stake_need, true)?;
+        Self::change_committee_used_stake(work_index.who.clone(), stake_need, true)
+            .map_err(|_| ())?;
 
         // 修改machine对应的委员会
-        let mut machine_committee = Self::machine_committee(&machine_id);
-
-        ItemList::add_item(&mut machine_committee.booked_committee, work_time.0.clone());
-        machine_committee.book_time = now;
-        machine_committee.confirm_start_time = confirm_start;
+        MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
+            ItemList::add_item(&mut machine_committee.booked_committee, work_index.who.clone());
+            machine_committee.book_time = now;
+            machine_committee.confirm_start_time = confirm_start;
+        });
 
         // 修改委员会对应的machine
-        let mut committee_machine = Self::committee_machine(&work_time.0);
-        ItemList::add_item(&mut committee_machine.booked_machine, machine_id.clone());
+        CommitteeMachine::<T>::mutate(&work_index.who, |committee_machine| {
+            ItemList::add_item(&mut committee_machine.booked_machine, machine_id.clone());
+        });
 
         // 修改委员会的操作
-        let mut committee_ops = OCCommitteeOps { ..Default::default() };
-        let start_time: Vec<_> = work_time
-            .1
-            .into_iter()
-            .map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into())
-            .collect();
+        CommitteeOps::<T>::mutate(&work_index.who, &machine_id, |committee_ops| {
+            let start_time: Vec<_> = work_index
+                .index
+                .clone()
+                .into_iter()
+                .map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into())
+                .collect();
 
-        committee_ops.staked_dbc = stake_need;
-        committee_ops.verify_time = start_time;
-        committee_ops.machine_status = OCMachineStatus::Booked;
+            committee_ops.staked_dbc = stake_need;
+            committee_ops.verify_time = start_time;
+            committee_ops.machine_status = OCMachineStatus::Booked;
+        });
 
-        // 存储变量
-        MachineCommittee::<T>::insert(&machine_id, machine_committee);
-        CommitteeMachine::<T>::insert(&work_time.0, committee_machine);
-        CommitteeOps::<T>::insert(&work_time.0, &machine_id, committee_ops);
-
-        Self::deposit_event(Event::MachineDistributed(machine_id.to_vec(), work_time.0));
+        Self::deposit_event(Event::MachineDistributed(machine_id.to_vec(), work_index.who));
         Ok(())
     }
 
@@ -415,34 +400,25 @@ impl<T: Config> Pallet<T> {
             <T as Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         for machine_id in booked_machine {
-            Self::statistic_a_machine(machine_id, now, committee_stake_per_order);
+            Self::summary_raw(machine_id, now, committee_stake_per_order);
         }
     }
 
-    fn statistic_a_machine(
-        machine_id: MachineId,
-        now: T::BlockNumber,
-        committee_stake_per_order: BalanceOf<T>,
-    ) {
+    // 对已经提交完原始值的机器进行处理
+    fn summary_raw(machine_id: MachineId, now: T::BlockNumber, stake_per_order: BalanceOf<T>) {
         let mut machine_committee = Self::machine_committee(&machine_id);
 
-        match machine_committee.status {
-            OCVerifyStatus::SubmittingHash => {
-                if now >= machine_committee.book_time + SUBMIT_RAW_START.into() {
-                    machine_committee.status = OCVerifyStatus::SubmittingRaw;
-                    MachineCommittee::<T>::insert(&machine_id, machine_committee);
-                    return
-                } else {
-                    return
-                }
-            },
-            OCVerifyStatus::SubmittingRaw => {
-                if now < machine_committee.book_time + SUBMIT_RAW_END.into() {
-                    return
-                }
-            },
-            OCVerifyStatus::Summarizing => {},
-            OCVerifyStatus::Finished => return,
+        // 如果是在提交Hash的状态，且已经到提交原始值的时间，则改变状态并返回
+        if matches!(machine_committee.status, OCVerifyStatus::SubmittingHash) {
+            if now >= machine_committee.book_time + SUBMIT_RAW_START.into() {
+                machine_committee.status = OCVerifyStatus::SubmittingRaw;
+                MachineCommittee::<T>::insert(&machine_id, machine_committee);
+                return
+            }
+        }
+
+        if !machine_committee.can_summary(now) {
+            return
         }
 
         let mut inconsistent_committee = Vec::new();
@@ -521,11 +497,7 @@ impl<T: Config> Pallet<T> {
 
         if inconsistent_committee.is_empty() && unruly_committee.is_empty() && !is_refused {
             for a_committee in reward_committee {
-                let _ = <T as Config>::ManageCommittee::change_used_stake(
-                    a_committee,
-                    committee_stake_per_order,
-                    false,
-                );
+                let _ = Self::change_committee_used_stake(a_committee, stake_per_order, false);
             }
         } else {
             let slash_id = Self::get_new_slash_id();
@@ -540,7 +512,7 @@ impl<T: Config> Pallet<T> {
                     inconsistent_committee,
                     unruly_committee,
                     reward_committee,
-                    committee_stake: committee_stake_per_order,
+                    committee_stake: stake_per_order,
 
                     slash_time: now,
                     slash_exec_time: now + TWO_DAY.into(),
@@ -717,15 +689,11 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         for a_committee in committee_list {
             if is_slash {
-                <T as Config>::ManageCommittee::change_total_stake(
-                    a_committee.clone(),
-                    amount,
-                    false,
-                    false,
-                )?;
+                Self::change_committee_total_stake(a_committee.clone(), amount, false, false)
+                    .map_err(|_| ())?;
             }
 
-            <T as Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
+            Self::change_committee_used_stake(a_committee, amount, false).map_err(|_| ())?;
         }
 
         Ok(())
@@ -761,13 +729,13 @@ impl<T: Config> Pallet<T> {
                 &slash_review_info.applicant,
                 slash_review_info.staked_amount,
             );
-            let _ = <T as Config>::ManageCommittee::change_total_stake(
+            let _ = Self::change_committee_total_stake(
                 slash_review_info.applicant.clone(),
                 committee_order_stake,
                 false,
                 true,
             );
-            let _ = <T as Config>::ManageCommittee::change_used_stake(
+            let _ = Self::change_committee_used_stake(
                 slash_review_info.applicant.clone(),
                 committee_order_stake,
                 false,
@@ -804,25 +772,17 @@ impl<T: Config> Pallet<T> {
         }
         // 如果委员会应该被惩罚，则减少其total_stake和used_stake
         for a_committee in should_slash {
-            let _ = <T as Config>::ManageCommittee::change_total_stake(
+            let _ = Self::change_committee_total_stake(
                 a_committee.clone(),
                 committee_order_stake,
                 false,
                 false,
             );
-            let _ = <T as Config>::ManageCommittee::change_used_stake(
-                a_committee,
-                committee_order_stake,
-                false,
-            );
+            let _ = Self::change_committee_used_stake(a_committee, committee_order_stake, false);
         }
         // 如果委员会应该被奖励，则改变已使用的质押即可
         for a_committee in should_reward {
-            let _ = <T as Config>::ManageCommittee::change_used_stake(
-                a_committee,
-                committee_order_stake,
-                false,
-            );
+            let _ = Self::change_committee_used_stake(a_committee, committee_order_stake, false);
         }
 
         ItemList::rm_item(&mut unhandled_slash, &slash_id);
