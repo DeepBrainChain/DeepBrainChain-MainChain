@@ -293,7 +293,7 @@ impl<T: Config> RTOps for Pallet<T> {
         machine_info.total_rented_times += 1;
 
         // NOTE: 该检查确保得分快照不被改变多次
-        if live_machines.rented_machine.binary_search(&machine_id).is_err() {
+        if live_machines.rented_machine.binary_search(machine_id).is_err() {
             Self::update_snap_by_rent_status(machine_id.to_vec(), true);
 
             ItemList::rm_item(&mut live_machines.online_machine, machine_id);

@@ -60,17 +60,17 @@ impl OCCommitteeMachineList {
 
     // 将要重新派单的机器从订单里清除
     pub fn revert_book(&mut self, machine_id: &MachineId) {
-        ItemList::rm_item(&mut self.booked_machine, &machine_id);
-        ItemList::rm_item(&mut self.hashed_machine, &machine_id);
-        ItemList::rm_item(&mut self.confirmed_machine, &machine_id);
+        ItemList::rm_item(&mut self.booked_machine, machine_id);
+        ItemList::rm_item(&mut self.hashed_machine, machine_id);
+        ItemList::rm_item(&mut self.confirmed_machine, machine_id);
     }
 
     // 机器成功上线后，从其他字段中清理掉机器记录
     // (如果未完成某一阶段的任务，机器ID将记录在那个阶段，需要进行清理)
     pub fn online_cleanup(&mut self, machine_id: &MachineId) {
-        ItemList::rm_item(&mut self.booked_machine, &machine_id);
-        ItemList::rm_item(&mut self.hashed_machine, &machine_id);
-        ItemList::rm_item(&mut self.confirmed_machine, &machine_id);
+        ItemList::rm_item(&mut self.booked_machine, machine_id);
+        ItemList::rm_item(&mut self.hashed_machine, machine_id);
+        ItemList::rm_item(&mut self.confirmed_machine, machine_id);
     }
 }
 
@@ -172,6 +172,19 @@ where
         }
         unruly
     }
+
+    pub fn after_summary(&mut self, summary_result: MachineConfirmStatus<AccountId>) {
+        match summary_result {
+            MachineConfirmStatus::Confirmed(summary) => {
+                self.status = OCVerifyStatus::Finished;
+                self.onlined_committee = summary.valid_support;
+            },
+            MachineConfirmStatus::NoConsensus(_) => {},
+            MachineConfirmStatus::Refuse(_) => {
+                self.status = OCVerifyStatus::Finished;
+            },
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -246,9 +259,61 @@ pub enum MachineConfirmStatus<AccountId> {
     NoConsensus(Summary<AccountId>),
 }
 
-impl<AccountId: Default> Default for MachineConfirmStatus<AccountId> {
+impl<AccountId: Default + Clone> Default for MachineConfirmStatus<AccountId> {
     fn default() -> Self {
         Self::Confirmed(Summary { ..Default::default() })
+    }
+}
+
+impl<AccountId: Clone + Ord> MachineConfirmStatus<AccountId> {
+    // TODO: Refa it
+    pub fn get_committee_group(self) -> (Vec<AccountId>, Vec<AccountId>, Vec<AccountId>) {
+        let mut inconsistent_committee = Vec::new();
+        let mut unruly_committee = Vec::new();
+        let mut reward_committee = Vec::new();
+
+        match self {
+            Self::Confirmed(summary) => {
+                unruly_committee = summary.unruly.clone();
+                reward_committee = summary.valid_support.clone();
+
+                for a_committee in summary.against {
+                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                }
+                for a_committee in summary.invalid_support {
+                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                }
+            },
+            Self::NoConsensus(summary) =>
+                for a_committee in summary.unruly {
+                    ItemList::add_item(&mut unruly_committee, a_committee);
+                },
+            Self::Refuse(summary) => {
+                for a_committee in summary.unruly {
+                    ItemList::add_item(&mut unruly_committee, a_committee);
+                }
+                for a_committee in summary.invalid_support {
+                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                }
+                for a_committee in summary.against {
+                    ItemList::add_item(&mut reward_committee, a_committee);
+                }
+            },
+        }
+
+        (inconsistent_committee, unruly_committee, reward_committee)
+    }
+
+    pub fn into_book_result(&self) -> OCBookResultType {
+        match self {
+            Self::Confirmed(_) => OCBookResultType::OnlineSucceed,
+            Self::Refuse(_) => OCBookResultType::OnlineRefused,
+            Self::NoConsensus(_) => OCBookResultType::NoConsensus,
+        }
+    }
+
+    pub fn is_refused(&self) -> bool {
+        matches!(self, Self::Refuse(_))
     }
 }
 

@@ -134,7 +134,7 @@ fn machine_online_works() {
             }
         );
         // 获取可派单的委员会正常
-        assert_ok!(OnlineCommittee::committee_workflow().ok_or(()));
+        assert_ok!(OnlineCommittee::get_work_index().ok_or(()));
 
         run_to_block(5);
 
