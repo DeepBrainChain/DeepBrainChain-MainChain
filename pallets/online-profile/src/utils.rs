@@ -1,3 +1,5 @@
+use crate::{Config, Error, Pallet};
+use frame_support::dispatch::DispatchResultWithPostInfo;
 use sp_core::crypto::Public;
 use sp_runtime::traits::Verify;
 use sp_std::{
@@ -5,6 +7,13 @@ use sp_std::{
     str,
     vec::Vec,
 };
+
+impl<T: Config> Pallet<T> {
+    pub fn pay_fixed_tx_fee(who: T::AccountId) -> DispatchResultWithPostInfo {
+        <generic_func::Module<T>>::pay_fixed_tx_fee(who).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+        Ok(().into())
+    }
+}
 
 // Reference： primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
 // from_ss58check_with_version

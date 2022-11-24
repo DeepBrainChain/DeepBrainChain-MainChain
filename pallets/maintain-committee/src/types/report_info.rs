@@ -1,6 +1,5 @@
 use crate::{
-    BoxPubkey, CustomErr, ReportConfirmStatus, ReportHash, FIVE_MINUTE, FOUR_HOUR, TEN_MINUTE,
-    THREE_HOUR,
+    BoxPubkey, CustomErr, ReportConfirmStatus, ReportHash, FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
 };
 use codec::{Decode, Encode};
 use frame_support::ensure;

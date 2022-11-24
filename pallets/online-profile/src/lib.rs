@@ -446,11 +446,11 @@ pub mod pallet {
             let pre_controller = Self::stash_controller(&stash).unwrap();
             let controller_machines = Self::controller_machines(&pre_controller);
 
-            for machine_id in controller_machines.iter() {
-                let mut machine_info = Self::machines_info(&machine_id);
-                machine_info.controller = new_controller.clone();
-                MachinesInfo::<T>::insert(machine_id, machine_info);
-            }
+            controller_machines.iter().for_each(|machine_id| {
+                MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
+                    machine_info.controller = new_controller.clone();
+                })
+            });
 
             ControllerMachines::<T>::remove(&pre_controller);
             ControllerMachines::<T>::insert(&new_controller, controller_machines);
@@ -478,12 +478,9 @@ pub mod pallet {
             let mut live_machines = Self::live_machines();
             let mut machine_info = Self::machines_info(&machine_id);
 
-            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+            ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
             // 只允许在线状态的机器修改信息
-            ensure!(
-                machine_info.machine_status == MachineStatus::Online,
-                Error::<T>::MachineStatusNotAllowed
-            );
+            ensure!(machine_info.is_online(), Error::<T>::MachineStatusNotAllowed);
 
             // 重新上链需要质押一定的手续费
             let online_stake_params =
@@ -523,10 +520,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
-
-            let mut live_machines = Self::live_machines();
-            let mut controller_machines = Self::controller_machines(&controller);
-            let mut stash_machines = Self::stash_machines(&stash);
+            let now = <frame_system::Module<T>>::block_number();
 
             ensure!(!MachinesInfo::<T>::contains_key(&machine_id), Error::<T>::MachineIdExist);
 
@@ -535,24 +529,22 @@ pub mod pallet {
 
             // 用户绑定机器需要质押一张显卡的DBC
             let stake_amount = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
-            let now = <frame_system::Module<T>>::block_number();
-
-            // 修改controller_machine, stash_machine, live_machine, machine_info
-            ItemList::add_item(&mut controller_machines, machine_id.clone());
-            stash_machines.new_bonding(machine_id.clone());
-            live_machines.new_bonding(machine_id.clone());
-            let machine_info =
-                MachineInfo::new_bonding(controller.clone(), stash.clone(), now, stake_amount);
-
             // 扣除10个Dbc作为交易手续费; 并质押
-            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone())
-                .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+            Self::pay_fixed_tx_fee(controller.clone())?;
             Self::change_user_total_stake(stash.clone(), stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
-            ControllerMachines::<T>::insert(&controller, controller_machines);
-            StashMachines::<T>::insert(&stash, stash_machines);
-            LiveMachines::<T>::put(live_machines);
+            StashMachines::<T>::mutate(&stash, |stash_machines| {
+                stash_machines.new_bonding(machine_id.clone());
+            });
+            LiveMachines::<T>::mutate(|live_machines| {
+                live_machines.new_bonding(machine_id.clone());
+            });
+            ControllerMachines::<T>::mutate(&controller, |controller_machines| {
+                ItemList::add_item(controller_machines, machine_id.clone());
+            });
+            let machine_info =
+                MachineInfo::new_bonding(controller.clone(), stash, now, stake_amount);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Self::deposit_event(Event::BondMachine(controller, machine_id, stake_amount));
@@ -565,16 +557,14 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
 
-            <generic_func::Module<T>>::pay_fixed_tx_fee(controller.clone())
-                .map_err(|_| Error::<T>::PayTxFeeFailed)?;
+            Self::pay_fixed_tx_fee(controller.clone())?;
 
-            let mut stash_server_rooms = Self::stash_server_rooms(&stash);
+            StashServerRooms::<T>::mutate(&stash, |stash_server_rooms| {
+                let new_server_room = <generic_func::Module<T>>::random_server_room();
+                ItemList::add_item(stash_server_rooms, new_server_room);
+                Self::deposit_event(Event::ServerRoomGenerated(controller, new_server_room));
+            });
 
-            let new_server_room = <generic_func::Module<T>>::random_server_room();
-            ItemList::add_item(&mut stash_server_rooms, new_server_room);
-
-            StashServerRooms::<T>::insert(&stash, stash_server_rooms);
-            Self::deposit_event(Event::ServerRoomGenerated(controller, new_server_room));
             Ok(().into())
         }
 
@@ -593,7 +583,7 @@ pub mod pallet {
             );
             // 查询机器Id是否在该账户的控制下
             let mut machine_info = Self::machines_info(&machine_id);
-            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+            ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
 
             let stash_server_rooms = Self::stash_server_rooms(&machine_info.machine_stash);
             ensure!(
@@ -635,7 +625,7 @@ pub mod pallet {
             let mut machine_info = Self::machines_info(&machine_id);
             let mut live_machine = Self::live_machines();
 
-            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+            ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
             ensure!(
                 live_machine.fulfilling_machine.binary_search(&machine_id).is_ok(),
                 Error::<T>::MachineStatusNotAllowed
@@ -755,7 +745,7 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
             let machine_info = Self::machines_info(&machine_id);
 
-            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+            ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
 
             // 某些状态允许下线
             let max_slash_offline_threshold = match machine_info.machine_status {
@@ -795,7 +785,7 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             let mut machine_info = Self::machines_info(&machine_id);
-            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
+            ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
 
             let mut live_machine = Self::live_machines();
 
@@ -942,11 +932,8 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
             let current_era = Self::current_era();
 
-            ensure!(machine_info.controller == controller, Error::<T>::NotMachineController);
-            ensure!(
-                MachineStatus::Online == machine_info.machine_status,
-                Error::<T>::MachineStatusNotAllowed
-            );
+            ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
+            ensure!(machine_info.is_online(), Error::<T>::MachineStatusNotAllowed);
             // 确保机器已经上线一年：即reward_deadline - 365 <= current_era
             ensure!(machine_info.reward_deadline <= current_era + 365, Error::<T>::TimeNotAllowed);
             // 确保机器距离上次租用超过10天
@@ -1271,10 +1258,9 @@ impl<T: Config> Pallet<T> {
         let gpu_num = machine_info.gpu_num();
         let calc_point = machine_info.calc_point();
 
-        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
-
-        pos_gpu_info.is_online(is_online, gpu_num, calc_point);
-        PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
+        PosGPUInfo::<T>::mutate(longitude, latitude, |pos_gpu_info| {
+            pos_gpu_info.is_online(is_online, gpu_num, calc_point);
+        });
     }
 
     fn change_pos_info_on_exit(
@@ -1305,9 +1291,9 @@ impl<T: Config> Pallet<T> {
         let latitude = machine_info.latitude();
         let gpu_num = machine_info.gpu_num();
 
-        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
-        pos_gpu_info.is_rented(is_rented, gpu_num);
-        PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
+        PosGPUInfo::<T>::mutate(longitude, latitude, |pos_gpu_info| {
+            pos_gpu_info.is_rented(is_rented, gpu_num);
+        });
     }
 
     fn change_user_total_stake(
@@ -1316,7 +1302,6 @@ impl<T: Config> Pallet<T> {
         is_add: bool,
     ) -> Result<(), ()> {
         let mut stash_stake = Self::stash_stake(&who);
-        let mut sys_info = Self::sys_info();
 
         // 更改 stash_stake
         if is_add {
@@ -1327,11 +1312,12 @@ impl<T: Config> Pallet<T> {
             stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
             <T as Config>::Currency::unreserve(&who, amount);
         }
-        // 更改sys_info
-        sys_info.change_stake(amount, is_add);
 
+        // 更改sys_info
+        SysInfo::<T>::mutate(|sys_info| {
+            sys_info.change_stake(amount, is_add);
+        });
         StashStake::<T>::insert(&who, stash_stake);
-        SysInfo::<T>::put(sys_info);
 
         if is_add {
             Self::deposit_event(Event::StakeAdded(who, amount));

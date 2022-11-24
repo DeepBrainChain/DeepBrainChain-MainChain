@@ -123,9 +123,9 @@ where
             self.machine_status,
             MachineStatus::AddingCustomizeInfo |
                 MachineStatus::CommitteeVerifying |
-                MachineStatus::CommitteeRefused(_) |
+                MachineStatus::CommitteeRefused(..) |
                 MachineStatus::WaitingFulfill |
-                MachineStatus::StakerReportOffline(_, _)
+                MachineStatus::StakerReportOffline(..)
         )
     }
 
@@ -159,6 +159,14 @@ where
 
     pub fn machine_id(&self) -> MachineId {
         self.machine_info_detail.committee_upload_info.machine_id.clone()
+    }
+
+    pub fn is_controller(&self, who: AccountId) -> bool {
+        self.controller == who
+    }
+
+    pub fn is_online(&self) -> bool {
+        matches!(self.machine_status, MachineStatus::Online)
     }
 }
 

@@ -162,10 +162,9 @@ impl<T: Config> Pallet<T> {
             if slash_info.slash_amount != Zero::zero() {
                 let slash_id = Self::get_new_slash_id();
 
-                let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
-                ItemList::add_item(&mut pending_exec_slash, slash_id);
-                PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
-
+                PendingExecSlash::<T>::mutate(slash_info.slash_exec_time, |pending_exec_slash| {
+                    ItemList::add_item(pending_exec_slash, slash_id);
+                });
                 PendingSlash::<T>::insert(slash_id, slash_info);
 
                 Self::deposit_event(Event::NewSlash(slash_id));

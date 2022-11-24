@@ -420,7 +420,6 @@ impl<T: Config> Pallet<T> {
         let summary_result = Self::summary_confirmation(&machine_id);
         let (inconsistent, unruly, reward) = summary_result.clone().get_committee_group();
 
-        // type: (who, amount)
         let mut stash_slash_info = None;
 
         match summary_result.clone() {
@@ -458,10 +457,12 @@ impl<T: Config> Pallet<T> {
 
         let is_refused = summary_result.is_refused();
         if inconsistent.is_empty() && unruly.is_empty() && !is_refused {
+            // 没有惩罚时则直接退还委员会的质押
             for a_committee in reward {
                 let _ = Self::change_committee_used_stake(a_committee, stake_per_order, false);
             }
         } else {
+            // 添加惩罚
             let slash_id = Self::get_new_slash_id();
             let (machine_stash, stash_slash_amount) = stash_slash_info.unwrap_or_default();
             PendingSlash::<T>::insert(
@@ -642,11 +643,9 @@ impl<T: Config> Pallet<T> {
 
         ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
-        let is_applicant_slashed_stash = match slash_info.book_result {
-            OCBookResultType::OnlineRefused =>
-                slash_info.machine_stash == slash_review_info.applicant,
-            _ => false,
-        };
+        let is_applicant_slashed_stash =
+            matches!(slash_info.book_result, OCBookResultType::OnlineRefused) &&
+                slash_info.machine_stash == slash_review_info.applicant;
 
         // Return reserved balance when apply for review
         if is_applicant_slashed_stash {

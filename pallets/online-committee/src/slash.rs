@@ -90,8 +90,8 @@ impl<T: Config> Pallet<T> {
             return Ok(())
         }
 
+        // stash is slashed
         if !slash_info.stash_slash_amount.is_zero() {
-            // stash is slashed
             T::OCOperations::oc_exec_slash(
                 slash_info.machine_stash.clone(),
                 slash_info.stash_slash_amount,
