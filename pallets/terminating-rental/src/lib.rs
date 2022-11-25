@@ -1119,16 +1119,13 @@ impl<T: Config> Pallet<T> {
 
     // - Write: LiveMachines, MachinesInfo
     fn book_machine(id: MachineId) {
-        let mut live_machines = Self::live_machines();
-
-        ItemList::rm_item(&mut live_machines.confirmed_machine, &id);
-        ItemList::add_item(&mut live_machines.booked_machine, id.clone());
-
-        let mut machine_info = Self::machines_info(&id);
-        machine_info.machine_status = IRMachineStatus::CommitteeVerifying;
-
-        LiveMachines::<T>::put(live_machines);
-        MachinesInfo::<T>::insert(&id, machine_info);
+        LiveMachines::<T>::mutate(|live_machines| {
+            ItemList::rm_item(&mut live_machines.confirmed_machine, &id);
+            ItemList::add_item(&mut live_machines.booked_machine, id.clone());
+        });
+        MachinesInfo::<T>::mutate(&id, |machine_info| {
+            machine_info.machine_status = IRMachineStatus::CommitteeVerifying;
+        });
     }
 
     fn statistic_online_verify() {
@@ -1266,9 +1263,9 @@ impl<T: Config> Pallet<T> {
                     slash_result: IRSlashResult::Pending,
                 },
             );
-            let mut unhandled_slash = Self::unhandled_slash();
-            ItemList::add_item(&mut unhandled_slash, slash_id);
-            UnhandledSlash::<T>::put(unhandled_slash);
+            UnhandledSlash::<T>::mutate(|unhandled_slash| {
+                ItemList::add_item(&mut unhandled_slash, slash_id);
+            });
         }
 
         // Do cleaning
@@ -1567,14 +1564,12 @@ impl<T: Config> Pallet<T> {
 
     // 在rent_machine; rent_machine_by_minutes中使用, confirm_rent之前
     fn change_machine_status_on_rent_start(machine_id: &MachineId, gpu_num: u32) {
-        let mut machine_info = Self::machines_info(machine_id);
-        let mut machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
-
-        machine_info.machine_status = IRMachineStatus::Rented;
-        machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
-
-        MachinesInfo::<T>::insert(&machine_id, machine_info);
-        MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
+        MachinesInfo::<T>::mutate(machine_id, |machine_info| {
+            machine_info.machine_status = IRMachineStatus::Rented;
+        });
+        MachineRentedGPU::<T>::mutate(machine_id, |machine_rented_gpu| {
+            *machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
+        });
     }
 
     // 在confirm_rent中使用
@@ -1590,10 +1585,11 @@ impl<T: Config> Pallet<T> {
         // NOTE: 该检查确保得分快照不被改变多次
         if live_machines.rented_machine.binary_search(&machine_id).is_err() {
             // Self::update_snap_by_rent_status(machine_id.to_vec(), true);
-            let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
-            stash_machine.total_rented_gpu =
-                stash_machine.total_rented_gpu.saturating_sub(machine_info.gpu_num() as u64);
-            StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+
+            StashMachines::<T>::mutate(&machine_info.machine_stash, |stash_machine| {
+                stash_machine.total_rented_gpu =
+                    stash_machine.total_rented_gpu.saturating_sub(machine_info.gpu_num() as u64);
+            });
 
             ItemList::rm_item(&mut live_machines.online_machine, machine_id);
             ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
