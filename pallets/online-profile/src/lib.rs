@@ -568,51 +568,43 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // NOTE: 添加机房信息。在机器上线之前的任何阶段及机器主动下线时，可以调用该方法更改机房信息
         /// Controller add machine pos & net info
         #[pallet::weight(10000)]
         pub fn add_machine_info(
             origin: OriginFor<T>,
             machine_id: MachineId,
-            customize_machine_info: StakerCustomizeInfo,
+            server_room_info: StakerCustomizeInfo,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-
-            ensure!(
-                !customize_machine_info.telecom_operators.is_empty(),
-                Error::<T>::TelecomIsNull
-            );
             // 查询机器Id是否在该账户的控制下
-            let mut machine_info = Self::machines_info(&machine_id);
-            ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
+            let machine_info = Self::machines_info(&machine_id);
+            machine_info
+                .can_add_server_room_info(&controller)
+                .map_err::<Error<T>, _>(Into::into)?;
 
             let stash_server_rooms = Self::stash_server_rooms(&machine_info.machine_stash);
+            ensure!(!server_room_info.telecom_operators.is_empty(), Error::<T>::TelecomIsNull);
             ensure!(
-                stash_server_rooms.binary_search(&customize_machine_info.server_room).is_ok(),
+                stash_server_rooms.binary_search(&server_room_info.server_room).is_ok(),
                 Error::<T>::ServerRoomNotFound
             );
-            // 检查当前机器状态是否允许
-            ensure!(
-                &machine_info.can_add_customize_info(),
-                Error::<T>::NotAllowedChangeMachineInfo
-            );
 
-            machine_info.machine_info_detail.staker_customize_info = customize_machine_info;
-
-            let mut live_machines = Self::live_machines();
-            if live_machines.bonding_machine.binary_search(&machine_id).is_ok() {
-                ItemList::rm_item(&mut live_machines.bonding_machine, &machine_id);
-                ItemList::add_item(&mut live_machines.confirmed_machine, machine_id.clone());
-                LiveMachines::<T>::put(live_machines);
-                machine_info.machine_status = MachineStatus::DistributingOrder;
-            }
-
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
+            // 当是第一次上线添加机房信息时
+            LiveMachines::<T>::mutate(|live_machines| {
+                live_machines
+                    .add_server_room_info(machine_id.clone(), machine_info.machine_status.clone())
+            });
+            MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
+                machine_info.add_server_room_info(server_room_info);
+            });
 
             Self::deposit_event(Event::MachineInfoAdded(machine_id));
             Ok(().into())
         }
 
-        /// 机器第一次上线后处于补交质押状态时，需要补交质押才能上线
+        // 机器第一次上线后处于补交质押状态时
+        // 或者机器更改配置信息后，处于质押不足状态时, 需要补交质押才能上线
         #[pallet::weight(10000)]
         pub fn fulfill_machine(
             origin: OriginFor<T>,
@@ -651,7 +643,7 @@ pub mod pallet {
             }
             machine_info.machine_status = MachineStatus::Online;
 
-            if UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id) {
+            if <UserMutHardwareStake<T>>::contains_key(&machine_info.machine_stash, &machine_id) {
                 // 根据质押，奖励给这些委员会
                 let reonline_stake =
                     Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
@@ -671,11 +663,12 @@ pub mod pallet {
                     );
                     let slash_id = Self::get_new_slash_id();
 
-                    let mut pending_exec_slash =
-                        Self::pending_exec_slash(slash_info.slash_exec_time);
-                    ItemList::add_item(&mut pending_exec_slash, slash_id);
-                    PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
-
+                    PendingExecSlash::<T>::mutate(
+                        slash_info.slash_exec_time,
+                        |pending_exec_slash| {
+                            ItemList::add_item(pending_exec_slash, slash_id);
+                        },
+                    );
                     PendingSlash::<T>::insert(slash_id, slash_info);
                 }
                 // 退还reonline_stake
@@ -724,15 +717,14 @@ pub mod pallet {
 
             ensure!(StashMachines::<T>::contains_key(&stash), Error::<T>::NotMachineController);
 
-            let mut stash_machine = Self::stash_machines(&stash);
-            let can_claim = stash_machine.claim_reward().map_err::<Error<T>, _>(Into::into)?;
+            StashMachines::<T>::mutate(&stash, |stash_machine| -> DispatchResultWithPostInfo {
+                let can_claim = stash_machine.claim_reward().map_err::<Error<T>, _>(Into::into)?;
 
-            <T as Config>::Currency::deposit_into_existing(&stash, can_claim)
-                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
-
-            StashMachines::<T>::insert(&stash, stash_machine);
-            Self::deposit_event(Event::ClaimReward(stash, can_claim));
-            Ok(().into())
+                <T as Config>::Currency::deposit_into_existing(&stash, can_claim)
+                    .map_err(|_| Error::<T>::ClaimRewardFailed)?;
+                Self::deposit_event(Event::ClaimReward(stash.clone(), can_claim));
+                Ok(().into())
+            })
         }
 
         /// 控制账户报告机器下线:Online/Rented时允许

@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
+use crate::MachineStatus;
+
 /// MachineList in online module
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -36,6 +38,18 @@ impl LiveMachine {
     // 添加到LiveMachine的bonding_machine字段
     pub fn new_bonding(&mut self, machine_id: MachineId) {
         ItemList::add_item(&mut self.bonding_machine, machine_id);
+    }
+
+    pub fn add_server_room_info<BlockNumber, AccountId>(
+        &mut self,
+        machine_id: MachineId,
+        machine_status: MachineStatus<BlockNumber, AccountId>,
+    ) {
+        // 当是第一次上线时添加机房信息
+        if matches!(machine_status, MachineStatus::AddingCustomizeInfo) {
+            ItemList::rm_item(&mut self.bonding_machine, &machine_id);
+            ItemList::add_item(&mut self.confirmed_machine, machine_id);
+        }
     }
 
     pub fn offline_to_change_hardware(&mut self, machine_id: MachineId) {

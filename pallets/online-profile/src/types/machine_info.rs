@@ -3,7 +3,7 @@ use generic_func::rpc_types::serde_text;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use crate::{EraIndex, OPSlashReason};
+use crate::{CustomErr, EraIndex, OPSlashReason};
 use codec::{alloc::string::ToString, Decode, Encode};
 use generic_func::MachineId;
 use sp_core::H256;
@@ -118,15 +118,31 @@ where
         }
     }
 
-    pub fn can_add_customize_info(&self) -> bool {
-        matches!(
+    pub fn can_add_server_room_info(&self, who: &AccountId) -> Result<(), CustomErr> {
+        // 检查当前机器状态是否允许
+        if !matches!(
             self.machine_status,
             MachineStatus::AddingCustomizeInfo |
+                MachineStatus::DistributingOrder |
                 MachineStatus::CommitteeVerifying |
                 MachineStatus::CommitteeRefused(..) |
                 MachineStatus::WaitingFulfill |
                 MachineStatus::StakerReportOffline(..)
-        )
+        ) {
+            return Err(CustomErr::NotAllowedChangeMachineInfo)
+        }
+
+        if &self.controller != who {
+            return Err(CustomErr::NotMachineController)
+        }
+        Ok(())
+    }
+
+    pub fn add_server_room_info(&mut self, server_room_info: StakerCustomizeInfo) {
+        self.machine_info_detail.staker_customize_info = server_room_info;
+        if matches!(self.machine_status, MachineStatus::AddingCustomizeInfo) {
+            self.machine_status = MachineStatus::DistributingOrder;
+        }
     }
 
     pub fn change_rent_fee(&mut self, amount: Balance, is_burn: bool) {

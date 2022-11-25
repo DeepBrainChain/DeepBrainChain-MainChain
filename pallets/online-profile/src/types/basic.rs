@@ -23,12 +23,16 @@ pub const TWO_DAY: u32 = 5760;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum CustomErr {
     ClaimRewardFailed,
+    NotAllowedChangeMachineInfo,
+    NotMachineController,
 }
 
 impl<T: Config> From<CustomErr> for Error<T> {
     fn from(err: CustomErr) -> Self {
         match err {
-            CustomErr::ClaimRewardFailed => Error::<T>::ClaimRewardFailed,
+            CustomErr::ClaimRewardFailed => Error::ClaimRewardFailed,
+            CustomErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
+            CustomErr::NotMachineController => Error::NotMachineController,
         }
     }
 }
