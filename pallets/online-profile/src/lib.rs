@@ -475,7 +475,6 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
 
-            let mut live_machines = Self::live_machines();
             let mut machine_info = Self::machines_info(&machine_id);
 
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
@@ -492,8 +491,6 @@ pub mod pallet {
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
-            live_machines.offline_to_change_hardware(machine_id.clone());
-
             Self::change_user_total_stake(machine_info.machine_stash.clone(), stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
             UserMutHardwareStake::<T>::insert(
@@ -503,7 +500,10 @@ pub mod pallet {
             );
             Self::change_pos_info_by_online(&machine_info, false);
             Self::update_snap_by_online_status(machine_id.clone(), false);
-            LiveMachines::<T>::put(live_machines);
+
+            LiveMachines::<T>::mutate(|live_machines| {
+                live_machines.offline_to_change_hardware(machine_id.clone());
+            });
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             Self::deposit_event(Event::MachineOfflineToMutHardware(machine_id, stake_amount));

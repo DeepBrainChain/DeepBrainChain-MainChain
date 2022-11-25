@@ -46,7 +46,10 @@ impl LiveMachine {
         machine_status: MachineStatus<BlockNumber, AccountId>,
     ) {
         // 当是第一次上线时添加机房信息
-        if matches!(machine_status, MachineStatus::AddingCustomizeInfo) {
+        if matches!(
+            machine_status,
+            MachineStatus::AddingCustomizeInfo | MachineStatus::StakerReportOffline(..)
+        ) {
             ItemList::rm_item(&mut self.bonding_machine, &machine_id);
             ItemList::add_item(&mut self.confirmed_machine, machine_id);
         }

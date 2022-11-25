@@ -26,16 +26,18 @@ fn machine_online_works() {
         let sig = "b4084f70730b183127e9db78c6d8dcf79039f23466cd1ee8b536c40c3027a83d\
                    ab040be4ed2db57b67eaac406817a69ce72a13f8ac11ba460e15d318b1504481";
 
-        // 查询状态
-        assert_eq!(Balances::free_balance(committee1), INIT_BALANCE);
-        assert_eq!(DBCPriceOCW::avg_price(), Some(12_000u64));
+        {
+            // 查询初始状态
+            assert_eq!(Balances::free_balance(committee1), INIT_BALANCE);
+            assert_eq!(DBCPriceOCW::avg_price(), Some(12_000u64));
+        }
 
         // stash 账户设置控制账户
         assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
+
         // controller 生成server_room
         assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
         assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
-
         let server_room = OnlineProfile::stash_server_rooms(&stash);
 
         assert_ok!(OnlineProfile::bond_machine(
@@ -102,14 +104,16 @@ fn machine_online_works() {
 
         run_to_block(3);
 
-        // 添加了信息之后，将会在OnlineCommittee中被派单
-        // add_machine_info
-        // - Writes: MachinesInfo, LiveMachines, committee::CommitteeStake
-        assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
-        assert_eq!(
-            OnlineProfile::live_machines(),
-            LiveMachine { confirmed_machine: vec!(machine_id.clone()), ..Default::default() }
-        );
+        {
+            // 添加了信息之后，将会在OnlineCommittee中被派单
+            // add_machine_info
+            // - Writes: MachinesInfo, LiveMachines, committee::CommitteeStake
+            assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
+            assert_eq!(
+                OnlineProfile::live_machines(),
+                LiveMachine { confirmed_machine: vec!(machine_id.clone()), ..Default::default() }
+            );
+        }
 
         // 增加一个委员会
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
@@ -481,51 +485,53 @@ fn machine_online_works() {
             machine_id.clone()
         ));
 
-        // - Writes:
-        // LiveMachines, MachineInfo, StashStake, UserMutHardwarestake, PosGPUInfo, StashMachine
-        // CurrentEraStashPoints, NextEraStashPoints, CurrentEraMachinePoints, NextEraMachinePoints,
-        // SysInfo,
-        assert_eq!(
-            OnlineProfile::live_machines(),
-            LiveMachine { bonding_machine: vec![machine_id.clone()], ..Default::default() }
-        );
-        machine_info.machine_status =
-            MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
-        assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
-        assert_eq!(OnlineProfile::stash_stake(&stash), 2000 * ONE_DBC + 400000 * ONE_DBC);
-        assert_eq!(
-            OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
-            online_profile::UserMutHardwareStakeInfo {
-                stake_amount: 2000 * ONE_DBC,
-                offline_time: 2880 * 3 + 3
-            }
-        );
-        assert_eq!(
-            OnlineProfile::pos_gpu_info(
-                online_profile::Longitude::East(1157894),
-                online_profile::Latitude::North(235678)
-            ),
-            online_profile::PosInfo { offline_gpu: 4, ..Default::default() }
-        );
+        {
+            // - Writes:
+            // LiveMachines, MachineInfo, StashStake, UserMutHardwarestake, PosGPUInfo, StashMachine
+            // CurrentEraStashPoints, NextEraStashPoints, CurrentEraMachinePoints,
+            // NextEraMachinePoints, SysInfo,
+            assert_eq!(
+                OnlineProfile::live_machines(),
+                LiveMachine { bonding_machine: vec![machine_id.clone()], ..Default::default() }
+            );
+            machine_info.machine_status =
+                MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
+            assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
+            assert_eq!(OnlineProfile::stash_stake(&stash), 2000 * ONE_DBC + 400000 * ONE_DBC);
+            assert_eq!(
+                OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
+                online_profile::UserMutHardwareStakeInfo {
+                    stake_amount: 2000 * ONE_DBC,
+                    offline_time: 2880 * 3 + 3
+                }
+            );
+            assert_eq!(
+                OnlineProfile::pos_gpu_info(
+                    online_profile::Longitude::East(1157894),
+                    online_profile::Latitude::North(235678)
+                ),
+                online_profile::PosInfo { offline_gpu: 4, ..Default::default() }
+            );
 
-        assert_eq!(
-            OnlineProfile::sys_info(),
-            online_profile::SysInfoDetail {
-                total_stake: (400000 + 2000) * ONE_DBC,
-                ..Default::default()
-            }
-        );
-        stash_machine_info.online_machine = vec![];
-        stash_machine_info.total_gpu_num = 0;
-        stash_machine_info.total_calc_points = 0;
-        assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
+            assert_eq!(
+                OnlineProfile::sys_info(),
+                online_profile::SysInfoDetail {
+                    total_stake: (400000 + 2000) * ONE_DBC,
+                    ..Default::default()
+                }
+            );
+            stash_machine_info.online_machine = vec![];
+            stash_machine_info.total_gpu_num = 0;
+            stash_machine_info.total_calc_points = 0;
+            assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
 
-        // 当前Era为3
-        assert_eq!(OnlineProfile::current_era(), 4);
-        assert_eq!(OnlineProfile::eras_stash_points(4), EraStashPoints { ..Default::default() });
-        assert_eq!(OnlineProfile::eras_stash_points(5), EraStashPoints { ..Default::default() });
-        assert_eq!(OnlineProfile::eras_machine_points(4), BTreeMap::new());
-        assert_eq!(OnlineProfile::eras_machine_points(5), BTreeMap::new());
+            // 当前Era为3
+            assert_eq!(OnlineProfile::current_era(), 4);
+            assert_eq!(OnlineProfile::eras_stash_points(4), EraStashPoints::default());
+            assert_eq!(OnlineProfile::eras_stash_points(5), EraStashPoints::default());
+            assert_eq!(OnlineProfile::eras_machine_points(4), BTreeMap::new());
+            assert_eq!(OnlineProfile::eras_machine_points(5), BTreeMap::new());
+        }
 
         // 控制账户重新添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
@@ -540,6 +546,16 @@ fn machine_online_works() {
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
+
+        {
+            assert_eq!(
+                OnlineProfile::live_machines(),
+                online_profile::LiveMachine {
+                    confirmed_machine: vec![machine_id.clone()],
+                    ..Default::default()
+                }
+            );
+        }
 
         run_to_block(2880 * 3 + 3);
 
