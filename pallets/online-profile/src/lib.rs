@@ -883,10 +883,12 @@ pub mod pallet {
 
                     PendingOfflineSlash::<T>::remove(max_slash_offline_threshold, &machine_id);
 
-                    let mut pending_exec_slash =
-                        Self::pending_exec_slash(slash_info.slash_exec_time);
-                    ItemList::add_item(&mut pending_exec_slash, slash_id);
-                    PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
+                    PendingExecSlash::<T>::mutate(
+                        slash_info.slash_exec_time,
+                        |pending_exec_slash| {
+                            ItemList::add_item(pending_exec_slash, slash_id);
+                        },
+                    );
 
                     PendingSlash::<T>::insert(slash_id, slash_info);
                 }
@@ -950,7 +952,7 @@ pub mod pallet {
             let mut machine_info = Self::machines_info(&machine_id);
             let pre_stake = machine_info.stake_amount;
 
-            ensure!(controller == machine_info.controller, Error::<T>::NotMachineController);
+            ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
             ensure!(
                 now - machine_info.last_machine_restake >= REBOND_FREQUENCY.into(),
                 Error::<T>::TooFastToReStake
@@ -975,11 +977,7 @@ pub mod pallet {
 
             MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
 
-            Self::deposit_event(Event::MachineRestaked(
-                machine_id,
-                pre_stake,
-                machine_info.stake_amount,
-            ));
+            Self::deposit_event(Event::MachineRestaked(machine_id, pre_stake, stake_need));
             Ok(().into())
         }
 
@@ -1019,12 +1017,11 @@ pub mod pallet {
                 },
             );
 
-            let mut pending_review_checking =
-                Self::pending_slash_review_checking(slash_info.slash_exec_time);
-            ItemList::add_item(&mut pending_review_checking, slash_id);
-            PendingSlashReviewChecking::<T>::insert(
+            PendingSlashReviewChecking::<T>::mutate(
                 slash_info.slash_exec_time,
-                pending_review_checking,
+                |pending_review_checking| {
+                    ItemList::add_item(pending_review_checking, slash_id);
+                },
             );
 
             Self::deposit_event(Event::ApplySlashReview(slash_id));
@@ -1152,26 +1149,6 @@ impl<T: Config> Pallet<T> {
         PendingOfflineSlash::<T>::iter_prefix(time).collect()
     }
 
-    pub fn check_bonding_msg(
-        stash: T::AccountId,
-        machine_id: MachineId,
-        msg: Vec<u8>,
-        sig: Vec<u8>,
-    ) -> DispatchResultWithPostInfo {
-        // 验证msg: len(machine_id + stash_account) = 64 + 48
-        ensure!(msg.len() == 112, Error::<T>::BadMsgLen);
-
-        let (sig_machine_id, sig_stash_account) = (msg[..64].to_vec(), msg[64..].to_vec());
-        ensure!(machine_id == sig_machine_id, Error::<T>::SigMachineIdNotEqualBondedMachineId);
-        let sig_stash_account = Self::get_account_from_str(&sig_stash_account)
-            .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
-        ensure!(sig_stash_account == stash, Error::<T>::MachineStashNotEqualControllerStash);
-
-        // 验证签名是否为MachineId发出
-        ensure!(utils::verify_sig(msg, sig, machine_id).is_some(), Error::<T>::BadSignature);
-        Ok(().into())
-    }
-
     pub fn do_cancel_slash(slash_id: u64) -> DispatchResultWithPostInfo {
         ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIdNotExist);
 
@@ -1188,17 +1165,15 @@ impl<T: Config> Pallet<T> {
         )
         .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
-        let mut pending_review_checking =
-            Self::pending_slash_review_checking(slash_info.slash_exec_time);
-        ItemList::rm_item(&mut pending_review_checking, &slash_id);
-        PendingSlashReviewChecking::<T>::insert(
+        PendingSlashReviewChecking::<T>::mutate(
             slash_info.slash_exec_time,
-            pending_review_checking,
+            |pending_review_checking| {
+                ItemList::rm_item(pending_review_checking, &slash_id);
+            },
         );
-
-        let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
-        ItemList::rm_item(&mut pending_exec_slash, &slash_id);
-        PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
+        PendingExecSlash::<T>::mutate(slash_info.slash_exec_time, |pending_exec_slash| {
+            ItemList::rm_item(pending_exec_slash, &slash_id);
+        });
 
         PendingSlash::<T>::remove(slash_id);
         PendingSlashReview::<T>::remove(slash_id);
@@ -1236,56 +1211,6 @@ impl<T: Config> Pallet<T> {
 
         LiveMachines::<T>::put(live_machine);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
-    }
-
-    /// GPU online/offline
-    // - Writes: PosGPUInfo
-    // NOTE: pos_gpu_info only record actual machine grades(reward grade not included)
-    fn change_pos_info_by_online(
-        machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        is_online: bool,
-    ) {
-        let longitude = machine_info.longitude();
-        let latitude = machine_info.latitude();
-        let gpu_num = machine_info.gpu_num();
-        let calc_point = machine_info.calc_point();
-
-        PosGPUInfo::<T>::mutate(longitude, latitude, |pos_gpu_info| {
-            pos_gpu_info.is_online(is_online, gpu_num, calc_point);
-        });
-    }
-
-    fn change_pos_info_on_exit(
-        machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-    ) {
-        let longitude = machine_info.longitude();
-        let latitude = machine_info.latitude();
-        let gpu_num = machine_info.gpu_num();
-        let calc_point = machine_info.calc_point();
-
-        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
-
-        let is_empty = pos_gpu_info.machine_exit(gpu_num, calc_point);
-        if is_empty {
-            PosGPUInfo::<T>::remove(longitude, latitude);
-        } else {
-            PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
-        }
-    }
-
-    /// GPU rented/surrender
-    // - Writes: PosGPUInfo
-    fn change_pos_info_by_rent(
-        machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        is_rented: bool,
-    ) {
-        let longitude = machine_info.longitude();
-        let latitude = machine_info.latitude();
-        let gpu_num = machine_info.gpu_num();
-
-        PosGPUInfo::<T>::mutate(longitude, latitude, |pos_gpu_info| {
-            pos_gpu_info.is_rented(is_rented, gpu_num);
-        });
     }
 
     fn change_user_total_stake(

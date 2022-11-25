@@ -1,5 +1,5 @@
-use crate::{Config, Error, Pallet};
-use frame_support::dispatch::DispatchResultWithPostInfo;
+use crate::{BalanceOf, Config, Error, MachineId, MachineInfo, Pallet, PosGPUInfo};
+use frame_support::{dispatch::DispatchResultWithPostInfo, ensure};
 use sp_core::crypto::Public;
 use sp_runtime::traits::Verify;
 use sp_std::{
@@ -12,6 +12,76 @@ impl<T: Config> Pallet<T> {
     pub fn pay_fixed_tx_fee(who: T::AccountId) -> DispatchResultWithPostInfo {
         <generic_func::Module<T>>::pay_fixed_tx_fee(who).map_err(|_| Error::<T>::PayTxFeeFailed)?;
         Ok(().into())
+    }
+
+    pub fn check_bonding_msg(
+        stash: T::AccountId,
+        machine_id: MachineId,
+        msg: Vec<u8>,
+        sig: Vec<u8>,
+    ) -> DispatchResultWithPostInfo {
+        // 验证msg: len(machine_id + stash_account) = 64 + 48
+        ensure!(msg.len() == 112, Error::<T>::BadMsgLen);
+
+        let (sig_machine_id, sig_stash_account) = (msg[..64].to_vec(), msg[64..].to_vec());
+        ensure!(machine_id == sig_machine_id, Error::<T>::SigMachineIdNotEqualBondedMachineId);
+        let sig_stash_account = Self::get_account_from_str(&sig_stash_account)
+            .ok_or(Error::<T>::ConvertMachineIdToWalletFailed)?;
+        ensure!(sig_stash_account == stash, Error::<T>::MachineStashNotEqualControllerStash);
+
+        // 验证签名是否为MachineId发出
+        ensure!(verify_sig(msg, sig, machine_id).is_some(), Error::<T>::BadSignature);
+        Ok(().into())
+    }
+
+    /// GPU online/offline
+    // - Writes: PosGPUInfo
+    // NOTE: pos_gpu_info only record actual machine grades(reward grade not included)
+    pub fn change_pos_info_by_online(
+        machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        is_online: bool,
+    ) {
+        let longitude = machine_info.longitude();
+        let latitude = machine_info.latitude();
+        let gpu_num = machine_info.gpu_num();
+        let calc_point = machine_info.calc_point();
+
+        PosGPUInfo::<T>::mutate(longitude, latitude, |pos_gpu_info| {
+            pos_gpu_info.is_online(is_online, gpu_num, calc_point);
+        });
+    }
+
+    pub fn change_pos_info_on_exit(
+        machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+    ) {
+        let longitude = machine_info.longitude();
+        let latitude = machine_info.latitude();
+        let gpu_num = machine_info.gpu_num();
+        let calc_point = machine_info.calc_point();
+
+        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
+
+        let is_empty = pos_gpu_info.machine_exit(gpu_num, calc_point);
+        if is_empty {
+            PosGPUInfo::<T>::remove(longitude, latitude);
+        } else {
+            PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
+        }
+    }
+
+    /// GPU rented/surrender
+    // - Writes: PosGPUInfo
+    pub fn change_pos_info_by_rent(
+        machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        is_rented: bool,
+    ) {
+        let longitude = machine_info.longitude();
+        let latitude = machine_info.latitude();
+        let gpu_num = machine_info.gpu_num();
+
+        PosGPUInfo::<T>::mutate(longitude, latitude, |pos_gpu_info| {
+            pos_gpu_info.is_rented(is_rented, gpu_num);
+        });
     }
 }
 

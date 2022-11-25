@@ -25,6 +25,7 @@ pub enum CustomErr {
     ClaimRewardFailed,
     NotAllowedChangeMachineInfo,
     NotMachineController,
+    CalcStakeAmountFailed,
 }
 
 impl<T: Config> From<CustomErr> for Error<T> {
@@ -33,6 +34,7 @@ impl<T: Config> From<CustomErr> for Error<T> {
             CustomErr::ClaimRewardFailed => Error::ClaimRewardFailed,
             CustomErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
             CustomErr::NotMachineController => Error::NotMachineController,
+            CustomErr::CalcStakeAmountFailed => Error::CalcStakeAmountFailed,
         }
     }
 }
