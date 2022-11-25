@@ -682,6 +682,16 @@ pub mod pallet {
             } else {
                 machine_info.online_height = now;
                 machine_info.reward_deadline = current_era + REWARD_DURATION;
+
+                MachineRecentReward::<T>::insert(
+                    &machine_id,
+                    MachineRecentRewardInfo {
+                        machine_stash: machine_info.machine_stash.clone(),
+                        reward_committee_deadline: machine_info.reward_deadline,
+                        reward_committee: machine_info.reward_committee.clone(),
+                        ..Default::default()
+                    },
+                );
             }
 
             machine_info.last_online_height = now;
@@ -694,16 +704,6 @@ pub mod pallet {
             ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
 
             LiveMachines::<T>::put(live_machine);
-
-            MachineRecentReward::<T>::insert(
-                &machine_id,
-                MachineRecentRewardInfo {
-                    machine_stash: machine_info.machine_stash.clone(),
-                    reward_committee_deadline: machine_info.reward_deadline,
-                    reward_committee: machine_info.reward_committee.clone(),
-                    ..Default::default()
-                },
-            );
 
             MachinesInfo::<T>::insert(&machine_id, machine_info);
             Ok(().into())
