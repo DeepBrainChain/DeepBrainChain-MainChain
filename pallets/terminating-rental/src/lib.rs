@@ -568,23 +568,20 @@ pub mod pallet {
                 ),
             );
 
-            let mut user_rented = Self::user_rented(&renter);
-            ItemList::add_item(&mut user_rented, rent_id);
-            UserRented::<T>::insert(&renter, user_rented);
-
-            let mut pending_rent_ending = Self::pending_rent_ending(rent_end);
-            ItemList::add_item(&mut pending_rent_ending, rent_id);
-            PendingRentEnding::<T>::insert(rent_end, pending_rent_ending);
-
             // 改变online_profile状态，影响机器佣金
             Self::change_machine_status_on_rent_start(&machine_id, rent_gpu_num);
 
-            let mut pending_confirming =
-                Self::pending_confirming(now + WAITING_CONFIRMING_DELAY.into());
-            ItemList::add_item(&mut pending_confirming, rent_id);
-            PendingConfirming::<T>::insert(
+            UserRented::<T>::mutate(&renter, |user_rented| {
+                ItemList::add_item(user_rented, rent_id);
+            });
+            PendingRentEnding::<T>::mutate(rent_end, |pending_rent_ending| {
+                ItemList::add_item(pending_rent_ending, rent_id);
+            });
+            PendingConfirming::<T>::mutate(
                 now + WAITING_CONFIRMING_DELAY.into(),
-                pending_confirming,
+                |pending_confirming| {
+                    ItemList::add_item(pending_confirming, rent_id);
+                },
             );
             MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
@@ -674,7 +671,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
             let mut order_info = Self::rent_order(&rent_id);
-            let old_rent_end = order_info.rent_end;
+            let pre_rent_end = order_info.rent_end;
             let machine_id = order_info.machine_id.clone();
             let gpu_num = order_info.gpu_num;
 
@@ -694,7 +691,7 @@ pub mod pallet {
             // 2880 块/天 * 60 days
             let max_rent_end =
                 now.checked_add(&(2880u32 * 60).into()).ok_or(Error::<T>::Overflow)?;
-            let wanted_rent_end = old_rent_end + duration;
+            let wanted_rent_end = pre_rent_end + duration;
 
             // 计算实际续租了多久 (块高)
             let add_duration: T::BlockNumber =
@@ -730,13 +727,12 @@ pub mod pallet {
             order_info.stake_amount =
                 order_info.stake_amount.checked_add(&rent_fee).ok_or(Error::<T>::Overflow)?;
 
-            let mut old_pending_rent_ending = Self::pending_rent_ending(old_rent_end);
-            ItemList::rm_item(&mut old_pending_rent_ending, &rent_id);
-            let mut pending_rent_ending = Self::pending_rent_ending(order_info.rent_end);
-            ItemList::add_item(&mut pending_rent_ending, rent_id);
-
-            PendingRentEnding::<T>::insert(old_rent_end, old_pending_rent_ending);
-            PendingRentEnding::<T>::insert(order_info.rent_end, pending_rent_ending);
+            PendingRentEnding::<T>::mutate(pre_rent_end, |pre_pending_rent_ending| {
+                ItemList::rm_item(pre_pending_rent_ending, &rent_id);
+            });
+            PendingRentEnding::<T>::mutate(order_info.rent_end, |pending_rent_ending| {
+                ItemList::add_item(pending_rent_ending, rent_id);
+            });
             RentOrder::<T>::insert(&rent_id, order_info);
 
             Self::deposit_event(Event::ReletBlockNum(
@@ -784,9 +780,9 @@ pub mod pallet {
             MachineRentOrder::<T>::remove(&machine_id);
 
             // 记录到一个变量中，检查是否已经连续下线超过了10天
-            let mut offline_machines = Self::offline_machines(now + 28800u32.into());
-            ItemList::add_item(&mut offline_machines, machine_id.clone());
-            OfflineMachines::<T>::insert(now + 28800u32.into(), offline_machines);
+            OfflineMachines::<T>::mutate(now + 28800u32.into(), |offline_machines| {
+                ItemList::add_item(offline_machines, machine_id.clone());
+            });
 
             MachinesInfo::<T>::insert(&machine_id, machine_info);
             Ok(().into())
@@ -882,9 +878,9 @@ pub mod pallet {
             );
             StashMachines::<T>::insert(&machine_info.machine_stash, stash_machines);
 
-            let mut live_machines = Self::live_machines();
-            live_machines.machine_exit(&machine_id);
-            LiveMachines::<T>::put(live_machines);
+            LiveMachines::<T>::mutate(|live_machines| {
+                live_machines.machine_exit(&machine_id);
+            });
 
             MachineRentOrder::<T>::remove(machine_id);
 
@@ -1086,32 +1082,25 @@ impl<T: Config> Pallet<T> {
         <T as Config>::ManageCommittee::change_used_stake(work_time.0.clone(), stake_need, true)?;
 
         // 修改machine对应的委员会
-        let mut machine_committee = Self::machine_committee(&machine_id);
+        MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
+            ItemList::add_item(&mut machine_committee.booked_committee, work_time.0.clone());
+            machine_committee.book_time = now;
+            machine_committee.confirm_start_time = confirm_start;
+        });
+        CommitteeMachine::<T>::mutate(&work_time.0, |committee_machine| {
+            ItemList::add_item(&mut committee_machine.booked_machine, machine_id.clone());
+        });
 
-        ItemList::add_item(&mut machine_committee.booked_committee, work_time.0.clone());
-        machine_committee.book_time = now;
-        machine_committee.confirm_start_time = confirm_start;
-
-        // 修改委员会对应的machine
-        let mut committee_machine = Self::committee_machine(&work_time.0);
-        ItemList::add_item(&mut committee_machine.booked_machine, machine_id.clone());
-
-        // 修改委员会的操作
-        let mut committee_ops = IRCommitteeOps { ..Default::default() };
         let start_time: Vec<_> = work_time
             .1
             .into_iter()
             .map(|x| now + (x as u32 * SUBMIT_HASH_END / DISTRIBUTION).into())
             .collect();
-
-        committee_ops.staked_dbc = stake_need;
-        committee_ops.verify_time = start_time;
-        committee_ops.machine_status = IRVerifyMachineStatus::Booked;
-
-        // 存储变量
-        MachineCommittee::<T>::insert(&machine_id, machine_committee);
-        CommitteeMachine::<T>::insert(&work_time.0, committee_machine);
-        CommitteeOps::<T>::insert(&work_time.0, &machine_id, committee_ops);
+        CommitteeOps::<T>::mutate(&work_time.0, &machine_id, |committee_ops| {
+            committee_ops.staked_dbc = stake_need;
+            committee_ops.verify_time = start_time;
+            committee_ops.machine_status = IRVerifyMachineStatus::Booked;
+        });
 
         Self::deposit_event(Event::MachineDistributed(machine_id.to_vec(), work_time.0));
         Ok(())
@@ -1264,7 +1253,7 @@ impl<T: Config> Pallet<T> {
                 },
             );
             UnhandledSlash::<T>::mutate(|unhandled_slash| {
-                ItemList::add_item(&mut unhandled_slash, slash_id);
+                ItemList::add_item(unhandled_slash, slash_id);
             });
         }
 
@@ -1710,10 +1699,10 @@ impl<T: Config> Pallet<T> {
 
                     // 租用结束
                     // Self::update_snap_by_rent_status(machine_id.to_vec(), false);
-                    let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
-                    stash_machine.total_rented_gpu =
-                        stash_machine.total_rented_gpu.saturating_sub(gpu_num.into());
-                    StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+                    StashMachines::<T>::mutate(&machine_info.machine_stash, |stash_machine| {
+                        stash_machine.total_rented_gpu =
+                            stash_machine.total_rented_gpu.saturating_sub(gpu_num.into());
+                    });
                 }
             },
             _ => {},
@@ -1769,7 +1758,7 @@ impl<T: Config> Pallet<T> {
         // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
         for order_id in machine_order.rent_order {
             let rent_order = Self::rent_order(order_id);
-            if rent_order.rent_status == IRRentStatus::Renting {
+            if matches!(rent_order.rent_status, IRRentStatus::Renting) {
                 renting_count += 1;
             }
         }
@@ -1786,9 +1775,7 @@ impl<T: Config> Pallet<T> {
 
         for machine_id in offline_machines {
             let machine_info = Self::machines_info(&machine_id);
-            if let IRMachineStatus::StakerReportOffline(_offline_expire_time) =
-                machine_info.machine_status
-            {
+            if matches!(machine_info.machine_status, IRMachineStatus::StakerReportOffline(..)) {
                 <T as Config>::SlashAndReward::slash_and_reward(
                     vec![machine_info.machine_stash.clone()],
                     machine_info.stake_amount,
