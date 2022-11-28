@@ -130,3 +130,9 @@ pub enum OPSlashReason<BlockNumber> {
     /// Controller report rented machine offline
     RentedReportOffline(BlockNumber),
 }
+
+#[derive(Clone, Debug)]
+pub struct VerifySequence<AccountId> {
+    pub who: AccountId,
+    pub index: Vec<usize>,
+}

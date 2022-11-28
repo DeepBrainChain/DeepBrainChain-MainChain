@@ -29,6 +29,8 @@ use generic_func::{EraIndex, ItemList, MachineId, SlashId};
 pub const DISTRIBUTION: u32 = 9;
 /// After order distribution 36 hours, allow committee submit raw info
 pub const SUBMIT_HASH_END: u32 = 4320;
+/// After order distribution 36 hours, allow committee submit raw info
+pub const SUBMIT_RAW_START: u32 = 4320;
 /// Summary committee's opinion after 48 hours
 pub const SUBMIT_RAW_END: u32 = 5760;
 pub const TWO_DAY: u32 = 5760;
@@ -1026,18 +1028,9 @@ impl<T: Config> Pallet<T> {
                 MachineCommittee::<T>::remove(&machine_id);
             }
 
-            if let Some(committee_workflows) = Self::committee_workflow() {
-                for committee_workflow in committee_workflows {
-                    if Self::book_one(
-                        machine_id.to_vec(),
-                        confirm_start,
-                        now,
-                        committee_workflow.clone(),
-                    )
-                    .is_err()
-                    {
-                        continue
-                    };
+            if let Some(committee_work_index) = Self::get_work_index() {
+                for work_index in committee_work_index {
+                    let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, work_index);
                 }
                 // 将机器状态从ocw_confirmed_machine改为booked_machine
                 Self::book_machine(machine_id.clone());
@@ -1046,27 +1039,24 @@ impl<T: Config> Pallet<T> {
     }
 
     // 分派一个machineId给随机的委员会
-    // 返回Distribution(9)个随机顺序的账户列表
-    fn committee_workflow() -> Option<Vec<(T::AccountId, Vec<usize>)>> {
+    // 返回3个随机顺序的账户及其对应的验证顺序
+    pub fn get_work_index() -> Option<Vec<VerifySequence<T::AccountId>>> {
         let mut committee = <committee::Module<T>>::available_committee()?;
-        // Require committee_num at lease 3
-        let lucky_committee_num = if committee.len() < 3 { return None } else { 3 };
-        // 选出lucky_committee_num个委员会
-        let mut lucky_committee = Vec::new();
+        if committee.len() < 3 {
+            return None
+        };
 
-        for _ in 0..lucky_committee_num {
+        let mut verify_sequence = Vec::new();
+        for i in 0..3 {
             let lucky_index =
                 <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
-            lucky_committee.push((committee[lucky_index].clone(), Vec::new()));
+            verify_sequence.push(VerifySequence {
+                who: committee[lucky_index].clone(),
+                index: (i..DISTRIBUTION as usize).step_by(3).collect(),
+            });
             committee.remove(lucky_index);
         }
-
-        for i in 0..DISTRIBUTION as usize {
-            let index = i % lucky_committee_num;
-            lucky_committee[index].1.push(i);
-        }
-
-        Some(lucky_committee)
+        Some(verify_sequence)
     }
 
     // 一个委员会进行操作
@@ -1075,34 +1065,40 @@ impl<T: Config> Pallet<T> {
         machine_id: MachineId,
         confirm_start: T::BlockNumber,
         now: T::BlockNumber,
-        work_time: (T::AccountId, Vec<usize>),
+        work_index: VerifySequence<T::AccountId>,
     ) -> Result<(), ()> {
         let stake_need = <T as Config>::ManageCommittee::stake_per_order().ok_or(())?;
         // Change committee usedstake will nerver fail after set proper params
-        <T as Config>::ManageCommittee::change_used_stake(work_time.0.clone(), stake_need, true)?;
+        <T as Config>::ManageCommittee::change_used_stake(
+            work_index.who.clone(),
+            stake_need,
+            true,
+        )?;
 
         // 修改machine对应的委员会
+
         MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
-            ItemList::add_item(&mut machine_committee.booked_committee, work_time.0.clone());
+            ItemList::add_item(&mut machine_committee.booked_committee, work_index.who.clone());
             machine_committee.book_time = now;
             machine_committee.confirm_start_time = confirm_start;
         });
-        CommitteeMachine::<T>::mutate(&work_time.0, |committee_machine| {
+        CommitteeMachine::<T>::mutate(&work_index.who, |committee_machine| {
             ItemList::add_item(&mut committee_machine.booked_machine, machine_id.clone());
         });
+        CommitteeOps::<T>::mutate(&work_index.who, &machine_id, |committee_ops| {
+            let start_time: Vec<_> = work_index
+                .index
+                .clone()
+                .into_iter()
+                .map(|x| now + (x as u32 * SUBMIT_RAW_START / DISTRIBUTION).into())
+                .collect();
 
-        let start_time: Vec<_> = work_time
-            .1
-            .into_iter()
-            .map(|x| now + (x as u32 * SUBMIT_HASH_END / DISTRIBUTION).into())
-            .collect();
-        CommitteeOps::<T>::mutate(&work_time.0, &machine_id, |committee_ops| {
             committee_ops.staked_dbc = stake_need;
             committee_ops.verify_time = start_time;
             committee_ops.machine_status = IRVerifyMachineStatus::Booked;
         });
 
-        Self::deposit_event(Event::MachineDistributed(machine_id.to_vec(), work_time.0));
+        Self::deposit_event(Event::MachineDistributed(machine_id.to_vec(), work_index.who));
         Ok(())
     }
 
@@ -1121,116 +1117,78 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         let booked_machine = Self::live_machines().booked_machine;
 
+        let committee_stake_per_order =
+            <T as Config>::ManageCommittee::stake_per_order().unwrap_or_default();
+
         for machine_id in booked_machine {
-            let machine_committee = Self::machine_committee(&machine_id);
-            match machine_committee.status {
-                IRVerifyStatus::SubmittingHash =>
-                    if machine_committee.submit_hash_end(now) {
-                        MachineCommittee::<T>::mutate(machine_id, |machine_committee| {
-                            machine_committee.status = IRVerifyStatus::SubmittingRaw
-                        });
-                    },
-                // 委员会没有全部提交原始值，没有变成Summarizing的状态, 将进行统计
-                IRVerifyStatus::SubmittingRaw =>
-                    if machine_committee.submit_raw_end(now) {
-                        Self::summary_committee_raw(machine_id);
-                    },
-                // 提交了hash的全部提交了原始值（）将进行统计
-                IRVerifyStatus::Summarizing => {
-                    Self::summary_committee_raw(machine_id);
-                },
-                IRVerifyStatus::Finished => return,
-            }
+            Self::summary_raw(machine_id, now, committee_stake_per_order);
         }
     }
 
-    fn summary_committee_raw(machine_id: MachineId) {
-        let committee_order_stake =
-            <T as Config>::ManageCommittee::stake_per_order().unwrap_or_default();
-
+    // 对已经提交完原始值的机器进行处理
+    fn summary_raw(machine_id: MachineId, now: T::BlockNumber, stake_per_order: BalanceOf<T>) {
         let mut machine_committee = Self::machine_committee(&machine_id);
 
-        let mut inconsistent_committee = Vec::new();
-        let mut unruly_committee = Vec::new();
-        let mut reward_committee = Vec::new();
+        // 如果是在提交Hash的状态，且已经到提交原始值的时间，则改变状态并返回
+        if matches!(machine_committee.status, IRVerifyStatus::SubmittingHash) {
+            if now >= machine_committee.book_time + SUBMIT_RAW_START.into() {
+                machine_committee.status = IRVerifyStatus::SubmittingRaw;
+                MachineCommittee::<T>::insert(&machine_id, machine_committee);
+                return
+            }
+        }
 
-        let mut book_result = IRBookResultType::OnlineSucceed;
+        if !machine_committee.can_summary(now) {
+            return
+        }
 
-        // type: (who, amount)
+        let summary_result = Self::summary_confirmation(&machine_id);
+        let (inconsistent, unruly, reward) = summary_result.clone().get_committee_group();
+
         let mut stash_slash_info = None;
-        let mut is_refused = false;
 
-        match Self::summary_confirmation(&machine_id) {
+        match summary_result.clone() {
             IRMachineConfirmStatus::Confirmed(summary) => {
-                unruly_committee = summary.unruly.clone();
-                reward_committee = summary.valid_support.clone();
-
-                for a_committee in summary.against {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
-                }
-                for a_committee in summary.invalid_support {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
-                }
-
                 if Self::confirm_machine(summary.valid_support.clone(), summary.info.unwrap())
                     .is_ok()
                 {
                     for a_committee in &summary.valid_support {
                         // 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
-                        let mut committee_machine = Self::committee_machine(a_committee);
-                        ItemList::add_item(
-                            &mut committee_machine.online_machine,
-                            machine_id.clone(),
-                        );
-                        CommitteeMachine::<T>::insert(a_committee, committee_machine);
+                        CommitteeMachine::<T>::mutate(&a_committee, |committee_machine| {
+                            ItemList::add_item(
+                                &mut committee_machine.online_machine,
+                                machine_id.clone(),
+                            );
+                        });
                     }
-
-                    machine_committee.status = IRVerifyStatus::Finished;
-                    machine_committee.onlined_committee = summary.valid_support;
                 }
             },
-            IRMachineConfirmStatus::Refuse(summary) => {
-                for a_committee in summary.unruly {
-                    ItemList::add_item(&mut unruly_committee, a_committee);
-                }
-                for a_committee in summary.invalid_support {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
-                }
-                for a_committee in summary.against {
-                    ItemList::add_item(&mut reward_committee, a_committee);
-                }
-
-                is_refused = true;
-                machine_committee.status = IRVerifyStatus::Finished;
-
+            IRMachineConfirmStatus::Refuse(_summary) => {
                 // should cancel machine_stash slash when slashed committee apply review
                 stash_slash_info = Self::refuse_machine(machine_id.clone());
-
-                book_result = IRBookResultType::OnlineRefused;
             },
-            IRMachineConfirmStatus::NoConsensus(summary) => {
-                for a_committee in summary.unruly {
-                    ItemList::add_item(&mut unruly_committee, a_committee);
-                }
-
+            IRMachineConfirmStatus::NoConsensus(_summary) => {
                 let _ = Self::revert_book(machine_id.clone());
                 Self::revert_booked_machine(machine_id.clone());
-                book_result = IRBookResultType::NoConsensus;
             },
         }
 
-        MachineCommittee::<T>::insert(&machine_id, machine_committee.clone());
+        MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
+            machine_committee.after_summary(summary_result.clone())
+        });
 
-        if inconsistent_committee.is_empty() && unruly_committee.is_empty() && !is_refused {
-            for a_committee in reward_committee {
+        let is_refused = summary_result.is_refused();
+        if inconsistent.is_empty() && unruly.is_empty() && !is_refused {
+            // 没有惩罚时则直接退还委员会的质押
+            for a_committee in reward {
                 let _ = <T as Config>::ManageCommittee::change_used_stake(
                     a_committee,
-                    committee_order_stake,
+                    stake_per_order,
                     false,
                 );
             }
         } else {
-            let now = <frame_system::Module<T>>::block_number();
+            // 添加惩罚
             let slash_id = Self::get_new_slash_id();
             let (machine_stash, stash_slash_amount) = stash_slash_info.unwrap_or_default();
             PendingSlash::<T>::insert(
@@ -1240,18 +1198,19 @@ impl<T: Config> Pallet<T> {
                     machine_stash,
                     stash_slash_amount,
 
-                    inconsistent_committee,
-                    unruly_committee,
-                    reward_committee,
-                    committee_stake: committee_order_stake,
+                    inconsistent_committee: inconsistent,
+                    unruly_committee: unruly,
+                    reward_committee: reward,
+                    committee_stake: stake_per_order,
 
                     slash_time: now,
                     slash_exec_time: now + TWO_DAY.into(),
 
-                    book_result,
+                    book_result: summary_result.into_book_result(),
                     slash_result: IRSlashResult::Pending,
                 },
             );
+
             UnhandledSlash::<T>::mutate(|unhandled_slash| {
                 ItemList::add_item(unhandled_slash, slash_id);
             });
@@ -1261,46 +1220,11 @@ impl<T: Config> Pallet<T> {
         for a_committee in machine_committee.booked_committee {
             CommitteeOps::<T>::remove(&a_committee, &machine_id);
             MachineSubmitedHash::<T>::remove(&machine_id);
-
-            // 改变committee_machine
             CommitteeMachine::<T>::mutate(&a_committee, |committee_machine| {
                 committee_machine.online_cleanup(&machine_id)
             });
         }
     }
-
-    // pub fn summary_confirmation2(machine_id: &MachineId) -> IRMachineConfirmStatus<T::AccountId>
-    // {     let machine_committee = Self::machine_committee(machine_id);
-    //     let mut summary = IRSummary::default();
-    //     summary.unruly = machine_committee.unruly_committee();
-    //     // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
-    //     if machine_committee.confirmed_committee.is_empty() {
-    //         return IRMachineConfirmStatus::NoConsensus(summary)
-    //     }
-
-    //     // 记录支持上线的信息
-    //     let mut support_info = vec![];
-    //     // 记录支持上线的委员会
-    //     let mut support_committee = vec![];
-    //     let mut refuse_committee = vec![];
-
-    //     for a_committee in machine_committee.confirmed_committee {
-    //         let submit_machine_info = Self::committee_ops(&a_committee, machine_id).machine_info;
-    //         if submit_machine_info.is_support {
-    //             support_info.push(submit_machine_info);
-    //             support_committee.push(a_committee);
-    //         } else {
-    //             refuse_committee.push(a_committee);
-    //         }
-    //     }
-
-    //     if refuse_committee.len() > support_committee.len() {
-    //         // TODO: 添加这个
-    //         return IRMachineConfirmStatus::Refuse(summary)
-    //     }
-
-    //     IRMachineConfirmStatus::Refuse(summary)
-    // }
 
     // 总结机器的确认情况: 检查机器是否被确认，并检查提交的信息是否一致
     // 返回三种状态：

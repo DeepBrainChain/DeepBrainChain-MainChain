@@ -124,6 +124,13 @@ where
         Ok(())
     }
 
+    // 是Summarizing的状态或 是SummitingRaw 且在有效时间内
+    pub fn can_summary(&mut self, now: BlockNumber) -> bool {
+        matches!(self.status, IRVerifyStatus::Summarizing) ||
+            matches!(self.status, IRVerifyStatus::SubmittingRaw) &&
+                now >= self.book_time + SUBMIT_RAW_END.into()
+    }
+
     // 没有提交原始信息的委员会
     pub fn unruly_committee(&self) -> Vec<AccountId> {
         let mut unruly = Vec::new();
@@ -133,6 +140,19 @@ where
             }
         }
         unruly
+    }
+
+    pub fn after_summary(&mut self, summary_result: IRMachineConfirmStatus<AccountId>) {
+        match summary_result {
+            IRMachineConfirmStatus::Confirmed(summary) => {
+                self.status = IRVerifyStatus::Finished;
+                self.onlined_committee = summary.valid_support;
+            },
+            IRMachineConfirmStatus::NoConsensus(_) => {},
+            IRMachineConfirmStatus::Refuse(_) => {
+                self.status = IRVerifyStatus::Finished;
+            },
+        }
     }
 }
 
@@ -237,6 +257,58 @@ pub enum IRMachineConfirmStatus<AccountId> {
 impl<AccountId: Default> Default for IRMachineConfirmStatus<AccountId> {
     fn default() -> Self {
         Self::Confirmed(IRSummary { ..Default::default() })
+    }
+}
+
+impl<AccountId: Clone + Ord> IRMachineConfirmStatus<AccountId> {
+    // TODO: Refa it
+    pub fn get_committee_group(self) -> (Vec<AccountId>, Vec<AccountId>, Vec<AccountId>) {
+        let mut inconsistent_committee = Vec::new();
+        let mut unruly_committee = Vec::new();
+        let mut reward_committee = Vec::new();
+
+        match self {
+            Self::Confirmed(summary) => {
+                unruly_committee = summary.unruly.clone();
+                reward_committee = summary.valid_support.clone();
+
+                for a_committee in summary.against {
+                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                }
+                for a_committee in summary.invalid_support {
+                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                }
+            },
+            Self::NoConsensus(summary) =>
+                for a_committee in summary.unruly {
+                    ItemList::add_item(&mut unruly_committee, a_committee);
+                },
+            Self::Refuse(summary) => {
+                for a_committee in summary.unruly {
+                    ItemList::add_item(&mut unruly_committee, a_committee);
+                }
+                for a_committee in summary.invalid_support {
+                    ItemList::add_item(&mut inconsistent_committee, a_committee);
+                }
+                for a_committee in summary.against {
+                    ItemList::add_item(&mut reward_committee, a_committee);
+                }
+            },
+        }
+
+        (inconsistent_committee, unruly_committee, reward_committee)
+    }
+
+    pub fn into_book_result(&self) -> IRBookResultType {
+        match self {
+            Self::Confirmed(_) => IRBookResultType::OnlineSucceed,
+            Self::Refuse(_) => IRBookResultType::OnlineRefused,
+            Self::NoConsensus(_) => IRBookResultType::NoConsensus,
+        }
+    }
+
+    pub fn is_refused(&self) -> bool {
+        matches!(self, Self::Refuse(_))
     }
 }
 
