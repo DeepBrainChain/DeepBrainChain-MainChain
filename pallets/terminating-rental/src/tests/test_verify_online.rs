@@ -8,30 +8,9 @@ use super::super::mock::{TerminatingRental as IRMachine, *};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
-#[test]
-fn gen_server_room_works() {
-    new_test_with_init_params_ext().execute_with(|| {
-        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
-
-        assert_ok!(IRMachine::set_controller(Origin::signed(stash), controller));
-        assert_ok!(IRMachine::gen_server_room(Origin::signed(controller)));
-        assert_ok!(IRMachine::gen_server_room(Origin::signed(controller)));
-
-        let server_rooms = IRMachine::stash_server_rooms(stash);
-        assert_eq!(server_rooms.len(), 2);
-        assert_eq!(
-            Balances::free_balance(&controller),
-            INIT_BALANCE - 20 * ONE_DBC - 20000 * ONE_DBC
-        );
-        // 同时也是committee，需要质押20000
-        assert_eq!(Balances::reserved_balance(&controller), 20000 * ONE_DBC);
-    })
-}
-
-#[test]
-fn bond_machine_works() {
-    new_test_with_init_params_ext().execute_with(|| {
+pub fn new_test_with_machine_bonding_ext() -> sp_io::TestExternalities {
+    let mut ext = new_test_with_init_params_ext();
+    ext.execute_with(|| {
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let controller = sr25519::Public::from(Sr25519Keyring::Eve);
 
@@ -47,40 +26,12 @@ fn bond_machine_works() {
         let sig = "b4084f70730b183127e9db78c6d8dcf79039f23466cd1ee8b536c40c3027a83d\
                    ab040be4ed2db57b67eaac406817a69ce72a13f8ac11ba460e15d318b1504481";
 
-        let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
-        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
-        // let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
-        let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
-
         assert_ok!(IRMachine::bond_machine(
             Origin::signed(controller),
             machine_id.clone(),
             msg.as_bytes().to_vec(),
             hex::decode(sig).unwrap()
         ));
-        {
-            // - Writes: LiveMachine, StashMachines, MachineInfo,
-            // - Write: StashStake, Balance
-            assert_eq!(
-                IRMachine::live_machines(),
-                IRLiveMachine { bonding_machine: vec![machine_id.clone()], ..Default::default() }
-            );
-            assert_eq!(
-                IRMachine::stash_machines(stash),
-                IRStashMachine { total_machine: vec![machine_id.clone()], ..Default::default() }
-            );
-            assert_eq!(
-                IRMachine::machines_info(machine_id.clone()),
-                IRMachineInfo {
-                    machine_stash: stash,
-                    bonding_height: 2,
-                    stake_amount: 10000 * ONE_DBC,
-                    ..Default::default()
-                }
-            );
-            assert_eq!(IRMachine::stash_stake(stash), 10000 * ONE_DBC);
-            assert_eq!(Balances::reserved_balance(stash), 10000 * ONE_DBC);
-        }
 
         assert_ok!(IRMachine::gen_server_room(Origin::signed(controller)));
         let server_rooms = IRMachine::stash_server_rooms(stash);
@@ -97,12 +48,23 @@ fn bond_machine_works() {
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
-        {
-            assert_eq!(
-                IRMachine::live_machines(),
-                IRLiveMachine { confirmed_machine: vec![machine_id.clone()], ..Default::default() }
-            );
-        }
+    });
+    ext
+}
+
+#[test]
+fn verify_machine_works() {
+    new_test_with_machine_bonding_ext().execute_with(|| {
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
+        let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
         run_to_block(3);
         // 自动派单
@@ -343,10 +305,4 @@ fn bond_machine_works() {
         // 这时候质押的金额应该转给stash账户,
         // 如果stash的押金够则转到stash的free，否则转到staked
     })
-}
-
-// case1: 全都没有提交原始值
-#[test]
-fn summary_committee_verify_works() {
-    new_test_with_init_params_ext().execute_with(|| {})
 }

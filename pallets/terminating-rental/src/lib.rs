@@ -372,7 +372,7 @@ pub mod pallet {
             // 检查签名是否正确
             Self::check_bonding_msg(stash.clone(), machine_id.clone(), msg, sig)?;
             // 需要质押10000DBC作为保证金，验证通过保证金解锁
-            Self::change_user_total_stake(stash.clone(), online_deposit, true)
+            Self::change_stash_total_stake(stash.clone(), online_deposit, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             LiveMachines::<T>::mutate(|live_machines| {
@@ -985,7 +985,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // - Write: StashStake, Balance
-    fn change_user_total_stake(
+    fn change_stash_total_stake(
         who: T::AccountId,
         amount: BalanceOf<T>,
         is_add: bool,
@@ -1426,7 +1426,7 @@ impl<T: Config> Pallet<T> {
         let mut machine_info = Self::machines_info(&machine_id);
 
         // 解锁并退还用户的保证金
-        Self::change_user_total_stake(
+        Self::change_stash_total_stake(
             machine_info.machine_stash.clone(),
             machine_info.stake_amount,
             false,
