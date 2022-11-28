@@ -31,10 +31,8 @@ impl<T: Config> Pallet<T> {
             return Ok(())
         }
 
-        let is_slashed_stash = match slash_info.book_result {
-            OCBookResultType::OnlineRefused => slash_info.machine_stash == review_info.applicant,
-            _ => false,
-        };
+        let is_slashed_stash = matches!(slash_info.book_result, OCBookResultType::OnlineRefused) &&
+            slash_info.machine_stash == review_info.applicant;
 
         if is_slashed_stash {
             // Change stake amount

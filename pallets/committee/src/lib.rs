@@ -132,9 +132,9 @@ pub mod pallet {
                 return Err(Error::<T>::StatusNotAllowed.into())
             }
 
-            let mut committee_stake = Self::committee_stake(&committee);
-            committee_stake.box_pubkey = box_pubkey;
-            CommitteeStake::<T>::insert(&committee, committee_stake);
+            CommitteeStake::<T>::mutate(&committee, |committee_stake| {
+                committee_stake.box_pubkey = box_pubkey;
+            });
 
             Self::deposit_event(Event::StakeAdded(
                 committee.clone(),

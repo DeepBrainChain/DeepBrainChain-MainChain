@@ -23,30 +23,24 @@ impl<T: Config> OCOps for Pallet<T> {
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
     // - Writes: LiveMachine, MachinesInfo
     fn oc_booked_machine(id: MachineId) {
-        let mut live_machines = Self::live_machines();
-
-        ItemList::rm_item(&mut live_machines.confirmed_machine, &id);
-        ItemList::add_item(&mut live_machines.booked_machine, id.clone());
-
-        let mut machine_info = Self::machines_info(&id);
-        machine_info.machine_status = MachineStatus::CommitteeVerifying;
-
-        LiveMachines::<T>::put(live_machines);
-        MachinesInfo::<T>::insert(&id, machine_info);
+        LiveMachines::<T>::mutate(|live_machines| {
+            ItemList::rm_item(&mut live_machines.confirmed_machine, &id);
+            ItemList::add_item(&mut live_machines.booked_machine, id.clone());
+        });
+        MachinesInfo::<T>::mutate(&id, |machine_info| {
+            machine_info.machine_status = MachineStatus::CommitteeVerifying;
+        });
     }
 
     // 由于委员会没有达成一致，需要重新返回到bonding_machine
     fn oc_revert_booked_machine(id: MachineId) {
-        let mut live_machines = Self::live_machines();
-
-        ItemList::rm_item(&mut live_machines.booked_machine, &id);
-        ItemList::add_item(&mut live_machines.confirmed_machine, id.clone());
-
-        let mut machine_info = Self::machines_info(&id);
-        machine_info.machine_status = MachineStatus::DistributingOrder;
-
-        LiveMachines::<T>::put(live_machines);
-        MachinesInfo::<T>::insert(&id, machine_info);
+        LiveMachines::<T>::mutate(|live_machines| {
+            ItemList::rm_item(&mut live_machines.booked_machine, &id);
+            ItemList::add_item(&mut live_machines.confirmed_machine, id.clone());
+        });
+        MachinesInfo::<T>::mutate(&id, |machine_info| {
+            machine_info.machine_status = MachineStatus::DistributingOrder;
+        });
     }
 
     // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
@@ -174,7 +168,6 @@ impl<T: Config> OCOps for Pallet<T> {
     fn oc_refuse_machine(machine_id: MachineId) -> Option<(T::AccountId, BalanceOf<T>)> {
         // Refuse controller bond machine, and clean storage
         let machine_info = Self::machines_info(&machine_id);
-        let mut live_machines = Self::live_machines();
 
         // In case this offline is for change hardware info, when reonline is refused, reward to
         // committee and machine info should not be deleted
@@ -184,16 +177,15 @@ impl<T: Config> OCOps for Pallet<T> {
             let reonline_stake =
                 Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
-            ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
-            ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
+            LiveMachines::<T>::mutate(|live_machines| {
+                ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
+                ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
+            });
 
-            LiveMachines::<T>::put(live_machines);
             return Some((machine_info.machine_stash, reonline_stake.stake_amount))
         }
 
         // let mut sys_info = Self::sys_info();
-        let mut stash_machines = Self::stash_machines(&machine_info.machine_stash);
-        let mut controller_machines = Self::controller_machines(&machine_info.controller);
 
         // Slash 5% of init stake(5% of one gpu stake)
         let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
@@ -205,17 +197,19 @@ impl<T: Config> OCOps for Pallet<T> {
             Self::change_user_total_stake(machine_info.machine_stash.clone(), left_stake, false);
 
         // Clean storage
-        ItemList::rm_item(&mut controller_machines, &machine_id);
-        ItemList::rm_item(&mut stash_machines.total_machine, &machine_id);
 
-        let mut live_machines = Self::live_machines();
-        ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
-        ItemList::add_item(&mut live_machines.refused_machine, machine_id.clone());
+        StashMachines::<T>::mutate(&machine_info.machine_stash, |stash_machines| {
+            ItemList::rm_item(&mut stash_machines.total_machine, &machine_id);
+        });
+        ControllerMachines::<T>::mutate(&machine_info.controller, |controller_machines| {
+            ItemList::rm_item(controller_machines, &machine_id);
+        });
+        LiveMachines::<T>::mutate(|live_machines| {
+            ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
+            ItemList::add_item(&mut live_machines.refused_machine, machine_id.clone());
+        });
 
-        LiveMachines::<T>::put(live_machines);
         MachinesInfo::<T>::remove(&machine_id);
-        ControllerMachines::<T>::insert(&machine_info.controller, controller_machines);
-        StashMachines::<T>::insert(&machine_info.machine_stash, stash_machines);
 
         Some((machine_info.machine_stash, slash))
     }
@@ -272,14 +266,12 @@ impl<T: Config> RTOps for Pallet<T> {
 
     // 在rent_machine; rent_machine_by_minutes中使用, confirm_rent之前
     fn change_machine_status_on_rent_start(machine_id: &MachineId, gpu_num: u32) {
-        let mut machine_info = Self::machines_info(machine_id);
-        let mut machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
-
-        machine_info.machine_status = MachineStatus::Rented;
-        machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
-
-        MachinesInfo::<T>::insert(&machine_id, machine_info);
-        MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
+        MachinesInfo::<T>::mutate(machine_id, |machine_info| {
+            machine_info.machine_status = MachineStatus::Rented;
+        });
+        MachineRentedGPU::<T>::mutate(machine_id, |machine_rented_gpu| {
+            *machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
+        });
     }
 
     // 在confirm_rent中使用
@@ -362,26 +354,25 @@ impl<T: Config> RTOps for Pallet<T> {
 
         if machine_rented_gpu == 0 {
             // 已经没有正在租用的机器时，改变机器的状态
-            let mut machine_info = Self::machines_info(machine_id);
-            machine_info.machine_status = MachineStatus::Online;
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
+            MachinesInfo::<T>::mutate(machine_id, |machine_info| {
+                machine_info.machine_status = MachineStatus::Online;
+            });
         }
 
         MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
     }
 
     fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {
-        let mut machine_info = Self::machines_info(&machine_id);
-        let mut staker_machine = Self::stash_machines(&machine_info.machine_stash);
-        let mut sys_info = Self::sys_info();
+        SysInfo::<T>::mutate(|sys_info| {
+            sys_info.change_rent_fee(amount, is_burn);
+        });
+        MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
+            StashMachines::<T>::mutate(&machine_info.machine_stash, |staker_machine| {
+                staker_machine.change_rent_fee(amount, is_burn);
+            });
 
-        sys_info.change_rent_fee(amount, is_burn);
-        staker_machine.change_rent_fee(amount, is_burn);
-        machine_info.change_rent_fee(amount, is_burn);
-
-        SysInfo::<T>::put(sys_info);
-        StashMachines::<T>::insert(&machine_info.machine_stash, staker_machine);
-        MachinesInfo::<T>::insert(&machine_id, machine_info);
+            machine_info.change_rent_fee(amount, is_burn);
+        });
     }
 }
 
