@@ -1,10 +1,11 @@
 use crate::{
     IRCommitteeMachineList, IRCommitteeOps, IRCommitteeUploadInfo, IRLiveMachine,
-    IRMachineCommitteeList, IRMachineInfo, IRMachineStatus, IRStakerCustomizeInfo, IRStashMachine,
+    IRMachineCommitteeList, IRMachineStatus, IRStakerCustomizeInfo, IRStashMachine,
     IRVerifyMachineStatus, IRVerifyStatus,
 };
 
 use super::super::mock::{TerminatingRental as IRMachine, *};
+use committee::CommitteeStakeInfo;
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -56,19 +57,36 @@ pub fn new_test_with_machine_bonding_ext() -> sp_io::TestExternalities {
 fn verify_machine_works() {
     new_test_with_machine_bonding_ext().execute_with(|| {
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let _controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
 
         let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
-        let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
+        let _committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
         let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
+
+        let committee1_box_pubkey =
+            hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
+                .unwrap()
+                .try_into()
+                .unwrap();
 
         run_to_block(3);
         // 自动派单
+        // - Writes: CommitteeUsedStake, MachineCommittee, CommitteeMachine, CommitteeOps,
+        // LiveMachines, MachinesInfo
         {
+            assert_eq!(
+                Committee::committee_stake(&committee1),
+                CommitteeStakeInfo {
+                    box_pubkey: committee1_box_pubkey,
+                    staked_amount: 20000 * ONE_DBC,
+                    used_stake: 1000 * ONE_DBC,
+                    ..Default::default()
+                }
+            );
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
                 IRMachineCommitteeList {
@@ -100,9 +118,6 @@ fn verify_machine_works() {
                 IRMachine::live_machines(),
                 IRLiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
             );
-            // TODO:
-            // assert_eq!(IRMachine::machines_info(&machine_id), IRMachineInfo {
-            // ..Default::default() });
         }
 
         // 委员会添加机器Hash
@@ -119,6 +134,7 @@ fn verify_machine_works() {
             hash1
         ));
         {
+            // - Writes: CommitteeMachine, CommitteeOps, MachineSubmitedHash, MachineCommittee
             assert_eq!(IRMachine::machine_submited_hash(&machine_id), vec![hash1]);
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
@@ -166,6 +182,17 @@ fn verify_machine_works() {
         ));
         {
             assert_eq!(IRMachine::machine_submited_hash(&machine_id), vec![hash2, hash3, hash1]);
+            assert_eq!(
+                IRMachine::machine_committee(&machine_id),
+                IRMachineCommitteeList {
+                    book_time: 2,
+                    booked_committee: vec![committee2, committee1, committee4],
+                    hashed_committee: vec![committee2, committee1, committee4],
+                    confirm_start_time: 2 + 2880 + 1440,
+                    status: IRVerifyStatus::SubmittingRaw, // 达到三人将变为提交Raw状态
+                    ..Default::default()
+                }
+            );
         }
 
         // 委员会提交原始信息
@@ -227,14 +254,38 @@ fn verify_machine_works() {
         upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         assert_ok!(IRMachine::submit_confirm_raw(Origin::signed(committee4), upload_info));
 
+        {
+            assert_eq!(
+                IRMachine::machine_committee(&machine_id),
+                IRMachineCommitteeList {
+                    book_time: 2,
+                    booked_committee: vec![committee2, committee1, committee4],
+                    hashed_committee: vec![committee2, committee1, committee4],
+                    confirm_start_time: 2 + 2880 + 1440,
+                    confirmed_committee: vec![committee2, committee1, committee4],
+                    status: IRVerifyStatus::Summarizing,
+                    ..Default::default()
+                }
+            );
+        }
+
         run_to_block(4);
         {
+            // Summary:
+            //
+            // - Writes: StashTotalStake, MachinesInfo, LiveMachines, StashMachines
+            //
+            // - Writes: MachineCommittee, CommitteeMachine, CommitteeStake
+            // CommitteeOps, MachineSubmitedHash, CommitteeMachine
             assert_eq!(
                 IRMachine::live_machines(),
                 IRLiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
             );
+
             let machine_info = IRMachine::machines_info(&machine_id);
             assert_eq!(machine_info.machine_status, IRMachineStatus::Online);
+            assert_eq!(machine_info.reward_committee, vec![committee2, committee1, committee4]);
+
             assert_eq!(
                 IRMachine::stash_machines(&stash),
                 IRStashMachine {
@@ -250,59 +301,44 @@ fn verify_machine_works() {
             // 当机器审核通过，应该解锁保证金
             assert_eq!(Balances::free_balance(stash), INIT_BALANCE);
             assert_eq!(Balances::reserved_balance(stash), 0);
-        }
 
-        // 用户租用
-        let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
-        // let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
-        assert_ok!(IRMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 8, 60));
-        {
-            assert_eq!(TerminatingRental::user_rented(renter1), vec![0]);
+            // - Writes: CommitteeStake
             assert_eq!(
-                TerminatingRental::rent_order(0),
-                crate::IRRentOrderDetail {
-                    machine_id: machine_id.clone(),
-                    renter: renter1,
-                    rent_start: 5,
-                    confirm_rent: 0,
-                    rent_end: 5 + 60,
-                    // 租金: 119780 / 1000 * 5000000 / 12000 * (60 / 2880)
-                    stake_amount: 1039756916666666666,
-                    rent_status: crate::IRRentStatus::WaitingVerifying,
-                    gpu_num: 8,
-                    gpu_index: vec![0, 1, 2, 3, 4, 5, 6, 7]
+                IRMachine::machine_committee(&machine_id),
+                IRMachineCommitteeList {
+                    book_time: 2,
+                    booked_committee: vec![committee2, committee1, committee4],
+                    hashed_committee: vec![committee2, committee1, committee4],
+                    confirm_start_time: 2 + 2880 + 1440,
+                    confirmed_committee: vec![committee2, committee1, committee4],
+                    status: IRVerifyStatus::Finished,
+                    onlined_committee: vec![committee2, committee1, committee4],
+                    ..Default::default()
                 }
             );
-            assert_eq!(TerminatingRental::pending_rent_ending(5 + 60), vec![0]);
-            assert_eq!(TerminatingRental::pending_confirming(5 + 30), vec![0]);
-            assert_eq!(Balances::reserved_balance(renter1), 1039756916666666666 + 20000 * ONE_DBC);
-        }
 
-        assert_ok!(IRMachine::confirm_rent(Origin::signed(renter1), 0));
-        {
-            assert_eq!(Balances::reserved_balance(renter1), 1039756916666666666 + 20000 * ONE_DBC);
             assert_eq!(
-                Balances::free_balance(renter1),
-                INIT_BALANCE - (1039756916666666666 + 20000 * ONE_DBC + 10 * ONE_DBC)
+                <crate::CommitteeOps<TestRuntime>>::contains_key(committee1, &machine_id),
+                false
+            );
+            assert_eq!(<crate::MachineSubmitedHash<TestRuntime>>::contains_key(&machine_id), false);
+            assert_eq!(
+                IRMachine::committee_machine(committee1),
+                IRCommitteeMachineList {
+                    online_machine: vec![machine_id.clone()],
+                    ..Default::default()
+                }
             );
 
-            assert_eq!(Balances::reserved_balance(stash), 0);
-            assert_eq!(Balances::free_balance(stash), INIT_BALANCE);
-        }
-
-        run_to_block(100);
-        {
-            assert_eq!(Balances::reserved_balance(renter1), 20000 * ONE_DBC);
             assert_eq!(
-                Balances::free_balance(renter1),
-                INIT_BALANCE - 1039756916666666666 - 20000 * ONE_DBC - 10 * ONE_DBC
+                Committee::committee_stake(&committee1),
+                CommitteeStakeInfo {
+                    box_pubkey: committee1_box_pubkey,
+                    staked_amount: 20000 * ONE_DBC,
+                    used_stake: 0,
+                    ..Default::default()
+                }
             );
-
-            // 租金被质押
-            assert_eq!(Balances::free_balance(stash), INIT_BALANCE);
-            assert_eq!(Balances::reserved_balance(stash), 1039756916666666666);
         }
-        // 这时候质押的金额应该转给stash账户,
-        // 如果stash的押金够则转到stash的free，否则转到staked
     })
 }

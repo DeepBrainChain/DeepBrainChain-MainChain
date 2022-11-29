@@ -258,6 +258,10 @@ where
     pub fn calc_point(&self) -> u64 {
         self.machine_info_detail.committee_upload_info.calc_point
     }
+
+    pub fn can_rent(&self) -> bool {
+        matches!(self.machine_status, IRMachineStatus::Online | IRMachineStatus::Rented)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]

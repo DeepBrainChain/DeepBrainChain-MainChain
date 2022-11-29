@@ -1,12 +1,6 @@
-use crate::{
-    IRCommitteeMachineList, IRCommitteeOps, IRCommitteeUploadInfo, IRLiveMachine,
-    IRMachineCommitteeList, IRMachineInfo, IRMachineStatus, IRStakerCustomizeInfo, IRStashMachine,
-    IRVerifyMachineStatus, IRVerifyStatus,
-};
-
 use super::super::mock::{TerminatingRental as IRMachine, *};
+use crate::{IRLiveMachine, IRMachineInfo, IRStakerCustomizeInfo, IRStashMachine};
 use frame_support::assert_ok;
-use std::convert::TryInto;
 
 #[test]
 fn gen_server_room_works() {

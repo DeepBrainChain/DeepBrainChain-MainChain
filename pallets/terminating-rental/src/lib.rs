@@ -427,6 +427,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // - Writes: CommitteeMachine, CommitteeOps, MachineSubmitedHash, MachineCommittee
         #[pallet::weight(10000)]
         pub fn submit_confirm_hash(
             origin: OriginFor<T>,
@@ -441,7 +442,6 @@ pub mod pallet {
             ItemList::add_item(&mut machine_submited_hash, hash);
 
             let mut machine_committee = Self::machine_committee(&machine_id);
-
             machine_committee
                 .submit_hash(committee.clone())
                 .map_err::<Error<T>, _>(Into::into)?;
@@ -501,7 +501,6 @@ pub mod pallet {
             machine_id: MachineId,
             rent_gpu_num: u32,
             duration: T::BlockNumber,
-            // minutes: u32,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
@@ -510,18 +509,14 @@ pub mod pallet {
             let gpu_num = machine_info.gpu_num();
             // 检查还有空闲的GPU
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
-            // 只允许整数小时的租用
+            // 只允许半小时整数倍的租用
             ensure!(
                 duration % 60u32.into() == Zero::zero(),
                 Error::<T>::OnlyAllowIntegerMultipleOfHour
             );
 
             // 检查machine_id状态是否可以租用
-            ensure!(
-                machine_info.machine_status == IRMachineStatus::Online ||
-                    machine_info.machine_status == IRMachineStatus::Rented,
-                Error::<T>::MachineNotRentable
-            );
+            ensure!(machine_info.can_rent(), Error::<T>::MachineNotRentable);
 
             // 最大租用时间限制MaximumRentalDuration
             let duration = duration.min((Self::maximum_rental_duration() * 24 * 60).into());
@@ -556,6 +551,7 @@ pub mod pallet {
             let mut machine_rent_order = Self::machine_rent_order(&machine_id);
             let rentable_gpu_index = machine_rent_order.gen_rentable_gpu(rent_gpu_num, gpu_num);
             ItemList::add_item(&mut machine_rent_order.rent_order, rent_id);
+            MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
             RentOrder::<T>::insert(
                 &rent_id,
@@ -585,7 +581,6 @@ pub mod pallet {
                     ItemList::add_item(pending_confirming, rent_id);
                 },
             );
-            MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
             Self::deposit_event(Event::RentBlockNum(
                 rent_id,
@@ -629,13 +624,6 @@ pub mod pallet {
                 Error::<T>::StatusNotAllowed
             );
 
-            // 质押转到特定账户
-            // TODO: 当租用被打断时或租用结束时，支付租金。
-            // Self::change_renter_total_stake(&renter, order_info.stake_amount, false)
-            //     .map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
-            // Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash,
-            // order_info.stake_amount)?;
-
             // 在stake_amount设置0前记录，用作事件
             let rent_fee = order_info.stake_amount;
             let rent_duration = order_info.rent_end - order_info.rent_start;
@@ -645,14 +633,13 @@ pub mod pallet {
             // 改变online_profile状态
             Self::change_machine_status_on_confirmed(&machine_id, renter.clone());
 
-            let mut pending_confirming =
-                Self::pending_confirming(order_info.rent_start + WAITING_CONFIRMING_DELAY.into());
-            ItemList::rm_item(&mut pending_confirming, &rent_id);
-            PendingConfirming::<T>::insert(
+            // TODO: 当为空时，删除
+            PendingConfirming::<T>::mutate(
                 order_info.rent_start + WAITING_CONFIRMING_DELAY.into(),
-                pending_confirming,
+                |pending_confirming| {
+                    ItemList::rm_item(pending_confirming, &rent_id);
+                },
             );
-
             RentOrder::<T>::insert(&rent_id, order_info);
 
             Self::deposit_event(Event::ConfirmReletBlockNum(
@@ -1076,7 +1063,6 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 修改machine对应的委员会
-
         MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
             ItemList::add_item(&mut machine_committee.booked_committee, work_index.who.clone());
             machine_committee.book_time = now;
@@ -1126,6 +1112,8 @@ impl<T: Config> Pallet<T> {
     }
 
     // 对已经提交完原始值的机器进行处理
+    // - Writes: MachineCommittee, CommitteeMachine, CommitteeStake
+    // CommitteeOps, MachineSubmitedHash, CommitteeMachine
     fn summary_raw(machine_id: MachineId, now: T::BlockNumber, stake_per_order: BalanceOf<T>) {
         let mut machine_committee = Self::machine_committee(&machine_id);
 
@@ -1152,15 +1140,12 @@ impl<T: Config> Pallet<T> {
                 if Self::confirm_machine(summary.valid_support.clone(), summary.info.unwrap())
                     .is_ok()
                 {
-                    for a_committee in &summary.valid_support {
-                        // 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
-                        CommitteeMachine::<T>::mutate(&a_committee, |committee_machine| {
-                            ItemList::add_item(
-                                &mut committee_machine.online_machine,
-                                machine_id.clone(),
-                            );
+                    // 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
+                    summary.valid_support.iter().for_each(|committee| {
+                        CommitteeMachine::<T>::mutate(&committee, |machines| {
+                            ItemList::add_item(&mut machines.online_machine, machine_id.clone());
                         });
-                    }
+                    });
                 }
             },
             IRMachineConfirmStatus::Refuse(_summary) => {
@@ -1217,13 +1202,13 @@ impl<T: Config> Pallet<T> {
         }
 
         // Do cleaning
-        for a_committee in machine_committee.booked_committee {
+        machine_committee.booked_committee.iter().for_each(|a_committee| {
             CommitteeOps::<T>::remove(&a_committee, &machine_id);
             MachineSubmitedHash::<T>::remove(&machine_id);
             CommitteeMachine::<T>::mutate(&a_committee, |committee_machine| {
                 committee_machine.online_cleanup(&machine_id)
             });
-        }
+        })
     }
 
     // 总结机器的确认情况: 检查机器是否被确认，并检查提交的信息是否一致
@@ -1340,8 +1325,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // - Writes: StashTotalStake, MachinesInfo, LiveMachines, StashMachines
     fn confirm_machine(
-        // TODO: 记录这些委员会，后续将进行奖励
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: IRCommitteeUploadInfo,
     ) -> Result<(), ()> {
@@ -1486,31 +1471,22 @@ impl<T: Config> Pallet<T> {
     }
 
     // 在confirm_rent中使用
+    // - Writes: LiveMachine, MachineInfo, StashMachine
     fn change_machine_status_on_confirmed(machine_id: &MachineId, renter: T::AccountId) {
-        let mut machine_info = Self::machines_info(machine_id);
-        let mut live_machines = Self::live_machines();
-
-        ItemList::add_item(&mut machine_info.renters, renter);
-
-        // 机器创建成功
-        machine_info.total_rented_times += 1;
-
-        // NOTE: 该检查确保得分快照不被改变多次
-        if live_machines.rented_machine.binary_search(&machine_id).is_err() {
-            // Self::update_snap_by_rent_status(machine_id.to_vec(), true);
-
+        MachinesInfo::<T>::mutate(machine_id, |machine_info| {
             StashMachines::<T>::mutate(&machine_info.machine_stash, |stash_machine| {
                 stash_machine.total_rented_gpu =
-                    stash_machine.total_rented_gpu.saturating_sub(machine_info.gpu_num() as u64);
+                    stash_machine.total_rented_gpu.saturating_add(machine_info.gpu_num() as u64);
             });
 
+            ItemList::add_item(&mut machine_info.renters, renter);
+            machine_info.total_rented_times += 1;
+        });
+
+        LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.online_machine, machine_id);
             ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
-            LiveMachines::<T>::put(live_machines);
-            // Self::change_pos_info_by_rent(&machine_info, true);
-        }
-
-        MachinesInfo::<T>::insert(&machine_id, machine_info);
+        });
     }
 
     // 当租用结束，或者租用被终止时，将保留的金额支付给stash账户，剩余部分解锁给租用人
@@ -1567,7 +1543,6 @@ impl<T: Config> Pallet<T> {
             let machine_id = rent_order.machine_id.clone();
             let rent_duration = now - rent_order.rent_start;
 
-            // TODO: handle result
             let _ = Self::pay_rent_fee(&rent_order, rent_order.stake_amount, machine_id.clone());
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
@@ -1584,6 +1559,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // - Writes: MachineRentedGPU, LiveMachines, MachinesInfo, StashMachine
     fn change_machine_status_on_rent_end(
         machine_id: &MachineId,
         rented_gpu_num: u32,
@@ -1593,8 +1569,6 @@ impl<T: Config> Pallet<T> {
     ) {
         let mut machine_info = Self::machines_info(machine_id);
         let mut live_machines = Self::live_machines();
-        let mut machine_rented_gpu = Self::machine_rented_gpu(machine_id);
-        machine_rented_gpu = machine_rented_gpu.saturating_sub(rented_gpu_num);
 
         // 租用结束
         let gpu_num = machine_info.gpu_num();
@@ -1622,7 +1596,6 @@ impl<T: Config> Pallet<T> {
                     machine_info.machine_status = IRMachineStatus::Online;
 
                     // 租用结束
-                    // Self::update_snap_by_rent_status(machine_id.to_vec(), false);
                     StashMachines::<T>::mutate(&machine_info.machine_stash, |stash_machine| {
                         stash_machine.total_rented_gpu =
                             stash_machine.total_rented_gpu.saturating_sub(gpu_num.into());
@@ -1632,7 +1605,9 @@ impl<T: Config> Pallet<T> {
             _ => {},
         }
 
-        MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
+        MachineRentedGPU::<T>::mutate(machine_id, |machine_rented_gpu| {
+            *machine_rented_gpu = machine_rented_gpu.saturating_sub(rented_gpu_num);
+        });
         LiveMachines::<T>::put(live_machines);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
