@@ -6,6 +6,7 @@ use crate::{
 };
 // use committee::CommitteeStakeInfo;
 use frame_support::assert_ok;
+use sp_runtime::Perbill;
 use std::convert::TryInto;
 
 pub fn new_test_with_machine_online_ext() -> sp_io::TestExternalities {
@@ -81,6 +82,7 @@ pub fn new_test_with_machine_online_ext() -> sp_io::TestExternalities {
 #[test]
 fn rent_machine_works() {
     new_test_with_machine_online_ext().execute_with(|| {
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let _controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
@@ -88,7 +90,7 @@ fn rent_machine_works() {
             .to_vec();
 
         // 用户租用
-        let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
+        let renter1 = sr25519::Public::from(Sr25519Keyring::Bob);
         // let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
         assert_ok!(IRMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 8, 60));
         {
@@ -112,11 +114,6 @@ fn rent_machine_works() {
             );
             assert_eq!(TerminatingRental::pending_rent_ending(5 + 60), vec![0]);
             assert_eq!(TerminatingRental::pending_confirming(5 + 30), vec![0]);
-            assert_eq!(Balances::reserved_balance(renter1), 1039756916666666666 + 20000 * ONE_DBC);
-            assert_eq!(
-                Balances::free_balance(renter1),
-                INIT_BALANCE - 10 * ONE_DBC - (1039756916666666666 + 20000 * ONE_DBC)
-            );
             assert_eq!(IRMachine::renter_total_stake(renter1), 1039756916666666666);
             assert_eq!(
                 IRMachine::machine_rent_order(&machine_id),
@@ -125,6 +122,16 @@ fn rent_machine_works() {
 
             let machine_info = IRMachine::machines_info(&machine_id);
             assert_eq!(machine_info.machine_status, IRMachineStatus::Rented);
+
+            assert_eq!(Balances::reserved_balance(renter1), 1039756916666666666);
+            assert_eq!(
+                Balances::free_balance(renter1),
+                INIT_BALANCE - 10 * ONE_DBC - (1039756916666666666)
+            );
+
+            // committee1
+            assert_eq!(Balances::reserved_balance(committee1), 20000 * ONE_DBC);
+            assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC);
         }
 
         assert_ok!(IRMachine::confirm_rent(Origin::signed(renter1), 0));
@@ -170,29 +177,45 @@ fn rent_machine_works() {
                 }
             );
 
-            assert_eq!(Balances::reserved_balance(renter1), 1039756916666666666 + 20000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(renter1), 1039756916666666666);
             assert_eq!(
                 Balances::free_balance(renter1),
-                INIT_BALANCE - (1039756916666666666 + 20000 * ONE_DBC + 10 * ONE_DBC)
+                INIT_BALANCE - (1039756916666666666 + 10 * ONE_DBC)
             );
 
             assert_eq!(Balances::reserved_balance(stash), 0);
             assert_eq!(Balances::free_balance(stash), INIT_BALANCE);
+
+            assert_eq!(Balances::reserved_balance(committee1), 20000 * ONE_DBC);
+            assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC);
         }
 
         run_to_block(100);
         {
+            // 结束租用: 将租金99%转给stash,1%转给几个委员会
+
+            let rent_fee = 1039756916666666666;
+
+            let reward_to_stash = Perbill::from_rational_approximation(99u32, 100u32) * rent_fee;
+            let committee_each_get =
+                Perbill::from_rational_approximation(1u32, 3u32) * (rent_fee - reward_to_stash);
+            let stash_get = rent_fee - committee_each_get * 3;
+            assert_eq!(
+                Balances::free_balance(committee1),
+                INIT_BALANCE - 20000 * ONE_DBC + committee_each_get
+            );
+            assert_eq!(Balances::reserved_balance(committee1), 20000 * ONE_DBC);
+
             // - Writes: MachineRentedGPU, LiveMachines, MachinesInfo, StashMachine
-            // 结束租用
-            assert_eq!(Balances::reserved_balance(renter1), 20000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(renter1), 0);
             assert_eq!(
                 Balances::free_balance(renter1),
-                INIT_BALANCE - 1039756916666666666 - 20000 * ONE_DBC - 10 * ONE_DBC
+                INIT_BALANCE - 1039756916666666666 - 10 * ONE_DBC
             );
 
             // 租金被质押
             assert_eq!(Balances::free_balance(stash), INIT_BALANCE);
-            assert_eq!(Balances::reserved_balance(stash), 1039756916666666666);
+            assert_eq!(Balances::reserved_balance(stash), stash_get);
         }
         // 这时候质押的金额应该转给stash账户,
         // 如果stash的押金够则转到stash的free，否则转到staked

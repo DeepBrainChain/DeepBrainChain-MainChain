@@ -1490,34 +1490,48 @@ impl<T: Config> Pallet<T> {
     }
 
     // 当租用结束，或者租用被终止时，将保留的金额支付给stash账户，剩余部分解锁给租用人
-    // TODO: 租金的1%分给验证人
+    // NOTE: 租金的1%将分给验证人
     fn pay_rent_fee(
         rent_order: &IRRentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        rent_fee: BalanceOf<T>,
+        mut rent_fee: BalanceOf<T>,
         machine_id: MachineId,
     ) -> DispatchResult {
         let mut machine_info = Self::machines_info(&machine_id);
 
-        // 可能足用人质押数量大于需要支付的租金，因此需要解绑质押，再转对应的租金
-        <T as Config>::Currency::unreserve(&rent_order.renter, rent_order.stake_amount);
+        <T as Config>::Currency::unreserve(&rent_order.renter, rent_fee);
 
-        <T as Config>::Currency::transfer(
+        // NOTE: 将租金的1%转给委员会，剩余的转给stash账户
+        // 可能足用人质押数量大于需要支付的租金，因此需要解绑质押，再转对应的租金
+        let reward_to_stash = Perbill::from_rational_approximation(99u32, 100u32) * rent_fee;
+        let reward_to_committee = rent_fee.saturating_sub(reward_to_stash);
+        let committee_each_get = Perbill::from_rational_approximation(
+            1u32,
+            machine_info.reward_committee.len() as u32,
+        ) * reward_to_committee;
+        for a_committee in machine_info.reward_committee.clone() {
+            let _ = <T as Config>::Currency::transfer(
+                &rent_order.renter,
+                &a_committee,
+                committee_each_get,
+                KeepAlive,
+            );
+            rent_fee = rent_fee.saturating_sub(committee_each_get);
+        }
+        let _ = <T as Config>::Currency::transfer(
             &rent_order.renter,
             &machine_info.machine_stash,
             rent_fee,
             KeepAlive,
-        )?;
-
-        // TODO: 将租金的1%转给委员会，剩余的转给stash账户
+        );
 
         // 根据机器GPU计算需要多少质押
         let max_stake = Self::stake_per_gpu()
             .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
             .ok_or(Error::<T>::Overflow)?;
         if max_stake > machine_info.stake_amount {
-            // 如果 rent_fee >= max_stake - machine_info.stake_amount，则质押max_stake -
-            // machine_info.stake_amount 如果 rent_fee < max_stake -
-            // machine_info.stake_amount, 则质押 rent_fee
+            // 如果 rent_fee >= max_stake - machine_info.stake_amount,
+            // 则质押 max_stake - machine_info.stake_amount
+            // 如果 rent_fee < max_stake - machine_info.stake_amount, 则质押 rent_fee
             let stake_amount = rent_fee.min(max_stake - machine_info.stake_amount);
 
             <T as Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)?;
