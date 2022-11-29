@@ -1117,8 +1117,9 @@ impl<T: Config> Pallet<T> {
         machine_info.stake_amount = Zero::zero();
         machine_info.machine_status = MachineStatus::Exit;
 
-        let mut live_machine = Self::live_machines();
-        live_machine.machine_exit(&machine_id);
+        LiveMachines::<T>::mutate(|live_machines| {
+            live_machines.machine_exit(&machine_id);
+        });
 
         let mut controller_machines = Self::controller_machines(&machine_info.controller);
         ItemList::rm_item(&mut controller_machines, &machine_id);
@@ -1136,7 +1137,6 @@ impl<T: Config> Pallet<T> {
             StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
         }
 
-        LiveMachines::<T>::put(live_machine);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
 
         Self::deposit_event(Event::MachineExit(machine_id));
@@ -1192,7 +1192,10 @@ impl<T: Config> Pallet<T> {
         machine_status: MachineStatus<T::BlockNumber, T::AccountId>,
     ) {
         let mut machine_info = Self::machines_info(&machine_id);
-        let mut live_machine = Self::live_machines();
+
+        LiveMachines::<T>::mutate(|live_machines| {
+            live_machines.machine_offline(machine_id.clone());
+        });
 
         // 先根据机器当前状态，之后再变更成下线状态
         if let MachineStatus::Rented = machine_info.machine_status {
@@ -1204,12 +1207,9 @@ impl<T: Config> Pallet<T> {
         Self::change_pos_info_by_online(&machine_info, false);
         Self::update_snap_by_online_status(machine_id.clone(), false);
 
-        live_machine.machine_offline(machine_id.clone());
-
         // After re-online, machine status is same as former
         machine_info.machine_status = machine_status;
 
-        LiveMachines::<T>::put(live_machine);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 

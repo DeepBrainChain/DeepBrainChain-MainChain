@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
                     let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, work_index);
                 }
                 // 将机器状态从ocw_confirmed_machine改为booked_machine
-                T::OCOperations::oc_booked_machine(machine_id.clone());
+                T::OCOperations::oc_booked_machine(machine_id);
             };
         }
     }
