@@ -438,17 +438,16 @@ impl<T: Config> Pallet<T> {
     ) {
         let machine_info = Self::machines_info(&slash_info.machine_id);
 
-        let mut reward_to_reporter = Zero::zero();
-        let mut reward_to_committee = Zero::zero();
-
-        if !slash_info.renters.is_empty() {
-            reward_to_reporter =
-                Perbill::from_rational_approximation(10u32, 100u32) * slash_info.slash_amount;
-        }
-        if slash_info.reward_to_committee.is_some() {
-            reward_to_committee =
-                Perbill::from_rational_approximation(20u32, 100u32) * slash_info.slash_amount;
-        }
+        let reward_to_reporter = if !slash_info.renters.is_empty() {
+            Perbill::from_rational_approximation(10u32, 100u32) * slash_info.slash_amount
+        } else {
+            Zero::zero()
+        };
+        let reward_to_committee = if slash_info.reward_to_committee.is_some() {
+            Perbill::from_rational_approximation(20u32, 100u32) * slash_info.slash_amount
+        } else {
+            Zero::zero()
+        };
         let slash_to_treasury = slash_info.slash_amount - reward_to_reporter - reward_to_committee;
 
         if <T as Config>::Currency::reserved_balance(&machine_info.machine_stash) <

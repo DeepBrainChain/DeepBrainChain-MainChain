@@ -201,7 +201,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: refactor
         #[pallet::weight(10000)]
         pub fn apply_slash_review(
             origin: OriginFor<T>,
@@ -264,10 +263,13 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: refactor
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
             <T as Config>::CancelSlashOrigin::ensure_origin(origin)?;
+            ensure!(
+                PendingSlashReview::<T>::contains_key(slash_id),
+                Error::<T>::NotPendingReviewSlash
+            );
 
             Self::do_cancel_slash(slash_id)
         }
@@ -633,8 +635,6 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_cancel_slash(slash_id: SlashId) -> DispatchResultWithPostInfo {
-        ensure!(PendingSlashReview::<T>::contains_key(slash_id), Error::<T>::NotPendingReviewSlash);
-
         let now = <frame_system::Module<T>>::block_number();
         let mut slash_info = Self::pending_slash(slash_id);
         let slash_review_info = Self::pending_slash_review(slash_id);
@@ -674,10 +674,9 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut should_slash = slash_info.reward_committee.clone();
-        let mut should_reward = slash_info.inconsistent_committee.clone();
-
         ItemList::expand_to_order(&mut should_slash, slash_info.unruly_committee.clone());
 
+        let mut should_reward = slash_info.inconsistent_committee.clone();
         if let OCBookResultType::OnlineRefused = slash_info.book_result {
             ItemList::add_item(&mut should_reward, slash_info.machine_stash.clone());
         }
@@ -689,9 +688,6 @@ impl<T: Config> Pallet<T> {
         );
 
         slash_info.slash_result = OCSlashResult::Canceled;
-
-        // remove from unhandled report result
-        let mut unhandled_slash = Self::unhandled_slash();
 
         // return back of reserved balance
         if is_applicant_slashed_stash {
@@ -716,9 +712,11 @@ impl<T: Config> Pallet<T> {
             let _ = Self::change_committee_used_stake(a_committee, committee_order_stake, false);
         }
 
-        ItemList::rm_item(&mut unhandled_slash, &slash_id);
+        // remove from unhandled report result
+        UnhandledSlash::<T>::mutate(|unhandled_slash| {
+            ItemList::rm_item(unhandled_slash, &slash_id);
+        });
 
-        UnhandledSlash::<T>::put(unhandled_slash);
         PendingSlash::<T>::insert(slash_id, slash_info);
         PendingSlashReview::<T>::remove(slash_id);
 
