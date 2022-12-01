@@ -1629,38 +1629,38 @@ impl<T: Config> Pallet<T> {
     // -Write: MachineRentOrder, PendingRentEnding, RentOrder,
     // UserRented, PendingConfirming
     fn clean_order(who: &T::AccountId, rent_order_id: RentOrderId) {
-        let mut rent_order_list = Self::user_rented(who);
-        ItemList::rm_item(&mut rent_order_list, &rent_order_id);
-
         let rent_order = Self::rent_order(rent_order_id);
 
         let mut pending_rent_ending = Self::pending_rent_ending(rent_order.rent_end);
         ItemList::rm_item(&mut pending_rent_ending, &rent_order_id);
-
-        let pending_confirming_deadline = rent_order.rent_start + WAITING_CONFIRMING_DELAY.into();
-        let mut pending_confirming = Self::pending_confirming(pending_confirming_deadline);
-        ItemList::rm_item(&mut pending_confirming, &rent_order_id);
-
-        let mut machine_rent_order = Self::machine_rent_order(&rent_order.machine_id);
-        machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index);
-
-        MachineRentOrder::<T>::insert(&rent_order.machine_id, machine_rent_order);
         if pending_rent_ending.is_empty() {
             PendingRentEnding::<T>::remove(rent_order.rent_end);
         } else {
             PendingRentEnding::<T>::insert(rent_order.rent_end, pending_rent_ending);
         }
-        RentOrder::<T>::remove(rent_order_id);
-        if rent_order_list.is_empty() {
-            UserRented::<T>::remove(who);
-        } else {
-            UserRented::<T>::insert(who, rent_order_list);
-        }
+
+        let pending_confirming_deadline = rent_order.rent_start + WAITING_CONFIRMING_DELAY.into();
+        let mut pending_confirming = Self::pending_confirming(pending_confirming_deadline);
+        ItemList::rm_item(&mut pending_confirming, &rent_order_id);
         if pending_confirming.is_empty() {
             PendingConfirming::<T>::remove(pending_confirming_deadline);
         } else {
             PendingConfirming::<T>::insert(pending_confirming_deadline, pending_confirming);
         }
+
+        let mut machine_rent_order = Self::machine_rent_order(&rent_order.machine_id);
+        machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index);
+        MachineRentOrder::<T>::insert(&rent_order.machine_id, machine_rent_order);
+
+        let mut rent_order_list = Self::user_rented(who);
+        ItemList::rm_item(&mut rent_order_list, &rent_order_id);
+        if rent_order_list.is_empty() {
+            UserRented::<T>::remove(who);
+        } else {
+            UserRented::<T>::insert(who, rent_order_list);
+        }
+
+        RentOrder::<T>::remove(rent_order_id);
     }
 
     // 当没有正在租用的机器时，可以修改得分快照
