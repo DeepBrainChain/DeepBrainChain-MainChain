@@ -1,5 +1,6 @@
 use crate::{
-    BalanceOf, Config, Error, IRSlashResult, Pallet, PendingSlash, StashStake, UnhandledSlash,
+    BalanceOf, Config, Error, IROnlineSlashResult, Pallet, PendingOnlineSlash, StashStake,
+    UnhandledOnlineSlash,
 };
 use dbc_support::traits::{GNOps, ManageCommittee};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure};
@@ -49,19 +50,19 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn check_and_exec_pending_slash() {
-        let mut pending_unhandled_id = Self::unhandled_slash();
+        let mut pending_unhandled_id = Self::unhandled_online_slash();
 
         for slash_id in pending_unhandled_id.clone() {
             if Self::do_a_slash(slash_id, &mut pending_unhandled_id).is_err() {
                 continue
             };
         }
-        UnhandledSlash::<T>::put(pending_unhandled_id);
+        UnhandledOnlineSlash::<T>::put(pending_unhandled_id);
     }
 
     fn do_a_slash(slash_id: SlashId, pending_unhandled_slash: &mut Vec<SlashId>) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
-        let mut slash_info = Self::pending_slash(slash_id);
+        let mut slash_info = Self::pending_online_slash(slash_id);
         if now < slash_info.slash_exec_time {
             return Ok(())
         }
@@ -98,9 +99,9 @@ impl<T: Config> Pallet<T> {
             vec![],
         )?;
 
-        slash_info.slash_result = IRSlashResult::Executed;
+        slash_info.slash_result = IROnlineSlashResult::Executed;
         ItemList::rm_item(pending_unhandled_slash, &slash_id);
-        PendingSlash::<T>::insert(slash_id, slash_info);
+        PendingOnlineSlash::<T>::insert(slash_id, slash_info);
 
         Ok(())
     }

@@ -1,13 +1,25 @@
 use crate::{
     BalanceOf, CommitteeReportOps, CommitteeReportOrder, Config, Error, Event, IRLiveReportList,
-    IRMachineFaultType, IRReportInfoDetail, IRReporterReportList, LiveReport, NextReportId, Pallet,
-    ReportId, ReportInfo, ReporterStake,
+    IRMachineFaultType, IRReportInfoDetail, IRReportResultInfo, IRReportResultType,
+    IRReporterReportList, IRSlashResult, LiveReport, NextReportId, Pallet, ReportId, ReportInfo,
+    ReportResult, ReporterStake, UnhandledReportResult,
 };
+use dbc_support::traits::{GNOps, ManageCommittee};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
 use generic_func::ItemList;
 use sp_runtime::traits::{Saturating, Zero};
+use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {
+    // Warp for SlashAndReward::slash_and_reward
+    pub fn slash_and_reward(
+        slash_who: Vec<T::AccountId>,
+        slash_amount: BalanceOf<T>,
+        reward_who: Vec<T::AccountId>,
+    ) -> Result<(), ()> {
+        <T as Config>::SlashAndReward::slash_and_reward(slash_who, slash_amount, reward_who)
+    }
+
     // 各种报告类型，都需要质押 1000 DBC
     // 如果是第一次绑定，则需要质押2w DBC，其他情况:
     pub fn pay_stake_when_report(reporter: T::AccountId) -> DispatchResultWithPostInfo {
@@ -143,4 +155,126 @@ impl<T: Config> Pallet<T> {
 
         ReportInfo::<T>::insert(&report_id, report_info);
     }
+
+    pub fn exec_report_slash() -> Result<(), ()> {
+        let now = <frame_system::Module<T>>::block_number();
+
+        for slashed_report_id in Self::unhandled_report_result(now) {
+            let mut report_result_info = Self::report_result(&slashed_report_id);
+
+            let IRReportResultInfo {
+                reporter,
+                reporter_stake,
+                inconsistent_committee,
+                unruly_committee,
+                reward_committee,
+                committee_stake,
+                report_result,
+                ..
+            } = report_result_info.clone();
+
+            Self::change_reporter_stake_on_report_close(
+                &reporter,
+                reporter_stake,
+                report_result.clone(),
+            );
+
+            let mut slashed_committee = unruly_committee;
+            // 无论哪种情况，被惩罚的委员会都是 未完成工作 + 与多数不一致的委员会
+            slashed_committee.extend_from_slice(&inconsistent_committee);
+
+            let mut reward_who = vec![];
+
+            match report_result {
+                IRReportResultType::ReportSucceed => {
+                    reward_who.extend_from_slice(&reward_committee);
+                    reward_who.push(reporter);
+                },
+                // NoConsensus means no committee confirm confirmation, should be slashed all
+                IRReportResultType::NoConsensus => {},
+                IRReportResultType::ReportRefused |
+                IRReportResultType::ReporterNotSubmitEncryptedInfo => {
+                    // 惩罚报告人
+                    let _ = Self::slash_and_reward(
+                        vec![reporter.clone()],
+                        reporter_stake,
+                        reward_committee.clone(),
+                    );
+                },
+            }
+
+            let _ = Self::change_committee_stake_on_report_close(
+                reward_committee.clone(),
+                committee_stake,
+                false,
+            );
+            let _ = Self::change_committee_stake_on_report_close(
+                slashed_committee.clone(),
+                committee_stake,
+                true,
+            );
+            let _ = Self::slash_and_reward(slashed_committee, committee_stake, reward_who);
+
+            report_result_info.slash_result = IRSlashResult::Executed;
+            ReportResult::<T>::insert(slashed_report_id, report_result_info);
+        }
+
+        // NOTE: 检查之后再删除，速度上要快非常多
+        if UnhandledReportResult::<T>::contains_key(now) {
+            UnhandledReportResult::<T>::remove(now);
+        }
+
+        Ok(())
+    }
+
+    // - Writes:
+    // if is_slash: used_stake, total_stake
+    // else:        used_stake
+    pub fn change_reporter_stake_on_report_close(
+        reporter: &T::AccountId,
+        amount: BalanceOf<T>,
+        report_result: IRReportResultType,
+    ) {
+        // 未达成共识，则退还报告人质押
+        if matches!(report_result, IRReportResultType::NoConsensus) {
+            return
+        }
+
+        ReporterStake::<T>::mutate(reporter, |reporter_stake| {
+            // 报告被拒绝或报告人没完成工作，将被惩罚，否则不惩罚并退还
+            let is_slashed = matches!(
+                report_result,
+                IRReportResultType::ReportRefused |
+                    IRReportResultType::ReporterNotSubmitEncryptedInfo
+            );
+
+            reporter_stake.change_stake_on_report_close(amount, is_slashed);
+        });
+    }
+
+    // - Writes:
+    // if is_slash: used_stake, total_stake
+    // else:        used_stake
+    pub fn change_committee_stake_on_report_close(
+        committee_list: Vec<T::AccountId>,
+        amount: BalanceOf<T>,
+        is_slash: bool,
+    ) -> Result<(), ()> {
+        for a_committee in committee_list {
+            if is_slash {
+                <T as Config>::ManageCommittee::change_total_stake(
+                    a_committee.clone(),
+                    amount,
+                    false,
+                    false,
+                )?;
+            }
+
+            <T as Config>::ManageCommittee::change_used_stake(a_committee, amount, false)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn summary_fault_report_hook() {}
 }

@@ -8,7 +8,7 @@ use sp_std::vec::Vec;
 // committee support the reporter's slash is canceled, reporter's slash is not canceled at the same
 // time. Mainwhile, if reporter's slash is canceled..
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct IRPendingSlashInfo<AccountId, BlockNumber, Balance> {
+pub struct IRPendingOnlineSlashInfo<AccountId, BlockNumber, Balance> {
     pub machine_id: MachineId,
     pub machine_stash: AccountId,
     pub stash_slash_amount: Balance,
@@ -24,17 +24,17 @@ pub struct IRPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub slash_exec_time: BlockNumber,
 
     pub book_result: IRBookResultType,
-    pub slash_result: IRSlashResult,
+    pub slash_result: IROnlineSlashResult,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum IRSlashResult {
+pub enum IROnlineSlashResult {
     Pending,
     Canceled,
     Executed,
 }
 
-impl Default for IRSlashResult {
+impl Default for IROnlineSlashResult {
     fn default() -> Self {
         Self::Pending
     }

@@ -369,3 +369,51 @@ impl Default for IRReportOrderStatus {
         Self::Verifying
     }
 }
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum IRReportResultType {
+    ReportSucceed,
+    ReportRefused,
+    ReporterNotSubmitEncryptedInfo,
+    NoConsensus,
+}
+
+impl Default for IRReportResultType {
+    fn default() -> Self {
+        Self::ReportRefused
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum IRSlashResult {
+    Pending,
+    Canceled,
+    Executed,
+}
+
+impl Default for IRSlashResult {
+    fn default() -> Self {
+        Self::Pending
+    }
+}
+
+/// 报告的处理结果
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct IRReportResultInfo<AccountId, BlockNumber, Balance> {
+    pub report_id: ReportId,
+    pub reporter: AccountId,
+    pub reporter_stake: Balance,
+
+    pub inconsistent_committee: Vec<AccountId>,
+    pub unruly_committee: Vec<AccountId>,
+    pub reward_committee: Vec<AccountId>,
+    pub committee_stake: Balance,
+
+    pub machine_stash: AccountId,
+    pub machine_id: MachineId,
+
+    pub slash_time: BlockNumber,
+    pub slash_exec_time: BlockNumber,
+    pub report_result: IRReportResultType,
+    pub slash_result: IRSlashResult,
+}

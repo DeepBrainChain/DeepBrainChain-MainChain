@@ -244,12 +244,12 @@ pub mod pallet {
     pub(super) type NextSlashId<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn pending_slash)]
-    pub(super) type PendingSlash<T: Config> = StorageMap<
+    #[pallet::getter(fn pending_online_slash)]
+    pub(super) type PendingOnlineSlash<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         SlashId,
-        IRPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        IRPendingOnlineSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -264,8 +264,8 @@ pub mod pallet {
     // >;
 
     #[pallet::storage]
-    #[pallet::getter(fn unhandled_slash)]
-    pub(super) type UnhandledSlash<T: Config> = StorageValue<_, Vec<SlashId>, ValueQuery>;
+    #[pallet::getter(fn unhandled_online_slash)]
+    pub(super) type UnhandledOnlineSlash<T: Config> = StorageValue<_, Vec<SlashId>, ValueQuery>;
 
     /// 系统中还未完成的举报订单
     #[pallet::storage]
@@ -329,10 +329,27 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage]
+    #[pallet::getter(fn report_result)]
+    pub(super) type ReportResult<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        ReportId,
+        IRReportResultInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn unhandled_report_result)]
+    pub(super) type UnhandledReportResult<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<ReportId>, ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
             Self::check_and_exec_pending_slash();
+
+            Self::summary_fault_report_hook();
             0
         }
 
@@ -344,6 +361,8 @@ pub mod pallet {
             Self::check_if_rent_finished();
             // TODO:  检查OfflineMachines是否到达了10天
             let _ = Self::check_if_offline_timeout();
+
+            let _ = Self::exec_report_slash();
         }
     }
 
@@ -1401,9 +1420,9 @@ impl<T: Config> Pallet<T> {
             // 添加惩罚
             let slash_id = Self::get_new_slash_id();
             let (machine_stash, stash_slash_amount) = stash_slash_info.unwrap_or_default();
-            PendingSlash::<T>::insert(
+            PendingOnlineSlash::<T>::insert(
                 slash_id,
-                IRPendingSlashInfo {
+                IRPendingOnlineSlashInfo {
                     machine_id: machine_id.clone(),
                     machine_stash,
                     stash_slash_amount,
@@ -1417,11 +1436,11 @@ impl<T: Config> Pallet<T> {
                     slash_exec_time: now + TWO_DAY.into(),
 
                     book_result: summary_result.into_book_result(),
-                    slash_result: IRSlashResult::Pending,
+                    slash_result: IROnlineSlashResult::Pending,
                 },
             );
 
-            UnhandledSlash::<T>::mutate(|unhandled_slash| {
+            UnhandledOnlineSlash::<T>::mutate(|unhandled_slash| {
                 ItemList::add_item(unhandled_slash, slash_id);
             });
         }
