@@ -1,5 +1,5 @@
 use crate::{
-    IRCommitteeMachineList, IRCommitteeOps, IRCommitteeUploadInfo, IRLiveMachine,
+    IRCommitteeMachineList, IRCommitteeOnlineOps, IRCommitteeUploadInfo, IRLiveMachine,
     IRMachineCommitteeList, IRMachineStatus, IRStakerCustomizeInfo, IRStashMachine,
     IRVerifyMachineStatus, IRVerifyStatus,
 };
@@ -105,8 +105,8 @@ fn verify_machine_works() {
                 }
             );
             assert_eq!(
-                IRMachine::committee_ops(&committee1, &machine_id),
-                IRCommitteeOps {
+                IRMachine::committee_online_ops(&committee1, &machine_id),
+                IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
                     verify_time: vec![962, 2402, 3842], // 2 + 320 * 3
                     machine_status: IRVerifyMachineStatus::Booked,
@@ -155,8 +155,8 @@ fn verify_machine_works() {
                 }
             );
             assert_eq!(
-                IRMachine::committee_ops(&committee1, &machine_id),
-                IRCommitteeOps {
+                IRMachine::committee_online_ops(&committee1, &machine_id),
+                IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
                     verify_time: vec![962, 2402, 3842],
                     confirm_hash: hash1,
@@ -237,8 +237,8 @@ fn verify_machine_works() {
                 }
             );
             assert_eq!(
-                IRMachine::committee_ops(&committee1, &machine_id),
-                IRCommitteeOps {
+                IRMachine::committee_online_ops(&committee1, &machine_id),
+                IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
                     verify_time: vec![962, 2402, 3842],
                     confirm_hash: hash1,
@@ -318,7 +318,7 @@ fn verify_machine_works() {
             );
 
             assert_eq!(
-                <crate::CommitteeOps<TestRuntime>>::contains_key(committee1, &machine_id),
+                <crate::CommitteeOnlineOps<TestRuntime>>::contains_key(committee1, &machine_id),
                 false
             );
             assert_eq!(<crate::MachineSubmitedHash<TestRuntime>>::contains_key(&machine_id), false);
