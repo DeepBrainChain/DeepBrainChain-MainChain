@@ -6,8 +6,7 @@ use frame_support::ensure;
 use sp_runtime::RuntimeDebug;
 use sp_std::{ops, vec::Vec};
 
-// use online_committee::{OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus};
-use crate::{Config, Error, IRCommitteeUploadInfo, SUBMIT_HASH_END, SUBMIT_RAW_END};
+use crate::{CustomErr, IRCommitteeUploadInfo, ReportId, SUBMIT_HASH_END, SUBMIT_RAW_END};
 use generic_func::{ItemList, MachineId};
 
 /// Query distributed machines by committee address
@@ -156,32 +155,6 @@ where
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum CustomErr {
-    NotInBookList,
-    TimeNotAllow,
-    AlreadySubmitHash,
-    AlreadySubmitRaw,
-    NotSubmitHash,
-    NotAllowedChangeMachineInfo,
-    TelecomIsNull,
-}
-
-impl<T: Config> From<CustomErr> for Error<T> {
-    fn from(err: CustomErr) -> Self {
-        match err {
-            CustomErr::NotInBookList => Error::NotInBookList,
-            CustomErr::TimeNotAllow => Error::TimeNotAllow,
-            CustomErr::AlreadySubmitHash => Error::AlreadySubmitHash,
-            CustomErr::AlreadySubmitRaw => Error::AlreadySubmitRaw,
-            CustomErr::NotSubmitHash => Error::NotSubmitHash,
-            CustomErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
-            CustomErr::TelecomIsNull => Error::TelecomIsNull,
-        }
-    }
-}
-
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
@@ -200,7 +173,7 @@ impl Default for IRVerifyStatus {
 
 /// A record of committee’s operations when verifying machine info
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct IRCommitteeOps<BlockNumber, Balance> {
+pub struct IRCommitteeOnlineOps<BlockNumber, Balance> {
     pub staked_dbc: Balance,
     /// When one committee can start the virtual machine to verify machine info
     pub verify_time: Vec<BlockNumber>,
@@ -212,7 +185,7 @@ pub struct IRCommitteeOps<BlockNumber, Balance> {
     pub machine_info: IRCommitteeUploadInfo,
 }
 
-impl<BlockNumber, Balance> IRCommitteeOps<BlockNumber, Balance> {
+impl<BlockNumber, Balance> IRCommitteeOnlineOps<BlockNumber, Balance> {
     pub fn submit_hash(&mut self, time: BlockNumber, hash: [u8; 16]) {
         self.machine_status = IRVerifyMachineStatus::Hashed;
         self.confirm_hash = hash;
@@ -340,4 +313,17 @@ impl Default for IRBookResultType {
     fn default() -> Self {
         Self::OnlineRefused
     }
+}
+
+/// 委员会抢到的报告的列表
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+pub struct IRCommitteeReportOrderList {
+    /// 委员会预订的报告
+    pub booked_report: Vec<ReportId>,
+    /// 已经提交了Hash信息的报告
+    pub hashed_report: Vec<ReportId>,
+    /// 已经提交了原始确认数据的报告
+    pub confirmed_report: Vec<ReportId>,
+    /// 已经成功上线的机器
+    pub finished_report: Vec<ReportId>,
 }

@@ -1,10 +1,22 @@
-use crate::{BalanceOf, Config, IRSlashResult, Pallet, PendingSlash, StashStake, UnhandledSlash};
+use crate::{
+    BalanceOf, Config, Error, IRSlashResult, Pallet, PendingSlash, StashStake, UnhandledSlash,
+};
 use dbc_support::traits::{GNOps, ManageCommittee};
+use frame_support::{dispatch::DispatchResultWithPostInfo, ensure};
 use generic_func::{ItemList, SlashId};
 use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {
+    pub fn get_stake_per_order() -> Result<BalanceOf<T>, Error<T>> {
+        <T as Config>::ManageCommittee::stake_per_order().ok_or(Error::<T>::GetStakeAmountFailed)
+    }
+
+    pub fn is_valid_committee(who: &T::AccountId) -> DispatchResultWithPostInfo {
+        ensure!(<T as Config>::ManageCommittee::is_valid_committee(who), Error::<T>::NotCommittee);
+        Ok(().into())
+    }
+
     fn change_committee_stake(
         committee_list: Vec<T::AccountId>,
         amount: BalanceOf<T>,

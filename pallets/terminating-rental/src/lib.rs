@@ -6,6 +6,7 @@ mod mock;
 mod tests;
 
 mod online_verify_slash;
+mod report_machine_fault;
 mod rpc;
 pub mod rpc_types;
 mod types;
@@ -158,15 +159,16 @@ pub mod pallet {
     pub(super) type MachineSubmitedHash<T> =
         StorageMap<_, Blake2_128Concat, MachineId, Vec<[u8; 16]>, ValueQuery>;
 
+    // 验证机器上线的委员会操作
     #[pallet::storage]
-    #[pallet::getter(fn committee_ops)]
-    pub(super) type CommitteeOps<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn committee_online_ops)]
+    pub(super) type CommitteeOnlineOps<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
         Blake2_128Concat,
         MachineId,
-        IRCommitteeOps<T::BlockNumber, BalanceOf<T>>,
+        IRCommitteeOnlineOps<T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -264,6 +266,68 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn unhandled_slash)]
     pub(super) type UnhandledSlash<T: Config> = StorageValue<_, Vec<SlashId>, ValueQuery>;
+
+    /// 系统中还未完成的举报订单
+    #[pallet::storage]
+    #[pallet::getter(fn live_report)]
+    pub(super) type LiveReport<T: Config> = StorageValue<_, IRLiveReportList, ValueQuery>;
+
+    /// 系统中还未完成的订单
+    // 通过报告单据ID，查询报告的机器的信息(委员会抢单信息)
+    #[pallet::storage]
+    #[pallet::getter(fn report_info)]
+    pub(super) type ReportInfo<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        ReportId,
+        IRReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
+
+    /// Report record for reporter
+    #[pallet::storage]
+    #[pallet::getter(fn reporter_report)]
+    pub(super) type ReporterReport<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, IRReporterReportList, ValueQuery>;
+
+    // TODO: 增加set函数
+    #[pallet::storage]
+    #[pallet::getter(fn reporter_stake_params)]
+    pub(super) type ReporterStakeParams<T: Config> =
+        StorageValue<_, IRReporterStakeParamsInfo<BalanceOf<T>>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn next_report_id)]
+    pub(super) type NextReportId<T: Config> = StorageValue<_, ReportId, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn reporter_stake)]
+    pub(super) type ReporterStake<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        IRReporterStakeInfo<BalanceOf<T>>,
+        ValueQuery,
+    >;
+
+    // 委员会查询自己的抢单信息
+    #[pallet::storage]
+    #[pallet::getter(fn committee_report_order)]
+    pub(super) type CommitteeReportOrder<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, IRCommitteeReportOrderList, ValueQuery>;
+
+    // 存储委员会对单台机器的操作记录
+    #[pallet::storage]
+    #[pallet::getter(fn committee_report_ops)]
+    pub(super) type CommitteeReportOps<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Blake2_128Concat,
+        ReportId,
+        IRCommitteeReportOpsDetail<T::BlockNumber, BalanceOf<T>>,
+        ValueQuery,
+    >;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -450,7 +514,7 @@ pub mod pallet {
             CommitteeMachine::<T>::mutate(&committee, |committee_machine| {
                 committee_machine.submit_hash(machine_id.clone())
             });
-            CommitteeOps::<T>::mutate(&committee, &machine_id, |committee_ops| {
+            CommitteeOnlineOps::<T>::mutate(&committee, &machine_id, |committee_ops| {
                 committee_ops.submit_hash(now, hash)
             });
             MachineSubmitedHash::<T>::insert(&machine_id, machine_submited_hash);
@@ -471,7 +535,7 @@ pub mod pallet {
 
             let mut machine_committee = Self::machine_committee(&machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
-            let mut committee_ops = Self::committee_ops(&committee, &machine_id);
+            let mut committee_ops = Self::committee_online_ops(&committee, &machine_id);
 
             ensure!(
                 machine_info_detail.hash() == committee_ops.confirm_hash,
@@ -488,7 +552,7 @@ pub mod pallet {
 
             CommitteeMachine::<T>::insert(&committee, committee_machine);
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            CommitteeOps::<T>::insert(&committee, &machine_id, committee_ops);
+            CommitteeOnlineOps::<T>::insert(&committee, &machine_id, committee_ops);
 
             Self::deposit_event(Event::AddConfirmRaw(committee, machine_id));
             Ok(().into())
@@ -875,6 +939,148 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        // 如果机器是在线状态，但是无法使用，可以举报。
+        // 举报成功，100％没收质押币。50%举报人, 30%验证人, 20％国库
+        #[pallet::weight(10000)]
+        pub fn report_machine_fault(
+            origin: OriginFor<T>,
+            report_reason: IRMachineFaultType,
+        ) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+
+            let mut live_report = Self::live_report();
+            let mut reporter_report = Self::reporter_report(&reporter);
+
+            Self::pay_stake_when_report(reporter.clone())?;
+
+            Self::do_report_machine_fault(
+                reporter.clone(),
+                report_reason,
+                None,
+                &mut live_report,
+                &mut reporter_report,
+            )?;
+            LiveReport::<T>::put(live_report);
+            ReporterReport::<T>::insert(&reporter, reporter_report);
+
+            Ok(().into())
+        }
+
+        #[pallet::weight(10000)]
+        pub fn reporter_add_stake(
+            origin: OriginFor<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            Self::change_reporter_stake(reporter, amount, true)
+        }
+
+        #[pallet::weight(10000)]
+        pub fn reporter_reduce_stake(
+            origin: OriginFor<T>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            Self::change_reporter_stake(reporter, amount, false)
+        }
+
+        // 报告人可以在抢单之前取消该报告
+        #[pallet::weight(10000)]
+        pub fn reporter_cancel_report(
+            origin: OriginFor<T>,
+            report_id: ReportId,
+        ) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            let report_info = Self::report_info(&report_id);
+
+            ensure!(report_info.reporter == reporter, Error::<T>::NotReporter);
+            ensure!(
+                report_info.report_status == IRReportStatus::Reported,
+                Error::<T>::ReportNotAllowCancel
+            );
+
+            ReporterStake::<T>::mutate(&reporter, |reporter_stake| {
+                reporter_stake.change_stake_on_report_close(report_info.reporter_stake, false);
+            });
+            LiveReport::<T>::mutate(|live_report| {
+                live_report.cancel_report(&report_id);
+            });
+            ReporterReport::<T>::mutate(&reporter, |reporter_report| {
+                reporter_report.cancel_report(report_id);
+            });
+            ReportInfo::<T>::remove(&report_id);
+
+            Self::deposit_event(Event::ReportCanceled(
+                reporter,
+                report_id,
+                report_info.machine_fault_type,
+            ));
+            Ok(().into())
+        }
+
+        /// 委员会进行抢单
+        #[pallet::weight(10000)]
+        pub fn committee_book_report(
+            origin: OriginFor<T>,
+            report_id: ReportId,
+        ) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+            Self::is_valid_committee(&committee)?;
+
+            let mut report_info = Self::report_info(report_id);
+            // 检查订单是否可以抢定
+            report_info.can_book(&committee).map_err::<Error<T>, _>(Into::into)?;
+            let order_stake = Self::get_stake_per_order()?;
+
+            // 支付手续费或押金: 10 DBC | 1000 DBC
+            // if let IRMachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+            //     Self::pay_fixed_tx_fee(committee.clone())?;
+            // } else {
+            <T as Config>::ManageCommittee::change_used_stake(committee.clone(), order_stake, true)
+                .map_err(|_| Error::<T>::StakeFailed)?;
+            // }
+
+            Self::book_report(committee.clone(), report_id, &mut report_info, order_stake);
+            Self::deposit_event(Event::CommitteeBookReport(committee, report_id));
+            Ok(().into())
+        }
+
+        // 报告人在委员会完成抢单后，30分钟内用委员会的公钥，提交加密后的故障信息
+        // 只有报告机器故障或者无法租用时需要提交加密信息
+        #[pallet::weight(10000)]
+        pub fn reporter_add_encrypted_error_info(
+            origin: OriginFor<T>,
+            report_id: ReportId,
+            to_committee: T::AccountId,
+            encrypted_err_info: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+
+            let mut report_info = Self::report_info(&report_id);
+            let mut committee_ops = Self::committee_report_ops(&to_committee, &report_id);
+
+            // 检查报告可以提供加密信息
+            // 该orde处于验证中, 且还没有提交过加密信息
+            report_info
+                .can_submit_encrypted_info(&reporter, &to_committee)
+                .map_err::<Error<T>, _>(Into::into)?;
+            ensure!(
+                committee_ops.order_status == IRReportOrderStatus::WaitingEncrypt,
+                Error::<T>::OrderStatusNotFeat
+            );
+
+            // report_info中插入已经收到了加密信息的委员会
+            ItemList::add_item(&mut report_info.get_encrypted_info_committee, to_committee.clone());
+            ReportInfo::<T>::insert(&report_id, report_info);
+
+            committee_ops.add_encry_info(encrypted_err_info, now);
+            CommitteeReportOps::<T>::insert(&to_committee, &report_id, committee_ops);
+
+            Self::deposit_event(Event::EncryptedInfoSent(reporter, to_committee, report_id));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -896,6 +1102,13 @@ pub mod pallet {
         ConfirmReletBlockNum(T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber),
         // Last item is rent order gpu_num
         ReletBlockNum(RentOrderId, T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber, u32),
+
+        ReportMachineFault(T::AccountId, IRMachineFaultType),
+        ReporterAddStake(T::AccountId, BalanceOf<T>),
+        ReporterReduceStake(T::AccountId, BalanceOf<T>),
+        ReportCanceled(T::AccountId, ReportId, IRMachineFaultType),
+        CommitteeBookReport(T::AccountId, ReportId),
+        EncryptedInfoSent(T::AccountId, T::AccountId, ReportId),
     }
 
     #[pallet::error]
@@ -932,6 +1145,18 @@ pub mod pallet {
         ExpiredConfirm,
         StatusNotAllowed,
         UnlockToPayFeeFailed,
+
+        StakeNotEnough,
+        ReportNotAllowCancel,
+        ReportNotAllowBook,
+        NotReporter,
+        NotCommittee,
+        AlreadyBooked,
+        GetStakeAmountFailed,
+        StakeFailed,
+        OrderStatusNotFeat,
+        NotOrderReporter,
+        NotOrderCommittee,
     }
 }
 
@@ -1071,7 +1296,7 @@ impl<T: Config> Pallet<T> {
         CommitteeMachine::<T>::mutate(&work_index.who, |committee_machine| {
             ItemList::add_item(&mut committee_machine.booked_machine, machine_id.clone());
         });
-        CommitteeOps::<T>::mutate(&work_index.who, &machine_id, |committee_ops| {
+        CommitteeOnlineOps::<T>::mutate(&work_index.who, &machine_id, |committee_ops| {
             let start_time: Vec<_> = work_index
                 .index
                 .clone()
@@ -1203,7 +1428,7 @@ impl<T: Config> Pallet<T> {
 
         // Do cleaning
         machine_committee.booked_committee.iter().for_each(|a_committee| {
-            CommitteeOps::<T>::remove(&a_committee, &machine_id);
+            CommitteeOnlineOps::<T>::remove(&a_committee, &machine_id);
             MachineSubmitedHash::<T>::remove(&machine_id);
             CommitteeMachine::<T>::mutate(&a_committee, |committee_machine| {
                 committee_machine.online_cleanup(&machine_id)
@@ -1237,7 +1462,7 @@ impl<T: Config> Pallet<T> {
         // 记录上反对上线的委员会
         for a_committee in machine_committee.confirmed_committee {
             let submit_machine_info =
-                Self::committee_ops(a_committee.clone(), machine_id).machine_info;
+                Self::committee_online_ops(a_committee.clone(), machine_id).machine_info;
             if !submit_machine_info.is_support {
                 ItemList::add_item(&mut summary.against, a_committee);
             } else {
@@ -1386,7 +1611,7 @@ impl<T: Config> Pallet<T> {
 
         // 清除预订了机器的委员会
         for booked_committee in machine_committee.booked_committee {
-            CommitteeOps::<T>::remove(&booked_committee, &machine_id);
+            CommitteeOnlineOps::<T>::remove(&booked_committee, &machine_id);
             CommitteeMachine::<T>::mutate(&booked_committee, |committee_machine| {
                 committee_machine.revert_book(&machine_id)
             })

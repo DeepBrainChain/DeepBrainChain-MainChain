@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
         committee: T::AccountId,
         machine_id: MachineId,
     ) -> RpcIRCommitteeOps<T::BlockNumber, BalanceOf<T>> {
-        let oc_committee_ops = Self::committee_ops(&committee, &machine_id);
+        let oc_committee_ops = Self::committee_online_ops(&committee, &machine_id);
         let committee_info = Self::machine_committee(&machine_id);
 
         RpcIRCommitteeOps {
