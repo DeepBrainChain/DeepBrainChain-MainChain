@@ -59,6 +59,13 @@ impl IRLiveMachine {
         ItemList::rm_item(&mut self.online_machine, machine_id);
         ItemList::rm_item(&mut self.rented_machine, machine_id)
     }
+
+    // 机器从online/rented状态，暂时下线
+    pub fn machine_offline(&mut self, machine_id: MachineId) {
+        ItemList::rm_item(&mut self.online_machine, &machine_id);
+        ItemList::rm_item(&mut self.rented_machine, &machine_id);
+        ItemList::add_item(&mut self.offline_machine, machine_id);
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -126,9 +133,10 @@ impl<Balance> IRStashMachine<Balance> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum OPSlashReason<BlockNumber> {
-    /// Controller report rented machine offline
-    RentedReportOffline(BlockNumber),
+pub enum IRSlashReason<BlockNumber> {
+    // Controller report rented machine offline
+    // RentedReportOffline(BlockNumber),
+    OnlineRentFailed(BlockNumber),
 }
 
 #[derive(Clone, Debug)]

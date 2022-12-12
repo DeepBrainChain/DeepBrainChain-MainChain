@@ -327,3 +327,37 @@ pub struct IRCommitteeReportOrderList {
     /// 已经成功上线的机器
     pub finished_report: Vec<ReportId>,
 }
+
+impl IRCommitteeReportOrderList {
+    pub fn clean_unfinished_order(&mut self, report_id: &ReportId) {
+        ItemList::rm_item(&mut self.booked_report, report_id);
+        ItemList::rm_item(&mut self.hashed_report, report_id);
+        ItemList::rm_item(&mut self.confirmed_report, report_id);
+    }
+
+    // pub fn can_submit_hash(&self, report_id: ReportId) -> Result<(), CustomErr> {
+    //     ensure!(self.booked_report.binary_search(&report_id).is_ok(),
+    // CustomErr::NotInBookedList);     Ok(())
+    // }
+
+    // pub fn add_hash(&mut self, report_id: ReportId) {
+    //     // 将订单从委员会已预订移动到已Hash
+    //     ItemList::rm_item(&mut self.booked_report, &report_id);
+    //     ItemList::add_item(&mut self.hashed_report, report_id);
+    // }
+
+    // pub fn add_raw(&mut self, report_id: ReportId) {
+    //     ItemList::rm_item(&mut self.hashed_report, &report_id);
+    //     ItemList::add_item(&mut self.confirmed_report, report_id);
+    // }
+
+    // pub fn clean_when_summary(&mut self, report_id: ReportId, is_confirmed_committee: bool) {
+    //     ItemList::rm_item(&mut self.hashed_report, &report_id);
+    //     if is_confirmed_committee {
+    //         ItemList::rm_item(&mut self.confirmed_report, &report_id);
+    //         ItemList::add_item(&mut self.finished_report, report_id);
+    //     } else {
+    //         ItemList::rm_item(&mut self.booked_report, &report_id);
+    //     }
+    // }
+}

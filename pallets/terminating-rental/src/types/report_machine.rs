@@ -1,4 +1,4 @@
-use crate::{CustomErr, RentOrderId};
+use crate::{CustomErr, IRSlashReason, RentOrderId};
 use codec::{Decode, Encode};
 use frame_support::ensure;
 use generic_func::{ItemList, MachineId};
@@ -13,6 +13,8 @@ pub type ReportHash = [u8; 16];
 pub type BoxPubkey = [u8; 32];
 
 pub const THREE_HOUR: u32 = 360;
+pub const FOUR_HOUR: u32 = 480;
+pub const TWO_DAY: u32 = 5760;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum IRMachineFaultType {
@@ -30,6 +32,28 @@ pub enum IRMachineFaultType {
 impl Default for IRMachineFaultType {
     fn default() -> Self {
         Self::OnlineRentFailed(Default::default(), Default::default())
+    }
+}
+
+impl IRMachineFaultType {
+    pub fn get_hash(self) -> Option<ReportHash> {
+        match self {
+            // MachineFaultType::RentedHardwareMalfunction(hash, ..) |
+            // MachineFaultType::RentedHardwareCounterfeit(hash, ..) |
+            Self::OnlineRentFailed(hash, ..) => Some(hash),
+            // MachineFaultType::RentedInaccessible(..) => None,
+        }
+    }
+
+    pub fn into_op_err<BlockNumber>(&self, report_time: BlockNumber) -> IRSlashReason<BlockNumber> {
+        match self {
+            // Self::RentedInaccessible(..) => OPSlashReason::RentedInaccessible(report_time),
+            // Self::RentedHardwareMalfunction(..) =>
+            //     OPSlashReason::RentedHardwareMalfunction(report_time),
+            // Self::RentedHardwareCounterfeit(..) =>
+            //     OPSlashReason::RentedHardwareCounterfeit(report_time),
+            Self::OnlineRentFailed(..) => IRSlashReason::OnlineRentFailed(report_time),
+        }
     }
 }
 
@@ -68,6 +92,38 @@ impl IRLiveReportList {
             ItemList::rm_item(&mut self.bookable_report, &report_id);
             ItemList::add_item(&mut self.verifying_report, report_id);
         }
+    }
+
+    pub fn clean_unfinished_report(&mut self, report_id: &ReportId) {
+        ItemList::rm_item(&mut self.bookable_report, report_id);
+        ItemList::rm_item(&mut self.verifying_report, report_id);
+        ItemList::rm_item(&mut self.waiting_raw_report, report_id);
+    }
+
+    // TODO: func rename
+    pub fn get_verify_result<Account>(
+        &mut self,
+        report_id: ReportId,
+        summary_result: ReportConfirmStatus<Account>,
+    ) {
+        match summary_result {
+            ReportConfirmStatus::Confirmed(..) | ReportConfirmStatus::Refuse(..) => {
+                ItemList::rm_item(&mut self.waiting_raw_report, &report_id);
+                ItemList::add_item(&mut self.finished_report, report_id);
+            },
+            ReportConfirmStatus::NoConsensus => {
+                ItemList::rm_item(&mut self.waiting_raw_report, &report_id);
+            },
+        }
+    }
+}
+
+// 处理除了inaccessible错误之外的错误
+impl IRLiveReportList {
+    // 机器正在被该委员会验证，但该委员会超时未提交验证hash
+    pub fn clean_not_submit_hash_report(&mut self, report_id: ReportId) {
+        ItemList::rm_item(&mut self.verifying_report, &report_id);
+        ItemList::add_item(&mut self.bookable_report, report_id);
     }
 }
 
@@ -198,6 +254,88 @@ where
         ensure!(self.booked_committee.binary_search(to).is_ok(), CustomErr::NotOrderCommittee);
         Ok(())
     }
+
+    pub fn can_summary_fault(&self) -> Result<(), ()> {
+        // 忽略掉线的类型
+        if self.first_book_time == Zero::zero()
+        // || matches!(self.machine_fault_type, IRMachineFaultType::RentedInaccessible(..))
+        {
+            return Err(())
+        }
+
+        Ok(())
+    }
+
+    // Other fault type
+    pub fn can_summary(&self, now: BlockNumber) -> bool {
+        if self.first_book_time == Zero::zero() {
+            return false
+        }
+
+        // // 禁止对快速报告进行检查，快速报告会处理这种情况
+        // if let IRMachineFaultType::RentedInaccessible(..) = self.machine_fault_type {
+        //     return false
+        // }
+
+        // 未全部提交了原始信息且未达到了四个小时，需要继续等待
+        if now - self.first_book_time < FOUR_HOUR.into() &&
+            self.hashed_committee.len() != self.confirmed_committee.len()
+        {
+            return false
+        }
+
+        true
+    }
+
+    // Summary committee's handle result depend on support & against votes
+    pub fn summary(&self) -> ReportConfirmStatus<Account> {
+        if self.confirmed_committee.is_empty() {
+            return ReportConfirmStatus::NoConsensus
+        }
+
+        if self.support_committee.len() >= self.against_committee.len() {
+            return ReportConfirmStatus::Confirmed(
+                self.support_committee.clone(),
+                self.against_committee.clone(),
+                self.err_info.clone(),
+            )
+        }
+        ReportConfirmStatus::Refuse(self.support_committee.clone(), self.against_committee.clone())
+    }
+}
+
+// 处理除了inaccessible错误之外的错误
+impl<Account, BlockNumber, Balance> IRReportInfoDetail<Account, BlockNumber, Balance>
+where
+    Account: Default + Clone + Ord,
+    BlockNumber:
+        Default + PartialEq + Zero + From<u32> + Copy + Sub<Output = BlockNumber> + PartialOrd,
+    Balance: Default,
+{
+    // 机器正在被该委员会验证，但该委员会超时未提交验证hash
+    pub fn clean_not_submit_hash_committee(&mut self, verifying_committee: &Account) {
+        self.verifying_committee = None;
+        // 删除，以允许其他委员会进行抢单
+        ItemList::rm_item(&mut self.booked_committee, verifying_committee);
+        ItemList::rm_item(&mut self.get_encrypted_info_committee, verifying_committee);
+
+        // 如果此时booked_committee.len() == 0；返回到最初始的状态，并允许取消报告
+        if self.booked_committee.is_empty() {
+            self.first_book_time = Zero::zero();
+            self.confirm_start = Zero::zero();
+            self.report_status = IRReportStatus::Reported;
+        } else {
+            self.report_status = IRReportStatus::WaitingBook
+        };
+    }
+
+    // 当块高从抢单验证变为提交原始值时，移除最后一个正在验证的委员会
+    pub fn clean_not_submit_raw_committee(&mut self, verifying_committee: &Account) {
+        // 将最后一个委员会移除，不惩罚
+        self.verifying_committee = None;
+        ItemList::rm_item(&mut self.booked_committee, &verifying_committee);
+        ItemList::rm_item(&mut self.get_encrypted_info_committee, &verifying_committee);
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -237,6 +375,12 @@ impl IRReporterReportList {
     pub fn cancel_report(&mut self, report_id: ReportId) {
         ItemList::rm_item(&mut self.processing_report, &report_id);
         ItemList::add_item(&mut self.canceled_report, report_id);
+    }
+
+    // 机器正在被该委员会验证，但该报告人超时未提交加密信息
+    pub fn clean_not_submit_encrypted_report(&mut self, report_id: ReportId) {
+        ItemList::rm_item(&mut self.processing_report, &report_id);
+        ItemList::add_item(&mut self.failed_report, report_id);
     }
 }
 
@@ -416,4 +560,90 @@ pub struct IRReportResultInfo<AccountId, BlockNumber, Balance> {
     pub slash_exec_time: BlockNumber,
     pub report_result: IRReportResultType,
     pub slash_result: IRSlashResult,
+}
+
+impl<Account, Block, Balance> IRReportResultInfo<Account, Block, Balance>
+where
+    Account: Ord + Clone,
+    Balance: Zero,
+{
+    // 接收report_info.summary结果，修改自身
+    // 仅仅在summary_waiting_raw中使用
+    pub fn get_verify_result(
+        &mut self,
+        now: Block,
+        report_id: ReportId,
+        committee_order_stake: Balance,
+        report_info: &IRReportInfoDetail<Account, Block, Balance>,
+    ) where
+        Account: Default + Clone + Ord,
+        Block: Default + PartialEq + Zero + From<u32> + Copy + Sub<Output = Block> + PartialOrd,
+        Balance: Default + Copy,
+    {
+        self.report_id = report_id;
+        self.slash_result = IRSlashResult::Pending;
+        self.slash_time = now;
+        self.slash_exec_time = now + TWO_DAY.into();
+        self.reporter = report_info.reporter.clone();
+        self.committee_stake = committee_order_stake;
+
+        let verify_summary = report_info.summary();
+        match verify_summary {
+            // 报告成功
+            ReportConfirmStatus::Confirmed(support, against, _) => {
+                self.report_result = IRReportResultType::ReportSucceed;
+                self.reporter_stake = report_info.reporter_stake;
+
+                for a_committee in against {
+                    ItemList::add_item(&mut self.inconsistent_committee, a_committee.clone());
+                }
+
+                for a_committee in support.clone() {
+                    ItemList::add_item(&mut self.reward_committee, a_committee.clone());
+                }
+            },
+            // 报告失败
+            ReportConfirmStatus::Refuse(support_committee, against_committee) => {
+                self.report_result = IRReportResultType::ReportRefused;
+                self.reporter_stake = report_info.reporter_stake;
+
+                // Slash support committee and release against committee stake
+                self.i_exten_sorted(support_committee);
+                self.r_exten_sorted(against_committee);
+            },
+            // 如果没有人提交，会出现NoConsensus的情况，并重新派单
+            ReportConfirmStatus::NoConsensus => {
+                self.report_result = IRReportResultType::NoConsensus;
+
+                // 记录unruly的委员会，两天后进行惩罚
+                ItemList::expand_to_order(
+                    &mut self.unruly_committee,
+                    report_info.booked_committee.clone(),
+                );
+
+                // 重新举报时，记录报告人的质押将被重新使用，因此不再退还。
+                self.reporter_stake = Zero::zero();
+            },
+        }
+    }
+
+    fn i_exten_sorted(&mut self, a_list: Vec<Account>) {
+        for a_item in a_list {
+            ItemList::add_item(&mut self.inconsistent_committee, a_item);
+        }
+    }
+
+    fn r_exten_sorted(&mut self, a_list: Vec<Account>) {
+        for a_item in a_list {
+            ItemList::add_item(&mut self.reward_committee, a_item);
+        }
+    }
+}
+
+/// Summary after all committee submit raw info
+#[derive(Clone)]
+pub enum ReportConfirmStatus<AccountId> {
+    Confirmed(Vec<AccountId>, Vec<AccountId>, Vec<u8>),
+    Refuse(Vec<AccountId>, Vec<AccountId>),
+    NoConsensus,
 }

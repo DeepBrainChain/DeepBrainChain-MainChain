@@ -14,7 +14,7 @@ use sp_runtime::{
 };
 use sp_std::{prelude::Box, vec, vec::Vec};
 
-use crate::{CustomErr, OPSlashReason};
+use crate::{CustomErr, IRSlashReason};
 
 /// All details of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -81,7 +81,7 @@ pub enum IRMachineStatus<BlockNumber, AccountId> {
     StakerReportOffline(BlockNumber),
     /// Reporter report machine is fault, so machine go offline (SlashReason, StatusBeforeOffline,
     /// Reporter, Committee)
-    ReporterReportOffline(OPSlashReason<BlockNumber>, Box<Self>, AccountId, Vec<AccountId>),
+    ReporterReportOffline(IRSlashReason<BlockNumber>, Box<Self>, AccountId, Vec<AccountId>),
 
     /// Machine is rented, and waiting for renter to confirm virtual machine is created
     /// successfully NOTE: 该状态被弃用。
