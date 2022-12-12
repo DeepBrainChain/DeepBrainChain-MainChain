@@ -2,9 +2,12 @@ use crate::{
     types::OCSlashResult, Config, OCBookResultType, Pallet, PendingSlash, PendingSlashReview,
     UnhandledSlash,
 };
-use dbc_support::traits::{GNOps, OCOps};
+use dbc_support::{
+    traits::{GNOps, OCOps},
+    SlashId,
+};
 use frame_support::IterableStorageMap;
-use generic_func::{ItemList, SlashId};
+use generic_func::ItemList;
 use sp_runtime::traits::Zero;
 use sp_std::{vec, vec::Vec};
 

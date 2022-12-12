@@ -11,14 +11,17 @@ mod mock;
 mod tests;
 
 use codec::alloc::string::ToString;
-use dbc_support::traits::{GNOps, MTOps, ManageCommittee};
+use dbc_support::{
+    traits::{GNOps, MTOps, ManageCommittee},
+    MachineId, RentOrderId, ReportHash, ReportId, FIVE_MINUTE, HALF_HOUR, ONE_HOUR, THREE_HOUR,
+    TWO_DAY,
+};
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, OnUnbalanced, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
-use generic_func::{ItemList, MachineId};
-use rent_machine::RentOrderId;
+use generic_func::ItemList;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{str, vec, vec::Vec};
 

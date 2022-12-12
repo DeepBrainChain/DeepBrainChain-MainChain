@@ -3,7 +3,7 @@ use crate::{
     OCMachineStatus, Pallet,
 };
 use codec::{Decode, Encode};
-use generic_func::MachineId;
+use dbc_support::MachineId;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;

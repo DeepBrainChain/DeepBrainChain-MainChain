@@ -1,11 +1,11 @@
 use crate::{Config, Error};
 use codec::{Decode, Encode};
+use dbc_support::EraIndex;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{traits::Saturating, RuntimeDebug};
 use sp_std::vec::Vec;
 
-pub type EraIndex = u32;
 pub type TelecomName = Vec<u8>;
 
 /// 2880 blocks per era

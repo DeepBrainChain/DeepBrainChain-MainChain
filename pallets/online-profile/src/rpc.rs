@@ -1,6 +1,6 @@
 use crate::types::*;
+use dbc_support::MachineId;
 use frame_support::{IterableStorageDoubleMap, IterableStorageMap};
-use generic_func::MachineId;
 use sp_std::vec::Vec;
 
 use codec::EncodeLike;

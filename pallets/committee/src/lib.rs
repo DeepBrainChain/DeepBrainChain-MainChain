@@ -23,7 +23,6 @@ use generic_func::ItemList;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Zero};
 use sp_std::{prelude::*, str};
 
-pub type ReportId = u64;
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 

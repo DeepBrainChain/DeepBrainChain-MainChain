@@ -1,7 +1,7 @@
 use sp_std::vec::Vec;
 
 use crate::{BalanceOf, Config, MachineGPUOrder, Pallet, RentOrderDetail, RentOrderId};
-use generic_func::MachineId;
+use dbc_support::MachineId;
 
 // RPC
 impl<T: Config> Pallet<T> {

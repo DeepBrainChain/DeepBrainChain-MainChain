@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::CustomErr;
 use codec::{Decode, Encode};
-use generic_func::{ItemList, MachineId};
+use dbc_support::MachineId;
+use generic_func::ItemList;
 use sp_runtime::{
     traits::{CheckedAdd, Saturating, Zero},
     RuntimeDebug,

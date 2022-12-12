@@ -6,8 +6,8 @@ use codec::Codec;
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 
-use generic_func::MachineId;
-use rent_machine::{MachineGPUOrder, RentOrderDetail, RentOrderId};
+use dbc_support::{MachineId, RentOrderId};
+use rent_machine::{MachineGPUOrder, RentOrderDetail};
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // runtime amalgamator file (the `runtime/src/lib.rs`)

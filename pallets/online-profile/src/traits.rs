@@ -3,9 +3,12 @@ use crate::{
     MachineRentedGPU, MachinesInfo, Pallet, PendingExecSlash, PendingOfflineSlash, PendingSlash,
     RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
-use dbc_support::traits::{MTOps, OCOps, OPRPCQuery, RTOps};
+use dbc_support::{
+    traits::{MTOps, OCOps, OPRPCQuery, RTOps},
+    MachineId,
+};
 use frame_support::IterableStorageMap;
-use generic_func::{ItemList, MachineId};
+use generic_func::ItemList;
 use sp_runtime::{
     traits::{CheckedMul, CheckedSub},
     Perbill, SaturatedConversion,

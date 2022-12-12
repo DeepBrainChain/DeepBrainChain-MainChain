@@ -1,5 +1,6 @@
-use crate::{CustomErr, MachineFaultType, ReportHash, ReportId};
+use crate::{CustomErr, MachineFaultType};
 use codec::{Decode, Encode};
+use dbc_support::{ReportHash, ReportId};
 use frame_support::ensure;
 use generic_func::ItemList;
 use sp_runtime::RuntimeDebug;

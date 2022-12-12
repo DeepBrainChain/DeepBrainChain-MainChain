@@ -1,8 +1,11 @@
 use crate::{
-    BalanceOf, Config, Error, MTReportInfoDetail, NextReportId, Pallet, ReportHash, ReportId,
-    ReportResultType, ReporterStake, UnhandledReportResult,
+    BalanceOf, Config, Error, MTReportInfoDetail, NextReportId, Pallet, ReportResultType,
+    ReporterStake, UnhandledReportResult,
 };
-use dbc_support::traits::{GNOps, ManageCommittee};
+use dbc_support::{
+    traits::{GNOps, ManageCommittee},
+    ReportHash, ReportId,
+};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
 use generic_func::ItemList;
 use sp_io::hashing::blake2_128;

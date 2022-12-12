@@ -4124,6 +4124,7 @@ dependencies = [
  "committee-runtime-api",
  "dbc-price-ocw",
  "dbc-staking",
+ "dbc-support",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -4405,7 +4406,7 @@ dependencies = [
 name = "online-committee-runtime-api"
 version = "0.1.0"
 dependencies = [
- "generic-func",
+ "dbc-support",
  "online-committee",
  "parity-scale-codec",
  "sp-api",
@@ -4439,6 +4440,7 @@ dependencies = [
 name = "online-profile-rpc"
 version = "0.1.0"
 dependencies = [
+ "dbc-support",
  "generic-func",
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4457,7 +4459,7 @@ dependencies = [
 name = "online-profile-runtime-api"
 version = "0.1.0"
 dependencies = [
- "generic-func",
+ "dbc-support",
  "online-profile",
  "parity-scale-codec",
  "sp-api",
@@ -6247,6 +6249,7 @@ dependencies = [
 name = "rent-machine-rpc"
 version = "0.1.0"
 dependencies = [
+ "dbc-support",
  "generic-func",
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -6264,7 +6267,7 @@ dependencies = [
 name = "rent-machine-runtime-api"
 version = "0.1.0"
 dependencies = [
- "generic-func",
+ "dbc-support",
  "parity-scale-codec",
  "rent-machine",
  "sp-api",

@@ -3,9 +3,9 @@ use crate::{
     BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecSlash, PendingOfflineSlash,
     PendingSlash, PendingSlashReview, PendingSlashReviewChecking, StashStake, SysInfo,
 };
-use dbc_support::traits::GNOps;
+use dbc_support::{traits::GNOps, MachineId};
 use frame_support::traits::ReservableCurrency;
-use generic_func::{ItemList, MachineId};
+use generic_func::ItemList;
 use sp_runtime::{
     traits::{CheckedSub, Zero},
     Perbill, SaturatedConversion,

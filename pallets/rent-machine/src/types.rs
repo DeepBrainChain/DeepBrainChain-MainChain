@@ -1,13 +1,12 @@
 use codec::{Decode, Encode};
+use dbc_support::{MachineId, RentOrderId};
 #[cfg(feature = "std")]
 use generic_func::rpc_types::serde_text;
-use generic_func::{ItemList, MachineId};
+use generic_func::ItemList;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::{vec, vec::Vec};
-
-pub type RentOrderId = u64;
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

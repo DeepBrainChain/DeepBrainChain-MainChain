@@ -1,8 +1,9 @@
 use crate::{
-    BalanceOf, Config, EraIndex, MachineId, MachineInfo, MachineInfoDetail, MachineStatus,
-    MachinesInfo, OPPendingSlashInfo, OPSlashReason, PendingSlash, StorageVersion,
+    BalanceOf, Config, MachineId, MachineInfo, MachineInfoDetail, MachineStatus, MachinesInfo,
+    OPPendingSlashInfo, OPSlashReason, PendingSlash, StorageVersion,
 };
 use codec::{Decode, Encode};
+use dbc_support::EraIndex;
 use frame_support::{debug::info, traits::Get, weights::Weight, RuntimeDebug};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

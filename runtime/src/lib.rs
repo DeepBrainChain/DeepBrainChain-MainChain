@@ -74,8 +74,8 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
-use generic_func::MachineId;
-use rent_machine::{MachineGPUOrder, RentOrderId};
+use dbc_support::{EraIndex, MachineId, RentOrderId};
+use rent_machine::MachineGPUOrder;
 
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
@@ -1216,19 +1216,19 @@ impl_runtime_apis! {
             OnlineProfile::get_pos_gpu_info()
         }
 
-        fn get_machine_era_reward(machine_id: MachineId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_machine_era_reward(machine_id: MachineId, era_index: EraIndex) -> Balance {
             OnlineProfile::get_machine_era_reward(machine_id, era_index)
         }
 
-        fn get_machine_era_released_reward(machine_id: MachineId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_machine_era_released_reward(machine_id: MachineId, era_index: EraIndex) -> Balance {
             OnlineProfile::get_machine_era_released_reward(machine_id, era_index)
         }
 
-        fn get_stash_era_reward(stash: AccountId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_stash_era_reward(stash: AccountId, era_index: EraIndex) -> Balance {
             OnlineProfile::get_stash_era_reward(stash, era_index)
         }
 
-        fn get_stash_era_released_reward(stash: AccountId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_stash_era_released_reward(stash: AccountId, era_index: EraIndex) -> Balance {
             OnlineProfile::get_stash_era_released_reward(stash, era_index)
         }
 

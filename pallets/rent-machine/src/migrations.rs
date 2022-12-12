@@ -3,8 +3,9 @@ use crate::{
     RentOrderDetail, RentStatus, StorageVersion, UserOrder, WAITING_CONFIRMING_DELAY,
 };
 use codec::{Decode, Encode};
+use dbc_support::MachineId;
 use frame_support::{debug::info, traits::Get, weights::Weight, IterableStorageMap};
-use generic_func::{ItemList, MachineId};
+use generic_func::ItemList;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Zero;

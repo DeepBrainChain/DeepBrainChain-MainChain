@@ -12,14 +12,17 @@ mod mock;
 mod tests;
 mod utils;
 
-use dbc_support::traits::{GNOps, ManageCommittee, OCOps};
+use dbc_support::{
+    traits::{GNOps, ManageCommittee, OCOps},
+    MachineId, SlashId,
+};
 use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, ReservableCurrency},
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
-use generic_func::{ItemList, MachineId, SlashId};
+use generic_func::ItemList;
 use online_profile::CommitteeUploadInfo;
 use sp_std::{prelude::*, str, vec::Vec};
 

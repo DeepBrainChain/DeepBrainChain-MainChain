@@ -3,8 +3,9 @@ use codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::{Config, Error};
+use dbc_support::MachineId;
 use frame_support::ensure;
-use generic_func::{ItemList, MachineId};
+use generic_func::ItemList;
 use online_profile::CommitteeUploadInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::{cmp, ops, vec::Vec};

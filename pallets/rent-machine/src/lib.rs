@@ -10,7 +10,10 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use dbc_support::traits::{DbcPrice, RTOps};
+use dbc_support::{
+    traits::{DbcPrice, RTOps},
+    EraIndex, MachineId, RentOrderId,
+};
 use frame_support::{
     dispatch::DispatchResult,
     ensure,
@@ -18,8 +21,8 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use generic_func::{ItemList, MachineId};
-pub use online_profile::{EraIndex, MachineStatus};
+use generic_func::ItemList;
+pub use online_profile::MachineStatus;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero};
 use sp_std::{prelude::*, str, vec::Vec};
 

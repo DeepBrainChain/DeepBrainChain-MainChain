@@ -1,5 +1,6 @@
 use codec::{Decode, Encode};
-use generic_func::{ItemList, MachineId};
+use dbc_support::MachineId;
+use generic_func::ItemList;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;

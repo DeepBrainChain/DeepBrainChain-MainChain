@@ -87,6 +87,7 @@ std = [
   'pallet-recovery/std',
   'pallet-vesting/std',
   'generic-func/std',
+  'dbc-support/std',
   'dbc-price-ocw/std',
   'online-profile/std',
   'online-profile-runtime-api/std',
@@ -344,6 +345,11 @@ path = '../pallets/dbc-staking'
 default-features = false
 package = 'generic-func'
 path = '../pallets/generic-func'
+
+[dependencies.dbc-support]
+default-features = false
+package = 'dbc-support'
+path = '../pallets/support'
 
 [dependencies.dbc-price-ocw]
 default-features = false

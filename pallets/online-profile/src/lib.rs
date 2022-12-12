@@ -8,7 +8,10 @@ mod traits;
 mod types;
 mod utils;
 
-use dbc_support::traits::{DbcPrice, GNOps, ManageCommittee};
+use dbc_support::{
+    traits::{DbcPrice, GNOps, ManageCommittee},
+    EraIndex, MachineId, SlashId,
+};
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     pallet_prelude::*,
@@ -16,7 +19,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::pallet_prelude::*;
-use generic_func::{ItemList, MachineId, SlashId};
+use generic_func::ItemList;
 use sp_core::H256;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, Zero},

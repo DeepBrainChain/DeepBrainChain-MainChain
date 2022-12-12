@@ -3,9 +3,9 @@ use generic_func::rpc_types::serde_text;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use crate::{CustomErr, EraIndex, OPSlashReason};
+use crate::{CustomErr, OPSlashReason};
 use codec::{alloc::string::ToString, Decode, Encode};
-use generic_func::MachineId;
+use dbc_support::{EraIndex, MachineId};
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{traits::Saturating, RuntimeDebug};

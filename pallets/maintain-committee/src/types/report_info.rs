@@ -1,11 +1,11 @@
-use crate::{
-    BoxPubkey, CustomErr, ReportConfirmStatus, ReportHash, FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
-};
+use crate::{CustomErr, ReportConfirmStatus};
 use codec::{Decode, Encode};
+use dbc_support::{
+    BoxPubkey, MachineId, RentOrderId, ReportHash, FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
+};
 use frame_support::ensure;
-use generic_func::{ItemList, MachineId};
+use generic_func::ItemList;
 use online_profile::OPSlashReason;
-use rent_machine::RentOrderId;
 use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::{cmp::PartialEq, ops::Sub, vec, vec::Vec};
 

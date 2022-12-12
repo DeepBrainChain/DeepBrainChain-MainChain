@@ -1,6 +1,5 @@
-use crate::EraIndex;
 use codec::{Decode, Encode};
-use generic_func::MachineId;
+use dbc_support::{EraIndex, MachineId};
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{
     collections::{btree_map::BTreeMap, vec_deque::VecDeque},

@@ -1,5 +1,5 @@
-use crate::{BalanceOf, CommitteeStake, Config, Pallet, ReportId};
-use dbc_support::traits::ManageCommittee;
+use crate::{BalanceOf, CommitteeStake, Config, Pallet};
+use dbc_support::{traits::ManageCommittee, ReportId};
 use sp_runtime::traits::Saturating;
 use sp_std::vec::Vec;
 

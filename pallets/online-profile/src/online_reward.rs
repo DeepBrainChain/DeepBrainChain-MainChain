@@ -1,12 +1,14 @@
 use crate::{
-    types::{EraIndex, EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo, BLOCK_PER_ERA},
+    types::{EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo, BLOCK_PER_ERA},
     AllMachineIdSnap, AllMachineIdSnapDetail, BalanceOf, Config, CurrentEra, EraReward,
     ErasMachinePoints, ErasMachineReleasedReward, ErasMachineReward, ErasStashPoints,
     ErasStashReleasedReward, ErasStashReward, MachineRecentReward, Pallet, StashMachines,
 };
 use codec::Decode;
-use dbc_support::traits::{DbcPrice, ManageCommittee, OPRPCQuery};
-use generic_func::MachineId;
+use dbc_support::{
+    traits::{DbcPrice, ManageCommittee, OPRPCQuery},
+    EraIndex, MachineId,
+};
 use sp_runtime::{
     traits::{CheckedMul, Saturating, Zero},
     Perbill, SaturatedConversion,

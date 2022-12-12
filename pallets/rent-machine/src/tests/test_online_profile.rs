@@ -1,7 +1,7 @@
 use super::super::mock::*;
 use crate::mock::{new_test_ext_after_machine_online, run_to_block};
+use dbc_support::MachineId;
 use frame_support::assert_ok;
-use generic_func::MachineId;
 use online_profile::{LiveMachine, MachineStatus, PosGPUInfo, StashMachine};
 use pallet_balances::AccountData;
 use std::convert::TryInto;

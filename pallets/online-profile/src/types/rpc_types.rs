@@ -2,17 +2,17 @@ use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use generic_func::{rpc_types::serde_text, RpcText};
 // use generic_func::rpc_types::RpcText;
+use crate::{
+    CommitteeUploadInfo, Latitude, LiveMachine, Longitude, MachineId, MachineInfo,
+    MachineInfoDetail, MachineStatus, StakerCustomizeInfo, StashMachine,
+};
+use dbc_support::EraIndex;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_std::vec::Vec;
 #[cfg(feature = "std")]
 use std::convert::From;
-
-use crate::{
-    CommitteeUploadInfo, EraIndex, Latitude, LiveMachine, Longitude, MachineId, MachineInfo,
-    MachineInfoDetail, MachineStatus, StakerCustomizeInfo, StashMachine,
-};
 
 #[cfg(feature = "std")]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
