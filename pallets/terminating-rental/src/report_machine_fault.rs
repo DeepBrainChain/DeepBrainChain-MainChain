@@ -214,7 +214,7 @@ impl<T: Config> Pallet<T> {
             );
             let _ = Self::slash_and_reward(slashed_committee, committee_stake, reward_who);
 
-            report_result_info.slash_result = IRSlashResult::Executed;
+            report_result_info.slash_result = IRReportSlashResult::Executed;
             ReportResult::<T>::insert(slashed_report_id, report_result_info);
         }
 
@@ -317,7 +317,7 @@ impl<T: Config> Pallet<T> {
             committee_stake: committee_order_stake,
             slash_time: now,
             slash_exec_time: now + TWO_DAY.into(),
-            slash_result: IRSlashResult::Pending,
+            slash_result: IRReportSlashResult::Pending,
 
             ..report_result
         };

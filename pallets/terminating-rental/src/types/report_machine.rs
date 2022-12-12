@@ -529,13 +529,13 @@ impl Default for IRReportResultType {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum IRSlashResult {
+pub enum IRReportSlashResult {
     Pending,
     Canceled,
     Executed,
 }
 
-impl Default for IRSlashResult {
+impl Default for IRReportSlashResult {
     fn default() -> Self {
         Self::Pending
     }
@@ -559,7 +559,7 @@ pub struct IRReportResultInfo<AccountId, BlockNumber, Balance> {
     pub slash_time: BlockNumber,
     pub slash_exec_time: BlockNumber,
     pub report_result: IRReportResultType,
-    pub slash_result: IRSlashResult,
+    pub slash_result: IRReportSlashResult,
 }
 
 impl<Account, Block, Balance> IRReportResultInfo<Account, Block, Balance>
@@ -581,7 +581,7 @@ where
         Balance: Default + Copy,
     {
         self.report_id = report_id;
-        self.slash_result = IRSlashResult::Pending;
+        self.slash_result = IRReportSlashResult::Pending;
         self.slash_time = now;
         self.slash_exec_time = now + TWO_DAY.into();
         self.reporter = report_info.reporter.clone();

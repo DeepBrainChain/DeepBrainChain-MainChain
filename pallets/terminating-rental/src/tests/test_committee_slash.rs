@@ -1,6 +1,6 @@
 use crate::{
     IRBookResultType, IRCommitteeMachineList, IRCommitteeUploadInfo, IRLiveMachine,
-    IRMachineCommitteeList, IRMachineStatus, IRPendingSlashInfo, IRSlashResult,
+    IRMachineCommitteeList, IRMachineStatus, IROnlineSlashResult, IRPendingOnlineSlashInfo,
     IRStakerCustomizeInfo, IRStashMachine, IRVerifyStatus,
 };
 
@@ -151,8 +151,8 @@ fn committee_not_submit_slash_works() {
                 IRLiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
             );
             assert_eq!(
-                IRMachine::pending_slash(0),
-                IRPendingSlashInfo {
+                IRMachine::pending_online_slash(0),
+                IRPendingOnlineSlashInfo {
                     machine_id: machine_id.clone(),
                     inconsistent_committee: vec![],
                     unruly_committee: vec![committee4],
@@ -163,11 +163,11 @@ fn committee_not_submit_slash_works() {
                     slash_exec_time: 4 + 4320 + 2880 * 2,
 
                     book_result: IRBookResultType::OnlineSucceed,
-                    slash_result: IRSlashResult::Pending,
+                    slash_result: IROnlineSlashResult::Pending,
                     ..Default::default()
                 }
             );
-            assert_eq!(IRMachine::unhandled_slash(), vec![0]);
+            assert_eq!(IRMachine::unhandled_online_slash(), vec![0]);
             assert_eq!(
                 IRMachine::committee_machine(&committee4),
                 IRCommitteeMachineList::default()
@@ -283,8 +283,8 @@ fn machine_refused_slash_works() {
 
             // 检查惩罚
             assert_eq!(
-                IRMachine::pending_slash(0),
-                IRPendingSlashInfo {
+                IRMachine::pending_online_slash(0),
+                IRPendingOnlineSlashInfo {
                     machine_id: machine_id.clone(),
                     machine_stash: stash,
                     stash_slash_amount: 10000 * ONE_DBC,
@@ -296,7 +296,7 @@ fn machine_refused_slash_works() {
                     slash_exec_time: 4 + 2880 * 2,
 
                     book_result: IRBookResultType::OnlineRefused,
-                    slash_result: IRSlashResult::Pending,
+                    slash_result: IROnlineSlashResult::Pending,
                     ..Default::default()
                 }
             );
