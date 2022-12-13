@@ -102,7 +102,7 @@ pub struct SysInfoDetail<Balance> {
 }
 
 impl<Balance: Saturating + Copy> SysInfoDetail<Balance> {
-    pub fn change_stake(&mut self, amount: Balance, is_add: bool) {
+    pub fn on_stake_changed(&mut self, amount: Balance, is_add: bool) {
         if is_add {
             self.total_stake = self.total_stake.saturating_add(amount);
         } else {
@@ -110,7 +110,7 @@ impl<Balance: Saturating + Copy> SysInfoDetail<Balance> {
         }
     }
 
-    pub fn change_rent_fee(&mut self, amount: Balance, is_burn: bool) {
+    pub fn on_rent_fee_changed(&mut self, amount: Balance, is_burn: bool) {
         if is_burn {
             self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
         } else {
@@ -135,7 +135,7 @@ pub struct PosInfo {
 }
 
 impl PosInfo {
-    pub fn is_rented(&mut self, is_rented: bool, gpu_num: u32) {
+    pub fn on_rent_changed(&mut self, is_rented: bool, gpu_num: u32) {
         if is_rented {
             self.rented_gpu = self.rented_gpu.saturating_add(gpu_num as u64);
         } else {
@@ -143,7 +143,7 @@ impl PosInfo {
         }
     }
 
-    pub fn is_online(&mut self, is_online: bool, gpu_num: u32, calc_point: u64) {
+    pub fn on_online_changed(&mut self, is_online: bool, gpu_num: u32, calc_point: u64) {
         let gpu_num = gpu_num as u64;
         if is_online {
             self.online_gpu = self.online_gpu.saturating_add(gpu_num);
@@ -158,7 +158,7 @@ impl PosInfo {
 
     // NOTE: 与下线不同，退出时，不增加offline_gpu数量
     // 返回是否为空
-    pub fn machine_exit(&mut self, gpu_num: u32, calc_point: u64) -> bool {
+    pub fn on_machine_exit(&mut self, gpu_num: u32, calc_point: u64) -> bool {
         self.online_gpu = self.online_gpu.saturating_sub(gpu_num as u64);
         self.online_gpu_calc_points = self.online_gpu_calc_points.saturating_sub(calc_point);
         self == &PosInfo::default()

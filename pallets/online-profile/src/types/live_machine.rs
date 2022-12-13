@@ -37,11 +37,11 @@ pub struct LiveMachine {
 
 impl LiveMachine {
     // 添加到LiveMachine的bonding_machine字段
-    pub fn new_bonding(&mut self, machine_id: MachineId) {
+    pub fn on_bonding(&mut self, machine_id: MachineId) {
         ItemList::add_item(&mut self.bonding_machine, machine_id);
     }
 
-    pub fn add_server_room_info<BlockNumber, AccountId>(
+    pub fn on_add_server_room<BlockNumber, AccountId>(
         &mut self,
         machine_id: MachineId,
         machine_status: MachineStatus<BlockNumber, AccountId>,
@@ -56,19 +56,19 @@ impl LiveMachine {
         }
     }
 
-    pub fn offline_to_change_hardware(&mut self, machine_id: MachineId) {
+    pub fn on_offline_change_hardware(&mut self, machine_id: MachineId) {
         ItemList::rm_item(&mut self.online_machine, &machine_id);
         ItemList::add_item(&mut self.bonding_machine, machine_id);
     }
 
     // 机器从online/rented状态，暂时下线
-    pub fn machine_offline(&mut self, machine_id: MachineId) {
+    pub fn on_offline(&mut self, machine_id: MachineId) {
         ItemList::rm_item(&mut self.online_machine, &machine_id);
         ItemList::rm_item(&mut self.rented_machine, &machine_id);
         ItemList::add_item(&mut self.offline_machine, machine_id);
     }
 
-    pub fn machine_exit(&mut self, machine_id: &MachineId) {
+    pub fn on_exit(&mut self, machine_id: &MachineId) {
         ItemList::rm_item(&mut self.online_machine, machine_id);
     }
 }

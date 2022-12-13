@@ -118,7 +118,7 @@ where
         }
     }
 
-    pub fn can_add_server_room_info(&self, who: &AccountId) -> Result<(), CustomErr> {
+    pub fn can_add_server_room(&self, who: &AccountId) -> Result<(), CustomErr> {
         // 检查当前机器状态是否允许
         if !matches!(
             self.machine_status,
@@ -145,7 +145,7 @@ where
         }
     }
 
-    pub fn change_rent_fee(&mut self, amount: Balance, is_burn: bool) {
+    pub fn update_rent_fee(&mut self, amount: Balance, is_burn: bool) {
         if is_burn {
             self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
         } else {

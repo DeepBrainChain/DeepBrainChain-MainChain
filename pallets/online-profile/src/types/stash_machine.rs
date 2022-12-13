@@ -46,7 +46,7 @@ impl<B: Saturating + Copy + CheckedAdd + Zero> StashMachine<B> {
         ItemList::add_item(&mut self.total_machine, machine_id);
     }
 
-    pub fn change_rent_fee(&mut self, amount: B, is_burn: bool) {
+    pub fn update_rent_fee(&mut self, amount: B, is_burn: bool) {
         if is_burn {
             self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
         } else {

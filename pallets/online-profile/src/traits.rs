@@ -75,9 +75,7 @@ impl<T: Config> OCOps for Pallet<T> {
             .checked_mul(&committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>())
             .ok_or(())?;
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
-            if Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, true)
-                .is_ok()
-            {
+            if Self::change_stake(machine_info.machine_stash.clone(), extra_stake, true).is_ok() {
                 ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
                 machine_info.stake_amount = stake_need;
                 machine_info.machine_status = MachineStatus::Online;
@@ -117,8 +115,8 @@ impl<T: Config> OCOps for Pallet<T> {
 
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if let MachineStatus::Online = machine_info.machine_status {
-            Self::change_pos_info_by_online(&machine_info, true);
-            Self::update_snap_by_online_status(machine_id.clone(), true);
+            Self::update_region_on_online_changed(&machine_info, true);
+            Self::update_snap_on_online_changed(machine_id.clone(), true);
 
             if is_reonline {
                 // 仅在Oline成功时删掉reonline_stake记录，以便补充质押时惩罚时检查状态
@@ -196,8 +194,7 @@ impl<T: Config> OCOps for Pallet<T> {
         let left_stake = machine_info.stake_amount.checked_sub(&slash)?;
         // Remain 5% of init stake(5% of one gpu stake)
         // Return 95% left stake(95% of one gpu stake)
-        let _ =
-            Self::change_user_total_stake(machine_info.machine_stash.clone(), left_stake, false);
+        let _ = Self::change_stake(machine_info.machine_stash.clone(), left_stake, false);
 
         // Clean storage
 
@@ -224,7 +221,7 @@ impl<T: Config> OCOps for Pallet<T> {
         amount: BalanceOf<T>,
         is_add: bool,
     ) -> Result<(), ()> {
-        Self::change_user_total_stake(stash, amount, is_add)
+        Self::change_stake(stash, amount, is_add)
     }
 
     // just change stash_stake & sys_info, slash and reward should be execed in oc module
@@ -289,13 +286,13 @@ impl<T: Config> RTOps for Pallet<T> {
 
         // NOTE: 该检查确保得分快照不被改变多次
         if live_machines.rented_machine.binary_search(machine_id).is_err() {
-            Self::update_snap_by_rent_status(machine_id.to_vec(), true);
+            Self::update_snap_on_rent_changed(machine_id.to_vec(), true);
 
             ItemList::rm_item(&mut live_machines.online_machine, machine_id);
             ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
             LiveMachines::<T>::put(live_machines);
 
-            Self::change_pos_info_by_rent(&machine_info, true);
+            Self::update_region_on_rent_changed(&machine_info, true);
         }
 
         MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -338,8 +335,8 @@ impl<T: Config> RTOps for Pallet<T> {
                     machine_info.machine_status = MachineStatus::Online;
 
                     // 租用结束
-                    Self::update_snap_by_rent_status(machine_id.to_vec(), false);
-                    Self::change_pos_info_by_rent(&machine_info, false);
+                    Self::update_snap_on_rent_changed(machine_id.to_vec(), false);
+                    Self::update_region_on_rent_changed(&machine_info, false);
                 }
             },
             _ => {},
@@ -367,14 +364,14 @@ impl<T: Config> RTOps for Pallet<T> {
 
     fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {
         SysInfo::<T>::mutate(|sys_info| {
-            sys_info.change_rent_fee(amount, is_burn);
+            sys_info.on_rent_fee_changed(amount, is_burn);
         });
         MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
             StashMachines::<T>::mutate(&machine_info.machine_stash, |staker_machine| {
-                staker_machine.change_rent_fee(amount, is_burn);
+                staker_machine.update_rent_fee(amount, is_burn);
             });
 
-            machine_info.change_rent_fee(amount, is_burn);
+            machine_info.update_rent_fee(amount, is_burn);
         });
     }
 }
@@ -434,7 +431,7 @@ impl<T: Config> MTOps for Pallet<T> {
         amount: BalanceOf<T>,
         is_add: bool,
     ) -> Result<(), ()> {
-        Self::change_user_total_stake(stash, amount, is_add)
+        Self::change_stake(stash, amount, is_add)
     }
 
     fn mt_rm_stash_total_stake(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {

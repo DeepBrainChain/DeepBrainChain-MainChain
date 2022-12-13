@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
     /// GPU online/offline
     // - Writes: PosGPUInfo
     // NOTE: pos_gpu_info only record actual machine grades(reward grade not included)
-    pub fn change_pos_info_by_online(
+    pub fn update_region_on_online_changed(
         machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         is_online: bool,
     ) {
@@ -46,12 +46,12 @@ impl<T: Config> Pallet<T> {
         let gpu_num = machine_info.gpu_num();
         let calc_point = machine_info.calc_point();
 
-        PosGPUInfo::<T>::mutate(longitude, latitude, |pos_gpu_info| {
-            pos_gpu_info.is_online(is_online, gpu_num, calc_point);
+        PosGPUInfo::<T>::mutate(longitude, latitude, |region_mining_power| {
+            region_mining_power.on_online_changed(is_online, gpu_num, calc_point);
         });
     }
 
-    pub fn change_pos_info_on_exit(
+    pub fn update_region_on_exit(
         machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) {
         let longitude = machine_info.longitude();
@@ -59,19 +59,19 @@ impl<T: Config> Pallet<T> {
         let gpu_num = machine_info.gpu_num();
         let calc_point = machine_info.calc_point();
 
-        let mut pos_gpu_info = Self::pos_gpu_info(longitude, latitude);
+        let mut region_mining_power = Self::pos_gpu_info(longitude, latitude);
 
-        let is_empty = pos_gpu_info.machine_exit(gpu_num, calc_point);
+        let is_empty = region_mining_power.on_machine_exit(gpu_num, calc_point);
         if is_empty {
             PosGPUInfo::<T>::remove(longitude, latitude);
         } else {
-            PosGPUInfo::<T>::insert(longitude, latitude, pos_gpu_info);
+            PosGPUInfo::<T>::insert(longitude, latitude, region_mining_power);
         }
     }
 
     /// GPU rented/surrender
     // - Writes: PosGPUInfo
-    pub fn change_pos_info_by_rent(
+    pub fn update_region_on_rent_changed(
         machine_info: &MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         is_rented: bool,
     ) {
@@ -79,8 +79,8 @@ impl<T: Config> Pallet<T> {
         let latitude = machine_info.latitude();
         let gpu_num = machine_info.gpu_num();
 
-        PosGPUInfo::<T>::mutate(longitude, latitude, |pos_gpu_info| {
-            pos_gpu_info.is_rented(is_rented, gpu_num);
+        PosGPUInfo::<T>::mutate(longitude, latitude, |region_mining_power| {
+            region_mining_power.on_rent_changed(is_rented, gpu_num);
         });
     }
 }
