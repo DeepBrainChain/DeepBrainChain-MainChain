@@ -24,7 +24,7 @@ use sp_std::{prelude::*, str, vec::Vec};
 
 use dbc_support::{
     traits::{DbcPrice, GNOps, ManageCommittee},
-    EraIndex, MachineId, SlashId,
+    EraIndex, MachineId, SlashId, TWO_DAY,
 };
 use generic_func::ItemList;
 
@@ -36,11 +36,10 @@ pub const SUBMIT_HASH_END: u32 = 4320;
 pub const SUBMIT_RAW_START: u32 = 4320;
 /// Summary committee's opinion after 48 hours
 pub const SUBMIT_RAW_END: u32 = 5760;
-pub const TWO_DAY: u32 = 5760;
 /// 等待30个块(15min)，用户确认是否租用成功
 pub const WAITING_CONFIRMING_DELAY: u32 = 30;
-/// 1天按照2880个块
-pub const BLOCK_PER_DAY: u32 = 2880;
+// /// 1天按照2880个块
+// pub const BLOCK_PER_DAY: u32 = 2880;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

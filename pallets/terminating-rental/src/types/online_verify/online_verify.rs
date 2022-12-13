@@ -10,6 +10,16 @@ use crate::{CustomErr, IRCommitteeUploadInfo, ReportId, SUBMIT_HASH_END, SUBMIT_
 use dbc_support::MachineId;
 use generic_func::ItemList;
 
+/// The reason why a stash account is punished
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub enum IRSlashReason<BlockNumber> {
+    // Controller report rented machine offline
+    // RentedReportOffline(BlockNumber),
+    OnlineRentFailed(BlockNumber),
+}
+
 /// Query distributed machines by committee address
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
