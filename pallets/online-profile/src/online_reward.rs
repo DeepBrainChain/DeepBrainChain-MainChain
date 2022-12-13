@@ -30,13 +30,11 @@ impl<T: Config> Pallet<T> {
         EraReward::<T>::insert(current_era, era_reward);
 
         if current_era == 1 {
-            ErasStashPoints::<T>::insert(0, EraStashPoints::default());
-            ErasStashPoints::<T>::insert(1, EraStashPoints::default());
-            ErasStashPoints::<T>::insert(2, EraStashPoints::default());
             let init_value: BTreeMap<MachineId, MachineGradeStatus> = BTreeMap::new();
-            ErasMachinePoints::<T>::insert(0, init_value.clone());
-            ErasMachinePoints::<T>::insert(1, init_value.clone());
-            ErasMachinePoints::<T>::insert(2, init_value);
+            (0..=2).into_iter().for_each(|era| {
+                ErasStashPoints::<T>::insert(era, EraStashPoints::default());
+                ErasMachinePoints::<T>::insert(era, init_value.clone());
+            });
         } else {
             // 用当前的Era快照初始化下一个Era的信息
             let current_era_stash_snapshot = Self::eras_stash_points(current_era);
