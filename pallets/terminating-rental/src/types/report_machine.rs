@@ -1,7 +1,8 @@
 use crate::{CustomErr, IRSlashReason, RentOrderId};
 use codec::{Decode, Encode};
+use dbc_support::MachineId;
 use frame_support::ensure;
-use generic_func::{ItemList, MachineId};
+use generic_func::ItemList;
 use sp_runtime::{
     traits::{Saturating, Zero},
     Perbill, RuntimeDebug,

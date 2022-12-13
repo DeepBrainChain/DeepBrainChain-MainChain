@@ -1,3 +1,4 @@
+use dbc_support::MachineId;
 use frame_support::IterableStorageMap;
 use sp_std::vec::Vec;
 
@@ -7,7 +8,6 @@ use crate::{
     IRMachineGPUOrder, IRMachineInfo, IRRentOrderDetail, Pallet, RentOrderId, StashMachines,
 };
 use codec::EncodeLike;
-use generic_func::MachineId;
 
 impl<T: Config> Pallet<T> {
     pub fn get_total_staker_num() -> u64 {

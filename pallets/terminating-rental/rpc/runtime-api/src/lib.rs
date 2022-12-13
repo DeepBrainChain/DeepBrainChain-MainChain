@@ -6,7 +6,7 @@ use codec::Codec;
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 
-use generic_func::MachineId;
+use dbc_support::MachineId;
 use terminating_rental::{
     rpc_types::{RpcIRCommitteeOps, StakerInfo},
     IRCommitteeMachineList, IRLiveMachine, IRMachineCommitteeList, IRMachineGPUOrder,

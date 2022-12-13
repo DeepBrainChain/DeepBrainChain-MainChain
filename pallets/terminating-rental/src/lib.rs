@@ -11,7 +11,6 @@ mod rpc;
 pub mod rpc_types;
 mod types;
 
-use dbc_support::traits::GNOps;
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
     pallet_prelude::*,
@@ -23,8 +22,11 @@ use sp_runtime::{
 };
 use sp_std::{prelude::*, str, vec::Vec};
 
-use dbc_support::traits::{DbcPrice, ManageCommittee};
-use generic_func::{EraIndex, ItemList, MachineId, SlashId};
+use dbc_support::{
+    traits::{DbcPrice, GNOps, ManageCommittee},
+    EraIndex, MachineId, SlashId,
+};
+use generic_func::ItemList;
 
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;

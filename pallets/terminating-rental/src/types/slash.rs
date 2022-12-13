@@ -1,6 +1,6 @@
 use crate::IRBookResultType;
 use codec::{Decode, Encode};
-use generic_func::MachineId;
+use dbc_support::MachineId;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 

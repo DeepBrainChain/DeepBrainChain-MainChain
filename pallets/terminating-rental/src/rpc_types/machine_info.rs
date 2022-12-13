@@ -3,7 +3,7 @@ use crate::{
     IRStakerCustomizeInfo, IRStashMachine,
 };
 use codec::{Decode, Encode};
-use generic_func::MachineId;
+use dbc_support::MachineId;
 #[cfg(feature = "std")]
 use generic_func::{rpc_types::serde_text, RpcText};
 #[cfg(feature = "std")]

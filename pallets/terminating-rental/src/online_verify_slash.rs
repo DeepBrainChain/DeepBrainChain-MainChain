@@ -2,9 +2,12 @@ use crate::{
     BalanceOf, Config, Error, IROnlineSlashResult, Pallet, PendingOnlineSlash, StashStake,
     UnhandledOnlineSlash,
 };
-use dbc_support::traits::{GNOps, ManageCommittee};
+use dbc_support::{
+    traits::{GNOps, ManageCommittee},
+    SlashId,
+};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure};
-use generic_func::{ItemList, SlashId};
+use generic_func::ItemList;
 use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::{vec, vec::Vec};
 

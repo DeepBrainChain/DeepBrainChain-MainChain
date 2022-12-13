@@ -4,8 +4,8 @@ use generic_func::rpc_types::serde_text;
 use serde::{Deserialize, Serialize};
 
 use codec::{alloc::string::ToString, Decode, Encode};
+use dbc_support::MachineId;
 use frame_support::ensure;
-use generic_func::MachineId;
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{

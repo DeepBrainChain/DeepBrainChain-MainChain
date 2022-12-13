@@ -7,7 +7,8 @@ use sp_runtime::RuntimeDebug;
 use sp_std::{ops, vec::Vec};
 
 use crate::{CustomErr, IRCommitteeUploadInfo, ReportId, SUBMIT_HASH_END, SUBMIT_RAW_END};
-use generic_func::{ItemList, MachineId};
+use dbc_support::MachineId;
+use generic_func::ItemList;
 
 /// Query distributed machines by committee address
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]

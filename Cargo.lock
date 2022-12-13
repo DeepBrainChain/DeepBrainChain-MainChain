@@ -8952,7 +8952,7 @@ dependencies = [
 name = "terminating-rental-runtime-api"
 version = "0.1.0"
 dependencies = [
- "generic-func",
+ "dbc-support",
  "parity-scale-codec",
  "sp-api",
  "sp-runtime",

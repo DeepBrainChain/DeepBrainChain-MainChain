@@ -2,7 +2,8 @@
 use serde::{Deserialize, Serialize};
 
 use codec::{Decode, Encode};
-use generic_func::{ItemList, MachineId};
+use dbc_support::MachineId;
+use generic_func::ItemList;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
