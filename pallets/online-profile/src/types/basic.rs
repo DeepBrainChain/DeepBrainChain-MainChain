@@ -3,7 +3,10 @@ use codec::{Decode, Encode};
 use dbc_support::EraIndex;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::{traits::Saturating, RuntimeDebug};
+use sp_runtime::{
+    traits::{Saturating, UniqueSaturatedInto},
+    RuntimeDebug, SaturatedConversion,
+};
 use sp_std::vec::Vec;
 
 pub type TelecomName = Vec<u8>;
@@ -162,36 +165,5 @@ impl PosInfo {
         self.online_gpu = self.online_gpu.saturating_sub(gpu_num as u64);
         self.online_gpu_calc_points = self.online_gpu_calc_points.saturating_sub(calc_point);
         self == &PosInfo::default()
-    }
-}
-
-/// The reason why a stash account is punished
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum OPSlashReason<BlockNumber> {
-    /// Controller report rented machine offline
-    RentedReportOffline(BlockNumber),
-    /// Controller report online machine offline
-    OnlineReportOffline(BlockNumber),
-    /// Reporter report rented machine is offline
-    RentedInaccessible(BlockNumber),
-    /// Reporter report rented machine hardware fault
-    RentedHardwareMalfunction(BlockNumber),
-    /// Reporter report rented machine is fake
-    RentedHardwareCounterfeit(BlockNumber),
-    /// Machine is online, but rent failed
-    OnlineRentFailed(BlockNumber),
-    /// Committee refuse machine online
-    CommitteeRefusedOnline,
-    /// Committee refuse changed hardware info machine reonline
-    CommitteeRefusedMutHardware,
-    /// Machine change hardware is passed, so should reward committee
-    ReonlineShouldReward,
-}
-
-impl<BlockNumber> Default for OPSlashReason<BlockNumber> {
-    fn default() -> Self {
-        Self::CommitteeRefusedOnline
     }
 }

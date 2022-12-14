@@ -184,85 +184,53 @@ impl<T: Config> Pallet<T> {
         committee: Option<Vec<T::AccountId>>,
         duration: T::BlockNumber,
     ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        match slash_reason {
+        let (percent, reporter, renters, committee) = match slash_reason {
             // 算工主动报告被租用的机器，主动下线
-            OPSlashReason::RentedReportOffline(_) => Self::new_slash_rented_report_offline(
-                machine_id,
-                reporter,
-                renters,
-                duration,
-                slash_reason,
-            ),
+            OPSlashReason::RentedReportOffline(_) =>
+                Self::new_slash_rented_report_offline(duration, reporter, renters),
             // 算工主动报告在线的机器，主动下线
             OPSlashReason::OnlineReportOffline(_) =>
-                Self::new_slash_online_report_offline(machine_id, duration, slash_reason),
+                Self::new_slash_online_report_offline(duration, &machine_id),
             // 机器处于租用状态，无法访问，这种情况下，reporter == renter
-            OPSlashReason::RentedInaccessible(_) => Self::new_slash_rented_inaccessible(
-                machine_id,
-                duration,
-                slash_reason,
-                reporter,
-                renters,
-                committee,
-            ),
+            OPSlashReason::RentedInaccessible(_) =>
+                Self::new_slash_rented_inaccessible(duration, reporter, renters, committee),
             // 机器处于租用状态，机器出现故障
             OPSlashReason::RentedHardwareMalfunction(_) =>
-                Self::new_slash_rented_hardware_mulfunction(
-                    machine_id,
-                    duration,
-                    slash_reason,
-                    reporter,
-                    renters,
-                    committee,
-                ),
+                Self::new_slash_rented_hardware_mulfunction(duration, reporter, renters, committee),
             // 机器处于租用状态，机器硬件造假
             OPSlashReason::RentedHardwareCounterfeit(_) =>
-                Self::new_slash_rented_hardware_counterfeit(
-                    machine_id,
-                    duration,
-                    slash_reason,
-                    reporter,
-                    renters,
-                    committee,
-                ),
+                Self::new_slash_rented_hardware_counterfeit(duration, reporter, renters, committee),
             // 机器在线，被举报无法租用
-            OPSlashReason::OnlineRentFailed(_) => Self::new_slash_online_rent_failed(
-                machine_id,
-                duration,
-                slash_reason,
-                reporter,
-                renters,
-                committee,
-            ),
-            _ => OPPendingSlashInfo::default(),
-        }
+            OPSlashReason::OnlineRentFailed(_) =>
+                Self::new_slash_online_rent_failed(duration, reporter, renters, committee),
+            _ => Default::default(), //  OPPendingSlashInfo::default(),
+        };
+
+        // Self::new_offline_slash(?percent, machine_id, ?reporter, ?renters, ?None, slash_reason)
+        Self::new_offline_slash(percent, machine_id, reporter, renters, committee, slash_reason)
     }
 
     fn new_slash_rented_report_offline(
-        machine_id: MachineId,
+        duration: T::BlockNumber,
         reporter: Option<T::AccountId>,
         renters: Vec<T::AccountId>,
-        duration: T::BlockNumber,
-        slash_reason: OPSlashReason<T::BlockNumber>,
-    ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        let (reporter, percent) = match duration.saturated_into::<u64>() {
-            0 => (None, 0),
-            1..=14 => (None, 2),            // <=7M扣除2%质押币。100%进入国库
-            15..=5760 => (None, 4),         // <=48H扣除4%质押币。100%进入国库
-            5761..=14400 => (reporter, 30), /* <=120H扣30%质押币，10%给用户，90%进入国库 */
-            _ => (reporter, 50),            /* >120H扣除50%质押币。10%给用户，90%进入国库 */
+    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
+        let (percent, reporter) = match duration.saturated_into::<u64>() {
+            0 => (0, None),
+            1..=14 => (2, None),            // <=7M扣除2%质押币。100%进入国库
+            15..=5760 => (4, None),         // <=48H扣除4%质押币。100%进入国库
+            5761..=14400 => (30, reporter), /* <=120H扣30%质押币，10%给用户，90%进入国库 */
+            _ => (50, reporter),            /* >120H扣除50%质押币。10%给用户，90%进入国库 */
         };
-
-        Self::new_offline_slash(percent, machine_id, reporter, renters, None, slash_reason)
+        (percent, reporter, renters, None)
     }
 
     fn new_slash_online_report_offline(
-        machine_id: MachineId,
         duration: T::BlockNumber,
-        slash_reason: OPSlashReason<T::BlockNumber>,
-    ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+        machine_id: &MachineId,
+    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
         let now = <frame_system::Module<T>>::block_number();
-        let machine_info = Self::machines_info(&machine_id);
+        let machine_info = Self::machines_info(machine_id);
 
         // 判断是否已经下线十天，如果是，则不进行惩罚，仅仅下线处理
         // NOTE: 此时，machine_info.last_online_height还未改变
@@ -271,11 +239,11 @@ impl<T: Config> Pallet<T> {
                 duration +
                 machine_info.last_online_height
         {
-            return OPPendingSlashInfo::default()
+            // TODO: handle this
+            return Default::default()
         }
-        let duration = duration.saturated_into::<u64>();
 
-        let percent = match duration {
+        let percent = match duration.saturated_into::<u64>() {
             0 => 0,
             1..=14 => 2,        /* <=7M扣除2%质押币，全部进入国库。 */
             15..=5760 => 4,     /* <=48H扣除4%质押币，全部进入国库 */
@@ -285,38 +253,33 @@ impl<T: Config> Pallet<T> {
                                   * 扣除80%质押币。质押币全部进入国库。 */
         };
 
-        Self::new_offline_slash(percent, machine_id, None, vec![], None, slash_reason)
+        (percent, None, vec![], None)
     }
 
     fn new_slash_rented_inaccessible(
-        machine_id: MachineId,
         duration: T::BlockNumber,
-        slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         renters: Vec<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
-    ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        let duration = duration.saturated_into::<u64>();
-        let (reporter, percent) = match duration {
-            0 => (None, 0),
-            1..=14 => (None, 4),    // <=7M扣除4%质押币。10%给验证人，90%进入国库
-            15..=5760 => (None, 8), // <=48H扣除8%质押币。10%给验证人，90%进入国库
-            5761..=14400 => (reporter, 60), /* <=120H扣除60%质押币。10%给用户，20%给验证人，70% */
+    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
+        let (percent, reporter) = match duration.saturated_into::<u64>() {
+            0 => (0, None),
+            1..=14 => (4, None),    // <=7M扣除4%质押币。10%给验证人，90%进入国库
+            15..=5760 => (8, None), // <=48H扣除8%质押币。10%给验证人，90%进入国库
+            5761..=14400 => (60, reporter), /* <=120H扣除60%质押币。10%给用户，20%给验证人，70% */
             // 进入国库
-            _ => (reporter, 100), /* >120H扣除100%押金。10%给到用户，20%给到验证人，70%进入国库 */
+            _ => (100, reporter), /* >120H扣除100%押金。10%给到用户，20%给到验证人，70%进入国库 */
         };
 
-        Self::new_offline_slash(percent, machine_id, reporter, renters, committee, slash_reason)
+        (percent, reporter, renters, committee)
     }
 
     fn new_slash_rented_hardware_mulfunction(
-        machine_id: MachineId,
         duration: T::BlockNumber,
-        slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         renters: Vec<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
-    ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
         // 根据下线时长确定 slash 比例
         // 10%给用户，20%给验证人，70%进入国库
         let percent = match duration.saturated_into::<u64>() {
@@ -328,17 +291,15 @@ impl<T: Config> Pallet<T> {
             _ => 100,           // >120H扣除100%质押币
         };
 
-        Self::new_offline_slash(percent, machine_id, reporter, renters, committee, slash_reason)
+        (percent, reporter, renters, committee)
     }
 
     fn new_slash_rented_hardware_counterfeit(
-        machine_id: MachineId,
         duration: T::BlockNumber,
-        slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         renters: Vec<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
-    ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
         // 根据下线时长确定 slash 比例
         // 10%给用户，20%给验证人，70%进入国库
         let percent = match duration.saturated_into::<u64>() {
@@ -350,17 +311,16 @@ impl<T: Config> Pallet<T> {
             _ => 100,           // >120H扣100%押金
         };
 
-        Self::new_offline_slash(percent, machine_id, reporter, renters, committee, slash_reason)
+        (percent, reporter, renters, committee)
     }
 
     fn new_slash_online_rent_failed(
-        machine_id: MachineId,
         duration: T::BlockNumber,
-        slash_reason: OPSlashReason<T::BlockNumber>,
         reporter: Option<T::AccountId>,
         renters: Vec<T::AccountId>,
         committee: Option<Vec<T::AccountId>>,
-    ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
+        // ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
         // 根据下线时长确定 slash 比例
         // 10%给用户，20%给验证人，70%进入国库
         let percent = match duration.saturated_into::<u64>() {
@@ -371,8 +331,7 @@ impl<T: Config> Pallet<T> {
             5761..=14400 => 60, // <=120H扣60%质押币
             _ => 100,           // >120H扣100%押金
         };
-
-        Self::new_offline_slash(percent, machine_id, reporter, renters, committee, slash_reason)
+        (percent, reporter, renters, committee)
     }
 
     pub fn new_offline_slash(
@@ -406,6 +365,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // FIXME: 是否奖励其他租用人
     // 惩罚掉机器押金，如果执行惩罚后机器押金不够，则状态变为补充质押
     pub fn do_slash_deposit(
         slash_info: &OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
@@ -430,7 +390,6 @@ impl<T: Config> Pallet<T> {
             return
         }
 
-        // FIXME: 奖励分配给slasl_info.committee
         // reward to reporter:
         if reward_to_reporter > Zero::zero() && !slash_info.renters.is_empty() {
             let _ = Self::slash_and_reward(
