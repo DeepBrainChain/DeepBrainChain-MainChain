@@ -1,9 +1,8 @@
 use codec::{Decode, Encode};
 use dbc_support::MachineId;
-use sp_runtime::{
-    traits::{Saturating, UniqueSaturatedInto},
-    RuntimeDebug, SaturatedConversion,
-};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+use sp_runtime::{traits::UniqueSaturatedInto, RuntimeDebug, SaturatedConversion};
 use sp_std::vec::Vec;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
