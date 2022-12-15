@@ -187,14 +187,6 @@ pub(crate) struct SpanRecord<Balance> {
     paid_out: Balance,
 }
 
-impl<Balance> SpanRecord<Balance> {
-    /// The value of stash balance slashed in this span.
-    #[cfg(test)]
-    pub(crate) fn amount_slashed(&self) -> &Balance {
-        &self.slashed
-    }
-}
-
 /// Parameters for performing a slash.
 #[derive(Clone)]
 pub(crate) struct SlashParams<'a, T: 'a + Config> {

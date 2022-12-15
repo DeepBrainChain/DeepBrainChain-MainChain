@@ -270,12 +270,8 @@
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 pub mod benchmarking;
-#[cfg(test)]
-mod mock;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 pub mod testing_utils;
-#[cfg(test)]
-mod tests;
 
 pub mod inflation;
 pub mod offchain_election;
