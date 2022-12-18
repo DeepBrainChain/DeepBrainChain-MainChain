@@ -71,16 +71,17 @@ impl<BlockNumber> OPSlashReason<BlockNumber>
 where
     BlockNumber: Clone + SaturatedConversion + UniqueSaturatedInto<u64>,
 {
-    pub fn slash_percent(&self) -> u32 {
+    // 根据下线时长确定 slash 比例.
+    pub fn slash_percent(&self, duration: u64) -> u32 {
         match self {
-            Self::RentedReportOffline(block) => match block.clone().saturated_into::<u64>() {
+            Self::RentedReportOffline(_) => match duration {
                 0 => 0,
                 1..=14 => 2,        // <=7M扣除2%质押币。100%进入国库
                 15..=5760 => 4,     // <=48H扣除4%质押币。100%进入国库
                 5761..=14400 => 30, // <=120H扣30%质押币，10%给用户，90%进入国库
                 _ => 50,            // >120H扣除50%质押币。10%给用户，90%进入国库
             },
-            Self::OnlineReportOffline(block) => match block.clone().saturated_into::<u64>() {
+            Self::OnlineReportOffline(_) => match duration {
                 // FIXME: 处理这里 ，因为涉及到了now的判断
                 // TODO: 如果机器从首次上线时间起超过365天，剩下20%押金可以申请退回。扣除80%质押币。
                 // 质押币全部进入国库。
@@ -90,14 +91,14 @@ where
                 5761..=28800 => 30, /* <=240H扣除30%质押币，全部进入国库 */
                 _ => 80,
             },
-            Self::RentedInaccessible(block) => match block.clone().saturated_into::<u64>() {
+            Self::RentedInaccessible(_) => match duration {
                 0 => 0,
                 1..=14 => 4,        // <=7M扣除4%质押币。10%给验证人，90%进入国库
                 15..=5760 => 8,     // <=48H扣除8%质押币。10%给验证人，90%进入国库
                 5761..=14400 => 60, /* <=120H扣除60%质押币。10%给用户，20%给验证人，70%进入国库 */
                 _ => 100,           /* >120H扣除100%押金。10%给用户，20%给验证人，70%进入国库 */
             },
-            Self::RentedHardwareMalfunction(block) => match block.clone().saturated_into::<u64>() {
+            Self::RentedHardwareMalfunction(_) => match duration {
                 0 => 0,
                 1..=480 => 6,       // <=4H扣除6%质押币
                 481..=2880 => 12,   // <=24H扣除12%质押币
@@ -105,7 +106,7 @@ where
                 5761..=14400 => 60, // <=120H扣除60%质押币
                 _ => 100,           // >120H扣除100%质押币
             },
-            Self::RentedHardwareCounterfeit(block) => match block.clone().saturated_into::<u64>() {
+            Self::RentedHardwareCounterfeit(_) => match duration {
                 0 => 0,
                 1..=480 => 12,      // <=4H扣12%质押币
                 481..=2880 => 24,   // <=24H扣24%质押币
@@ -113,7 +114,7 @@ where
                 5761..=14400 => 60, // <=120H扣60%质押币
                 _ => 100,           // >120H扣100%押金
             },
-            Self::OnlineRentFailed(block) => match block.clone().saturated_into::<u64>() {
+            Self::OnlineRentFailed(_) => match duration {
                 0 => 0,
                 1..=480 => 6,       // <=4H扣6%质押币
                 481..=2880 => 12,   // <=24H扣12%质押币

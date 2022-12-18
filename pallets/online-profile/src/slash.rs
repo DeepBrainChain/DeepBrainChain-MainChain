@@ -184,154 +184,54 @@ impl<T: Config> Pallet<T> {
         committee: Option<Vec<T::AccountId>>,
         duration: T::BlockNumber,
     ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        let (percent, reporter, renters, committee) = match slash_reason {
+        let percent = slash_reason.slash_percent(duration.saturated_into::<u64>());
+
+        let (reporter, renters, committee) = match slash_reason {
             // 算工主动报告被租用的机器，主动下线
-            OPSlashReason::RentedReportOffline(_) =>
-                Self::new_slash_rented_report_offline(duration, reporter, renters),
+            OPSlashReason::RentedReportOffline(_) => {
+                let reporter = match duration.saturated_into::<u64>() {
+                    0..=5760 => None,
+                    _ => reporter,
+                };
+                (reporter, renters, None)
+            },
             // 算工主动报告在线的机器，主动下线
-            OPSlashReason::OnlineReportOffline(_) =>
-                Self::new_slash_online_report_offline(duration, &machine_id),
+            OPSlashReason::OnlineReportOffline(_) => {
+                let now = <frame_system::Module<T>>::block_number();
+                let machine_info = Self::machines_info(&machine_id);
+
+                // 判断是否已经下线十天，如果是，则不进行惩罚，仅仅下线处理
+                // NOTE: 此时，machine_info.last_online_height还未改变
+                if now >
+                    28800u32.saturated_into::<T::BlockNumber>() +
+                        duration +
+                        machine_info.last_online_height
+                {
+                    // TODO: handle this
+                    return Default::default()
+                }
+
+                (None, vec![], None)
+            },
             // 机器处于租用状态，无法访问，这种情况下，reporter == renter
-            OPSlashReason::RentedInaccessible(_) =>
-                Self::new_slash_rented_inaccessible(duration, reporter, renters, committee),
-            // 机器处于租用状态，机器出现故障
-            OPSlashReason::RentedHardwareMalfunction(_) =>
-                Self::new_slash_rented_hardware_mulfunction(duration, reporter, renters, committee),
-            // 机器处于租用状态，机器硬件造假
-            OPSlashReason::RentedHardwareCounterfeit(_) =>
-                Self::new_slash_rented_hardware_counterfeit(duration, reporter, renters, committee),
-            // 机器在线，被举报无法租用
-            OPSlashReason::OnlineRentFailed(_) =>
-                Self::new_slash_online_rent_failed(duration, reporter, renters, committee),
-            _ => Default::default(), //  OPPendingSlashInfo::default(),
+            OPSlashReason::RentedInaccessible(_) => {
+                let reporter = match duration.saturated_into::<u64>() {
+                    0..=5760 => None,
+                    _ => reporter,
+                };
+
+                (reporter, renters, committee)
+            },
+            // 机器处于租用状态，机器出现故障. 10%给用户，20%给验证人，70%进入国库
+            OPSlashReason::RentedHardwareMalfunction(_) => (reporter, renters, committee),
+            // 机器处于租用状态，机器硬件造假. 10%给用户，20%给验证人，70%进入国库
+            OPSlashReason::RentedHardwareCounterfeit(_) => (reporter, renters, committee),
+            // 机器在线，被举报无法租用. 10%给用户，20%给验证人，70%进入国库
+            OPSlashReason::OnlineRentFailed(_) => (reporter, renters, committee),
+            _ => Default::default(),
         };
 
-        // Self::new_offline_slash(?percent, machine_id, ?reporter, ?renters, ?None, slash_reason)
         Self::new_offline_slash(percent, machine_id, reporter, renters, committee, slash_reason)
-    }
-
-    fn new_slash_rented_report_offline(
-        duration: T::BlockNumber,
-        reporter: Option<T::AccountId>,
-        renters: Vec<T::AccountId>,
-    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
-        let (percent, reporter) = match duration.saturated_into::<u64>() {
-            0 => (0, None),
-            1..=14 => (2, None),            // <=7M扣除2%质押币。100%进入国库
-            15..=5760 => (4, None),         // <=48H扣除4%质押币。100%进入国库
-            5761..=14400 => (30, reporter), /* <=120H扣30%质押币，10%给用户，90%进入国库 */
-            _ => (50, reporter),            /* >120H扣除50%质押币。10%给用户，90%进入国库 */
-        };
-        (percent, reporter, renters, None)
-    }
-
-    fn new_slash_online_report_offline(
-        duration: T::BlockNumber,
-        machine_id: &MachineId,
-    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
-        let now = <frame_system::Module<T>>::block_number();
-        let machine_info = Self::machines_info(machine_id);
-
-        // 判断是否已经下线十天，如果是，则不进行惩罚，仅仅下线处理
-        // NOTE: 此时，machine_info.last_online_height还未改变
-        if now >
-            28800u32.saturated_into::<T::BlockNumber>() +
-                duration +
-                machine_info.last_online_height
-        {
-            // TODO: handle this
-            return Default::default()
-        }
-
-        let percent = match duration.saturated_into::<u64>() {
-            0 => 0,
-            1..=14 => 2,        /* <=7M扣除2%质押币，全部进入国库。 */
-            15..=5760 => 4,     /* <=48H扣除4%质押币，全部进入国库 */
-            5761..=28800 => 30, /* <=240H扣除30%质押币，全部进入国库 */
-            _ => 80,            /* TODO: 如果机器从首次上线时间起超过365天，剩下20%
-                                  * 押金可以申请退回。
-                                  * 扣除80%质押币。质押币全部进入国库。 */
-        };
-
-        (percent, None, vec![], None)
-    }
-
-    fn new_slash_rented_inaccessible(
-        duration: T::BlockNumber,
-        reporter: Option<T::AccountId>,
-        renters: Vec<T::AccountId>,
-        committee: Option<Vec<T::AccountId>>,
-    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
-        let (percent, reporter) = match duration.saturated_into::<u64>() {
-            0 => (0, None),
-            1..=14 => (4, None),    // <=7M扣除4%质押币。10%给验证人，90%进入国库
-            15..=5760 => (8, None), // <=48H扣除8%质押币。10%给验证人，90%进入国库
-            5761..=14400 => (60, reporter), /* <=120H扣除60%质押币。10%给用户，20%给验证人，70% */
-            // 进入国库
-            _ => (100, reporter), /* >120H扣除100%押金。10%给到用户，20%给到验证人，70%进入国库 */
-        };
-
-        (percent, reporter, renters, committee)
-    }
-
-    fn new_slash_rented_hardware_mulfunction(
-        duration: T::BlockNumber,
-        reporter: Option<T::AccountId>,
-        renters: Vec<T::AccountId>,
-        committee: Option<Vec<T::AccountId>>,
-    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
-        // 根据下线时长确定 slash 比例
-        // 10%给用户，20%给验证人，70%进入国库
-        let percent = match duration.saturated_into::<u64>() {
-            0 => 0,
-            1..=480 => 6,       // <=4H扣除6%质押币
-            481..=2880 => 12,   // <=24H扣除12%质押币
-            2881..=5760 => 16,  // <=48H扣除16%质押币
-            5761..=14400 => 60, // <=120H扣除60%质押币
-            _ => 100,           // >120H扣除100%质押币
-        };
-
-        (percent, reporter, renters, committee)
-    }
-
-    fn new_slash_rented_hardware_counterfeit(
-        duration: T::BlockNumber,
-        reporter: Option<T::AccountId>,
-        renters: Vec<T::AccountId>,
-        committee: Option<Vec<T::AccountId>>,
-    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
-        // 根据下线时长确定 slash 比例
-        // 10%给用户，20%给验证人，70%进入国库
-        let percent = match duration.saturated_into::<u64>() {
-            0 => 0,
-            1..=480 => 12,      // <=4H扣12%质押币
-            481..=2880 => 24,   // <=24H扣24%质押币
-            2881..=5760 => 32,  // <=48H扣32%质押币
-            5761..=14400 => 60, // <=120H扣60%质押币
-            _ => 100,           // >120H扣100%押金
-        };
-
-        (percent, reporter, renters, committee)
-    }
-
-    fn new_slash_online_rent_failed(
-        duration: T::BlockNumber,
-        reporter: Option<T::AccountId>,
-        renters: Vec<T::AccountId>,
-        committee: Option<Vec<T::AccountId>>,
-    ) -> (u32, Option<T::AccountId>, Vec<T::AccountId>, Option<Vec<T::AccountId>>) {
-        // ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        // 根据下线时长确定 slash 比例
-        // 10%给用户，20%给验证人，70%进入国库
-        let percent = match duration.saturated_into::<u64>() {
-            0 => 0,
-            1..=480 => 6,       // <=4H扣6%质押币
-            481..=2880 => 12,   // <=24H扣12%质押币
-            2881..=5760 => 16,  // <=48H扣16%质押币
-            5761..=14400 => 60, // <=120H扣60%质押币
-            _ => 100,           // >120H扣100%押金
-        };
-        (percent, reporter, renters, committee)
     }
 
     pub fn new_offline_slash(
