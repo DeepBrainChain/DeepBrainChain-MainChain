@@ -25,6 +25,7 @@ jobs:
           - rent-machine
           - maintain-committee
           - committee
+          - terminating-rental
 
     steps:
       - name: Add wasm toolchain

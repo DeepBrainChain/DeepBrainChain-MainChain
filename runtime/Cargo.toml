@@ -100,6 +100,8 @@ std = [
   'maintain-committee/std',
   'rent-machine/std',
   'rent-machine-runtime-api/std',
+  'terminating-rental/std',
+  'terminating-rental-runtime-api/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -400,6 +402,11 @@ default-features = false
 package = 'rent-machine'
 path = '../pallets/rent-machine'
 
+[dependencies.terminating-rental]
+default-features = false
+package = 'terminating-rental'
+path = '../pallets/terminating-rental'
+
 [dependencies.rent-machine-runtime-api]
 default-features = false
 package = 'rent-machine-runtime-api'
@@ -409,6 +416,11 @@ path = '../pallets/rent-machine/rpc/runtime-api'
 default-features = false
 package = 'online-profile-runtime-api'
 path = '../pallets/online-profile/rpc/runtime-api'
+
+[dependencies.terminating-rental-runtime-api]
+default-features = false
+package = 'terminating-rental-runtime-api'
+path = '../pallets/terminating-rental/rpc/runtime-api'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

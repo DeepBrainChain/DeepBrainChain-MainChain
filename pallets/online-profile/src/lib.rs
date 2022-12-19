@@ -425,6 +425,7 @@ pub mod pallet {
                 !<ControllerStash<T>>::contains_key(&controller),
                 Error::<T>::AlreadyController
             );
+            ensure!(!<StashController<T>>::contains_key(&stash), Error::<T>::AlreadyController);
 
             StashController::<T>::insert(stash.clone(), controller.clone());
             ControllerStash::<T>::insert(controller.clone(), stash.clone());
@@ -494,18 +495,18 @@ pub mod pallet {
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
-            Self::change_user_total_stake(machine_info.machine_stash.clone(), stake_amount, true)
+            Self::change_stake(machine_info.machine_stash.clone(), stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
             UserMutHardwareStake::<T>::insert(
                 &machine_info.machine_stash,
                 &machine_id,
                 UserMutHardwareStakeInfo { stake_amount, offline_time: now },
             );
-            Self::change_pos_info_by_online(&machine_info, false);
-            Self::update_snap_by_online_status(machine_id.clone(), false);
+            Self::update_region_on_online_changed(&machine_info, false);
+            Self::update_snap_on_online_changed(machine_id.clone(), false);
 
             LiveMachines::<T>::mutate(|live_machines| {
-                live_machines.offline_to_change_hardware(machine_id.clone());
+                live_machines.on_offline_change_hardware(machine_id.clone());
             });
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
@@ -534,14 +535,14 @@ pub mod pallet {
             let stake_amount = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
             // 扣除10个Dbc作为交易手续费; 并质押
             Self::pay_fixed_tx_fee(controller.clone())?;
-            Self::change_user_total_stake(stash.clone(), stake_amount, true)
+            Self::change_stake(stash.clone(), stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             StashMachines::<T>::mutate(&stash, |stash_machines| {
                 stash_machines.new_bonding(machine_id.clone());
             });
             LiveMachines::<T>::mutate(|live_machines| {
-                live_machines.new_bonding(machine_id.clone());
+                live_machines.on_bonding(machine_id.clone());
             });
             ControllerMachines::<T>::mutate(&controller, |controller_machines| {
                 ItemList::add_item(controller_machines, machine_id.clone());
@@ -583,7 +584,7 @@ pub mod pallet {
             // 查询机器Id是否在该账户的控制下
             let machine_info = Self::machines_info(&machine_id);
             machine_info
-                .can_add_server_room_info(&controller)
+                .can_add_server_room(&controller)
                 .map_err::<Error<T>, _>(Into::into)?;
 
             let stash_server_rooms = Self::stash_server_rooms(&machine_info.machine_stash);
@@ -596,7 +597,7 @@ pub mod pallet {
             // 当是第一次上线添加机房信息时
             LiveMachines::<T>::mutate(|live_machines| {
                 live_machines
-                    .add_server_room_info(machine_id.clone(), machine_info.machine_status.clone())
+                    .on_add_server_room(machine_id.clone(), machine_info.machine_status.clone())
             });
             MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
                 machine_info.add_server_room_info(server_room_info);
@@ -636,12 +637,8 @@ pub mod pallet {
             // 当出现需要补交质押时，补充质押并记录到机器信息中
             if machine_info.stake_amount < stake_need {
                 let extra_stake = stake_need - machine_info.stake_amount;
-                Self::change_user_total_stake(
-                    machine_info.machine_stash.clone(),
-                    extra_stake,
-                    true,
-                )
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                Self::change_stake(machine_info.machine_stash.clone(), extra_stake, true)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
                 machine_info.stake_amount = stake_need;
             }
             machine_info.machine_status = MachineStatus::Online;
@@ -675,7 +672,7 @@ pub mod pallet {
                     PendingSlash::<T>::insert(slash_id, slash_info);
                 }
                 // 退还reonline_stake
-                Self::change_user_total_stake(
+                Self::change_stake(
                     machine_info.machine_stash.clone(),
                     reonline_stake.stake_amount,
                     false,
@@ -700,8 +697,8 @@ pub mod pallet {
             machine_info.last_online_height = now;
             machine_info.last_machine_restake = now;
 
-            Self::change_pos_info_by_online(&machine_info, true);
-            Self::update_snap_by_online_status(machine_id.clone(), true);
+            Self::update_region_on_online_changed(&machine_info, true);
+            Self::update_snap_on_online_changed(machine_id.clone(), true);
 
             ItemList::rm_item(&mut live_machine.fulfilling_machine, &machine_id);
             ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
@@ -872,7 +869,7 @@ pub mod pallet {
             // 否则，补交质押，不插入新惩罚
             if slash_info.slash_amount != Zero::zero() {
                 // 任何情况重新上链都需要补交质押
-                Self::change_user_total_stake(
+                Self::change_stake(
                     machine_info.machine_stash.clone(),
                     slash_info.slash_amount,
                     true,
@@ -899,12 +896,12 @@ pub mod pallet {
 
             ItemList::rm_item(&mut live_machine.offline_machine, &machine_id);
 
-            Self::update_snap_by_online_status(machine_id.clone(), true);
-            Self::change_pos_info_by_online(&machine_info, true);
+            Self::update_snap_on_online_changed(machine_id.clone(), true);
+            Self::update_region_on_online_changed(&machine_info, true);
             if machine_info.machine_status == MachineStatus::Rented {
                 ItemList::add_item(&mut live_machine.rented_machine, machine_id.clone());
-                Self::update_snap_by_rent_status(machine_id.clone(), true);
-                Self::change_pos_info_by_rent(&machine_info, true);
+                Self::update_snap_on_rent_changed(machine_id.clone(), true);
+                Self::update_region_on_rent_changed(&machine_info, true);
             } else {
                 ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
             }
@@ -975,7 +972,7 @@ pub mod pallet {
             machine_info.stake_amount = stake_need;
             machine_info.last_machine_restake = now;
             machine_info.init_stake_per_gpu = stake_per_gpu;
-            Self::change_user_total_stake(machine_info.machine_stash.clone(), extra_stake, false)
+            Self::change_stake(machine_info.machine_stash.clone(), extra_stake, false)
                 .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
             MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
@@ -1002,7 +999,7 @@ pub mod pallet {
             ensure!(slash_info.slash_exec_time > now, Error::<T>::ExpiredSlash);
 
             // 补交质押
-            Self::change_user_total_stake(
+            Self::change_stake(
                 machine_info.machine_stash,
                 online_stake_params.slash_review_stake,
                 true,
@@ -1108,20 +1105,16 @@ impl<T: Config> Pallet<T> {
         mut machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> DispatchResultWithPostInfo {
         // 下线机器，并退还奖励
-        Self::change_pos_info_on_exit(&machine_info);
-        Self::update_snap_by_online_status(machine_id.clone(), false);
-        Self::change_user_total_stake(
-            machine_info.machine_stash.clone(),
-            machine_info.stake_amount,
-            false,
-        )
-        .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+        Self::update_region_on_exit(&machine_info);
+        Self::update_snap_on_online_changed(machine_id.clone(), false);
+        Self::change_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
+            .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
         machine_info.stake_amount = Zero::zero();
         machine_info.machine_status = MachineStatus::Exit;
 
         LiveMachines::<T>::mutate(|live_machines| {
-            live_machines.machine_exit(&machine_id);
+            live_machines.on_exit(&machine_id);
         });
 
         let mut controller_machines = Self::controller_machines(&machine_info.controller);
@@ -1158,15 +1151,11 @@ impl<T: Config> Pallet<T> {
         let slash_info = Self::pending_slash(slash_id);
         let pending_slash_review = Self::pending_slash_review(slash_id);
 
-        Self::change_user_total_stake(slash_info.slash_who.clone(), slash_info.slash_amount, false)
+        Self::change_stake(slash_info.slash_who.clone(), slash_info.slash_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
-        Self::change_user_total_stake(
-            slash_info.slash_who.clone(),
-            pending_slash_review.staked_amount,
-            false,
-        )
-        .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+        Self::change_stake(slash_info.slash_who.clone(), pending_slash_review.staked_amount, false)
+            .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
         PendingSlashReviewChecking::<T>::mutate(
             slash_info.slash_exec_time,
@@ -1197,18 +1186,18 @@ impl<T: Config> Pallet<T> {
         let mut machine_info = Self::machines_info(&machine_id);
 
         LiveMachines::<T>::mutate(|live_machines| {
-            live_machines.machine_offline(machine_id.clone());
+            live_machines.on_offline(machine_id.clone());
         });
 
         // 先根据机器当前状态，之后再变更成下线状态
         if let MachineStatus::Rented = machine_info.machine_status {
-            Self::change_pos_info_by_rent(&machine_info, false);
-            Self::update_snap_by_rent_status(machine_id.clone(), false);
+            Self::update_region_on_rent_changed(&machine_info, false);
+            Self::update_snap_on_rent_changed(machine_id.clone(), false);
         }
 
         // When offline, pos_info will be removed
-        Self::change_pos_info_by_online(&machine_info, false);
-        Self::update_snap_by_online_status(machine_id.clone(), false);
+        Self::update_region_on_online_changed(&machine_info, false);
+        Self::update_snap_on_online_changed(machine_id.clone(), false);
 
         // After re-online, machine status is same as former
         machine_info.machine_status = machine_status;
@@ -1216,11 +1205,7 @@ impl<T: Config> Pallet<T> {
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 
-    fn change_user_total_stake(
-        who: T::AccountId,
-        amount: BalanceOf<T>,
-        is_add: bool,
-    ) -> Result<(), ()> {
+    fn change_stake(who: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let mut stash_stake = Self::stash_stake(&who);
 
         // 更改 stash_stake
@@ -1235,7 +1220,7 @@ impl<T: Config> Pallet<T> {
 
         // 更改sys_info
         SysInfo::<T>::mutate(|sys_info| {
-            sys_info.change_stake(amount, is_add);
+            sys_info.on_stake_changed(amount, is_add);
         });
         StashStake::<T>::insert(&who, stash_stake);
 
@@ -1262,7 +1247,7 @@ impl<T: Config> Pallet<T> {
     // When Offline:
     // - Writes: (currentEra) ErasStashPoints, ErasMachinePoints, (nextEra) ErasStashPoints,
     //   ErasMachinePoints SysInfo, StashMachines
-    fn update_snap_by_online_status(machine_id: MachineId, is_online: bool) {
+    fn update_snap_on_online_changed(machine_id: MachineId, is_online: bool) {
         let machine_info = Self::machines_info(&machine_id);
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info.clone();
         let current_era = Self::current_era();
@@ -1353,7 +1338,7 @@ impl<T: Config> Pallet<T> {
 
     // - Writes:
     // ErasStashPoints, ErasMachinePoints, SysInfo, StashMachines
-    fn update_snap_by_rent_status(machine_id: MachineId, is_rented: bool) {
+    fn update_snap_on_rent_changed(machine_id: MachineId, is_rented: bool) {
         let machine_info = Self::machines_info(&machine_id);
         let current_era = Self::current_era();
 

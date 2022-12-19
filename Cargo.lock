@@ -1332,33 +1332,28 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
  "pallet-authorship",
- "pallet-balances",
  "pallet-session",
- "pallet-staking-reward-curve 3.0.0",
  "pallet-timestamp",
  "parity-scale-codec",
- "parking_lot 0.11.1",
  "rand_chacha 0.2.2",
  "serde",
  "sp-application-crypto",
- "sp-core",
  "sp-io",
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
  "sp-std",
- "sp-storage",
- "sp-tracing",
  "static_assertions",
- "substrate-test-utils",
 ]
 
 [[package]]
 name = "dbc-support"
 version = "0.1.0"
 dependencies = [
+ "bs58",
+ "sp-core",
+ "sp-runtime",
  "sp-std",
 ]
 
@@ -4101,6 +4096,8 @@ dependencies = [
  "sp-runtime",
  "sp-transaction-pool",
  "substrate-frame-rpc-system",
+ "terminating-rental-rpc",
+ "terminating-rental-runtime-api",
 ]
 
 [[package]]
@@ -4168,7 +4165,7 @@ dependencies = [
  "pallet-session",
  "pallet-session-benchmarking",
  "pallet-society",
- "pallet-staking-reward-curve 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
+ "pallet-staking-reward-curve",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-tips",
@@ -4200,6 +4197,8 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
+ "terminating-rental",
+ "terminating-rental-runtime-api",
 ]
 
 [[package]]
@@ -5033,17 +5032,6 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "static_assertions",
-]
-
-[[package]]
-name = "pallet-staking-reward-curve"
-version = "3.0.0"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "sp-runtime",
- "syn",
 ]
 
 [[package]]
@@ -8789,26 +8777,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "substrate-test-utils"
-version = "3.0.0"
-source = "git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "futures 0.3.13",
- "substrate-test-utils-derive",
- "tokio 0.2.25",
-]
-
-[[package]]
-name = "substrate-test-utils-derive"
-version = "0.9.0"
-source = "git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "proc-macro-crate",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "substrate-wasm-builder"
 version = "4.0.0"
 source = "git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
@@ -8897,6 +8865,60 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "terminating-rental"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "committee",
+ "dbc-price-ocw",
+ "dbc-support",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "online-committee",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "terminating-rental-rpc"
+version = "0.1.0"
+dependencies = [
+ "generic-func",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+ "terminating-rental",
+ "terminating-rental-runtime-api",
+]
+
+[[package]]
+name = "terminating-rental-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "dbc-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+ "terminating-rental",
 ]
 
 [[package]]
@@ -9052,7 +9074,6 @@ dependencies = [
  "pin-project-lite 0.1.12",
  "signal-hook-registry",
  "slab",
- "tokio-macros",
  "winapi 0.3.9",
 ]
 
@@ -9118,17 +9139,6 @@ dependencies = [
  "bytes 0.4.12",
  "futures 0.1.31",
  "log",
-]
-
-[[package]]
-name = "tokio-macros"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e44da00bfc73a25f814cd8d7e57a68a5c31b74b3152a0a1d1f590c97ed06265a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

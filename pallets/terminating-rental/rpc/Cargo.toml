@@ -1,0 +1,31 @@
+[package]
+name = "terminating-rental-rpc"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.0.0", features = [
+  "derive",
+] }
+jsonrpc-core = "15.0"
+jsonrpc-core-client = "15.0"
+jsonrpc-derive = "15.0"
+serde = { version = "1.0.101", features = ["derive"] }
+generic-func = { version = "0.1.0", path = "../../generic-func" }
+terminating-rental = { version = "0.1.0", path = "../../terminating-rental" }
+terminating-rental-runtime-api = { version = "0.1.0", path = "./runtime-api" }
+
+[dependencies.sp-runtime]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.sp-api]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dependencies.sp-blockchain]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'

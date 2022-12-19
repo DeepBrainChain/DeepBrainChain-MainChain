@@ -2,5 +2,6 @@
 
 pub mod primitives;
 pub mod traits;
+pub mod utils;
 
 pub use primitives::*;
