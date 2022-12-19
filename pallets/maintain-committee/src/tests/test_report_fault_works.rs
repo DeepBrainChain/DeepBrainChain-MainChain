@@ -32,6 +32,7 @@ fn report_machine_fault_works_case1() {
         let report_hash: [u8; 16] =
             hex::decode("2611557f5306f050019eeb27648c5494").unwrap().try_into().unwrap();
 
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
@@ -273,6 +274,40 @@ fn report_machine_fault_works_case1() {
             Origin::signed(*controller),
             machine_id.clone()
         ));
+
+        {
+            assert_eq!(OnlineProfile::pending_exec_slash(11895), vec![0]);
+            assert_eq!(
+                OnlineProfile::pending_slash(0),
+                online_profile::OPPendingSlashInfo {
+                    slash_who: stash,
+                    machine_id: machine_id.clone(),
+                    slash_time: 6135,
+                    slash_amount: 240000000000000000000,
+                    slash_exec_time: 11895,
+                    reporter: Some(*reporter),
+                    renters: vec![],
+                    reward_to_committee: Some(vec![*committee1]),
+                    slash_reason: online_profile::OPSlashReason::RentedHardwareMalfunction(11),
+                }
+            );
+        }
+
+        run_to_block(11896);
+        let machine_info = OnlineProfile::machines_info(&machine_id);
+
+        // FIXME: 修复错误
+        assert_eq!(machine_info.machine_status, online_profile::MachineStatus::WaitingFulfill);
+        assert_eq!(
+            Balances::reserved_balance(machine_info.machine_stash),
+            (400000 - 240000) * ONE_DBC
+        );
+        assert_eq!(
+            Balances::free_balance(machine_info.machine_stash),
+            INIT_BALANCE - 420000 * ONE_DBC // stash is also committee
+        );
+
+        // assert_eq!(machine_info.stake_amount, )
     })
 }
 
