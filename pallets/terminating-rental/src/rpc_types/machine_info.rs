@@ -3,9 +3,9 @@ use crate::{
     IRStakerCustomizeInfo, IRStashMachine,
 };
 use codec::{Decode, Encode};
-use dbc_support::MachineId;
 #[cfg(feature = "std")]
-use generic_func::{rpc_types::serde_text, RpcText};
+use dbc_support::rpc_types::{serde_text, RpcText};
+use dbc_support::MachineId;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;

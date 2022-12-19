@@ -6,11 +6,11 @@ use codec::Codec;
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 
-use dbc_support::MachineId;
+use dbc_support::{rental_type::RentOrderDetail, MachineId, RentOrderId};
 use terminating_rental::{
     rpc_types::{RpcIRCommitteeOps, StakerInfo},
     IRCommitteeMachineList, IRLiveMachine, IRMachineCommitteeList, IRMachineGPUOrder,
-    IRMachineInfo, IRRentOrderDetail, RentOrderId,
+    IRMachineInfo,
 };
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
@@ -31,7 +31,7 @@ sp_api::decl_runtime_apis! {
         fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> RpcIRCommitteeOps<BlockNumber, Balance>;
 
 
-        fn get_rent_order(rent_id: RentOrderId) -> IRRentOrderDetail<AccountId, BlockNumber, Balance>;
+        fn get_rent_order(rent_id: RentOrderId) -> RentOrderDetail<AccountId, BlockNumber, Balance>;
         fn get_rent_list(renter: AccountId) -> Vec<RentOrderId>;
         fn is_machine_renter(machine_id: MachineId, renter: AccountId) -> bool;
         fn get_machine_rent_id(machine_id: MachineId) -> IRMachineGPUOrder;

@@ -9,13 +9,13 @@ use sp_runtime::{
 };
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
-use generic_func::RpcBalance;
+use dbc_support::{rental_type::RentOrderDetail, rpc_types::RpcBalance, RentOrderId};
 use terminating_rental::{
     rpc_types::{
         RpcIRCommitteeMachineList, RpcIRCommitteeOps, RpcLiveMachine, RpcMachineInfo,
         RpcStakerInfo, RpcStashMachine,
     },
-    IRMachineCommitteeList, IRMachineGPUOrder, IRRentOrderDetail, RentOrderId,
+    IRMachineCommitteeList, IRMachineGPUOrder,
 };
 use terminating_rental_runtime_api::IrRpcApi as IrStorageRuntimeApi;
 
@@ -72,7 +72,7 @@ where
         &self,
         rent_id: RentOrderId,
         at: Option<BlockHash>,
-    ) -> Result<IRRentOrderDetail<AccountId, BlockNumber, RpcBalance<Balance>>>;
+    ) -> Result<RentOrderDetail<AccountId, BlockNumber, RpcBalance<Balance>>>;
 
     #[rpc(name = "terminatingRental_getRentList")]
     fn get_rent_list(&self, renter: AccountId, at: Option<BlockHash>) -> Result<Vec<RentOrderId>>;
@@ -275,12 +275,12 @@ where
         &self,
         rent_id: RentOrderId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<IRRentOrderDetail<AccountId, BlockNumber, RpcBalance<Balance>>> {
+    ) -> Result<RentOrderDetail<AccountId, BlockNumber, RpcBalance<Balance>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result =
-            api.get_rent_order(&at, rent_id).map(|order_detail| IRRentOrderDetail {
+            api.get_rent_order(&at, rent_id).map(|order_detail| RentOrderDetail {
                 machine_id: order_detail.machine_id,
                 renter: order_detail.renter,
                 rent_start: order_detail.rent_start,

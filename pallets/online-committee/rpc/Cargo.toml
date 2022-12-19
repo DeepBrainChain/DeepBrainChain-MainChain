@@ -5,13 +5,13 @@ version = "0.1.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", features = [
-  "derive"
+  "derive",
 ] }
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
 serde = { version = "1.0.101", features = ["derive"] }
-generic-func = { version = "0.1.0", path = "../../generic-func" }
+dbc-support = { version = "0.1.0", path = "../../support" }
 online-committee = { version = "0.1.0", path = "../../online-committee" }
 online-committee-runtime-api = { version = "0.1.0", path = "./runtime-api" }
 

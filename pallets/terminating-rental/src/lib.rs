@@ -23,8 +23,9 @@ use sp_runtime::{
 use sp_std::{prelude::*, str, vec::Vec};
 
 use dbc_support::{
+    rental_type::{RentOrderDetail, RentStatus},
     traits::{DbcPrice, GNOps, ManageCommittee},
-    EraIndex, MachineId, SlashId, TWO_DAY,
+    EraIndex, MachineId, RentOrderId, SlashId, TWO_DAY,
 };
 use generic_func::ItemList;
 
@@ -196,7 +197,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         RentOrderId,
-        IRRentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -653,7 +654,7 @@ pub mod pallet {
 
             RentOrder::<T>::insert(
                 &rent_id,
-                IRRentOrderDetail::new(
+                RentOrderDetail::new(
                     machine_id.clone(),
                     renter.clone(),
                     now,
@@ -704,7 +705,7 @@ pub mod pallet {
             let machine_id = order_info.machine_id.clone();
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
             ensure!(
-                order_info.rent_status == IRRentStatus::WaitingVerifying,
+                order_info.rent_status == RentStatus::WaitingVerifying,
                 Error::<T>::NoOrderExist
             );
 
@@ -767,7 +768,7 @@ pub mod pallet {
                 Error::<T>::OnlyAllowIntegerMultipleOfHour
             );
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
-            ensure!(order_info.rent_status == IRRentStatus::Renting, Error::<T>::NoOrderExist);
+            ensure!(order_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 
             let machine_info = Self::machines_info(&machine_id);
             let calc_point = machine_info.calc_point();
@@ -1751,7 +1752,7 @@ impl<T: Config> Pallet<T> {
     // 当租用结束，或者租用被终止时，将保留的金额支付给stash账户，剩余部分解锁给租用人
     // NOTE: 租金的1%将分给验证人
     fn pay_rent_fee(
-        rent_order: &IRRentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        rent_order: &RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         mut rent_fee: BalanceOf<T>,
         machine_id: MachineId,
     ) -> DispatchResult {
@@ -1930,7 +1931,7 @@ impl<T: Config> Pallet<T> {
         // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
         for order_id in machine_order.rent_order {
             let rent_order = Self::rent_order(order_id);
-            if matches!(rent_order.rent_status, IRRentStatus::Renting) {
+            if matches!(rent_order.rent_status, RentStatus::Renting) {
                 renting_count += 1;
             }
         }

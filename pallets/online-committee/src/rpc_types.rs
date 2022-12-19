@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
-use generic_func::RpcText;
+use dbc_support::rpc_types::RpcText;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 

@@ -1352,6 +1352,9 @@ name = "dbc-support"
 version = "0.1.0"
 dependencies = [
  "bs58",
+ "hex",
+ "parity-scale-codec",
+ "serde",
  "sp-core",
  "sp-runtime",
  "sp-std",
@@ -4387,7 +4390,7 @@ dependencies = [
 name = "online-committee-rpc"
 version = "0.1.0"
 dependencies = [
- "generic-func",
+ "dbc-support",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -7736,7 +7739,6 @@ dependencies = [
  "dbc-support",
  "frame-support",
  "frame-system",
- "generic-func",
  "online-profile",
  "pallet-identity",
  "parity-scale-codec",
@@ -7748,7 +7750,7 @@ dependencies = [
 name = "simple-rpc-rpc"
 version = "0.1.0"
 dependencies = [
- "generic-func",
+ "dbc-support",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
@@ -8896,7 +8898,7 @@ dependencies = [
 name = "terminating-rental-rpc"
 version = "0.1.0"
 dependencies = [
- "generic-func",
+ "dbc-support",
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",

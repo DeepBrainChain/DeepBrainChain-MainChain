@@ -6,15 +6,10 @@ version = "0.1.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive"
+  "derive",
 ] }
 dbc-support = { package = "dbc-support", path = "../support", default-features = false }
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
-
-[dependencies.generic-func]
-default-features = false
-package = 'generic-func'
-path = '../generic-func'
 
 [dependencies.online-profile]
 default-features = false
@@ -53,5 +48,5 @@ std = [
   "frame-support/std",
   "serde",
   "sp-std/std",
-  "generic-func/std",
+  "dbc-support/std",
 ]

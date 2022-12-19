@@ -1,8 +1,7 @@
 //! RPC interface for the transaction payment module.
 
 use codec::Codec;
-use dbc_support::EraIndex;
-use generic_func::RpcBalance;
+use dbc_support::{rpc_types::RpcBalance, EraIndex};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use online_profile::{

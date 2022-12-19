@@ -5,7 +5,7 @@ use sp_std::vec::Vec;
 use crate::{
     rpc_types::{MachineBriefInfo, RpcIRCommitteeOps, StakerInfo},
     BalanceOf, Config, IRCommitteeMachineList, IRLiveMachine, IRMachineCommitteeList,
-    IRMachineGPUOrder, IRMachineInfo, IRRentOrderDetail, Pallet, RentOrderId, StashMachines,
+    IRMachineGPUOrder, IRMachineInfo, Pallet, RentOrderDetail, RentOrderId, StashMachines,
 };
 use codec::EncodeLike;
 
@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> Pallet<T> {
     pub fn get_rent_order(
         rent_id: RentOrderId,
-    ) -> IRRentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+    ) -> RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>> {
         Self::rent_order(&rent_id)
     }
 

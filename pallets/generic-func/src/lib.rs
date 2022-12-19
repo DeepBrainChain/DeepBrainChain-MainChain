@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod rpc_types;
 mod traits;
 
+pub use dbc_support::ItemList;
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, OnUnbalanced, Randomness, ReservableCurrency},
@@ -16,37 +16,6 @@ use sp_runtime::{
 use sp_std::{convert::TryInto, prelude::*};
 
 pub use pallet::*;
-pub use rpc_types::*;
-
-pub struct ItemList;
-impl ItemList {
-    pub fn add_item<T>(a_field: &mut Vec<T>, a_item: T)
-    where
-        T: Ord,
-    {
-        if let Err(index) = a_field.binary_search(&a_item) {
-            a_field.insert(index, a_item);
-        }
-    }
-
-    pub fn rm_item<T>(a_field: &mut Vec<T>, a_item: &T)
-    where
-        T: Ord,
-    {
-        if let Ok(index) = a_field.binary_search(a_item) {
-            a_field.remove(index);
-        }
-    }
-
-    pub fn expand_to_order<T>(raw_items: &mut Vec<T>, new_items: Vec<T>)
-    where
-        T: Ord,
-    {
-        for a_item in new_items {
-            Self::add_item(raw_items, a_item);
-        }
-    }
-}
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

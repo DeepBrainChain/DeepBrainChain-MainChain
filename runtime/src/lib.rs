@@ -1270,7 +1270,7 @@ impl_runtime_apis! {
     }
 
     impl rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_rent_order(rent_id: RentOrderId) -> rent_machine::RentOrderDetail<AccountId, BlockNumber, Balance> {
+        fn get_rent_order(rent_id: RentOrderId) -> dbc_support::rental_type::RentOrderDetail<AccountId, BlockNumber, Balance> {
             RentMachine::get_rent_order(rent_id)
         }
 
@@ -1322,7 +1322,7 @@ impl_runtime_apis! {
             TerminatingRental::get_machine_committee_list(machine_id)
         }
 
-        fn get_rent_order(rent_id: RentOrderId) -> terminating_rental::IRRentOrderDetail<AccountId, BlockNumber, Balance> {
+        fn get_rent_order(rent_id: RentOrderId) -> dbc_support::rental_type::RentOrderDetail<AccountId, BlockNumber, Balance> {
             TerminatingRental::get_rent_order(rent_id)
         }
 

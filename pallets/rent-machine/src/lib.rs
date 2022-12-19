@@ -11,8 +11,9 @@ mod mock;
 mod tests;
 
 use dbc_support::{
+    rental_type::{RentOrderDetail, RentStatus},
     traits::{DbcPrice, RTOps},
-    EraIndex, MachineId, RentOrderId,
+    EraIndex, ItemList, MachineId, RentOrderId,
 };
 use frame_support::{
     dispatch::DispatchResult,
@@ -21,7 +22,6 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use generic_func::ItemList;
 pub use online_profile::MachineStatus;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero};
 use sp_std::{prelude::*, str, vec::Vec};

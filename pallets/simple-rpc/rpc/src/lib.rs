@@ -1,5 +1,5 @@
 use codec::Codec;
-use generic_func::RpcBalance;
+use dbc_support::rpc_types::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use simple_rpc::StakerListInfo;

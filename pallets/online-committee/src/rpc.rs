@@ -16,7 +16,7 @@ pub struct RpcOCCommitteeOps<BlockNumber, Balance> {
     pub booked_time: BlockNumber,
     pub staked_dbc: Balance,
     pub verify_time: Vec<BlockNumber>,
-    #[cfg_attr(feature = "std", serde(with = "generic_func::rpc_types::serde_hash"))]
+    #[cfg_attr(feature = "std", serde(with = "dbc_support::rpc_types::serde_hash"))]
     pub confirm_hash: [u8; 16],
     pub hash_time: BlockNumber,
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间

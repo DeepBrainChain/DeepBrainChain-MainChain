@@ -1,9 +1,12 @@
 use crate::{
     Config, ConfirmingOrder, MachineGPUOrder, MachineRentOrder, Module, RentEnding, RentInfo,
-    RentOrderDetail, RentStatus, StorageVersion, UserOrder, WAITING_CONFIRMING_DELAY,
+    StorageVersion, UserOrder, WAITING_CONFIRMING_DELAY,
 };
 use codec::{Decode, Encode};
-use dbc_support::MachineId;
+use dbc_support::{
+    rental_type::{RentOrderDetail, RentStatus},
+    MachineId,
+};
 use frame_support::{debug::info, traits::Get, weights::Weight, IterableStorageMap};
 use generic_func::ItemList;
 #[cfg(feature = "std")]

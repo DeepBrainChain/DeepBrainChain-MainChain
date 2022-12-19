@@ -1,8 +1,7 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
     tests::test_verify_online::new_test_with_machine_bonding_ext, IRCommitteeUploadInfo,
-    IRLiveMachine, IRMachineGPUOrder, IRMachineStatus, IRRentOrderDetail, IRRentStatus,
-    IRStashMachine,
+    IRLiveMachine, IRMachineGPUOrder, IRMachineStatus, IRStashMachine, RentOrderDetail, RentStatus,
 };
 // use committee::CommitteeStakeInfo;
 use frame_support::assert_ok;
@@ -99,7 +98,7 @@ fn rent_machine_works() {
             assert_eq!(TerminatingRental::user_rented(renter1), vec![0]);
             assert_eq!(
                 TerminatingRental::rent_order(0),
-                crate::IRRentOrderDetail {
+                crate::RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: renter1,
                     rent_start: 5,
@@ -107,7 +106,7 @@ fn rent_machine_works() {
                     rent_end: 5 + 60,
                     // 租金: 119780 / 1000 * 5000000 / 12000 * (60 / 2880)
                     stake_amount: 1039756916666666666,
-                    rent_status: crate::IRRentStatus::WaitingVerifying,
+                    rent_status: crate::RentStatus::WaitingVerifying,
                     gpu_num: 8,
                     gpu_index: vec![0, 1, 2, 3, 4, 5, 6, 7]
                 }
@@ -164,14 +163,14 @@ fn rent_machine_works() {
 
             assert_eq!(
                 IRMachine::rent_order(0),
-                IRRentOrderDetail {
+                RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: renter1,
                     rent_start: 5,
                     confirm_rent: 5,
                     rent_end: 65,
                     stake_amount: 1039756916666666666,
-                    rent_status: IRRentStatus::Renting,
+                    rent_status: RentStatus::Renting,
                     gpu_num: 8,
                     gpu_index: vec![0, 1, 2, 3, 4, 5, 6, 7],
                 }

@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
-use generic_func::{rpc_types::serde_text, RpcText};
+use dbc_support::rpc_types::{serde_text, RpcText};
 // use generic_func::rpc_types::RpcText;
 use crate::{
     CommitteeUploadInfo, Latitude, LiveMachine, Longitude, MachineId, MachineInfo,
