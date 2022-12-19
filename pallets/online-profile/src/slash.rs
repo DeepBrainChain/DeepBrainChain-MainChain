@@ -93,71 +93,52 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // 如果机器已经上线超过特定时长而没有上线,则添加惩罚
     pub fn check_offline_machine_duration() {
         let now = <frame_system::Module<T>>::block_number();
         let pending_exec_slash = Self::get_pending_max_slash(now);
 
-        // 主动下线的机器
         for (machine_id, reward_to) in pending_exec_slash {
             let machine_info = Self::machines_info(&machine_id);
-            let slash_info: OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>;
 
-            match machine_info.machine_status {
-                // 主动报告下线
-                MachineStatus::StakerReportOffline(offline_time, status) => match *status {
-                    // 如果下线前是Online状态，且空闲（为Online状态）超过10天，则不进行惩罚
-                    MachineStatus::Online => {
+            let (percent, slash_reason, committee) = match machine_info.machine_status {
+                MachineStatus::StakerReportOffline(offline_time, status) => {
+                    match *status {
+                        // 如果下线前是Online状态，且空闲（为Online状态）超过10天，则不进行惩罚
                         // 下线达到10天，达到最大惩罚，则添加惩罚
-                        slash_info = Self::new_offline_slash(
-                            80,
-                            machine_id.clone(),
-                            reward_to.0,
-                            reward_to.1,
-                            None,
-                            OPSlashReason::OnlineReportOffline(offline_time),
-                        );
-                    },
-                    MachineStatus::Rented => {
+                        MachineStatus::Online =>
+                            (80, OPSlashReason::OnlineReportOffline(offline_time), None),
                         // 租用时主动下线，最多5天达到惩罚最大
-                        slash_info = Self::new_offline_slash(
-                            50,
-                            machine_id.clone(),
-                            reward_to.0,
-                            reward_to.1,
-                            None,
-                            OPSlashReason::RentedReportOffline(offline_time),
-                        );
-                    },
-                    _ => continue,
+                        MachineStatus::Rented =>
+                            (50, OPSlashReason::RentedReportOffline(offline_time), None),
+                        _ => continue,
+                    }
                 },
-                MachineStatus::ReporterReportOffline(
-                    offline_reason,
-                    _status,
-                    _reporter,
-                    committee,
-                ) => {
+                MachineStatus::ReporterReportOffline(slash_reason, _st, _rp, committee) => {
                     // 被举报时，超过5天达到惩罚最大
-                    if matches!(
-                        offline_reason,
+                    if !matches!(
+                        slash_reason,
                         OPSlashReason::RentedInaccessible(_) |
                             OPSlashReason::RentedHardwareCounterfeit(_) |
                             OPSlashReason::RentedHardwareMalfunction(_) |
                             OPSlashReason::OnlineRentFailed(_)
                     ) {
-                        slash_info = Self::new_offline_slash(
-                            100,
-                            machine_id.clone(),
-                            reward_to.0,
-                            reward_to.1,
-                            Some(committee),
-                            offline_reason,
-                        );
-                    } else {
                         continue
                     }
+                    (100, slash_reason, Some(committee))
                 },
                 _ => continue,
-            }
+            };
+
+            let slash_info = Self::new_offline_slash(
+                percent,
+                machine_id.clone(),
+                reward_to.0,
+                reward_to.1,
+                committee,
+                slash_reason,
+            );
+
             // 插入一个新的SlashId
             if slash_info.slash_amount != Zero::zero() {
                 let slash_id = Self::get_new_slash_id();
@@ -271,24 +252,22 @@ impl<T: Config> Pallet<T> {
         slash_info: &OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) {
         let machine_info = Self::machines_info(&slash_info.machine_id);
-
-        let reward_to_reporter = if !slash_info.renters.is_empty() {
-            Perbill::from_rational_approximation(10u32, 100u32) * slash_info.slash_amount
-        } else {
-            Zero::zero()
-        };
-        let reward_to_committee = if slash_info.reward_to_committee.is_some() {
-            Perbill::from_rational_approximation(20u32, 100u32) * slash_info.slash_amount
-        } else {
-            Zero::zero()
-        };
-        let slash_to_treasury = slash_info.slash_amount - reward_to_reporter - reward_to_committee;
-
         if <T as Config>::Currency::reserved_balance(&machine_info.machine_stash) <
             slash_info.slash_amount
         {
             return
         }
+
+        let (mut reward_to_reporter, mut reward_to_committee) = (Zero::zero(), Zero::zero());
+        if !slash_info.renters.is_empty() {
+            reward_to_reporter =
+                Perbill::from_rational_approximation(10u32, 100u32) * slash_info.slash_amount
+        };
+        if slash_info.reward_to_committee.is_some() {
+            reward_to_committee =
+                Perbill::from_rational_approximation(20u32, 100u32) * slash_info.slash_amount
+        };
+        let slash_to_treasury = slash_info.slash_amount - reward_to_reporter - reward_to_committee;
 
         // reward to reporter:
         if reward_to_reporter > Zero::zero() && !slash_info.renters.is_empty() {
