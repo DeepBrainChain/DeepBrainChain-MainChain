@@ -9,6 +9,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, RTOps},
@@ -21,7 +22,6 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-pub use online_profile::MachineStatus;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero};
 use sp_std::{prelude::*, str, vec::Vec};
 
@@ -282,6 +282,7 @@ pub mod pallet {
         GetMachinePriceFailed,
         OnlyHalfHourAllowed,
         GPUNotEnough,
+        NotMachineRenter,
     }
 }
 
@@ -396,7 +397,7 @@ impl<T: Config> Pallet<T> {
         let gpu_num = rent_info.gpu_num;
 
         ensure!(duration % 60u32.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
-        ensure!(rent_info.renter == renter, Error::<T>::NoOrderExist);
+        ensure!(rent_info.renter == renter, Error::<T>::NotMachineRenter);
         ensure!(rent_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 
         let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);

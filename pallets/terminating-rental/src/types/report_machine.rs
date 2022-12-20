@@ -1,6 +1,6 @@
-use crate::{CustomErr, IRSlashReason};
+use crate::CustomErr;
 use codec::{Decode, Encode};
-use dbc_support::{ItemList, MachineId, RentOrderId};
+use dbc_support::{verify_slash::OPSlashReason, ItemList, MachineId, RentOrderId};
 use frame_support::ensure;
 use sp_runtime::{
     traits::{Saturating, Zero},
@@ -45,14 +45,14 @@ impl IRMachineFaultType {
         }
     }
 
-    pub fn into_op_err<BlockNumber>(&self, report_time: BlockNumber) -> IRSlashReason<BlockNumber> {
+    pub fn into_op_err<BlockNumber>(&self, report_time: BlockNumber) -> OPSlashReason<BlockNumber> {
         match self {
             // Self::RentedInaccessible(..) => OPSlashReason::RentedInaccessible(report_time),
             // Self::RentedHardwareMalfunction(..) =>
             //     OPSlashReason::RentedHardwareMalfunction(report_time),
             // Self::RentedHardwareCounterfeit(..) =>
             //     OPSlashReason::RentedHardwareCounterfeit(report_time),
-            Self::OnlineRentFailed(..) => IRSlashReason::OnlineRentFailed(report_time),
+            Self::OnlineRentFailed(..) => OPSlashReason::OnlineRentFailed(report_time),
         }
     }
 }

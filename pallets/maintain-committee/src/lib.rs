@@ -13,6 +13,7 @@ mod tests;
 use codec::alloc::string::ToString;
 use dbc_support::{
     traits::{GNOps, MTOps, ManageCommittee},
+    verify_slash::OPSlashReason,
     MachineId, RentOrderId, ReportHash, ReportId, FIVE_MINUTE, HALF_HOUR, ONE_HOUR, THREE_HOUR,
     TWO_DAY,
 };
@@ -51,7 +52,7 @@ pub mod pallet {
         type MTOps: MTOps<
             AccountId = Self::AccountId,
             MachineId = MachineId,
-            FaultType = online_profile::OPSlashReason<Self::BlockNumber>,
+            FaultType = OPSlashReason<Self::BlockNumber>,
             Balance = BalanceOf<Self>,
         >;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;

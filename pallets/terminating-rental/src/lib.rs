@@ -23,7 +23,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, str, vec::Vec};
 
 use dbc_support::{
-    machine_type::{CommitteeUploadInfo, StakerCustomizeInfo},
+    machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, GNOps, ManageCommittee},
     EraIndex, MachineId, RentOrderId, SlashId, TWO_DAY,
@@ -721,7 +721,7 @@ pub mod pallet {
 
             let machine_info = Self::machines_info(&machine_id);
             ensure!(
-                machine_info.machine_status == IRMachineStatus::Rented,
+                machine_info.machine_status == MachineStatus::Rented,
                 Error::<T>::StatusNotAllowed
             );
 
@@ -890,7 +890,7 @@ pub mod pallet {
                 Error::<T>::NotMachineController
             );
 
-            if let IRMachineStatus::StakerReportOffline(offline_expire_time) =
+            if let MachineStatus::StakerReportOffline(offline_expire_time, _) =
                 machine_info.machine_status
             {
                 let mut offline_machines = Self::offline_machines(offline_expire_time);
@@ -901,7 +901,7 @@ pub mod pallet {
                     OfflineMachines::<T>::remove(offline_expire_time);
                 }
 
-                machine_info.machine_status = IRMachineStatus::Online;
+                machine_info.machine_status = MachineStatus::Online;
                 MachinesInfo::<T>::insert(machine_id, machine_info);
                 Ok(().into())
             } else {
@@ -1357,7 +1357,7 @@ impl<T: Config> Pallet<T> {
             ItemList::add_item(&mut live_machines.booked_machine, id.clone());
         });
         MachinesInfo::<T>::mutate(&id, |machine_info| {
-            machine_info.machine_status = IRMachineStatus::CommitteeVerifying;
+            machine_info.machine_status = MachineStatus::CommitteeVerifying;
         });
     }
 
@@ -1725,7 +1725,7 @@ impl<T: Config> Pallet<T> {
     // 在rent_machine; rent_machine_by_minutes中使用, confirm_rent之前
     fn change_machine_status_on_rent_start(machine_id: &MachineId, gpu_num: u32) {
         MachinesInfo::<T>::mutate(machine_id, |machine_info| {
-            machine_info.machine_status = IRMachineStatus::Rented;
+            machine_info.machine_status = MachineStatus::Rented;
         });
         MachineRentedGPU::<T>::mutate(machine_id, |machine_rented_gpu| {
             *machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
@@ -1856,11 +1856,10 @@ impl<T: Config> Pallet<T> {
         ItemList::rm_item(&mut machine_info.renters, &renter);
 
         match machine_info.machine_status {
-            IRMachineStatus::ReporterReportOffline(..) |
-            IRMachineStatus::StakerReportOffline(..) => {
+            MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) => {
                 RentedFinished::<T>::insert(machine_id, renter);
             },
-            IRMachineStatus::Rented => {
+            MachineStatus::Rented => {
                 // machine_info.machine_status = new_status;
 
                 // NOTE: 考虑是不是last_rent
@@ -1869,7 +1868,7 @@ impl<T: Config> Pallet<T> {
                     ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
 
                     machine_info.last_online_height = <frame_system::Module<T>>::block_number();
-                    machine_info.machine_status = IRMachineStatus::Online;
+                    machine_info.machine_status = MachineStatus::Online;
 
                     // 租用结束
                     StashMachines::<T>::mutate(&machine_info.machine_stash, |stash_machine| {
@@ -1950,7 +1949,7 @@ impl<T: Config> Pallet<T> {
 
         for machine_id in offline_machines {
             let machine_info = Self::machines_info(&machine_id);
-            if matches!(machine_info.machine_status, IRMachineStatus::StakerReportOffline(..)) {
+            if matches!(machine_info.machine_status, MachineStatus::StakerReportOffline(..)) {
                 <T as Config>::SlashAndReward::slash_and_reward(
                     vec![machine_info.machine_stash.clone()],
                     machine_info.stake_amount,

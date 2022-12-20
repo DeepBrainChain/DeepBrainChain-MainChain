@@ -1,9 +1,9 @@
-use crate::{IRLiveMachine, IRMachineInfo, IRMachineInfoDetail, IRMachineStatus, IRStashMachine};
+use crate::{IRLiveMachine, IRMachineInfo, IRStashMachine};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
 use dbc_support::{
-    machine_type::{CommitteeUploadInfo, StakerCustomizeInfo},
+    machine_type::{CommitteeUploadInfo, MachineInfoDetail, MachineStatus, StakerCustomizeInfo},
     MachineId,
 };
 #[cfg(feature = "std")]
@@ -27,7 +27,7 @@ pub struct RpcMachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub last_online_height: BlockNumber,
     // pub init_stake_per_gpu: Balance,
     pub stake_amount: Balance,
-    pub machine_status: IRMachineStatus<BlockNumber, AccountId>,
+    pub machine_status: MachineStatus<BlockNumber, AccountId>,
     pub total_rented_duration: BlockNumber,
     pub total_rented_times: u64,
     pub total_rent_fee: Balance,
@@ -73,8 +73,8 @@ pub struct RpcMachineInfoDetail {
 }
 
 #[cfg(feature = "std")]
-impl From<IRMachineInfoDetail> for RpcMachineInfoDetail {
-    fn from(info: IRMachineInfoDetail) -> Self {
+impl From<MachineInfoDetail> for RpcMachineInfoDetail {
+    fn from(info: MachineInfoDetail) -> Self {
         Self {
             committee_upload_info: info.committee_upload_info,
             staker_customize_info: info.staker_customize_info.into(),
@@ -172,7 +172,7 @@ pub struct MachineBriefInfo<BlockNumber, AccountId> {
     pub machine_id: MachineId,
     pub gpu_num: u32,
     pub calc_point: u64,
-    pub machine_status: IRMachineStatus<BlockNumber, AccountId>,
+    pub machine_status: MachineStatus<BlockNumber, AccountId>,
 }
 
 #[cfg(feature = "std")]

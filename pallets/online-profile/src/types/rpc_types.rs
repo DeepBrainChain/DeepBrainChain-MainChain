@@ -2,12 +2,9 @@ use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
 // use generic_func::rpc_types::RpcText;
-use crate::{
-    LiveMachine, MachineId, MachineInfo, MachineInfoDetail, MachineStatus, StakerCustomizeInfo,
-    StashMachine,
-};
+use crate::{LiveMachine, MachineId, MachineInfo, StakerCustomizeInfo, StashMachine};
 use dbc_support::{
-    machine_type::{CommitteeUploadInfo, Latitude, Longitude},
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineInfoDetail, MachineStatus},
     EraIndex,
 };
 #[cfg(feature = "std")]

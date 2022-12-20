@@ -1,8 +1,10 @@
 use crate::{
     IRBookResultType, IRCommitteeMachineList, IRLiveMachine, IRMachineCommitteeList,
-    IRMachineStatus, IROnlineSlashResult, IRPendingOnlineSlashInfo, IRStashMachine, IRVerifyStatus,
+    IROnlineSlashResult, IRPendingOnlineSlashInfo, IRStashMachine, IRVerifyStatus,
 };
-use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo};
+use dbc_support::machine_type::{
+    CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo,
+};
 
 use super::super::mock::{TerminatingRental as IRMachine, INIT_BALANCE, *};
 use frame_support::assert_ok;
@@ -274,7 +276,7 @@ fn machine_refused_slash_works() {
             );
             let machine_info = IRMachine::machines_info(&machine_id);
             // MachineInfo 被删除
-            assert_eq!(machine_info.machine_status, IRMachineStatus::AddingCustomizeInfo);
+            assert_eq!(machine_info.machine_status, MachineStatus::AddingCustomizeInfo);
             assert_eq!(IRMachine::stash_machines(&stash), IRStashMachine::default());
 
             // 当机器审核通过，应该解锁保证金

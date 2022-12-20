@@ -1,12 +1,10 @@
 use codec::{Decode, Encode};
-use dbc_support::MachineId;
+use dbc_support::{machine_type::MachineStatus, MachineId};
 use generic_func::ItemList;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
-
-use crate::MachineStatus;
 
 /// MachineList in online module
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]

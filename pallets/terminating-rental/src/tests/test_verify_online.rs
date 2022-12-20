@@ -1,11 +1,13 @@
 use crate::{
     IRCommitteeMachineList, IRCommitteeOnlineOps, IRLiveMachine, IRMachineCommitteeList,
-    IRMachineStatus, IRStashMachine, IRVerifyMachineStatus, IRVerifyStatus,
+    IRStashMachine, IRVerifyMachineStatus, IRVerifyStatus,
 };
 
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use committee::CommitteeStakeInfo;
-use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo};
+use dbc_support::machine_type::{
+    CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo,
+};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -283,7 +285,7 @@ fn verify_machine_works() {
             );
 
             let machine_info = IRMachine::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, IRMachineStatus::Online);
+            assert_eq!(machine_info.machine_status, MachineStatus::Online);
             assert_eq!(machine_info.reward_committee, vec![committee2, committee1, committee4]);
 
             assert_eq!(

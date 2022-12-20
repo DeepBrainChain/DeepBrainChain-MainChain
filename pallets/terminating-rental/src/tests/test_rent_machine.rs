@@ -1,10 +1,13 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
-    tests::test_verify_online::new_test_with_machine_bonding_ext, IRLiveMachine, IRMachineStatus,
-    IRStashMachine, RentOrderDetail, RentStatus,
+    tests::test_verify_online::new_test_with_machine_bonding_ext, IRLiveMachine, IRStashMachine,
+    RentOrderDetail, RentStatus,
 };
 // use committee::CommitteeStakeInfo;
-use dbc_support::{machine_type::CommitteeUploadInfo, rental_type::MachineGPUOrder};
+use dbc_support::{
+    machine_type::{CommitteeUploadInfo, MachineStatus},
+    rental_type::MachineGPUOrder,
+};
 use frame_support::assert_ok;
 use sp_runtime::Perbill;
 use std::convert::TryInto;
@@ -121,7 +124,7 @@ fn rent_machine_works() {
             );
 
             let machine_info = IRMachine::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, IRMachineStatus::Rented);
+            assert_eq!(machine_info.machine_status, MachineStatus::Rented);
 
             assert_eq!(Balances::reserved_balance(renter1), 1039756916666666666);
             assert_eq!(

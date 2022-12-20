@@ -1,14 +1,14 @@
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use crate::{CustomErr, OPSlashReason};
+use crate::CustomErr;
 use codec::{Decode, Encode};
 use dbc_support::{
-    machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
+    machine_type::{Latitude, Longitude, MachineInfoDetail, MachineStatus, StakerCustomizeInfo},
     EraIndex, MachineId,
 };
 use sp_runtime::{traits::Saturating, RuntimeDebug};
-use sp_std::{prelude::Box, vec::Vec};
+use sp_std::vec::Vec;
 
 /// All details of a machine
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -52,46 +52,6 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub reward_committee: Vec<AccountId>,
     /// When reward will be over for committees
     pub reward_deadline: EraIndex,
-}
-
-/// All kind of status of a machine
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum MachineStatus<BlockNumber, AccountId> {
-    /// After controller bond machine; means waiting for submit machine info
-    AddingCustomizeInfo,
-    /// After submit machine info; will waiting to distribute order to committees
-    DistributingOrder,
-    /// After distribute to committees, should take time to verify hardware
-    CommitteeVerifying,
-    /// Machine is refused by committees, so cannot be online
-    CommitteeRefused(BlockNumber),
-    /// After committee agree machine online, stake should be paied depend on gpu num
-    WaitingFulfill,
-    /// Machine online successfully
-    Online,
-    /// Controller offline machine
-    StakerReportOffline(BlockNumber, Box<Self>),
-    /// Reporter report machine is fault, so machine go offline (SlashReason, StatusBeforeOffline,
-    /// Reporter, Committee)
-    ReporterReportOffline(OPSlashReason<BlockNumber>, Box<Self>, AccountId, Vec<AccountId>),
-
-    /// Machine is rented, and waiting for renter to confirm virtual machine is created
-    /// successfully NOTE: 该状态被弃用。
-    /// 机器上线后，正常情况下，只有Rented和Online两种状态
-    /// 对DBC来说要查询某个用户是否能创建虚拟机，到rent_machine中查看machine对应的租用人即可
-    Creating,
-    /// Machine is rented now
-    Rented,
-    /// Machine is exit
-    Exit,
-}
-
-impl<BlockNumber, AccountId> Default for MachineStatus<BlockNumber, AccountId> {
-    fn default() -> Self {
-        MachineStatus::AddingCustomizeInfo
-    }
 }
 
 impl<AccountId, BlockNumber, Balance> MachineInfo<AccountId, BlockNumber, Balance>
@@ -183,11 +143,4 @@ where
     pub fn is_online(&self) -> bool {
         matches!(self.machine_status, MachineStatus::Online)
     }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct MachineInfoDetail {
-    pub committee_upload_info: CommitteeUploadInfo,
-    pub staker_customize_info: StakerCustomizeInfo,
 }

@@ -1,5 +1,8 @@
 use crate::*;
-use dbc_support::traits::{GNOps, ManageCommittee};
+use dbc_support::{
+    machine_type::MachineStatus,
+    traits::{GNOps, ManageCommittee},
+};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
 use generic_func::ItemList;
 use sp_runtime::traits::{Saturating, Zero};
@@ -444,7 +447,7 @@ impl<T: Config> Pallet<T> {
                 live_machine.machine_offline(report_info.machine_id.clone());
 
                 // After re-online, machine status is same as former
-                machine_info.machine_status = IRMachineStatus::ReporterReportOffline(
+                machine_info.machine_status = MachineStatus::ReporterReportOffline(
                     report_info.machine_fault_type.into_op_err(report_info.report_time),
                     // fault_type,
                     Box::new(machine_info.machine_status),

@@ -4,8 +4,9 @@ use crate::{
     RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
 use dbc_support::{
-    machine_type::CommitteeUploadInfo,
+    machine_type::{CommitteeUploadInfo, MachineStatus},
     traits::{MTOps, OCOps, OPRPCQuery, RTOps},
+    verify_slash::OPSlashReason,
     MachineId,
 };
 use frame_support::IterableStorageMap;

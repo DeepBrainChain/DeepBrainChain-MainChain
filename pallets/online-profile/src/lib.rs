@@ -9,8 +9,9 @@ mod types;
 mod utils;
 
 use dbc_support::{
-    machine_type::{Latitude, Longitude, StakerCustomizeInfo},
+    machine_type::{Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     traits::{DbcPrice, GNOps, ManageCommittee},
+    verify_slash::{OPPendingSlashInfo, OPPendingSlashReviewInfo, OPSlashReason},
     EraIndex, MachineId, SlashId,
 };
 use frame_support::{

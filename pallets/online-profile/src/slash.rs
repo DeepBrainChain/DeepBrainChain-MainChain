@@ -1,9 +1,14 @@
 use crate::{
-    types::{MachineStatus, OPPendingSlashInfo, OPSlashReason, TWO_DAY},
-    BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecSlash, PendingOfflineSlash,
-    PendingSlash, PendingSlashReview, PendingSlashReviewChecking, StashStake, SysInfo,
+    types::TWO_DAY, BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecSlash,
+    PendingOfflineSlash, PendingSlash, PendingSlashReview, PendingSlashReviewChecking, StashStake,
+    SysInfo,
 };
-use dbc_support::{traits::GNOps, MachineId};
+use dbc_support::{
+    machine_type::MachineStatus,
+    traits::GNOps,
+    verify_slash::{OPPendingSlashInfo, OPSlashReason},
+    MachineId,
+};
 use frame_support::traits::ReservableCurrency;
 use generic_func::ItemList;
 use sp_runtime::{
@@ -165,7 +170,7 @@ impl<T: Config> Pallet<T> {
         committee: Option<Vec<T::AccountId>>,
         duration: T::BlockNumber,
     ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        let percent = slash_reason.slash_percent(duration.saturated_into::<u64>());
+        let percent = crate::utils::slash_percent(&slash_reason, duration.saturated_into::<u64>());
 
         let (reporter, renters, committee) = match slash_reason {
             // 算工主动报告被租用的机器，主动下线
