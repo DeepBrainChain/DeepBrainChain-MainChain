@@ -97,6 +97,7 @@ std = [
   "frame-support/std",
   "frame-system/std",
   "generic-func/std",
+  "dbc-support/std",
   "sp-core/std",
   "sp-io/std",
   "sp-std/std",

@@ -219,6 +219,7 @@ pub mod pallet {
             let rent_duration = rent_info.rent_end - rent_info.rent_start;
 
             rent_info.confirm_rent(now);
+            rent_info.stake_amount = Default::default();
 
             // 改变online_profile状态
             T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone());

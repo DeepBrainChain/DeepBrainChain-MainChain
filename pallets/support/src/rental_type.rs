@@ -72,15 +72,8 @@ impl<A, B: Default, C: Default> RentOrderDetail<A, B, C> {
         }
     }
 
-    // FIXME: in terminating should be:
-    //
-    //     pub fn confirm_rent(&mut self, confirm_rent_time: B) {
-    //         self.confirm_rent = confirm_rent_time;
-    //         self.rent_status = IRRentStatus::Renting;
-    //     }
     pub fn confirm_rent(&mut self, confirm_rent_time: B) {
         self.confirm_rent = confirm_rent_time;
-        self.stake_amount = C::default();
         self.rent_status = RentStatus::Renting;
     }
 }
