@@ -74,8 +74,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
-use dbc_support::{EraIndex, MachineId, RentOrderId};
-use rent_machine::MachineGPUOrder;
+use dbc_support::{rental_type::MachineGPUOrder, EraIndex, MachineId, RentOrderId};
 
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
@@ -1334,7 +1333,7 @@ impl_runtime_apis! {
             TerminatingRental::is_machine_renter(machine_id, renter)
         }
 
-        fn get_machine_rent_id(machine_id: MachineId) -> terminating_rental::IRMachineGPUOrder {
+        fn get_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
             TerminatingRental::get_machine_rent_id(machine_id)
         }
     }

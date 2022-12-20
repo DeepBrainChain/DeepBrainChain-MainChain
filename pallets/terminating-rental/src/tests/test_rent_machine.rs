@@ -1,9 +1,10 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
     tests::test_verify_online::new_test_with_machine_bonding_ext, IRCommitteeUploadInfo,
-    IRLiveMachine, IRMachineGPUOrder, IRMachineStatus, IRStashMachine, RentOrderDetail, RentStatus,
+    IRLiveMachine, IRMachineStatus, IRStashMachine, RentOrderDetail, RentStatus,
 };
 // use committee::CommitteeStakeInfo;
+use dbc_support::rental_type::MachineGPUOrder;
 use frame_support::assert_ok;
 use sp_runtime::Perbill;
 use std::convert::TryInto;
@@ -116,7 +117,7 @@ fn rent_machine_works() {
             assert_eq!(IRMachine::renter_total_stake(renter1), 1039756916666666666);
             assert_eq!(
                 IRMachine::machine_rent_order(&machine_id),
-                IRMachineGPUOrder { rent_order: vec![0], used_gpu: vec![0, 1, 2, 3, 4, 5, 6, 7] }
+                MachineGPUOrder { rent_order: vec![0], used_gpu: vec![0, 1, 2, 3, 4, 5, 6, 7] }
             );
 
             let machine_info = IRMachine::machines_info(&machine_id);

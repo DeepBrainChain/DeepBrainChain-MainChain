@@ -2,7 +2,6 @@
 
 pub mod migrations;
 mod rpc;
-mod types;
 
 #[cfg(test)]
 mod mock;
@@ -11,7 +10,7 @@ mod mock;
 mod tests;
 
 use dbc_support::{
-    rental_type::{RentOrderDetail, RentStatus},
+    rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, RTOps},
     EraIndex, ItemList, MachineId, RentOrderId,
 };
@@ -25,8 +24,6 @@ use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 pub use online_profile::MachineStatus;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero};
 use sp_std::{prelude::*, str, vec::Vec};
-
-pub use types::*;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

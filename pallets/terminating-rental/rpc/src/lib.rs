@@ -9,13 +9,17 @@ use sp_runtime::{
 };
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
-use dbc_support::{rental_type::RentOrderDetail, rpc_types::RpcBalance, RentOrderId};
+use dbc_support::{
+    rental_type::{MachineGPUOrder, RentOrderDetail},
+    rpc_types::RpcBalance,
+    RentOrderId,
+};
 use terminating_rental::{
     rpc_types::{
         RpcIRCommitteeMachineList, RpcIRCommitteeOps, RpcLiveMachine, RpcMachineInfo,
         RpcStakerInfo, RpcStashMachine,
     },
-    IRMachineCommitteeList, IRMachineGPUOrder,
+    IRMachineCommitteeList,
 };
 use terminating_rental_runtime_api::IrRpcApi as IrStorageRuntimeApi;
 
@@ -90,7 +94,7 @@ where
         &self,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> Result<IRMachineGPUOrder>;
+    ) -> Result<MachineGPUOrder>;
 }
 
 pub struct IrStorage<C, M> {
@@ -336,7 +340,7 @@ where
         &self,
         machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<IRMachineGPUOrder> {
+    ) -> Result<MachineGPUOrder> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

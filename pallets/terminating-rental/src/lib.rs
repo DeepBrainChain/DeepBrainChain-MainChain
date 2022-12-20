@@ -23,7 +23,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, str, vec::Vec};
 
 use dbc_support::{
-    rental_type::{RentOrderDetail, RentStatus},
+    rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, GNOps, ManageCommittee},
     EraIndex, MachineId, RentOrderId, SlashId, TWO_DAY,
 };
@@ -183,7 +183,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn machine_rent_order)]
     pub(super) type MachineRentOrder<T: Config> =
-        StorageMap<_, Blake2_128Concat, MachineId, IRMachineGPUOrder, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, MachineId, MachineGPUOrder, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn next_rent_id)]

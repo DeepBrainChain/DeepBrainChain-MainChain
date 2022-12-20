@@ -1,11 +1,11 @@
-use dbc_support::MachineId;
+use dbc_support::{rental_type::MachineGPUOrder, MachineId};
 use frame_support::IterableStorageMap;
 use sp_std::vec::Vec;
 
 use crate::{
     rpc_types::{MachineBriefInfo, RpcIRCommitteeOps, StakerInfo},
     BalanceOf, Config, IRCommitteeMachineList, IRLiveMachine, IRMachineCommitteeList,
-    IRMachineGPUOrder, IRMachineInfo, Pallet, RentOrderDetail, RentOrderId, StashMachines,
+    IRMachineInfo, Pallet, RentOrderDetail, RentOrderId, StashMachines,
 };
 use codec::EncodeLike;
 
@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
         false
     }
 
-    pub fn get_machine_rent_id(machine_id: MachineId) -> IRMachineGPUOrder {
+    pub fn get_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
         Self::machine_rent_order(machine_id)
     }
 }

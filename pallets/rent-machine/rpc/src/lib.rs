@@ -9,8 +9,11 @@ use sp_runtime::{
 };
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
-use dbc_support::{rental_type::RentOrderDetail, rpc_types::RpcBalance, RentOrderId};
-use rent_machine::MachineGPUOrder;
+use dbc_support::{
+    rental_type::{MachineGPUOrder, RentOrderDetail},
+    rpc_types::RpcBalance,
+    RentOrderId,
+};
 use rent_machine_runtime_api::RmRpcApi as RmStorageRuntimeApi;
 
 #[rpc]
