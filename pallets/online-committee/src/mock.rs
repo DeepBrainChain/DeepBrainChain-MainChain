@@ -1,6 +1,8 @@
 use crate as online_committee;
 use dbc_price_ocw::MAX_LEN;
-use dbc_support::machine_type::{Latitude, Longitude, StakerCustomizeInfo, StandardGPUPointPrice};
+use dbc_support::machine_type::{
+    CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
+};
 use frame_support::{
     assert_ok, parameter_types,
     traits::{OnFinalize, OnInitialize},

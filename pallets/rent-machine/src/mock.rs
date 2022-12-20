@@ -1,6 +1,8 @@
 use crate as rent_machine;
 use dbc_price_ocw::MAX_LEN;
-use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo};
+use dbc_support::machine_type::{
+    CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
+};
 use frame_support::{
     assert_ok, parameter_types,
     traits::{OnFinalize, OnInitialize},
@@ -332,7 +334,7 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
         assert_ok!(OnlineProfile::set_standard_gpu_point_price(
             RawOrigin::Root.into(),
-            online_profile::StandardGpuPointPrice { gpu_point: 1000, gpu_price: 5_000_000 }
+            StandardGpuPointPrice { gpu_point: 1000, gpu_price: 5_000_000 }
         ));
         // 设置机器租金支付地址
         assert_ok!(RentMachine::set_rent_fee_pot(RawOrigin::Root.into(), pot_two));

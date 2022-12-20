@@ -1,12 +1,14 @@
 use crate as maintain_committee;
 use dbc_price_ocw::MAX_LEN;
+use dbc_support::machine_type::{
+    CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
+};
 use frame_support::{
     assert_ok, parameter_types,
     traits::{OnFinalize, OnInitialize},
 };
 use frame_system::EnsureRoot;
 pub use frame_system::RawOrigin;
-use online_profile::{CommitteeUploadInfo, StakerCustomizeInfo, StandardGpuPointPrice};
 pub use sp_core::{
     sr25519::{self, Signature},
     u32_trait::{_1, _2, _3, _4, _5},
@@ -404,8 +406,8 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
                 server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: online_profile::Longitude::East(1157894),
-                latitude: online_profile::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));

@@ -245,7 +245,10 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
         assert_ok!(TerminatingRental::set_standard_gpu_point_price(
             RawOrigin::Root.into(),
-            terminating_rental::StandardGpuPointPrice { gpu_point: 1000, gpu_price: 5_000_000 }
+            dbc_support::machine_type::StandardGpuPointPrice {
+                gpu_point: 1000,
+                gpu_price: 5_000_000
+            }
         ));
 
         assert_ok!(TerminatingRental::set_stake_per_gpu(RawOrigin::Root.into(), 10000 * ONE_DBC));
