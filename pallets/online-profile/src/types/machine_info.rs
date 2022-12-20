@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{CustomErr, OPSlashReason};
 use codec::{alloc::string::ToString, Decode, Encode};
-use dbc_support::{EraIndex, MachineId};
+use dbc_support::{
+    machine_type::{Latitude, Longitude},
+    EraIndex, MachineId,
+};
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
 use sp_runtime::{traits::Saturating, RuntimeDebug};
@@ -269,30 +272,4 @@ pub struct StakerCustomizeInfo {
     pub latitude: Latitude,
     /// 网络运营商
     pub telecom_operators: Vec<Vec<u8>>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum Longitude {
-    East(u64),
-    West(u64),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum Latitude {
-    South(u64),
-    North(u64),
-}
-
-impl Default for Longitude {
-    fn default() -> Self {
-        Longitude::East(0)
-    }
-}
-
-impl Default for Latitude {
-    fn default() -> Self {
-        Latitude::North(0)
-    }
 }

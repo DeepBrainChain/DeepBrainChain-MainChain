@@ -4,7 +4,10 @@ use dbc_support::rpc_types::serde_text;
 use serde::{Deserialize, Serialize};
 
 use codec::{alloc::string::ToString, Decode, Encode};
-use dbc_support::MachineId;
+use dbc_support::{
+    machine_type::{Latitude, Longitude},
+    MachineId,
+};
 use frame_support::ensure;
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
@@ -178,9 +181,9 @@ pub struct IRStakerCustomizeInfo {
     /// 下行带宽
     pub download_net: u64,
     /// 经度(+东经; -西经)
-    pub longitude: IRLongitude,
+    pub longitude: Longitude,
     /// 纬度(+北纬； -南纬)
-    pub latitude: IRLatitude,
+    pub latitude: Latitude,
     /// 网络运营商
     pub telecom_operators: Vec<Vec<u8>>,
 }
@@ -261,31 +264,5 @@ where
 
     pub fn can_rent(&self) -> bool {
         matches!(self.machine_status, IRMachineStatus::Online | IRMachineStatus::Rented)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum IRLongitude {
-    East(u64),
-    West(u64),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum IRLatitude {
-    North(u64),
-    South(u64),
-}
-
-impl Default for IRLongitude {
-    fn default() -> Self {
-        IRLongitude::East(0)
-    }
-}
-
-impl Default for IRLatitude {
-    fn default() -> Self {
-        IRLatitude::North(0)
     }
 }

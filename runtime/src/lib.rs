@@ -1221,7 +1221,7 @@ impl_runtime_apis! {
             OnlineProfile::get_machine_info(machine_id)
         }
 
-        fn get_pos_gpu_info() -> Vec<(online_profile::Longitude, online_profile::Latitude, online_profile::PosInfo)> {
+        fn get_pos_gpu_info() -> Vec<(dbc_support::machine_type::Longitude, dbc_support::machine_type::Latitude, online_profile::PosInfo)> {
             OnlineProfile::get_pos_gpu_info()
         }
 

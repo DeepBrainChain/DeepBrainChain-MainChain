@@ -1,5 +1,6 @@
 use super::super::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList, *};
 use committee::CommitteeList;
+use dbc_support::machine_type::{Latitude, Longitude};
 use frame_support::assert_ok;
 use online_profile::{
     CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineGradeStatus, MachineStatus,

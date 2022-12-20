@@ -1,5 +1,8 @@
 use crate::types::*;
-use dbc_support::MachineId;
+use dbc_support::{
+    machine_type::{Latitude, Longitude},
+    MachineId,
+};
 use frame_support::{IterableStorageDoubleMap, IterableStorageMap};
 use sp_std::vec::Vec;
 

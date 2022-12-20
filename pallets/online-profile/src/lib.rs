@@ -9,6 +9,7 @@ mod types;
 mod utils;
 
 use dbc_support::{
+    machine_type::{Latitude, Longitude},
     traits::{DbcPrice, GNOps, ManageCommittee},
     EraIndex, MachineId, SlashId,
 };

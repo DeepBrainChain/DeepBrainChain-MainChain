@@ -3,10 +3,13 @@ use codec::{Decode, Encode};
 use dbc_support::rpc_types::{serde_text, RpcText};
 // use generic_func::rpc_types::RpcText;
 use crate::{
-    CommitteeUploadInfo, Latitude, LiveMachine, Longitude, MachineId, MachineInfo,
-    MachineInfoDetail, MachineStatus, StakerCustomizeInfo, StashMachine,
+    CommitteeUploadInfo, LiveMachine, MachineId, MachineInfo, MachineInfoDetail, MachineStatus,
+    StakerCustomizeInfo, StashMachine,
 };
-use dbc_support::EraIndex;
+use dbc_support::{
+    machine_type::{Latitude, Longitude},
+    EraIndex,
+};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;

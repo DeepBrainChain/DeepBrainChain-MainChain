@@ -1,12 +1,16 @@
 //! RPC interface for the transaction payment module.
 
 use codec::Codec;
-use dbc_support::{rpc_types::RpcBalance, EraIndex};
+use dbc_support::{
+    machine_type::{Latitude, Longitude},
+    rpc_types::RpcBalance,
+    EraIndex,
+};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use online_profile::{
     rpc_types::{RpcLiveMachine, RpcMachineInfo, RpcStakerInfo, RpcStashMachine},
-    Latitude, Longitude, PosInfo, SysInfoDetail,
+    PosInfo, SysInfoDetail,
 };
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;

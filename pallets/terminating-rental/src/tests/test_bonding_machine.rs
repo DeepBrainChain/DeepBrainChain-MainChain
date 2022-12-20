@@ -86,8 +86,8 @@ fn bond_machine_works() {
                 server_room: server_rooms[0],
                 upload_net: 100,
                 download_net: 100,
-                longitude: crate::IRLongitude::East(1157894),
-                latitude: crate::IRLatitude::North(235678),
+                longitude: crate::Longitude::East(1157894),
+                latitude: crate::Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
