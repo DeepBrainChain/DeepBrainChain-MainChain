@@ -1,11 +1,11 @@
-use crate::{
-    IRCommitteeUploadInfo, IRLiveMachine, IRMachineInfo, IRMachineInfoDetail, IRMachineStatus,
-    IRStakerCustomizeInfo, IRStashMachine,
-};
+use crate::{IRLiveMachine, IRMachineInfo, IRMachineInfoDetail, IRMachineStatus, IRStashMachine};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
-use dbc_support::MachineId;
+use dbc_support::{
+    machine_type::{CommitteeUploadInfo, StakerCustomizeInfo},
+    MachineId,
+};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
@@ -68,7 +68,7 @@ impl<AccountId: Ord, BlockNumber, Balance> From<IRMachineInfo<AccountId, BlockNu
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct RpcMachineInfoDetail {
-    pub committee_upload_info: IRCommitteeUploadInfo,
+    pub committee_upload_info: CommitteeUploadInfo,
     pub staker_customize_info: RpcStakerCustomizeInfo,
 }
 
@@ -95,8 +95,8 @@ pub struct RpcStakerCustomizeInfo {
 }
 
 #[cfg(feature = "std")]
-impl From<IRStakerCustomizeInfo> for RpcStakerCustomizeInfo {
-    fn from(info: IRStakerCustomizeInfo) -> Self {
+impl From<StakerCustomizeInfo> for RpcStakerCustomizeInfo {
+    fn from(info: StakerCustomizeInfo) -> Self {
         Self {
             server_room: info.server_room,
             upload_net: info.upload_net,

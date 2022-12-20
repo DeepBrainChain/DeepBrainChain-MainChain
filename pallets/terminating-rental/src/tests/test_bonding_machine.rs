@@ -1,5 +1,6 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
-use crate::{IRLiveMachine, IRMachineInfo, IRStakerCustomizeInfo, IRStashMachine};
+use crate::{IRLiveMachine, IRMachineInfo, IRStashMachine};
+use dbc_support::machine_type::{Latitude, Longitude, StakerCustomizeInfo};
 use frame_support::assert_ok;
 
 #[test]
@@ -82,12 +83,12 @@ fn bond_machine_works() {
         assert_ok!(IRMachine::add_machine_info(
             Origin::signed(controller),
             machine_id.clone(),
-            IRStakerCustomizeInfo {
+            StakerCustomizeInfo {
                 server_room: server_rooms[0],
                 upload_net: 100,
                 download_net: 100,
-                longitude: crate::Longitude::East(1157894),
-                latitude: crate::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));

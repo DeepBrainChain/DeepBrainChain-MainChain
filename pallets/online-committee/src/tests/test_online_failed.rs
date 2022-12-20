@@ -1,8 +1,8 @@
 use super::super::{mock::*, *};
 use crate::tests::{committee1, committee2, committee4, controller, stash};
+use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo};
 use frame_support::assert_ok;
 use once_cell::sync::Lazy;
-use online_profile::{CommitteeUploadInfo, StakerCustomizeInfo};
 use sp_runtime::Perbill;
 use std::convert::TryInto;
 
@@ -42,8 +42,8 @@ fn test_machine_online_refused_after_some_online() {
                 server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: online_profile::Longitude::East(1157894),
-                latitude: online_profile::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));

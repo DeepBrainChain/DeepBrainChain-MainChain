@@ -1,6 +1,9 @@
 use super::super::mock::*;
 use crate::mock::{new_test_ext_after_machine_online, run_to_block};
-use dbc_support::MachineId;
+use dbc_support::{
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
+    MachineId,
+};
 use frame_support::assert_ok;
 use online_profile::{LiveMachine, MachineStatus, PosGPUInfo, StashMachine};
 use pallet_balances::AccountData;
@@ -56,13 +59,13 @@ fn fulfill_machine_works() {
         assert_ok!(OnlineProfile::add_machine_info(
             Origin::signed(controller),
             machine_id2.clone(),
-            online_profile::StakerCustomizeInfo {
+            StakerCustomizeInfo {
                 // server_room: H256::from_low_u64_be(1),
                 server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: online_profile::Longitude::East(1157894),
-                latitude: online_profile::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
@@ -89,7 +92,7 @@ fn fulfill_machine_works() {
             machine_info_hash3
         ));
 
-        let mut committee_upload_info = online_profile::CommitteeUploadInfo {
+        let mut committee_upload_info = CommitteeUploadInfo {
             machine_id: machine_id2.clone(),
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,

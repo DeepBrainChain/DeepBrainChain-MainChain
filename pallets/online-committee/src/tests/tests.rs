@@ -1,10 +1,9 @@
 use super::super::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList, *};
 use committee::CommitteeList;
-use dbc_support::machine_type::{Latitude, Longitude};
+use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo};
 use frame_support::assert_ok;
 use online_profile::{
-    CommitteeUploadInfo, EraStashPoints, LiveMachine, MachineGradeStatus, MachineStatus,
-    StakerCustomizeInfo, UserMutHardwareStakeInfo,
+    EraStashPoints, LiveMachine, MachineGradeStatus, MachineStatus, UserMutHardwareStakeInfo,
 };
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
@@ -89,8 +88,8 @@ fn machine_online_works() {
             server_room: server_room[0],
             upload_net: 100,
             download_net: 100,
-            longitude: online_profile::Longitude::East(1157894),
-            latitude: online_profile::Latitude::North(235678),
+            longitude: Longitude::East(1157894),
+            latitude: Latitude::North(235678),
             telecom_operators: vec!["China Unicom".into()],
         };
         // 控制账户添加机器信息
@@ -324,10 +323,7 @@ fn machine_online_works() {
 
         assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
         assert_eq!(
-            OnlineProfile::pos_gpu_info(
-                online_profile::Longitude::East(1157894),
-                online_profile::Latitude::North(235678)
-            ),
+            OnlineProfile::pos_gpu_info(Longitude::East(1157894), Latitude::North(235678)),
             online_profile::PosInfo {
                 online_gpu: 4,
                 online_gpu_calc_points: 59890,
@@ -507,10 +503,7 @@ fn machine_online_works() {
                 }
             );
             assert_eq!(
-                OnlineProfile::pos_gpu_info(
-                    online_profile::Longitude::East(1157894),
-                    online_profile::Latitude::North(235678)
-                ),
+                OnlineProfile::pos_gpu_info(Longitude::East(1157894), Latitude::North(235678)),
                 online_profile::PosInfo { offline_gpu: 4, ..Default::default() }
             );
 
@@ -542,8 +535,8 @@ fn machine_online_works() {
                 server_room: server_room[0],
                 upload_net: 100,
                 download_net: 100,
-                longitude: online_profile::Longitude::East(1157894),
-                latitude: online_profile::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
@@ -1003,8 +996,8 @@ fn committee_not_equal_then_redistribute_works() {
             server_room: server_room[0],
             upload_net: 100,
             download_net: 100,
-            longitude: online_profile::Longitude::East(1157894),
-            latitude: online_profile::Latitude::North(235678),
+            longitude: Longitude::East(1157894),
+            latitude: Latitude::North(235678),
             telecom_operators: vec!["China Unicom".into()],
         };
         assert_ok!(OnlineProfile::add_machine_info(
@@ -1251,8 +1244,8 @@ fn two_submit_hash_reach_submit_raw_works() {
             server_room: server_room[0],
             upload_net: 100,
             download_net: 100,
-            longitude: online_profile::Longitude::East(1157894),
-            latitude: online_profile::Latitude::North(235678),
+            longitude: Longitude::East(1157894),
+            latitude: Latitude::North(235678),
             telecom_operators: vec!["China Unicom".into()],
         };
         assert_ok!(OnlineProfile::add_machine_info(

@@ -59,15 +59,6 @@ pub struct PhaseRewardInfoDetail<Balance> {
     pub phase_2_reward_per_era: Balance, // next 5 years
 }
 
-/// Standard GPU rent price Per Era
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct StandardGpuPointPrice {
-    /// Standard GPU calc points
-    pub gpu_point: u64,
-    /// Standard GPU price
-    pub gpu_price: u64,
-}
-
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct OnlineStakeParamsInfo<Balance> {
     /// How much a GPU should stake(DBC).eg. 100_000 DBC

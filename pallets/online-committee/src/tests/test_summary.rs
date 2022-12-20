@@ -1,7 +1,7 @@
 use super::super::{mock::*, *};
 use crate::tests::{committee1, committee2, committee3, committee4, stash};
+use dbc_support::machine_type::CommitteeUploadInfo;
 use frame_support::assert_ok;
-use online_profile::CommitteeUploadInfo;
 use std::convert::TryInto;
 
 fn get_machine_id() -> Vec<u8> {
@@ -10,7 +10,7 @@ fn get_machine_id() -> Vec<u8> {
         .to_vec()
 }
 
-fn get_base_machine_info() -> online_profile::CommitteeUploadInfo {
+fn get_base_machine_info() -> CommitteeUploadInfo {
     CommitteeUploadInfo {
         machine_id: get_machine_id(),
         gpu_type: "GeForceRTX3080".as_bytes().to_vec(),

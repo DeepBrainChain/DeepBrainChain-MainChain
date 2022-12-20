@@ -1,10 +1,10 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
-    tests::test_verify_online::new_test_with_machine_bonding_ext, IRCommitteeUploadInfo,
-    IRLiveMachine, IRMachineStatus, IRStashMachine, RentOrderDetail, RentStatus,
+    tests::test_verify_online::new_test_with_machine_bonding_ext, IRLiveMachine, IRMachineStatus,
+    IRStashMachine, RentOrderDetail, RentStatus,
 };
 // use committee::CommitteeStakeInfo;
-use dbc_support::rental_type::MachineGPUOrder;
+use dbc_support::{machine_type::CommitteeUploadInfo, rental_type::MachineGPUOrder};
 use frame_support::assert_ok;
 use sp_runtime::Perbill;
 use std::convert::TryInto;
@@ -48,7 +48,7 @@ pub fn new_test_with_machine_online_ext() -> sp_io::TestExternalities {
         ));
 
         // 委员会提交原始信息
-        let mut upload_info = IRCommitteeUploadInfo {
+        let mut upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 8,

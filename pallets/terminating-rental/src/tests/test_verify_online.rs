@@ -1,11 +1,11 @@
 use crate::{
-    IRCommitteeMachineList, IRCommitteeOnlineOps, IRCommitteeUploadInfo, IRLiveMachine,
-    IRMachineCommitteeList, IRMachineStatus, IRStakerCustomizeInfo, IRStashMachine,
-    IRVerifyMachineStatus, IRVerifyStatus,
+    IRCommitteeMachineList, IRCommitteeOnlineOps, IRLiveMachine, IRMachineCommitteeList,
+    IRMachineStatus, IRStashMachine, IRVerifyMachineStatus, IRVerifyStatus,
 };
 
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use committee::CommitteeStakeInfo;
+use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -40,12 +40,12 @@ pub fn new_test_with_machine_bonding_ext() -> sp_io::TestExternalities {
         assert_ok!(IRMachine::add_machine_info(
             Origin::signed(controller),
             machine_id.clone(),
-            IRStakerCustomizeInfo {
+            StakerCustomizeInfo {
                 server_room: server_rooms[0],
                 upload_net: 100,
                 download_net: 100,
-                longitude: crate::Longitude::East(1157894),
-                latitude: crate::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
@@ -196,7 +196,7 @@ fn verify_machine_works() {
         }
 
         // 委员会提交原始信息
-        let mut upload_info = IRCommitteeUploadInfo {
+        let mut upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 8,
@@ -245,7 +245,7 @@ fn verify_machine_works() {
                     hash_time: 4,
                     confirm_time: 4,
                     machine_status: IRVerifyMachineStatus::Confirmed,
-                    machine_info: IRCommitteeUploadInfo { rand_str: vec![], ..upload_info.clone() },
+                    machine_info: CommitteeUploadInfo { rand_str: vec![], ..upload_info.clone() },
                 }
             )
         }

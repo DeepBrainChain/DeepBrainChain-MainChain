@@ -6,8 +6,8 @@ use frame_support::ensure;
 use sp_runtime::RuntimeDebug;
 use sp_std::{ops, vec::Vec};
 
-use crate::{CustomErr, IRCommitteeUploadInfo, ReportId, SUBMIT_HASH_END, SUBMIT_RAW_END};
-use dbc_support::MachineId;
+use crate::{CustomErr, ReportId, SUBMIT_HASH_END, SUBMIT_RAW_END};
+use dbc_support::{machine_type::CommitteeUploadInfo, MachineId};
 use generic_func::ItemList;
 
 /// The reason why a stash account is punished
@@ -193,7 +193,7 @@ pub struct IRCommitteeOnlineOps<BlockNumber, Balance> {
     /// When one committee submit raw machine info
     pub confirm_time: BlockNumber,
     pub machine_status: IRVerifyMachineStatus,
-    pub machine_info: IRCommitteeUploadInfo,
+    pub machine_info: CommitteeUploadInfo,
 }
 
 impl<BlockNumber, Balance> IRCommitteeOnlineOps<BlockNumber, Balance> {
@@ -204,7 +204,7 @@ impl<BlockNumber, Balance> IRCommitteeOnlineOps<BlockNumber, Balance> {
     }
 
     // 添加用户对机器的操作记录
-    pub fn submit_raw(&mut self, time: BlockNumber, machine_info: IRCommitteeUploadInfo) {
+    pub fn submit_raw(&mut self, time: BlockNumber, machine_info: CommitteeUploadInfo) {
         self.confirm_time = time;
         self.machine_status = IRVerifyMachineStatus::Confirmed;
         self.machine_info = machine_info;
@@ -309,7 +309,7 @@ pub struct IRSummary<AccountId> {
     /// Committees, refuse machine online
     pub against: Vec<AccountId>,
     /// Raw machine info, most majority committee submit
-    pub info: Option<IRCommitteeUploadInfo>,
+    pub info: Option<CommitteeUploadInfo>,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]

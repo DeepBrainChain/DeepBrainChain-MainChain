@@ -1,12 +1,12 @@
 use crate as online_committee;
 use dbc_price_ocw::MAX_LEN;
+use dbc_support::machine_type::{Latitude, Longitude, StakerCustomizeInfo, StandardGPUPointPrice};
 use frame_support::{
     assert_ok, parameter_types,
     traits::{OnFinalize, OnInitialize},
 };
 use frame_system::EnsureRoot;
 pub use frame_system::RawOrigin;
-use online_profile::{StakerCustomizeInfo, StandardGpuPointPrice};
 pub use sp_core::{
     sr25519::{self, Signature},
     u32_trait::{_1, _2, _3, _4, _5},
@@ -435,8 +435,8 @@ pub fn new_test_with_online_machine_distribution() -> sp_io::TestExternalities {
                 server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: online_profile::Longitude::East(1157894),
-                latitude: online_profile::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
@@ -484,7 +484,7 @@ pub fn new_test_with_machine_online() -> sp_io::TestExternalities {
             machine_info_hash3
         ));
 
-        let mut committee_upload_info = online_profile::CommitteeUploadInfo {
+        let mut committee_upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,

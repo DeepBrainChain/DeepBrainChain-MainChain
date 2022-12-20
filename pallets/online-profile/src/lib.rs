@@ -9,7 +9,7 @@ mod types;
 mod utils;
 
 use dbc_support::{
-    machine_type::{Latitude, Longitude},
+    machine_type::{Latitude, Longitude, StakerCustomizeInfo},
     traits::{DbcPrice, GNOps, ManageCommittee},
     EraIndex, MachineId, SlashId,
 };
@@ -69,7 +69,8 @@ pub mod pallet {
     /// A standard example for rent fee calculation(price: USD*10^6)
     #[pallet::storage]
     #[pallet::getter(fn standard_gpu_point_price)]
-    pub(super) type StandardGPUPointPrice<T: Config> = StorageValue<_, StandardGpuPointPrice>;
+    pub(super) type StandardGPUPointPrice<T: Config> =
+        StorageValue<_, dbc_support::machine_type::StandardGpuPointPrice>;
 
     /// Reonline to change hardware, should stake some balance
     #[pallet::storage]
@@ -378,7 +379,7 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn set_standard_gpu_point_price(
             origin: OriginFor<T>,
-            point_price: StandardGpuPointPrice,
+            point_price: dbc_support::machine_type::StandardGpuPointPrice,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StandardGPUPointPrice::<T>::put(point_price);

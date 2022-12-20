@@ -1,6 +1,7 @@
-use crate::{IRCommitteeMachineList, IRCommitteeUploadInfo, IRVerifyMachineStatus};
+use crate::{IRCommitteeMachineList, IRVerifyMachineStatus};
 
 use codec::{Decode, Encode};
+use dbc_support::machine_type::CommitteeUploadInfo;
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::RpcText;
 #[cfg(feature = "std")]
@@ -20,7 +21,7 @@ pub struct RpcIRCommitteeOps<BlockNumber, Balance> {
     pub hash_time: BlockNumber,
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
     pub machine_status: IRVerifyMachineStatus,
-    pub machine_info: IRCommitteeUploadInfo,
+    pub machine_info: CommitteeUploadInfo,
 }
 
 #[cfg(feature = "std")]

@@ -4,6 +4,7 @@ use crate::{
     RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
 use dbc_support::{
+    machine_type::CommitteeUploadInfo,
     traits::{MTOps, OCOps, OPRPCQuery, RTOps},
     MachineId,
 };

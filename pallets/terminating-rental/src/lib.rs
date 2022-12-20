@@ -23,6 +23,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, str, vec::Vec};
 
 use dbc_support::{
+    machine_type::{CommitteeUploadInfo, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, GNOps, ManageCommittee},
     EraIndex, MachineId, RentOrderId, SlashId, TWO_DAY,
@@ -228,7 +229,8 @@ pub mod pallet {
     /// A standard example for rent fee calculation(price: USD*10^6)
     #[pallet::storage]
     #[pallet::getter(fn standard_gpu_point_price)]
-    pub(super) type StandardGPUPointPrice<T: Config> = StorageValue<_, StandardGpuPointPrice>;
+    pub(super) type StandardGPUPointPrice<T: Config> =
+        StorageValue<_, dbc_support::machine_type::StandardGpuPointPrice>;
 
     // 存储每个用户在该模块中的总质押量
     #[pallet::storage]
@@ -410,7 +412,7 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn set_standard_gpu_point_price(
             origin: OriginFor<T>,
-            point_price: StandardGpuPointPrice,
+            point_price: dbc_support::machine_type::StandardGpuPointPrice,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StandardGPUPointPrice::<T>::put(point_price);
@@ -495,7 +497,7 @@ pub mod pallet {
         pub fn add_machine_info(
             origin: OriginFor<T>,
             machine_id: MachineId,
-            add_machine_info: IRStakerCustomizeInfo,
+            add_machine_info: StakerCustomizeInfo,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let mut machine_info = Self::machines_info(&machine_id);
@@ -562,7 +564,7 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn submit_confirm_raw(
             origin: OriginFor<T>,
-            machine_info_detail: IRCommitteeUploadInfo,
+            machine_info_detail: CommitteeUploadInfo,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let now = <frame_system::Module<T>>::block_number();
@@ -1482,7 +1484,7 @@ impl<T: Config> Pallet<T> {
 
         let mut summary = IRSummary::default();
         // 支持的委员会可能提交不同的机器信息
-        let mut uniq_machine_info: Vec<IRCommitteeUploadInfo> = Vec::new();
+        let mut uniq_machine_info: Vec<CommitteeUploadInfo> = Vec::new();
         // 不同机器信息对应的委员会
         let mut committee_for_machine_info = Vec::new();
 
@@ -1588,7 +1590,7 @@ impl<T: Config> Pallet<T> {
     // - Writes: StashTotalStake, MachinesInfo, LiveMachines, StashMachines
     fn confirm_machine(
         reported_committee: Vec<T::AccountId>,
-        committee_upload_info: IRCommitteeUploadInfo,
+        committee_upload_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let machine_id = committee_upload_info.machine_id.clone();

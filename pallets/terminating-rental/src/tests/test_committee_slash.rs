@@ -1,8 +1,8 @@
 use crate::{
-    IRBookResultType, IRCommitteeMachineList, IRCommitteeUploadInfo, IRLiveMachine,
-    IRMachineCommitteeList, IRMachineStatus, IROnlineSlashResult, IRPendingOnlineSlashInfo,
-    IRStakerCustomizeInfo, IRStashMachine, IRVerifyStatus,
+    IRBookResultType, IRCommitteeMachineList, IRLiveMachine, IRMachineCommitteeList,
+    IRMachineStatus, IROnlineSlashResult, IRPendingOnlineSlashInfo, IRStashMachine, IRVerifyStatus,
 };
+use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo};
 
 use super::super::mock::{TerminatingRental as IRMachine, INIT_BALANCE, *};
 use frame_support::assert_ok;
@@ -43,12 +43,12 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
         assert_ok!(IRMachine::add_machine_info(
             Origin::signed(controller),
             machine_id.clone(),
-            IRStakerCustomizeInfo {
+            StakerCustomizeInfo {
                 server_room: server_rooms[0],
                 upload_net: 100,
                 download_net: 100,
-                longitude: crate::Longitude::East(1157894),
-                latitude: crate::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
@@ -120,7 +120,7 @@ fn committee_not_submit_slash_works() {
         }
 
         // 两个委员会提交原始值
-        let mut upload_info = IRCommitteeUploadInfo {
+        let mut upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 8,
@@ -241,7 +241,7 @@ fn machine_refused_slash_works() {
         ));
 
         // 委员会提交原始信息
-        let mut upload_info = IRCommitteeUploadInfo {
+        let mut upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,
