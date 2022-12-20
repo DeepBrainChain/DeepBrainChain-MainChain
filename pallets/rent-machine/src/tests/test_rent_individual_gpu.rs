@@ -1,5 +1,6 @@
 use super::super::mock::*;
 use crate::{ConfirmingOrder, MachineGPUOrder, RentInfo, RentOrderDetail, RentOrderId, RentStatus};
+use dbc_support::machine_type::MachineStatus;
 use frame_support::assert_ok;
 use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
 
@@ -60,7 +61,7 @@ fn report_individual_gpu() {
             // machine_info; machine_rented_gpu;
             assert_eq!(OnlineProfile::machine_rented_gpu(&machine_id), 2);
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+            assert_eq!(machine_info.machine_status, MachineStatus::Rented);
         }
 
         // 检查renter2 状态，应该与1一致
@@ -104,7 +105,7 @@ fn report_individual_gpu() {
             // machine_info; machine_rented_gpu;
             assert_eq!(OnlineProfile::machine_rented_gpu(&machine_id), 4);
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+            assert_eq!(machine_info.machine_status, MachineStatus::Rented);
         }
 
         // 两个订单分别进行确认租用
@@ -303,7 +304,7 @@ fn report_individual_gpu() {
             assert!(live_machines.online_machine.binary_search(&machine_id).is_err());
             assert!(live_machines.rented_machine.binary_search(&machine_id).is_ok());
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+            assert_eq!(machine_info.machine_status, MachineStatus::Rented);
             assert_eq!(machine_info.total_rented_duration, 1440);
             assert_eq!(machine_info.renters, vec![renter1]);
 
@@ -335,7 +336,7 @@ fn report_individual_gpu() {
             assert!(live_machines.online_machine.binary_search(&machine_id).is_ok());
             assert!(live_machines.rented_machine.binary_search(&machine_id).is_err());
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
+            assert_eq!(machine_info.machine_status, MachineStatus::Online);
             assert_eq!(machine_info.total_rented_duration, 4320);
             assert_eq!(machine_info.renters, vec![]);
 

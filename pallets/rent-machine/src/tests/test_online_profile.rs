@@ -1,11 +1,11 @@
 use super::super::mock::*;
 use crate::mock::{new_test_ext_after_machine_online, run_to_block};
 use dbc_support::{
-    machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     MachineId,
 };
 use frame_support::assert_ok;
-use online_profile::{LiveMachine, MachineStatus, PosGPUInfo, StashMachine};
+use online_profile::{LiveMachine, PosGPUInfo, StashMachine};
 use pallet_balances::AccountData;
 use std::convert::TryInto;
 use system::AccountInfo;

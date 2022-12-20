@@ -1,10 +1,10 @@
 use super::super::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList, *};
 use committee::CommitteeList;
-use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo};
-use frame_support::assert_ok;
-use online_profile::{
-    EraStashPoints, LiveMachine, MachineGradeStatus, MachineStatus, UserMutHardwareStakeInfo,
+use dbc_support::machine_type::{
+    CommitteeUploadInfo, Latitude, Longitude, MachineInfoDetail, MachineStatus, StakerCustomizeInfo,
 };
+use frame_support::assert_ok;
+use online_profile::{EraStashPoints, LiveMachine, MachineGradeStatus, UserMutHardwareStakeInfo};
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
 
@@ -53,7 +53,7 @@ fn machine_online_works() {
             bonding_height: 3,
             stake_amount: 100000 * ONE_DBC,
             init_stake_per_gpu: 100000 * ONE_DBC,
-            machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
+            machine_status: MachineStatus::AddingCustomizeInfo,
             ..Default::default()
         };
 
@@ -100,7 +100,7 @@ fn machine_online_works() {
         ));
 
         machine_info.machine_info_detail.staker_customize_info = customize_info;
-        machine_info.machine_status = online_profile::MachineStatus::DistributingOrder;
+        machine_info.machine_status = MachineStatus::DistributingOrder;
 
         run_to_block(3);
 
@@ -149,7 +149,7 @@ fn machine_online_works() {
             ..Default::default()
         };
 
-        machine_info.machine_status = online_profile::MachineStatus::CommitteeVerifying;
+        machine_info.machine_status = MachineStatus::CommitteeVerifying;
 
         // Do distribute_machines:
         // - Writes: op::MachinesInfo, op::LiveMachines, committee::CommitteeStake,
@@ -299,14 +299,14 @@ fn machine_online_works() {
         );
 
         let mut machine_info = online_profile::MachineInfo {
-            machine_status: online_profile::MachineStatus::Online,
+            machine_status: MachineStatus::Online,
             last_machine_restake: 6,
             online_height: 6,
             last_online_height: 6,
             stake_amount: 400000 * ONE_DBC,
             reward_deadline: 365 * 2 + 1,
             reward_committee: vec![committee2, committee3, committee1],
-            machine_info_detail: online_profile::MachineInfoDetail {
+            machine_info_detail: MachineInfoDetail {
                 committee_upload_info,
                 staker_customize_info: machine_info.machine_info_detail.staker_customize_info,
             },
@@ -719,7 +719,7 @@ fn machine_online_works() {
             last_machine_restake: 8644,
             last_online_height: 8644,
             stake_amount: 800000 * ONE_DBC,
-            machine_status: online_profile::MachineStatus::Online,
+            machine_status: MachineStatus::Online,
             ..machine_info
         };
 
@@ -988,7 +988,7 @@ fn committee_not_equal_then_redistribute_works() {
             machine_stash: stash,
             bonding_height: 3,
             stake_amount: 100000 * ONE_DBC,
-            machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
+            machine_status: MachineStatus::AddingCustomizeInfo,
             ..Default::default()
         };
 
@@ -1007,7 +1007,7 @@ fn committee_not_equal_then_redistribute_works() {
         ));
 
         machine_info.machine_info_detail.staker_customize_info = customize_info;
-        machine_info.machine_status = online_profile::MachineStatus::DistributingOrder;
+        machine_info.machine_status = MachineStatus::DistributingOrder;
 
         run_to_block(15);
 
@@ -1038,7 +1038,7 @@ fn committee_not_equal_then_redistribute_works() {
             }
         );
 
-        machine_info.machine_status = online_profile::MachineStatus::CommitteeVerifying;
+        machine_info.machine_status = MachineStatus::CommitteeVerifying;
 
         // 正常Hash: 0x6b561dfad171810dfb69924dd68733ec
         // cpu_core_num: 48: 0x5b4499c4b6e9f080673f9573410a103a
@@ -1236,7 +1236,7 @@ fn two_submit_hash_reach_submit_raw_works() {
             machine_stash: stash,
             bonding_height: 3,
             stake_amount: 100000 * ONE_DBC,
-            machine_status: online_profile::MachineStatus::AddingCustomizeInfo,
+            machine_status: MachineStatus::AddingCustomizeInfo,
             ..Default::default()
         };
 
@@ -1255,7 +1255,7 @@ fn two_submit_hash_reach_submit_raw_works() {
         ));
 
         machine_info.machine_info_detail.staker_customize_info = customize_info;
-        machine_info.machine_status = online_profile::MachineStatus::DistributingOrder;
+        machine_info.machine_status = MachineStatus::DistributingOrder;
 
         run_to_block(15);
 
@@ -1286,7 +1286,7 @@ fn two_submit_hash_reach_submit_raw_works() {
             }
         );
 
-        machine_info.machine_status = online_profile::MachineStatus::CommitteeVerifying;
+        machine_info.machine_status = MachineStatus::CommitteeVerifying;
 
         // 正常Hash: 0x6b561dfad171810dfb69924dd68733ec
         // cpu_core_num: 48: 0x5b4499c4b6e9f080673f9573410a103a

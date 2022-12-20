@@ -1,5 +1,6 @@
 use super::super::{mock::*, Error};
 use crate::{MTOrderStatus, ReportStatus};
+use dbc_support::{machine_type::MachineStatus, verify_slash::OPSlashReason};
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
 use std::convert::TryInto;
@@ -327,9 +328,9 @@ fn report_machine_inaccessible_works1() {
             let machine_info = OnlineProfile::machines_info(machine_id.clone());
             assert_eq!(
                 machine_info.machine_status,
-                online_profile::MachineStatus::ReporterReportOffline(
-                    online_profile::OPSlashReason::RentedInaccessible(11),
-                    Box::new(online_profile::MachineStatus::Rented),
+                MachineStatus::ReporterReportOffline(
+                    OPSlashReason::RentedInaccessible(11),
+                    Box::new(MachineStatus::Rented),
                     *reporter,
                     vec![*committee],
                 )

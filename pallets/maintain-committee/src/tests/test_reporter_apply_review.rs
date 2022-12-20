@@ -1,4 +1,8 @@
 use super::super::mock::*;
+use dbc_support::{
+    machine_type::MachineStatus,
+    verify_slash::{OPPendingSlashInfo, OPPendingSlashReviewInfo, OPSlashReason},
+};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -91,7 +95,7 @@ fn apply_slash_review_case1() {
 
         let machine_info = OnlineProfile::machines_info(&machine_id);
         {
-            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+            assert_eq!(machine_info.machine_status, MachineStatus::Rented);
             assert_eq!(
                 &OnlineProfile::live_machines(),
                 &online_profile::LiveMachine {
@@ -101,7 +105,7 @@ fn apply_slash_review_case1() {
             );
             assert_eq!(
                 &OnlineProfile::pending_slash(0),
-                &online_profile::OPPendingSlashInfo {
+                &OPPendingSlashInfo {
                     slash_who: machine_stash.clone(),
                     machine_id: machine_id.clone(),
                     slash_time: 24,
@@ -110,7 +114,7 @@ fn apply_slash_review_case1() {
                     reporter: None, // 这种不奖励验证人
                     renters: vec![reporter],
                     reward_to_committee: Some(vec![committee]),
-                    slash_reason: online_profile::OPSlashReason::RentedInaccessible(11),
+                    slash_reason: OPSlashReason::RentedInaccessible(11),
                     ..Default::default()
                 }
             );
@@ -120,7 +124,7 @@ fn apply_slash_review_case1() {
         {
             assert_eq!(
                 &OnlineProfile::pending_slash_review(0),
-                &online_profile::OPPendingSlashReviewInfo {
+                &OPPendingSlashReviewInfo {
                     applicant: controller,
                     staked_amount: 1000 * ONE_DBC,
                     apply_time: 24,
@@ -138,11 +142,11 @@ fn apply_slash_review_case1() {
         {
             assert_eq!(
                 &OnlineProfile::pending_slash(0),
-                &online_profile::OPPendingSlashInfo { ..Default::default() }
+                &OPPendingSlashInfo { ..Default::default() }
             );
             assert_eq!(
                 &OnlineProfile::pending_slash_review(0),
-                &online_profile::OPPendingSlashReviewInfo { ..Default::default() }
+                &OPPendingSlashReviewInfo { ..Default::default() }
             );
             assert_eq!(
                 Balances::free_balance(machine_stash),
@@ -176,10 +180,7 @@ fn apply_slash_review_case1_1() {
         run_to_block(25 + 2880 * 2);
 
         // assert_eq!(<online_profile::PendingSlashReview<TestRuntime>>::contains_key(0), true);
-        assert_eq!(
-            OnlineProfile::pending_slash_review(0),
-            online_profile::OPPendingSlashReviewInfo::default()
-        );
+        assert_eq!(OnlineProfile::pending_slash_review(0), OPPendingSlashReviewInfo::default());
         // 机器400000, 委员会质押20000, 申述1000， 罚款16000
         assert_eq!(
             Balances::free_balance(machine_stash),

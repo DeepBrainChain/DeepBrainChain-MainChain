@@ -2,6 +2,7 @@ use crate::{
     mock::*,
     tests::{controller, stash},
 };
+use dbc_support::verify_slash::{OPPendingSlashInfo, OPSlashReason};
 use frame_support::assert_ok;
 
 // 2). 机器在空闲状态
@@ -35,7 +36,7 @@ fn test_staker_report_offline() {
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
-            online_profile::OPPendingSlashInfo {
+            OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id,
                 slash_time: 21,
@@ -44,7 +45,7 @@ fn test_staker_report_offline() {
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::OnlineReportOffline(13),
+                slash_reason: OPSlashReason::OnlineReportOffline(13),
             }
         );
 
@@ -100,7 +101,7 @@ fn test_staker_report_offline2() {
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
-            online_profile::OPPendingSlashInfo {
+            OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id,
                 slash_time: 51,
@@ -109,7 +110,7 @@ fn test_staker_report_offline2() {
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::OnlineReportOffline(13),
+                slash_reason: OPSlashReason::OnlineReportOffline(13),
             }
         );
 
@@ -165,7 +166,7 @@ fn test_staker_report_offline3() {
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
-            online_profile::OPPendingSlashInfo {
+            OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id,
                 slash_time: 51 + 2880 * 2,
@@ -174,7 +175,7 @@ fn test_staker_report_offline3() {
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::OnlineReportOffline(13),
+                slash_reason: OPSlashReason::OnlineReportOffline(13),
             }
         );
 
@@ -247,7 +248,7 @@ fn test_staker_report_offline4() {
         // 已经下线超过10天了，offline时间是: 13
         assert_eq!(
             OnlineProfile::pending_slash(0),
-            online_profile::OPPendingSlashInfo {
+            OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id,
                 slash_time: 13 + 2880 * 10,
@@ -256,12 +257,12 @@ fn test_staker_report_offline4() {
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::OnlineReportOffline(13),
+                slash_reason: OPSlashReason::OnlineReportOffline(13),
             }
         );
 
         // 不存在其他的slash：
-        assert_eq!(OnlineProfile::pending_slash(1), online_profile::OPPendingSlashInfo::default());
+        assert_eq!(OnlineProfile::pending_slash(1), OPPendingSlashInfo::default());
 
         assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000 * 40) * ONE_DBC);
         assert_eq!(OnlineProfile::stash_stake(*stash), (400000 + 8000 * 40) * ONE_DBC);
@@ -316,8 +317,8 @@ fn test_staker_report_offline5() {
         ));
 
         // 不存在其他的slash：
-        assert_eq!(OnlineProfile::pending_slash(0), online_profile::OPPendingSlashInfo::default());
-        assert_eq!(OnlineProfile::pending_slash(1), online_profile::OPPendingSlashInfo::default());
+        assert_eq!(OnlineProfile::pending_slash(0), OPPendingSlashInfo::default());
+        assert_eq!(OnlineProfile::pending_slash(1), OPPendingSlashInfo::default());
 
         assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
         assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);

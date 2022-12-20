@@ -2,9 +2,12 @@ use crate::{
     mock::*, ConfirmingOrder, Error, MachineGPUOrder, RentOrderDetail, RentOrderId, RentStatus,
     BLOCK_PER_DAY,
 };
+use dbc_support::{
+    machine_type::MachineStatus,
+    verify_slash::{OPPendingSlashInfo, OPSlashReason},
+};
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
-use online_profile::MachineStatus;
 use sp_runtime::Perbill;
 
 const renter_dave: Lazy<sp_core::sr25519::Public> =
@@ -115,10 +118,7 @@ fn controller_report_offline_when_online_should_work() {
         let machine_info = OnlineProfile::machines_info(&*machine_id);
         assert_eq!(
             machine_info.machine_status,
-            online_profile::MachineStatus::StakerReportOffline(
-                11,
-                Box::new(online_profile::MachineStatus::Online)
-            )
+            MachineStatus::StakerReportOffline(11, Box::new(MachineStatus::Online))
         );
 
         // Offline 20 block will result in slash
@@ -130,7 +130,7 @@ fn controller_report_offline_when_online_should_work() {
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
-            online_profile::OPPendingSlashInfo {
+            OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id: machine_id.clone(),
                 slash_time: 21,
@@ -139,21 +139,18 @@ fn controller_report_offline_when_online_should_work() {
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::OnlineReportOffline(11)
+                slash_reason: OPSlashReason::OnlineReportOffline(11)
             }
         );
         // Machine should be online now
         let machine_info = OnlineProfile::machines_info(&*machine_id);
-        assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
+        assert_eq!(machine_info.machine_status, MachineStatus::Online);
 
         // check reserve balance
         assert_eq!(Balances::reserved_balance(*stash), 408000 * ONE_DBC);
 
         run_to_block(22 + 2880 * 2);
-        assert_eq!(
-            OnlineProfile::pending_slash(0),
-            online_profile::OPPendingSlashInfo { ..Default::default() }
-        );
+        assert_eq!(OnlineProfile::pending_slash(0), OPPendingSlashInfo { ..Default::default() });
         assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
     })
 }
@@ -230,7 +227,7 @@ fn controller_report_offline_when_rented_should_work() {
 
         assert_eq!(
             OnlineProfile::pending_slash(0),
-            online_profile::OPPendingSlashInfo {
+            OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id: machine_id.clone(),
                 slash_time: 21,
@@ -239,20 +236,17 @@ fn controller_report_offline_when_rented_should_work() {
                 reporter: None,
                 renters: vec![*renter_dave],
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::RentedReportOffline(11)
+                slash_reason: OPSlashReason::RentedReportOffline(11)
             }
         );
 
         let machine_info = OnlineProfile::machines_info(&*machine_id);
-        assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+        assert_eq!(machine_info.machine_status, MachineStatus::Rented);
 
         assert_eq!(Balances::reserved_balance(*stash), 408000 * ONE_DBC);
 
         run_to_block(22 + 2880 * 2);
-        assert_eq!(
-            OnlineProfile::pending_slash(0),
-            online_profile::OPPendingSlashInfo { ..Default::default() }
-        );
+        assert_eq!(OnlineProfile::pending_slash(0), OPPendingSlashInfo { ..Default::default() });
         assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
     })
 }
@@ -276,7 +270,7 @@ fn rented_report_offline_rented_end_report_online() {
         run_to_block(2880);
 
         let machine_info = OnlineProfile::machines_info(&*machine_id);
-        assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+        assert_eq!(machine_info.machine_status, MachineStatus::Rented);
 
         assert_ok!(OnlineProfile::controller_report_offline(
             Origin::signed(controller),
@@ -290,7 +284,7 @@ fn rented_report_offline_rented_end_report_online() {
         ));
         assert_eq!(
             OnlineProfile::pending_slash(0),
-            online_profile::OPPendingSlashInfo {
+            OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id: machine_id.clone(),
                 slash_time: 3001,
@@ -299,7 +293,7 @@ fn rented_report_offline_rented_end_report_online() {
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
-                slash_reason: online_profile::OPSlashReason::RentedReportOffline(2881)
+                slash_reason: OPSlashReason::RentedReportOffline(2881)
             }
         );
 
@@ -307,7 +301,7 @@ fn rented_report_offline_rented_end_report_online() {
         run_to_block(3001);
 
         let machine_info = OnlineProfile::machines_info(&*machine_id);
-        assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
+        assert_eq!(machine_info.machine_status, MachineStatus::Online);
         assert_eq!(machine_info.last_online_height, 3001);
         assert_eq!(machine_info.total_rented_duration, 2880);
         assert_eq!(machine_info.total_rented_times, 1);
