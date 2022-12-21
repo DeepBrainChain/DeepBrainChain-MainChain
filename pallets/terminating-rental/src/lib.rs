@@ -26,6 +26,7 @@ use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, GNOps, ManageCommittee},
+    verify_online::{MachineConfirmStatus, Summary},
     EraIndex, MachineId, RentOrderId, SlashId, TWO_DAY,
 };
 use generic_func::ItemList;
@@ -1398,7 +1399,7 @@ impl<T: Config> Pallet<T> {
         let mut stash_slash_info = None;
 
         match summary_result.clone() {
-            IRMachineConfirmStatus::Confirmed(summary) => {
+            MachineConfirmStatus::Confirmed(summary) => {
                 if Self::confirm_machine(summary.valid_support.clone(), summary.info.unwrap())
                     .is_ok()
                 {
@@ -1410,11 +1411,11 @@ impl<T: Config> Pallet<T> {
                     });
                 }
             },
-            IRMachineConfirmStatus::Refuse(_summary) => {
+            MachineConfirmStatus::Refuse(_summary) => {
                 // should cancel machine_stash slash when slashed committee apply review
                 stash_slash_info = Self::refuse_machine(machine_id.clone());
             },
-            IRMachineConfirmStatus::NoConsensus(_summary) => {
+            MachineConfirmStatus::NoConsensus(_summary) => {
                 let _ = Self::revert_book(machine_id.clone());
                 Self::revert_booked_machine(machine_id.clone());
             },
@@ -1479,10 +1480,10 @@ impl<T: Config> Pallet<T> {
     // 2. 支持上线: 处理办法：扣除所有反对上线，支持上线但提交无效信息的委员会的质押。
     // 3. 反对上线: 处理办法：反对的委员会平分支持的委员会的质押。扣5%矿工质押，
     // 允许矿工再次质押而上线。
-    pub fn summary_confirmation(machine_id: &MachineId) -> IRMachineConfirmStatus<T::AccountId> {
+    pub fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
         let machine_committee = Self::machine_committee(machine_id);
 
-        let mut summary = IRSummary::default();
+        let mut summary = Summary::default();
         // 支持的委员会可能提交不同的机器信息
         let mut uniq_machine_info: Vec<CommitteeUploadInfo> = Vec::new();
         // 不同机器信息对应的委员会
@@ -1493,7 +1494,7 @@ impl<T: Config> Pallet<T> {
 
         // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
         if machine_committee.confirmed_committee.is_empty() {
-            return IRMachineConfirmStatus::NoConsensus(summary)
+            return MachineConfirmStatus::NoConsensus(summary)
         }
 
         // 记录上反对上线的委员会
@@ -1522,10 +1523,10 @@ impl<T: Config> Pallet<T> {
         if max_support.is_none() {
             // 如果没有支持者，且有反对者，则拒绝接入。
             if !summary.against.is_empty() {
-                return IRMachineConfirmStatus::Refuse(summary)
+                return MachineConfirmStatus::Refuse(summary)
             }
             // 反对者支持者都为0
-            return IRMachineConfirmStatus::NoConsensus(summary)
+            return MachineConfirmStatus::NoConsensus(summary)
         }
 
         let max_support_num = max_support.unwrap();
@@ -1555,20 +1556,20 @@ impl<T: Config> Pallet<T> {
                 for a_committee in committee_for_machine_info[committee_group_index].clone() {
                     ItemList::add_item(&mut summary.invalid_support, a_committee);
                 }
-                return IRMachineConfirmStatus::Refuse(summary)
+                return MachineConfirmStatus::Refuse(summary)
             } else if summary.against.len() == max_support_num {
                 // 反对等于支持
                 for a_committee in committee_for_machine_info[committee_group_index].clone() {
                     ItemList::add_item(&mut summary.invalid_support, a_committee);
                 }
                 summary.invalid_support = committee_for_machine_info[committee_group_index].clone();
-                return IRMachineConfirmStatus::NoConsensus(summary)
+                return MachineConfirmStatus::NoConsensus(summary)
             } else {
                 // 反对小于支持
                 // 记录上所有的有效支持
                 summary.valid_support = committee_for_machine_info[committee_group_index].clone();
                 summary.info = Some(uniq_machine_info[committee_group_index].clone());
-                return IRMachineConfirmStatus::Confirmed(summary)
+                return MachineConfirmStatus::Confirmed(summary)
             }
         } else {
             // 如果多于两组是Max个委员会支, 则所有的支持都是无效的支持
@@ -1579,10 +1580,10 @@ impl<T: Config> Pallet<T> {
             }
             // Now will be Refuse or NoConsensus
             if summary.against.len() > max_support_num {
-                return IRMachineConfirmStatus::Refuse(summary)
+                return MachineConfirmStatus::Refuse(summary)
             } else {
                 // against <= max_support 且 max_support_group > 1，且反对的不占多数
-                return IRMachineConfirmStatus::NoConsensus(summary)
+                return MachineConfirmStatus::NoConsensus(summary)
             }
         }
     }

@@ -1,6 +1,6 @@
-use crate::IRBookResultType;
+// use crate::OCBookResultType;
 use codec::{Decode, Encode};
-use dbc_support::MachineId;
+use dbc_support::{verify_online::OCBookResultType, MachineId};
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
@@ -23,7 +23,7 @@ pub struct IRPendingOnlineSlashInfo<AccountId, BlockNumber, Balance> {
     pub slash_time: BlockNumber,
     pub slash_exec_time: BlockNumber,
 
-    pub book_result: IRBookResultType,
+    pub book_result: OCBookResultType,
     pub slash_result: IROnlineSlashResult,
 }
 

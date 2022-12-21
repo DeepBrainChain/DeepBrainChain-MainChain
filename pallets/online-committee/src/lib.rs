@@ -15,6 +15,7 @@ mod utils;
 use dbc_support::{
     machine_type::CommitteeUploadInfo,
     traits::{GNOps, ManageCommittee, OCOps},
+    verify_online::{MachineConfirmStatus, OCBookResultType, Summary},
     MachineId, SlashId,
 };
 use frame_support::{

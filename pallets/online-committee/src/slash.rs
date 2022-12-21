@@ -1,9 +1,9 @@
 use crate::{
-    types::OCSlashResult, Config, OCBookResultType, Pallet, PendingSlash, PendingSlashReview,
-    UnhandledSlash,
+    types::OCSlashResult, Config, Pallet, PendingSlash, PendingSlashReview, UnhandledSlash,
 };
 use dbc_support::{
     traits::{GNOps, OCOps},
+    verify_online::OCBookResultType,
     SlashId,
 };
 use frame_support::IterableStorageMap;

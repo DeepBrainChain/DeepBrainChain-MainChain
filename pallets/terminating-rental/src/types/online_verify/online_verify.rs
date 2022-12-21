@@ -7,7 +7,11 @@ use sp_runtime::RuntimeDebug;
 use sp_std::{ops, vec::Vec};
 
 use crate::{CustomErr, ReportId, SUBMIT_HASH_END, SUBMIT_RAW_END};
-use dbc_support::{machine_type::CommitteeUploadInfo, MachineId};
+use dbc_support::{
+    machine_type::CommitteeUploadInfo,
+    verify_online::{MachineConfirmStatus, OCBookResultType, Summary},
+    MachineId,
+};
 use generic_func::ItemList;
 
 /// The reason why a stash account is punished
@@ -152,14 +156,14 @@ where
         unruly
     }
 
-    pub fn after_summary(&mut self, summary_result: IRMachineConfirmStatus<AccountId>) {
+    pub fn after_summary(&mut self, summary_result: MachineConfirmStatus<AccountId>) {
         match summary_result {
-            IRMachineConfirmStatus::Confirmed(summary) => {
+            MachineConfirmStatus::Confirmed(summary) => {
                 self.status = IRVerifyStatus::Finished;
                 self.onlined_committee = summary.valid_support;
             },
-            IRMachineConfirmStatus::NoConsensus(_) => {},
-            IRMachineConfirmStatus::Refuse(_) => {
+            MachineConfirmStatus::NoConsensus(_) => {},
+            MachineConfirmStatus::Refuse(_) => {
                 self.status = IRVerifyStatus::Finished;
             },
         }
@@ -227,104 +231,104 @@ impl Default for IRVerifyMachineStatus {
     }
 }
 
-/// What will happen after all committee submit raw machine info
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum IRMachineConfirmStatus<AccountId> {
-    /// Machine is confirmed by committee, so can be online later
-    Confirmed(IRSummary<AccountId>),
-    /// Machine is refused, will not online
-    Refuse(IRSummary<AccountId>),
-    /// No consensus, so machine will be redistributed and verified later
-    NoConsensus(IRSummary<AccountId>),
-}
+// /// What will happen after all committee submit raw machine info
+// #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+// pub enum IRMachineConfirmStatus<AccountId> {
+//     /// Machine is confirmed by committee, so can be online later
+//     Confirmed(Summary<AccountId>),
+//     /// Machine is refused, will not online
+//     Refuse(Summary<AccountId>),
+//     /// No consensus, so machine will be redistributed and verified later
+//     NoConsensus(Summary<AccountId>),
+// }
 
-impl<AccountId: Default> Default for IRMachineConfirmStatus<AccountId> {
-    fn default() -> Self {
-        Self::Confirmed(IRSummary { ..Default::default() })
-    }
-}
+// impl<AccountId: Default> Default for IRMachineConfirmStatus<AccountId> {
+//     fn default() -> Self {
+//         Self::Confirmed(Summary { ..Default::default() })
+//     }
+// }
 
-impl<AccountId: Clone + Ord> IRMachineConfirmStatus<AccountId> {
-    // TODO: Refa it
-    pub fn get_committee_group(self) -> (Vec<AccountId>, Vec<AccountId>, Vec<AccountId>) {
-        let mut inconsistent_committee = Vec::new();
-        let mut unruly_committee = Vec::new();
-        let mut reward_committee = Vec::new();
+// impl<AccountId: Clone + Ord> IRMachineConfirmStatus<AccountId> {
+//     // TODO: Refa it
+//     pub fn get_committee_group(self) -> (Vec<AccountId>, Vec<AccountId>, Vec<AccountId>) {
+//         let mut inconsistent_committee = Vec::new();
+//         let mut unruly_committee = Vec::new();
+//         let mut reward_committee = Vec::new();
 
-        match self {
-            Self::Confirmed(summary) => {
-                unruly_committee = summary.unruly.clone();
-                reward_committee = summary.valid_support.clone();
+//         match self {
+//             Self::Confirmed(summary) => {
+//                 unruly_committee = summary.unruly.clone();
+//                 reward_committee = summary.valid_support.clone();
 
-                for a_committee in summary.against {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
-                }
-                for a_committee in summary.invalid_support {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
-                }
-            },
-            Self::NoConsensus(summary) =>
-                for a_committee in summary.unruly {
-                    ItemList::add_item(&mut unruly_committee, a_committee);
-                },
-            Self::Refuse(summary) => {
-                for a_committee in summary.unruly {
-                    ItemList::add_item(&mut unruly_committee, a_committee);
-                }
-                for a_committee in summary.invalid_support {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
-                }
-                for a_committee in summary.against {
-                    ItemList::add_item(&mut reward_committee, a_committee);
-                }
-            },
-        }
+//                 for a_committee in summary.against {
+//                     ItemList::add_item(&mut inconsistent_committee, a_committee);
+//                 }
+//                 for a_committee in summary.invalid_support {
+//                     ItemList::add_item(&mut inconsistent_committee, a_committee);
+//                 }
+//             },
+//             Self::NoConsensus(summary) =>
+//                 for a_committee in summary.unruly {
+//                     ItemList::add_item(&mut unruly_committee, a_committee);
+//                 },
+//             Self::Refuse(summary) => {
+//                 for a_committee in summary.unruly {
+//                     ItemList::add_item(&mut unruly_committee, a_committee);
+//                 }
+//                 for a_committee in summary.invalid_support {
+//                     ItemList::add_item(&mut inconsistent_committee, a_committee);
+//                 }
+//                 for a_committee in summary.against {
+//                     ItemList::add_item(&mut reward_committee, a_committee);
+//                 }
+//             },
+//         }
 
-        (inconsistent_committee, unruly_committee, reward_committee)
-    }
+//         (inconsistent_committee, unruly_committee, reward_committee)
+//     }
 
-    pub fn into_book_result(&self) -> IRBookResultType {
-        match self {
-            Self::Confirmed(_) => IRBookResultType::OnlineSucceed,
-            Self::Refuse(_) => IRBookResultType::OnlineRefused,
-            Self::NoConsensus(_) => IRBookResultType::NoConsensus,
-        }
-    }
+//     pub fn into_book_result(&self) -> IRBookResultType {
+//         match self {
+//             Self::Confirmed(_) => IRBookResultType::OnlineSucceed,
+//             Self::Refuse(_) => IRBookResultType::OnlineRefused,
+//             Self::NoConsensus(_) => IRBookResultType::NoConsensus,
+//         }
+//     }
 
-    pub fn is_refused(&self) -> bool {
-        matches!(self, Self::Refuse(_))
-    }
-}
+//     pub fn is_refused(&self) -> bool {
+//         matches!(self, Self::Refuse(_))
+//     }
+// }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct IRSummary<AccountId> {
-    /// Machine will be online, and those committee will get reward
-    pub valid_support: Vec<AccountId>,
-    /// Machine will be online, and those committee cannot get reward
-    /// for they submit different message from majority committee
-    pub invalid_support: Vec<AccountId>,
-    /// Committees, that not submit all message
-    /// such as: not submit hash, not submit raw info before deadline
-    pub unruly: Vec<AccountId>,
-    /// Committees, refuse machine online
-    pub against: Vec<AccountId>,
-    /// Raw machine info, most majority committee submit
-    pub info: Option<CommitteeUploadInfo>,
-}
+// #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+// pub struct IRSummary<AccountId> {
+//     /// Machine will be online, and those committee will get reward
+//     pub valid_support: Vec<AccountId>,
+//     /// Machine will be online, and those committee cannot get reward
+//     /// for they submit different message from majority committee
+//     pub invalid_support: Vec<AccountId>,
+//     /// Committees, that not submit all message
+//     /// such as: not submit hash, not submit raw info before deadline
+//     pub unruly: Vec<AccountId>,
+//     /// Committees, refuse machine online
+//     pub against: Vec<AccountId>,
+//     /// Raw machine info, most majority committee submit
+//     pub info: Option<CommitteeUploadInfo>,
+// }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum IRBookResultType {
-    OnlineSucceed,
-    OnlineRefused,
-    NoConsensus,
-    // TODO: May add if is reonline
-}
+// #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+// pub enum IRBookResultType {
+//     OnlineSucceed,
+//     OnlineRefused,
+//     NoConsensus,
+//     // TODO: May add if is reonline
+// }
 
-impl Default for IRBookResultType {
-    fn default() -> Self {
-        Self::OnlineRefused
-    }
-}
+// impl Default for IRBookResultType {
+//     fn default() -> Self {
+//         Self::OnlineRefused
+//     }
+// }
 
 /// 委员会抢到的报告的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
