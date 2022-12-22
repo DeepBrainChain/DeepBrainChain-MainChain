@@ -4,10 +4,9 @@ use crate::{
 };
 use dbc_support::{
     traits::{GNOps, ManageCommittee},
-    SlashId,
+    ItemList, SlashId,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure};
-use generic_func::ItemList;
 use sp_runtime::traits::{CheckedSub, Zero};
 use sp_std::{vec, vec::Vec};
 

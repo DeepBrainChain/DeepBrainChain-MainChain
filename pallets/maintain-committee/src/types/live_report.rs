@@ -1,7 +1,6 @@
 use crate::{MachineFaultType, ReportConfirmStatus};
 use codec::{Decode, Encode};
-use dbc_support::ReportId;
-use generic_func::ItemList;
+use dbc_support::{ItemList, ReportId};
 use sp_runtime::RuntimeDebug;
 use sp_std::{cmp::PartialEq, vec::Vec};
 

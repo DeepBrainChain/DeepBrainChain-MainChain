@@ -4,10 +4,9 @@ use crate::{
 };
 use dbc_support::{
     traits::{GNOps, ManageCommittee},
-    ReportHash, ReportId,
+    ItemList, ReportHash, ReportId,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
-use generic_func::ItemList;
 use sp_io::hashing::blake2_128;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::vec::Vec;

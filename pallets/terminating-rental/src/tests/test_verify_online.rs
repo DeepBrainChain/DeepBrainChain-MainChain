@@ -1,10 +1,11 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
-use crate::{IRCommitteeOnlineOps, IRLiveMachine, IRMachineCommitteeList, IRStashMachine};
+use crate::{IRCommitteeOnlineOps, IRLiveMachine, IRStashMachine};
 use committee::CommitteeStakeInfo;
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     verify_online::{
-        OCCommitteeMachineList, OCMachineStatus as VerifyMachineStatus, OCVerifyStatus,
+        OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus,
+        OCVerifyStatus,
     },
 };
 use frame_support::assert_ok;
@@ -90,7 +91,7 @@ fn verify_machine_works() {
             );
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                IRMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 4320, // 36h = 2880 + 1440
@@ -139,7 +140,7 @@ fn verify_machine_works() {
             assert_eq!(IRMachine::machine_submited_hash(&machine_id), vec![hash1]);
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                IRMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee1,],
@@ -185,7 +186,7 @@ fn verify_machine_works() {
             assert_eq!(IRMachine::machine_submited_hash(&machine_id), vec![hash2, hash3, hash1]);
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                IRMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee2, committee1, committee4],
@@ -220,7 +221,7 @@ fn verify_machine_works() {
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                IRMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee2, committee1, committee4],
@@ -258,7 +259,7 @@ fn verify_machine_works() {
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                IRMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee2, committee1, committee4],
@@ -306,7 +307,7 @@ fn verify_machine_works() {
             // - Writes: CommitteeStake
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                IRMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee2, committee1, committee4],

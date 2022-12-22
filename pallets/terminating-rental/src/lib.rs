@@ -28,11 +28,10 @@ use dbc_support::{
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_online::{
         MachineConfirmStatus, OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps,
-        OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, Summary,
+        OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, Summary,
     },
-    EraIndex, MachineId, RentOrderId, SlashId, TWO_DAY,
+    EraIndex, ItemList, MachineId, RentOrderId, SlashId, TWO_DAY,
 };
-use generic_func::ItemList;
 
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;
@@ -157,7 +156,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         MachineId,
-        IRMachineCommitteeList<T::AccountId, T::BlockNumber>,
+        OCMachineCommitteeList<T::AccountId, T::BlockNumber>,
         ValueQuery,
     >;
 
@@ -1493,7 +1492,7 @@ impl<T: Config> Pallet<T> {
         let mut committee_for_machine_info = Vec::new();
 
         // 记录没有提交原始信息的委员会
-        summary.unruly = machine_committee.unruly_committee();
+        summary.unruly = machine_committee.summary_unruly();
 
         // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
         if machine_committee.confirmed_committee.is_empty() {
@@ -1646,7 +1645,7 @@ impl<T: Config> Pallet<T> {
 
     // 重新进行派单评估
     // 该函数将清除本模块信息，并将online_profile机器状态改为ocw_confirmed_machine
-    // 清除信息： OCCommitteeMachineList, IRMachineCommitteeList, IRCommitteeOps
+    // 清除信息： OCCommitteeMachineList, OCMachineCommitteeList, IRCommitteeOps
     fn revert_book(machine_id: MachineId) -> Result<(), ()> {
         let machine_committee = Self::machine_committee(&machine_id);
 

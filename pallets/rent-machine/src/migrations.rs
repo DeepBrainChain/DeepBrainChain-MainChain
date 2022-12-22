@@ -5,10 +5,9 @@ use crate::{
 use codec::{Decode, Encode};
 use dbc_support::{
     rental_type::{RentOrderDetail, RentStatus},
-    MachineId,
+    ItemList, MachineId,
 };
 use frame_support::{debug::info, traits::Get, weights::Weight, IterableStorageMap};
-use generic_func::ItemList;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Zero;

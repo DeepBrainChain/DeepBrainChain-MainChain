@@ -12,7 +12,7 @@ use dbc_support::{
     machine_type::{Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_slash::{OPPendingSlashInfo, OPPendingSlashReviewInfo, OPSlashReason},
-    EraIndex, MachineId, SlashId,
+    EraIndex, ItemList, MachineId, SlashId,
 };
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
@@ -21,7 +21,6 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::pallet_prelude::*;
-use generic_func::ItemList;
 use sp_core::H256;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, Zero},

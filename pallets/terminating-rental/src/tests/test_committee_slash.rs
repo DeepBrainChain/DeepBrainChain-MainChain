@@ -1,10 +1,10 @@
 use crate::{
-    IRLiveMachine, IRMachineCommitteeList, IROnlineSlashResult, IRPendingOnlineSlashInfo,
-    IRStashMachine, OCCommitteeMachineList,
+    IRLiveMachine, IROnlineSlashResult, IRPendingOnlineSlashInfo, IRStashMachine,
+    OCCommitteeMachineList,
 };
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
-    verify_online::{OCBookResultType, OCVerifyStatus},
+    verify_online::{OCBookResultType, OCMachineCommitteeList, OCVerifyStatus},
 };
 
 use super::super::mock::{TerminatingRental as IRMachine, INIT_BALANCE, *};
@@ -61,7 +61,7 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                IRMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee3, committee2, committee4],
                     confirm_start_time: 4320 + 2, // 360 * 12
@@ -111,7 +111,7 @@ fn committee_not_submit_slash_works() {
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                IRMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee3, committee2, committee4],
                     hashed_committee: vec![committee3, committee2],

@@ -4,10 +4,9 @@ use crate::{
 use dbc_support::{
     traits::{GNOps, OCOps},
     verify_online::OCBookResultType,
-    SlashId,
+    ItemList, SlashId,
 };
 use frame_support::IterableStorageMap;
-use generic_func::ItemList;
 use sp_runtime::traits::Zero;
 use sp_std::{vec, vec::Vec};
 

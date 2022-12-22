@@ -1263,7 +1263,7 @@ impl_runtime_apis! {
             OnlineCommittee::get_committee_ops(committee, machine_id)
         }
 
-        fn get_machine_committee_list(machine_id: MachineId) -> online_committee::OCMachineCommitteeList<AccountId, BlockNumber> {
+        fn get_machine_committee_list(machine_id: MachineId) -> dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber> {
             OnlineCommittee::get_machine_committee_list(machine_id)
         }
     }
@@ -1317,7 +1317,7 @@ impl_runtime_apis! {
             TerminatingRental::get_committee_ops(committee, machine_id)
         }
 
-        fn get_machine_committee_list(machine_id: MachineId) -> terminating_rental::IRMachineCommitteeList<AccountId, BlockNumber> {
+        fn get_machine_committee_list(machine_id: MachineId) -> dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber> {
             TerminatingRental::get_machine_committee_list(machine_id)
         }
 

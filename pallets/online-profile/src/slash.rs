@@ -7,10 +7,9 @@ use dbc_support::{
     machine_type::MachineStatus,
     traits::GNOps,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
-    MachineId,
+    ItemList, MachineId,
 };
 use frame_support::traits::ReservableCurrency;
-use generic_func::ItemList;
 use sp_runtime::{
     traits::{Saturating, Zero},
     Perbill, SaturatedConversion,

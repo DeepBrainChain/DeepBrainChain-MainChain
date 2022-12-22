@@ -1,7 +1,7 @@
-use crate::{types::OCMachineCommitteeList, BalanceOf, CommitteeUploadInfo, Config, Pallet};
+use crate::{BalanceOf, CommitteeUploadInfo, Config, Pallet};
 use codec::{Decode, Encode};
 use dbc_support::{
-    verify_online::{OCCommitteeMachineList, OCMachineStatus},
+    verify_online::{OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus},
     MachineId,
 };
 #[cfg(feature = "std")]

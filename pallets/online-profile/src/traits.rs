@@ -7,10 +7,9 @@ use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus},
     traits::{MTOps, OCOps, OPRPCQuery, RTOps},
     verify_slash::OPSlashReason,
-    MachineId,
+    ItemList, MachineId,
 };
 use frame_support::IterableStorageMap;
-use generic_func::ItemList;
 use sp_runtime::{
     traits::{CheckedMul, CheckedSub},
     Perbill, SaturatedConversion,

@@ -1,8 +1,7 @@
 use crate::{CustomErr, MachineFaultType};
 use codec::{Decode, Encode};
-use dbc_support::{ReportHash, ReportId};
+use dbc_support::{ItemList, ReportHash, ReportId};
 use frame_support::ensure;
-use generic_func::ItemList;
 use sp_runtime::RuntimeDebug;
 use sp_std::{cmp::PartialEq, vec::Vec};
 

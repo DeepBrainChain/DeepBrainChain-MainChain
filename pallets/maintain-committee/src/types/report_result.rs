@@ -1,7 +1,6 @@
 use crate::{MTReportInfoDetail, ReportConfirmStatus};
 use codec::{Decode, Encode};
-use dbc_support::{MachineId, ReportId, TWO_DAY};
-use generic_func::ItemList;
+use dbc_support::{ItemList, MachineId, ReportId, TWO_DAY};
 use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::{
     cmp::PartialEq,

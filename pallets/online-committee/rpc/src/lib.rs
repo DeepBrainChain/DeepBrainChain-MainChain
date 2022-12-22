@@ -1,10 +1,8 @@
 use codec::Codec;
-use dbc_support::rpc_types::RpcBalance;
+use dbc_support::{rpc_types::RpcBalance, verify_online::OCMachineCommitteeList};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_committee::{
-    rpc::RpcOCCommitteeOps, rpc_types::RpcOCCommitteeMachineList, OCMachineCommitteeList,
-};
+use online_committee::{rpc::RpcOCCommitteeOps, rpc_types::RpcOCCommitteeMachineList};
 
 use online_committee_runtime_api::OcRpcApi as OcStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;

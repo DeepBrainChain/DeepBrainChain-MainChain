@@ -13,13 +13,13 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+use dbc_support::ItemList;
 use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
-use generic_func::ItemList;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Zero};
 use sp_std::{prelude::*, str};
 

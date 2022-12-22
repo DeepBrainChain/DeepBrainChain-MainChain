@@ -12,14 +12,12 @@ use std::{fmt::Display, str::FromStr, sync::Arc};
 use dbc_support::{
     rental_type::{MachineGPUOrder, RentOrderDetail},
     rpc_types::RpcBalance,
+    verify_online::OCMachineCommitteeList,
     RentOrderId,
 };
-use terminating_rental::{
-    rpc_types::{
-        RpcIRCommitteeOps, RpcLiveMachine, RpcMachineInfo, RpcOCCommitteeMachineList,
-        RpcStakerInfo, RpcStashMachine,
-    },
-    IRMachineCommitteeList,
+use terminating_rental::rpc_types::{
+    RpcIRCommitteeOps, RpcLiveMachine, RpcMachineInfo, RpcOCCommitteeMachineList, RpcStakerInfo,
+    RpcStashMachine,
 };
 use terminating_rental_runtime_api::IrRpcApi as IrStorageRuntimeApi;
 
@@ -69,7 +67,7 @@ where
         &self,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> Result<IRMachineCommitteeList<AccountId, BlockNumber>>;
+    ) -> Result<OCMachineCommitteeList<AccountId, BlockNumber>>;
 
     #[rpc(name = "terminatingRental_getRentOrder")]
     fn get_rent_order(
@@ -262,7 +260,7 @@ where
         &self,
         machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<IRMachineCommitteeList<AccountId, BlockNumber>> {
+    ) -> Result<OCMachineCommitteeList<AccountId, BlockNumber>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();

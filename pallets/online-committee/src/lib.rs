@@ -17,9 +17,9 @@ use dbc_support::{
     traits::{GNOps, ManageCommittee, OCOps},
     verify_online::{
         MachineConfirmStatus, OCBookResultType, OCCommitteeMachineList, OCCommitteeOps,
-        OCMachineStatus, OCVerifyStatus, Summary,
+        OCMachineCommitteeList, OCMachineStatus, OCVerifyStatus, Summary,
     },
-    MachineId, SlashId,
+    ItemList, MachineId, SlashId,
 };
 use frame_support::{
     ensure,
@@ -27,7 +27,6 @@ use frame_support::{
     traits::{Currency, ReservableCurrency},
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
-use generic_func::ItemList;
 use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;

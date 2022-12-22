@@ -2,9 +2,9 @@ use crate::*;
 use dbc_support::{
     machine_type::MachineStatus,
     traits::{GNOps, ManageCommittee},
+    ItemList,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
-use generic_func::ItemList;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{vec, vec::Vec};
 

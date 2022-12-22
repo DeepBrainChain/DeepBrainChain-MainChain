@@ -1,11 +1,10 @@
 use crate::{CustomErr, ReportConfirmStatus};
 use codec::{Decode, Encode};
 use dbc_support::{
-    verify_slash::OPSlashReason, BoxPubkey, MachineId, RentOrderId, ReportHash, FOUR_HOUR,
-    TEN_MINUTE, THREE_HOUR,
+    verify_slash::OPSlashReason, BoxPubkey, ItemList, MachineId, RentOrderId, ReportHash,
+    FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
 };
 use frame_support::ensure;
-use generic_func::ItemList;
 use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::{cmp::PartialEq, ops::Sub, vec, vec::Vec};
 
