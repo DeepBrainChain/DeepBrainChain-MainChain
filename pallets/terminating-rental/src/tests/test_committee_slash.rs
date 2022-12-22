@@ -1,9 +1,7 @@
-use crate::{
-    IRLiveMachine, IROnlineSlashResult, IRPendingOnlineSlashInfo, IRStashMachine,
-    OCCommitteeMachineList,
-};
+use crate::{IRLiveMachine, IRStashMachine, OCCommitteeMachineList};
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
+    verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
     verify_online::{OCBookResultType, OCMachineCommitteeList, OCVerifyStatus},
 };
 
@@ -155,7 +153,7 @@ fn committee_not_submit_slash_works() {
             );
             assert_eq!(
                 IRMachine::pending_online_slash(0),
-                IRPendingOnlineSlashInfo {
+                OCPendingSlashInfo {
                     machine_id: machine_id.clone(),
                     inconsistent_committee: vec![],
                     unruly_committee: vec![committee4],
@@ -166,7 +164,7 @@ fn committee_not_submit_slash_works() {
                     slash_exec_time: 4 + 4320 + 2880 * 2,
 
                     book_result: OCBookResultType::OnlineSucceed,
-                    slash_result: IROnlineSlashResult::Pending,
+                    slash_result: OCSlashResult::Pending,
                     ..Default::default()
                 }
             );
@@ -287,7 +285,7 @@ fn machine_refused_slash_works() {
             // 检查惩罚
             assert_eq!(
                 IRMachine::pending_online_slash(0),
-                IRPendingOnlineSlashInfo {
+                OCPendingSlashInfo {
                     machine_id: machine_id.clone(),
                     machine_stash: stash,
                     stash_slash_amount: 10000 * ONE_DBC,
@@ -299,7 +297,7 @@ fn machine_refused_slash_works() {
                     slash_exec_time: 4 + 2880 * 2,
 
                     book_result: OCBookResultType::OnlineRefused,
-                    slash_result: IROnlineSlashResult::Pending,
+                    slash_result: OCSlashResult::Pending,
                     ..Default::default()
                 }
             );

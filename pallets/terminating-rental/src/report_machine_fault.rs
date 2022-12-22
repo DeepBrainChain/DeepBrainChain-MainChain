@@ -2,7 +2,7 @@ use crate::*;
 use dbc_support::{
     machine_type::MachineStatus,
     traits::{GNOps, ManageCommittee},
-    ItemList,
+    ItemList, ReportId, THREE_HOUR,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
 use sp_runtime::traits::{Saturating, Zero};

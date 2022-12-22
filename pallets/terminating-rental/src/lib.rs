@@ -26,11 +26,12 @@ use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, GNOps, ManageCommittee},
+    verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
     verify_online::{
         MachineConfirmStatus, OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps,
         OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, Summary,
     },
-    EraIndex, ItemList, MachineId, RentOrderId, SlashId, TWO_DAY,
+    EraIndex, ItemList, MachineId, RentOrderId, ReportId, SlashId, TWO_DAY,
 };
 
 /// 36 hours divide into 9 intervals for verification
@@ -256,7 +257,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         SlashId,
-        IRPendingOnlineSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        PendingOnlineSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -1443,7 +1444,7 @@ impl<T: Config> Pallet<T> {
             let (machine_stash, stash_slash_amount) = stash_slash_info.unwrap_or_default();
             PendingOnlineSlash::<T>::insert(
                 slash_id,
-                IRPendingOnlineSlashInfo {
+                PendingOnlineSlashInfo {
                     machine_id: machine_id.clone(),
                     machine_stash,
                     stash_slash_amount,
@@ -1457,7 +1458,7 @@ impl<T: Config> Pallet<T> {
                     slash_exec_time: now + TWO_DAY.into(),
 
                     book_result: summary_result.into_book_result(),
-                    slash_result: IROnlineSlashResult::Pending,
+                    slash_result: OCSlashResult::Pending,
                 },
             );
 

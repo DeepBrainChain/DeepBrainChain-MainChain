@@ -1,20 +1,15 @@
 use crate::CustomErr;
 use codec::{Decode, Encode};
-use dbc_support::{verify_slash::OPSlashReason, ItemList, MachineId, RentOrderId};
+use dbc_support::{
+    verify_slash::OPSlashReason, BoxPubkey, ItemList, MachineId, RentOrderId, ReportHash, ReportId,
+    FOUR_HOUR, THREE_HOUR, TWO_DAY,
+};
 use frame_support::ensure;
 use sp_runtime::{
     traits::{Saturating, Zero},
     Perbill, RuntimeDebug,
 };
 use sp_std::{ops::Sub, vec::Vec};
-
-pub type ReportId = u64;
-pub type ReportHash = [u8; 16];
-pub type BoxPubkey = [u8; 32];
-
-pub const THREE_HOUR: u32 = 360;
-pub const FOUR_HOUR: u32 = 480;
-pub const TWO_DAY: u32 = 5760;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum IRMachineFaultType {

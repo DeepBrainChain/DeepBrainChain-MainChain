@@ -1,13 +1,12 @@
 use crate::{
-    types::TWO_DAY, BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecSlash,
-    PendingOfflineSlash, PendingSlash, PendingSlashReview, PendingSlashReviewChecking, StashStake,
-    SysInfo,
+    BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecSlash, PendingOfflineSlash,
+    PendingSlash, PendingSlashReview, PendingSlashReviewChecking, StashStake, SysInfo,
 };
 use dbc_support::{
     machine_type::MachineStatus,
     traits::GNOps,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
-    ItemList, MachineId,
+    ItemList, MachineId, TWO_DAY,
 };
 use frame_support::traits::ReservableCurrency;
 use sp_runtime::{

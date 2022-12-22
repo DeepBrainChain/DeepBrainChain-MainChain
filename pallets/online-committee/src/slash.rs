@@ -1,8 +1,7 @@
-use crate::{
-    types::OCSlashResult, Config, Pallet, PendingSlash, PendingSlashReview, UnhandledSlash,
-};
+use crate::{Config, Pallet, PendingSlash, PendingSlashReview, UnhandledSlash};
 use dbc_support::{
     traits::{GNOps, OCOps},
+    verify_committee_slash::OCSlashResult,
     verify_online::OCBookResultType,
     ItemList, SlashId,
 };

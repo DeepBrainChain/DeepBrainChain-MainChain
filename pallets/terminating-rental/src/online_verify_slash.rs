@@ -1,9 +1,9 @@
 use crate::{
-    BalanceOf, Config, Error, IROnlineSlashResult, Pallet, PendingOnlineSlash, StashStake,
-    UnhandledOnlineSlash,
+    BalanceOf, Config, Error, Pallet, PendingOnlineSlash, StashStake, UnhandledOnlineSlash,
 };
 use dbc_support::{
     traits::{GNOps, ManageCommittee},
+    verify_committee_slash::OCSlashResult,
     ItemList, SlashId,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure};
@@ -101,7 +101,7 @@ impl<T: Config> Pallet<T> {
             vec![],
         )?;
 
-        slash_info.slash_result = IROnlineSlashResult::Executed;
+        slash_info.slash_result = OCSlashResult::Executed;
         ItemList::rm_item(pending_unhandled_slash, &slash_id);
         PendingOnlineSlash::<T>::insert(slash_id, slash_info);
 

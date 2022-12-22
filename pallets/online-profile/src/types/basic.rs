@@ -16,8 +16,7 @@ pub const REWARD_DURATION: u32 = 365 * 2;
 pub const REBOND_FREQUENCY: u32 = 365 * 2880;
 /// Max Slash Threshold: 120h, 5 era
 pub const MAX_SLASH_THRESHOLD: u32 = 2880 * 5;
-/// PendingSlash will be exec in two days
-pub const TWO_DAY: u32 = 5760;
+// PendingSlash will be exec in two days
 
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

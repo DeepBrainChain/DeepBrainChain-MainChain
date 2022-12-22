@@ -97,6 +97,16 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dev-dependencies.frame-benchmarking]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
+[dev-dependencies]
+rand_chacha = { version = "0.2" }
+parking_lot = "0.11.1"
+hex = "0.4"
+
 [features]
 default = ["std"]
 std = [

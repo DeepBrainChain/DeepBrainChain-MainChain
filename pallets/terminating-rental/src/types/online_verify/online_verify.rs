@@ -1,6 +1,6 @@
-use crate::{Config, Error, ReportId};
+use crate::{Config, Error};
 use codec::{Decode, Encode};
-use dbc_support::{verify_online::CustomErr, ItemList};
+use dbc_support::{verify_online::CustomErr, ItemList, ReportId};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
