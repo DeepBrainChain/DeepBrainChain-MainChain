@@ -1,5 +1,5 @@
 use crate::{
-    types::{EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo, BLOCK_PER_ERA},
+    types::{EraStashPoints, MachineGradeStatus, MachineRecentRewardInfo},
     AllMachineIdSnap, AllMachineIdSnapDetail, BalanceOf, Config, CurrentEra, EraReward,
     ErasMachinePoints, ErasMachineReleasedReward, ErasMachineReward, ErasStashPoints,
     ErasStashReleasedReward, ErasStashReward, MachineRecentReward, Pallet, StashMachines,
@@ -7,7 +7,7 @@ use crate::{
 use codec::Decode;
 use dbc_support::{
     traits::{DbcPrice, ManageCommittee, OPRPCQuery},
-    EraIndex, MachineId,
+    EraIndex, MachineId, ONE_DAY,
 };
 use sp_runtime::{
     traits::{CheckedMul, Saturating, Zero},
@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn backup_and_reward(now: T::BlockNumber) {
-        let block_offset = now.saturated_into::<u64>() % BLOCK_PER_ERA;
+        let block_offset = now.saturated_into::<u64>() % ONE_DAY as u64;
 
         match block_offset {
             // 记录所有MachineId，用来后面发放奖励时使用

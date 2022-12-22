@@ -7,7 +7,7 @@ use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus},
     traits::{MTOps, OCOps, OPRPCQuery, RTOps},
     verify_slash::OPSlashReason,
-    ItemList, MachineId,
+    ItemList, MachineId, ONE_DAY,
 };
 use frame_support::IterableStorageMap;
 use sp_runtime::{
@@ -419,7 +419,7 @@ impl<T: Config> MTOps for Pallet<T> {
         // When Reported offline, after 5 days, reach max slash amount;
         let now = <frame_system::Module<T>>::block_number();
         PendingOfflineSlash::<T>::insert(
-            now + (5 * BLOCK_PER_ERA).saturated_into::<T::BlockNumber>(),
+            now + (5 * ONE_DAY).saturated_into::<T::BlockNumber>(),
             machine_id,
             (Some(reporter), machine_info.renters),
         );

@@ -13,7 +13,7 @@ pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, RTOps},
-    EraIndex, ItemList, MachineId, RentOrderId,
+    EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY,
 };
 use frame_support::{
     dispatch::DispatchResult,
@@ -30,8 +30,6 @@ type BalanceOf<T> =
 
 /// 等待30个块(15min)，用户确认是否租用成功
 pub const WAITING_CONFIRMING_DELAY: u32 = 30;
-/// 1天按照2880个块
-pub const BLOCK_PER_DAY: u32 = 2880;
 
 pub use pallet::*;
 
@@ -312,7 +310,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 最大租用时间限制MaximumRentalDuration
-        let duration = duration.min((Self::maximum_rental_duration() * BLOCK_PER_DAY).into());
+        let duration = duration.min((Self::maximum_rental_duration() * ONE_DAY).into());
 
         // NOTE: 用户提交订单，需要扣除10个DBC
         <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone())
@@ -328,7 +326,7 @@ impl<T: Config> Pallet<T> {
         let rent_fee_value = machine_price
             .checked_mul(duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
-            .checked_div(BLOCK_PER_DAY as u64)
+            .checked_div(ONE_DAY as u64)
             .ok_or(Error::<T>::Overflow)?;
         let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
             .ok_or(Error::<T>::Overflow)?;
@@ -407,8 +405,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Module<T>>::block_number();
         // 最大结束块高为 今天租用开始的时间 + 60天
         // 60 days * 24 hour/day * 60 min/hour * 2 block/min
-        let max_rent_end =
-            now.checked_add(&(BLOCK_PER_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
+        let max_rent_end = now.checked_add(&(ONE_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
         let wanted_rent_end = old_rent_end + duration;
 
         // 计算实际可续租时间 (块高)

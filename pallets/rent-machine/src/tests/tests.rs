@@ -1,10 +1,10 @@
 use crate::{
     mock::*, ConfirmingOrder, Error, MachineGPUOrder, RentOrderDetail, RentOrderId, RentStatus,
-    BLOCK_PER_DAY,
 };
 use dbc_support::{
     machine_type::MachineStatus,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
+    ONE_DAY,
 };
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
@@ -391,7 +391,7 @@ fn rent_limit_should_works() {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
-                rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
+                rent_end: 11 + ONE_DAY as u64 * 60,
                 confirm_rent: 0,
                 rent_status: RentStatus::WaitingVerifying,
                 stake_amount: 1497250 * ONE_DBC,
@@ -400,7 +400,7 @@ fn rent_limit_should_works() {
             }
         );
         assert_eq!(RentMachine::user_order(&*renter_dave), vec![0]);
-        assert_eq!(RentMachine::rent_ending((11 + 60 * BLOCK_PER_DAY) as u64), vec![0]);
+        assert_eq!(RentMachine::rent_ending((11 + 60 * ONE_DAY) as u64), vec![0]);
 
         run_to_block(15);
         assert_ok!(RentMachine::confirm_rent(Origin::signed(*renter_dave), 0));
@@ -410,7 +410,7 @@ fn rent_limit_should_works() {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
-                rent_end: 11 + BLOCK_PER_DAY as u64 * 60,
+                rent_end: 11 + ONE_DAY as u64 * 60,
                 confirm_rent: 16,
                 rent_status: RentStatus::Renting,
                 stake_amount: 0 * ONE_DBC,
@@ -427,7 +427,7 @@ fn rent_limit_should_works() {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
-                rent_end: 21 + BLOCK_PER_DAY as u64 * 60,
+                rent_end: 21 + ONE_DAY as u64 * 60,
                 confirm_rent: 16,
                 rent_status: RentStatus::Renting,
                 stake_amount: 0 * ONE_DBC,
@@ -445,7 +445,7 @@ fn rent_limit_should_works() {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
-                rent_end: 21 + 2880 + BLOCK_PER_DAY as u64 * 60,
+                rent_end: 21 + 2880 + ONE_DAY as u64 * 60,
                 confirm_rent: 16,
                 rent_status: RentStatus::Renting,
                 stake_amount: 0 * ONE_DBC,

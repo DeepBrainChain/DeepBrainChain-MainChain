@@ -12,7 +12,7 @@ use dbc_support::{
     machine_type::{Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_slash::{OPPendingSlashInfo, OPPendingSlashReviewInfo, OPSlashReason},
-    EraIndex, ItemList, MachineId, SlashId,
+    EraIndex, ItemList, MachineId, SlashId, ONE_DAY,
 };
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
@@ -340,7 +340,7 @@ pub mod pallet {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
             Self::backup_and_reward(block_number);
 
-            if block_number.saturated_into::<u64>() % BLOCK_PER_ERA == 1 {
+            if block_number.saturated_into::<u64>() % (ONE_DAY as u64) == 1 {
                 // Era开始时，生成当前Era和下一个Era的快照
                 // 每个Era(2880个块)执行一次
                 Self::update_snap_for_new_era();
@@ -743,8 +743,8 @@ pub mod pallet {
 
             // 某些状态允许下线
             let max_slash_offline_threshold = match machine_info.machine_status {
-                MachineStatus::Online => 10 * BLOCK_PER_ERA,
-                MachineStatus::Rented => 5 * BLOCK_PER_ERA,
+                MachineStatus::Online => 10 * ONE_DAY,
+                MachineStatus::Rented => 5 * ONE_DAY,
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             };
 

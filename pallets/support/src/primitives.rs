@@ -8,6 +8,7 @@ pub const ONE_HOUR: u32 = 120;
 pub const THREE_HOUR: u32 = 360;
 pub const FOUR_HOUR: u32 = 480;
 
+pub const ONE_DAY: u32 = 2880;
 pub const TWO_DAY: u32 = 5760;
 
 pub type SlashId = u64;

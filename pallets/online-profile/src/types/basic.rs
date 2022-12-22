@@ -8,8 +8,6 @@ use sp_std::vec::Vec;
 
 pub type TelecomName = Vec<u8>;
 
-/// 2880 blocks per era
-pub const BLOCK_PER_ERA: u64 = 2880;
 /// Reward duration for committee (Era)
 pub const REWARD_DURATION: u32 = 365 * 2;
 /// Rebond frequency, 1 year
