@@ -36,6 +36,12 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
+[dependencies.frame-support]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
+version = '3.0.0'
+
 [features]
 default = ['std']
 std = [
@@ -44,6 +50,7 @@ std = [
   "sp-io/std",
   "sp-runtime/std",
   "codec/std",
+  "frame-support/std",
   "serde",
   "hex"
 ]

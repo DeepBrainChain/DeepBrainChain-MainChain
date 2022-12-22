@@ -26,7 +26,10 @@ use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, GNOps, ManageCommittee},
-    verify_online::{MachineConfirmStatus, Summary},
+    verify_online::{
+        MachineConfirmStatus, OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps,
+        OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, Summary,
+    },
     EraIndex, MachineId, RentOrderId, SlashId, TWO_DAY,
 };
 use generic_func::ItemList;
@@ -146,7 +149,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee_machine)]
     pub(super) type CommitteeMachine<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, IRCommitteeMachineList, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, OCCommitteeMachineList, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn machine_committee)]
@@ -1344,7 +1347,7 @@ impl<T: Config> Pallet<T> {
 
             committee_ops.staked_dbc = stake_need;
             committee_ops.verify_time = start_time;
-            committee_ops.machine_status = IRVerifyMachineStatus::Booked;
+            committee_ops.machine_status = VerifyMachineStatus::Booked;
         });
 
         Self::deposit_event(Event::MachineDistributed(machine_id.to_vec(), work_index.who));
@@ -1381,9 +1384,9 @@ impl<T: Config> Pallet<T> {
         let mut machine_committee = Self::machine_committee(&machine_id);
 
         // 如果是在提交Hash的状态，且已经到提交原始值的时间，则改变状态并返回
-        if matches!(machine_committee.status, IRVerifyStatus::SubmittingHash) {
+        if matches!(machine_committee.status, OCVerifyStatus::SubmittingHash) {
             if now >= machine_committee.book_time + SUBMIT_RAW_START.into() {
-                machine_committee.status = IRVerifyStatus::SubmittingRaw;
+                machine_committee.status = OCVerifyStatus::SubmittingRaw;
                 MachineCommittee::<T>::insert(&machine_id, machine_committee);
                 return
             }
@@ -1643,7 +1646,7 @@ impl<T: Config> Pallet<T> {
 
     // 重新进行派单评估
     // 该函数将清除本模块信息，并将online_profile机器状态改为ocw_confirmed_machine
-    // 清除信息： IRCommitteeMachineList, IRMachineCommitteeList, IRCommitteeOps
+    // 清除信息： OCCommitteeMachineList, IRMachineCommitteeList, IRCommitteeOps
     fn revert_book(machine_id: MachineId) -> Result<(), ()> {
         let machine_committee = Self::machine_committee(&machine_id);
 

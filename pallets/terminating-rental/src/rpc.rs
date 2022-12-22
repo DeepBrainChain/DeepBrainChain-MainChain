@@ -1,11 +1,11 @@
-use dbc_support::{rental_type::MachineGPUOrder, MachineId};
+use dbc_support::{rental_type::MachineGPUOrder, verify_online::OCCommitteeMachineList, MachineId};
 use frame_support::IterableStorageMap;
 use sp_std::vec::Vec;
 
 use crate::{
     rpc_types::{MachineBriefInfo, RpcIRCommitteeOps, StakerInfo},
-    BalanceOf, Config, IRCommitteeMachineList, IRLiveMachine, IRMachineCommitteeList,
-    IRMachineInfo, Pallet, RentOrderDetail, RentOrderId, StashMachines,
+    BalanceOf, Config, IRLiveMachine, IRMachineCommitteeList, IRMachineInfo, Pallet,
+    RentOrderDetail, RentOrderId, StashMachines,
 };
 use codec::EncodeLike;
 
@@ -55,7 +55,7 @@ impl<T: Config> Pallet<T> {
         Self::machine_committee(machine_id)
     }
 
-    pub fn get_committee_machine_list(committee: T::AccountId) -> IRCommitteeMachineList {
+    pub fn get_committee_machine_list(committee: T::AccountId) -> OCCommitteeMachineList {
         Self::committee_machine(committee)
     }
 

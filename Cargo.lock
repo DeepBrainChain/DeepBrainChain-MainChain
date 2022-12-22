@@ -1352,6 +1352,7 @@ name = "dbc-support"
 version = "0.1.0"
 dependencies = [
  "bs58",
+ "frame-support",
  "hex",
  "parity-scale-codec",
  "serde",

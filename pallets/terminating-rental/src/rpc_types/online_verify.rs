@@ -1,9 +1,10 @@
-use crate::{IRCommitteeMachineList, IRVerifyMachineStatus};
-
 use codec::{Decode, Encode};
-use dbc_support::machine_type::CommitteeUploadInfo;
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::RpcText;
+use dbc_support::{
+    machine_type::CommitteeUploadInfo,
+    verify_online::{OCCommitteeMachineList, OCMachineStatus as VerifyMachineStatus},
+};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
@@ -20,7 +21,7 @@ pub struct RpcIRCommitteeOps<BlockNumber, Balance> {
     pub confirm_hash: [u8; 16],
     pub hash_time: BlockNumber,
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
-    pub machine_status: IRVerifyMachineStatus,
+    pub machine_status: VerifyMachineStatus,
     pub machine_info: CommitteeUploadInfo,
 }
 
@@ -28,7 +29,7 @@ pub struct RpcIRCommitteeOps<BlockNumber, Balance> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct RpcIRCommitteeMachineList {
+pub struct RpcOCCommitteeMachineList {
     pub booked_machine: Vec<RpcText>,
     pub hashed_machine: Vec<RpcText>,
     pub confirmed_machine: Vec<RpcText>,
@@ -36,8 +37,8 @@ pub struct RpcIRCommitteeMachineList {
 }
 
 #[cfg(feature = "std")]
-impl From<IRCommitteeMachineList> for RpcIRCommitteeMachineList {
-    fn from(info: IRCommitteeMachineList) -> Self {
+impl From<OCCommitteeMachineList> for RpcOCCommitteeMachineList {
+    fn from(info: OCCommitteeMachineList) -> Self {
         Self {
             booked_machine: info.booked_machine.iter().map(|id| id.into()).collect(),
             hashed_machine: info.hashed_machine.iter().map(|id| id.into()).collect(),

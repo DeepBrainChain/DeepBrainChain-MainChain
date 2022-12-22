@@ -1,9 +1,9 @@
-use crate::{
-    types::OCMachineCommitteeList, BalanceOf, CommitteeUploadInfo, Config, OCCommitteeMachineList,
-    OCMachineStatus, Pallet,
-};
+use crate::{types::OCMachineCommitteeList, BalanceOf, CommitteeUploadInfo, Config, Pallet};
 use codec::{Decode, Encode};
-use dbc_support::MachineId;
+use dbc_support::{
+    verify_online::{OCCommitteeMachineList, OCMachineStatus},
+    MachineId,
+};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;

@@ -16,7 +16,7 @@ use dbc_support::{
 };
 use terminating_rental::{
     rpc_types::{
-        RpcIRCommitteeMachineList, RpcIRCommitteeOps, RpcLiveMachine, RpcMachineInfo,
+        RpcIRCommitteeOps, RpcLiveMachine, RpcMachineInfo, RpcOCCommitteeMachineList,
         RpcStakerInfo, RpcStashMachine,
     },
     IRMachineCommitteeList,
@@ -54,7 +54,7 @@ where
         &self,
         committee: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<RpcIRCommitteeMachineList>;
+    ) -> Result<RpcOCCommitteeMachineList>;
 
     #[rpc(name = "terminatingRental_getCommitteeOps")]
     fn get_committee_ops(
@@ -214,7 +214,7 @@ where
         &self,
         committee: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<RpcIRCommitteeMachineList> {
+    ) -> Result<RpcOCCommitteeMachineList> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

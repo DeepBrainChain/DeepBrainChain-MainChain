@@ -1255,7 +1255,7 @@ impl_runtime_apis! {
     }
 
     impl online_committee_runtime_api::OcRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_committee_machine_list(committee: AccountId) -> online_committee::OCCommitteeMachineList {
+        fn get_committee_machine_list(committee: AccountId) -> dbc_support::verify_online::OCCommitteeMachineList {
             OnlineCommittee::get_committee_machine_list(committee)
         }
 
@@ -1309,7 +1309,7 @@ impl_runtime_apis! {
             TerminatingRental::get_machine_info(machine_id)
         }
 
-        fn get_committee_machine_list(committee: AccountId) -> terminating_rental::IRCommitteeMachineList {
+        fn get_committee_machine_list(committee: AccountId) -> dbc_support::verify_online::OCCommitteeMachineList {
             TerminatingRental::get_committee_machine_list(committee)
         }
 

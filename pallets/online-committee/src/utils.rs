@@ -1,5 +1,5 @@
-use crate::{BalanceOf, Config, CustomErr, NextSlashId, Pallet};
-use dbc_support::traits::ManageCommittee;
+use crate::{BalanceOf, Config, NextSlashId, Pallet};
+use dbc_support::{traits::ManageCommittee, verify_online::CustomErr};
 use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {

@@ -6,13 +6,11 @@ use frame_support::ensure;
 use sp_runtime::RuntimeDebug;
 use sp_std::{ops, vec::Vec};
 
-use crate::{CustomErr, ReportId, SUBMIT_HASH_END, SUBMIT_RAW_END};
+use crate::{Config, Error, ReportId, SUBMIT_HASH_END, SUBMIT_RAW_END};
 use dbc_support::{
-    machine_type::CommitteeUploadInfo,
-    verify_online::{MachineConfirmStatus, OCBookResultType, Summary},
-    MachineId,
+    verify_online::{CustomErr, MachineConfirmStatus, OCVerifyStatus},
+    ItemList,
 };
-use generic_func::ItemList;
 
 /// The reason why a stash account is punished
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
@@ -24,52 +22,16 @@ pub enum IRSlashReason<BlockNumber> {
     OnlineRentFailed(BlockNumber),
 }
 
-/// Query distributed machines by committee address
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct IRCommitteeMachineList {
-    /// machines, that distributed to committee, and should be verified
-    pub booked_machine: Vec<MachineId>,
-    /// machines, have submited machine info hash
-    pub hashed_machine: Vec<MachineId>,
-    /// machines, have submited raw machine info
-    pub confirmed_machine: Vec<MachineId>,
-    /// machines, online successfully
-    pub online_machine: Vec<MachineId>,
-}
-
-impl IRCommitteeMachineList {
-    pub fn submit_hash(&mut self, machine_id: MachineId) {
-        ItemList::rm_item(&mut self.booked_machine, &machine_id);
-        ItemList::add_item(&mut self.hashed_machine, machine_id);
-    }
-
-    pub fn submit_raw(&mut self, machine_id: MachineId) -> Result<(), CustomErr> {
-        ensure!(self.hashed_machine.binary_search(&machine_id).is_ok(), CustomErr::NotSubmitHash);
-        ensure!(
-            self.confirmed_machine.binary_search(&machine_id).is_err(),
-            CustomErr::AlreadySubmitRaw
-        );
-
-        ItemList::rm_item(&mut self.hashed_machine, &machine_id);
-        ItemList::add_item(&mut self.confirmed_machine, machine_id);
-        Ok(())
-    }
-
-    // 将要重新派单的机器从订单里清除
-    pub fn revert_book(&mut self, machine_id: &MachineId) {
-        ItemList::rm_item(&mut self.booked_machine, &machine_id);
-        ItemList::rm_item(&mut self.hashed_machine, &machine_id);
-        ItemList::rm_item(&mut self.confirmed_machine, &machine_id);
-    }
-
-    // 机器成功上线后，从其他字段中清理掉机器记录
-    // (如果未完成某一阶段的任务，机器ID将记录在那个阶段，需要进行清理)
-    pub fn online_cleanup(&mut self, machine_id: &MachineId) {
-        ItemList::rm_item(&mut self.booked_machine, &machine_id);
-        ItemList::rm_item(&mut self.hashed_machine, &machine_id);
-        ItemList::rm_item(&mut self.confirmed_machine, &machine_id);
+impl<T: Config> From<CustomErr> for Error<T> {
+    fn from(err: CustomErr) -> Self {
+        match err {
+            CustomErr::NotInBookList => Error::NotInBookList,
+            CustomErr::TimeNotAllow => Error::TimeNotAllow,
+            CustomErr::AlreadySubmitHash => Error::AlreadySubmitHash,
+            CustomErr::AlreadySubmitRaw => Error::AlreadySubmitRaw,
+            CustomErr::NotSubmitHash => Error::NotSubmitHash,
+            CustomErr::Overflow => Error::Overflow,
+        }
     }
 }
 
@@ -92,7 +54,7 @@ pub struct IRMachineCommitteeList<AccountId, BlockNumber> {
     /// Committees, get a consensus, so can get rewards after machine online
     pub onlined_committee: Vec<AccountId>,
     /// Current order status
-    pub status: IRVerifyStatus,
+    pub status: OCVerifyStatus,
 }
 
 impl<AccountId, BlockNumber> IRMachineCommitteeList<AccountId, BlockNumber>
@@ -118,14 +80,14 @@ where
         ItemList::add_item(&mut self.hashed_committee, committee);
         // 如果委员会都提交了Hash,则直接进入提交原始信息的阶段
         if self.booked_committee.len() == self.hashed_committee.len() {
-            self.status = IRVerifyStatus::SubmittingRaw;
+            self.status = OCVerifyStatus::SubmittingRaw;
         }
 
         Ok(())
     }
 
     pub fn submit_raw(&mut self, time: BlockNumber, committee: AccountId) -> Result<(), CustomErr> {
-        if self.status != IRVerifyStatus::SubmittingRaw {
+        if self.status != OCVerifyStatus::SubmittingRaw {
             ensure!(time >= self.confirm_start_time, CustomErr::TimeNotAllow);
             ensure!(time <= self.book_time + SUBMIT_RAW_END.into(), CustomErr::TimeNotAllow);
         }
@@ -133,15 +95,15 @@ where
 
         ItemList::add_item(&mut self.confirmed_committee, committee);
         if self.confirmed_committee.len() == self.hashed_committee.len() {
-            self.status = IRVerifyStatus::Summarizing;
+            self.status = OCVerifyStatus::Summarizing;
         }
         Ok(())
     }
 
     // 是Summarizing的状态或 是SummitingRaw 且在有效时间内
     pub fn can_summary(&mut self, now: BlockNumber) -> bool {
-        matches!(self.status, IRVerifyStatus::Summarizing) ||
-            matches!(self.status, IRVerifyStatus::SubmittingRaw) &&
+        matches!(self.status, OCVerifyStatus::Summarizing) ||
+            matches!(self.status, OCVerifyStatus::SubmittingRaw) &&
                 now >= self.book_time + SUBMIT_RAW_END.into()
     }
 
@@ -159,75 +121,14 @@ where
     pub fn after_summary(&mut self, summary_result: MachineConfirmStatus<AccountId>) {
         match summary_result {
             MachineConfirmStatus::Confirmed(summary) => {
-                self.status = IRVerifyStatus::Finished;
+                self.status = OCVerifyStatus::Finished;
                 self.onlined_committee = summary.valid_support;
             },
             MachineConfirmStatus::NoConsensus(_) => {},
             MachineConfirmStatus::Refuse(_) => {
-                self.status = IRVerifyStatus::Finished;
+                self.status = OCVerifyStatus::Finished;
             },
         }
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum IRVerifyStatus {
-    SubmittingHash,
-    SubmittingRaw,
-    Summarizing,
-    Finished,
-}
-
-impl Default for IRVerifyStatus {
-    fn default() -> Self {
-        IRVerifyStatus::SubmittingHash
-    }
-}
-
-/// A record of committee’s operations when verifying machine info
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct IRCommitteeOnlineOps<BlockNumber, Balance> {
-    pub staked_dbc: Balance,
-    /// When one committee can start the virtual machine to verify machine info
-    pub verify_time: Vec<BlockNumber>,
-    pub confirm_hash: [u8; 16],
-    pub hash_time: BlockNumber,
-    /// When one committee submit raw machine info
-    pub confirm_time: BlockNumber,
-    pub machine_status: IRVerifyMachineStatus,
-    pub machine_info: CommitteeUploadInfo,
-}
-
-impl<BlockNumber, Balance> IRCommitteeOnlineOps<BlockNumber, Balance> {
-    pub fn submit_hash(&mut self, time: BlockNumber, hash: [u8; 16]) {
-        self.machine_status = IRVerifyMachineStatus::Hashed;
-        self.confirm_hash = hash;
-        self.hash_time = time;
-    }
-
-    // 添加用户对机器的操作记录
-    pub fn submit_raw(&mut self, time: BlockNumber, machine_info: CommitteeUploadInfo) {
-        self.confirm_time = time;
-        self.machine_status = IRVerifyMachineStatus::Confirmed;
-        self.machine_info = machine_info;
-        self.machine_info.rand_str = Vec::new();
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum IRVerifyMachineStatus {
-    Booked,
-    Hashed,
-    Confirmed,
-}
-
-impl Default for IRVerifyMachineStatus {
-    fn default() -> Self {
-        IRVerifyMachineStatus::Booked
     }
 }
 

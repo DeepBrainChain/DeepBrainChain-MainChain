@@ -1,12 +1,11 @@
-use crate::{
-    IRCommitteeMachineList, IRCommitteeOnlineOps, IRLiveMachine, IRMachineCommitteeList,
-    IRStashMachine, IRVerifyMachineStatus, IRVerifyStatus,
-};
-
 use super::super::mock::{TerminatingRental as IRMachine, *};
+use crate::{IRCommitteeOnlineOps, IRLiveMachine, IRMachineCommitteeList, IRStashMachine};
 use committee::CommitteeStakeInfo;
-use dbc_support::machine_type::{
-    CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo,
+use dbc_support::{
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
+    verify_online::{
+        OCCommitteeMachineList, OCMachineStatus as VerifyMachineStatus, OCVerifyStatus,
+    },
 };
 use frame_support::assert_ok;
 use std::convert::TryInto;
@@ -95,13 +94,13 @@ fn verify_machine_works() {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 4320, // 36h = 2880 + 1440
-                    status: IRVerifyStatus::SubmittingHash,
+                    status: OCVerifyStatus::SubmittingHash,
                     ..Default::default()
                 }
             );
             assert_eq!(
                 IRMachine::committee_machine(&committee1),
-                IRCommitteeMachineList {
+                OCCommitteeMachineList {
                     booked_machine: vec![machine_id.clone()],
                     ..Default::default()
                 }
@@ -111,7 +110,7 @@ fn verify_machine_works() {
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
                     verify_time: vec![962, 2402, 3842], // 2 + 320 * 3
-                    machine_status: IRVerifyMachineStatus::Booked,
+                    machine_status: VerifyMachineStatus::Booked,
                     ..Default::default()
                 }
             );
@@ -145,13 +144,13 @@ fn verify_machine_works() {
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee1,],
                     confirm_start_time: 2 + 2880 + 1440,
-                    status: IRVerifyStatus::SubmittingHash,
+                    status: OCVerifyStatus::SubmittingHash,
                     ..Default::default()
                 }
             );
             assert_eq!(
                 IRMachine::committee_machine(&committee1),
-                IRCommitteeMachineList {
+                OCCommitteeMachineList {
                     hashed_machine: vec![machine_id.clone()],
                     ..Default::default()
                 }
@@ -163,7 +162,7 @@ fn verify_machine_works() {
                     verify_time: vec![962, 2402, 3842],
                     confirm_hash: hash1,
                     hash_time: 4,
-                    machine_status: IRVerifyMachineStatus::Hashed,
+                    machine_status: VerifyMachineStatus::Hashed,
                     ..Default::default()
                 }
             )
@@ -191,7 +190,7 @@ fn verify_machine_works() {
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
-                    status: IRVerifyStatus::SubmittingRaw, // 达到三人将变为提交Raw状态
+                    status: OCVerifyStatus::SubmittingRaw, // 达到三人将变为提交Raw状态
                     ..Default::default()
                 }
             );
@@ -227,13 +226,13 @@ fn verify_machine_works() {
                     hashed_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
                     confirmed_committee: vec![committee1],
-                    status: IRVerifyStatus::SubmittingRaw,
+                    status: OCVerifyStatus::SubmittingRaw,
                     ..Default::default()
                 }
             );
             assert_eq!(
                 IRMachine::committee_machine(&committee1),
-                IRCommitteeMachineList {
+                OCCommitteeMachineList {
                     confirmed_machine: vec![machine_id.clone()],
                     ..Default::default()
                 }
@@ -246,7 +245,7 @@ fn verify_machine_works() {
                     confirm_hash: hash1,
                     hash_time: 4,
                     confirm_time: 4,
-                    machine_status: IRVerifyMachineStatus::Confirmed,
+                    machine_status: VerifyMachineStatus::Confirmed,
                     machine_info: CommitteeUploadInfo { rand_str: vec![], ..upload_info.clone() },
                 }
             )
@@ -265,7 +264,7 @@ fn verify_machine_works() {
                     hashed_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
                     confirmed_committee: vec![committee2, committee1, committee4],
-                    status: IRVerifyStatus::Summarizing,
+                    status: OCVerifyStatus::Summarizing,
                     ..Default::default()
                 }
             );
@@ -313,7 +312,7 @@ fn verify_machine_works() {
                     hashed_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
                     confirmed_committee: vec![committee2, committee1, committee4],
-                    status: IRVerifyStatus::Finished,
+                    status: OCVerifyStatus::Finished,
                     onlined_committee: vec![committee2, committee1, committee4],
                     ..Default::default()
                 }
@@ -326,7 +325,7 @@ fn verify_machine_works() {
             assert_eq!(<crate::MachineSubmitedHash<TestRuntime>>::contains_key(&machine_id), false);
             assert_eq!(
                 IRMachine::committee_machine(committee1),
-                IRCommitteeMachineList {
+                OCCommitteeMachineList {
                     online_machine: vec![machine_id.clone()],
                     ..Default::default()
                 }
