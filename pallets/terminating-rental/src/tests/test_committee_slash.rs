@@ -1,9 +1,10 @@
 use crate::{
-    IRBookResultType, IRCommitteeMachineList, IRLiveMachine, IRMachineCommitteeList,
-    IROnlineSlashResult, IRPendingOnlineSlashInfo, IRStashMachine, IRVerifyStatus,
+    IRCommitteeMachineList, IRLiveMachine, IRMachineCommitteeList, IROnlineSlashResult,
+    IRPendingOnlineSlashInfo, IRStashMachine, IRVerifyStatus,
 };
-use dbc_support::machine_type::{
-    CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo,
+use dbc_support::{
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
+    verify_online::OCBookResultType,
 };
 
 use super::super::mock::{TerminatingRental as IRMachine, INIT_BALANCE, *};
@@ -164,7 +165,7 @@ fn committee_not_submit_slash_works() {
                     slash_time: 4 + 4320,
                     slash_exec_time: 4 + 4320 + 2880 * 2,
 
-                    book_result: IRBookResultType::OnlineSucceed,
+                    book_result: OCBookResultType::OnlineSucceed,
                     slash_result: IROnlineSlashResult::Pending,
                     ..Default::default()
                 }
@@ -297,7 +298,7 @@ fn machine_refused_slash_works() {
                     slash_time: 4,
                     slash_exec_time: 4 + 2880 * 2,
 
-                    book_result: IRBookResultType::OnlineRefused,
+                    book_result: OCBookResultType::OnlineRefused,
                     slash_result: IROnlineSlashResult::Pending,
                     ..Default::default()
                 }
