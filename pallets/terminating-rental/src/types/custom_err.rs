@@ -1,8 +1,8 @@
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-
 use crate::{Config, Error};
 use codec::{Decode, Encode};
+use dbc_support::{report::MachineFaultType, verify_slash::OPSlashReason};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 
 use dbc_support::report::CustomErr as ReportErr;
@@ -45,5 +45,19 @@ impl<T: Config> From<ReportErr> for Error<T> {
             ReportErr::NotInBookedList => Error::NotInBookedList,
             ReportErr::NotProperCommittee => Error::NotProperCommittee,
         }
+    }
+}
+
+pub fn into_op_err<BlockNumber>(
+    fault_type: &MachineFaultType,
+    report_time: BlockNumber,
+) -> OPSlashReason<BlockNumber> {
+    match fault_type {
+        MachineFaultType::RentedInaccessible(..) => OPSlashReason::RentedInaccessible(report_time),
+        MachineFaultType::RentedHardwareMalfunction(..) =>
+            OPSlashReason::RentedHardwareMalfunction(report_time),
+        MachineFaultType::RentedHardwareCounterfeit(..) =>
+            OPSlashReason::RentedHardwareCounterfeit(report_time),
+        MachineFaultType::OnlineRentFailed(..) => OPSlashReason::OnlineRentFailed(report_time),
     }
 }
