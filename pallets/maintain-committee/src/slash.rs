@@ -1,8 +1,11 @@
 use crate::{
-    Config, MCSlashResult, MTReportResultInfo, Pallet, PendingSlashReview, ReportResult,
-    ReportResultType, ReporterStake, UnhandledReportResult,
+    Config, Pallet, PendingSlashReview, ReportResult, ReporterStake, UnhandledReportResult,
 };
-use dbc_support::{traits::MTOps, ReportId};
+use dbc_support::{
+    report::{MCSlashResult, MTReportResultInfo, ReportResultType},
+    traits::MTOps,
+    ReportId,
+};
 use frame_support::IterableStorageMap;
 use sp_std::{vec, vec::Vec};
 

@@ -1,7 +1,10 @@
 use crate::*;
 use dbc_support::{
     machine_type::MachineStatus,
-    report::{MTLiveReportList, ReportConfirmStatus, ReportStatus, ReporterReportList},
+    report::{
+        MCSlashResult, MTLiveReportList, MTReportInfoDetail, MTReportResultInfo,
+        ReportConfirmStatus, ReportResultType, ReportStatus, ReporterReportList,
+    },
     traits::{GNOps, ManageCommittee},
     ItemList, ReportId, ONE_DAY, ONE_HOUR, THREE_HOUR,
 };
@@ -112,7 +115,7 @@ impl<T: Config> Pallet<T> {
 
         ReportInfo::<T>::insert(
             &report_id,
-            IRReportInfoDetail::new(
+            MTReportInfoDetail::new(
                 reporter.clone(),
                 report_time,
                 machine_fault_type.clone(),
@@ -137,7 +140,7 @@ impl<T: Config> Pallet<T> {
     pub fn book_report(
         committee: T::AccountId,
         report_id: ReportId,
-        report_info: &mut IRReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        report_info: &mut MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         order_stake: BalanceOf<T>,
     ) {
         let now = <frame_system::Module<T>>::block_number();
@@ -163,7 +166,7 @@ impl<T: Config> Pallet<T> {
         for slashed_report_id in Self::unhandled_report_result(now) {
             let mut report_result_info = Self::report_result(&slashed_report_id);
 
-            let IRReportResultInfo {
+            let MTReportResultInfo {
                 reporter,
                 reporter_stake,
                 inconsistent_committee,
@@ -187,14 +190,14 @@ impl<T: Config> Pallet<T> {
             let mut reward_who = vec![];
 
             match report_result {
-                IRReportResultType::ReportSucceed => {
+                ReportResultType::ReportSucceed => {
                     reward_who.extend_from_slice(&reward_committee);
                     reward_who.push(reporter);
                 },
                 // NoConsensus means no committee confirm confirmation, should be slashed all
-                IRReportResultType::NoConsensus => {},
-                IRReportResultType::ReportRefused |
-                IRReportResultType::ReporterNotSubmitEncryptedInfo => {
+                ReportResultType::NoConsensus => {},
+                ReportResultType::ReportRefused |
+                ReportResultType::ReporterNotSubmitEncryptedInfo => {
                     // 惩罚报告人
                     let _ = Self::slash_and_reward(
                         vec![reporter.clone()],
@@ -216,7 +219,7 @@ impl<T: Config> Pallet<T> {
             );
             let _ = Self::slash_and_reward(slashed_committee, committee_stake, reward_who);
 
-            report_result_info.slash_result = IRReportSlashResult::Executed;
+            report_result_info.slash_result = MCSlashResult::Executed;
             ReportResult::<T>::insert(slashed_report_id, report_result_info);
         }
 
@@ -234,10 +237,10 @@ impl<T: Config> Pallet<T> {
     pub fn change_reporter_stake_on_report_close(
         reporter: &T::AccountId,
         amount: BalanceOf<T>,
-        report_result: IRReportResultType,
+        report_result: ReportResultType,
     ) {
         // 未达成共识，则退还报告人质押
-        if matches!(report_result, IRReportResultType::NoConsensus) {
+        if matches!(report_result, ReportResultType::NoConsensus) {
             return
         }
 
@@ -245,8 +248,7 @@ impl<T: Config> Pallet<T> {
             // 报告被拒绝或报告人没完成工作，将被惩罚，否则不惩罚并退还
             let is_slashed = matches!(
                 report_result,
-                IRReportResultType::ReportRefused |
-                    IRReportResultType::ReporterNotSubmitEncryptedInfo
+                ReportResultType::ReportRefused | ReportResultType::ReporterNotSubmitEncryptedInfo
             );
 
             reporter_stake.change_stake_on_report_close(amount, is_slashed);
@@ -312,14 +314,14 @@ impl<T: Config> Pallet<T> {
         let mut report_result = Self::report_result(report_id);
 
         // 初始化report_result
-        report_result = IRReportResultInfo {
+        report_result = MTReportResultInfo {
             report_id,
             reporter: report_info.reporter.clone(),
             reporter_stake: report_info.reporter_stake,
             committee_stake: committee_order_stake,
             slash_time: now,
             slash_exec_time: now + TWO_DAY.into(),
-            slash_result: IRReportSlashResult::Pending,
+            slash_result: MCSlashResult::Pending,
 
             ..report_result
         };
@@ -348,7 +350,7 @@ impl<T: Config> Pallet<T> {
 
         live_report: &mut MTLiveReportList,
         reporter_report: &mut ReporterReportList,
-        report_result: &mut IRReportResultInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        report_result: &mut MTReportResultInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> Result<(), ()> {
         let mut report_info = Self::report_info(&report_id);
 
@@ -383,7 +385,7 @@ impl<T: Config> Pallet<T> {
             });
 
             ItemList::rm_item(&mut live_report.verifying_report, &report_id);
-            report_result.report_result = IRReportResultType::ReporterNotSubmitEncryptedInfo;
+            report_result.report_result = ReportResultType::ReporterNotSubmitEncryptedInfo;
             Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
             ReportResult::<T>::insert(report_id, report_result);
 

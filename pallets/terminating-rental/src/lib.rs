@@ -26,8 +26,8 @@ use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     report::{
-        MTLiveReportList, MachineFaultType, ReportStatus, ReporterReportList, ReporterStakeInfo,
-        ReporterStakeParamsInfo,
+        MTLiveReportList, MTReportInfoDetail, MTReportResultInfo, MachineFaultType, ReportStatus,
+        ReporterReportList, ReporterStakeInfo, ReporterStakeParamsInfo,
     },
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
@@ -291,7 +291,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         ReportId,
-        IRReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -341,7 +341,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         ReportId,
-        IRReportResultInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        MTReportResultInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -1200,6 +1200,9 @@ pub mod pallet {
         OrderStatusNotFeat,
         NotOrderReporter,
         NotOrderCommittee,
+        NotNeedEncryptedInfo,
+        NotInBookedList,
+        NotProperCommittee,
     }
 }
 

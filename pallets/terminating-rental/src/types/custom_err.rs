@@ -5,6 +5,8 @@ use crate::{Config, Error};
 use codec::{Decode, Encode};
 use sp_runtime::RuntimeDebug;
 
+use dbc_support::report::CustomErr as ReportErr;
+
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum CustomErr {
@@ -15,11 +17,6 @@ pub enum CustomErr {
     NotSubmitHash,
     NotAllowedChangeMachineInfo,
     TelecomIsNull,
-    ReportNotAllowBook,
-    AlreadyBooked,
-    OrderStatusNotFeat,
-    NotOrderReporter,
-    NotOrderCommittee,
 }
 
 impl<T: Config> From<CustomErr> for Error<T> {
@@ -32,11 +29,21 @@ impl<T: Config> From<CustomErr> for Error<T> {
             CustomErr::NotSubmitHash => Error::NotSubmitHash,
             CustomErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
             CustomErr::TelecomIsNull => Error::TelecomIsNull,
-            CustomErr::ReportNotAllowBook => Error::ReportNotAllowBook,
-            CustomErr::AlreadyBooked => Error::AlreadyBooked,
-            CustomErr::OrderStatusNotFeat => Error::OrderStatusNotFeat,
-            CustomErr::NotOrderReporter => Error::NotOrderReporter,
-            CustomErr::NotOrderCommittee => Error::NotOrderCommittee,
+        }
+    }
+}
+
+impl<T: Config> From<ReportErr> for Error<T> {
+    fn from(err: ReportErr) -> Self {
+        match err {
+            ReportErr::OrderNotAllowBook => Error::ReportNotAllowBook,
+            ReportErr::AlreadyBooked => Error::AlreadyBooked,
+            ReportErr::NotNeedEncryptedInfo => Error::NotNeedEncryptedInfo,
+            ReportErr::NotOrderReporter => Error::NotOrderReporter,
+            ReportErr::OrderStatusNotFeat => Error::OrderStatusNotFeat,
+            ReportErr::NotOrderCommittee => Error::NotOrderCommittee,
+            ReportErr::NotInBookedList => Error::NotInBookedList,
+            ReportErr::NotProperCommittee => Error::NotProperCommittee,
         }
     }
 }

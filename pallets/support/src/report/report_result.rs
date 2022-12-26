@@ -1,6 +1,8 @@
-use crate::MTReportInfoDetail;
+use crate::{
+    report::{MTReportInfoDetail, ReportConfirmStatus},
+    ItemList, MachineId, ReportId, TWO_DAY,
+};
 use codec::{Decode, Encode};
-use dbc_support::{report::ReportConfirmStatus, ItemList, MachineId, ReportId, TWO_DAY};
 use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::{
     cmp::PartialEq,
@@ -30,6 +32,19 @@ pub struct MTReportResultInfo<AccountId, BlockNumber, Balance> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum MCSlashResult {
+    Pending,
+    Canceled,
+    Executed,
+}
+
+impl Default for MCSlashResult {
+    fn default() -> Self {
+        Self::Pending
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub enum ReportResultType {
     ReportSucceed,
     ReportRefused,
@@ -40,19 +55,6 @@ pub enum ReportResultType {
 impl Default for ReportResultType {
     fn default() -> Self {
         Self::ReportRefused
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum MCSlashResult {
-    Pending,
-    Canceled,
-    Executed,
-}
-
-impl Default for MCSlashResult {
-    fn default() -> Self {
-        Self::Pending
     }
 }
 

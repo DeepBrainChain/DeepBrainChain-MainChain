@@ -1,8 +1,6 @@
-use crate::{
-    BalanceOf, Config, Error, MTReportInfoDetail, NextReportId, Pallet, ReportResultType,
-    ReporterStake, UnhandledReportResult,
-};
+use crate::{BalanceOf, Config, Error, NextReportId, Pallet, ReporterStake, UnhandledReportResult};
 use dbc_support::{
+    report::{MTReportInfoDetail, ReportResultType},
     traits::{GNOps, ManageCommittee},
     ItemList, ReportHash, ReportId,
 };
