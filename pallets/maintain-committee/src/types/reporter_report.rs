@@ -1,19 +1,7 @@
 use codec::{Decode, Encode};
 use dbc_support::{ItemList, ReportId};
-use sp_runtime::{traits::Saturating, Perbill, RuntimeDebug};
+use sp_runtime::{traits::Saturating, RuntimeDebug};
 use sp_std::{cmp::PartialEq, vec::Vec};
-
-/// Reporter stake params
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct ReporterStakeParamsInfo<Balance> {
-    /// First time when report
-    pub stake_baseline: Balance,
-    /// How much stake will be used each report & how much should stake in this
-    /// module to apply for SlashReview(reporter, committee, stash stake the same)
-    pub stake_per_report: Balance,
-    /// 当剩余的质押数量到阈值时，需要补质押
-    pub min_free_stake_percent: Perbill,
-}
 
 /// 报告人的报告记录
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]

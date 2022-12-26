@@ -327,3 +327,9 @@ where
         }
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct VerifySequence<AccountId> {
+    pub who: AccountId,
+    pub index: Vec<usize>,
+}

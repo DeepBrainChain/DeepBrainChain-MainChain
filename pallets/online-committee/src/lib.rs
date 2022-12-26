@@ -18,7 +18,7 @@ use dbc_support::{
     verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
     verify_online::{
         MachineConfirmStatus, OCBookResultType, OCCommitteeMachineList, OCCommitteeOps,
-        OCMachineCommitteeList, OCMachineStatus, OCVerifyStatus, Summary,
+        OCMachineCommitteeList, OCMachineStatus, OCVerifyStatus, Summary, VerifySequence,
     },
     ItemList, MachineId, SlashId, TWO_DAY,
 };

@@ -12,6 +12,10 @@ mod tests;
 
 use codec::alloc::string::ToString;
 use dbc_support::{
+    report::{
+        MTLiveReportList, MachineFaultType, ReportConfirmStatus, ReportStatus,
+        ReporterStakeParamsInfo,
+    },
     traits::{GNOps, MTOps, ManageCommittee},
     verify_slash::OPSlashReason,
     ItemList, MachineId, RentOrderId, ReportHash, ReportId, FIVE_MINUTE, HALF_HOUR, ONE_HOUR,
@@ -900,7 +904,7 @@ impl<T: Config> Pallet<T> {
                 report_info.reporter.clone(),
                 report_info.support_committee.clone(),
                 report_info.machine_id.clone(),
-                report_info.machine_fault_type.into_op_err(report_info.report_time),
+                into_op_err(&report_info.machine_fault_type, report_info.report_time),
             );
 
             ItemList::expand_to_order(
@@ -1158,7 +1162,7 @@ impl<T: Config> Pallet<T> {
                     report_info.reporter.clone(),
                     sp_committee,
                     report_info.machine_id.clone(),
-                    report_info.machine_fault_type.into_op_err(report_info.report_time),
+                    into_op_err(&report_info.machine_fault_type, report_info.report_time),
                 );
             },
             // 报告失败

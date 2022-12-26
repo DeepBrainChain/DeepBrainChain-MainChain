@@ -1,127 +1,32 @@
 use crate::CustomErr;
 use codec::{Decode, Encode};
 use dbc_support::{
-    verify_slash::OPSlashReason, BoxPubkey, ItemList, MachineId, RentOrderId, ReportHash, ReportId,
-    FOUR_HOUR, THREE_HOUR, TWO_DAY,
+    report::{MachineFaultType, ReportConfirmStatus, ReportStatus},
+    verify_slash::OPSlashReason,
+    ItemList, MachineId, RentOrderId, ReportHash, ReportId, FOUR_HOUR, THREE_HOUR, TWO_DAY,
 };
 use frame_support::ensure;
 use sp_runtime::{
     traits::{Saturating, Zero},
-    Perbill, RuntimeDebug,
+    RuntimeDebug,
 };
 use sp_std::{ops::Sub, vec::Vec};
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum IRMachineFaultType {
-    // /// 机器被租用，但无法访问的故障 (机器离线)
-    // RentedInaccessible(MachineId, RentOrderId),
-    // /// 机器被租用，但有硬件故障
-    // RentedHardwareMalfunction(ReportHash, BoxPubkey),
-    // /// 机器被租用，但硬件参数造假
-    // RentedHardwareCounterfeit(ReportHash, BoxPubkey),
-    /// 机器是在线状态，但无法租用(创建虚拟机失败)，举报时同样需要先租下来
-    OnlineRentFailed(ReportHash, BoxPubkey),
-}
-
-// 默认硬件故障
-impl Default for IRMachineFaultType {
-    fn default() -> Self {
-        Self::OnlineRentFailed(Default::default(), Default::default())
+pub fn into_op_err<BlockNumber>(
+    fault_type: &MachineFaultType,
+    report_time: BlockNumber,
+) -> OPSlashReason<BlockNumber> {
+    match fault_type {
+        MachineFaultType::RentedInaccessible(..) => OPSlashReason::RentedInaccessible(report_time),
+        MachineFaultType::RentedHardwareMalfunction(..) =>
+            OPSlashReason::RentedHardwareMalfunction(report_time),
+        MachineFaultType::RentedHardwareCounterfeit(..) =>
+            OPSlashReason::RentedHardwareCounterfeit(report_time),
+        MachineFaultType::OnlineRentFailed(..) => OPSlashReason::OnlineRentFailed(report_time),
     }
 }
 
-impl IRMachineFaultType {
-    pub fn get_hash(self) -> Option<ReportHash> {
-        match self {
-            // MachineFaultType::RentedHardwareMalfunction(hash, ..) |
-            // MachineFaultType::RentedHardwareCounterfeit(hash, ..) |
-            Self::OnlineRentFailed(hash, ..) => Some(hash),
-            // MachineFaultType::RentedInaccessible(..) => None,
-        }
-    }
-
-    pub fn into_op_err<BlockNumber>(&self, report_time: BlockNumber) -> OPSlashReason<BlockNumber> {
-        match self {
-            // Self::RentedInaccessible(..) => OPSlashReason::RentedInaccessible(report_time),
-            // Self::RentedHardwareMalfunction(..) =>
-            //     OPSlashReason::RentedHardwareMalfunction(report_time),
-            // Self::RentedHardwareCounterfeit(..) =>
-            //     OPSlashReason::RentedHardwareCounterfeit(report_time),
-            Self::OnlineRentFailed(..) => OPSlashReason::OnlineRentFailed(report_time),
-        }
-    }
-}
-
-/// 机器故障的报告列表
-/// 记录该模块中所有活跃的报告, 根据ReportStatus来区分
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct IRLiveReportList {
-    /// 委员会可以抢单的报告
-    pub bookable_report: Vec<ReportId>,
-    /// 正在被验证的机器报告,验证完如能预定，转成上面状态，如不能则转成下面状态
-    pub verifying_report: Vec<ReportId>,
-    /// 等待提交原始值的报告, 所有委员会提交或时间截止，转为下面状态
-    pub waiting_raw_report: Vec<ReportId>,
-    /// 等待48小时后执行的报告, 此期间可以申述，由技术委员会审核
-    pub finished_report: Vec<ReportId>,
-}
-
-impl IRLiveReportList {
-    pub fn new_report(&mut self, report_id: ReportId) {
-        ItemList::add_item(&mut self.bookable_report, report_id);
-    }
-
-    pub fn cancel_report(&mut self, report_id: &ReportId) {
-        ItemList::rm_item(&mut self.bookable_report, report_id);
-    }
-
-    pub fn book_report(
-        &mut self,
-        report_id: ReportId,
-        _report_type: IRMachineFaultType,
-        booked_committee_count: usize,
-    ) {
-        if booked_committee_count == 3
-        // || !matches!(report_type, IRMachineFaultType::RentedInaccessible(..))
-        {
-            ItemList::rm_item(&mut self.bookable_report, &report_id);
-            ItemList::add_item(&mut self.verifying_report, report_id);
-        }
-    }
-
-    pub fn clean_unfinished_report(&mut self, report_id: &ReportId) {
-        ItemList::rm_item(&mut self.bookable_report, report_id);
-        ItemList::rm_item(&mut self.verifying_report, report_id);
-        ItemList::rm_item(&mut self.waiting_raw_report, report_id);
-    }
-
-    // TODO: func rename
-    pub fn get_verify_result<Account>(
-        &mut self,
-        report_id: ReportId,
-        summary_result: ReportConfirmStatus<Account>,
-    ) {
-        match summary_result {
-            ReportConfirmStatus::Confirmed(..) | ReportConfirmStatus::Refuse(..) => {
-                ItemList::rm_item(&mut self.waiting_raw_report, &report_id);
-                ItemList::add_item(&mut self.finished_report, report_id);
-            },
-            ReportConfirmStatus::NoConsensus => {
-                ItemList::rm_item(&mut self.waiting_raw_report, &report_id);
-            },
-        }
-    }
-}
-
-// 处理除了inaccessible错误之外的错误
-impl IRLiveReportList {
-    // 机器正在被该委员会验证，但该委员会超时未提交验证hash
-    pub fn clean_not_submit_hash_report(&mut self, report_id: ReportId) {
-        ItemList::rm_item(&mut self.verifying_report, &report_id);
-        ItemList::add_item(&mut self.bookable_report, report_id);
-    }
-}
-
+// TODO: 合并该错误类型
 // 报告的详细信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct IRReportInfoDetail<AccountId, BlockNumber, Balance> {
@@ -156,9 +61,9 @@ pub struct IRReportInfoDetail<AccountId, BlockNumber, Balance> {
     /// 不支持报告人的委员会
     pub against_committee: Vec<AccountId>,
     /// 当前报告的状态
-    pub report_status: IRReportStatus,
+    pub report_status: ReportStatus,
     /// 机器的故障类型
-    pub machine_fault_type: IRMachineFaultType,
+    pub machine_fault_type: MachineFaultType,
 }
 
 impl<Account, BlockNumber, Balance> IRReportInfoDetail<Account, BlockNumber, Balance>
@@ -171,7 +76,7 @@ where
     pub fn new(
         reporter: Account,
         report_time: BlockNumber,
-        machine_fault_type: IRMachineFaultType,
+        machine_fault_type: MachineFaultType,
         reporter_stake: Balance,
     ) -> Self {
         let report_info = IRReportInfoDetail {
@@ -197,7 +102,7 @@ where
         // 检查订单是否可以抢定
         ensure!(self.report_time != Zero::zero(), CustomErr::ReportNotAllowBook);
         ensure!(
-            matches!(self.report_status, IRReportStatus::Reported | IRReportStatus::WaitingBook),
+            matches!(self.report_status, ReportStatus::Reported | ReportStatus::WaitingBook),
             CustomErr::ReportNotAllowBook
         );
         ensure!(self.booked_committee.len() < 3, CustomErr::ReportNotAllowBook);
@@ -208,7 +113,7 @@ where
     pub fn book_report(&mut self, committee: Account, now: BlockNumber) {
         ItemList::add_item(&mut self.booked_committee, committee.clone());
 
-        if self.report_status == IRReportStatus::Reported {
+        if self.report_status == ReportStatus::Reported {
             // 是第一个预订的委员会时:
             self.first_book_time = now;
             self.confirm_start = now + THREE_HOUR.into();
@@ -220,7 +125,7 @@ where
             // };
         }
 
-        self.report_status = IRReportStatus::Verifying;
+        self.report_status = ReportStatus::Verifying;
         self.verifying_committee = Some(committee);
 
         // self.report_status = match self.machine_fault_type {
@@ -245,7 +150,7 @@ where
         //     CustomErr::NotNeedEncryptedInfo
         // );
         ensure!(&self.reporter == from, CustomErr::NotOrderReporter);
-        ensure!(self.report_status == IRReportStatus::Verifying, CustomErr::OrderStatusNotFeat);
+        ensure!(self.report_status == ReportStatus::Verifying, CustomErr::OrderStatusNotFeat);
         ensure!(self.booked_committee.binary_search(to).is_ok(), CustomErr::NotOrderCommittee);
         Ok(())
     }
@@ -318,9 +223,9 @@ where
         if self.booked_committee.is_empty() {
             self.first_book_time = Zero::zero();
             self.confirm_start = Zero::zero();
-            self.report_status = IRReportStatus::Reported;
+            self.report_status = ReportStatus::Reported;
         } else {
-            self.report_status = IRReportStatus::WaitingBook
+            self.report_status = ReportStatus::WaitingBook
         };
     }
 
@@ -330,26 +235,6 @@ where
         self.verifying_committee = None;
         ItemList::rm_item(&mut self.booked_committee, &verifying_committee);
         ItemList::rm_item(&mut self.get_encrypted_info_committee, &verifying_committee);
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum IRReportStatus {
-    /// 没有委员会预订过的报告, 允许报告人取消
-    Reported,
-    /// 前一个委员会的报告已经超过一个小时，自动改成可预订状态
-    WaitingBook,
-    /// 有委员会抢单，处于验证中
-    Verifying,
-    /// 距离第一个验证人抢单3个小时后，等待委员会上传原始信息
-    SubmittingRaw,
-    /// 委员会已经完成，等待第48小时, 检查报告结果
-    CommitteeConfirmed,
-}
-
-impl Default for IRReportStatus {
-    fn default() -> Self {
-        Self::Reported
     }
 }
 
@@ -377,18 +262,6 @@ impl IRReporterReportList {
         ItemList::rm_item(&mut self.processing_report, &report_id);
         ItemList::add_item(&mut self.failed_report, report_id);
     }
-}
-
-/// Reporter stake params
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct IRReporterStakeParamsInfo<Balance> {
-    /// First time when report
-    pub stake_baseline: Balance,
-    /// How much stake will be used each report & how much should stake in this
-    /// module to apply for SlashReview(reporter, committee, stash stake the same)
-    pub stake_per_report: Balance,
-    /// 当剩余的质押数量到阈值时，需要补质押
-    pub min_free_stake_percent: Perbill,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -454,7 +327,7 @@ impl<BlockNumber, Balance> IRCommitteeReportOpsDetail<BlockNumber, Balance> {
 
     pub fn book_report(
         &mut self,
-        _fault_type: IRMachineFaultType,
+        _fault_type: MachineFaultType,
         now: BlockNumber,
         order_stake: Balance,
     ) {
@@ -633,12 +506,4 @@ where
             ItemList::add_item(&mut self.reward_committee, a_item);
         }
     }
-}
-
-/// Summary after all committee submit raw info
-#[derive(Clone)]
-pub enum ReportConfirmStatus<AccountId> {
-    Confirmed(Vec<AccountId>, Vec<AccountId>, Vec<u8>),
-    Refuse(Vec<AccountId>, Vec<AccountId>),
-    NoConsensus,
 }

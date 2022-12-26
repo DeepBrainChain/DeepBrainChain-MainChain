@@ -25,13 +25,15 @@ use sp_std::{prelude::*, str, vec::Vec};
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
+    report::{MTLiveReportList, MachineFaultType, ReportStatus, ReporterStakeParamsInfo},
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
     verify_online::{
         MachineConfirmStatus, OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps,
         OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, Summary,
+        VerifySequence,
     },
-    EraIndex, ItemList, MachineId, RentOrderId, ReportId, SlashId, TWO_DAY,
+    BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId, TWO_DAY,
 };
 
 /// 36 hours divide into 9 intervals for verification
@@ -276,7 +278,7 @@ pub mod pallet {
     /// 系统中还未完成的举报订单
     #[pallet::storage]
     #[pallet::getter(fn live_report)]
-    pub(super) type LiveReport<T: Config> = StorageValue<_, IRLiveReportList, ValueQuery>;
+    pub(super) type LiveReport<T: Config> = StorageValue<_, MTLiveReportList, ValueQuery>;
 
     /// 系统中还未完成的订单
     // 通过报告单据ID，查询报告的机器的信息(委员会抢单信息)
@@ -300,7 +302,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn reporter_stake_params)]
     pub(super) type ReporterStakeParams<T: Config> =
-        StorageValue<_, IRReporterStakeParamsInfo<BalanceOf<T>>, ValueQuery>;
+        StorageValue<_, ReporterStakeParamsInfo<BalanceOf<T>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn next_report_id)]
@@ -984,7 +986,10 @@ pub mod pallet {
         #[pallet::weight(10000)]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
-            report_reason: IRMachineFaultType,
+            // NOTE: Here only one fault type (OnlineRenetFailed) can be report, so we only need
+            // machine_id report_reason: MachineFaultType,
+            report_hash: ReportHash,
+            box_pubkey: BoxPubkey,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
 
@@ -995,7 +1000,8 @@ pub mod pallet {
 
             Self::do_report_machine_fault(
                 reporter.clone(),
-                report_reason,
+                // report_reason,
+                MachineFaultType::OnlineRentFailed(report_hash, box_pubkey),
                 None,
                 &mut live_report,
                 &mut reporter_report,
@@ -1035,7 +1041,7 @@ pub mod pallet {
 
             ensure!(report_info.reporter == reporter, Error::<T>::NotReporter);
             ensure!(
-                report_info.report_status == IRReportStatus::Reported,
+                report_info.report_status == ReportStatus::Reported,
                 Error::<T>::ReportNotAllowCancel
             );
 
@@ -1142,10 +1148,10 @@ pub mod pallet {
         // Last item is rent order gpu_num
         ReletBlockNum(RentOrderId, T::AccountId, MachineId, BalanceOf<T>, T::BlockNumber, u32),
 
-        ReportMachineFault(T::AccountId, IRMachineFaultType),
+        ReportMachineFault(T::AccountId, MachineFaultType),
         ReporterAddStake(T::AccountId, BalanceOf<T>),
         ReporterReduceStake(T::AccountId, BalanceOf<T>),
-        ReportCanceled(T::AccountId, ReportId, IRMachineFaultType),
+        ReportCanceled(T::AccountId, ReportId, MachineFaultType),
         CommitteeBookReport(T::AccountId, ReportId),
         EncryptedInfoSent(T::AccountId, T::AccountId, ReportId),
     }

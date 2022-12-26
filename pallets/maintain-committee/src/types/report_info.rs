@@ -1,12 +1,13 @@
-use crate::{CustomErr, ReportConfirmStatus};
+use crate::CustomErr;
 use codec::{Decode, Encode};
 use dbc_support::{
-    verify_slash::OPSlashReason, BoxPubkey, ItemList, MachineId, RentOrderId, ReportHash,
-    FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
+    report::{MachineFaultType, ReportConfirmStatus, ReportStatus},
+    verify_slash::OPSlashReason,
+    ItemList, MachineId, RentOrderId, ReportHash, FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
 };
 use frame_support::ensure;
 use sp_runtime::{traits::Zero, RuntimeDebug};
-use sp_std::{cmp::PartialEq, ops::Sub, vec, vec::Vec};
+use sp_std::{cmp::PartialEq, ops::Sub, vec::Vec};
 
 // 报告的详细信息
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -47,64 +48,17 @@ pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
     pub machine_fault_type: MachineFaultType,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum ReportStatus {
-    /// 没有委员会预订过的报告, 允许报告人取消
-    Reported,
-    /// 前一个委员会的报告已经超过一个小时，自动改成可预订状态
-    WaitingBook,
-    /// 有委员会抢单，处于验证中
-    Verifying,
-    /// 距离第一个验证人抢单3个小时后，等待委员会上传原始信息
-    SubmittingRaw,
-    /// 委员会已经完成，等待第48小时, 检查报告结果
-    CommitteeConfirmed,
-}
-
-impl Default for ReportStatus {
-    fn default() -> Self {
-        ReportStatus::Reported
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum MachineFaultType {
-    /// 机器被租用，但无法访问的故障 (机器离线)
-    RentedInaccessible(MachineId, RentOrderId),
-    /// 机器被租用，但有硬件故障
-    RentedHardwareMalfunction(ReportHash, BoxPubkey),
-    /// 机器被租用，但硬件参数造假
-    RentedHardwareCounterfeit(ReportHash, BoxPubkey),
-    /// 机器是在线状态，但无法租用(创建虚拟机失败)，举报时同样需要先租下来
-    OnlineRentFailed(ReportHash, BoxPubkey),
-}
-
-// 默认硬件故障
-impl Default for MachineFaultType {
-    fn default() -> Self {
-        Self::RentedInaccessible(vec![], 0)
-    }
-}
-
-impl MachineFaultType {
-    pub fn get_hash(self) -> Option<ReportHash> {
-        match self {
-            MachineFaultType::RentedHardwareMalfunction(hash, ..) |
-            MachineFaultType::RentedHardwareCounterfeit(hash, ..) |
-            MachineFaultType::OnlineRentFailed(hash, ..) => Some(hash),
-            MachineFaultType::RentedInaccessible(..) => None,
-        }
-    }
-
-    pub fn into_op_err<BlockNumber>(&self, report_time: BlockNumber) -> OPSlashReason<BlockNumber> {
-        match self {
-            Self::RentedInaccessible(..) => OPSlashReason::RentedInaccessible(report_time),
-            Self::RentedHardwareMalfunction(..) =>
-                OPSlashReason::RentedHardwareMalfunction(report_time),
-            Self::RentedHardwareCounterfeit(..) =>
-                OPSlashReason::RentedHardwareCounterfeit(report_time),
-            Self::OnlineRentFailed(..) => OPSlashReason::OnlineRentFailed(report_time),
-        }
+pub fn into_op_err<BlockNumber>(
+    fault_type: &MachineFaultType,
+    report_time: BlockNumber,
+) -> OPSlashReason<BlockNumber> {
+    match fault_type {
+        MachineFaultType::RentedInaccessible(..) => OPSlashReason::RentedInaccessible(report_time),
+        MachineFaultType::RentedHardwareMalfunction(..) =>
+            OPSlashReason::RentedHardwareMalfunction(report_time),
+        MachineFaultType::RentedHardwareCounterfeit(..) =>
+            OPSlashReason::RentedHardwareCounterfeit(report_time),
+        MachineFaultType::OnlineRentFailed(..) => OPSlashReason::OnlineRentFailed(report_time),
     }
 }
 

@@ -1,6 +1,5 @@
-use crate::{MachineFaultType, ReportConfirmStatus};
+use crate::{report::MachineFaultType, ItemList, ReportId};
 use codec::{Decode, Encode};
-use dbc_support::{ItemList, ReportId};
 use sp_runtime::RuntimeDebug;
 use sp_std::{cmp::PartialEq, vec::Vec};
 
@@ -90,16 +89,20 @@ impl MTLiveReportList {
             },
         }
     }
-}
 
-// 处理inaccessible类型的错误
-impl MTLiveReportList {}
-
-// 处理除了inaccessible错误之外的错误
-impl MTLiveReportList {
+    // NOTE: 处理除了inaccessible错误之外的错误
     // 机器正在被该委员会验证，但该委员会超时未提交验证hash
     pub fn clean_not_submit_hash_report(&mut self, report_id: ReportId) {
         ItemList::rm_item(&mut self.verifying_report, &report_id);
         ItemList::add_item(&mut self.bookable_report, report_id);
     }
+}
+
+// NOTE: 移动到其他路径
+/// Summary after all committee submit raw info
+#[derive(Clone)]
+pub enum ReportConfirmStatus<AccountId> {
+    Confirmed(Vec<AccountId>, Vec<AccountId>, Vec<u8>),
+    Refuse(Vec<AccountId>, Vec<AccountId>),
+    NoConsensus,
 }

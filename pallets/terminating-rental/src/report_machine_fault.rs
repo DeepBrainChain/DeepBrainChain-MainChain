@@ -1,6 +1,7 @@
 use crate::*;
 use dbc_support::{
     machine_type::MachineStatus,
+    report::{MTLiveReportList, ReportConfirmStatus, ReportStatus},
     traits::{GNOps, ManageCommittee},
     ItemList, ReportId, ONE_DAY, ONE_HOUR, THREE_HOUR,
 };
@@ -95,9 +96,9 @@ impl<T: Config> Pallet<T> {
     // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
     pub fn do_report_machine_fault(
         reporter: T::AccountId,
-        machine_fault_type: IRMachineFaultType,
+        machine_fault_type: MachineFaultType,
         report_time: Option<T::BlockNumber>,
-        live_report: &mut IRLiveReportList,
+        live_report: &mut MTLiveReportList,
         reporter_report: &mut IRReporterReportList,
     ) -> DispatchResultWithPostInfo {
         // 获取处理报告需要的信息
@@ -299,7 +300,7 @@ impl<T: Config> Pallet<T> {
 
     fn summary_verifying_report(
         report_id: ReportId,
-        live_report: &mut IRLiveReportList,
+        live_report: &mut MTLiveReportList,
     ) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
@@ -345,14 +346,14 @@ impl<T: Config> Pallet<T> {
         report_id: ReportId,
         now: T::BlockNumber,
 
-        live_report: &mut IRLiveReportList,
+        live_report: &mut MTLiveReportList,
         reporter_report: &mut IRReporterReportList,
         report_result: &mut IRReportResultInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> Result<(), ()> {
         let mut report_info = Self::report_info(&report_id);
 
         // Reported, WaitingBook, CommitteeConfirmed, SubmittingRaw
-        if !matches!(report_info.report_status, IRReportStatus::Verifying) {
+        if !matches!(report_info.report_status, ReportStatus::Verifying) {
             return Ok(())
         }
 
@@ -410,7 +411,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // 统计委员会正在提交原始值的机器
-    fn summary_submitting_raw(report_id: ReportId, live_report: &mut IRLiveReportList) {
+    fn summary_submitting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) {
         let now = <frame_system::Module<T>>::block_number();
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
@@ -446,8 +447,7 @@ impl<T: Config> Pallet<T> {
 
                 // After re-online, machine status is same as former
                 machine_info.machine_status = MachineStatus::ReporterReportOffline(
-                    report_info.machine_fault_type.into_op_err(report_info.report_time),
-                    // fault_type,
+                    into_op_err(&report_info.machine_fault_type, report_info.report_time),
                     Box::new(machine_info.machine_status),
                     report_info.reporter.clone(),
                     committee,
@@ -501,8 +501,8 @@ impl<T: Config> Pallet<T> {
 
         Self::update_unhandled_report(report_id, true, now + TWO_DAY.into());
 
-        if report_info.report_status != IRReportStatus::Reported {
-            report_info.report_status = IRReportStatus::CommitteeConfirmed;
+        if report_info.report_status != ReportStatus::Reported {
+            report_info.report_status = ReportStatus::CommitteeConfirmed;
         }
         ReportResult::<T>::insert(report_id, report_result);
         ReportInfo::<T>::insert(report_id, report_info);
@@ -513,15 +513,15 @@ impl<T: Config> Pallet<T> {
     fn summary_after_submit_raw(
         report_id: ReportId,
         now: T::BlockNumber,
-        live_report: &mut IRLiveReportList,
+        live_report: &mut MTLiveReportList,
     ) -> Result<(), ()> {
         live_report.clean_unfinished_report(&report_id);
         ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
 
         let mut report_info = Self::report_info(&report_id);
 
-        if let IRReportStatus::WaitingBook = report_info.report_status {
-            report_info.report_status = IRReportStatus::SubmittingRaw;
+        if let ReportStatus::WaitingBook = report_info.report_status {
+            report_info.report_status = ReportStatus::SubmittingRaw;
             ReportInfo::<T>::insert(report_id, report_info);
             return Ok(())
         }

@@ -1,17 +1,9 @@
-use crate::{CustomErr, MachineFaultType};
+use crate::CustomErr;
 use codec::{Decode, Encode};
-use dbc_support::{ItemList, ReportHash, ReportId};
+use dbc_support::{report::MachineFaultType, ItemList, ReportHash, ReportId};
 use frame_support::ensure;
 use sp_runtime::RuntimeDebug;
 use sp_std::{cmp::PartialEq, vec::Vec};
-
-/// Summary after all committee submit raw info
-#[derive(Clone)]
-pub enum ReportConfirmStatus<AccountId> {
-    Confirmed(Vec<AccountId>, Vec<AccountId>, Vec<u8>),
-    Refuse(Vec<AccountId>, Vec<AccountId>),
-    NoConsensus,
-}
 
 /// 委员会抢到的报告的列表
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]

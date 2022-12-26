@@ -11,12 +11,6 @@ pub const SUBMIT_RAW_START: u32 = 4320;
 /// Summary committee's opinion after 48 hours
 pub const SUBMIT_RAW_END: u32 = 5760;
 
-#[derive(Clone, Debug)]
-pub struct VerifySequence<AccountId> {
-    pub who: AccountId,
-    pub index: Vec<usize>,
-}
-
 impl<T: Config> From<CustomErr> for Error<T> {
     fn from(err: CustomErr) -> Self {
         match err {
