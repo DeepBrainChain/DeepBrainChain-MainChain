@@ -13,8 +13,9 @@ mod tests;
 use codec::alloc::string::ToString;
 use dbc_support::{
     report::{
-        MCSlashResult, MTLiveReportList, MTReportInfoDetail, MTReportResultInfo, MachineFaultType,
-        ReportConfirmStatus, ReportResultType, ReportStatus, ReporterReportList, ReporterStakeInfo,
+        MCSlashResult, MTCommitteeOpsDetail, MTCommitteeOrderList, MTLiveReportList, MTOrderStatus,
+        MTReportInfoDetail, MTReportResultInfo, MachineFaultType, ReportConfirmStatus,
+        ReportResultType, ReportStatus, ReporterReportList, ReporterStakeInfo,
         ReporterStakeParamsInfo,
     },
     traits::{GNOps, MTOps, ManageCommittee},

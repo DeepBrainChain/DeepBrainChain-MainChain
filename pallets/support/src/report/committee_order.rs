@@ -1,8 +1,8 @@
-use codec::{Decode, Encode};
-use dbc_support::{
+use crate::{
     report::{CustomErr, MachineFaultType},
     ItemList, ReportHash, ReportId,
 };
+use codec::{Decode, Encode};
 use frame_support::ensure;
 use sp_runtime::RuntimeDebug;
 use sp_std::{cmp::PartialEq, vec::Vec};
@@ -51,6 +51,25 @@ impl MTCommitteeOrderList {
         } else {
             ItemList::rm_item(&mut self.booked_report, &report_id);
         }
+    }
+}
+
+/// 委员会抢单之后，对应订单的状态
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+pub enum MTOrderStatus {
+    /// 预订报告，状态将等待加密信息
+    WaitingEncrypt,
+    /// 获得加密信息之后，状态将等待加密信息
+    Verifying,
+    /// 等待提交原始信息
+    WaitingRaw,
+    /// 委员会已经完成了全部操作
+    Finished,
+}
+
+impl Default for MTOrderStatus {
+    fn default() -> Self {
+        MTOrderStatus::Verifying
     }
 }
 
@@ -111,24 +130,5 @@ impl<BlockNumber, Balance> MTCommitteeOpsDetail<BlockNumber, Balance> {
         self.extra_err_info = extra_err_info;
         self.confirm_result = is_support;
         self.order_status = MTOrderStatus::Finished;
-    }
-}
-
-/// 委员会抢单之后，对应订单的状态
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum MTOrderStatus {
-    /// 预订报告，状态将等待加密信息
-    WaitingEncrypt,
-    /// 获得加密信息之后，状态将等待加密信息
-    Verifying,
-    /// 等待提交原始信息
-    WaitingRaw,
-    /// 委员会已经完成了全部操作
-    Finished,
-}
-
-impl Default for MTOrderStatus {
-    fn default() -> Self {
-        MTOrderStatus::Verifying
     }
 }

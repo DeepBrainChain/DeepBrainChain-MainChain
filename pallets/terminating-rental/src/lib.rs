@@ -26,8 +26,9 @@ use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     report::{
-        MTLiveReportList, MTReportInfoDetail, MTReportResultInfo, MachineFaultType, ReportStatus,
-        ReporterReportList, ReporterStakeInfo, ReporterStakeParamsInfo,
+        MTCommitteeOpsDetail, MTCommitteeOrderList, MTLiveReportList, MTOrderStatus,
+        MTReportInfoDetail, MTReportResultInfo, MachineFaultType, ReportStatus, ReporterReportList,
+        ReporterStakeInfo, ReporterStakeParamsInfo,
     },
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
@@ -320,7 +321,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn committee_report_order)]
     pub(super) type CommitteeReportOrder<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, IRCommitteeReportOrderList, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, MTCommitteeOrderList, ValueQuery>;
 
     // 存储委员会对单台机器的操作记录
     #[pallet::storage]
@@ -331,7 +332,7 @@ pub mod pallet {
         T::AccountId,
         Blake2_128Concat,
         ReportId,
-        IRCommitteeReportOpsDetail<T::BlockNumber, BalanceOf<T>>,
+        MTCommitteeOpsDetail<T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -1110,7 +1111,7 @@ pub mod pallet {
                 .can_submit_encrypted_info(&reporter, &to_committee)
                 .map_err::<Error<T>, _>(Into::into)?;
             ensure!(
-                committee_ops.order_status == IRReportOrderStatus::WaitingEncrypt,
+                committee_ops.order_status == MTOrderStatus::WaitingEncrypt,
                 Error::<T>::OrderStatusNotFeat
             );
 
