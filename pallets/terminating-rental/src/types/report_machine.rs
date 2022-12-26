@@ -6,10 +6,7 @@ use dbc_support::{
     ItemList, MachineId, RentOrderId, ReportHash, ReportId, FOUR_HOUR, THREE_HOUR, TWO_DAY,
 };
 use frame_support::ensure;
-use sp_runtime::{
-    traits::{Saturating, Zero},
-    RuntimeDebug,
-};
+use sp_runtime::{traits::Zero, RuntimeDebug};
 use sp_std::{ops::Sub, vec::Vec};
 
 pub fn into_op_err<BlockNumber>(
@@ -235,49 +232,6 @@ where
         self.verifying_committee = None;
         ItemList::rm_item(&mut self.booked_committee, &verifying_committee);
         ItemList::rm_item(&mut self.get_encrypted_info_committee, &verifying_committee);
-    }
-}
-
-/// 报告人的报告记录
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct IRReporterReportList {
-    pub processing_report: Vec<ReportId>,
-    pub canceled_report: Vec<ReportId>,
-    pub succeed_report: Vec<ReportId>,
-    pub failed_report: Vec<ReportId>,
-}
-
-impl IRReporterReportList {
-    pub fn new_report(&mut self, report_id: ReportId) {
-        ItemList::add_item(&mut self.processing_report, report_id);
-    }
-
-    pub fn cancel_report(&mut self, report_id: ReportId) {
-        ItemList::rm_item(&mut self.processing_report, &report_id);
-        ItemList::add_item(&mut self.canceled_report, report_id);
-    }
-
-    // 机器正在被该委员会验证，但该报告人超时未提交加密信息
-    pub fn clean_not_submit_encrypted_report(&mut self, report_id: ReportId) {
-        ItemList::rm_item(&mut self.processing_report, &report_id);
-        ItemList::add_item(&mut self.failed_report, report_id);
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct IRReporterStakeInfo<Balance> {
-    pub staked_amount: Balance,
-    pub used_stake: Balance,
-    pub can_claim_reward: Balance,
-    pub claimed_reward: Balance,
-}
-
-impl<Balance: Saturating + Copy> IRReporterStakeInfo<Balance> {
-    pub fn change_stake_on_report_close(&mut self, amount: Balance, is_slashed: bool) {
-        self.used_stake = self.used_stake.saturating_sub(amount);
-        if is_slashed {
-            self.staked_amount = self.staked_amount.saturating_sub(amount);
-        }
     }
 }
 

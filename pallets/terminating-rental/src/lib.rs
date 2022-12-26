@@ -25,7 +25,10 @@ use sp_std::{prelude::*, str, vec::Vec};
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
-    report::{MTLiveReportList, MachineFaultType, ReportStatus, ReporterStakeParamsInfo},
+    report::{
+        MTLiveReportList, MachineFaultType, ReportStatus, ReporterReportList, ReporterStakeInfo,
+        ReporterStakeParamsInfo,
+    },
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
     verify_online::{
@@ -296,7 +299,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn reporter_report)]
     pub(super) type ReporterReport<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, IRReporterReportList, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, ReporterReportList, ValueQuery>;
 
     // TODO: 增加set函数
     #[pallet::storage]
@@ -310,13 +313,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn reporter_stake)]
-    pub(super) type ReporterStake<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        IRReporterStakeInfo<BalanceOf<T>>,
-        ValueQuery,
-    >;
+    pub(super) type ReporterStake<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, ReporterStakeInfo<BalanceOf<T>>, ValueQuery>;
 
     // 委员会查询自己的抢单信息
     #[pallet::storage]

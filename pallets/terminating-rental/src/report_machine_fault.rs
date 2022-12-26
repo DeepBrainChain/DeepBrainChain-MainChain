@@ -1,7 +1,7 @@
 use crate::*;
 use dbc_support::{
     machine_type::MachineStatus,
-    report::{MTLiveReportList, ReportConfirmStatus, ReportStatus},
+    report::{MTLiveReportList, ReportConfirmStatus, ReportStatus, ReporterReportList},
     traits::{GNOps, ManageCommittee},
     ItemList, ReportId, ONE_DAY, ONE_HOUR, THREE_HOUR,
 };
@@ -99,7 +99,7 @@ impl<T: Config> Pallet<T> {
         machine_fault_type: MachineFaultType,
         report_time: Option<T::BlockNumber>,
         live_report: &mut MTLiveReportList,
-        reporter_report: &mut IRReporterReportList,
+        reporter_report: &mut ReporterReportList,
     ) -> DispatchResultWithPostInfo {
         // 获取处理报告需要的信息
         let stake_params = Self::reporter_stake_params();
@@ -347,7 +347,7 @@ impl<T: Config> Pallet<T> {
         now: T::BlockNumber,
 
         live_report: &mut MTLiveReportList,
-        reporter_report: &mut IRReporterReportList,
+        reporter_report: &mut ReporterReportList,
         report_result: &mut IRReportResultInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> Result<(), ()> {
         let mut report_info = Self::report_info(&report_id);
