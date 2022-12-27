@@ -1772,7 +1772,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let mut machine_info = Self::machines_info(&machine_id);
 
-        <T as Config>::Currency::unreserve(&rent_order.renter, rent_fee);
+        <T as Config>::Currency::unreserve(&rent_order.renter, rent_order.stake_amount);
 
         // NOTE: 将租金的1%转给委员会，剩余的转给stash账户
         // 可能足用人质押数量大于需要支付的租金，因此需要解绑质押，再转对应的租金
