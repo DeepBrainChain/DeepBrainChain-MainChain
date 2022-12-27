@@ -380,7 +380,7 @@ pub mod pallet {
 
             // Self::check_machine_starting_status();
             Self::check_if_rent_finished();
-            // TODO:  检查OfflineMachines是否到达了10天
+            // 检查OfflineMachines是否到达了10天
             let _ = Self::check_if_offline_timeout();
 
             let _ = Self::exec_report_slash();
@@ -1960,7 +1960,7 @@ impl<T: Config> Pallet<T> {
         let offline_machines = Self::offline_machines(now);
 
         for machine_id in offline_machines {
-            let machine_info = Self::machines_info(&machine_id);
+            let mut machine_info = Self::machines_info(&machine_id);
             if matches!(machine_info.machine_status, MachineStatus::StakerReportOffline(..)) {
                 <T as Config>::SlashAndReward::slash_and_reward(
                     vec![machine_info.machine_stash.clone()],
@@ -1968,6 +1968,8 @@ impl<T: Config> Pallet<T> {
                     vec![],
                 )?;
             }
+            machine_info.stake_amount = Zero::zero();
+            MachinesInfo::<T>::insert(machine_id, machine_info);
         }
         OfflineMachines::<T>::remove(now);
         Ok(())
