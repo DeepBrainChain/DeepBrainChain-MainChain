@@ -1,0 +1,38 @@
+{
+    "IRMachineInfo": {
+        "machine_stash": "AccountId",
+        "renters": "Vec<AccountId>",
+        "bonding_height": "BlockNumber",
+        "online_height": "BlockNumber",
+        "last_online_height": "BlockNumber",
+        "stake_amount": "Balance",
+        "machine_status": "MachineStatus",
+        "total_rented_duration": "BlockNumber",
+        "total_rented_times": "u64",
+        "total_rent_fee": "Balance",
+        "machine_info_detail": "MachineInfoDetail",
+        "reward_committee": "Vec<AccountId>"
+    },
+    "IRLiveMachine": {
+        "bonding_machine": "Vec<MachineId>",
+        "confirmed_machine": "Vec<MachineId>",
+        "booked_machine": "Vec<MachineId>",
+        "online_machine": "Vec<MachineId>",
+        "refused_machine": "Vec<MachineId>",
+        "rented_machine": "Vec<MachineId>",
+        "offline_machine": "Vec<MachineId>"
+    },
+    "IRSlashReason": {
+        "_enum": {
+            "OnlineRentFailed(BlockNumber)": null
+        }
+    },
+    "IRStashMachine": {
+        "total_machine": "Vec<MachineId>",
+        "online_machine": "Vec<MachineId>",
+        "total_calc_points": "u64",
+        "total_gpu_num": "u64",
+        "total_rented_gpu": "u64",
+        "total_rent_fee": "Balance"
+    }
+}
