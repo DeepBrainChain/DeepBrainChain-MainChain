@@ -302,7 +302,6 @@ pub mod pallet {
     pub(super) type ReporterReport<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ReporterReportList, ValueQuery>;
 
-    // TODO: 增加set函数
     #[pallet::storage]
     #[pallet::getter(fn reporter_stake_params)]
     pub(super) type ReporterStakeParams<T: Config> =
@@ -419,6 +418,16 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StandardGPUPointPrice::<T>::put(point_price);
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        pub fn set_reporter_stake_params(
+            origin: OriginFor<T>,
+            params: ReporterStakeParamsInfo<BalanceOf<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ReporterStakeParams::<T>::put(params);
             Ok(().into())
         }
 
