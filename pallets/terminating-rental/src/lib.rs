@@ -11,6 +11,7 @@ mod rpc;
 pub mod rpc_types;
 mod types;
 
+use codec::alloc::string::ToString;
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
     pallet_prelude::*,
@@ -1088,10 +1089,6 @@ pub mod pallet {
             report_info.can_book(&committee).map_err::<Error<T>, _>(Into::into)?;
             let order_stake = Self::get_stake_per_order()?;
 
-            // 支付手续费或押金: 10 DBC | 1000 DBC
-            // if let IRMachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
-            //     Self::pay_fixed_tx_fee(committee.clone())?;
-            // } else {
             <T as Config>::ManageCommittee::change_used_stake(committee.clone(), order_stake, true)
                 .map_err(|_| Error::<T>::StakeFailed)?;
             // }
@@ -1136,6 +1133,114 @@ pub mod pallet {
             Self::deposit_event(Event::EncryptedInfoSent(reporter, to_committee, report_id));
             Ok(().into())
         }
+
+        // 委员会提交验证之后的Hash
+        // 用户必须在自己的Order状态为Verifying时提交Hash
+        #[pallet::weight(10000)]
+        pub fn committee_submit_verify_hash(
+            origin: OriginFor<T>,
+            report_id: ReportId,
+            hash: ReportHash,
+        ) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+
+            let mut committee_order = Self::committee_report_order(&committee);
+            let mut committee_ops = Self::committee_report_ops(&committee, &report_id);
+            let mut report_info = Self::report_info(&report_id);
+
+            committee_order.can_submit_hash(report_id).map_err::<Error<T>, _>(Into::into)?;
+            committee_ops.can_submit_hash().map_err::<Error<T>, _>(Into::into)?;
+            report_info.can_submit_hash().map_err::<Error<T>, _>(Into::into)?;
+            Self::is_uniq_hash(report_id, &report_info, hash)?;
+
+            // 修改report_info
+            report_info.add_hash(committee.clone());
+            // 修改committeeOps存储/状态
+            committee_ops.add_hash(hash, now);
+            // 修改committee_order 预订 -> Hash
+            committee_order.add_hash(report_id);
+
+            LiveReport::<T>::mutate(|live_report| {
+                live_report.submit_hash(
+                    report_id,
+                    report_info.machine_fault_type.clone(),
+                    report_info.hashed_committee.len(),
+                )
+            });
+            ReportInfo::<T>::insert(&report_id, report_info);
+            CommitteeReportOps::<T>::insert(&committee, &report_id, committee_ops);
+            CommitteeReportOrder::<T>::insert(&committee, committee_order);
+
+            Self::deposit_event(Event::HashSubmited(report_id, committee));
+            Ok(().into())
+        }
+
+        /// 订单状态必须是等待SubmittingRaw: 除了offline之外的所有错误类型
+        #[pallet::weight(10000)]
+        pub fn committee_submit_verify_raw(
+            origin: OriginFor<T>,
+            report_id: ReportId,
+            machine_id: MachineId,
+            rent_order_id: RentOrderId,
+            reporter_rand_str: Vec<u8>,
+            committee_rand_str: Vec<u8>,
+            err_reason: Vec<u8>,
+            extra_err_info: Vec<u8>,
+            support_report: bool,
+        ) -> DispatchResultWithPostInfo {
+            let committee = ensure_signed(origin)?;
+            let now = <frame_system::Module<T>>::block_number();
+
+            let mut report_info = Self::report_info(report_id);
+
+            report_info.can_submit_raw(&committee).map_err::<Error<T>, _>(Into::into)?;
+
+            // 获取链上已经记录的Hash
+            let reporter_hash =
+                report_info.get_reporter_hash().map_err::<Error<T>, _>(Into::into)?;
+
+            // 检查是否与报告人提交的Hash一致
+            let reporter_report_hash = get_hash(vec![
+                machine_id.clone(),
+                rent_order_id.to_string().into(),
+                reporter_rand_str.clone(),
+                err_reason.clone(),
+            ]);
+            ensure!(reporter_report_hash == reporter_hash, Error::<T>::NotEqualReporterSubmit);
+
+            let mut committee_ops = Self::committee_report_ops(&committee, &report_id);
+            let mut committee_order = Self::committee_report_order(&committee);
+
+            // 检查委员会提交是否与第一次Hash一致
+            let is_support: Vec<u8> = if support_report { "1".into() } else { "0".into() };
+            let committee_report_hash = get_hash(vec![
+                machine_id.clone(),
+                rent_order_id.to_string().into(),
+                reporter_rand_str,
+                committee_rand_str,
+                is_support,
+                err_reason.clone(),
+            ]);
+            ensure!(
+                committee_report_hash == committee_ops.confirm_hash,
+                Error::<T>::NotEqualCommitteeSubmit
+            );
+
+            // 更改report_info，添加提交Raw的记录
+            report_info.add_raw(committee.clone(), support_report, Some(machine_id), err_reason);
+            // 记录committee_ops，添加提交Raw记录
+            committee_ops.add_raw(now, support_report, extra_err_info);
+            // 记录committee_order
+            committee_order.add_raw(report_id);
+
+            CommitteeReportOrder::<T>::insert(&committee, committee_order);
+            CommitteeReportOps::<T>::insert(&committee, &report_id, committee_ops);
+            ReportInfo::<T>::insert(&report_id, report_info);
+
+            Self::deposit_event(Event::RawInfoSubmited(report_id, committee));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1164,6 +1269,9 @@ pub mod pallet {
         ReportCanceled(T::AccountId, ReportId, MachineFaultType),
         CommitteeBookReport(T::AccountId, ReportId),
         EncryptedInfoSent(T::AccountId, T::AccountId, ReportId),
+
+        HashSubmited(ReportId, T::AccountId),
+        RawInfoSubmited(ReportId, T::AccountId),
     }
 
     #[pallet::error]
@@ -1215,6 +1323,9 @@ pub mod pallet {
         NotNeedEncryptedInfo,
         NotInBookedList,
         NotProperCommittee,
+
+        NotEqualReporterSubmit,
+        NotEqualCommitteeSubmit,
     }
 }
 
@@ -1251,6 +1362,21 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+    // 判断Hash是否被提交过
+    pub fn is_uniq_hash(
+        report_id: ReportId,
+        report_info: &MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        hash: ReportHash,
+    ) -> DispatchResultWithPostInfo {
+        for a_committee in &report_info.hashed_committee {
+            let committee_ops = Self::committee_report_ops(a_committee, report_id);
+            if committee_ops.confirm_hash == hash {
+                return Err(Error::<T>::DuplicateHash.into())
+            }
+        }
+        Ok(().into())
+    }
+
     fn pay_fixed_tx_fee(who: T::AccountId) -> DispatchResultWithPostInfo {
         <generic_func::Module<T>>::pay_fixed_tx_fee(who).map_err(|_| Error::<T>::PayTxFeeFailed)?;
         Ok(().into())
@@ -1998,4 +2124,13 @@ impl<T: Config> Pallet<T> {
 
         slash_id
     }
+}
+
+use sp_io::hashing::blake2_128;
+pub fn get_hash(raw_str: Vec<Vec<u8>>) -> [u8; 16] {
+    let mut full_str = Vec::new();
+    for a_str in raw_str {
+        full_str.extend(a_str);
+    }
+    blake2_128(&full_str)
 }

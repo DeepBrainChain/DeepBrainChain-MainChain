@@ -1,4 +1,5 @@
 use crate as terminating_rental;
+use dbc_support::report::ReporterStakeParamsInfo;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{OnFinalize, OnInitialize},
@@ -262,6 +263,15 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
                 stake_per_order: 1000 * ONE_DBC,
                 min_free_stake_percent: Perbill::from_rational_approximation(40u32, 100u32),
             },
+        ));
+
+        assert_ok!(TerminatingRental::set_reporter_stake_params(
+            RawOrigin::Root.into(),
+            ReporterStakeParamsInfo {
+                stake_baseline: 20000 * ONE_DBC,
+                stake_per_report: 1000 * ONE_DBC,
+                min_free_stake_percent: Perbill::from_percent(40)
+            }
         ));
 
         // 操作时的固定费率: 10 DBC

@@ -1,12 +1,17 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
-    tests::test_verify_online::new_test_with_machine_bonding_ext, IRLiveMachine, IRStashMachine,
-    RentOrderDetail, RentStatus,
+    tests::test_verify_online::new_test_with_machine_bonding_ext, IRLiveMachine, IRMachineInfo,
+    IRStashMachine, RentOrderDetail, RentStatus,
 };
 // use committee::CommitteeStakeInfo;
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus},
     rental_type::MachineGPUOrder,
+    report::{
+        MTCommitteeOpsDetail, MTCommitteeOrderList, MTLiveReportList, MTOrderStatus,
+        MTReportInfoDetail, MachineFaultType, ReportStatus, ReporterReportList, ReporterStakeInfo,
+    },
+    BoxPubkey, ReportHash,
 };
 use frame_support::assert_ok;
 use sp_runtime::Perbill;
@@ -99,9 +104,9 @@ fn rent_machine_works() {
         {
             // - Writes: MachineRentOrder, RentOrder, machine_status, UserRented, PendingRentEnding,
             // PendingConfirming, RenterTotalStake, FreeBalance(少10DBC)
-            assert_eq!(TerminatingRental::user_rented(renter1), vec![0]);
+            assert_eq!(IRMachine::user_rented(renter1), vec![0]);
             assert_eq!(
-                TerminatingRental::rent_order(0),
+                IRMachine::rent_order(0),
                 crate::RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: renter1,
@@ -115,8 +120,8 @@ fn rent_machine_works() {
                     gpu_index: vec![0, 1, 2, 3, 4, 5, 6, 7]
                 }
             );
-            assert_eq!(TerminatingRental::pending_rent_ending(5 + 60), vec![0]);
-            assert_eq!(TerminatingRental::pending_confirming(5 + 30), vec![0]);
+            assert_eq!(IRMachine::pending_rent_ending(5 + 60), vec![0]);
+            assert_eq!(IRMachine::pending_confirming(5 + 30), vec![0]);
             assert_eq!(IRMachine::renter_total_stake(renter1), 1039756916666666666);
             assert_eq!(
                 IRMachine::machine_rent_order(&machine_id),
@@ -222,5 +227,252 @@ fn rent_machine_works() {
         }
         // 这时候质押的金额应该转给stash账户,
         // 如果stash的押金够则转到stash的free，否则转到staked
+    })
+}
+
+// 用户下线，将按照使用时长付租金
+#[test]
+fn machine_offline_works() {
+    new_test_with_machine_online_ext().execute_with(|| {
+        // 用户租用
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let renter1 = sr25519::Public::from(Sr25519Keyring::Bob);
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        // let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
+        assert_ok!(IRMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 8, 360));
+        assert_ok!(IRMachine::confirm_rent(Origin::signed(renter1), 0));
+
+        // NOTE: 使用了130个块（将按一小时收费）
+        run_to_block(4 + 130);
+
+        {
+            assert_eq!(
+                IRMachine::machine_rent_order(&machine_id),
+                MachineGPUOrder { rent_order: vec![0], used_gpu: vec![0, 1, 2, 3, 4, 5, 6, 7] }
+            );
+
+            assert!(<crate::RentOrder<TestRuntime>>::contains_key(0));
+            assert!(<crate::MachineRentOrder<TestRuntime>>::contains_key(&machine_id));
+            assert_eq!(
+                IRMachine::rent_order(0),
+                RentOrderDetail {
+                    machine_id: machine_id.clone(),
+                    renter: renter1,
+                    rent_start: 5,
+                    confirm_rent: 5,
+                    rent_end: 365,
+                    stake_amount: 6238541666666666666,
+                    rent_status: RentStatus::Renting,
+                    gpu_num: 8,
+                    gpu_index: vec![0, 1, 2, 3, 4, 5, 6, 7],
+                }
+            );
+        }
+        assert_ok!(IRMachine::machine_offline(Origin::signed(controller), machine_id.clone()));
+
+        // - Write: MachineInfo, OfflineMachines,
+        // - Delte: MachineRentOrder, RentOrder
+        {
+            let machine_info = IRMachine::machines_info(&machine_id);
+            assert_eq!(
+                machine_info.machine_status,
+                MachineStatus::StakerReportOffline(
+                    135,
+                    Box::new(MachineStatus::AddingCustomizeInfo)
+                )
+            );
+            assert_eq!(IRMachine::offline_machines(135 + 28800), vec![machine_id.clone()]);
+            assert!(!<crate::RentOrder<TestRuntime>>::contains_key(0));
+            assert!(!<crate::MachineRentOrder<TestRuntime>>::contains_key(&machine_id));
+            // 租金： 6238541666666666666 / 3 = 2079513888888888888
+
+            assert_eq!(Balances::free_balance(renter1), 9997910486113190625000);
+            assert_eq!(Balances::reserved_balance(renter1), 0);
+            assert_eq!(machine_info.stake_amount, 2058718747962076389);
+            assert_eq!(Balances::reserved_balance(stash), 2058718747962076389);
+        }
+    })
+}
+
+// TODO: 增加机器有租金的情况
+// 机器下线超过10天，将惩罚掉质押币(不允许申诉)
+#[test]
+fn machine_offline_10more_days_slash_works() {
+    new_test_with_machine_online_ext().execute_with(|| {
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let _renter1 = sr25519::Public::from(Sr25519Keyring::Bob);
+        let _stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800));
+        assert_ok!(IRMachine::machine_offline(Origin::signed(controller), machine_id.clone()));
+        {
+            assert_eq!(IRMachine::offline_machines(5 + 28800), vec![machine_id.clone()])
+        };
+
+        run_to_block(6 + 28800);
+        {
+            assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800));
+            let machine_info = IRMachine::machines_info(&machine_id);
+            assert_eq!(machine_info.stake_amount, 0);
+        }
+    })
+}
+
+// 机器在线无法使用被举报
+#[test]
+fn machine_online_inaccessible_slash_works() {
+    new_test_with_machine_online_ext().execute_with(|| {
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let renter1 = sr25519::Public::from(Sr25519Keyring::Bob);
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        assert_ok!(IRMachine::report_machine_fault(
+            Origin::signed(renter1),
+            ReportHash::default(),
+            BoxPubkey::default(),
+        ));
+
+        {
+            assert_eq!(
+                IRMachine::live_report(),
+                MTLiveReportList { bookable_report: vec![0], ..Default::default() }
+            );
+            assert_eq!(
+                IRMachine::reporter_report(&renter1),
+                ReporterReportList { processing_report: vec![0], ..Default::default() }
+            );
+            // assert_eq!(IRMachine::reporter_stake_params(), Default::default());
+            assert_eq!(
+                IRMachine::reporter_stake(&renter1),
+                ReporterStakeInfo {
+                    staked_amount: 20000 * ONE_DBC,
+                    used_stake: 1000 * ONE_DBC,
+                    ..Default::default()
+                }
+            );
+            assert_eq!(
+                IRMachine::report_info(0),
+                MTReportInfoDetail {
+                    reporter: renter1,
+                    report_time: 5,
+                    reporter_stake: 1000 * ONE_DBC,
+                    machine_fault_type: MachineFaultType::OnlineRentFailed(
+                        Default::default(),
+                        Default::default()
+                    ),
+                    ..Default::default()
+                }
+            );
+        }
+
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let _committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
+        let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
+
+        assert_ok!(IRMachine::committee_book_report(Origin::signed(committee1), 0));
+        {
+            assert_eq!(
+                IRMachine::report_info(0),
+                MTReportInfoDetail {
+                    reporter: renter1,
+                    report_time: 5,
+                    reporter_stake: 1000 * ONE_DBC,
+                    first_book_time: 5,
+                    report_status: ReportStatus::Verifying,
+                    verifying_committee: Some(committee1),
+                    booked_committee: vec![committee1],
+                    confirm_start: 365,
+                    machine_fault_type: MachineFaultType::OnlineRentFailed(
+                        Default::default(),
+                        Default::default()
+                    ),
+                    ..Default::default()
+                }
+            );
+            assert_eq!(
+                IRMachine::committee_report_order(committee1),
+                MTCommitteeOrderList { booked_report: vec![0], ..Default::default() }
+            );
+            assert_eq!(
+                IRMachine::committee_report_ops(committee1, 0),
+                MTCommitteeOpsDetail {
+                    booked_time: 5,
+                    staked_balance: 1000 * ONE_DBC,
+                    order_status: MTOrderStatus::WaitingEncrypt,
+                    ..Default::default()
+                }
+            );
+            assert_eq!(
+                IRMachine::live_report(),
+                MTLiveReportList { verifying_report: vec![0], ..Default::default() }
+            );
+        }
+        assert_ok!(IRMachine::reporter_add_encrypted_error_info(
+            Origin::signed(renter1),
+            0,
+            committee1,
+            vec![]
+        ));
+        {
+            assert_eq!(
+                IRMachine::report_info(0),
+                MTReportInfoDetail {
+                    reporter: renter1,
+                    report_time: 5,
+                    reporter_stake: 1000 * ONE_DBC,
+                    first_book_time: 5,
+                    report_status: ReportStatus::Verifying,
+                    verifying_committee: Some(committee1),
+                    booked_committee: vec![committee1],
+                    get_encrypted_info_committee: vec![committee1],
+                    confirm_start: 365,
+                    machine_fault_type: MachineFaultType::OnlineRentFailed(
+                        Default::default(),
+                        Default::default()
+                    ),
+
+                    ..Default::default()
+                }
+            );
+            assert_eq!(
+                IRMachine::committee_report_ops(committee1, 0),
+                MTCommitteeOpsDetail {
+                    booked_time: 5,
+                    encrypted_err_info: Some(vec![]),
+                    encrypted_time: 5,
+                    staked_balance: 1000 * ONE_DBC,
+                    order_status: MTOrderStatus::Verifying,
+                    ..Default::default()
+                }
+            );
+        }
+        run_to_block(366);
+        // assert_ok!(IRMachine::committee_submit_verify_hash(
+        //     Origin::signed(committee1),
+        //     1,
+        //     ReportHash::default()
+        // ));
+        // assert_ok!(IRMachine::committee_submit_verify_raw(
+        //     origin,
+        //     report_id,
+        //     machine_id,
+        //     rent_order_id,
+        //     reporter_rand_str,
+        //     committee_rand_str,
+        //     err_reason,
+        //     extra_err_info,
+        //     support_report
+        // ));
     })
 }
