@@ -855,6 +855,8 @@ pub mod pallet {
             let machine_rent_order = Self::machine_rent_order(&machine_id);
 
             machine_info.machine_offline(now);
+            MachinesInfo::<T>::insert(&machine_id, machine_info);
+
             for rent_id in machine_rent_order.rent_order {
                 let rent_order = Self::rent_order(rent_id);
 
@@ -866,6 +868,7 @@ pub mod pallet {
                     rent_order.rent_end - rent_order.rent_start,
                 ) * rent_order.stake_amount;
 
+                // NOTE: Here will change machine_info again.
                 Self::pay_rent_fee(&rent_order, rent_fee, machine_id.clone())?;
 
                 RentOrder::<T>::remove(rent_id);
@@ -877,7 +880,6 @@ pub mod pallet {
                 ItemList::add_item(offline_machines, machine_id.clone());
             });
 
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
             Ok(().into())
         }
 
