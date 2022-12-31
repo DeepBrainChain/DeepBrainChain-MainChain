@@ -1,6 +1,9 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
-use crate::{IRLiveMachine, IRMachineInfo, IRStashMachine};
-use dbc_support::machine_type::{Latitude, Longitude, StakerCustomizeInfo};
+use crate::{IRLiveMachine, IRMachineInfo};
+use dbc_support::{
+    machine_type::{Latitude, Longitude, StakerCustomizeInfo},
+    verify_online::StashMachine,
+};
 use frame_support::assert_ok;
 
 #[test]
@@ -61,7 +64,7 @@ fn bond_machine_works() {
             );
             assert_eq!(
                 IRMachine::stash_machines(stash),
-                IRStashMachine { total_machine: vec![machine_id.clone()], ..Default::default() }
+                StashMachine { total_machine: vec![machine_id.clone()], ..Default::default() }
             );
             assert_eq!(
                 IRMachine::machines_info(machine_id.clone()),

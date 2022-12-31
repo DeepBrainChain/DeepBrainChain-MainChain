@@ -1,7 +1,7 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
     tests::test_verify_online::new_test_with_machine_bonding_ext, IRLiveMachine, IRMachineInfo,
-    IRStashMachine, RentOrderDetail, RentStatus,
+    RentOrderDetail, RentStatus,
 };
 // use committee::CommitteeStakeInfo;
 use dbc_support::{
@@ -11,6 +11,7 @@ use dbc_support::{
         MTCommitteeOpsDetail, MTCommitteeOrderList, MTLiveReportList, MTOrderStatus,
         MTReportInfoDetail, MachineFaultType, ReportStatus, ReporterReportList, ReporterStakeInfo,
     },
+    verify_online::StashMachine,
     BoxPubkey, ReportHash,
 };
 use frame_support::assert_ok;
@@ -157,7 +158,7 @@ fn rent_machine_works() {
 
             assert_eq!(
                 IRMachine::stash_machines(stash),
-                IRStashMachine {
+                StashMachine {
                     total_machine: vec![machine_id.clone()],
                     online_machine: vec![machine_id.clone()],
                     total_calc_points: 119780,

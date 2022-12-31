@@ -26,13 +26,5 @@
         "_enum": {
             "OnlineRentFailed(BlockNumber)": null
         }
-    },
-    "IRStashMachine": {
-        "total_machine": "Vec<MachineId>",
-        "online_machine": "Vec<MachineId>",
-        "total_calc_points": "u64",
-        "total_gpu_num": "u64",
-        "total_rented_gpu": "u64",
-        "total_rent_fee": "Balance"
     }
 }

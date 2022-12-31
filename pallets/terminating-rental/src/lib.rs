@@ -35,8 +35,8 @@ use dbc_support::{
     verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
     verify_online::{
         MachineConfirmStatus, OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps,
-        OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, Summary,
-        VerifySequence,
+        OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus, OCVerifyStatus,
+        StashMachine, Summary, VerifySequence,
     },
     BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId, TWO_DAY,
 };
@@ -111,7 +111,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn stash_machines)]
     pub(super) type StashMachines<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, IRStashMachine<BalanceOf<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, StashMachine<BalanceOf<T>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn offline_machines)]

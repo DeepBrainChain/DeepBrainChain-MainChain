@@ -1,9 +1,10 @@
-use crate::{IRLiveMachine, IRMachineInfo, IRStashMachine};
+use crate::{IRLiveMachine, IRMachineInfo};
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineInfoDetail, MachineStatus, StakerCustomizeInfo},
+    verify_online::StashMachine,
     MachineId,
 };
 #[cfg(feature = "std")]
@@ -116,7 +117,7 @@ impl From<StakerCustomizeInfo> for RpcStakerCustomizeInfo {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct StakerInfo<Balance, BlockNumber, AccountId> {
-    pub stash_statistic: IRStashMachine<Balance>,
+    pub stash_statistic: StashMachine<Balance>,
     pub bonded_machines: Vec<MachineBriefInfo<BlockNumber, AccountId>>,
 }
 
@@ -143,8 +144,8 @@ pub struct RpcStashMachine<Balance> {
 }
 
 #[cfg(feature = "std")]
-impl<Balance> From<IRStashMachine<Balance>> for RpcStashMachine<Balance> {
-    fn from(stash_machine: IRStashMachine<Balance>) -> Self {
+impl<Balance> From<StashMachine<Balance>> for RpcStashMachine<Balance> {
+    fn from(stash_machine: StashMachine<Balance>) -> Self {
         Self {
             total_machine: stash_machine
                 .total_machine

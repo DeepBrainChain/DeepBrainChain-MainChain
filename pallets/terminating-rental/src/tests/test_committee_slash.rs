@@ -1,8 +1,8 @@
-use crate::{IRLiveMachine, IRStashMachine, OCCommitteeMachineList};
+use crate::{IRLiveMachine, OCCommitteeMachineList};
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
-    verify_online::{OCBookResultType, OCMachineCommitteeList, OCVerifyStatus},
+    verify_online::{OCBookResultType, OCMachineCommitteeList, OCVerifyStatus, StashMachine},
 };
 
 use super::super::mock::{TerminatingRental as IRMachine, INIT_BALANCE, *};
@@ -276,7 +276,7 @@ fn machine_refused_slash_works() {
             let machine_info = IRMachine::machines_info(&machine_id);
             // MachineInfo 被删除
             assert_eq!(machine_info.machine_status, MachineStatus::AddingCustomizeInfo);
-            assert_eq!(IRMachine::stash_machines(&stash), IRStashMachine::default());
+            assert_eq!(IRMachine::stash_machines(&stash), StashMachine::default());
 
             // 当机器审核通过，应该解锁保证金
             assert_eq!(Balances::free_balance(stash), INIT_BALANCE - 10000 * ONE_DBC);

@@ -1,11 +1,11 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
-use crate::{IRCommitteeOnlineOps, IRLiveMachine, IRStashMachine};
+use crate::{IRCommitteeOnlineOps, IRLiveMachine};
 use committee::CommitteeStakeInfo;
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     verify_online::{
         OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus,
-        OCVerifyStatus,
+        OCVerifyStatus, StashMachine,
     },
 };
 use frame_support::assert_ok;
@@ -290,7 +290,7 @@ fn verify_machine_works() {
 
             assert_eq!(
                 IRMachine::stash_machines(&stash),
-                IRStashMachine {
+                StashMachine {
                     total_machine: vec![machine_id.clone()],
                     online_machine: vec![machine_id.clone()],
                     total_calc_points: 119780,

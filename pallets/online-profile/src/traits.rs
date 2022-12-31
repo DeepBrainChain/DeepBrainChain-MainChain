@@ -6,6 +6,7 @@ use crate::{
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus},
     traits::{MTOps, OCOps, OPRPCQuery, RTOps},
+    verify_online::StashMachine,
     verify_slash::OPSlashReason,
     ItemList, MachineId, ONE_DAY,
 };

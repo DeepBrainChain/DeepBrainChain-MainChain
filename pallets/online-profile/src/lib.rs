@@ -11,6 +11,7 @@ mod utils;
 use dbc_support::{
     machine_type::{Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     traits::{DbcPrice, GNOps, ManageCommittee},
+    verify_online::StashMachine,
     verify_slash::{OPPendingSlashInfo, OPPendingSlashReviewInfo, OPSlashReason},
     EraIndex, ItemList, MachineId, SlashId, ONE_DAY,
 };
@@ -720,7 +721,8 @@ pub mod pallet {
             ensure!(StashMachines::<T>::contains_key(&stash), Error::<T>::NotMachineController);
 
             StashMachines::<T>::mutate(&stash, |stash_machine| -> DispatchResultWithPostInfo {
-                let can_claim = stash_machine.claim_reward().map_err::<Error<T>, _>(Into::into)?;
+                let can_claim =
+                    stash_machine.claim_reward().map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
                 <T as Config>::Currency::deposit_into_existing(&stash, can_claim)
                     .map_err(|_| Error::<T>::ClaimRewardFailed)?;
