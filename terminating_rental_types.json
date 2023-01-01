@@ -21,10 +21,5 @@
         "refused_machine": "Vec<MachineId>",
         "rented_machine": "Vec<MachineId>",
         "offline_machine": "Vec<MachineId>"
-    },
-    "IRSlashReason": {
-        "_enum": {
-            "OnlineRentFailed(BlockNumber)": null
-        }
     }
 }

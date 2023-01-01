@@ -1,8 +1,8 @@
 use super::super::mock::*;
 use crate::{ConfirmingOrder, MachineGPUOrder, RentInfo, RentOrderDetail, RentOrderId, RentStatus};
-use dbc_support::machine_type::MachineStatus;
+use dbc_support::{machine_type::MachineStatus, verify_online::StashMachine};
 use frame_support::assert_ok;
-use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
+use online_profile::{EraStashPoints, LiveMachine, SysInfoDetail};
 
 #[test]
 fn report_individual_gpu() {

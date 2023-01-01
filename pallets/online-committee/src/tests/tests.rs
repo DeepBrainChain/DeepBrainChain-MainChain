@@ -1,7 +1,11 @@
 use super::super::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList, *};
 use committee::CommitteeList;
-use dbc_support::machine_type::{
-    CommitteeUploadInfo, Latitude, Longitude, MachineInfoDetail, MachineStatus, StakerCustomizeInfo,
+use dbc_support::{
+    machine_type::{
+        CommitteeUploadInfo, Latitude, Longitude, MachineInfoDetail, MachineStatus,
+        StakerCustomizeInfo,
+    },
+    verify_online::StashMachine,
 };
 use frame_support::assert_ok;
 use online_profile::{EraStashPoints, LiveMachine, MachineGradeStatus, UserMutHardwareStakeInfo};
@@ -61,10 +65,8 @@ fn machine_online_works() {
         // - Writes: ControllerMachines, StashMachines, LiveMachines, MachinesInfo, SysInfo,
         //   StashStake
 
-        let stash_machine_info = online_profile::StashMachine {
-            total_machine: vec![machine_id.clone()],
-            ..Default::default()
-        };
+        let stash_machine_info =
+            StashMachine { total_machine: vec![machine_id.clone()], ..Default::default() };
         assert_eq!(OnlineProfile::controller_machines(&controller), vec!(machine_id.clone()));
         assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
         assert_eq!(
@@ -374,7 +376,7 @@ fn machine_online_works() {
         assert_eq!(OnlineProfile::eras_stash_released_reward(1, &stash), 0);
         assert_eq!(OnlineProfile::eras_stash_released_reward(2, &stash), 272250 * ONE_DBC); // 1100000 * 0.99 * 0.25
 
-        let stash_machine_info = online_profile::StashMachine {
+        let stash_machine_info = StashMachine {
             can_claim_reward: 272250 * ONE_DBC, // 1100000 * 0.99 * 0.25
             online_machine: vec![machine_id.clone()],
             total_earned_reward: 1089000 * ONE_DBC,
@@ -413,7 +415,7 @@ fn machine_online_works() {
             272250 * ONE_DBC + first_day_linear_release
         ); // 1100000 * 0.99 * 0.25 + 1100000 * 0.75 * 0.99 / 150
 
-        let mut stash_machine_info = online_profile::StashMachine {
+        let mut stash_machine_info = StashMachine {
             can_claim_reward: 272250 * 2 * ONE_DBC + first_day_linear_release, // 1100000 * 0.99 * 0.25
             online_machine: vec![machine_id.clone()],
             total_earned_reward: 1089000 * ONE_DBC * 2,
