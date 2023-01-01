@@ -297,6 +297,7 @@ fn verify_machine_works() {
                     total_gpu_num: 8,
                     total_rented_gpu: 0,
                     total_rent_fee: 0,
+                    ..Default::default()
                 }
             );
 

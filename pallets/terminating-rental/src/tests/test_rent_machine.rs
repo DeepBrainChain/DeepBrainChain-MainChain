@@ -1,7 +1,7 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
-    tests::test_verify_online::new_test_with_machine_bonding_ext, IRLiveMachine, IRMachineInfo,
-    RentOrderDetail, RentStatus,
+    tests::test_verify_online::new_test_with_machine_bonding_ext, IRLiveMachine, RentOrderDetail,
+    RentStatus,
 };
 // use committee::CommitteeStakeInfo;
 use dbc_support::{
@@ -165,6 +165,7 @@ fn rent_machine_works() {
                     total_rented_gpu: 8,
                     total_gpu_num: 8,
                     total_rent_fee: 0,
+                    ..Default::default()
                 }
             );
 
@@ -330,10 +331,10 @@ fn machine_offline_10more_days_slash_works() {
 #[test]
 fn machine_online_inaccessible_slash_works() {
     new_test_with_machine_online_ext().execute_with(|| {
-        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let _controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let renter1 = sr25519::Public::from(Sr25519Keyring::Bob);
-        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+        let _stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let _machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
 
@@ -377,9 +378,9 @@ fn machine_online_inaccessible_slash_works() {
         }
 
         let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
-        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let _committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
         let _committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
-        let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
+        let _committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
         assert_ok!(IRMachine::committee_book_report(Origin::signed(committee1), 0));
         {
