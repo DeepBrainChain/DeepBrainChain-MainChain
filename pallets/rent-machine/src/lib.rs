@@ -219,14 +219,12 @@ pub mod pallet {
             // 改变online_profile状态
             T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone());
 
-            let mut pending_confirming =
-                Self::confirming_order(rent_info.rent_start + WAITING_CONFIRMING_DELAY.into());
-            ItemList::rm_item(&mut pending_confirming, &rent_id);
-            ConfirmingOrder::<T>::insert(
+            ConfirmingOrder::<T>::mutate(
                 rent_info.rent_start + WAITING_CONFIRMING_DELAY.into(),
-                pending_confirming,
+                |pending_confirming| {
+                    ItemList::rm_item(pending_confirming, &rent_id);
+                },
             );
-
             RentInfo::<T>::insert(&rent_id, rent_info);
 
             Self::deposit_event(Event::ConfirmRent(
@@ -357,20 +355,21 @@ impl<T: Config> Pallet<T> {
             ),
         );
 
-        let mut user_order = Self::user_order(&renter);
-        ItemList::add_item(&mut user_order, rent_id);
-        UserOrder::<T>::insert(&renter, user_order);
+        UserOrder::<T>::mutate(&renter, |user_order| {
+            ItemList::add_item(user_order, rent_id);
+        });
 
-        let mut rent_ending = Self::rent_ending(rent_end);
-        ItemList::add_item(&mut rent_ending, rent_id);
-        RentEnding::<T>::insert(rent_end, rent_ending);
+        RentEnding::<T>::mutate(rent_end, |rent_ending| {
+            ItemList::add_item(rent_ending, rent_id);
+        });
 
         // 改变online_profile状态，影响机器佣金
         T::RTOps::change_machine_status_on_rent_start(&machine_id, rent_gpu_num);
 
-        let mut pending_confirming = Self::confirming_order(now + WAITING_CONFIRMING_DELAY.into());
-        ItemList::add_item(&mut pending_confirming, rent_id);
-        ConfirmingOrder::<T>::insert(now + WAITING_CONFIRMING_DELAY.into(), pending_confirming);
+        ConfirmingOrder::<T>::mutate(now + WAITING_CONFIRMING_DELAY.into(), |pending_confirming| {
+            ItemList::add_item(pending_confirming, rent_id);
+        });
+
         MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
         Self::deposit_event(Event::Rent(
@@ -438,13 +437,13 @@ impl<T: Config> Pallet<T> {
         rent_info.rent_end =
             rent_info.rent_end.checked_add(&add_duration).ok_or(Error::<T>::Overflow)?;
 
-        let mut old_rent_ending = Self::rent_ending(old_rent_end);
-        ItemList::rm_item(&mut old_rent_ending, &rent_id);
-        let mut rent_ending = Self::rent_ending(rent_info.rent_end);
-        ItemList::add_item(&mut rent_ending, rent_id);
+        RentEnding::<T>::mutate(old_rent_end, |old_rent_ending| {
+            ItemList::rm_item(old_rent_ending, &rent_id);
+        });
+        RentEnding::<T>::mutate(rent_info.rent_end, |rent_ending| {
+            ItemList::add_item(rent_ending, rent_id);
+        });
 
-        RentEnding::<T>::insert(old_rent_end, old_rent_ending);
-        RentEnding::<T>::insert(rent_info.rent_end, rent_ending);
         RentInfo::<T>::insert(&rent_id, rent_info);
 
         Self::deposit_event(Event::Relet(
