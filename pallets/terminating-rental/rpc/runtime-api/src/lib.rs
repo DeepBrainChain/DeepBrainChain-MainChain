@@ -7,15 +7,13 @@ use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_info::MachineInfo,
     rental_type::{MachineGPUOrder, RentOrderDetail},
     verify_online::{OCCommitteeMachineList, OCMachineCommitteeList},
     MachineId, RentOrderId,
 };
-use terminating_rental::{
-    rpc_types::{RpcIRCommitteeOps, StakerInfo},
-    IRLiveMachine,
-};
+use terminating_rental::rpc_types::{RpcIRCommitteeOps, StakerInfo};
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // runtime amalgamator file (the `runtime/src/lib.rs`)
@@ -27,7 +25,7 @@ sp_api::decl_runtime_apis! {
     {
         fn get_total_staker_num() -> u64;
         fn get_staker_info(account: AccountId) -> StakerInfo<Balance, BlockNumber, AccountId>;
-        fn get_machine_list() -> IRLiveMachine;
+        fn get_machine_list() -> LiveMachine;
         fn get_machine_info(machine_id: MachineId) -> MachineInfo<AccountId, BlockNumber, Balance>;
 
         fn get_machine_committee_list(machine_id: MachineId) -> OCMachineCommitteeList<AccountId, BlockNumber>;

@@ -9,6 +9,7 @@ mod types;
 mod utils;
 
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_type::{Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_online::StashMachine,

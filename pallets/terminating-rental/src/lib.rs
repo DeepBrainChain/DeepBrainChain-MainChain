@@ -24,6 +24,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, str, vec::Vec};
 
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_info::MachineInfo,
     machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
@@ -128,7 +129,7 @@ pub mod pallet {
     /// 系统中存储有数据的机器
     #[pallet::storage]
     #[pallet::getter(fn live_machines)]
-    pub type LiveMachines<T: Config> = StorageValue<_, IRLiveMachine, ValueQuery>;
+    pub type LiveMachines<T: Config> = StorageValue<_, LiveMachine, ValueQuery>;
 
     /// Detail info of machines
     #[pallet::storage]

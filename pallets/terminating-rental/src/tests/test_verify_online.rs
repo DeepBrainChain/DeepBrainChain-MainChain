@@ -1,7 +1,8 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
-use crate::{IRCommitteeOnlineOps, IRLiveMachine};
+use crate::IRCommitteeOnlineOps;
 use committee::CommitteeStakeInfo;
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     verify_online::{
         OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus,
@@ -118,7 +119,7 @@ fn verify_machine_works() {
 
             assert_eq!(
                 IRMachine::live_machines(),
-                IRLiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
+                LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
             );
         }
 
@@ -281,7 +282,7 @@ fn verify_machine_works() {
             // CommitteeOps, MachineSubmitedHash, CommitteeMachine
             assert_eq!(
                 IRMachine::live_machines(),
-                IRLiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
+                LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
             );
 
             let machine_info = IRMachine::machines_info(&machine_id);

@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod custom_err;
+pub mod live_machine;
 pub mod machine_info;
 pub mod machine_type;
 pub mod primitives;

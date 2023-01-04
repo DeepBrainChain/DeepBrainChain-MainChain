@@ -1,6 +1,8 @@
 use super::super::{mock::*, Error};
 use crate::{MTOrderStatus, ReportStatus};
-use dbc_support::{machine_type::MachineStatus, verify_slash::OPSlashReason};
+use dbc_support::{
+    live_machine::LiveMachine, machine_type::MachineStatus, verify_slash::OPSlashReason,
+};
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
 use std::convert::TryInto;
@@ -320,10 +322,7 @@ fn report_machine_inaccessible_works1() {
         {
             assert_eq!(
                 OnlineProfile::live_machines(),
-                online_profile::LiveMachine {
-                    offline_machine: vec![machine_id.clone()],
-                    ..Default::default()
-                }
+                LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
             );
             let machine_info = OnlineProfile::machines_info(machine_id.clone());
             assert_eq!(

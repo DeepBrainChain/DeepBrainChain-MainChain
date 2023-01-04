@@ -1,10 +1,10 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
-    tests::test_verify_online::new_test_with_machine_bonding_ext, IRLiveMachine, RentOrderDetail,
-    RentStatus,
+    tests::test_verify_online::new_test_with_machine_bonding_ext, RentOrderDetail, RentStatus,
 };
 // use committee::CommitteeStakeInfo;
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_type::{CommitteeUploadInfo, MachineStatus},
     rental_type::MachineGPUOrder,
     report::{
@@ -150,7 +150,7 @@ fn rent_machine_works() {
             // - Writes: PendingConfirming,
             assert_eq!(
                 IRMachine::live_machines(),
-                IRLiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
+                LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
             );
             let machine_info = IRMachine::machines_info(&machine_id);
             assert_eq!(machine_info.total_rented_times, 1);

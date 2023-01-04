@@ -2,7 +2,10 @@ use crate::{
     mock::*,
     tests::{controller, stash},
 };
-use dbc_support::verify_slash::{OPPendingSlashInfo, OPSlashReason};
+use dbc_support::{
+    live_machine::LiveMachine,
+    verify_slash::{OPPendingSlashInfo, OPSlashReason},
+};
 use frame_support::assert_ok;
 
 // 2). 机器在空闲状态
@@ -238,10 +241,7 @@ fn test_staker_report_offline4() {
 
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine {
-                online_machine: vec![machine_id.clone()],
-                ..Default::default()
-            }
+            LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
         // 28814

@@ -1213,7 +1213,7 @@ impl_runtime_apis! {
             OnlineProfile::get_staker_info(who)
         }
 
-        fn get_machine_list() -> online_profile::LiveMachine {
+        fn get_machine_list() -> dbc_support::live_machine::LiveMachine {
             OnlineProfile::get_machine_list()
         }
 
@@ -1301,7 +1301,7 @@ impl_runtime_apis! {
             TerminatingRental::get_staker_info(who)
         }
 
-        fn get_machine_list() -> terminating_rental::IRLiveMachine {
+        fn get_machine_list() -> dbc_support::live_machine::LiveMachine {
             TerminatingRental::get_machine_list()
         }
 

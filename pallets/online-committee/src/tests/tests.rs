@@ -1,6 +1,7 @@
 use super::super::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList, *};
 use committee::CommitteeList;
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_type::{
         CommitteeUploadInfo, Latitude, Longitude, MachineInfoDetail, MachineStatus,
         StakerCustomizeInfo,
@@ -8,7 +9,7 @@ use dbc_support::{
     verify_online::StashMachine,
 };
 use frame_support::assert_ok;
-use online_profile::{EraStashPoints, LiveMachine, MachineGradeStatus, UserMutHardwareStakeInfo};
+use online_profile::{EraStashPoints, MachineGradeStatus, UserMutHardwareStakeInfo};
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, convert::TryInto};
 
@@ -159,10 +160,7 @@ fn machine_online_works() {
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine {
-                booked_machine: vec![machine_id.clone()],
-                ..Default::default()
-            }
+            LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
         assert_eq!(OnlineProfile::machines_info(&machine_id), machine_info);
 
@@ -546,10 +544,7 @@ fn machine_online_works() {
         {
             assert_eq!(
                 OnlineProfile::live_machines(),
-                online_profile::LiveMachine {
-                    confirmed_machine: vec![machine_id.clone()],
-                    ..Default::default()
-                }
+                LiveMachine { confirmed_machine: vec![machine_id.clone()], ..Default::default() }
             );
         }
 
@@ -571,10 +566,7 @@ fn machine_online_works() {
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine {
-                booked_machine: vec![machine_id.clone()],
-                ..Default::default()
-            }
+            LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
         machine_info.machine_status = MachineStatus::CommitteeVerifying;
         assert_eq!(OnlineProfile::machines_info(&machine_id), machine_info);
@@ -860,10 +852,7 @@ fn committee_not_submit_hash_slash_works() {
 
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine {
-                online_machine: vec![machine_id.clone()],
-                ..Default::default()
-            }
+            LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
         assert_eq!(
@@ -1034,10 +1023,7 @@ fn committee_not_equal_then_redistribute_works() {
         run_to_block(16);
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine {
-                booked_machine: vec![machine_id.clone()],
-                ..Default::default()
-            }
+            LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
         machine_info.machine_status = MachineStatus::CommitteeVerifying;
@@ -1282,10 +1268,7 @@ fn two_submit_hash_reach_submit_raw_works() {
         run_to_block(16);
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine {
-                booked_machine: vec![machine_id.clone()],
-                ..Default::default()
-            }
+            LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
         machine_info.machine_status = MachineStatus::CommitteeVerifying;

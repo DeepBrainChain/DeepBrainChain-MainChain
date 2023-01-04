@@ -1,5 +1,6 @@
 use super::super::mock::*;
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_type::MachineStatus,
     verify_slash::{OPPendingSlashInfo, OPPendingSlashReviewInfo, OPSlashReason},
 };
@@ -81,10 +82,7 @@ fn apply_slash_review_case1() {
 
         assert_eq!(
             &OnlineProfile::live_machines(),
-            &online_profile::LiveMachine {
-                offline_machine: vec![machine_id.clone()],
-                ..Default::default()
-            }
+            &LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
         // Stash apply reonline
@@ -98,10 +96,7 @@ fn apply_slash_review_case1() {
             assert_eq!(machine_info.machine_status, MachineStatus::Rented);
             assert_eq!(
                 &OnlineProfile::live_machines(),
-                &online_profile::LiveMachine {
-                    rented_machine: vec![machine_id.clone()],
-                    ..Default::default()
-                }
+                &LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
             );
             assert_eq!(
                 &OnlineProfile::pending_slash(0),

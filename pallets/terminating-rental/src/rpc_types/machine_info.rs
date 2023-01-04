@@ -1,8 +1,8 @@
-use crate::IRLiveMachine;
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_info::MachineInfo,
     machine_type::{CommitteeUploadInfo, MachineInfoDetail, MachineStatus, StakerCustomizeInfo},
     verify_online::StashMachine,
@@ -192,8 +192,8 @@ pub struct RpcLiveMachine {
 }
 
 #[cfg(feature = "std")]
-impl From<IRLiveMachine> for RpcLiveMachine {
-    fn from(live_machine: IRLiveMachine) -> Self {
+impl From<LiveMachine> for RpcLiveMachine {
+    fn from(live_machine: LiveMachine) -> Self {
         Self {
             bonding_machine: live_machine
                 .bonding_machine

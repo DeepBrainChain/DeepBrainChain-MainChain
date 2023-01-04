@@ -1,9 +1,10 @@
 use crate::{
     rpc_types::{MachineBriefInfo, RpcIRCommitteeOps, StakerInfo},
-    BalanceOf, Config, IRLiveMachine, Pallet, RentOrderDetail, RentOrderId, StashMachines,
+    BalanceOf, Config, Pallet, RentOrderDetail, RentOrderId, StashMachines,
 };
 use codec::EncodeLike;
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_info::MachineInfo,
     rental_type::MachineGPUOrder,
     verify_online::{OCCommitteeMachineList, OCMachineCommitteeList},
@@ -38,7 +39,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// 获取机器列表
-    pub fn get_machine_list() -> IRLiveMachine {
+    pub fn get_machine_list() -> LiveMachine {
         Self::live_machines()
     }
 

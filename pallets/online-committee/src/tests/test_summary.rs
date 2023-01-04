@@ -1,6 +1,6 @@
 use super::super::{mock::*, *};
 use crate::tests::{committee1, committee2, committee3, committee4, stash};
-use dbc_support::machine_type::CommitteeUploadInfo;
+use dbc_support::{live_machine::LiveMachine, machine_type::CommitteeUploadInfo};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -977,10 +977,7 @@ fn test_machine_online_succeed_slash_execed() {
         let current_machine_info = OnlineProfile::machines_info(&machine_id);
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine {
-                online_machine: vec![machine_id.clone()],
-                ..Default::default()
-            }
+            LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
         );
         assert_eq!(current_machine_info.reward_committee, vec![*committee2, *committee1]);
 
@@ -1218,7 +1215,7 @@ fn test_machine_online_failed_slash_execed() {
 
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine { refused_machine: vec![machine_id], ..Default::default() }
+            LiveMachine { refused_machine: vec![machine_id], ..Default::default() }
         );
 
         // 检查前后委员会/stash质押的变化

@@ -1,5 +1,6 @@
-use crate::{IRLiveMachine, OCCommitteeMachineList};
+use crate::OCCommitteeMachineList;
 use dbc_support::{
+    live_machine::LiveMachine,
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
     verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
     verify_online::{OCBookResultType, OCMachineCommitteeList, OCVerifyStatus, StashMachine},
@@ -149,7 +150,7 @@ fn committee_not_submit_slash_works() {
             // 机器成功上线
             assert_eq!(
                 IRMachine::live_machines(),
-                IRLiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
+                LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
             );
             assert_eq!(
                 IRMachine::pending_online_slash(0),
@@ -271,7 +272,7 @@ fn machine_refused_slash_works() {
         {
             assert_eq!(
                 IRMachine::live_machines(),
-                IRLiveMachine { refused_machine: vec![machine_id.clone()], ..Default::default() }
+                LiveMachine { refused_machine: vec![machine_id.clone()], ..Default::default() }
             );
             let machine_info = IRMachine::machines_info(&machine_id);
             // MachineInfo 被删除
