@@ -1,17 +1,16 @@
+use crate::{
+    rpc_types::{MachineBriefInfo, RpcIRCommitteeOps, StakerInfo},
+    BalanceOf, Config, IRLiveMachine, Pallet, RentOrderDetail, RentOrderId, StashMachines,
+};
+use codec::EncodeLike;
 use dbc_support::{
+    machine_info::MachineInfo,
     rental_type::MachineGPUOrder,
     verify_online::{OCCommitteeMachineList, OCMachineCommitteeList},
     MachineId,
 };
 use frame_support::IterableStorageMap;
 use sp_std::vec::Vec;
-
-use crate::{
-    rpc_types::{MachineBriefInfo, RpcIRCommitteeOps, StakerInfo},
-    BalanceOf, Config, IRLiveMachine, IRMachineInfo, Pallet, RentOrderDetail, RentOrderId,
-    StashMachines,
-};
-use codec::EncodeLike;
 
 impl<T: Config> Pallet<T> {
     pub fn get_total_staker_num() -> u64 {
@@ -46,7 +45,7 @@ impl<T: Config> Pallet<T> {
     /// 获取机器详情
     pub fn get_machine_info(
         machine_id: MachineId,
-    ) -> IRMachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+    ) -> MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
         Self::machines_info(&machine_id)
     }
 }

@@ -1,17 +1,17 @@
 use crate::{Config, Error};
-use dbc_support::report::CustomErr;
+use dbc_support::custom_err::ReportErr;
 
-impl<T: Config> From<CustomErr> for Error<T> {
-    fn from(err: CustomErr) -> Self {
+impl<T: Config> From<ReportErr> for Error<T> {
+    fn from(err: ReportErr) -> Self {
         match err {
-            CustomErr::OrderNotAllowBook => Error::OrderNotAllowBook,
-            CustomErr::AlreadyBooked => Error::AlreadyBooked,
-            CustomErr::NotNeedEncryptedInfo => Error::NotNeedEncryptedInfo,
-            CustomErr::NotOrderReporter => Error::NotOrderReporter,
-            CustomErr::OrderStatusNotFeat => Error::OrderStatusNotFeat,
-            CustomErr::NotOrderCommittee => Error::NotOrderCommittee,
-            CustomErr::NotInBookedList => Error::NotInBookedList,
-            CustomErr::NotProperCommittee => Error::NotProperCommittee,
+            ReportErr::OrderNotAllowBook => Error::OrderNotAllowBook,
+            ReportErr::AlreadyBooked => Error::AlreadyBooked,
+            ReportErr::NotNeedEncryptedInfo => Error::NotNeedEncryptedInfo,
+            ReportErr::NotOrderReporter => Error::NotOrderReporter,
+            ReportErr::OrderStatusNotFeat => Error::OrderStatusNotFeat,
+            ReportErr::NotOrderCommittee => Error::NotOrderCommittee,
+            ReportErr::NotInBookedList => Error::NotInBookedList,
+            ReportErr::NotProperCommittee => Error::NotProperCommittee,
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{machine_type::CommitteeUploadInfo, ItemList, MachineId};
+use crate::{custom_err::VerifyErr, machine_type::CommitteeUploadInfo, ItemList, MachineId};
 use codec::{Decode, Encode};
 use frame_support::ensure;
 #[cfg(feature = "std")]
@@ -174,17 +174,6 @@ impl<BlockNumber, Balance> OCCommitteeOps<BlockNumber, Balance> {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum CustomErr {
-    NotInBookList,
-    TimeNotAllow,
-    AlreadySubmitHash,
-    AlreadySubmitRaw,
-    NotSubmitHash,
-    Overflow,
-}
-
 /// Query distributed machines by committee address
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -206,11 +195,11 @@ impl OCCommitteeMachineList {
         ItemList::add_item(&mut self.hashed_machine, machine_id);
     }
 
-    pub fn submit_raw(&mut self, machine_id: MachineId) -> Result<(), CustomErr> {
-        ensure!(self.hashed_machine.binary_search(&machine_id).is_ok(), CustomErr::NotSubmitHash);
+    pub fn submit_raw(&mut self, machine_id: MachineId) -> Result<(), VerifyErr> {
+        ensure!(self.hashed_machine.binary_search(&machine_id).is_ok(), VerifyErr::NotSubmitHash);
         ensure!(
             self.confirmed_machine.binary_search(&machine_id).is_err(),
-            CustomErr::AlreadySubmitRaw
+            VerifyErr::AlreadySubmitRaw
         );
 
         ItemList::rm_item(&mut self.hashed_machine, &machine_id);
@@ -269,11 +258,11 @@ where
         now >= self.book_time + SUBMIT_RAW_END.into()
     }
 
-    pub fn submit_hash(&mut self, committee: AccountId) -> Result<(), CustomErr> {
-        ensure!(self.booked_committee.binary_search(&committee).is_ok(), CustomErr::NotInBookList);
+    pub fn submit_hash(&mut self, committee: AccountId) -> Result<(), VerifyErr> {
+        ensure!(self.booked_committee.binary_search(&committee).is_ok(), VerifyErr::NotInBookList);
         ensure!(
             self.hashed_committee.binary_search(&committee).is_err(),
-            CustomErr::AlreadySubmitHash
+            VerifyErr::AlreadySubmitHash
         );
 
         ItemList::add_item(&mut self.hashed_committee, committee);
@@ -285,12 +274,12 @@ where
         Ok(())
     }
 
-    pub fn submit_raw(&mut self, time: BlockNumber, committee: AccountId) -> Result<(), CustomErr> {
+    pub fn submit_raw(&mut self, time: BlockNumber, committee: AccountId) -> Result<(), VerifyErr> {
         if self.status != OCVerifyStatus::SubmittingRaw {
-            ensure!(time >= self.confirm_start_time, CustomErr::TimeNotAllow);
-            ensure!(time <= self.book_time + SUBMIT_RAW_END.into(), CustomErr::TimeNotAllow);
+            ensure!(time >= self.confirm_start_time, VerifyErr::TimeNotAllow);
+            ensure!(time <= self.book_time + SUBMIT_RAW_END.into(), VerifyErr::TimeNotAllow);
         }
-        ensure!(self.hashed_committee.binary_search(&committee).is_ok(), CustomErr::NotSubmitHash);
+        ensure!(self.hashed_committee.binary_search(&committee).is_ok(), VerifyErr::NotSubmitHash);
 
         ItemList::add_item(&mut self.confirmed_committee, committee);
         if self.confirmed_committee.len() == self.hashed_committee.len() {

@@ -1,6 +1,6 @@
 use crate::{
-    report::{CustomErr, ReportConfirmStatus},
-    BoxPubkey, ItemList, MachineId, RentOrderId, ReportHash, FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
+    custom_err::ReportErr, report::ReportConfirmStatus, BoxPubkey, ItemList, MachineId,
+    RentOrderId, ReportHash, FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
 };
 use codec::{Decode, Encode};
 use frame_support::ensure;
@@ -78,63 +78,63 @@ where
         report_info
     }
 
-    pub fn can_book(&self, committee: &Account) -> Result<(), CustomErr> {
+    pub fn can_book(&self, committee: &Account) -> Result<(), ReportErr> {
         // 检查订单是否可以抢定
-        ensure!(self.report_time != Zero::zero(), CustomErr::OrderNotAllowBook);
+        ensure!(self.report_time != Zero::zero(), ReportErr::OrderNotAllowBook);
         ensure!(
             matches!(self.report_status, ReportStatus::Reported | ReportStatus::WaitingBook),
-            CustomErr::OrderNotAllowBook
+            ReportErr::OrderNotAllowBook
         );
-        ensure!(self.booked_committee.len() < 3, CustomErr::OrderNotAllowBook);
-        ensure!(self.booked_committee.binary_search(committee).is_err(), CustomErr::AlreadyBooked);
+        ensure!(self.booked_committee.len() < 3, ReportErr::OrderNotAllowBook);
+        ensure!(self.booked_committee.binary_search(committee).is_err(), ReportErr::AlreadyBooked);
         Ok(())
     }
 
-    pub fn can_submit_encrypted_info(&self, from: &Account, to: &Account) -> Result<(), CustomErr> {
+    pub fn can_submit_encrypted_info(&self, from: &Account, to: &Account) -> Result<(), ReportErr> {
         ensure!(
             !matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)),
-            CustomErr::NotNeedEncryptedInfo
+            ReportErr::NotNeedEncryptedInfo
         );
-        ensure!(&self.reporter == from, CustomErr::NotOrderReporter);
-        ensure!(self.report_status == ReportStatus::Verifying, CustomErr::OrderStatusNotFeat);
-        ensure!(self.booked_committee.binary_search(to).is_ok(), CustomErr::NotOrderCommittee);
+        ensure!(&self.reporter == from, ReportErr::NotOrderReporter);
+        ensure!(self.report_status == ReportStatus::Verifying, ReportErr::OrderStatusNotFeat);
+        ensure!(self.booked_committee.binary_search(to).is_ok(), ReportErr::NotOrderCommittee);
         Ok(())
     }
 
-    pub fn can_submit_hash(&self) -> Result<(), CustomErr> {
+    pub fn can_submit_hash(&self) -> Result<(), ReportErr> {
         if matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)) {
             ensure!(
                 matches!(self.report_status, ReportStatus::WaitingBook | ReportStatus::Verifying),
-                CustomErr::OrderStatusNotFeat
+                ReportErr::OrderStatusNotFeat
             );
         } else {
-            ensure!(self.report_status == ReportStatus::Verifying, CustomErr::OrderStatusNotFeat);
+            ensure!(self.report_status == ReportStatus::Verifying, ReportErr::OrderStatusNotFeat);
         }
 
         Ok(())
     }
 
-    pub fn can_submit_raw(&self, who: &Account) -> Result<(), CustomErr> {
-        ensure!(self.report_status == ReportStatus::SubmittingRaw, CustomErr::OrderStatusNotFeat);
+    pub fn can_submit_raw(&self, who: &Account) -> Result<(), ReportErr> {
+        ensure!(self.report_status == ReportStatus::SubmittingRaw, ReportErr::OrderStatusNotFeat);
         // 检查是否提交了该订单的hash
-        ensure!(self.hashed_committee.binary_search(who).is_ok(), CustomErr::NotProperCommittee);
+        ensure!(self.hashed_committee.binary_search(who).is_ok(), ReportErr::NotProperCommittee);
         Ok(())
     }
 
     // 获取链上已经记录的报告人提交的Hash
-    pub fn get_reporter_hash(&self) -> Result<ReportHash, CustomErr> {
-        self.machine_fault_type.clone().get_hash().ok_or(CustomErr::OrderStatusNotFeat)
+    pub fn get_reporter_hash(&self) -> Result<ReportHash, ReportErr> {
+        self.machine_fault_type.clone().get_hash().ok_or(ReportErr::OrderStatusNotFeat)
     }
 
-    pub fn can_submit_inaccessible_raw(&self, who: &Account) -> Result<(), CustomErr> {
-        ensure!(self.report_status == ReportStatus::SubmittingRaw, CustomErr::OrderStatusNotFeat);
+    pub fn can_submit_inaccessible_raw(&self, who: &Account) -> Result<(), ReportErr> {
+        ensure!(self.report_status == ReportStatus::SubmittingRaw, ReportErr::OrderStatusNotFeat);
         ensure!(
             matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)),
-            CustomErr::OrderStatusNotFeat
+            ReportErr::OrderStatusNotFeat
         );
 
         // 检查是否提交了该订单的hash
-        ensure!(self.hashed_committee.binary_search(&who).is_ok(), CustomErr::NotProperCommittee);
+        ensure!(self.hashed_committee.binary_search(&who).is_ok(), ReportErr::NotProperCommittee);
         Ok(())
     }
 

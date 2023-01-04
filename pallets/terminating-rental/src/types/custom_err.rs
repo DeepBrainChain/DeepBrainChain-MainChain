@@ -1,34 +1,28 @@
 use crate::{Config, Error};
-use codec::{Decode, Encode};
-use dbc_support::{report::MachineFaultType, verify_slash::OPSlashReason};
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-use sp_runtime::RuntimeDebug;
+use dbc_support::{
+    custom_err::{OnlineErr, ReportErr, VerifyErr},
+    report::MachineFaultType,
+    verify_slash::OPSlashReason,
+};
 
-use dbc_support::report::CustomErr as ReportErr;
-
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum CustomErr {
-    NotInBookList,
-    TimeNotAllow,
-    AlreadySubmitHash,
-    AlreadySubmitRaw,
-    NotSubmitHash,
-    NotAllowedChangeMachineInfo,
-    TelecomIsNull,
+impl<T: Config> From<VerifyErr> for Error<T> {
+    fn from(err: VerifyErr) -> Self {
+        match err {
+            VerifyErr::NotInBookList => Error::NotInBookList,
+            VerifyErr::TimeNotAllow => Error::TimeNotAllow,
+            VerifyErr::AlreadySubmitHash => Error::AlreadySubmitHash,
+            VerifyErr::AlreadySubmitRaw => Error::AlreadySubmitRaw,
+            VerifyErr::NotSubmitHash => Error::NotSubmitHash,
+            VerifyErr::Overflow => Error::Overflow,
+        }
+    }
 }
 
-impl<T: Config> From<CustomErr> for Error<T> {
-    fn from(err: CustomErr) -> Self {
+impl<T: Config> From<OnlineErr> for Error<T> {
+    fn from(err: OnlineErr) -> Self {
         match err {
-            CustomErr::NotInBookList => Error::NotInBookList,
-            CustomErr::TimeNotAllow => Error::TimeNotAllow,
-            CustomErr::AlreadySubmitHash => Error::AlreadySubmitHash,
-            CustomErr::AlreadySubmitRaw => Error::AlreadySubmitRaw,
-            CustomErr::NotSubmitHash => Error::NotSubmitHash,
-            CustomErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
-            CustomErr::TelecomIsNull => Error::TelecomIsNull,
+            OnlineErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
+            OnlineErr::TelecomIsNull => Error::TelecomIsNull,
         }
     }
 }

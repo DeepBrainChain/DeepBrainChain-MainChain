@@ -1,8 +1,9 @@
-use crate::{IRLiveMachine, IRMachineInfo};
+use crate::IRLiveMachine;
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
 use dbc_support::{
+    machine_info::MachineInfo,
     machine_type::{CommitteeUploadInfo, MachineInfoDetail, MachineStatus, StakerCustomizeInfo},
     verify_online::StashMachine,
     MachineId,
@@ -39,10 +40,10 @@ pub struct RpcMachineInfo<AccountId: Ord, BlockNumber, Balance> {
 }
 
 #[cfg(feature = "std")]
-impl<AccountId: Ord, BlockNumber, Balance> From<IRMachineInfo<AccountId, BlockNumber, Balance>>
+impl<AccountId: Ord, BlockNumber, Balance> From<MachineInfo<AccountId, BlockNumber, Balance>>
     for RpcMachineInfo<AccountId, BlockNumber, Balance>
 {
-    fn from(info: IRMachineInfo<AccountId, BlockNumber, Balance>) -> Self {
+    fn from(info: MachineInfo<AccountId, BlockNumber, Balance>) -> Self {
         Self {
             // controller: info.controller,
             machine_stash: info.machine_stash,

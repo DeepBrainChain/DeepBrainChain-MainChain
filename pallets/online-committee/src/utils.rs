@@ -1,5 +1,5 @@
 use crate::{BalanceOf, Config, NextSlashId, Pallet};
-use dbc_support::{traits::ManageCommittee, verify_online::CustomErr};
+use dbc_support::{custom_err::VerifyErr, traits::ManageCommittee};
 use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
@@ -19,9 +19,9 @@ impl<T: Config> Pallet<T> {
         committee: T::AccountId,
         amount: BalanceOf<T>,
         is_add: bool,
-    ) -> Result<(), CustomErr> {
+    ) -> Result<(), VerifyErr> {
         <T as Config>::ManageCommittee::change_used_stake(committee, amount, is_add)
-            .map_err(|_| CustomErr::Overflow)
+            .map_err(|_| VerifyErr::Overflow)
     }
 
     pub fn change_committee_total_stake(
@@ -29,14 +29,14 @@ impl<T: Config> Pallet<T> {
         amount: BalanceOf<T>,
         is_add: bool,
         change_reserve: bool,
-    ) -> Result<(), CustomErr> {
+    ) -> Result<(), VerifyErr> {
         <T as Config>::ManageCommittee::change_total_stake(
             committee,
             amount,
             is_add,
             change_reserve,
         )
-        .map_err(|_| CustomErr::Overflow)
+        .map_err(|_| VerifyErr::Overflow)
     }
 
     pub fn change_committee_stake(

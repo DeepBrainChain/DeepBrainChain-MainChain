@@ -36,6 +36,16 @@ impl<T: Config> From<CustomErr> for Error<T> {
     }
 }
 
+use dbc_support::custom_err::OnlineErr;
+impl<T: Config> From<OnlineErr> for Error<T> {
+    fn from(err: OnlineErr) -> Self {
+        match err {
+            OnlineErr::TelecomIsNull => Error::TelecomIsNull,
+            OnlineErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct UserMutHardwareStakeInfo<Balance, BlockNumber> {
     pub stake_amount: Balance,

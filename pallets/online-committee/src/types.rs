@@ -1,6 +1,6 @@
 use crate::{Config, Error};
 use codec::{Decode, Encode};
-use dbc_support::verify_online::CustomErr;
+use dbc_support::custom_err::VerifyErr;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
@@ -11,15 +11,15 @@ pub const SUBMIT_RAW_START: u32 = 4320;
 /// Summary committee's opinion after 48 hours
 pub const SUBMIT_RAW_END: u32 = 5760;
 
-impl<T: Config> From<CustomErr> for Error<T> {
-    fn from(err: CustomErr) -> Self {
+impl<T: Config> From<VerifyErr> for Error<T> {
+    fn from(err: VerifyErr) -> Self {
         match err {
-            CustomErr::NotInBookList => Error::NotInBookList,
-            CustomErr::TimeNotAllow => Error::TimeNotAllow,
-            CustomErr::AlreadySubmitHash => Error::AlreadySubmitHash,
-            CustomErr::AlreadySubmitRaw => Error::AlreadySubmitRaw,
-            CustomErr::NotSubmitHash => Error::NotSubmitHash,
-            CustomErr::Overflow => Error::Overflow,
+            VerifyErr::NotInBookList => Error::NotInBookList,
+            VerifyErr::TimeNotAllow => Error::TimeNotAllow,
+            VerifyErr::AlreadySubmitHash => Error::AlreadySubmitHash,
+            VerifyErr::AlreadySubmitRaw => Error::AlreadySubmitRaw,
+            VerifyErr::NotSubmitHash => Error::NotSubmitHash,
+            VerifyErr::Overflow => Error::Overflow,
         }
     }
 }

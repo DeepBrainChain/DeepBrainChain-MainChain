@@ -1,12 +1,12 @@
+use crate::{
+    custom_err::OnlineErr,
+    machine_type::{CommitteeUploadInfo, MachineInfoDetail, MachineStatus, StakerCustomizeInfo},
+    EraIndex,
+};
+use codec::{Decode, Encode};
+use frame_support::ensure;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-
-use crate::CustomErr;
-use codec::{Decode, Encode};
-use dbc_support::machine_type::{
-    CommitteeUploadInfo, MachineInfoDetail, MachineStatus, StakerCustomizeInfo,
-};
-use frame_support::ensure;
 use sp_runtime::{
     traits::{Saturating, Zero},
     RuntimeDebug,
@@ -17,15 +17,15 @@ use sp_std::vec::Vec;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct IRMachineInfo<AccountId: Ord, BlockNumber, Balance> {
-    // /// Who can control this machine
-    // pub controller: AccountId,
+pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
+    /// Who can control this machine
+    pub controller: AccountId,
     /// Who own this machine and will get machine's reward
     pub machine_stash: AccountId,
     /// Last machine renter
     pub renters: Vec<AccountId>,
-    // /// Every 365 days machine can restake(For token price maybe changed)
-    // pub last_machine_restake: BlockNumber,
+    /// Every 365 days machine can restake(For token price maybe changed)
+    pub last_machine_restake: BlockNumber,
     /// When controller bond this machine
     pub bonding_height: BlockNumber,
     /// When machine is passed verification and is online
@@ -33,8 +33,8 @@ pub struct IRMachineInfo<AccountId: Ord, BlockNumber, Balance> {
     /// Last time machine is online
     /// (When first online; Rented -> Online, Offline -> Online e.t.)
     pub last_online_height: BlockNumber,
-    // /// When first bond_machine, record how much should stake per GPU
-    // pub init_stake_per_gpu: Balance,
+    /// When first bond_machine, record how much should stake per GPU
+    pub init_stake_per_gpu: Balance,
     /// How much machine staked
     pub stake_amount: Balance,
     /// Status of machine
@@ -46,18 +46,19 @@ pub struct IRMachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub total_rented_times: u64,
     /// How much rent fee machine has earned for rented(before Galaxy is ON)
     pub total_rent_fee: Balance,
-    // /// How much rent fee is burn after Galaxy is ON
-    // pub total_burn_fee: Balance,
+    /// How much rent fee is burn after Galaxy is ON
+    pub total_burn_fee: Balance,
     /// Machine's hardware info
     pub machine_info_detail: MachineInfoDetail,
     /// Committees, verified machine and will be rewarded in the following days.
     /// (After machine is online, get 1% rent fee)
     pub reward_committee: Vec<AccountId>,
-    // /// When reward will be over for committees
-    // pub reward_deadline: EraIndex,
+    /// When reward will be over for committees
+    pub reward_deadline: EraIndex,
 }
 
-impl<AccountId, BlockNumber, Balance> IRMachineInfo<AccountId, BlockNumber, Balance>
+// For Terminating Renting
+impl<AccountId, BlockNumber, Balance> MachineInfo<AccountId, BlockNumber, Balance>
 where
     AccountId: Ord + Default,
     BlockNumber: Copy + Default,
@@ -87,12 +88,12 @@ where
     pub fn add_machine_info(
         &mut self,
         add_machine_info: StakerCustomizeInfo,
-    ) -> Result<(), CustomErr> {
+    ) -> Result<(), OnlineErr> {
         // 必须提供网络运营商
-        ensure!(!add_machine_info.telecom_operators.is_empty(), CustomErr::TelecomIsNull);
+        ensure!(!add_machine_info.telecom_operators.is_empty(), OnlineErr::TelecomIsNull);
 
         // 检查当前机器状态是否允许
-        ensure!(&self.can_add_customize_info(), CustomErr::NotAllowedChangeMachineInfo);
+        ensure!(&self.can_add_customize_info(), OnlineErr::NotAllowedChangeMachineInfo);
         self.machine_info_detail.staker_customize_info = add_machine_info;
         self.machine_status = MachineStatus::DistributingOrder;
 

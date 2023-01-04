@@ -1,7 +1,4 @@
-use crate::{
-    report::{CustomErr, MachineFaultType},
-    ItemList, ReportHash, ReportId,
-};
+use crate::{custom_err::ReportErr, report::MachineFaultType, ItemList, ReportHash, ReportId};
 use codec::{Decode, Encode};
 use frame_support::ensure;
 use sp_runtime::RuntimeDebug;
@@ -27,8 +24,8 @@ impl MTCommitteeOrderList {
         ItemList::rm_item(&mut self.confirmed_report, report_id);
     }
 
-    pub fn can_submit_hash(&self, report_id: ReportId) -> Result<(), CustomErr> {
-        ensure!(self.booked_report.binary_search(&report_id).is_ok(), CustomErr::NotInBookedList);
+    pub fn can_submit_hash(&self, report_id: ReportId) -> Result<(), ReportErr> {
+        ensure!(self.booked_report.binary_search(&report_id).is_ok(), ReportErr::NotInBookedList);
         Ok(())
     }
 
@@ -115,8 +112,8 @@ impl<BlockNumber, Balance> MTCommitteeOpsDetail<BlockNumber, Balance> {
         };
     }
 
-    pub fn can_submit_hash(&self) -> Result<(), CustomErr> {
-        ensure!(self.order_status == MTOrderStatus::Verifying, CustomErr::OrderStatusNotFeat);
+    pub fn can_submit_hash(&self) -> Result<(), ReportErr> {
+        ensure!(self.order_status == MTOrderStatus::Verifying, ReportErr::OrderStatusNotFeat);
         Ok(())
     }
 

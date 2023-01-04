@@ -1,18 +1,4 @@
 {
-    "IRMachineInfo": {
-        "machine_stash": "AccountId",
-        "renters": "Vec<AccountId>",
-        "bonding_height": "BlockNumber",
-        "online_height": "BlockNumber",
-        "last_online_height": "BlockNumber",
-        "stake_amount": "Balance",
-        "machine_status": "MachineStatus",
-        "total_rented_duration": "BlockNumber",
-        "total_rented_times": "u64",
-        "total_rent_fee": "Balance",
-        "machine_info_detail": "MachineInfoDetail",
-        "reward_committee": "Vec<AccountId>"
-    },
     "IRLiveMachine": {
         "bonding_machine": "Vec<MachineId>",
         "confirmed_machine": "Vec<MachineId>",

@@ -1305,7 +1305,7 @@ impl_runtime_apis! {
             TerminatingRental::get_machine_list()
         }
 
-        fn get_machine_info(machine_id: MachineId) -> terminating_rental::IRMachineInfo<AccountId, BlockNumber, Balance> {
+        fn get_machine_info(machine_id: MachineId) -> dbc_support::machine_info::MachineInfo<AccountId, BlockNumber, Balance> {
             TerminatingRental::get_machine_info(machine_id)
         }
 

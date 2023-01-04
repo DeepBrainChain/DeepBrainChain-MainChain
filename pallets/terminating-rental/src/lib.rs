@@ -24,6 +24,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, str, vec::Vec};
 
 use dbc_support::{
+    machine_info::MachineInfo,
     machine_type::{CommitteeUploadInfo, MachineStatus, StakerCustomizeInfo},
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     report::{
@@ -136,7 +137,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         MachineId,
-        IRMachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -499,7 +500,7 @@ pub mod pallet {
             });
             MachinesInfo::<T>::insert(
                 &machine_id,
-                IRMachineInfo::bond_machine(stash, now, online_deposit),
+                MachineInfo::bond_machine(stash, now, online_deposit),
             );
 
             Ok(().into())
