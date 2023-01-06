@@ -89,6 +89,7 @@ std = [
   'generic-func/std',
   'dbc-support/std',
   'dbc-price-ocw/std',
+  'pallet-uniques/std',
   'online-profile/std',
   'online-profile-runtime-api/std',
   'simple-rpc/std',
@@ -356,6 +357,11 @@ path = '../pallets/support'
 [dependencies.dbc-price-ocw]
 default-features = false
 path = '../pallets/dbc-price-ocw'
+
+[dependencies.pallet-uniques]
+default-features = false
+package = 'pallet-uniques'
+path = '../pallets/uniques'
 
 [dependencies.online-profile]
 default-features = false
