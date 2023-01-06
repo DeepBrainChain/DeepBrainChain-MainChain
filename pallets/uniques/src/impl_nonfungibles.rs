@@ -1,43 +1,22 @@
-// This file is part of Substrate.
-
-// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! Implementations for `nonfungibles` traits.
 
 use super::*;
-use frame_support::{
-    storage::KeyPrefixIterator,
-    traits::{tokens::nonfungibles::*, Get},
-    BoundedSlice,
-};
+// use frame_support::{KeyPrefixIterator, BoundedSlice};
+// use frame_support::traits::tokens::nonfungibles::*;
+use frame_support::traits::Get;
 use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
-impl<T: Config> Inspect<<T as SystemConfig>::AccountId> for Pallet<T> {
-    type ItemId = T::ItemId;
-    type CollectionId = T::CollectionId;
-
+// impl Inspect
+impl<T: Config> Pallet<T> {
     fn owner(
-        collection: &Self::CollectionId,
-        item: &Self::ItemId,
+        collection: &T::CollectionId,
+        item: &T::ItemId,
     ) -> Option<<T as SystemConfig>::AccountId> {
         Item::<T>::get(collection, item).map(|a| a.owner)
     }
 
-    fn collection_owner(collection: &Self::CollectionId) -> Option<<T as SystemConfig>::AccountId> {
+    fn collection_owner(collection: &T::CollectionId) -> Option<<T as SystemConfig>::AccountId> {
         Collection::<T>::get(collection).map(|a| a.owner)
     }
 
@@ -46,11 +25,7 @@ impl<T: Config> Inspect<<T as SystemConfig>::AccountId> for Pallet<T> {
     /// When `key` is empty, we return the item metadata value.
     ///
     /// By default this is `None`; no attributes are defined.
-    fn attribute(
-        collection: &Self::CollectionId,
-        item: &Self::ItemId,
-        key: &[u8],
-    ) -> Option<Vec<u8>> {
+    fn attribute(collection: &T::CollectionId, item: &T::ItemId, key: &[u8]) -> Option<Vec<u8>> {
         if key.is_empty() {
             // We make the empty key map to the item metadata value.
             ItemMetadataOf::<T>::get(collection, item).map(|m| m.data.into())
@@ -65,7 +40,7 @@ impl<T: Config> Inspect<<T as SystemConfig>::AccountId> for Pallet<T> {
     /// When `key` is empty, we return the item metadata value.
     ///
     /// By default this is `None`; no attributes are defined.
-    fn collection_attribute(collection: &Self::CollectionId, key: &[u8]) -> Option<Vec<u8>> {
+    fn collection_attribute(collection: &T::CollectionId, key: &[u8]) -> Option<Vec<u8>> {
         if key.is_empty() {
             // We make the empty key map to the item metadata value.
             CollectionMetadataOf::<T>::get(collection).map(|m| m.data.into())
@@ -78,7 +53,7 @@ impl<T: Config> Inspect<<T as SystemConfig>::AccountId> for Pallet<T> {
     /// Returns `true` if the `item` of `collection` may be transferred.
     ///
     /// Default implementation is that all items are transferable.
-    fn can_transfer(collection: &Self::CollectionId, item: &Self::ItemId) -> bool {
+    fn can_transfer(collection: &T::CollectionId, item: &T::ItemId) -> bool {
         match (Collection::<T>::get(collection), Item::<T>::get(collection, item)) {
             (Some(cd), Some(id)) if !cd.is_frozen && !id.is_frozen => true,
             _ => false,
@@ -86,10 +61,11 @@ impl<T: Config> Inspect<<T as SystemConfig>::AccountId> for Pallet<T> {
     }
 }
 
-impl<T: Config> Create<<T as SystemConfig>::AccountId> for Pallet<T> {
+// impl Create
+impl<T: Config> Pallet<T> {
     /// Create a `collection` of nonfungible items to be owned by `who` and managed by `admin`.
     fn create_collection(
-        collection: &Self::CollectionId,
+        collection: &T::CollectionId,
         who: &T::AccountId,
         admin: &T::AccountId,
     ) -> DispatchResult {
@@ -104,34 +80,34 @@ impl<T: Config> Create<<T as SystemConfig>::AccountId> for Pallet<T> {
     }
 }
 
-impl<T: Config> Destroy<<T as SystemConfig>::AccountId> for Pallet<T> {
-    type DestroyWitness = DestroyWitness;
-
-    fn get_destroy_witness(collection: &Self::CollectionId) -> Option<DestroyWitness> {
+// impl Destroy
+impl<T: Config> Pallet<T> {
+    fn get_destroy_witness(collection: &T::CollectionId) -> Option<DestroyWitness> {
         Collection::<T>::get(collection).map(|a| a.destroy_witness())
     }
 
     fn destroy(
-        collection: Self::CollectionId,
-        witness: Self::DestroyWitness,
+        collection: T::CollectionId,
+        witness: DestroyWitness,
         maybe_check_owner: Option<T::AccountId>,
-    ) -> Result<Self::DestroyWitness, DispatchError> {
+    ) -> Result<DestroyWitness, DispatchError> {
         Self::do_destroy_collection(collection, witness, maybe_check_owner)
     }
 }
 
-impl<T: Config> Mutate<<T as SystemConfig>::AccountId> for Pallet<T> {
+// impl Mutate
+impl<T: Config> Pallet<T> {
     fn mint_into(
-        collection: &Self::CollectionId,
-        item: &Self::ItemId,
+        collection: &T::CollectionId,
+        item: &T::ItemId,
         who: &T::AccountId,
     ) -> DispatchResult {
         Self::do_mint(*collection, *item, who.clone(), |_| Ok(()))
     }
 
     fn burn(
-        collection: &Self::CollectionId,
-        item: &Self::ItemId,
+        collection: &T::CollectionId,
+        item: &T::ItemId,
         maybe_check_owner: Option<&T::AccountId>,
     ) -> DispatchResult {
         Self::do_burn(*collection, *item, |_, d| {
@@ -145,50 +121,85 @@ impl<T: Config> Mutate<<T as SystemConfig>::AccountId> for Pallet<T> {
     }
 }
 
-impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
+// impl Transfer
+impl<T: Config> Pallet<T> {
     fn transfer(
-        collection: &Self::CollectionId,
-        item: &Self::ItemId,
+        collection: &T::CollectionId,
+        item: &T::ItemId,
         destination: &T::AccountId,
     ) -> DispatchResult {
         Self::do_transfer(*collection, *item, destination.clone(), |_, _| Ok(()))
     }
 }
 
-impl<T: Config> InspectEnumerable<T::AccountId> for Pallet<T> {
-    type CollectionsIterator = KeyPrefixIterator<<T as Config>::CollectionId>;
-    type ItemsIterator = KeyPrefixIterator<<T as Config>::ItemId>;
-    type OwnedIterator = KeyPrefixIterator<(<T as Config>::CollectionId, <T as Config>::ItemId)>;
-    type OwnedInCollectionIterator = KeyPrefixIterator<<T as Config>::ItemId>;
+// // TODO: impl InspectEnumerable
+// impl<T: Config> Pallet<T> {
+//     /// Returns an iterator of the collections in existence.
+//     ///
+//     /// NOTE: iterating this list invokes a storage read per item.
+//     fn collections() -> Self::CollectionsIterator {
+//         CollectionMetadataOf::<T>::iter_keys()
+//     }
 
-    /// Returns an iterator of the collections in existence.
-    ///
-    /// NOTE: iterating this list invokes a storage read per item.
-    fn collections() -> Self::CollectionsIterator {
-        CollectionMetadataOf::<T>::iter_keys()
-    }
+//     /// Returns an iterator of the items of a `collection` in existence.
+//     ///
+//     /// NOTE: iterating this list invokes a storage read per item.
+//     fn items(collection: &Self::CollectionId) -> Self::ItemsIterator {
+//         ItemMetadataOf::<T>::iter_key_prefix(collection)
+//     }
 
-    /// Returns an iterator of the items of a `collection` in existence.
-    ///
-    /// NOTE: iterating this list invokes a storage read per item.
-    fn items(collection: &Self::CollectionId) -> Self::ItemsIterator {
-        ItemMetadataOf::<T>::iter_key_prefix(collection)
-    }
+//     /// Returns an iterator of the items of all collections owned by `who`.
+//     ///
+//     /// NOTE: iterating this list invokes a storage read per item.
+//     fn owned(who: &T::AccountId) -> Self::OwnedIterator {
+//         Account::<T>::iter_key_prefix((who,))
+//     }
 
-    /// Returns an iterator of the items of all collections owned by `who`.
-    ///
-    /// NOTE: iterating this list invokes a storage read per item.
-    fn owned(who: &T::AccountId) -> Self::OwnedIterator {
-        Account::<T>::iter_key_prefix((who,))
-    }
+//     /// Returns an iterator of the items of `collection` owned by `who`.
+//     ///
+//     /// NOTE: iterating this list invokes a storage read per item.
+//     fn owned_in_collection(
+//         collection: &Self::CollectionId,
+//         who: &T::AccountId,
+//     ) -> Self::OwnedInCollectionIterator {
+//         Account::<T>::iter_key_prefix((who, collection))
+//     }
+// }
 
-    /// Returns an iterator of the items of `collection` owned by `who`.
-    ///
-    /// NOTE: iterating this list invokes a storage read per item.
-    fn owned_in_collection(
-        collection: &Self::CollectionId,
-        who: &T::AccountId,
-    ) -> Self::OwnedInCollectionIterator {
-        Account::<T>::iter_key_prefix((who, collection))
-    }
-}
+// impl<T: Config> InspectEnumerable<T::AccountId> for Pallet<T> {
+//     type CollectionsIterator = KeyPrefixIterator<<T as Config>::CollectionId>;
+//     type ItemsIterator = KeyPrefixIterator<<T as Config>::ItemId>;
+//     type OwnedIterator = KeyPrefixIterator<(<T as Config>::CollectionId, <T as Config>::ItemId)>;
+//     type OwnedInCollectionIterator = KeyPrefixIterator<<T as Config>::ItemId>;
+
+//     /// Returns an iterator of the collections in existence.
+//     ///
+//     /// NOTE: iterating this list invokes a storage read per item.
+//     fn collections() -> Self::CollectionsIterator {
+//         CollectionMetadataOf::<T>::iter_keys()
+//     }
+
+//     /// Returns an iterator of the items of a `collection` in existence.
+//     ///
+//     /// NOTE: iterating this list invokes a storage read per item.
+//     fn items(collection: &Self::CollectionId) -> Self::ItemsIterator {
+//         ItemMetadataOf::<T>::iter_key_prefix(collection)
+//     }
+
+//     /// Returns an iterator of the items of all collections owned by `who`.
+//     ///
+//     /// NOTE: iterating this list invokes a storage read per item.
+//     fn owned(who: &T::AccountId) -> Self::OwnedIterator {
+//         Account::<T>::iter_key_prefix((who,))
+//     }
+
+//     /// Returns an iterator of the items of `collection` owned by `who`.
+//     ///
+//     /// NOTE: iterating this list invokes a storage read per item.
+//     fn owned_in_collection(
+//         collection: &Self::CollectionId,
+//         who: &T::AccountId,
+//     ) -> Self::OwnedInCollectionIterator {
+//         Account::<T>::iter_key_prefix((who, collection))
+//     }
+// }

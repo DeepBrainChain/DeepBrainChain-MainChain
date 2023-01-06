@@ -1035,6 +1035,17 @@ impl generic_func::Config for Runtime {
     type Slash = Treasury;
 }
 
+parameter_types! {
+    pub const CollectionDeposit: Balance = 100 * DOLLARS;
+    pub const ItemDeposit: Balance = 1 * DOLLARS;
+    pub const KeyLimit: u32 = 32;
+    pub const ValueLimit: u32 = 256;
+    pub const ApprovalsLimit: u32 = 20;
+    pub const ItemAttributesApprovalsLimit: u32 = 20;
+    pub const MaxTips: u32 = 10;
+    pub const MaxDeadlineDuration: BlockNumber = 12 * 30 * DAYS;
+}
+
 impl pallet_uniques::Config for Runtime {
     type Event = Event;
     type CollectionId = u32;

@@ -15,7 +15,7 @@ mod functions;
 mod impl_nonfungibles;
 mod types;
 
-pub mod migration;
+// pub mod migration;
 pub mod weights;
 
 use codec::{Decode, Encode};
@@ -70,10 +70,10 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// Identifier for the collection of item.
-        type CollectionId: Member + Parameter + MaxEncodedLen + Copy;
+        type CollectionId: Member + Parameter + Copy;
 
         /// The type used to identify a unique item within a collection.
-        type ItemId: Member + Parameter + MaxEncodedLen + Copy;
+        type ItemId: Member + Parameter + Copy;
 
         /// The currency mechanism, used for paying for reserves.
         type Currency: ReservableCurrency<Self::AccountId>;
@@ -302,36 +302,31 @@ pub mod pallet {
         /// A `collection` has had its attributes changed by the `Force` origin.
         ItemStatusChanged { collection: T::CollectionId },
         /// New metadata has been set for a `collection`.
-        CollectionMetadataSet {
-            collection: T::CollectionId,
-            data: BoundedVec<u8, T::StringLimit>,
-            is_frozen: bool,
-        },
+        // NOTE: data: T::StringLimit
+        CollectionMetadataSet { collection: T::CollectionId, data: Vec<u8>, is_frozen: bool },
         /// Metadata has been cleared for a `collection`.
         CollectionMetadataCleared { collection: T::CollectionId },
         /// New metadata has been set for an item.
-        MetadataSet {
-            collection: T::CollectionId,
-            item: T::ItemId,
-            data: BoundedVec<u8, T::StringLimit>,
-            is_frozen: bool,
-        },
+        // NOTE: data: T::StringLimit
+        MetadataSet { collection: T::CollectionId, item: T::ItemId, data: Vec<u8>, is_frozen: bool },
         /// Metadata has been cleared for an item.
         MetadataCleared { collection: T::CollectionId, item: T::ItemId },
         /// Metadata has been cleared for an item.
         Redeposited { collection: T::CollectionId, successful_items: Vec<T::ItemId> },
         /// New attribute metadata has been set for a `collection` or `item`.
+        // NOTE: key: T::KeyLimit; value: T::ValueLimit
         AttributeSet {
             collection: T::CollectionId,
             maybe_item: Option<T::ItemId>,
-            key: BoundedVec<u8, T::KeyLimit>,
-            value: BoundedVec<u8, T::ValueLimit>,
+            key: Vec<u8>,
+            value: Vec<u8>,
         },
         /// Attribute metadata has been cleared for a `collection` or `item`.
+        // NOTE: key: T::KeyLimit
         AttributeCleared {
             collection: T::CollectionId,
             maybe_item: Option<T::ItemId>,
-            key: BoundedVec<u8, T::KeyLimit>,
+            key: Vec<u8>,
         },
         /// Ownership acceptance has changed for an account.
         OwnershipAcceptanceChanged { who: T::AccountId, maybe_collection: Option<T::CollectionId> },
@@ -1056,13 +1051,14 @@ pub mod pallet {
         /// Emits `AttributeSet`.
         ///
         /// Weight: `O(1)`
+        // NOTE: key: T::KeyLimit; value: T::ValueLimit
         #[pallet::weight(T::WeightInfo::set_attribute())]
         pub fn set_attribute(
             origin: OriginFor<T>,
             collection: T::CollectionId,
             maybe_item: Option<T::ItemId>,
-            key: BoundedVec<u8, T::KeyLimit>,
-            value: BoundedVec<u8, T::ValueLimit>,
+            key: Vec<u8>,
+            value: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let maybe_check_owner = T::ForceOrigin::try_origin(origin)
                 .map(|_| None)
@@ -1118,12 +1114,13 @@ pub mod pallet {
         /// Emits `AttributeCleared`.
         ///
         /// Weight: `O(1)`
+        // NOTE: key: T::KeyLimit
         #[pallet::weight(T::WeightInfo::clear_attribute())]
         pub fn clear_attribute(
             origin: OriginFor<T>,
             collection: T::CollectionId,
             maybe_item: Option<T::ItemId>,
-            key: BoundedVec<u8, T::KeyLimit>,
+            key: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let maybe_check_owner = T::ForceOrigin::try_origin(origin)
                 .map(|_| None)
@@ -1167,12 +1164,13 @@ pub mod pallet {
         /// Emits `MetadataSet`.
         ///
         /// Weight: `O(1)`
+        // NOTE: data: T::StringLimit
         #[pallet::weight(T::WeightInfo::set_metadata())]
         pub fn set_metadata(
             origin: OriginFor<T>,
             collection: T::CollectionId,
             item: T::ItemId,
-            data: BoundedVec<u8, T::StringLimit>,
+            data: Vec<u8>,
             is_frozen: bool,
         ) -> DispatchResultWithPostInfo {
             let maybe_check_owner = T::ForceOrigin::try_origin(origin)
@@ -1278,11 +1276,12 @@ pub mod pallet {
         /// Emits `CollectionMetadataSet`.
         ///
         /// Weight: `O(1)`
+        // NOTE: data: T::StringLimit
         #[pallet::weight(T::WeightInfo::set_collection_metadata())]
         pub fn set_collection_metadata(
             origin: OriginFor<T>,
             collection: T::CollectionId,
-            data: BoundedVec<u8, T::StringLimit>,
+            data: Vec<u8>,
             is_frozen: bool,
         ) -> DispatchResultWithPostInfo {
             let maybe_check_owner = T::ForceOrigin::try_origin(origin)

@@ -1,36 +1,19 @@
-// This file is part of Substrate.
-
-// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! Various basic types for use in the Uniques pallet.
 
 use super::*;
 use frame_support::traits::Get;
 use scale_info::TypeInfo;
 
-pub(super) type DepositBalanceOf<T, I = ()> =
-    <<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
-pub(super) type CollectionDetailsFor<T, I> =
-    CollectionDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
-pub(super) type ItemDetailsFor<T, I> =
-    ItemDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
-pub(super) type ItemPrice<T, I = ()> =
-    <<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+pub(super) type DepositBalanceOf<T = ()> =
+    <<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+pub(super) type CollectionDetailsFor<T> =
+    CollectionDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T>>;
+pub(super) type ItemDetailsFor<T> =
+    ItemDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T>>;
+pub(super) type ItemPrice<T = ()> =
+    <<T as Config>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct CollectionDetails<AccountId, DepositBalance> {
     /// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
     pub(super) owner: AccountId,
@@ -56,7 +39,7 @@ pub struct CollectionDetails<AccountId, DepositBalance> {
 }
 
 /// Witness data for the destroy transactions.
-#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct DestroyWitness {
     /// The total number of outstanding items of this collection.
     #[codec(compact)]
@@ -80,7 +63,7 @@ impl<AccountId, DepositBalance> CollectionDetails<AccountId, DepositBalance> {
 }
 
 /// Information concerning the ownership of a single unique item.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo)]
 pub struct ItemDetails<AccountId, DepositBalance> {
     /// The owner of this item.
     pub(super) owner: AccountId,
@@ -93,34 +76,36 @@ pub struct ItemDetails<AccountId, DepositBalance> {
     pub(super) deposit: DepositBalance,
 }
 
-// #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
-// #[scale_info(skip_type_params(StringLimit))]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo)]
+#[scale_info(skip_type_params(StringLimit))]
 // #[codec(mel_bound(DepositBalance: MaxEncodedLen))]
-// pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
-//     /// The balance deposited for this metadata.
-//     ///
-//     /// This pays for the data stored in this struct.
-//     pub(super) deposit: DepositBalance,
-//     /// General information concerning this collection. Limited in length by `StringLimit`. This
-//     /// will generally be either a JSON dump or the hash of some JSON which can be found on a
-//     /// hash-addressable global publication system such as IPFS.
-//     pub(super) data: BoundedVec<u8, StringLimit>,
-//     /// Whether the collection's metadata may be changed by a non Force origin.
-//     pub(super) is_frozen: bool,
-// }
+pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
+    /// The balance deposited for this metadata.
+    ///
+    /// This pays for the data stored in this struct.
+    pub(super) deposit: DepositBalance,
+    /// General information concerning this collection. Limited in length by `StringLimit`. This
+    /// will generally be either a JSON dump or the hash of some JSON which can be found on a
+    /// hash-addressable global publication system such as IPFS.
+    // NOTE: StringLimit
+    pub(super) data: Vec<u8>,
+    /// Whether the collection's metadata may be changed by a non Force origin.
+    pub(super) is_frozen: bool,
+}
 
-// #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
-// #[scale_info(skip_type_params(StringLimit))]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo)]
+#[scale_info(skip_type_params(StringLimit))]
 // #[codec(mel_bound(DepositBalance: MaxEncodedLen))]
-// pub struct ItemMetadata<DepositBalance, StringLimit: Get<u32>> {
-// 	/// The balance deposited for this metadata.
-// 	///
-// 	/// This pays for the data stored in this struct.
-// 	pub(super) deposit: DepositBalance,
-// 	/// General information concerning this item. Limited in length by `StringLimit`. This will
-// 	/// generally be either a JSON dump or the hash of some JSON which can be found on a
-// 	/// hash-addressable global publication system such as IPFS.
-// 	pub(super) data: BoundedVec<u8, StringLimit>,
-// 	/// Whether the item metadata may be changed by a non Force origin.
-// 	pub(super) is_frozen: bool,
-// }
+pub struct ItemMetadata<DepositBalance, StringLimit: Get<u32>> {
+    /// The balance deposited for this metadata.
+    ///
+    /// This pays for the data stored in this struct.
+    pub(super) deposit: DepositBalance,
+    /// General information concerning this item. Limited in length by `StringLimit`. This will
+    /// generally be either a JSON dump or the hash of some JSON which can be found on a
+    /// hash-addressable global publication system such as IPFS.
+    // NOTE: data: StringLimit
+    pub(super) data: Vec<u8>,
+    /// Whether the item metadata may be changed by a non Force origin.
+    pub(super) is_frozen: bool,
+}
