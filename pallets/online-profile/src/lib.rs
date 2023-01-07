@@ -555,7 +555,11 @@ pub mod pallet {
                 MachineInfo::new_bonding(controller.clone(), stash, now, stake_amount);
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
-            Self::deposit_event(Event::BondMachine(controller, machine_id, stake_amount));
+            Self::deposit_event(Event::BondMachine {
+                a: controller,
+                b: machine_id,
+                c: stake_amount,
+            });
             Ok(().into())
         }
 
@@ -1044,7 +1048,7 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        BondMachine(T::AccountId, MachineId, BalanceOf<T>),
+        BondMachine { a: T::AccountId, b: MachineId, c: BalanceOf<T> },
         Slash(T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
         ControllerStashBonded(T::AccountId, T::AccountId),
         // 弃用

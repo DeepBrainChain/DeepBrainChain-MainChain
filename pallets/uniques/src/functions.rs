@@ -1,11 +1,12 @@
 //! Various pieces of common functionality.
 
-use super::*;
+use super::{Account, *};
 use frame_support::{
     ensure,
+    pallet_prelude::DispatchResultWithPostInfo,
     traits::{ExistenceRequirement, Get},
 };
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::{traits::One, DispatchError, DispatchResult};
 
 impl<T: Config> Pallet<T> {
     pub fn do_transfer(
@@ -13,11 +14,11 @@ impl<T: Config> Pallet<T> {
         item: T::ItemId,
         dest: T::AccountId,
         with_details: impl FnOnce(&CollectionDetailsFor<T>, &mut ItemDetailsFor<T>) -> DispatchResult,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let collection_details =
             Collection::<T>::get(&collection).ok_or(Error::<T>::UnknownCollection)?;
         ensure!(!collection_details.is_frozen, Error::<T>::Frozen);
-        ensure!(!T::Locker::is_locked(collection, item), Error::<T>::Locked);
+        // ensure!(!T::Locker::is_locked(collection, item), Error::<T>::Locked);
 
         let mut details =
             Item::<T>::get(&collection, &item).ok_or(Error::<T>::UnknownCollection)?;
@@ -43,7 +44,7 @@ impl<T: Config> Pallet<T> {
             from: origin,
             to: details.owner,
         });
-        Ok(())
+        Ok(().into())
     }
 
     pub fn do_create_collection(
@@ -53,7 +54,7 @@ impl<T: Config> Pallet<T> {
         deposit: DepositBalanceOf<T>,
         free_holding: bool,
         event: Event<T>,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         ensure!(!Collection::<T>::contains_key(collection), Error::<T>::InUse);
 
         T::Currency::reserve(&owner, deposit)?;
@@ -76,7 +77,7 @@ impl<T: Config> Pallet<T> {
 
         CollectionAccount::<T>::insert(&owner, &collection, ());
         Self::deposit_event(event);
-        Ok(())
+        Ok(().into())
     }
 
     pub fn do_destroy_collection(
@@ -100,12 +101,13 @@ impl<T: Config> Pallet<T> {
                 Account::<T>::remove((&details.owner, &collection, &item));
             }
             #[allow(deprecated)]
-            ItemMetadataOf::<T>::remove_prefix(&collection, None);
+            ItemMetadataOf::<T>::remove_prefix(&collection);
             #[allow(deprecated)]
-            ItemPriceOf::<T>::remove_prefix(&collection, None);
+            ItemPriceOf::<T>::remove_prefix(&collection);
             CollectionMetadataOf::<T>::remove(&collection);
-            #[allow(deprecated)]
-            Attribute::<T>::remove_prefix((&collection,), None);
+            // FIXME: 应该移除StorageNMap所有以collection开头的数据
+            // #[allow(deprecated)]
+            // Attribute::<T>::remove_prefix((&collection,), None);
             CollectionAccount::<T>::remove(&collection_details.owner, &collection);
             T::Currency::unreserve(&collection_details.owner, collection_details.total_deposit);
             CollectionMaxSupply::<T>::remove(&collection);
@@ -125,7 +127,7 @@ impl<T: Config> Pallet<T> {
         item: T::ItemId,
         owner: T::AccountId,
         with_details: impl FnOnce(&CollectionDetailsFor<T>) -> DispatchResult,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         ensure!(!Item::<T>::contains_key(collection, item), Error::<T>::AlreadyExists);
 
         Collection::<T>::try_mutate(&collection, |maybe_collection_details| -> DispatchResult {
@@ -138,7 +140,7 @@ impl<T: Config> Pallet<T> {
                 ensure!(collection_details.items < max_supply, Error::<T>::MaxSupplyReached);
             }
 
-            let items = collection_details.items.checked_add(1).ok_or(ArithmeticError::Overflow)?;
+            let items = collection_details.items.checked_add(1).ok_or(Error::<T>::Overflow)?;
             collection_details.items = items;
 
             let deposit = match collection_details.free_holding {
@@ -156,15 +158,15 @@ impl<T: Config> Pallet<T> {
         })?;
 
         Self::deposit_event(Event::Issued { collection, item, owner });
-        Ok(())
+        Ok(().into())
     }
 
     pub fn do_burn(
         collection: T::CollectionId,
         item: T::ItemId,
         with_details: impl FnOnce(&CollectionDetailsFor<T>, &ItemDetailsFor<T>) -> DispatchResult,
-    ) -> DispatchResult {
-        ensure!(!T::Locker::is_locked(collection, item), Error::<T>::Locked);
+    ) -> DispatchResultWithPostInfo {
+        // ensure!(!T::Locker::is_locked(collection, item), Error::<T>::Locked);
         let owner = Collection::<T>::try_mutate(
             &collection,
             |maybe_collection_details| -> Result<T::AccountId, DispatchError> {
@@ -176,8 +178,10 @@ impl<T: Config> Pallet<T> {
 
                 // Return the deposit.
                 T::Currency::unreserve(&collection_details.owner, details.deposit);
-                collection_details.total_deposit.saturating_reduce(details.deposit);
-                collection_details.items.saturating_dec();
+
+                collection_details.total_deposit =
+                    collection_details.total_deposit.saturating_sub(details.deposit);
+                collection_details.items = collection_details.items.saturating_sub(One::one());
                 Ok(details.owner)
             },
         )?;
@@ -187,7 +191,7 @@ impl<T: Config> Pallet<T> {
         ItemPriceOf::<T>::remove(&collection, &item);
 
         Self::deposit_event(Event::Burned { collection, item, owner });
-        Ok(())
+        Ok(().into())
     }
 
     pub fn do_set_price(
@@ -196,7 +200,7 @@ impl<T: Config> Pallet<T> {
         sender: T::AccountId,
         price: Option<ItemPrice<T>>,
         whitelisted_buyer: Option<T::AccountId>,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let details = Item::<T>::get(&collection, &item).ok_or(Error::<T>::UnknownItem)?;
         ensure!(details.owner == sender, Error::<T>::NoPermission);
 
@@ -213,7 +217,7 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::ItemPriceRemoved { collection, item });
         }
 
-        Ok(())
+        Ok(().into())
     }
 
     pub fn do_buy_item(
@@ -221,7 +225,7 @@ impl<T: Config> Pallet<T> {
         item: T::ItemId,
         buyer: T::AccountId,
         bid_price: ItemPrice<T>,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         let details = Item::<T>::get(&collection, &item).ok_or(Error::<T>::UnknownItem)?;
         ensure!(details.owner != buyer, Error::<T>::NoPermission);
 
@@ -252,6 +256,6 @@ impl<T: Config> Pallet<T> {
             buyer,
         });
 
-        Ok(())
+        Ok(().into())
     }
 }

@@ -1,7 +1,6 @@
 //! Various basic types for use in the Uniques pallet.
 
 use super::*;
-use frame_support::traits::Get;
 use scale_info::TypeInfo;
 
 pub(super) type DepositBalanceOf<T = ()> =
@@ -79,7 +78,7 @@ pub struct ItemDetails<AccountId, DepositBalance> {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo)]
 #[scale_info(skip_type_params(StringLimit))]
 // #[codec(mel_bound(DepositBalance: MaxEncodedLen))]
-pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
+pub struct CollectionMetadata<DepositBalance> {
     /// The balance deposited for this metadata.
     ///
     /// This pays for the data stored in this struct.
@@ -96,7 +95,7 @@ pub struct CollectionMetadata<DepositBalance, StringLimit: Get<u32>> {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo)]
 #[scale_info(skip_type_params(StringLimit))]
 // #[codec(mel_bound(DepositBalance: MaxEncodedLen))]
-pub struct ItemMetadata<DepositBalance, StringLimit: Get<u32>> {
+pub struct ItemMetadata<DepositBalance> {
     /// The balance deposited for this metadata.
     ///
     /// This pays for the data stored in this struct.

@@ -1063,8 +1063,8 @@ impl pallet_uniques::Config for Runtime {
     type WeightInfo = pallet_uniques::weights::SubstrateWeight<Runtime>;
     #[cfg(feature = "runtime-benchmarks")]
     type Helper = ();
-    type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
-    type Locker = ();
+    // type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+    // type Locker = ();
 }
 
 impl online_profile::Config for Runtime {
@@ -1171,6 +1171,7 @@ construct_runtime!(
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
         DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
+        PalletUniques: pallet_uniques::{Module, Call, Storage, Event<T>},
         OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
         SimpleRpc: simple_rpc::{Module},
         Committee: committee::{Module, Call, Storage, Event<T>},

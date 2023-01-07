@@ -12,23 +12,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod functions;
-mod impl_nonfungibles;
+// mod impl_nonfungibles;
 mod types;
 
-// pub mod migration;
 pub mod weights;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    traits::{
-        tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
-    },
+    traits::{BalanceStatus::Reserved, Currency, ReservableCurrency},
     transactional,
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
-    traits::{Saturating, StaticLookup, Zero},
-    ArithmeticError, RuntimeDebug,
+    traits::{One, Saturating, StaticLookup, Zero},
+    RuntimeDebug,
 };
 use sp_std::prelude::*;
 
@@ -80,18 +77,19 @@ pub mod pallet {
 
         /// The origin which may forcibly create or destroy an item or otherwise alter privileged
         /// attributes.
-        type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+        /// TODO: 改为只允许Root
+        type ForceOrigin: EnsureOrigin<Self::Origin>;
 
-        /// Standard collection creation is only allowed if the origin attempting it and the
-        /// collection are in this set.
-        type CreateOrigin: EnsureOriginWithArg<
-            Self::RuntimeOrigin,
-            Self::CollectionId,
-            Success = Self::AccountId,
-        >;
+        // /// Standard collection creation is only allowed if the origin attempting it and the
+        // /// collection are in this set.
+        // type CreateOrigin: EnsureOriginWithArg<
+        //     Self::RuntimeOrigin,
+        //     Self::CollectionId,
+        //     Success = Self::AccountId,
+        // >;
 
-        /// Locker trait to enable Locking mechanism downstream.
-        type Locker: Locker<Self::CollectionId, Self::ItemId>;
+        // /// Locker trait to enable Locking mechanism downstream.
+        // type Locker: Locker<Self::CollectionId, Self::ItemId>;
 
         /// The basic amount of funds that must be reserved for collection.
         #[pallet::constant]
@@ -135,7 +133,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn Class)]
+    #[pallet::getter(fn class)]
     /// Details of a collection.
     pub(super) type Collection<T: Config> = StorageMap<
         _,
@@ -149,23 +147,23 @@ pub mod pallet {
     pub(super) type OwnershipAcceptance<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::CollectionId>;
 
-    // TODO: 处理NMap
-    // #[pallet::storage]
-    // /// The items held by any given account; set out this way so that items owned by a single
-    // /// account can be enumerated.
-    // pub(super) type Account<T: Config> = StorageNMap<
-    //     _,
-    //     (
-    //         NMapKey<Blake2_128Concat, T::AccountId>, // owner
-    //         NMapKey<Blake2_128Concat, T::CollectionId>,
-    //         NMapKey<Blake2_128Concat, T::ItemId>,
-    //     ),
-    //     (),
-    //     OptionQuery,
-    // >;
+    #[pallet::storage]
+    /// The items held by any given account; set out this way so that items owned by a single
+    /// account can be enumerated.
+    pub(super) type Account<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        (
+            T::AccountId, // owner
+            T::CollectionId,
+            T::ItemId,
+        ),
+        (),
+        OptionQuery,
+    >;
 
     #[pallet::storage]
-    #[pallet::getter(fn ClassAccount)]
+    #[pallet::getter(fn class_account)]
     /// The collections owned by any given account; set out this way so that collections owned by
     /// a single account can be enumerated.
     pub(super) type CollectionAccount<T: Config> = StorageDoubleMap<
@@ -179,7 +177,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    #[pallet::getter(fn Asset)]
+    #[pallet::getter(fn asset)]
     /// The items in existence and their ownership details.
     pub(super) type Item<T: Config> = StorageDoubleMap<
         _,
@@ -192,18 +190,18 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    #[pallet::getter(fn ClassMetadataOf)]
+    #[pallet::getter(fn class_metadata_of)]
     /// Metadata of a collection.
     pub(super) type CollectionMetadataOf<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         T::CollectionId,
-        CollectionMetadata<DepositBalanceOf<T>, T::StringLimit>,
+        CollectionMetadata<DepositBalanceOf<T>>,
         OptionQuery,
     >;
 
     #[pallet::storage]
-    #[pallet::getter(fn InstanceMetadataOf)]
+    #[pallet::getter(fn instance_metadata_of)]
     /// Metadata of an item.
     pub(super) type ItemMetadataOf<T: Config> = StorageDoubleMap<
         _,
@@ -211,23 +209,19 @@ pub mod pallet {
         T::CollectionId,
         Blake2_128Concat,
         T::ItemId,
-        ItemMetadata<DepositBalanceOf<T>, T::StringLimit>,
+        ItemMetadata<DepositBalanceOf<T>>,
         OptionQuery,
     >;
 
-    // TODO: 处理NMap
-    // #[pallet::storage]
-    // /// Attributes of a collection.
-    // pub(super) type Attribute<T: Config> = StorageNMap<
-    //     _,
-    //     (
-    //         NMapKey<Blake2_128Concat, T::CollectionId>,
-    //         NMapKey<Blake2_128Concat, Option<T::ItemId>>,
-    //         NMapKey<Blake2_128Concat, BoundedVec<u8, T::KeyLimit>>,
-    //     ),
-    //     (BoundedVec<u8, T::ValueLimit>, DepositBalanceOf<T>),
-    //     OptionQuery,
-    // >;
+    #[pallet::storage]
+    /// Attributes of a collection.
+    pub(super) type Attribute<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        (T::CollectionId, Option<T::ItemId>, Vec<u8>),
+        (Vec<u8>, DepositBalanceOf<T>),
+        OptionQuery,
+    >;
 
     #[pallet::storage]
     /// Price of an asset instance.
@@ -389,6 +383,9 @@ pub mod pallet {
         NotForSale,
         /// The provided bid is too low.
         BidTooLow,
+        // Used to replace ArithmeticError::Overflow
+        Overflow,
+        IncRefErrorNoProviders,
     }
 
     impl<T: Config> Pallet<T> {
@@ -430,7 +427,8 @@ pub mod pallet {
             collection: T::CollectionId,
             admin: AccountIdLookupOf<T>,
         ) -> DispatchResultWithPostInfo {
-            let owner = T::CreateOrigin::ensure_origin(origin, &collection)?;
+            let owner = ensure_signed(origin)?;
+            // let owner = T::CreateOrigin::ensure_origin(origin, &collection)?;
             let admin = T::Lookup::lookup(admin)?;
 
             Self::do_create_collection(
@@ -542,7 +540,7 @@ pub mod pallet {
 
             Self::do_mint(collection, item, owner, |collection_details| {
                 ensure!(collection_details.issuer == origin, Error::<T>::NoPermission);
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -575,7 +573,7 @@ pub mod pallet {
                 let is_permitted = collection_details.admin == origin || details.owner == origin;
                 ensure!(is_permitted, Error::<T>::NoPermission);
                 ensure!(check_owner.map_or(true, |o| o == details.owner), Error::<T>::WrongOwner);
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -611,7 +609,7 @@ pub mod pallet {
                     let approved = details.approved.take().map_or(false, |i| i == origin);
                     ensure!(approved, Error::<T>::NoPermission);
                 }
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -666,8 +664,10 @@ pub mod pallet {
                 } else {
                     continue
                 }
-                collection_details.total_deposit.saturating_accrue(deposit);
-                collection_details.total_deposit.saturating_reduce(old);
+                collection_details.total_deposit =
+                    collection_details.total_deposit.saturating_add(deposit);
+                collection_details.total_deposit =
+                    collection_details.total_deposit.saturating_sub(old);
                 details.deposit = deposit;
                 Item::<T>::insert(&collection, &item, &details);
                 successful.push(item);
@@ -679,7 +679,7 @@ pub mod pallet {
                 successful_items: successful,
             });
 
-            Ok(())
+            Ok(().into())
         }
 
         /// Disallow further unprivileged transfer of an item.
@@ -710,7 +710,7 @@ pub mod pallet {
             Item::<T>::insert(&collection, &item, &details);
 
             Self::deposit_event(Event::<T>::Frozen { collection, item });
-            Ok(())
+            Ok(().into())
         }
 
         /// Re-allow unprivileged transfer of an item.
@@ -741,7 +741,7 @@ pub mod pallet {
             Item::<T>::insert(&collection, &item, &details);
 
             Self::deposit_event(Event::<T>::Thawed { collection, item });
-            Ok(())
+            Ok(().into())
         }
 
         /// Disallow further unprivileged transfers for a whole collection.
@@ -767,7 +767,7 @@ pub mod pallet {
                 details.is_frozen = true;
 
                 Self::deposit_event(Event::<T>::CollectionFrozen { collection });
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -794,7 +794,7 @@ pub mod pallet {
                 details.is_frozen = false;
 
                 Self::deposit_event(Event::<T>::CollectionThawed { collection });
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -825,7 +825,7 @@ pub mod pallet {
                 let details = maybe_details.as_mut().ok_or(Error::<T>::UnknownCollection)?;
                 ensure!(origin == details.owner, Error::<T>::NoPermission);
                 if details.owner == owner {
-                    return Ok(())
+                    return Ok(().into())
                 }
 
                 // Move the deposit to the new owner.
@@ -841,7 +841,7 @@ pub mod pallet {
                 OwnershipAcceptance::<T>::remove(&owner);
 
                 Self::deposit_event(Event::OwnerChanged { collection, new_owner: owner });
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -879,7 +879,7 @@ pub mod pallet {
                 details.freezer = freezer.clone();
 
                 Self::deposit_event(Event::TeamChanged { collection, issuer, admin, freezer });
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -931,7 +931,7 @@ pub mod pallet {
                 delegate,
             });
 
-            Ok(())
+            Ok(().into())
         }
 
         /// Cancel the prior approval for the transfer of an item by a delegate.
@@ -983,7 +983,7 @@ pub mod pallet {
                 delegate: old,
             });
 
-            Ok(())
+            Ok(().into())
         }
 
         /// Alter the attributes of a given item.
@@ -1030,7 +1030,7 @@ pub mod pallet {
                 CollectionAccount::<T>::insert(&new_owner, &collection, ());
 
                 Self::deposit_event(Event::ItemStatusChanged { collection });
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -1077,17 +1077,20 @@ pub mod pallet {
 
             let attribute = Attribute::<T>::get((collection, maybe_item, &key));
             if attribute.is_none() {
-                collection_details.attributes.saturating_inc();
+                collection_details.attributes =
+                    collection_details.attributes.saturating_add(One::one());
             }
             let old_deposit = attribute.map_or(Zero::zero(), |m| m.1);
-            collection_details.total_deposit.saturating_reduce(old_deposit);
+            collection_details.total_deposit =
+                collection_details.total_deposit.saturating_sub(old_deposit);
             let mut deposit = Zero::zero();
             if !collection_details.free_holding && maybe_check_owner.is_some() {
                 deposit = T::DepositPerByte::get()
                     .saturating_mul(((key.len() + value.len()) as u32).into())
                     .saturating_add(T::AttributeDepositBase::get());
             }
-            collection_details.total_deposit.saturating_accrue(deposit);
+            collection_details.total_deposit =
+                collection_details.total_deposit.saturating_add(deposit);
             if deposit > old_deposit {
                 T::Currency::reserve(&collection_details.owner, deposit - old_deposit)?;
             } else if deposit < old_deposit {
@@ -1097,7 +1100,7 @@ pub mod pallet {
             Attribute::<T>::insert((&collection, maybe_item, &key), (&value, deposit));
             Collection::<T>::insert(collection, &collection_details);
             Self::deposit_event(Event::AttributeSet { collection, maybe_item, key, value });
-            Ok(())
+            Ok(().into())
         }
 
         /// Clear an attribute for a collection or item.
@@ -1138,13 +1141,15 @@ pub mod pallet {
             ensure!(!maybe_is_frozen.unwrap_or(false), Error::<T>::Frozen);
 
             if let Some((_, deposit)) = Attribute::<T>::take((collection, maybe_item, &key)) {
-                collection_details.attributes.saturating_dec();
-                collection_details.total_deposit.saturating_reduce(deposit);
+                collection_details.attributes =
+                    collection_details.attributes.saturating_sub(One::one());
+                collection_details.total_deposit =
+                    collection_details.total_deposit.saturating_sub(deposit);
                 T::Currency::unreserve(&collection_details.owner, deposit);
                 Collection::<T>::insert(collection, &collection_details);
                 Self::deposit_event(Event::AttributeCleared { collection, maybe_item, key });
             }
-            Ok(())
+            Ok(().into())
         }
 
         /// Set the metadata for an item.
@@ -1189,10 +1194,12 @@ pub mod pallet {
                 ensure!(maybe_check_owner.is_none() || !was_frozen, Error::<T>::Frozen);
 
                 if metadata.is_none() {
-                    collection_details.item_metadatas.saturating_inc();
+                    collection_details.item_metadatas =
+                        collection_details.item_metadatas.saturating_add(One::one());
                 }
                 let old_deposit = metadata.take().map_or(Zero::zero(), |m| m.deposit);
-                collection_details.total_deposit.saturating_reduce(old_deposit);
+                collection_details.total_deposit =
+                    collection_details.total_deposit.saturating_sub(old_deposit);
                 let mut deposit = Zero::zero();
                 if !collection_details.free_holding && maybe_check_owner.is_some() {
                     deposit = T::DepositPerByte::get()
@@ -1204,13 +1211,14 @@ pub mod pallet {
                 } else if deposit < old_deposit {
                     T::Currency::unreserve(&collection_details.owner, old_deposit - deposit);
                 }
-                collection_details.total_deposit.saturating_accrue(deposit);
+                collection_details.total_deposit =
+                    collection_details.total_deposit.saturating_add(deposit);
 
                 *metadata = Some(ItemMetadata { deposit, data: data.clone(), is_frozen });
 
                 Collection::<T>::insert(&collection, &collection_details);
                 Self::deposit_event(Event::MetadataSet { collection, item, data, is_frozen });
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -1248,15 +1256,17 @@ pub mod pallet {
                 ensure!(maybe_check_owner.is_none() || !was_frozen, Error::<T>::Frozen);
 
                 if metadata.is_some() {
-                    collection_details.item_metadatas.saturating_dec();
+                    collection_details.item_metadatas =
+                        collection_details.item_metadatas.saturating_sub(One::one());
                 }
                 let deposit = metadata.take().ok_or(Error::<T>::UnknownCollection)?.deposit;
                 T::Currency::unreserve(&collection_details.owner, deposit);
-                collection_details.total_deposit.saturating_reduce(deposit);
+                collection_details.total_deposit =
+                    collection_details.total_deposit.saturating_sub(deposit);
 
                 Collection::<T>::insert(&collection, &collection_details);
                 Self::deposit_event(Event::MetadataCleared { collection, item });
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -1299,7 +1309,7 @@ pub mod pallet {
                 ensure!(maybe_check_owner.is_none() || !was_frozen, Error::<T>::Frozen);
 
                 let old_deposit = metadata.take().map_or(Zero::zero(), |m| m.deposit);
-                details.total_deposit.saturating_reduce(old_deposit);
+                details.total_deposit = details.total_deposit.saturating_sub(old_deposit);
                 let mut deposit = Zero::zero();
                 if maybe_check_owner.is_some() && !details.free_holding {
                     deposit = T::DepositPerByte::get()
@@ -1311,14 +1321,14 @@ pub mod pallet {
                 } else if deposit < old_deposit {
                     T::Currency::unreserve(&details.owner, old_deposit - deposit);
                 }
-                details.total_deposit.saturating_accrue(deposit);
+                details.total_deposit = details.total_deposit.saturating_add(deposit);
 
                 Collection::<T>::insert(&collection, details);
 
                 *metadata = Some(CollectionMetadata { deposit, data: data.clone(), is_frozen });
 
                 Self::deposit_event(Event::CollectionMetadataSet { collection, data, is_frozen });
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -1355,7 +1365,7 @@ pub mod pallet {
                 let deposit = metadata.take().ok_or(Error::<T>::UnknownCollection)?.deposit;
                 T::Currency::unreserve(&details.owner, deposit);
                 Self::deposit_event(Event::CollectionMetadataCleared { collection });
-                Ok(())
+                Ok(().into())
             })
         }
 
@@ -1378,7 +1388,8 @@ pub mod pallet {
             let old = OwnershipAcceptance::<T>::get(&who);
             match (old.is_some(), maybe_collection.is_some()) {
                 (false, true) => {
-                    frame_system::Pallet::<T>::inc_consumers(&who)?;
+                    frame_system::Pallet::<T>::inc_consumers(&who)
+                        .map_err(|_| Error::<T>::IncRefErrorNoProviders)?;
                 },
                 (true, false) => {
                     frame_system::Pallet::<T>::dec_consumers(&who);
@@ -1391,7 +1402,7 @@ pub mod pallet {
                 OwnershipAcceptance::<T>::remove(&who);
             }
             Self::deposit_event(Event::OwnershipAcceptanceChanged { who, maybe_collection });
-            Ok(())
+            Ok(().into())
         }
 
         /// Set the maximum amount of items a collection could have.
@@ -1429,7 +1440,7 @@ pub mod pallet {
 
             CollectionMaxSupply::<T>::insert(&collection, max_supply);
             Self::deposit_event(Event::CollectionMaxSupplySet { collection, max_supply });
-            Ok(())
+            Ok(().into())
         }
 
         /// Set (or reset) the price for an item.
