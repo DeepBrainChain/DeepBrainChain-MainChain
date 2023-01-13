@@ -77,19 +77,7 @@ pub mod pallet {
 
         /// The origin which may forcibly create or destroy an item or otherwise alter privileged
         /// attributes.
-        /// TODO: 改为只允许Root
         type ForceOrigin: EnsureOrigin<Self::Origin>;
-
-        // /// Standard collection creation is only allowed if the origin attempting it and the
-        // /// collection are in this set.
-        // type CreateOrigin: EnsureOriginWithArg<
-        //     Self::RuntimeOrigin,
-        //     Self::CollectionId,
-        //     Success = Self::AccountId,
-        // >;
-
-        // /// Locker trait to enable Locking mechanism downstream.
-        // type Locker: Locker<Self::CollectionId, Self::ItemId>;
 
         /// The basic amount of funds that must be reserved for collection.
         #[pallet::constant]

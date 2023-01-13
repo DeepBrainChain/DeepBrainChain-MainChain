@@ -1036,8 +1036,8 @@ impl generic_func::Config for Runtime {
 }
 
 parameter_types! {
-    pub const CollectionDeposit: Balance = 100 * DOLLARS;
-    pub const ItemDeposit: Balance = 1 * DOLLARS;
+    pub const CollectionDeposit: Balance = 100 * DBCS;
+    pub const ItemDeposit: Balance = 1 * DBCS;
     pub const KeyLimit: u32 = 32;
     pub const ValueLimit: u32 = 256;
     pub const ApprovalsLimit: u32 = 20;

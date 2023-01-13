@@ -5,6 +5,7 @@ use frame_support::{
     ensure,
     pallet_prelude::DispatchResultWithPostInfo,
     traits::{ExistenceRequirement, Get},
+    IterableStorageMap,
 };
 use sp_runtime::{traits::One, DispatchError, DispatchResult};
 
@@ -105,9 +106,15 @@ impl<T: Config> Pallet<T> {
             #[allow(deprecated)]
             ItemPriceOf::<T>::remove_prefix(&collection);
             CollectionMetadataOf::<T>::remove(&collection);
-            // FIXME: 应该移除StorageNMap所有以collection开头的数据
             // #[allow(deprecated)]
             // Attribute::<T>::remove_prefix((&collection,), None);
+            let all_attribute_key = Self::get_all_attribute_key();
+            for a_attribute in all_attribute_key {
+                if a_attribute.0 == collection {
+                    Attribute::<T>::remove(a_attribute);
+                }
+            }
+
             CollectionAccount::<T>::remove(&collection_details.owner, &collection);
             T::Currency::unreserve(&collection_details.owner, collection_details.total_deposit);
             CollectionMaxSupply::<T>::remove(&collection);
@@ -257,5 +264,11 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(().into())
+    }
+
+    pub fn get_all_attribute_key() -> Vec<(T::CollectionId, Option<T::ItemId>, Vec<u8>)> {
+        <Attribute<T> as IterableStorageMap<(T::CollectionId, Option<T::ItemId>, Vec<u8>), _>>::iter()
+            .map(|((collection_id, item_id, num), _)| (collection_id, item_id, num))
+            .collect::<Vec<_>>()
     }
 }
