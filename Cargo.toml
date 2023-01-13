@@ -11,6 +11,7 @@ members = [
   'runtime',
   'testing',
   'pallets/dbc-staking',
+  'pallets/collective',
   'pallets/generic-func',
   'pallets/dbc-price-ocw',
   'pallets/online-profile',
