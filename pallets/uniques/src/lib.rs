@@ -45,21 +45,6 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
-    #[cfg(feature = "runtime-benchmarks")]
-    pub trait BenchmarkHelper<CollectionId, ItemId> {
-        fn collection(i: u16) -> CollectionId;
-        fn item(i: u16) -> ItemId;
-    }
-    #[cfg(feature = "runtime-benchmarks")]
-    impl<CollectionId: From<u16>, ItemId: From<u16>> BenchmarkHelper<CollectionId, ItemId> for () {
-        fn collection(i: u16) -> CollectionId {
-            i.into()
-        }
-        fn item(i: u16) -> ItemId {
-            i.into()
-        }
-    }
-
     #[pallet::config]
     /// The module configuration trait.
     pub trait Config: frame_system::Config {
@@ -111,10 +96,6 @@ pub mod pallet {
         /// The maximum length of an attribute value.
         #[pallet::constant]
         type ValueLimit: Get<u32>;
-
-        #[cfg(feature = "runtime-benchmarks")]
-        /// A set of helper functions for benchmarking.
-        type Helper: BenchmarkHelper<Self::CollectionId, Self::ItemId>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
