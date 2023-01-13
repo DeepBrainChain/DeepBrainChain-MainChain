@@ -198,12 +198,6 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
 
-[dependencies.pallet-collective]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
 [dependencies.pallet-contracts]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -343,6 +337,11 @@ version = '3.0.0'
 default-features = false
 package = 'dbc-staking'
 path = '../pallets/dbc-staking'
+
+[dependencies.pallet-collective]
+default-features = false
+package = 'pallet-collective'
+path = '../pallets/collective'
 
 [dependencies.generic-func]
 default-features = false

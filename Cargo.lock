@@ -862,7 +862,7 @@ dependencies = [
  "generic-func",
  "hex",
  "pallet-balances",
- "pallet-collective",
+ "pallet-collective 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
  "parity-scale-codec 2.0.1",
  "serde",
  "sp-core",
@@ -3547,7 +3547,7 @@ dependencies = [
  "online-committee",
  "online-profile",
  "pallet-balances",
- "pallet-collective",
+ "pallet-collective 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
  "pallet-identity",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
@@ -4173,7 +4173,7 @@ dependencies = [
  "pallet-babe",
  "pallet-balances",
  "pallet-bounties",
- "pallet-collective",
+ "pallet-collective 3.0.0",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
@@ -4401,7 +4401,7 @@ dependencies = [
  "once_cell",
  "online-profile",
  "pallet-balances",
- "pallet-collective",
+ "pallet-collective 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
  "pallet-identity",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
@@ -4634,6 +4634,21 @@ dependencies = [
  "pallet-treasury",
  "parity-scale-codec 2.0.1",
  "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-collective"
+version = "3.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec 2.0.1",
+ "serde",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -6321,7 +6336,7 @@ dependencies = [
  "online-committee",
  "online-profile",
  "pallet-balances",
- "pallet-collective",
+ "pallet-collective 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "pallet-treasury",
