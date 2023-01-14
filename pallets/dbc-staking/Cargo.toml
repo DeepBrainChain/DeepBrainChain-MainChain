@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 static_assertions = "1.1.0"
 serde = { version = "1.0.101", optional = true }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive"
+  "derive",
 ] }
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 dbc-support = { path = "../support", default-features = false }
@@ -106,6 +106,7 @@ version = '3.0.0'
 rand_chacha = { version = "0.2" }
 parking_lot = "0.11.1"
 hex = "0.4"
+pallet-staking-reward-curve = { version = "3.0.0", path = "./reward-curve" }
 
 [features]
 default = ["std"]
