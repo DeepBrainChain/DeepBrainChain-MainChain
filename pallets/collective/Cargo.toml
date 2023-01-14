@@ -14,7 +14,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 serde = { version = "1.0.101", optional = true }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
+	"derive",
+] }
 
 # Optional imports for benchmarking
 [dependencies.frame-benchmarking]
@@ -60,6 +62,9 @@ default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
 version = '3.0.0'
+
+[dev-dependencies]
+hex-literal = "0.3.1"
 
 [features]
 default = ["std"]
