@@ -19,7 +19,10 @@ pub enum VerifyErr {
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum OnlineErr {
+    ClaimRewardFailed,
     NotAllowedChangeMachineInfo,
+    NotMachineController,
+    CalcStakeAmountFailed,
     TelecomIsNull,
 }
 

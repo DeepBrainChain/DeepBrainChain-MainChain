@@ -1,5 +1,5 @@
-use crate::{BalanceOf, Config, Error, MachineId, MachineInfo, Pallet, PosGPUInfo};
-use dbc_support::verify_slash::OPSlashReason;
+use crate::{BalanceOf, Config, Error, MachineId, Pallet, PosGPUInfo};
+use dbc_support::{machine_info::MachineInfo, verify_slash::OPSlashReason};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure};
 use sp_core::crypto::Public;
 use sp_runtime::traits::Verify;

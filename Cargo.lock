@@ -1335,6 +1335,7 @@ dependencies = [
  "hex",
  "pallet-authorship",
  "pallet-session",
+ "pallet-staking-reward-curve 3.0.0",
  "pallet-timestamp",
  "parity-scale-codec",
  "parking_lot 0.11.1",
@@ -4172,7 +4173,7 @@ dependencies = [
  "pallet-session",
  "pallet-session-benchmarking",
  "pallet-society",
- "pallet-staking-reward-curve",
+ "pallet-staking-reward-curve 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-tips",
@@ -5039,6 +5040,17 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "static_assertions",
+]
+
+[[package]]
+name = "pallet-staking-reward-curve"
+version = "3.0.0"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "sp-runtime",
+ "syn",
 ]
 
 [[package]]

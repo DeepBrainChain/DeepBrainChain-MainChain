@@ -1292,6 +1292,8 @@ pub mod pallet {
         ServerRoomNotFound,
         NotAllowedChangeMachineInfo,
         NotMachineController,
+        CalaStakeAmountFailed,
+        ClaimRewardFailed,
         DuplicateHash,
         InfoNotFeatHash,
         NotInBookList,

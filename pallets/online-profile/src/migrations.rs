@@ -1,8 +1,7 @@
-use crate::{
-    BalanceOf, Config, MachineId, MachineInfo, MachinesInfo, PendingSlash, StorageVersion,
-};
+use crate::{BalanceOf, Config, MachineId, MachinesInfo, PendingSlash, StorageVersion};
 use codec::{Decode, Encode};
 use dbc_support::{
+    machine_info::MachineInfo,
     machine_type::{MachineInfoDetail, MachineStatus},
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
     EraIndex,

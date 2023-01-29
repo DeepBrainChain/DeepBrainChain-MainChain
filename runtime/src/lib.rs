@@ -1217,7 +1217,7 @@ impl_runtime_apis! {
             OnlineProfile::get_machine_list()
         }
 
-        fn get_machine_info(machine_id: MachineId) -> online_profile::MachineInfo<AccountId, BlockNumber, Balance> {
+        fn get_machine_info(machine_id: MachineId) -> dbc_support::machine_info::MachineInfo<AccountId, BlockNumber, Balance> {
             OnlineProfile::get_machine_info(machine_id)
         }
 

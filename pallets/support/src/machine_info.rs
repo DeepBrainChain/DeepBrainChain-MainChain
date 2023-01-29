@@ -1,7 +1,10 @@
 use crate::{
     custom_err::OnlineErr,
-    machine_type::{CommitteeUploadInfo, MachineInfoDetail, MachineStatus, StakerCustomizeInfo},
-    EraIndex,
+    machine_type::{
+        CommitteeUploadInfo, Latitude, Longitude, MachineInfoDetail, MachineStatus,
+        StakerCustomizeInfo,
+    },
+    EraIndex, MachineId,
 };
 use codec::{Decode, Encode};
 use frame_support::ensure;
@@ -55,6 +58,88 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
     pub reward_committee: Vec<AccountId>,
     /// When reward will be over for committees
     pub reward_deadline: EraIndex,
+}
+
+// For OnlineProfile
+impl<AccountId, BlockNumber, Balance> MachineInfo<AccountId, BlockNumber, Balance>
+where
+    AccountId: Ord + Default,
+    BlockNumber: Default,
+    Balance: Copy + Default + Saturating,
+{
+    pub fn new_bonding(
+        controller: AccountId,
+        stash: AccountId,
+        now: BlockNumber,
+        init_stake_per_gpu: Balance,
+    ) -> Self {
+        Self {
+            controller,
+            machine_stash: stash,
+            bonding_height: now,
+            init_stake_per_gpu,
+            stake_amount: init_stake_per_gpu,
+            machine_status: MachineStatus::AddingCustomizeInfo,
+            ..Default::default()
+        }
+    }
+
+    pub fn can_add_server_room(&self, who: &AccountId) -> Result<(), OnlineErr> {
+        // 检查当前机器状态是否允许
+        if !matches!(
+            self.machine_status,
+            MachineStatus::AddingCustomizeInfo |
+                MachineStatus::DistributingOrder |
+                MachineStatus::CommitteeVerifying |
+                MachineStatus::CommitteeRefused(..) |
+                MachineStatus::WaitingFulfill |
+                MachineStatus::StakerReportOffline(..)
+        ) {
+            return Err(OnlineErr::NotAllowedChangeMachineInfo)
+        }
+
+        if &self.controller != who {
+            return Err(OnlineErr::NotMachineController)
+        }
+        Ok(())
+    }
+
+    pub fn add_server_room_info(&mut self, server_room_info: StakerCustomizeInfo) {
+        self.machine_info_detail.staker_customize_info = server_room_info;
+        if matches!(self.machine_status, MachineStatus::AddingCustomizeInfo) {
+            self.machine_status = MachineStatus::DistributingOrder;
+        }
+    }
+
+    pub fn update_rent_fee(&mut self, amount: Balance, is_burn: bool) {
+        if is_burn {
+            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
+        } else {
+            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
+        }
+    }
+
+    /// Return longitude of machine
+    pub fn longitude(&self) -> &Longitude {
+        &self.machine_info_detail.staker_customize_info.longitude
+    }
+
+    /// Return latitude of machine
+    pub fn latitude(&self) -> &Latitude {
+        &self.machine_info_detail.staker_customize_info.latitude
+    }
+
+    pub fn machine_id(&self) -> MachineId {
+        self.machine_info_detail.committee_upload_info.machine_id.clone()
+    }
+
+    pub fn is_controller(&self, who: AccountId) -> bool {
+        self.controller == who
+    }
+
+    pub fn is_online(&self) -> bool {
+        matches!(self.machine_status, MachineStatus::Online)
+    }
 }
 
 // For Terminating Renting

@@ -2,6 +2,7 @@ use super::super::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList, *};
 use committee::CommitteeList;
 use dbc_support::{
     live_machine::LiveMachine,
+    machine_info::MachineInfo,
     machine_type::{
         CommitteeUploadInfo, Latitude, Longitude, MachineInfoDetail, MachineStatus,
         StakerCustomizeInfo,
@@ -52,7 +53,7 @@ fn machine_online_works() {
             hex::decode(sig).unwrap()
         ));
 
-        let mut machine_info = online_profile::MachineInfo {
+        let mut machine_info = MachineInfo {
             controller,
             machine_stash: stash,
             bonding_height: 3,
@@ -298,7 +299,7 @@ fn machine_online_works() {
             LiveMachine { online_machine: vec!(machine_id.clone()), ..Default::default() }
         );
 
-        let mut machine_info = online_profile::MachineInfo {
+        let mut machine_info = MachineInfo {
             machine_status: MachineStatus::Online,
             last_machine_restake: 6,
             online_height: 6,
@@ -709,7 +710,7 @@ fn machine_online_works() {
 
         committee_upload_info.rand_str = vec![];
         machine_info.machine_info_detail.committee_upload_info = committee_upload_info;
-        let machine_info = online_profile::MachineInfo {
+        let machine_info = MachineInfo {
             last_machine_restake: 8644,
             last_online_height: 8644,
             stake_amount: 800000 * ONE_DBC,
@@ -974,7 +975,7 @@ fn committee_not_equal_then_redistribute_works() {
             hex::decode(sig).unwrap()
         ));
 
-        let mut machine_info = online_profile::MachineInfo {
+        let mut machine_info = MachineInfo {
             controller,
             machine_stash: stash,
             bonding_height: 3,
@@ -1219,7 +1220,7 @@ fn two_submit_hash_reach_submit_raw_works() {
             hex::decode(sig).unwrap()
         ));
 
-        let mut machine_info = online_profile::MachineInfo {
+        let mut machine_info = MachineInfo {
             controller,
             machine_stash: stash,
             bonding_height: 3,

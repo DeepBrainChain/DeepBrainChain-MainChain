@@ -16,30 +16,13 @@ pub const REBOND_FREQUENCY: u32 = 365 * 2880;
 pub const MAX_SLASH_THRESHOLD: u32 = 2880 * 5;
 // PendingSlash will be exec in two days
 
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum CustomErr {
-    ClaimRewardFailed,
-    NotAllowedChangeMachineInfo,
-    NotMachineController,
-    CalcStakeAmountFailed,
-}
-
-impl<T: Config> From<CustomErr> for Error<T> {
-    fn from(err: CustomErr) -> Self {
-        match err {
-            CustomErr::ClaimRewardFailed => Error::ClaimRewardFailed,
-            CustomErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
-            CustomErr::NotMachineController => Error::NotMachineController,
-            CustomErr::CalcStakeAmountFailed => Error::CalcStakeAmountFailed,
-        }
-    }
-}
-
 use dbc_support::custom_err::OnlineErr;
 impl<T: Config> From<OnlineErr> for Error<T> {
     fn from(err: OnlineErr) -> Self {
         match err {
+            OnlineErr::ClaimRewardFailed => Error::ClaimRewardFailed,
+            OnlineErr::NotMachineController => Error::NotMachineController,
+            OnlineErr::CalcStakeAmountFailed => Error::CalcStakeAmountFailed,
             OnlineErr::TelecomIsNull => Error::TelecomIsNull,
             OnlineErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
         }
