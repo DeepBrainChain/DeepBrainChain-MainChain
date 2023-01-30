@@ -342,12 +342,12 @@ pub(crate) const LOG_TARGET: &'static str = "staking";
 // syntactic sugar for logging.
 #[macro_export]
 macro_rules! log {
-	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		frame_support::debug::$level!(
-			target: crate::LOG_TARGET,
-			$patter $(, $values)*
-		)
-	};
+    ($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+        frame_support::debug::$level!(
+            target: crate::LOG_TARGET,
+            $patter $(, $values)*
+        )
+    };
 }
 
 /// Data type used to index nominators in the compact type

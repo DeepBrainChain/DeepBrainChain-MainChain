@@ -851,6 +851,48 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // NOTE: confirm_machine, machine_offline, terminate_rent 需要改变 machine_info.renters
+        /// 用户终止租用
+        #[pallet::weight(10000)]
+        pub fn terminate_rent(
+            origin: OriginFor<T>,
+            rent_id: RentOrderId,
+        ) -> DispatchResultWithPostInfo {
+            let renter = ensure_signed(origin)?;
+            let rent_order = Self::rent_order(rent_id);
+            let now = <frame_system::Module<T>>::block_number();
+
+            ensure!(renter == rent_order.renter, Error::<T>::NotOrderRenter);
+
+            let rent_duration = now.saturating_sub(rent_order.rent_start);
+            let rent_fee = Perbill::from_rational_approximation(
+                rent_duration,
+                rent_order.rent_end.saturating_sub(rent_order.rent_start),
+            ) * rent_order.stake_amount;
+
+            // 修改machine_rent_order， 移除机器的GPU使用记录，并清除GPU使用记录
+            let mut machine_rent_order = Self::machine_rent_order(&rent_order.machine_id);
+            machine_rent_order.clean_expired_order(rent_id, rent_order.gpu_index.clone());
+
+            // 遍历订单，检查机器如果被同一人租用多次，不能移除该租用人
+            for rent_id in &machine_rent_order.rent_order {
+                let rent_order = Self::rent_order(rent_id);
+                if rent_order.renter == renter {
+                    break
+                }
+                MachinesInfo::<T>::mutate(&rent_order.machine_id, |machine_info| {
+                    ItemList::rm_item(&mut machine_info.renters, &renter)
+                });
+            }
+            MachineRentOrder::<T>::insert(&rent_order.machine_id, machine_rent_order);
+
+            // NOTE: Here will change machine_info.
+            Self::pay_rent_fee(&rent_order, rent_fee, rent_order.machine_id.clone())?;
+            RentOrder::<T>::remove(rent_id);
+
+            Ok(().into())
+        }
+
         #[pallet::weight(10000)]
         pub fn machine_offline(
             origin: OriginFor<T>,
@@ -867,6 +909,7 @@ pub mod pallet {
             let machine_rent_order = Self::machine_rent_order(&machine_id);
 
             machine_info.machine_offline(now);
+            machine_info.renters = vec![];
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             for rent_id in machine_rent_order.rent_order {
@@ -994,7 +1037,8 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 如果机器是在线状态，但是无法使用，可以举报。
+        // TODO: 改成只允许配置不一致的举报.
+        // // 如果机器是在线状态，但是无法使用，可以举报。
         // 举报成功，100％没收质押币。50%举报人, 30%验证人, 20％国库
         #[pallet::weight(10000)]
         pub fn report_machine_fault(
@@ -1309,6 +1353,7 @@ pub mod pallet {
         Overflow,
         InsufficientValue,
         NoOrderExist,
+        NotOrderRenter,
         ExpiredConfirm,
         StatusNotAllowed,
         UnlockToPayFeeFailed,
@@ -2059,10 +2104,9 @@ impl<T: Config> Pallet<T> {
         } else {
             PendingConfirming::<T>::insert(pending_confirming_deadline, pending_confirming);
         }
-
-        let mut machine_rent_order = Self::machine_rent_order(&rent_order.machine_id);
-        machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index);
-        MachineRentOrder::<T>::insert(&rent_order.machine_id, machine_rent_order);
+        MachineRentOrder::<T>::mutate(&rent_order.machine_id, |machine_rent_order| {
+            machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index.clone());
+        });
 
         let mut rent_order_list = Self::user_rented(who);
         ItemList::rm_item(&mut rent_order_list, &rent_order_id);
