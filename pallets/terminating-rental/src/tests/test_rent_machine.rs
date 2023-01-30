@@ -368,7 +368,7 @@ fn machine_online_inaccessible_slash_works() {
                     reporter: renter1,
                     report_time: 5,
                     reporter_stake: 1000 * ONE_DBC,
-                    machine_fault_type: MachineFaultType::OnlineRentFailed(
+                    machine_fault_type: MachineFaultType::RentedHardwareCounterfeit(
                         Default::default(),
                         Default::default()
                     ),
@@ -395,7 +395,7 @@ fn machine_online_inaccessible_slash_works() {
                     verifying_committee: Some(committee1),
                     booked_committee: vec![committee1],
                     confirm_start: 365,
-                    machine_fault_type: MachineFaultType::OnlineRentFailed(
+                    machine_fault_type: MachineFaultType::RentedHardwareCounterfeit(
                         Default::default(),
                         Default::default()
                     ),
@@ -439,7 +439,7 @@ fn machine_online_inaccessible_slash_works() {
                     booked_committee: vec![committee1],
                     get_encrypted_info_committee: vec![committee1],
                     confirm_start: 365,
-                    machine_fault_type: MachineFaultType::OnlineRentFailed(
+                    machine_fault_type: MachineFaultType::RentedHardwareCounterfeit(
                         Default::default(),
                         Default::default()
                     ),

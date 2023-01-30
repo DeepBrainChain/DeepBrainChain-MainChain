@@ -1037,14 +1037,13 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: 改成只允许配置不一致的举报.
-        // // 如果机器是在线状态，但是无法使用，可以举报。
+        // 如果租用成功发现硬件造假，可以举报。
         // 举报成功，100％没收质押币。50%举报人, 30%验证人, 20％国库
         #[pallet::weight(10000)]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
-            // NOTE: Here only one fault type (OnlineRenetFailed) can be report, so we only need
-            // machine_id report_reason: MachineFaultType,
+            // NOTE: Here only one fault type (RentedHardwareCounterfeit) can be report, so we only
+            // need machine_id report_reason: MachineFaultType,
             report_hash: ReportHash,
             box_pubkey: BoxPubkey,
         ) -> DispatchResultWithPostInfo {
@@ -1057,8 +1056,7 @@ pub mod pallet {
 
             Self::do_report_machine_fault(
                 reporter.clone(),
-                // report_reason,
-                MachineFaultType::OnlineRentFailed(report_hash, box_pubkey),
+                MachineFaultType::RentedHardwareCounterfeit(report_hash, box_pubkey),
                 None,
                 &mut live_report,
                 &mut reporter_report,
