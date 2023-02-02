@@ -102,6 +102,7 @@ std = [
   'rent-machine-runtime-api/std',
   'terminating-rental/std',
   'terminating-rental-runtime-api/std',
+  'council-reward/std',
 ]
 with-tracing = ['frame-executive/with-tracing']
 
@@ -406,6 +407,11 @@ path = '../pallets/rent-machine'
 default-features = false
 package = 'terminating-rental'
 path = '../pallets/terminating-rental'
+
+[dependencies.council-reward]
+default-features = false
+package = 'council-reward'
+path = '../pallets/council-reward'
 
 [dependencies.rent-machine-runtime-api]
 default-features = false

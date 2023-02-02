@@ -923,6 +923,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 
 [[package]]
+name = "council-reward"
+version = "0.1.0"
+dependencies = [
+ "dbc-support",
+ "frame-support",
+ "frame-system",
+ "pallet-collective",
+ "pallet-elections-phragmen",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "cpp_demangle"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4127,6 +4142,7 @@ version = "2.0.1"
 dependencies = [
  "committee",
  "committee-runtime-api",
+ "council-reward",
  "dbc-price-ocw",
  "dbc-staking",
  "dbc-support",

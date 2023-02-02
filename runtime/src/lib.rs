@@ -1095,6 +1095,12 @@ impl terminating_rental::Config for Runtime {
     type SlashAndReward = GenericFunc;
 }
 
+impl council_reward::Config for Runtime {
+    type Event = Event;
+    type DbcPrice = DBCPriceOCW;
+    type Currency = Balances;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1146,6 +1152,7 @@ construct_runtime!(
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
         TerminatingRental: terminating_rental::{Module, Storage, Call, Event<T>},
+        CouncilReward: council_reward::{Module, Call, Storage, Event<T>},
     }
 );
 
