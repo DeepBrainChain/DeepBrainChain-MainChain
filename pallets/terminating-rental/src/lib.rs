@@ -623,6 +623,11 @@ pub mod pallet {
             let machine_info = Self::machines_info(&machine_id);
             let machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
             let gpu_num = machine_info.gpu_num();
+
+            if gpu_num == 0 || duration == Zero::zero() {
+                return Ok(().into())
+            }
+
             // 检查还有空闲的GPU
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
             // 只允许半小时整数倍的租用

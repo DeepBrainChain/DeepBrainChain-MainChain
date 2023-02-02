@@ -294,6 +294,10 @@ impl<T: Config> Pallet<T> {
         let machine_rented_gpu = <online_profile::Module<T>>::machine_rented_gpu(&machine_id);
         let gpu_num = machine_info.gpu_num();
 
+        if gpu_num == 0 || duration == Zero::zero() {
+            return Ok(().into())
+        }
+
         // 检查还有空闲的GPU
         ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
