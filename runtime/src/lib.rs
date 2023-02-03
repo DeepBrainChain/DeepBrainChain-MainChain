@@ -1099,6 +1099,7 @@ impl council_reward::Config for Runtime {
     type Event = Event;
     type DbcPrice = DBCPriceOCW;
     type Currency = Balances;
+    type TermDuration = TermDuration;
 }
 
 construct_runtime!(

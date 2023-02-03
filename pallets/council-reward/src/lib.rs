@@ -33,6 +33,11 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type DbcPrice: DbcPrice<Balance = BalanceOf<Self>>;
         type Currency: Currency<Self::AccountId>;
+
+        /// How long each seat is kept. This defines the next block number at which an election
+        /// round will happen. If set to zero, no elections are ever triggered and the module will
+        /// be in passive mode.
+        type TermDuration: Get<Self::BlockNumber>;
     }
 
     #[pallet::pallet]
@@ -41,6 +46,14 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_finalize(n: T::BlockNumber) {
+            let term_duration = <T as pallet::Config>::TermDuration::get();
+            // NOTE: 议会当选后顺延15天发放奖励
+            if !term_duration.is_zero() && (n % term_duration - 43200u32.into()).is_zero() {
+                Self::reward_council();
+            }
+        }
+
         // 当升级时设置国库地址
         fn on_runtime_upgrade() -> Weight {
             Treasury::<T>::mutate(|treasury| {
