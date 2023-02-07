@@ -39,10 +39,7 @@ impl<T: Config> Pallet<T> {
             // Change stake amount
             // NOTE: should not change slash_info.slash_amount, because it will be done in
             // check_and_exec_pending_slash
-            T::OCOperations::oc_exec_slash(
-                slash_info.machine_stash.clone(),
-                review_info.staked_amount,
-            )?;
+            T::OCOps::exec_slash(slash_info.machine_stash.clone(), review_info.staked_amount)?;
 
             <T as Config>::SlashAndReward::slash_and_reward(
                 vec![slash_info.machine_stash],
@@ -91,10 +88,7 @@ impl<T: Config> Pallet<T> {
 
         // stash is slashed
         if !slash_info.stash_slash_amount.is_zero() {
-            T::OCOperations::oc_exec_slash(
-                slash_info.machine_stash.clone(),
-                slash_info.stash_slash_amount,
-            )?;
+            T::OCOps::exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount)?;
 
             <T as Config>::SlashAndReward::slash_and_reward(
                 vec![slash_info.machine_stash.clone()],

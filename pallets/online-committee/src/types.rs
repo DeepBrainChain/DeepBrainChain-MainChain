@@ -6,10 +6,6 @@ use sp_std::vec::Vec;
 
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;
-/// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_RAW_START: u32 = 4320;
-/// Summary committee's opinion after 48 hours
-pub const SUBMIT_RAW_END: u32 = 5760;
 
 impl<T: Config> From<VerifyErr> for Error<T> {
     fn from(err: VerifyErr) -> Self {

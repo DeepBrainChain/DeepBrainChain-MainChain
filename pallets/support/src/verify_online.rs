@@ -9,6 +9,8 @@ use sp_runtime::{
 };
 use sp_std::{ops, vec::Vec};
 
+/// After order distribution 36 hours, allow committee submit raw info
+pub const SUBMIT_RAW_START: u32 = 4320;
 /// Summary committee's opinion after 48 hours
 pub const SUBMIT_RAW_END: u32 = 5760;
 /// After order distribution 36 hours, allow committee submit raw info
@@ -46,14 +48,6 @@ impl Default for VerifyResult {
 }
 
 impl<AccountId: Clone + Ord> Summary<AccountId> {
-    pub fn get_committee_group(self) -> (Vec<AccountId>, Vec<AccountId>, Vec<AccountId>) {
-        let unruly_committee = self.unruly.clone();
-        let reward_committee = self.valid_vote.clone();
-        let inconsistent_committee = self.invalid_vote.clone();
-
-        (inconsistent_committee, unruly_committee, reward_committee)
-    }
-
     pub fn into_book_result(&self) -> OCBookResultType {
         match self.verify_result {
             VerifyResult::Confirmed => OCBookResultType::OnlineSucceed,
@@ -240,6 +234,11 @@ where
         }
 
         Ok(())
+    }
+
+    pub fn can_submit_raw(&self, now: BlockNumber) -> bool {
+        matches!(self.status, OCVerifyStatus::SubmittingHash) &&
+            now >= self.book_time + SUBMIT_RAW_START.into()
     }
 
     pub fn submit_raw(&mut self, time: BlockNumber, committee: AccountId) -> Result<(), VerifyErr> {

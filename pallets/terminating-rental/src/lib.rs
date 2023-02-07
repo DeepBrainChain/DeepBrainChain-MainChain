@@ -1592,7 +1592,11 @@ impl<T: Config> Pallet<T> {
         }
 
         let summary_result = Self::summary_confirmation(&machine_id);
-        let (inconsistent, unruly, reward) = summary_result.clone().get_committee_group();
+        let (inconsistent, unruly, reward) = (
+            summary_result.invalid_vote.clone(),
+            summary_result.unruly.clone(),
+            summary_result.valid_vote.clone(),
+        );
 
         let mut stash_slash_info = None;
 

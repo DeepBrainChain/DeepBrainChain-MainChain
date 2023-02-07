@@ -180,7 +180,7 @@ impl dbc_price_ocw::Config for TestRuntime {
 impl online_committee::Config for TestRuntime {
     type Event = Event;
     type Currency = Balances;
-    type OCOperations = OnlineProfile;
+    type OCOps = OnlineProfile;
     type ManageCommittee = Committee;
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;

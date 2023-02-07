@@ -27,7 +27,7 @@ impl<T: Config> OCOps for Pallet<T> {
     // 委员会订阅了一个机器ID
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
     // - Writes: LiveMachine, MachinesInfo
-    fn oc_booked_machine(id: MachineId) {
+    fn booked_machine(id: MachineId) {
         LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.confirmed_machine, &id);
             ItemList::add_item(&mut live_machines.booked_machine, id.clone());
@@ -38,7 +38,7 @@ impl<T: Config> OCOps for Pallet<T> {
     }
 
     // 由于委员会没有达成一致，需要重新返回到bonding_machine
-    fn oc_revert_booked_machine(id: MachineId) {
+    fn revert_booked_machine(id: MachineId) {
         LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.booked_machine, &id);
             ItemList::add_item(&mut live_machines.confirmed_machine, id.clone());
@@ -50,7 +50,7 @@ impl<T: Config> OCOps for Pallet<T> {
 
     // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
     // 机器被成功添加, 则添加上可以获取收益的委员会
-    fn oc_confirm_machine(
+    fn confirm_machine(
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
@@ -168,7 +168,7 @@ impl<T: Config> OCOps for Pallet<T> {
 
     // When committees reach an agreement to refuse machine, change machine status and record refuse
     // time
-    fn oc_refuse_machine(machine_id: MachineId) -> Option<(T::AccountId, BalanceOf<T>)> {
+    fn refuse_machine(machine_id: MachineId) -> Option<(T::AccountId, BalanceOf<T>)> {
         // Refuse controller bond machine, and clean storage
         let machine_info = Self::machines_info(&machine_id);
 
@@ -218,7 +218,7 @@ impl<T: Config> OCOps for Pallet<T> {
 
     // stake some balance when apply for slash review
     // Should stake some balance when apply for slash review
-    fn oc_change_staked_balance(
+    fn change_staked_balance(
         stash: T::AccountId,
         amount: BalanceOf<T>,
         is_add: bool,
@@ -227,7 +227,7 @@ impl<T: Config> OCOps for Pallet<T> {
     }
 
     // just change stash_stake & sys_info, slash and reward should be execed in oc module
-    fn oc_exec_slash(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+    fn exec_slash(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let mut stash_stake = Self::stash_stake(&stash);
         let mut sys_info = Self::sys_info();
 

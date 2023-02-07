@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // just change stash_stake & sys_info, slash and reward should be execed in oc module
-    fn oc_exec_slash(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+    fn exec_slash(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
         let mut stash_stake = Self::stash_stake(&stash);
 
         stash_stake = stash_stake.checked_sub(&amount).ok_or(())?;
@@ -71,7 +71,7 @@ impl<T: Config> Pallet<T> {
 
         if !slash_info.stash_slash_amount.is_zero() {
             // stash is slashed
-            Self::oc_exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount)?;
+            Self::exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount)?;
 
             <T as Config>::SlashAndReward::slash_and_reward(
                 vec![slash_info.machine_stash.clone()],
