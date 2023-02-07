@@ -36,9 +36,9 @@ use dbc_support::{
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
     verify_online::{
-        MachineConfirmStatus, OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps,
-        OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus, OCVerifyStatus,
-        StashMachine, Summary, VerifySequence,
+        OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps, OCMachineCommitteeList,
+        OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, StashMachine, Summary,
+        VerifyResult, VerifySequence,
     },
     BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId, TWO_DAY,
 };
@@ -1596,24 +1596,27 @@ impl<T: Config> Pallet<T> {
 
         let mut stash_slash_info = None;
 
-        match summary_result.clone() {
-            MachineConfirmStatus::Confirmed(summary) => {
-                if Self::confirm_machine(summary.valid_support.clone(), summary.info.unwrap())
-                    .is_ok()
+        match summary_result.verify_result {
+            VerifyResult::Confirmed => {
+                if Self::confirm_machine(
+                    summary_result.valid_vote.clone(),
+                    summary_result.info.clone().unwrap(),
+                )
+                .is_ok()
                 {
                     // 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
-                    summary.valid_support.iter().for_each(|committee| {
+                    summary_result.valid_vote.iter().for_each(|committee| {
                         CommitteeMachine::<T>::mutate(&committee, |machines| {
                             ItemList::add_item(&mut machines.online_machine, machine_id.clone());
                         });
                     });
                 }
             },
-            MachineConfirmStatus::Refuse(_summary) => {
+            VerifyResult::Refused => {
                 // should cancel machine_stash slash when slashed committee apply review
                 stash_slash_info = Self::refuse_machine(machine_id.clone());
             },
-            MachineConfirmStatus::NoConsensus(_summary) => {
+            VerifyResult::NoConsensus => {
                 let _ = Self::revert_book(machine_id.clone());
                 Self::revert_booked_machine(machine_id.clone());
             },
@@ -1678,7 +1681,7 @@ impl<T: Config> Pallet<T> {
     // 2. 支持上线: 处理办法：扣除所有反对上线，支持上线但提交无效信息的委员会的质押。
     // 3. 反对上线: 处理办法：反对的委员会平分支持的委员会的质押。扣5%矿工质押，
     // 允许矿工再次质押而上线。
-    pub fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
+    pub fn summary_confirmation(machine_id: &MachineId) -> Summary<T::AccountId> {
         let machine_committee = Self::machine_committee(machine_id);
 
         let mut summary = Summary::default();
@@ -1692,7 +1695,8 @@ impl<T: Config> Pallet<T> {
 
         // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
         if machine_committee.confirmed_committee.is_empty() {
-            return MachineConfirmStatus::NoConsensus(summary)
+            summary.verify_result = VerifyResult::NoConsensus;
+            return summary
         }
 
         // 记录上反对上线的委员会
@@ -1700,7 +1704,7 @@ impl<T: Config> Pallet<T> {
             let submit_machine_info =
                 Self::committee_online_ops(a_committee.clone(), machine_id).machine_info;
             if !submit_machine_info.is_support {
-                ItemList::add_item(&mut summary.against, a_committee);
+                ItemList::add_item(&mut summary.valid_vote, a_committee);
             } else {
                 match uniq_machine_info.iter().position(|r| r == &submit_machine_info) {
                     None => {
@@ -1720,11 +1724,13 @@ impl<T: Config> Pallet<T> {
         let max_support = support_committee_num.clone().into_iter().max();
         if max_support.is_none() {
             // 如果没有支持者，且有反对者，则拒绝接入。
-            if !summary.against.is_empty() {
-                return MachineConfirmStatus::Refuse(summary)
+            if !summary.valid_vote.is_empty() {
+                summary.verify_result = VerifyResult::Refused;
+                return summary
             }
             // 反对者支持者都为0
-            return MachineConfirmStatus::NoConsensus(summary)
+            summary.verify_result = VerifyResult::NoConsensus;
+            return summary
         }
 
         let max_support_num = max_support.unwrap();
@@ -1744,44 +1750,50 @@ impl<T: Config> Pallet<T> {
             for (index, committees) in committee_for_machine_info.iter().enumerate() {
                 if index != committee_group_index {
                     for a_committee in committees {
-                        ItemList::add_item(&mut summary.invalid_support, a_committee.clone());
+                        ItemList::add_item(&mut summary.invalid_vote, a_committee.clone());
                     }
                 }
             }
 
-            if summary.against.len() > max_support_num {
+            if summary.valid_vote.len() > max_support_num {
                 // 反对多于支持
                 for a_committee in committee_for_machine_info[committee_group_index].clone() {
-                    ItemList::add_item(&mut summary.invalid_support, a_committee);
+                    ItemList::add_item(&mut summary.invalid_vote, a_committee);
                 }
-                return MachineConfirmStatus::Refuse(summary)
-            } else if summary.against.len() == max_support_num {
+                summary.verify_result = VerifyResult::Refused;
+                return summary
+            } else if summary.valid_vote.len() == max_support_num {
                 // 反对等于支持
                 for a_committee in committee_for_machine_info[committee_group_index].clone() {
-                    ItemList::add_item(&mut summary.invalid_support, a_committee);
+                    ItemList::add_item(&mut summary.invalid_vote, a_committee);
                 }
-                summary.invalid_support = committee_for_machine_info[committee_group_index].clone();
-                return MachineConfirmStatus::NoConsensus(summary)
+                summary.invalid_vote = committee_for_machine_info[committee_group_index].clone();
+                summary.verify_result = VerifyResult::NoConsensus;
+                return summary
             } else {
                 // 反对小于支持
                 // 记录上所有的有效支持
-                summary.valid_support = committee_for_machine_info[committee_group_index].clone();
+                summary.valid_vote = committee_for_machine_info[committee_group_index].clone();
                 summary.info = Some(uniq_machine_info[committee_group_index].clone());
-                return MachineConfirmStatus::Confirmed(summary)
+                summary.verify_result = VerifyResult::Confirmed;
+                return summary
             }
         } else {
             // 如果多于两组是Max个委员会支, 则所有的支持都是无效的支持
             for committees in &committee_for_machine_info {
                 for a_committee in committees {
-                    ItemList::add_item(&mut summary.invalid_support, a_committee.clone());
+                    ItemList::add_item(&mut summary.invalid_vote, a_committee.clone());
                 }
             }
             // Now will be Refuse or NoConsensus
-            if summary.against.len() > max_support_num {
-                return MachineConfirmStatus::Refuse(summary)
+            if summary.valid_vote.len() > max_support_num {
+                summary.verify_result = VerifyResult::Refused;
+                return summary
+                // return MachineConfirmStatus::Refused(summary)
             } else {
                 // against <= max_support 且 max_support_group > 1，且反对的不占多数
-                return MachineConfirmStatus::NoConsensus(summary)
+                summary.verify_result = VerifyResult::NoConsensus;
+                return summary
             }
         }
     }

@@ -35,7 +35,7 @@ impl Default for Latitude {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default, PartialOrd, Ord)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct CommitteeUploadInfo {
     #[cfg_attr(feature = "std", serde(with = "serde_text"))]

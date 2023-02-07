@@ -129,15 +129,13 @@ fn test_summary_confirmation1() {
         <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
 
         let summary = Summary {
-            valid_support: vec![*committee3, *committee2, *committee1],
+            valid_vote: vec![*committee3, *committee2, *committee1],
             info: Some(committee_ops.machine_info),
+            verify_result: VerifyResult::Confirmed,
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(summary)
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
     })
 }
 
@@ -202,16 +200,14 @@ fn test_summary_confirmation2() {
         <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
 
         let summary = Summary {
-            valid_support: vec![*committee2, *committee1],
-            invalid_support: vec![*committee3],
+            valid_vote: vec![*committee2, *committee1],
+            invalid_vote: vec![*committee3],
             info: Some(committee_ops.machine_info),
+            verify_result: VerifyResult::Confirmed,
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(summary)
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
     })
 }
 
@@ -279,16 +275,14 @@ fn test_summary_confirmation3() {
         CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
 
         let summary = Summary {
-            valid_support: vec![*committee2, *committee1],
-            against: vec![*committee3],
+            valid_vote: vec![*committee2, *committee1],
+            invalid_vote: vec![*committee3],
             info: Some(committee_ops.machine_info),
+            verify_result: VerifyResult::Confirmed,
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(summary)
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
     })
 }
 
@@ -355,11 +349,12 @@ fn test_summary_confirmation4() {
         CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
 
         assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::NoConsensus(Summary {
-                invalid_support: vec![*committee3, *committee2, *committee1],
+            OnlineCommittee::summary_confirmation2(&machine_id),
+            Summary {
+                invalid_vote: vec![*committee3, *committee2, *committee1],
+                verify_result: VerifyResult::NoConsensus,
                 ..Default::default()
-            }),
+            },
         );
     })
 }
@@ -433,15 +428,12 @@ fn test_summary_confirmation5() {
         CommitteeOps::<TestRuntime>::insert(&*committee3, &*machine_id, committee3_ops);
 
         let summary = Summary {
-            invalid_support: vec![*committee2, *committee1],
-            against: vec![*committee3],
+            invalid_vote: vec![*committee3, *committee2, *committee1],
+            verify_result: VerifyResult::NoConsensus,
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::NoConsensus(summary)
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
     })
 }
 
@@ -515,15 +507,13 @@ fn test_summary_confirmation6() {
         CommitteeOps::<TestRuntime>::insert(&*committee3, &*machine_id, committee3_ops);
 
         let summary = Summary {
-            invalid_support: vec![*committee2],
-            against: vec![*committee3, *committee1],
+            valid_vote: vec![*committee3, *committee1],
+            invalid_vote: vec![*committee2],
+            verify_result: VerifyResult::Refused,
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Refuse(summary.clone())
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary.clone());
     })
 }
 
@@ -601,13 +591,13 @@ fn test_summary_confirmation7() {
         CommitteeOps::<TestRuntime>::insert(&*committee2, &machine_id, committee2_ops);
         CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
 
-        let summary =
-            Summary { against: vec![*committee3, *committee2, *committee1], ..Default::default() };
+        let summary = Summary {
+            valid_vote: vec![*committee3, *committee2, *committee1],
+            verify_result: VerifyResult::Refused,
+            ..Default::default()
+        };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Refuse(summary.clone())
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
     })
 }
 
@@ -675,14 +665,13 @@ fn test_summary_confirmation8() {
 
         let summary = Summary {
             unruly: vec![*committee1],
-            against: vec![*committee3, *committee2],
+            valid_vote: vec![*committee3, *committee2],
+            verify_result: VerifyResult::Refused,
+
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Refuse(summary.clone())
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
     })
 }
 
@@ -739,16 +728,14 @@ fn test_summary_confirmation9() {
         <CommitteeOps<TestRuntime>>::insert(&*committee3, &*machine_id, committee3_ops);
 
         let summary = Summary {
-            valid_support: vec![*committee3, *committee2],
+            valid_vote: vec![*committee3, *committee2],
             unruly: vec![*committee1],
             info: Some(committee_ops.machine_info),
+            verify_result: VerifyResult::Confirmed,
             ..Default::default()
         };
 
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(summary)
-        );
+        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
     })
 }
 
@@ -806,12 +793,13 @@ fn test_summary_confirmation10() {
         <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
 
         assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::NoConsensus(Summary {
+            OnlineCommittee::summary_confirmation2(&machine_id),
+            Summary {
                 unruly: vec![*committee1],
-                invalid_support: vec![*committee3, *committee2],
+                invalid_vote: vec![*committee3, *committee2],
+                verify_result: VerifyResult::NoConsensus,
                 ..Default::default()
-            })
+            }
         );
     })
 }
@@ -869,13 +857,14 @@ fn test_summary_confirmation11() {
         <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
 
         assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(Summary {
+            OnlineCommittee::summary_confirmation2(&machine_id),
+            Summary {
                 unruly: vec![*committee1],
-                valid_support: vec![*committee3, *committee2],
+                valid_vote: vec![*committee3, *committee2],
                 info: Some(committee_ops.machine_info),
+                verify_result: VerifyResult::Confirmed,
                 ..Default::default()
-            })
+            }
         );
     })
 }
