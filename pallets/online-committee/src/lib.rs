@@ -414,19 +414,19 @@ impl<T: Config> Pallet<T> {
         let mut machine_committee = Self::machine_committee(&machine_id);
 
         // 如果是在提交Hash的状态，且已经到提交原始值的时间，则改变状态并返回
-        if matches!(machine_committee.status, OCVerifyStatus::SubmittingHash) {
-            if now >= machine_committee.book_time + SUBMIT_RAW_START.into() {
-                machine_committee.status = OCVerifyStatus::SubmittingRaw;
-                MachineCommittee::<T>::insert(&machine_id, machine_committee);
-                return
-            }
+        if matches!(machine_committee.status, OCVerifyStatus::SubmittingHash) &&
+            now >= machine_committee.book_time + SUBMIT_RAW_START.into()
+        {
+            machine_committee.status = OCVerifyStatus::SubmittingRaw;
+            MachineCommittee::<T>::insert(&machine_id, machine_committee);
+            return
         }
 
         if !machine_committee.can_summary(now) {
             return
         }
 
-        let summary = Self::summary_confirmation2(&machine_id);
+        let summary = Self::summary_confirmation(&machine_id);
         let (inconsistent, unruly, reward) = summary.clone().get_committee_group();
 
         let mut stash_slash_info = None;
@@ -536,7 +536,7 @@ impl<T: Config> Pallet<T> {
     // 2. 支持上线: 处理办法：扣除所有反对上线，支持上线但提交无效信息的委员会的质押。
     // 3. 反对上线: 处理办法：反对的委员会平分支持的委员会的质押。扣5%矿工质押，
     // 允许矿工再次质押而上线。
-    pub fn summary_confirmation2(machine_id: &MachineId) -> Summary<T::AccountId> {
+    pub fn summary_confirmation(machine_id: &MachineId) -> Summary<T::AccountId> {
         let machine_committee = Self::machine_committee(machine_id);
         let mut submit_info = vec![];
         for a_committee in &machine_committee.confirmed_committee {

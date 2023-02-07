@@ -135,7 +135,7 @@ fn test_summary_confirmation1() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), summary);
     })
 }
 
@@ -207,7 +207,7 @@ fn test_summary_confirmation2() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), summary);
     })
 }
 
@@ -282,7 +282,7 @@ fn test_summary_confirmation3() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), summary);
     })
 }
 
@@ -349,7 +349,7 @@ fn test_summary_confirmation4() {
         CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
 
         assert_eq!(
-            OnlineCommittee::summary_confirmation2(&machine_id),
+            OnlineCommittee::summary_confirmation(&machine_id),
             Summary {
                 invalid_vote: vec![*committee3, *committee2, *committee1],
                 verify_result: VerifyResult::NoConsensus,
@@ -433,7 +433,7 @@ fn test_summary_confirmation5() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), summary);
     })
 }
 
@@ -513,7 +513,7 @@ fn test_summary_confirmation6() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary.clone());
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), summary.clone());
     })
 }
 
@@ -597,7 +597,7 @@ fn test_summary_confirmation7() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), summary);
     })
 }
 
@@ -671,7 +671,7 @@ fn test_summary_confirmation8() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), summary);
     })
 }
 
@@ -735,7 +735,7 @@ fn test_summary_confirmation9() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation2(&machine_id), summary);
+        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), summary);
     })
 }
 
@@ -793,7 +793,7 @@ fn test_summary_confirmation10() {
         <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
 
         assert_eq!(
-            OnlineCommittee::summary_confirmation2(&machine_id),
+            OnlineCommittee::summary_confirmation(&machine_id),
             Summary {
                 unruly: vec![*committee1],
                 invalid_vote: vec![*committee3, *committee2],
@@ -857,7 +857,7 @@ fn test_summary_confirmation11() {
         <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
 
         assert_eq!(
-            OnlineCommittee::summary_confirmation2(&machine_id),
+            OnlineCommittee::summary_confirmation(&machine_id),
             Summary {
                 unruly: vec![*committee1],
                 valid_vote: vec![*committee3, *committee2],
