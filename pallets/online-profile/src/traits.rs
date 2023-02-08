@@ -12,7 +12,7 @@ use dbc_support::{
 };
 use frame_support::IterableStorageMap;
 use sp_runtime::{
-    traits::{CheckedMul, CheckedSub},
+    traits::{CheckedSub, Saturating},
     Perbill, SaturatedConversion,
 };
 use sp_std::{prelude::Box, vec, vec::Vec};
@@ -53,7 +53,7 @@ impl<T: Config> OCOps for Pallet<T> {
     fn confirm_machine(
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
-    ) -> Result<(), ()> {
+    ) {
         let now = <frame_system::Module<T>>::block_number();
         let current_era = Self::current_era();
         let machine_id = committee_upload_info.machine_id.clone();
@@ -74,8 +74,7 @@ impl<T: Config> OCOps for Pallet<T> {
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
         let stake_need = machine_info
             .init_stake_per_gpu
-            .checked_mul(&committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>())
-            .ok_or(())?;
+            .saturating_mul(committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>());
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
             if Self::change_stake(machine_info.machine_stash.clone(), extra_stake, true).is_ok() {
                 ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
@@ -162,8 +161,6 @@ impl<T: Config> OCOps for Pallet<T> {
                 );
             }
         }
-
-        Ok(())
     }
 
     // When committees reach an agreement to refuse machine, change machine status and record refuse

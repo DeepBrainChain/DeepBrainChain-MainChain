@@ -430,9 +430,8 @@ impl<T: Config> Pallet<T> {
         let summary = Self::summary_confirmation(machine_committee.clone(), submit_info);
 
         let stash_slash = if matches!(summary.verify_result, VerifyResult::Refused) {
-            T::OCOps::refuse_machine(machine_id.clone())
+T::OCOps::refuse_machine(machine_id.clone())
         } else {
-            None
         };
 
         match summary.verify_result.clone() {
@@ -442,13 +441,28 @@ impl<T: Config> Pallet<T> {
                     summary.info.clone().unwrap(),
                 );
                 summary.valid_vote.iter().for_each(|a_committee| {
+                    // FIXME: 确认这个逻辑
                     // TODO: 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
                     CommitteeMachine::<T>::mutate(&a_committee, |record| {
                         ItemList::add_item(&mut record.online_machine, machine_id.clone());
                     });
                 });
             },
-            VerifyResult::Refused => {},
+            VerifyResult::Refused => {
+                // should cancel machine_stash slash when slashed committee apply review
+                let stash_slash = T::OCOps::refuse_machine(machine_id.clone());
+
+                // 添加stash惩罚
+                let (machine_stash, stash_slash_amount) = stash_slash.unwrap_or_default();
+                Self::add_summary_slash(
+                    machine_id.clone(),
+                    machine_stash,
+                    stash_slash_amount,
+                    summary.clone(),
+                    stake_per_order,
+                    now,
+                );
+            },
             VerifyResult::NoConsensus => {
                 let _ = Self::revert_book(machine_id.clone());
                 T::OCOps::revert_booked_machine(machine_id.clone());
@@ -459,28 +473,15 @@ impl<T: Config> Pallet<T> {
             },
         }
 
-        // NOTE: 添加惩罚
-        if stash_slash.is_some() || summary.should_slash_committee() {
-            let (machine_stash, stash_slash_amount) = stash_slash.unwrap_or_default();
-            Self::add_summary_slash(
-                machine_id.clone(),
-                machine_stash,
-                stash_slash_amount,
-                summary.clone(),
-                stake_per_order,
-                now,
-            );
-        } else {
-            // NOTE: 没有任何惩罚时退还正确质押委员会的质押
-            // 否则，还需要质押到两天之后惩罚执行时，才退还！
-            for a_committee in summary.valid_vote.clone() {
-                let _ = Self::change_committee_used_stake(a_committee, stake_per_order, false);
-            }
-        }
-
         MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
             machine_committee.after_summary(summary.clone())
         });
+
+        // FIXME: 没有任何惩罚时退还正确质押委员会的质押
+        // FIXME: 否则，还需要质押到两天之后，才退还！???
+        for a_committee in summary.valid_vote.clone() {
+            let _ = Self::change_committee_used_stake(a_committee, stake_per_order, false);
+        }
 
         // Do cleaning
         for a_committee in machine_committee.booked_committee {

@@ -48,6 +48,16 @@ impl Default for VerifyResult {
 }
 
 impl<AccountId: Clone + Ord> Summary<AccountId> {
+    pub fn should_slash_committee(&self) -> bool {
+        if !self.unruly.is_empty() {
+            return true
+        }
+        match self.verify_result {
+            VerifyResult::NoConsensus => false,
+            VerifyResult::Confirmed | VerifyResult::Refused => !self.invalid_vote.is_empty(),
+        }
+    }
+
     pub fn into_book_result(&self) -> OCBookResultType {
         match self.verify_result {
             VerifyResult::Confirmed => OCBookResultType::OnlineSucceed,
