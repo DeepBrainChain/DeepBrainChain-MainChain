@@ -29,43 +29,86 @@ fn get_base_machine_info() -> CommitteeUploadInfo {
     }
 }
 
-// fn decode_hash(hash: &str) -> [u8; 16] {
-//     hex::decode(hash).unwrap().try_into().unwrap()
-// }
-
-// fn get_support_info() {
-//     let rand_str1 = "abcdefg1";
-//     let rand_str2 = "abcdefg2";
-//     let rand_str3 = "abcdefg3";
-
-//     let hash1 = decode_hash("2a0834c7aa168781cd2c40bc5259833e");
-//     let hash2 = decode_hash("422b76afb204fc7b94afe2912d82c659");
-//     let hash3 = decode_hash("08e1544c321b862db7f09008551a022f");
-// }
-
-// fn get_against_info() {
-//     let rand_str1 = "abcdefg1";
-//     let rand_str2 = "abcdefg2";
-//     let rand_str3 = "abcdefg3";
-
-//     let hash1 = decode_hash("9e100b5d89fdc4dc0932bfda23474f08");
-//     let hash2 = decode_hash("8702590323bf06ffb5f0fc5d1f9e0770");
-//     let hash3 = decode_hash("cf838f58d88f5ed2b66548531e4e0ca4");
-// }
-
 // NOTE: 测试summary函数
 // 当全部提交Hash+全部提交原始值时:
 // case 1: 3个支持，内容一致 ->上线
 // case 2: 3个支持，2内容一致 -> 上线 + 惩罚
 // case 3: 2个支持，1个反对 (2个一致) -> 上线 + 惩罚
 // case 4: 3个支持，内容都不一致 -> 无共识 + 重新分配
+//
 // case 5: 2个支持，1个反对（2个不一致） -> 无共识 + 重新分配
 // case 6: 2个反对，1个支持 -> 不上线 + 奖励 + 惩罚
-// case 7: 3个反对 -> 不上线 + 奖励
+//
+// case 7_1: 3个反对 -> 不上线 + 奖励
+// case 7_2: 3个反对，信息不一致，拒绝上线
+//
 // case 8: 2提交Hash， 2提交原始值，都是反对
 // case 9: 2提交Hash， 2提交原始值，都是支持
 // case 10: 全部提交Hash，2提交原始值，且都是支持，两个不相同
 // case 11: 全部提交Hash，2提交原始值时，且都是支持，两个相同
+
+// 只有1个提交信息，是支持
+#[test]
+fn test_summary_confirmation1_2() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info1 = get_base_machine_info();
+
+        let summary_expect1 = Summary {
+            valid_vote: vec![*committee1],
+            unruly: vec![*committee3, *committee2],
+            info: Some(upload_info1.clone()),
+            verify_result: VerifyResult::Confirmed,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info1];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect1, summary);
+    })
+}
+
+// 只有1个提交信息，是反对
+#[test]
+fn test_summary_confirmation1_3() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info1 = CommitteeUploadInfo { is_support: false, ..get_base_machine_info() };
+
+        let summary_expect1 = Summary {
+            valid_vote: vec![*committee1],
+            unruly: vec![*committee3, *committee2],
+            verify_result: VerifyResult::Refused,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info1];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect1, summary);
+    })
+}
 
 // case 1: 3个支持，内容一致 ->上线
 #[test]
@@ -264,9 +307,9 @@ fn test_summary_confirmation6() {
     })
 }
 
-// case 7: 3个反对 -> 不上线 + 奖励
+// case 7_1: 3个反对 -> 不上线 + 奖励
 #[test]
-fn test_summary_confirmation7() {
+fn test_summary_confirmation7_1() {
     new_test_with_init_params_ext().execute_with(|| {
         run_to_block(10);
 
@@ -290,6 +333,39 @@ fn test_summary_confirmation7() {
             status: OCVerifyStatus::Summarizing,
         };
         let submit_info = vec![upload_info3, upload_info2, upload_info1];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
+    })
+}
+
+// case 7_2: 3个反对，信息不一致，拒绝上线
+#[test]
+fn test_summary_confirmation7_2() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info1 =
+            CommitteeUploadInfo { gpu_num: 2, is_support: false, ..get_base_machine_info() };
+        let upload_info2 = CommitteeUploadInfo { gpu_num: 3, ..upload_info1.clone() };
+        let upload_info3 = CommitteeUploadInfo { gpu_num: 4, ..upload_info1.clone() };
+
+        let summary_expect = Summary {
+            valid_vote: vec![*committee3, *committee2, *committee1],
+            verify_result: VerifyResult::Refused,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2, *committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info1, upload_info2, upload_info3];
 
         let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
         assert_eq!(summary_expect, summary);

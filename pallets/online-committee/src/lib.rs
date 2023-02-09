@@ -551,8 +551,18 @@ impl<T: Config> Pallet<T> {
     // 允许矿工再次质押而上线。
     pub fn summary_confirmation(
         machine_committee: OCMachineCommitteeList<T::AccountId, T::BlockNumber>,
-        submit_info: Vec<CommitteeUploadInfo>,
+        committee_submit_info: Vec<CommitteeUploadInfo>,
     ) -> Summary<T::AccountId> {
+        // 如果是反对上线，则需要忽略其他字段，只添加is_support=false的字段
+        let mut submit_info = vec![];
+        committee_submit_info.into_iter().for_each(|info| {
+            if info.is_support {
+                submit_info.push(info);
+            } else {
+                submit_info.push(CommitteeUploadInfo { is_support: false, ..Default::default() })
+            }
+        });
+
         let mut summary = Summary::default();
         summary.unruly = machine_committee.summary_unruly();
         let uniq_len = submit_info.iter().collect::<BTreeSet<_>>().len();
