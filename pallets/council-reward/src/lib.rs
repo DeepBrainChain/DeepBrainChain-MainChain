@@ -1,19 +1,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use dbc_support::traits::DbcPrice;
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, ExistenceRequirement::KeepAlive},
 };
 use frame_system::pallet_prelude::*;
 use pallet_collective::Instance1;
-use sp_runtime::{
-    traits::{SaturatedConversion, Saturating, Zero},
-    Perbill,
-};
-
+use sp_runtime::traits::Zero;
 use sp_std::{vec, vec::Vec};
-
-use dbc_support::traits::DbcPrice;
 
 pub use pallet::*;
 
@@ -38,6 +33,11 @@ pub mod pallet {
         /// round will happen. If set to zero, no elections are ever triggered and the module will
         /// be in passive mode.
         type TermDuration: Get<Self::BlockNumber>;
+
+        // 奖励特定(USD or DBC)
+        type PrimerReward: Get<(u64, BalanceOf<Self>)>;
+        type SecondReward: Get<(u64, BalanceOf<Self>)>;
+        type ThirdReward: Get<(u64, BalanceOf<Self>)>;
     }
 
     #[pallet::pallet]
@@ -71,27 +71,14 @@ pub mod pallet {
     #[pallet::getter(fn treasury)]
     pub(super) type Treasury<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn reward_params)]
-    pub(super) type RewardParams<T: Config> = StorageValue<_, Vec<()>, ValueQuery>;
-
-    // #[pallet::storage]
-    // #[pallet::getter(fn council_prime)]
-    // pub(super) type CouncilPrime<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery>;
-
     #[pallet::call]
-    impl<T: Config> Pallet<T> {
-        #[pallet::weight(0)]
-        pub fn set_reward_params(_origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            Ok(().into())
-        }
-    }
+    impl<T: Config> Pallet<T> {}
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    // #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     pub enum Event<T: Config> {
-        Hello(T::AccountId),
+        RewardCouncil(T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -101,17 +88,19 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // TODO: handle error
     fn get_rewards() -> Vec<BalanceOf<T>> {
-        let reward_amount = <T as Config>::DbcPrice::get_dbc_amount_by_value(5000_000_000).unwrap();
-        let one_dbc: BalanceOf<T> = 1_000_000_000_000_000_u64.saturated_into();
-        let reward_amount = reward_amount
-            .min(1000_000_u64.saturated_into::<BalanceOf<T>>().saturating_mul(one_dbc));
+        let primer_reward = <T as pallet::Config>::PrimerReward::get();
+        let second_reward = <T as pallet::Config>::SecondReward::get();
+        let third_reward = <T as pallet::Config>::ThirdReward::get();
 
-        let first_reward = Perbill::from_rational_approximation(60u32, 100u32) * reward_amount;
-        let second_reward = Perbill::from_rational_approximation(20u32, 100u32) * reward_amount;
-        let third_reward = reward_amount.saturating_sub(first_reward).saturating_sub(second_reward);
-        vec![first_reward, second_reward, third_reward]
+        vec![primer_reward, second_reward, third_reward]
+            .into_iter()
+            .map(|reward| {
+                <T as Config>::DbcPrice::get_dbc_amount_by_value(reward.0)
+                    .unwrap_or_default()
+                    .min(reward.1)
+            })
+            .collect()
     }
 
     fn get_primes_reward() -> Vec<(T::AccountId, BalanceOf<T>)> {
@@ -147,7 +136,10 @@ impl<T: Config> Pallet<T> {
         let treasury = Self::treasury();
         let primes_reward = Self::get_primes_reward();
         for (reward_who, amount) in primes_reward {
-            let _ = <T as Config>::Currency::transfer(&treasury, &reward_who, amount, KeepAlive);
+            if <T as Config>::Currency::transfer(&treasury, &reward_who, amount, KeepAlive).is_ok()
+            {
+                Self::deposit_event(Event::RewardCouncil(reward_who, amount));
+            }
         }
     }
 }
