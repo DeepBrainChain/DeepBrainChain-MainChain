@@ -86,8 +86,20 @@ impl<T: Config> Pallet<T> {
             return Ok(())
         }
 
-        // stash is slashed
+        // 将资金退还给已经完成了任务的委员会（降低已使用的质押）
+        // 根据 slash_info 获得奖励，释放，惩罚的委员会列表！
+        let mut slashed_committee = vec![];
+        // 无论如何都会惩罚unruly_committee
+        slashed_committee.extend_from_slice(&slash_info.unruly_committee);
+
+        let mut release_committee = vec![];
         if !slash_info.stash_slash_amount.is_zero() {
+            // When `stash` is slashed:
+            // Slash `inconsistent` and `unruly` committee.
+            // Relase `reward_committee`'s stake.
+            slashed_committee.extend_from_slice(&slash_info.inconsistent_committee);
+            release_committee.extend_from_slice(&slash_info.reward_committee);
+
             T::OCOps::exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount)?;
 
             <T as Config>::SlashAndReward::slash_and_reward(
@@ -95,21 +107,21 @@ impl<T: Config> Pallet<T> {
                 slash_info.stash_slash_amount,
                 slash_info.reward_committee.clone(),
             )?;
+        } else {
+            if slash_info.reward_committee.is_empty() {
+                // 机器无共识，只惩罚unruly；invalid_committee的质押被释放
+                release_committee.extend_from_slice(&slash_info.inconsistent_committee);
+            } else {
+                // 机器上线，惩罚inconsistent 和 unruly，reward_committee的质押被释放
+                slashed_committee.extend_from_slice(&slash_info.inconsistent_committee);
+                release_committee.extend_from_slice(&slash_info.reward_committee);
+            }
         }
 
-        // 将资金退还给已经完成了任务的委员会（降低已使用的质押）
-        let mut slashed_committee = vec![];
-        slashed_committee.extend_from_slice(&slash_info.inconsistent_committee);
-        slashed_committee.extend_from_slice(&slash_info.unruly_committee);
-
         Self::change_committee_stake(slashed_committee.clone(), slash_info.committee_stake, true)?;
+        Self::change_committee_stake(release_committee, slash_info.committee_stake, false)?;
 
-        Self::change_committee_stake(
-            slash_info.reward_committee.clone(),
-            slash_info.committee_stake,
-            false,
-        )?;
-
+        // NOTE: 这里没有奖励
         <T as Config>::SlashAndReward::slash_and_reward(
             slashed_committee,
             slash_info.committee_stake,

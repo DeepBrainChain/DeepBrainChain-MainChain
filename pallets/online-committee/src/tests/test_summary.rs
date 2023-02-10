@@ -1,5 +1,6 @@
 use super::super::{mock::*, *};
 use crate::tests::{committee1, committee2, committee3, committee4, stash};
+use committee::CommitteeStakeInfo;
 use dbc_support::{live_machine::LiveMachine, machine_type::CommitteeUploadInfo};
 use frame_support::assert_ok;
 use std::convert::TryInto;
@@ -475,30 +476,23 @@ fn test_summary_confirmation3_7() {
     })
 }
 
-// 机器成功上线，拒绝的委员会惩罚被执行
+fn decode_box_pubkey<T: AsRef<[u8]>>(x: T) -> [u8; 32] {
+    hex::decode(x).unwrap().try_into().unwrap()
+}
+
+// 机器成功上线，拒绝的委员会惩罚被执行，
+// 且惩罚执行时正确退还未被惩罚的委员会的质押
 #[test]
 fn test_machine_online_succeed_slash_execed() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let committee1_box_pubkey =
-            hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            decode_box_pubkey("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f");
         let committee2_box_pubkey =
-            hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            decode_box_pubkey("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e");
         let committee3_box_pubkey =
-            hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            decode_box_pubkey("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438");
         let committee4_box_pubkey =
-            hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            decode_box_pubkey("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529");
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
@@ -703,42 +697,24 @@ fn test_machine_online_succeed_slash_execed() {
 fn test_machine_online_failed_slash_execed() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let committee1_box_pubkey =
-            hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            decode_box_pubkey("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f");
         let committee2_box_pubkey =
-            hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            decode_box_pubkey("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e");
         let committee3_box_pubkey =
-            hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            decode_box_pubkey("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529");
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
 
         // 三个委员会提交Hash
+        let base_info = get_base_machine_info();
         let mut committee_upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
-            gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
-            gpu_num: 4,
-            cuda_core: 8704,
-            gpu_mem: 10,
-            calc_point: 59890,
-            sys_disk: 500,
-            data_disk: 3905,
-            cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
-            cpu_core_num: 46,
-            cpu_rate: 2400,
-            mem_num: 440,
 
             rand_str: "abcdefg1".as_bytes().to_vec(),
             is_support: false,
+            ..base_info
         };
 
         // 委员会提交机器Hash
@@ -1009,5 +985,120 @@ fn test_machine_online_succeed_against_committee_apply_review() {
         assert_eq!(Balances::reserved_balance(&*committee4), (20000 + 1000) * ONE_DBC);
 
         assert_ok!(OnlineCommittee::do_cancel_slash(0));
+    })
+}
+
+// 两个委员会提交信息不同，另一委员会未完成验证，则无法上线。且产生惩罚
+#[test]
+fn test_machine_noconsensus_works() {
+    new_test_with_online_machine_distribution().execute_with(|| {
+        let base_info = get_base_machine_info();
+
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        let hash1 = hex::decode("80d57cfbe2e8a56c889ec220ad204b4a").unwrap().try_into().unwrap();
+        let upload_info1 = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            rand_str: "abc1".as_bytes().to_vec(),
+            ..base_info.clone()
+        };
+        let hash2 = hex::decode("f2e10bdd510e642a127145a8abbd8214").unwrap().try_into().unwrap();
+        let upload_info2 = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            rand_str: "abc2".as_bytes().to_vec(),
+            gpu_num: 5,
+            ..base_info.clone()
+        };
+
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(*committee1),
+            machine_id.clone(),
+            hash1
+        ));
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(*committee2),
+            machine_id.clone(),
+            hash2
+        ));
+
+        // 无共识，机器将重新分派，并惩罚未完成工作的委员会
+        run_to_block(11 + 2880 + 1440);
+
+        // 委员会提交原始信息
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee1), upload_info1));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee2), upload_info2));
+
+        run_to_block(11 + 2880 + 1440 + 1);
+
+        assert_eq!(
+            OnlineCommittee::pending_slash(0),
+            crate::OCPendingSlashInfo {
+                machine_id: machine_id.clone(),
+
+                inconsistent_committee: vec![*committee2, *committee1],
+                unruly_committee: vec![*committee4],
+                reward_committee: vec![],
+                committee_stake: 1000 * ONE_DBC,
+
+                slash_time: 4332,
+                slash_exec_time: 4332 + 2880 * 2,
+
+                book_result: crate::OCBookResultType::NoConsensus,
+                slash_result: crate::OCSlashResult::Pending,
+                ..Default::default()
+            }
+        );
+
+        run_to_block(4332 + 2880 * 2 + 1);
+
+        let committee_stake_info = committee::CommitteeStakeInfo {
+            staked_amount: 20000 * ONE_DBC,
+            used_stake: 1000 * ONE_DBC, // Because of reassignment
+            can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
+            claimed_reward: 0,
+            ..Default::default()
+        };
+        assert_eq!(
+            &CommitteeStakeInfo {
+                box_pubkey: Default::default(),
+                ..Committee::committee_stake(&*committee1)
+            },
+            &committee_stake_info
+        );
+        assert_eq!(
+            &CommitteeStakeInfo {
+                box_pubkey: Default::default(),
+                ..Committee::committee_stake(&*committee2)
+            },
+            &committee_stake_info
+        );
+        assert_eq!(
+            &CommitteeStakeInfo {
+                box_pubkey: Default::default(),
+                ..Committee::committee_stake(&*committee3)
+            },
+            &committee_stake_info
+        );
+
+        assert_eq!(
+            CommitteeStakeInfo {
+                box_pubkey: Default::default(),
+                ..Committee::committee_stake(&*committee4)
+            },
+            committee::CommitteeStakeInfo {
+                staked_amount: 19000 * ONE_DBC,
+                used_stake: 1000 * ONE_DBC,
+                can_claim_reward: 0, // 1100000 * 0.25 * 0.01 / 2
+                claimed_reward: 0,
+                ..Default::default()
+            }
+        );
+
+        assert_eq!(Balances::reserved_balance(&*committee1), 20000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*committee2), 20000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*committee3), 20000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*committee4), 19000 * ONE_DBC);
     })
 }
