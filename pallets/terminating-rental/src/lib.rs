@@ -353,20 +353,6 @@ pub mod pallet {
     pub(super) type UnhandledReportResult<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<ReportId>, ValueQuery>;
 
-    // 机器主动下线后，记录机器下线超过最大值{5,10天}后，需要立即执行的惩罚
-    #[pallet::storage]
-    #[pallet::getter(fn pending_offline_slash)]
-    pub(super) type PendingOfflineSlash<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::BlockNumber,
-        Blake2_128Concat,
-        MachineId,
-        // 记录机器举报人，当前租用人
-        (Option<T::AccountId>, Vec<T::AccountId>),
-        ValueQuery,
-    >;
-
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
