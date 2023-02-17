@@ -780,7 +780,7 @@ pub mod pallet {
             let offline_duration = now - offline_time;
 
             // MachineStatus改为之前的状态
-            let slash_info = match machine_info.machine_status {
+            let mut slash_info = match machine_info.machine_status.clone() {
                 MachineStatus::StakerReportOffline(offline_time, status) => {
                     status_before_offline = *status;
                     match status_before_offline {
@@ -816,6 +816,16 @@ pub mod pallet {
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             };
+
+            // NOTE: 如果机器上线超过一年，空闲超过10天，下线后上线不添加惩罚
+            if now >= machine_info.online_height &&
+                now - machine_info.online_height > (365 * 2880u32).into() &&
+                offline_time >= machine_info.last_online_height &&
+                offline_time - machine_info.last_online_height >= (10 * 2880u32).into() &&
+                matches!(&machine_info.machine_status, &MachineStatus::StakerReportOffline(..))
+            {
+                slash_info.slash_amount = Zero::zero();
+            }
 
             // machine status before offline
             machine_info.last_online_height = now;
