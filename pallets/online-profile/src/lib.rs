@@ -319,20 +319,6 @@ pub mod pallet {
     pub(super) type PendingExecSlash<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<SlashId>, ValueQuery>;
 
-    // 机器主动下线后，记录机器下线超过最大值{5,10天}后，需要立即执行的惩罚
-    #[pallet::storage]
-    #[pallet::getter(fn pending_offline_slash)]
-    pub(super) type PendingOfflineSlash<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::BlockNumber,
-        Blake2_128Concat,
-        MachineId,
-        // 记录机器举报人，当前租用人
-        (Option<T::AccountId>, Vec<T::AccountId>),
-        ValueQuery,
-    >;
-
     // The current storage version.
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
@@ -348,7 +334,6 @@ pub mod pallet {
                 // 每个Era(2880个块)执行一次
                 Self::update_snap_for_new_era();
             }
-            Self::check_offline_machine_duration();
             Self::exec_pending_slash();
             let _ = Self::check_pending_slash();
             0
@@ -746,19 +731,12 @@ pub mod pallet {
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
 
             // 某些状态允许下线
-            let max_slash_offline_threshold = match machine_info.machine_status {
-                MachineStatus::Online => 10 * ONE_DAY,
-                MachineStatus::Rented => 5 * ONE_DAY,
-                _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
-            };
-
-            // NOTE: 当机器是被租用状态时，记录机器的租用人，
-            // 惩罚执行时，租用人都能获得赔偿
-            // let nobody: Option<T::AccountId> = None;
-            PendingOfflineSlash::<T>::insert(
-                now + max_slash_offline_threshold.saturated_into::<T::BlockNumber>(),
-                &machine_id,
-                (None::<T::AccountId>, machine_info.renters),
+            ensure!(
+                matches!(
+                    machine_info.machine_status,
+                    MachineStatus::Online | MachineStatus::Rented
+                ),
+                Error::<T>::MachineStatusNotAllowed
             );
 
             Self::machine_offline(
@@ -787,81 +765,57 @@ pub mod pallet {
 
             let mut live_machine = Self::live_machines();
 
-            let slash_info: OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>;
             let status_before_offline: MachineStatus<T::BlockNumber, T::AccountId>;
-
             let offline_time = match machine_info.machine_status.clone() {
                 MachineStatus::StakerReportOffline(offline_time, _) => offline_time,
                 MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
-                    OPSlashReason::RentedInaccessible(duration) |
-                    OPSlashReason::RentedHardwareMalfunction(duration) |
-                    OPSlashReason::RentedHardwareCounterfeit(duration) |
-                    OPSlashReason::OnlineRentFailed(duration) => duration,
+                    OPSlashReason::RentedInaccessible(report_time) |
+                    OPSlashReason::RentedHardwareMalfunction(report_time) |
+                    OPSlashReason::RentedHardwareCounterfeit(report_time) |
+                    OPSlashReason::OnlineRentFailed(report_time) => report_time,
                     _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             };
             let offline_duration = now - offline_time;
-            let mut should_add_new_slash = true;
-            let max_slash_offline_threshold: T::BlockNumber;
 
             // MachineStatus改为之前的状态
-            match machine_info.machine_status {
+            let slash_info = match machine_info.machine_status {
                 MachineStatus::StakerReportOffline(offline_time, status) => {
                     status_before_offline = *status;
                     match status_before_offline {
-                        MachineStatus::Online => {
-                            // 掉线时间超过最大惩罚时间后，不再添加新的惩罚
-                            if offline_duration >= 28800u32.into() {
-                                should_add_new_slash = false;
-                            }
-                            max_slash_offline_threshold = 28800u32.into();
-
-                            // 不进行在线超过10天的判断，在hook中会进行这个判断。
-                            slash_info = Self::new_slash_when_offline(
-                                machine_id.clone(),
-                                OPSlashReason::OnlineReportOffline(offline_time),
-                                None,
-                                vec![],
-                                None,
-                                offline_duration,
-                            );
-                        },
-                        MachineStatus::Rented => {
-                            if offline_duration >= (2880u32 * 5).into() {
-                                should_add_new_slash = false;
-                            }
-                            max_slash_offline_threshold = (2880u32 * 5).into();
-                            // 机器在被租用状态下线，会被惩罚
-                            slash_info = Self::new_slash_when_offline(
-                                machine_id.clone(),
-                                OPSlashReason::RentedReportOffline(offline_time),
-                                None,
-                                machine_info.renters.clone(),
-                                None,
-                                offline_duration,
-                            );
-                        },
+                        MachineStatus::Online => Self::new_slash_when_offline(
+                            machine_id.clone(),
+                            OPSlashReason::OnlineReportOffline(offline_time),
+                            None,
+                            vec![],
+                            None,
+                            offline_duration,
+                        ),
+                        MachineStatus::Rented => Self::new_slash_when_offline(
+                            machine_id.clone(),
+                            OPSlashReason::RentedReportOffline(offline_time),
+                            None,
+                            machine_info.renters.clone(),
+                            None,
+                            offline_duration,
+                        ),
                         _ => return Ok(().into()),
                     }
                 },
                 MachineStatus::ReporterReportOffline(slash_reason, status, reporter, committee) => {
-                    max_slash_offline_threshold = (2880u32 * 5).into();
                     status_before_offline = *status;
-                    if offline_duration >= (2880u32 * 5).into() {
-                        should_add_new_slash = false;
-                    }
-                    slash_info = Self::new_slash_when_offline(
+                    Self::new_slash_when_offline(
                         machine_id.clone(),
                         slash_reason,
                         Some(reporter),
                         machine_info.renters.clone(),
                         Some(committee),
                         offline_duration,
-                    );
+                    )
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
-            }
+            };
 
             // machine status before offline
             machine_info.last_online_height = now;
@@ -871,8 +825,7 @@ pub mod pallet {
                 status_before_offline
             };
 
-            // NOTE: 如果机器下线已经超过时间，则补交质押，不插入新的惩罚。
-            // 否则，补交质押，不插入新惩罚
+            // 添加下线惩罚
             if slash_info.slash_amount != Zero::zero() {
                 // 任何情况重新上链都需要补交质押
                 Self::change_stake(
@@ -882,22 +835,12 @@ pub mod pallet {
                 )
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
-                if should_add_new_slash {
-                    // NOTE: Only after pay slash amount succeed, then make machine online.
-
-                    let slash_id = Self::get_new_slash_id();
-
-                    PendingOfflineSlash::<T>::remove(max_slash_offline_threshold, &machine_id);
-
-                    PendingExecSlash::<T>::mutate(
-                        slash_info.slash_exec_time,
-                        |pending_exec_slash| {
-                            ItemList::add_item(pending_exec_slash, slash_id);
-                        },
-                    );
-
-                    PendingSlash::<T>::insert(slash_id, slash_info);
-                }
+                // NOTE: Only after pay slash amount succeed, then make machine online.
+                let slash_id = Self::get_new_slash_id();
+                PendingExecSlash::<T>::mutate(slash_info.slash_exec_time, |pending_exec_slash| {
+                    ItemList::add_item(pending_exec_slash, slash_id);
+                });
+                PendingSlash::<T>::insert(slash_id, slash_info);
             }
 
             ItemList::rm_item(&mut live_machine.offline_machine, &machine_id);
@@ -1111,10 +1054,16 @@ impl<T: Config> Pallet<T> {
         mut machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> DispatchResultWithPostInfo {
         // 下线机器，并退还奖励
-        Self::update_region_on_exit(&machine_info);
-        Self::update_snap_on_online_changed(machine_id.clone(), false);
         Self::change_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+
+        // 多次调用，会多次改变PosGPUInfo
+        // TODO: 在更新时，重新生成PosGOUInfo这个存储!
+        Self::update_region_on_exit(&machine_info);
+        // FIXME: 评估调用多次该方法造成的影响！
+        Self::update_snap_on_online_changed(machine_id.clone(), false);
+
+        // NOTE: 下面的在machine_exit时都没有被调用，因此不受影响
 
         machine_info.stake_amount = Zero::zero();
         machine_info.machine_status = MachineStatus::Exit;
@@ -1143,12 +1092,6 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::MachineExit(machine_id));
         Ok(().into())
-    }
-
-    pub fn get_pending_max_slash(
-        time: T::BlockNumber,
-    ) -> BTreeMap<MachineId, (Option<T::AccountId>, Vec<T::AccountId>)> {
-        PendingOfflineSlash::<T>::iter_prefix(time).collect()
     }
 
     pub fn do_cancel_slash(slash_id: u64) -> DispatchResultWithPostInfo {
@@ -1230,11 +1173,12 @@ impl<T: Config> Pallet<T> {
         });
         StashStake::<T>::insert(&who, stash_stake);
 
-        if is_add {
-            Self::deposit_event(Event::StakeAdded(who, amount));
+        Self::deposit_event(if is_add {
+            Event::StakeAdded(who, amount)
         } else {
-            Self::deposit_event(Event::StakeReduced(who, amount));
-        }
+            Event::StakeReduced(who, amount)
+        });
+
         Ok(())
     }
 
@@ -1243,9 +1187,10 @@ impl<T: Config> Pallet<T> {
         let next_era_stash_snapshot = Self::eras_stash_points(era_index);
 
         if let Some(stash_snapshot) = next_era_stash_snapshot.staker_statistic.get(stash) {
-            return stash_snapshot.total_grades().unwrap_or_default()
+            stash_snapshot.total_grades().unwrap_or_default()
+        } else {
+            0
         }
-        0
     }
 
     // When Online:
@@ -1266,10 +1211,10 @@ impl<T: Config> Pallet<T> {
         let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
 
-        let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
+        let pre_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
         let current_era_is_online = current_era_machine_snap.contains_key(&machine_id);
 
-        next_era_stash_snap.change_machine_online_status(
+        next_era_stash_snap.on_online_changed(
             machine_info.machine_stash.clone(),
             machine_info.gpu_num() as u64,
             machine_info.calc_point(),
@@ -1281,32 +1226,17 @@ impl<T: Config> Pallet<T> {
                 machine_id.clone(),
                 MachineGradeStatus { basic_grade: machine_info.calc_point(), is_rented: false },
             );
-
-            ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
-
-            stash_machine.total_gpu_num =
-                stash_machine.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
-            sys_info.total_gpu_num =
-                sys_info.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
-        } else {
-            if current_era_is_online {
-                // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
-                // 一天内再次下线会造成再次清空
-                current_era_stash_snap.change_machine_online_status(
-                    machine_info.machine_stash.clone(),
-                    machine_info.gpu_num() as u64,
-                    machine_info.calc_point(),
-                    is_online,
-                );
-                current_era_machine_snap.remove(&machine_id);
-                next_era_machine_snap.remove(&machine_id);
-            }
-
-            ItemList::rm_item(&mut stash_machine.online_machine, &machine_id);
-            stash_machine.total_gpu_num =
-                stash_machine.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
-            sys_info.total_gpu_num =
-                sys_info.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
+        } else if current_era_is_online {
+            // NOTE: 24小时内，不能下线后再次下线。因为下线会清空当日得分记录，
+            // 一天内再次下线会造成再次清空
+            current_era_stash_snap.on_online_changed(
+                machine_info.machine_stash.clone(),
+                machine_info.gpu_num() as u64,
+                machine_info.calc_point(),
+                is_online,
+            );
+            current_era_machine_snap.remove(&machine_id);
+            next_era_machine_snap.remove(&machine_id);
         }
 
         // 机器上线或者下线都会影响下一era得分，而只有下线才影响当前era得分
@@ -1317,10 +1247,33 @@ impl<T: Config> Pallet<T> {
             ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
         }
 
+        // TODO: 重新生成sys_info，因为多次调用exit时，total_gpu_num将会被调用多次
+        sys_info.total_gpu_num = if is_online {
+            sys_info.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64)
+        } else {
+            sys_info.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64)
+        };
+
+        if is_online {
+            ItemList::add_item(&mut stash_machine.online_machine, machine_id.clone());
+            stash_machine.total_gpu_num =
+                stash_machine.total_gpu_num.saturating_add(machine_base_info.gpu_num as u64);
+        } else {
+            ItemList::rm_item(&mut stash_machine.online_machine, &machine_id);
+            stash_machine.total_gpu_num =
+                stash_machine.total_gpu_num.saturating_sub(machine_base_info.gpu_num as u64);
+        }
+
         let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
-        stash_machine.total_calc_points =
-            stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
-        sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
+        stash_machine.total_calc_points = stash_machine
+            .total_calc_points
+            .saturating_add(new_stash_grade)
+            .saturating_sub(pre_stash_grade);
+
+        sys_info.total_calc_points = sys_info
+            .total_calc_points
+            .saturating_add(new_stash_grade)
+            .saturating_sub(pre_stash_grade);
 
         // NOTE: 5000张卡开启银河竞赛
         if !Self::galaxy_is_on() && sys_info.total_gpu_num >= Self::galaxy_on_gpu_threshold() as u64
@@ -1364,9 +1317,9 @@ impl<T: Config> Pallet<T> {
             false
         };
 
-        let old_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
+        let pre_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
 
-        next_era_stash_snap.change_machine_rent_status(
+        next_era_stash_snap.on_rent_changed(
             machine_info.machine_stash.clone(),
             machine_info.calc_point(),
             is_rented,
@@ -1378,7 +1331,7 @@ impl<T: Config> Pallet<T> {
 
         if !is_rented {
             if current_era_is_rented {
-                current_era_stash_snap.change_machine_rent_status(
+                current_era_stash_snap.on_rent_changed(
                     machine_info.machine_stash.clone(),
                     machine_info.calc_point(),
                     is_rented,
@@ -1394,22 +1347,33 @@ impl<T: Config> Pallet<T> {
         // 被租用或者退租都影响下一Era记录，而退租直接影响当前得分
         ErasStashPoints::<T>::insert(current_era + 1, next_era_stash_snap);
         ErasMachinePoints::<T>::insert(current_era + 1, next_era_machine_snap);
-        let gpu_num = machine_info.gpu_num() as u64;
         if !is_rented {
             ErasStashPoints::<T>::insert(current_era, current_era_stash_snap);
             ErasMachinePoints::<T>::insert(current_era, current_era_machine_snap);
-
-            sys_info.total_rented_gpu = sys_info.total_rented_gpu.saturating_sub(gpu_num);
-            stash_machine.total_rented_gpu = stash_machine.total_rented_gpu.saturating_sub(gpu_num);
-        } else {
-            sys_info.total_rented_gpu = sys_info.total_rented_gpu.saturating_add(gpu_num);
-            stash_machine.total_rented_gpu = stash_machine.total_rented_gpu.saturating_add(gpu_num);
         }
 
+        let gpu_num = machine_info.gpu_num() as u64;
+
+        sys_info.total_rented_gpu = if is_rented {
+            sys_info.total_rented_gpu.saturating_add(gpu_num)
+        } else {
+            sys_info.total_rented_gpu.saturating_sub(gpu_num)
+        };
+        stash_machine.total_rented_gpu = if is_rented {
+            stash_machine.total_rented_gpu.saturating_add(gpu_num)
+        } else {
+            stash_machine.total_rented_gpu.saturating_sub(gpu_num)
+        };
+
         let new_stash_grade = Self::get_stash_grades(current_era + 1, &machine_info.machine_stash);
-        stash_machine.total_calc_points =
-            stash_machine.total_calc_points + new_stash_grade - old_stash_grade;
-        sys_info.total_calc_points = sys_info.total_calc_points + new_stash_grade - old_stash_grade;
+        stash_machine.total_calc_points = stash_machine
+            .total_calc_points
+            .saturating_add(new_stash_grade)
+            .saturating_sub(pre_stash_grade);
+        sys_info.total_calc_points = sys_info
+            .total_calc_points
+            .saturating_add(new_stash_grade)
+            .saturating_sub(pre_stash_grade);
 
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);

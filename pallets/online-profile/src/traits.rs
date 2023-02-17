@@ -1,14 +1,14 @@
 use crate::{
     types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward,
-    MachineRentedGPU, MachinesInfo, Pallet, PendingExecSlash, PendingOfflineSlash, PendingSlash,
-    RentedFinished, StashMachines, StashStake, SysInfo, UserMutHardwareStake,
+    MachineRentedGPU, MachinesInfo, Pallet, PendingExecSlash, PendingSlash, RentedFinished,
+    StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus},
     traits::{MTOps, OCOps, OPRPCQuery, RTOps},
     verify_online::StashMachine,
     verify_slash::OPSlashReason,
-    ItemList, MachineId, ONE_DAY,
+    ItemList, MachineId,
 };
 use frame_support::IterableStorageMap;
 use sp_runtime::{
@@ -402,24 +402,14 @@ impl<T: Config> MTOps for Pallet<T> {
         machine_id: MachineId,
         fault_type: OPSlashReason<T::BlockNumber>,
     ) {
-        let machine_info = Self::machines_info(&machine_id);
-
         Self::machine_offline(
             machine_id.clone(),
             MachineStatus::ReporterReportOffline(
                 fault_type,
-                Box::new(machine_info.machine_status),
+                Box::new(Self::machines_info(&machine_id).machine_status),
                 reporter.clone(),
                 committee,
             ),
-        );
-
-        // When Reported offline, after 5 days, reach max slash amount;
-        let now = <frame_system::Module<T>>::block_number();
-        PendingOfflineSlash::<T>::insert(
-            now + (5 * ONE_DAY).saturated_into::<T::BlockNumber>(),
-            machine_id,
-            (Some(reporter), machine_info.renters),
         );
     }
 

@@ -1,12 +1,11 @@
 use crate::{
-    BalanceOf, Config, Event, NextSlashId, Pallet, PendingExecSlash, PendingOfflineSlash,
-    PendingSlash, PendingSlashReview, PendingSlashReviewChecking, StashStake, SysInfo,
+    BalanceOf, Config, Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview,
+    PendingSlashReviewChecking, StashStake, SysInfo,
 };
 use dbc_support::{
-    machine_type::MachineStatus,
     traits::GNOps,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
-    ItemList, MachineId, TWO_DAY,
+    MachineId, TWO_DAY,
 };
 use frame_support::traits::ReservableCurrency;
 use sp_runtime::{
@@ -96,68 +95,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // 如果机器已经上线超过特定时长而没有上线,则添加惩罚
-    pub fn check_offline_machine_duration() {
-        let now = <frame_system::Module<T>>::block_number();
-        let pending_exec_slash = Self::get_pending_max_slash(now);
-
-        for (machine_id, reward_to) in pending_exec_slash {
-            let machine_info = Self::machines_info(&machine_id);
-
-            let (percent, slash_reason, committee) = match machine_info.machine_status {
-                MachineStatus::StakerReportOffline(offline_time, status) => {
-                    match *status {
-                        // 如果下线前是Online状态，且空闲（为Online状态）超过10天，则不进行惩罚
-                        // 下线达到10天，达到最大惩罚，则添加惩罚
-                        MachineStatus::Online =>
-                            (80, OPSlashReason::OnlineReportOffline(offline_time), None),
-                        // 租用时主动下线，最多5天达到惩罚最大
-                        MachineStatus::Rented =>
-                            (50, OPSlashReason::RentedReportOffline(offline_time), None),
-                        _ => continue,
-                    }
-                },
-                MachineStatus::ReporterReportOffline(slash_reason, _st, _rp, committee) => {
-                    // 被举报时，超过5天达到惩罚最大
-                    if !matches!(
-                        slash_reason,
-                        OPSlashReason::RentedInaccessible(_) |
-                            OPSlashReason::RentedHardwareCounterfeit(_) |
-                            OPSlashReason::RentedHardwareMalfunction(_) |
-                            OPSlashReason::OnlineRentFailed(_)
-                    ) {
-                        continue
-                    }
-                    (100, slash_reason, Some(committee))
-                },
-                _ => continue,
-            };
-
-            let slash_info = Self::new_offline_slash(
-                percent,
-                machine_id.clone(),
-                reward_to.0,
-                reward_to.1,
-                committee,
-                slash_reason,
-            );
-
-            // 插入一个新的SlashId
-            if slash_info.slash_amount != Zero::zero() {
-                let slash_id = Self::get_new_slash_id();
-
-                PendingExecSlash::<T>::mutate(slash_info.slash_exec_time, |pending_exec_slash| {
-                    ItemList::add_item(pending_exec_slash, slash_id);
-                });
-                PendingSlash::<T>::insert(slash_id, slash_info);
-
-                Self::deposit_event(Event::NewSlash(slash_id));
-            }
-
-            PendingOfflineSlash::<T>::remove(now, machine_id);
-        }
-    }
-
     // 当机器主动下线/被举报下线时，返回一个待执行的惩罚信息
     pub fn new_slash_when_offline(
         machine_id: MachineId,
@@ -180,23 +117,7 @@ impl<T: Config> Pallet<T> {
                 (reporter, renters, None)
             },
             // 算工主动报告在线的机器，主动下线
-            OPSlashReason::OnlineReportOffline(_) => {
-                let now = <frame_system::Module<T>>::block_number();
-                let machine_info = Self::machines_info(&machine_id);
-
-                // 判断是否已经下线十天，如果是，则不进行惩罚，仅仅下线处理
-                // NOTE: 此时，machine_info.last_online_height还未改变
-                if now >
-                    28800u32.saturated_into::<T::BlockNumber>() +
-                        duration +
-                        machine_info.last_online_height
-                {
-                    // TODO: handle this
-                    return Default::default()
-                }
-
-                (None, vec![], None)
-            },
+            OPSlashReason::OnlineReportOffline(_) => (None, vec![], None),
             // 机器处于租用状态，无法访问，这种情况下，reporter == renter
             OPSlashReason::RentedInaccessible(_) => {
                 let reporter = match duration.saturated_into::<u64>() {

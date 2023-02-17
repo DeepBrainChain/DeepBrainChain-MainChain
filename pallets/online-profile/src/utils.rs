@@ -121,7 +121,6 @@ pub fn slash_percent<BlockNumber>(slash_reason: &OPSlashReason<BlockNumber>, dur
             _ => 50,            // >120H扣除50%质押币。10%给用户，90%进入国库
         },
         OPSlashReason::OnlineReportOffline(_) => match duration {
-            // FIXME: 处理这里 ，因为涉及到了now的判断
             // TODO: 如果机器从首次上线时间起超过365天，剩下20%押金可以申请退回。扣除80%质押币。
             // 质押币全部进入国库。
             0 => 0,
