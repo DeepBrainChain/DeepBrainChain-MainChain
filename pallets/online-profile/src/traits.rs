@@ -76,7 +76,7 @@ impl<T: Config> OCOps for Pallet<T> {
             .init_stake_per_gpu
             .saturating_mul(committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>());
         if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
-            if Self::change_stake(machine_info.machine_stash.clone(), extra_stake, true).is_ok() {
+            if Self::change_stake(&machine_info.machine_stash, extra_stake, true).is_ok() {
                 ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
                 machine_info.stake_amount = stake_need;
                 machine_info.machine_status = MachineStatus::Online;
@@ -115,7 +115,7 @@ impl<T: Config> OCOps for Pallet<T> {
         }
 
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
-        if let MachineStatus::Online = machine_info.machine_status {
+        if matches!(machine_info.machine_status, MachineStatus::Online) {
             Self::update_region_on_online_changed(&machine_info, true);
             Self::update_snap_on_online_changed(machine_id.clone(), true);
 
@@ -144,10 +144,9 @@ impl<T: Config> OCOps for Pallet<T> {
                 );
                 let slash_id = Self::get_new_slash_id();
 
-                let mut pending_exec_slash = Self::pending_exec_slash(slash_info.slash_exec_time);
-                ItemList::add_item(&mut pending_exec_slash, slash_id);
-                PendingExecSlash::<T>::insert(slash_info.slash_exec_time, pending_exec_slash);
-
+                PendingExecSlash::<T>::mutate(slash_info.slash_exec_time, |pending_exec_slash| {
+                    ItemList::add_item(pending_exec_slash, slash_id);
+                });
                 PendingSlash::<T>::insert(slash_id, slash_info);
             } else {
                 MachineRecentReward::<T>::insert(
@@ -193,7 +192,7 @@ impl<T: Config> OCOps for Pallet<T> {
         let left_stake = machine_info.stake_amount.checked_sub(&slash)?;
         // Remain 5% of init stake(5% of one gpu stake)
         // Return 95% left stake(95% of one gpu stake)
-        let _ = Self::change_stake(machine_info.machine_stash.clone(), left_stake, false);
+        let _ = Self::change_stake(&machine_info.machine_stash, left_stake, false);
 
         // Clean storage
 
@@ -220,7 +219,7 @@ impl<T: Config> OCOps for Pallet<T> {
         amount: BalanceOf<T>,
         is_add: bool,
     ) -> Result<(), ()> {
-        Self::change_stake(stash, amount, is_add)
+        Self::change_stake(&stash, amount, is_add)
     }
 
     // just change stash_stake & sys_info, slash and reward should be execed in oc module
@@ -420,7 +419,7 @@ impl<T: Config> MTOps for Pallet<T> {
         amount: BalanceOf<T>,
         is_add: bool,
     ) -> Result<(), ()> {
-        Self::change_stake(stash, amount, is_add)
+        Self::change_stake(&stash, amount, is_add)
     }
 
     fn mt_rm_stash_total_stake(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {

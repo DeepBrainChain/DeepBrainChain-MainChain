@@ -338,6 +338,10 @@ pub mod pallet {
             let _ = Self::check_pending_slash();
             0
         }
+
+        fn on_runtime_upgrade() -> Weight {
+            0
+        }
     }
 
     #[pallet::call]
@@ -485,7 +489,7 @@ pub mod pallet {
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
-            Self::change_stake(machine_info.machine_stash.clone(), stake_amount, true)
+            Self::change_stake(&machine_info.machine_stash, stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
             UserMutHardwareStake::<T>::insert(
                 &machine_info.machine_stash,
@@ -525,7 +529,7 @@ pub mod pallet {
             let stake_amount = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
             // 扣除10个Dbc作为交易手续费; 并质押
             Self::pay_fixed_tx_fee(controller.clone())?;
-            Self::change_stake(stash.clone(), stake_amount, true)
+            Self::change_stake(&stash, stake_amount, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
             StashMachines::<T>::mutate(&stash, |stash_machines| {
@@ -627,7 +631,7 @@ pub mod pallet {
             // 当出现需要补交质押时，补充质押并记录到机器信息中
             if machine_info.stake_amount < stake_need {
                 let extra_stake = stake_need - machine_info.stake_amount;
-                Self::change_stake(machine_info.machine_stash.clone(), extra_stake, true)
+                Self::change_stake(&machine_info.machine_stash, extra_stake, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
                 machine_info.stake_amount = stake_need;
             }
@@ -662,12 +666,8 @@ pub mod pallet {
                     PendingSlash::<T>::insert(slash_id, slash_info);
                 }
                 // 退还reonline_stake
-                Self::change_stake(
-                    machine_info.machine_stash.clone(),
-                    reonline_stake.stake_amount,
-                    false,
-                )
-                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+                Self::change_stake(&machine_info.machine_stash, reonline_stake.stake_amount, false)
+                    .map_err(|_| Error::<T>::ReduceStakeFailed)?;
                 UserMutHardwareStake::<T>::remove(&machine_info.machine_stash, &machine_id);
             } else {
                 machine_info.online_height = now;
@@ -838,12 +838,8 @@ pub mod pallet {
             // 添加下线惩罚
             if slash_info.slash_amount != Zero::zero() {
                 // 任何情况重新上链都需要补交质押
-                Self::change_stake(
-                    machine_info.machine_stash.clone(),
-                    slash_info.slash_amount,
-                    true,
-                )
-                .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                Self::change_stake(&machine_info.machine_stash, slash_info.slash_amount, true)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
 
                 // NOTE: Only after pay slash amount succeed, then make machine online.
                 let slash_id = Self::get_new_slash_id();
@@ -931,7 +927,7 @@ pub mod pallet {
             machine_info.stake_amount = stake_need;
             machine_info.last_machine_restake = now;
             machine_info.init_stake_per_gpu = stake_per_gpu;
-            Self::change_stake(machine_info.machine_stash.clone(), extra_stake, false)
+            Self::change_stake(&machine_info.machine_stash, extra_stake, false)
                 .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
             MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
@@ -959,7 +955,7 @@ pub mod pallet {
 
             // 补交质押
             Self::change_stake(
-                machine_info.machine_stash,
+                &machine_info.machine_stash,
                 online_stake_params.slash_review_stake,
                 true,
             )
@@ -1061,10 +1057,10 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     pub fn do_machine_exit(
         machine_id: MachineId,
-        mut machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> DispatchResultWithPostInfo {
         // 下线机器，并退还奖励
-        Self::change_stake(machine_info.machine_stash.clone(), machine_info.stake_amount, false)
+        Self::change_stake(&machine_info.machine_stash, machine_info.stake_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
         // 多次调用，会多次改变PosGPUInfo
@@ -1074,9 +1070,6 @@ impl<T: Config> Pallet<T> {
         Self::update_snap_on_online_changed(machine_id.clone(), false);
 
         // NOTE: 下面的在machine_exit时都没有被调用，因此不受影响
-
-        machine_info.stake_amount = Zero::zero();
-        machine_info.machine_status = MachineStatus::Exit;
 
         LiveMachines::<T>::mutate(|live_machines| {
             live_machines.on_exit(&machine_id);
@@ -1098,8 +1091,7 @@ impl<T: Config> Pallet<T> {
             StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
         }
 
-        MachinesInfo::<T>::insert(&machine_id, machine_info);
-
+        MachinesInfo::<T>::remove(&machine_id);
         Self::deposit_event(Event::MachineExit(machine_id));
         Ok(().into())
     }
@@ -1110,10 +1102,10 @@ impl<T: Config> Pallet<T> {
         let slash_info = Self::pending_slash(slash_id);
         let pending_slash_review = Self::pending_slash_review(slash_id);
 
-        Self::change_stake(slash_info.slash_who.clone(), slash_info.slash_amount, false)
+        Self::change_stake(&slash_info.slash_who, slash_info.slash_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
-        Self::change_stake(slash_info.slash_who.clone(), pending_slash_review.staked_amount, false)
+        Self::change_stake(&slash_info.slash_who, pending_slash_review.staked_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
         PendingSlashReviewChecking::<T>::mutate(
@@ -1164,7 +1156,7 @@ impl<T: Config> Pallet<T> {
         MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 
-    fn change_stake(who: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+    fn change_stake(who: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
         let mut stash_stake = Self::stash_stake(&who);
 
         // 更改 stash_stake
@@ -1184,9 +1176,9 @@ impl<T: Config> Pallet<T> {
         StashStake::<T>::insert(&who, stash_stake);
 
         Self::deposit_event(if is_add {
-            Event::StakeAdded(who, amount)
+            Event::StakeAdded(who.clone(), amount)
         } else {
-            Event::StakeReduced(who, amount)
+            Event::StakeReduced(who.clone(), amount)
         });
 
         Ok(())
