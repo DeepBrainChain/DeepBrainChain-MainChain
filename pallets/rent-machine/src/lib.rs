@@ -613,7 +613,7 @@ impl<T: Config> Pallet<T> {
         // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
         for order_id in machine_order.rent_order {
             let rent_info = Self::rent_info(order_id);
-            if rent_info.rent_status == RentStatus::Renting {
+            if matches!(rent_info.rent_status, RentStatus::Renting) {
                 renting_count += 1;
             }
         }
