@@ -1055,6 +1055,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // NOTE: StashMachine.total_machine cannot be removed. Because Machine will be rewarded in 150 eras.
     pub fn do_machine_exit(
         machine_id: MachineId,
         machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
@@ -1081,14 +1082,6 @@ impl<T: Config> Pallet<T> {
             ControllerMachines::<T>::remove(&machine_info.controller);
         } else {
             ControllerMachines::<T>::insert(&machine_info.controller, controller_machines);
-        }
-
-        let mut stash_machine = Self::stash_machines(&machine_info.machine_stash);
-        ItemList::rm_item(&mut stash_machine.total_machine, &machine_id);
-        if stash_machine == StashMachine::default() {
-            StashMachines::<T>::remove(&machine_info.machine_stash);
-        } else {
-            StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
         }
 
         MachinesInfo::<T>::remove(&machine_id);
