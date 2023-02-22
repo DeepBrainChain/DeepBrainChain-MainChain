@@ -43,7 +43,8 @@ pub trait RTOps {
         machine_id: &Self::MachineId,
         gpu_num: u32,
         rent_duration: Self::BlockNumber,
-        is_last_rent: bool,
+        is_machine_last_rent: bool,
+        is_user_last_rent: bool,
         renter: Self::AccountId,
     );
     fn change_machine_status_on_confirm_expired(machine_id: &Self::MachineId, gpu_num: u32);

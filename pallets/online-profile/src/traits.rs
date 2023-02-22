@@ -300,7 +300,8 @@ impl<T: Config> RTOps for Pallet<T> {
         machine_id: &MachineId,
         rented_gpu_num: u32,
         rent_duration: Self::BlockNumber,
-        is_last_rent: bool,
+        is_machine_last_rent: bool,
+        is_renter_last_rent: bool,
         renter: Self::AccountId,
     ) {
         let mut machine_info = Self::machines_info(machine_id);
@@ -316,6 +317,11 @@ impl<T: Config> RTOps for Pallet<T> {
         machine_info.total_rented_duration +=
             Perbill::from_rational_approximation(rented_gpu_num, gpu_num) * rent_duration;
 
+        if is_renter_last_rent {
+            // NOTE: 只有在是最后一个renter时，才移除
+            ItemList::rm_item(&mut machine_info.renters, &renter);
+        }
+
         match machine_info.machine_status {
             MachineStatus::ReporterReportOffline(..) | MachineStatus::StakerReportOffline(..) => {
                 RentedFinished::<T>::insert(machine_id, renter);
@@ -324,14 +330,12 @@ impl<T: Config> RTOps for Pallet<T> {
                 // machine_info.machine_status = new_status;
 
                 // NOTE: 考虑是不是last_rent
-                if is_last_rent {
+                if is_machine_last_rent {
                     ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
                     ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
 
                     machine_info.last_online_height = <frame_system::Module<T>>::block_number();
                     machine_info.machine_status = MachineStatus::Online;
-                    // NOTE: 只有在是最后一个renter时，才移除
-                    ItemList::rm_item(&mut machine_info.renters, &renter);
 
                     // 租用结束
                     Self::update_snap_on_rent_changed(machine_id.to_vec(), false);

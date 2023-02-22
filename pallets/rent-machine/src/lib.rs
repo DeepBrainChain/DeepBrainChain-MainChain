@@ -592,12 +592,13 @@ impl<T: Config> Pallet<T> {
             let rent_duration = now - rent_info.rent_start;
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
-            let is_last_rent = Self::is_last_rent(&machine_id);
+            let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter);
             T::RTOps::change_machine_status_on_rent_end(
                 &machine_id,
                 rent_info.gpu_num,
                 rent_duration,
-                is_last_rent,
+                is_last_rent.0,
+                is_last_rent.1,
                 rent_info.renter.clone(),
             );
 
@@ -606,18 +607,24 @@ impl<T: Config> Pallet<T> {
     }
 
     // 当没有正在租用的机器时，可以修改得分快照
-    fn is_last_rent(machine_id: &MachineId) -> bool {
+    // 判断machine_id的订单是否只有1个
+    // 判断renter是否只租用了machine_id一次
+    fn is_last_rent(machine_id: &MachineId, renter: &T::AccountId) -> (bool, bool) {
         let machine_order = Self::machine_rent_order(machine_id);
-        let mut renting_count = 0;
+        let mut machine_order_count = 0;
+        let mut renter_order_count = 0;
 
         // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
         for order_id in machine_order.rent_order {
             let rent_info = Self::rent_info(order_id);
+            if renter == &rent_info.renter {
+                renter_order_count += 1;
+            }
             if matches!(rent_info.rent_status, RentStatus::Renting) {
-                renting_count += 1;
+                machine_order_count += 1;
             }
         }
 
-        renting_count < 2
+        (machine_order_count < 2, renter_order_count < 2)
     }
 }

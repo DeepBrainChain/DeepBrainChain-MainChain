@@ -3,10 +3,7 @@ use crate::mock::{new_test_ext_after_machine_online, run_to_block};
 use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,
-    machine_type::{
-        CommitteeUploadInfo, Latitude, Longitude, MachineInfoDetail, MachineStatus,
-        StakerCustomizeInfo,
-    },
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
     verify_online::StashMachine,
     MachineId,
 };
