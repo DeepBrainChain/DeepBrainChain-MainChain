@@ -34,6 +34,7 @@ pub fn apply<T: Config>() -> Weight {
         StorageVersion::<T>::put(2);
         migrate_rent_order_to_v2::<T>()
     } else if storage_version == 2 {
+        StorageVersion::<T>::put(3);
         fix_online_machine_renters::<T>()
     } else {
         frame_support::debug::info!(" >>> Unused migration!");
