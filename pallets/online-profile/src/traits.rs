@@ -377,6 +377,10 @@ impl<T: Config> RTOps for Pallet<T> {
             machine_info.update_rent_fee(amount, is_burn);
         });
     }
+
+    fn reset_machine_renters(machine_id: MachineId, renters: Vec<T::AccountId>) {
+        MachinesInfo::<T>::mutate(machine_id, |machine_info| machine_info.renters = renters);
+    }
 }
 
 impl<T: Config> OPRPCQuery for Pallet<T> {

@@ -1,4 +1,7 @@
-use crate::{BalanceOf, Config, MachineId, MachinesInfo, PendingSlash, StorageVersion};
+use crate::{
+    BalanceOf, Config, CurrentEra, ErasStashPoints, MachineId, MachinesInfo, Pallet, PendingSlash,
+    StashMachines, StorageVersion, SysInfo, SysInfoDetail,
+};
 use codec::{Decode, Encode};
 use dbc_support::{
     machine_info::MachineInfo,
@@ -6,10 +9,10 @@ use dbc_support::{
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
     EraIndex,
 };
-use frame_support::{debug::info, traits::Get, weights::Weight, RuntimeDebug};
+use frame_support::{debug::info, traits::Get, weights::Weight, IterableStorageMap, RuntimeDebug};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{traits::Zero, SaturatedConversion};
 use sp_std::{vec, vec::Vec};
 
 // machine_info:
@@ -178,4 +181,44 @@ fn migrate_pending_slash_to_v2<T: Config>() -> Weight {
 
     <T as frame_system::Config>::DbWeight::get()
         .reads_writes(count as Weight + 1, count as Weight + 1)
+}
+
+fn fix_online_rent_orders<T: Config>() -> Weight {
+    let all_machine_id = <MachinesInfo<T> as IterableStorageMap<MachineId, _>>::iter()
+        .map(|(machine_id, _)| machine_id)
+        .collect::<Vec<_>>();
+    for machine_id in all_machine_id {
+        MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
+            // NOTE: 将不是Rented状态的机器的租用人都重置为默认值
+            if !matches!(machine_info.machine_status, MachineStatus::Rented) {
+                machine_info.renters = vec![];
+            }
+        });
+    }
+
+    0
+}
+
+// NOTE: 必须要重新计算 EraStashPoints.total
+fn regenerate_era_stash_points<T: Config>() -> Weight {
+    let current_era = Pallet::<T>::current_era();
+    let next_era = current_era.saturating_add(1);
+    let mut current_era_stash_points = Pallet::<T>::eras_stash_points(current_era);
+
+    current_era_stash_points.total = Zero::zero();
+    for (_, staker_info) in current_era_stash_points.staker_statistic.clone() {
+        let grades = staker_info.total_grades().unwrap_or_default();
+        current_era_stash_points.total = current_era_stash_points.total.saturating_add(grades);
+    }
+    ErasStashPoints::<T>::insert(current_era, current_era_stash_points);
+
+    let mut next_era_stash_points = Pallet::<T>::eras_stash_points(next_era);
+    next_era_stash_points.total = Zero::zero();
+    for (_, staker_info) in next_era_stash_points.staker_statistic.clone() {
+        let grades = staker_info.total_grades().unwrap_or_default();
+        next_era_stash_points.total = next_era_stash_points.total.saturating_add(grades);
+    }
+    ErasStashPoints::<T>::insert(current_era, next_era_stash_points);
+
+    0
 }

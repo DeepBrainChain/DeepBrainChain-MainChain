@@ -1064,8 +1064,6 @@ impl<T: Config> Pallet<T> {
         Self::change_stake(&machine_info.machine_stash, machine_info.stake_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
-        // 多次调用，会多次改变PosGPUInfo
-        // TODO: 在更新时，重新生成PosGOUInfo这个存储!
         Self::update_region_on_exit(&machine_info);
         // FIXME: 评估调用多次该方法造成的影响！
         Self::update_snap_on_online_changed(machine_id.clone(), false);

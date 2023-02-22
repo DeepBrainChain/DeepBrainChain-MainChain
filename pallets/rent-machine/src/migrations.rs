@@ -1,10 +1,11 @@
 use crate::{
-    Config, ConfirmingOrder, MachineGPUOrder, MachineRentOrder, Module, RentEnding, RentInfo,
-    StorageVersion, UserOrder, WAITING_CONFIRMING_DELAY,
+    Config, ConfirmingOrder, MachineGPUOrder, MachineRentOrder, Module, Pallet, RentEnding,
+    RentInfo, StorageVersion, UserOrder, WAITING_CONFIRMING_DELAY,
 };
 use codec::{Decode, Encode};
 use dbc_support::{
     rental_type::{RentOrderDetail, RentStatus},
+    traits::RTOps,
     ItemList, MachineId,
 };
 use frame_support::{debug::info, traits::Get, weights::Weight, IterableStorageMap};
@@ -26,10 +27,14 @@ pub fn apply<T: Config>() -> Weight {
         "Running migration for rentMachine pallet"
     );
 
-    if StorageVersion::<T>::get() <= 1 {
+    let storage_version = StorageVersion::<T>::get();
+
+    if storage_version <= 1 {
         // NOTE: Update storage version.
         StorageVersion::<T>::put(2);
         migrate_rent_order_to_v2::<T>()
+    } else if storage_version == 2 {
+        fix_online_machine_renters::<T>()
     } else {
         frame_support::debug::info!(" >>> Unused migration!");
         0
@@ -138,4 +143,22 @@ fn migrate_rent_order_to_v2<T: Config>() -> Weight {
 
     <T as frame_system::Config>::DbWeight::get()
         .reads_writes(count as Weight * 5 + 1, count as Weight * 5 + 1)
+}
+
+// 修复第一次迁移时机器将last_machine_rentern当作renters而未考虑机器状态的问题
+fn fix_online_machine_renters<T: Config>() -> Weight {
+    let all_machine_id = <MachineRentOrder<T> as IterableStorageMap<MachineId, _>>::iter()
+        .map(|(machine_id, _)| machine_id)
+        .collect::<Vec<_>>();
+
+    for machine_id in all_machine_id {
+        let machine_rent_order = Pallet::<T>::machine_rent_order(&machine_id);
+        let mut renters = vec![];
+        for rent_id in machine_rent_order.rent_order {
+            let rent_info = Pallet::<T>::rent_info(rent_id);
+            ItemList::add_item(&mut renters, rent_info.renter);
+        }
+        T::RTOps::reset_machine_renters(machine_id, renters);
+    }
+    0
 }
