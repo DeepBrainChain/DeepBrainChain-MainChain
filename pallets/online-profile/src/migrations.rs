@@ -139,11 +139,15 @@ pub fn apply<T: Config>() -> Weight {
         "Running migration for onlineProfile pallet"
     );
 
-    if StorageVersion::<T>::get() <= 1 {
+    let storage_version = StorageVersion::<T>::get();
+
+    if storage_version <= 1 {
         // NOTE: Update storage version.
         StorageVersion::<T>::put(2);
-
         migrate_machine_info_to_v2::<T>().saturating_add(migrate_pending_slash_to_v2::<T>())
+    } else if storage_version == 2 {
+        StorageVersion::<T>::put(3);
+        fix_online_rent_orders::<T>() + regenerate_era_stash_points::<T>()
     } else {
         frame_support::debug::info!(" >>> Unused migration!");
         0
