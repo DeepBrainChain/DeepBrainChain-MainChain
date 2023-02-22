@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod migrations;
 mod rpc;
 mod traits;
 mod types;
@@ -64,6 +65,11 @@ pub mod pallet {
     #[pallet::getter(fn committee_stake)]
     pub(super) type CommitteeStake<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, CommitteeStakeInfo<BalanceOf<T>>, ValueQuery>;
+
+    // The current storage version.
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, u16, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
