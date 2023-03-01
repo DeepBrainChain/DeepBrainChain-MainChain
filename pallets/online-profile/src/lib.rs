@@ -521,6 +521,12 @@ pub mod pallet {
             let now = <frame_system::Module<T>>::block_number();
 
             ensure!(!MachinesInfo::<T>::contains_key(&machine_id), Error::<T>::MachineIdExist);
+            // 依赖stash_machine中的记录发放奖励。因此Machine退出后，仍保留
+            let stash_machine = Self::stash_machines(&stash);
+            ensure!(
+                stash_machine.total_machine.binary_search(&machine_id).is_ok(),
+                Error::<T>::MachineIdExist
+            );
 
             // 检查签名是否正确
             Self::check_bonding_msg(stash.clone(), machine_id.clone(), msg, sig)?;
@@ -1132,7 +1138,7 @@ impl<T: Config> Pallet<T> {
         });
 
         // 先根据机器当前状态，之后再变更成下线状态
-        if let MachineStatus::Rented = machine_info.machine_status {
+        if matches!(machine_info.machine_status, MachineStatus::Rented) {
             Self::update_region_on_rent_changed(&machine_info, false);
             Self::update_snap_on_rent_changed(machine_id.clone(), false);
         }
