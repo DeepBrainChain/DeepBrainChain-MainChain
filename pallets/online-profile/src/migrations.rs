@@ -226,3 +226,15 @@ fn regenerate_era_stash_points<T: Config>() -> Weight {
 
     0
 }
+
+// 1.销毁达到2500卡启动
+// 2.单位算力值价格变更为60％
+fn reset_params<T: Config>() -> Weight {
+    GalaxyOnGPUThreshold::<T>::put(2500);
+    let mut standard_gpu_point_price = Pallet::<T>::standard_gpu_point_price().unwrap_or_default();
+    standard_gpu_point_price.gpu_price =
+        Perbill::from_rational_approximation(60u32, 100u32) * standard_gpu_point_price.gpu_price;
+    StandardGPUPointPrice::<T>::put(standard_gpu_point_price);
+
+    0
+}
