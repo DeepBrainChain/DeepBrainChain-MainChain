@@ -1,7 +1,7 @@
 use crate::{
     BalanceOf, Config, ErasStashPoints, GalaxyOnGPUThreshold, LiveMachines, MachineId,
     MachinesInfo, Pallet, PendingSlash, StandardGPUPointPrice, StashMachines, StashStake,
-    StorageVersion, SysInfo, SysInfoDetail,
+    StorageVersion, SysInfo,
 };
 use codec::{Decode, Encode};
 use dbc_support::{

@@ -7,6 +7,7 @@ use frame_support::{
     assert_ok, parameter_types,
     traits::{OnFinalize, OnInitialize},
 };
+use frame_system::EnsureRoot;
 pub use frame_system::{self as system, RawOrigin};
 pub use sp_core::{
     sr25519::{self, Signature},
@@ -22,8 +23,6 @@ use sp_runtime::{
     ModuleId, Perbill, Permill,
 };
 use std::convert::TryInto;
-
-use frame_system::EnsureRoot;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;

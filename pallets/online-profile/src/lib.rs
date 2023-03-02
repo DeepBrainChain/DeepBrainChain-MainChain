@@ -524,7 +524,7 @@ pub mod pallet {
             // 依赖stash_machine中的记录发放奖励。因此Machine退出后，仍保留
             let stash_machine = Self::stash_machines(&stash);
             ensure!(
-                stash_machine.total_machine.binary_search(&machine_id).is_ok(),
+                !stash_machine.total_machine.binary_search(&machine_id).is_ok(),
                 Error::<T>::MachineIdExist
             );
 

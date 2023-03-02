@@ -926,13 +926,21 @@ checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 name = "council-reward"
 version = "0.1.0"
 dependencies = [
+ "dbc-price-ocw",
  "dbc-support",
  "frame-support",
  "frame-system",
+ "generic-func",
+ "pallet-balances",
  "pallet-collective",
  "pallet-elections-phragmen",
+ "pallet-randomness-collective-flip",
+ "pallet-treasury",
  "parity-scale-codec",
  "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]
