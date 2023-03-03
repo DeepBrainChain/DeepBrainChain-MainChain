@@ -43,6 +43,8 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 
 #[frame_support::pallet]
 pub mod pallet {
+    use sp_runtime::Perbill;
+
     use super::*;
 
     #[pallet::config]
@@ -88,20 +90,15 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// If galaxy competition is begin: switch 5000 gpu
+    // 第一阶段销毁, 2500卡时销毁50%租金
     #[pallet::storage]
-    #[pallet::getter(fn galaxy_is_on)]
-    pub(super) type GalaxyIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
+    #[pallet::getter(fn phase1_destruction)]
+    pub type Phase1Destruction<T: Config> = StorageValue<_, (u32, Perbill, bool), ValueQuery>;
 
-    #[pallet::type_value]
-    pub(super) fn GalaxyOnGPUThresholdDefault<T: Config>() -> u32 {
-        5000
-    }
-
+    // 第二阶段销毁, 2500卡时销毁50%租金
     #[pallet::storage]
-    #[pallet::getter(fn galaxy_on_gpu_threshold)]
-    pub(super) type GalaxyOnGPUThreshold<T: Config> =
-        StorageValue<_, u32, ValueQuery, GalaxyOnGPUThresholdDefault<T>>;
+    #[pallet::getter(fn phase2_destruction)]
+    pub type Phase2Destruction<T: Config> = StorageValue<_, (u32, Perbill, bool), ValueQuery>;
 
     /// Statistics of gpu and stake
     #[pallet::storage]
@@ -375,35 +372,6 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StandardGPUPointPrice::<T>::put(point_price);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn set_galaxy_on(origin: OriginFor<T>, is_on: bool) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            GalaxyIsOn::<T>::put(is_on);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn set_galaxy_on_gpu_threshold(
-            origin: OriginFor<T>,
-            gpu_threshold: u32,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            GalaxyOnGPUThreshold::<T>::put(gpu_threshold);
-
-            let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
-            let current_era = Self::current_era();
-            let sys_info = Self::sys_info();
-
-            // NOTE: 5000张卡开启银河竞赛
-            if !Self::galaxy_is_on() && sys_info.total_gpu_num >= gpu_threshold as u64 {
-                phase_reward_info.galaxy_on_era = current_era;
-                PhaseRewardInfo::<T>::put(phase_reward_info);
-                GalaxyIsOn::<T>::put(true);
-            }
-
             Ok(().into())
         }
 
@@ -1274,13 +1242,20 @@ impl<T: Config> Pallet<T> {
             .saturating_add(new_stash_grade)
             .saturating_sub(pre_stash_grade);
 
-        // NOTE: 5000张卡开启银河竞赛
-        if !Self::galaxy_is_on() && sys_info.total_gpu_num >= Self::galaxy_on_gpu_threshold() as u64
-        {
+        // NOTE: 2500张卡开启第一阶段销毁；5000张卡开启全部销毁
+        let mut phase1_destruction = Self::phase1_destruction();
+        let mut phase2_destruction = Self::phase2_destruction();
+        if !phase1_destruction.2 && sys_info.total_gpu_num >= phase1_destruction.0 as u64 {
+            phase1_destruction.2 = true;
+            Phase1Destruction::<T>::put(phase1_destruction);
+        }
+        if !phase2_destruction.2 && sys_info.total_gpu_num >= phase2_destruction.0 as u64 {
+            phase2_destruction.2 = true;
+            Phase2Destruction::<T>::put(phase2_destruction);
+
             let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
             phase_reward_info.galaxy_on_era = current_era;
             PhaseRewardInfo::<T>::put(phase_reward_info);
-            GalaxyIsOn::<T>::put(true);
         }
 
         if is_online && stash_machine.online_machine.len() == 1 {

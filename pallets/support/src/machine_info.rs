@@ -111,12 +111,9 @@ where
         }
     }
 
-    pub fn update_rent_fee(&mut self, amount: Balance, is_burn: bool) {
-        if is_burn {
-            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
-        } else {
-            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
-        }
+    pub fn update_rent_fee(&mut self, rent_fee: Balance, burn_fee: Balance) {
+        self.total_rent_fee = self.total_rent_fee.saturating_add(rent_fee);
+        self.total_burn_fee = self.total_burn_fee.saturating_add(burn_fee);
     }
 
     /// Return longitude of machine

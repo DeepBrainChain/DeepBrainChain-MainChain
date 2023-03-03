@@ -14,6 +14,7 @@ fn test_renters_change_works() {
 
         let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
 
+        // 对四卡的机器分两次租用
         assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 60));
         assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 120));
 

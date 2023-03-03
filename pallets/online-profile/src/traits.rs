@@ -365,16 +365,20 @@ impl<T: Config> RTOps for Pallet<T> {
         MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
     }
 
-    fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {
+    fn change_machine_rent_fee(
+        machine_id: MachineId,
+        rent_fee: BalanceOf<T>,
+        burn_fee: BalanceOf<T>,
+    ) {
         SysInfo::<T>::mutate(|sys_info| {
-            sys_info.on_rent_fee_changed(amount, is_burn);
+            sys_info.on_rent_fee_changed(rent_fee, burn_fee);
         });
         MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
             StashMachines::<T>::mutate(&machine_info.machine_stash, |staker_machine| {
-                staker_machine.update_rent_fee(amount, is_burn);
+                staker_machine.update_rent_fee(rent_fee, burn_fee);
             });
 
-            machine_info.update_rent_fee(amount, is_burn);
+            machine_info.update_rent_fee(rent_fee, burn_fee);
         });
     }
 
