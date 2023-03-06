@@ -117,7 +117,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 269,
+    spec_version: 270,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -463,7 +463,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
     pub const BondingDuration: pallet_staking::EraIndex = 14;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 27; // 1/4 the bonding duration.
+    pub const SlashDeferDuration: pallet_staking::EraIndex = 14; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 128;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 8;
@@ -597,7 +597,7 @@ parameter_types! {
     pub const VotingBondBase: Balance = deposit(1, 64);
     // additional data per vote is 32 bytes (account id).
     pub const VotingBondFactor: Balance = deposit(0, 32);
-    pub const TermDuration: BlockNumber = 60 * DAYS;
+    pub const TermDuration: BlockNumber = 120 * DAYS;
     pub const DesiredMembers: u32 = 21;
     pub const DesiredRunnersUp: u32 = 7;
     pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
@@ -1061,7 +1061,7 @@ impl committee::Config for Runtime {
 impl online_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type OCOperations = OnlineProfile;
+    type OCOps = OnlineProfile;
     type ManageCommittee = Committee;
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
@@ -1093,6 +1093,27 @@ impl terminating_rental::Config for Runtime {
     type ManageCommittee = Committee;
     type DbcPrice = DBCPriceOCW;
     type SlashAndReward = GenericFunc;
+}
+
+parameter_types! {
+    // 首要投票人：5000 USD 或 60万 DBC 取价值较小
+    pub const PrimerReward: (u64, Balance) = (5_000_000_000u64, 600_000 * DBCS);
+    // 排名第二的议会成员：2000 USD 或 20万 DBC 取价值较小
+    pub const SecondReward: (u64, Balance) = (2_000_000_000u64, 200_000 * DBCS);
+    // 排名第三的议会成员：2000 USD 或 20万 DBC 取价值较小
+    pub const ThirdReward: (u64, Balance) = (2_000_000_000u64, 200_000 * DBCS);
+    // 发放周期
+    pub const RewardFrequency: BlockNumber = 30 * DAYS;
+}
+
+impl council_reward::Config for Runtime {
+    type Event = Event;
+    type DbcPrice = DBCPriceOCW;
+    type Currency = Balances;
+    type RewardFrequency = RewardFrequency;
+    type PrimerReward = PrimerReward;
+    type SecondReward = SecondReward;
+    type ThirdReward = ThirdReward;
 }
 
 construct_runtime!(
@@ -1146,6 +1167,7 @@ construct_runtime!(
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
         TerminatingRental: terminating_rental::{Module, Storage, Call, Event<T>},
+        CouncilReward: council_reward::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -1217,7 +1239,7 @@ impl_runtime_apis! {
             OnlineProfile::get_machine_list()
         }
 
-        fn get_machine_info(machine_id: MachineId) -> online_profile::MachineInfo<AccountId, BlockNumber, Balance> {
+        fn get_machine_info(machine_id: MachineId) -> dbc_support::machine_info::MachineInfo<AccountId, BlockNumber, Balance> {
             OnlineProfile::get_machine_info(machine_id)
         }
 

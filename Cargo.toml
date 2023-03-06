@@ -33,6 +33,7 @@ members = [
   'pallets/terminating-rental',
   'pallets/terminating-rental/rpc',
   'pallets/terminating-rental/rpc/runtime-api',
+  'pallets/council-reward',
 ]
 
 [profile.release]

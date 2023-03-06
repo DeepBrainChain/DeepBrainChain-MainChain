@@ -2,7 +2,8 @@ use super::super::mock::*;
 use crate::mock::{new_test_ext_after_machine_online, run_to_block};
 use dbc_support::{
     live_machine::LiveMachine,
-    machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
+    machine_info::MachineInfo,
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
     verify_online::StashMachine,
     MachineId,
 };
@@ -222,8 +223,7 @@ fn machine_exit_works() {
         {
             // 确保machine退出后，还能继续领奖励?还是说直接不能领奖励了
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.stake_amount, 0);
-            assert_eq!(machine_info.machine_status, MachineStatus::Exit);
+            assert_eq!(machine_info, MachineInfo::default());
 
             // PosGPUInfo已经被清空
             assert!(!PosGPUInfo::<TestRuntime>::contains_key(
@@ -231,6 +231,8 @@ fn machine_exit_works() {
                 machine_info.latitude()
             ));
             // 从live_machine中被删除
+            let live_machine = OnlineProfile::live_machines();
+            assert!(!live_machine.online_machine.binary_search(&machine_id).is_ok());
 
             // 从controller_machines中删除
             assert!(OnlineProfile::controller_machines(&controller)
@@ -244,6 +246,7 @@ fn machine_exit_works() {
             assert_eq!(
                 stash_machines,
                 StashMachine {
+                    total_machine: vec![machine_id],
                     // 因为total_rent_fee为0， total_burn_fee为0
                     ..Default::default()
                 }

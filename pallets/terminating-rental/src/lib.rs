@@ -21,7 +21,7 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, SaturatedConversion, Saturating, Zero},
     Perbill,
 };
-use sp_std::{prelude::*, str, vec::Vec};
+use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
 
 use dbc_support::{
     live_machine::LiveMachine,
@@ -36,9 +36,9 @@ use dbc_support::{
     traits::{DbcPrice, GNOps, ManageCommittee},
     verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
     verify_online::{
-        MachineConfirmStatus, OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps,
-        OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus, OCVerifyStatus,
-        StashMachine, Summary, VerifySequence,
+        OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps, OCMachineCommitteeList,
+        OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, StashMachine, Summary,
+        VerifyResult, VerifySequence,
     },
     BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId, TWO_DAY,
 };
@@ -353,20 +353,6 @@ pub mod pallet {
     pub(super) type UnhandledReportResult<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<ReportId>, ValueQuery>;
 
-    // 机器主动下线后，记录机器下线超过最大值{5,10天}后，需要立即执行的惩罚
-    #[pallet::storage]
-    #[pallet::getter(fn pending_offline_slash)]
-    pub(super) type PendingOfflineSlash<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::BlockNumber,
-        Blake2_128Concat,
-        MachineId,
-        // 记录机器举报人，当前租用人
-        (Option<T::AccountId>, Vec<T::AccountId>),
-        ValueQuery,
-    >;
-
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
@@ -623,6 +609,11 @@ pub mod pallet {
             let machine_info = Self::machines_info(&machine_id);
             let machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
             let gpu_num = machine_info.gpu_num();
+
+            if gpu_num == 0 || duration == Zero::zero() {
+                return Ok(().into())
+            }
+
             // 检查还有空闲的GPU
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
             // 只允许半小时整数倍的租用
@@ -851,6 +842,48 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // NOTE: confirm_machine, machine_offline, terminate_rent 需要改变 machine_info.renters
+        /// 用户终止租用
+        #[pallet::weight(10000)]
+        pub fn terminate_rent(
+            origin: OriginFor<T>,
+            rent_id: RentOrderId,
+        ) -> DispatchResultWithPostInfo {
+            let renter = ensure_signed(origin)?;
+            let rent_order = Self::rent_order(rent_id);
+            let now = <frame_system::Module<T>>::block_number();
+
+            ensure!(renter == rent_order.renter, Error::<T>::NotOrderRenter);
+
+            let rent_duration = now.saturating_sub(rent_order.rent_start);
+            let rent_fee = Perbill::from_rational_approximation(
+                rent_duration,
+                rent_order.rent_end.saturating_sub(rent_order.rent_start),
+            ) * rent_order.stake_amount;
+
+            // 修改machine_rent_order， 移除机器的GPU使用记录，并清除GPU使用记录
+            let mut machine_rent_order = Self::machine_rent_order(&rent_order.machine_id);
+            machine_rent_order.clean_expired_order(rent_id, rent_order.gpu_index.clone());
+
+            // 遍历订单，检查机器如果被同一人租用多次，不能移除该租用人
+            for rent_id in &machine_rent_order.rent_order {
+                let rent_order = Self::rent_order(rent_id);
+                if rent_order.renter == renter {
+                    break
+                }
+                MachinesInfo::<T>::mutate(&rent_order.machine_id, |machine_info| {
+                    ItemList::rm_item(&mut machine_info.renters, &renter)
+                });
+            }
+            MachineRentOrder::<T>::insert(&rent_order.machine_id, machine_rent_order);
+
+            // NOTE: Here will change machine_info.
+            Self::pay_rent_fee(&rent_order, rent_fee, rent_order.machine_id.clone())?;
+            RentOrder::<T>::remove(rent_id);
+
+            Ok(().into())
+        }
+
         #[pallet::weight(10000)]
         pub fn machine_offline(
             origin: OriginFor<T>,
@@ -867,6 +900,7 @@ pub mod pallet {
             let machine_rent_order = Self::machine_rent_order(&machine_id);
 
             machine_info.machine_offline(now);
+            machine_info.renters = vec![];
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
             for rent_id in machine_rent_order.rent_order {
@@ -994,13 +1028,13 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // 如果机器是在线状态，但是无法使用，可以举报。
+        // 如果租用成功发现硬件造假，可以举报。
         // 举报成功，100％没收质押币。50%举报人, 30%验证人, 20％国库
         #[pallet::weight(10000)]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
-            // NOTE: Here only one fault type (OnlineRenetFailed) can be report, so we only need
-            // machine_id report_reason: MachineFaultType,
+            // NOTE: Here only one fault type (RentedHardwareCounterfeit) can be report, so we only
+            // need machine_id report_reason: MachineFaultType,
             report_hash: ReportHash,
             box_pubkey: BoxPubkey,
         ) -> DispatchResultWithPostInfo {
@@ -1013,8 +1047,7 @@ pub mod pallet {
 
             Self::do_report_machine_fault(
                 reporter.clone(),
-                // report_reason,
-                MachineFaultType::OnlineRentFailed(report_hash, box_pubkey),
+                MachineFaultType::RentedHardwareCounterfeit(report_hash, box_pubkey),
                 None,
                 &mut live_report,
                 &mut reporter_report,
@@ -1292,6 +1325,8 @@ pub mod pallet {
         ServerRoomNotFound,
         NotAllowedChangeMachineInfo,
         NotMachineController,
+        CalaStakeAmountFailed,
+        ClaimRewardFailed,
         DuplicateHash,
         InfoNotFeatHash,
         NotInBookList,
@@ -1307,6 +1342,7 @@ pub mod pallet {
         Overflow,
         InsufficientValue,
         NoOrderExist,
+        NotOrderRenter,
         ExpiredConfirm,
         StatusNotAllowed,
         UnlockToPayFeeFailed,
@@ -1523,103 +1559,124 @@ impl<T: Config> Pallet<T> {
     }
 
     // 对已经提交完原始值的机器进行处理
-    // - Writes: MachineCommittee, CommitteeMachine, CommitteeStake
-    // CommitteeOps, MachineSubmitedHash, CommitteeMachine
     fn summary_raw(machine_id: MachineId, now: T::BlockNumber, stake_per_order: BalanceOf<T>) {
         let mut machine_committee = Self::machine_committee(&machine_id);
 
         // 如果是在提交Hash的状态，且已经到提交原始值的时间，则改变状态并返回
-        if matches!(machine_committee.status, OCVerifyStatus::SubmittingHash) {
-            if now >= machine_committee.book_time + SUBMIT_RAW_START.into() {
-                machine_committee.status = OCVerifyStatus::SubmittingRaw;
-                MachineCommittee::<T>::insert(&machine_id, machine_committee);
-                return
-            }
+        if machine_committee.can_submit_raw(now) {
+            machine_committee.status = OCVerifyStatus::SubmittingRaw;
+            MachineCommittee::<T>::insert(&machine_id, machine_committee);
+            return
         }
-
         if !machine_committee.can_summary(now) {
             return
         }
 
-        let summary_result = Self::summary_confirmation(&machine_id);
-        let (inconsistent, unruly, reward) = summary_result.clone().get_committee_group();
+        let mut submit_info = vec![];
+        machine_committee.confirmed_committee.iter().for_each(|a_committee| {
+            submit_info.push(Self::committee_online_ops(a_committee, &machine_id).machine_info);
+        });
+        let summary = Self::summary_confirmation(machine_committee.clone(), submit_info);
 
-        let mut stash_slash_info = None;
+        let stash_slash = if matches!(summary.verify_result, VerifyResult::Refused) {
+            Self::refuse_machine(machine_id.clone())
+        } else {
+            None
+        };
 
-        match summary_result.clone() {
-            MachineConfirmStatus::Confirmed(summary) => {
-                if Self::confirm_machine(summary.valid_support.clone(), summary.info.unwrap())
-                    .is_ok()
-                {
-                    // 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
-                    summary.valid_support.iter().for_each(|committee| {
-                        CommitteeMachine::<T>::mutate(&committee, |machines| {
-                            ItemList::add_item(&mut machines.online_machine, machine_id.clone());
-                        });
+        match summary.verify_result.clone() {
+            VerifyResult::Confirmed => {
+                Self::confirm_machine(summary.valid_vote.clone(), summary.info.clone().unwrap());
+                summary.valid_vote.iter().for_each(|a_committee| {
+                    // TODO: 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
+                    CommitteeMachine::<T>::mutate(&a_committee, |record| {
+                        ItemList::add_item(&mut record.online_machine, machine_id.clone());
                     });
-                }
+                });
             },
-            MachineConfirmStatus::Refuse(_summary) => {
-                // should cancel machine_stash slash when slashed committee apply review
-                stash_slash_info = Self::refuse_machine(machine_id.clone());
-            },
-            MachineConfirmStatus::NoConsensus(_summary) => {
+            VerifyResult::Refused => {},
+            VerifyResult::NoConsensus => {
                 let _ = Self::revert_book(machine_id.clone());
                 Self::revert_booked_machine(machine_id.clone());
+
+                for a_committee in summary.invalid_vote.clone() {
+                    let _ = <T as Config>::ManageCommittee::change_used_stake(
+                        a_committee,
+                        stake_per_order,
+                        false,
+                    );
+                }
             },
         }
 
-        MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
-            machine_committee.after_summary(summary_result.clone())
-        });
-
-        let is_refused = summary_result.is_refused();
-        if inconsistent.is_empty() && unruly.is_empty() && !is_refused {
-            // 没有惩罚时则直接退还委员会的质押
-            for a_committee in reward {
+        // NOTE: 添加惩罚
+        if stash_slash.is_some() || summary.should_slash_committee() {
+            let (machine_stash, stash_slash_amount) = stash_slash.unwrap_or_default();
+            Self::add_summary_slash(
+                machine_id.clone(),
+                machine_stash,
+                stash_slash_amount,
+                summary.clone(),
+                stake_per_order,
+                now,
+            );
+        } else {
+            // NOTE: 没有任何惩罚时退还正确质押委员会的质押
+            // 否则，还需要质押到两天之后惩罚执行时，才退还！
+            for a_committee in summary.valid_vote.clone() {
                 let _ = <T as Config>::ManageCommittee::change_used_stake(
                     a_committee,
                     stake_per_order,
                     false,
                 );
             }
-        } else {
-            // 添加惩罚
-            let slash_id = Self::get_new_slash_id();
-            let (machine_stash, stash_slash_amount) = stash_slash_info.unwrap_or_default();
-            PendingOnlineSlash::<T>::insert(
-                slash_id,
-                PendingOnlineSlashInfo {
-                    machine_id: machine_id.clone(),
-                    machine_stash,
-                    stash_slash_amount,
-
-                    inconsistent_committee: inconsistent,
-                    unruly_committee: unruly,
-                    reward_committee: reward,
-                    committee_stake: stake_per_order,
-
-                    slash_time: now,
-                    slash_exec_time: now + TWO_DAY.into(),
-
-                    book_result: summary_result.into_book_result(),
-                    slash_result: OCSlashResult::Pending,
-                },
-            );
-
-            UnhandledOnlineSlash::<T>::mutate(|unhandled_slash| {
-                ItemList::add_item(unhandled_slash, slash_id);
-            });
         }
 
+        MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
+            machine_committee.after_summary(summary.clone())
+        });
+
         // Do cleaning
-        machine_committee.booked_committee.iter().for_each(|a_committee| {
+        for a_committee in machine_committee.booked_committee {
             CommitteeOnlineOps::<T>::remove(&a_committee, &machine_id);
             MachineSubmitedHash::<T>::remove(&machine_id);
             CommitteeMachine::<T>::mutate(&a_committee, |committee_machine| {
                 committee_machine.online_cleanup(&machine_id)
             });
-        })
+        }
+    }
+
+    fn add_summary_slash(
+        machine_id: MachineId,
+        machine_stash: T::AccountId,
+        slash_amount: BalanceOf<T>,
+        summary: Summary<T::AccountId>,
+        stake_per_order: BalanceOf<T>,
+        now: T::BlockNumber,
+    ) {
+        let slash_id = Self::get_new_slash_id();
+        PendingOnlineSlash::<T>::insert(
+            slash_id,
+            PendingOnlineSlashInfo {
+                machine_id: machine_id.clone(),
+                machine_stash,
+                stash_slash_amount: slash_amount,
+
+                inconsistent_committee: summary.invalid_vote.clone(),
+                unruly_committee: summary.unruly.clone(),
+                reward_committee: summary.valid_vote.clone(),
+                committee_stake: stake_per_order,
+
+                slash_time: now,
+                slash_exec_time: now + TWO_DAY.into(),
+
+                book_result: summary.into_book_result(),
+                slash_result: OCSlashResult::Pending,
+            },
+        );
+        UnhandledOnlineSlash::<T>::mutate(|unhandled_slash| {
+            ItemList::add_item(unhandled_slash, slash_id);
+        });
     }
 
     // 总结机器的确认情况: 检查机器是否被确认，并检查提交的信息是否一致
@@ -1628,112 +1685,72 @@ impl<T: Config> Pallet<T> {
     // 2. 支持上线: 处理办法：扣除所有反对上线，支持上线但提交无效信息的委员会的质押。
     // 3. 反对上线: 处理办法：反对的委员会平分支持的委员会的质押。扣5%矿工质押，
     // 允许矿工再次质押而上线。
-    pub fn summary_confirmation(machine_id: &MachineId) -> MachineConfirmStatus<T::AccountId> {
-        let machine_committee = Self::machine_committee(machine_id);
+    pub fn summary_confirmation(
+        machine_committee: OCMachineCommitteeList<T::AccountId, T::BlockNumber>,
+        committee_submit_info: Vec<CommitteeUploadInfo>,
+    ) -> Summary<T::AccountId> {
+        // 如果是反对上线，则需要忽略其他字段，只添加is_support=false的字段
+        let mut submit_info = vec![];
+        committee_submit_info.into_iter().for_each(|info| {
+            if info.is_support {
+                submit_info.push(info);
+            } else {
+                submit_info.push(CommitteeUploadInfo { is_support: false, ..Default::default() })
+            }
+        });
 
         let mut summary = Summary::default();
-        // 支持的委员会可能提交不同的机器信息
-        let mut uniq_machine_info: Vec<CommitteeUploadInfo> = Vec::new();
-        // 不同机器信息对应的委员会
-        let mut committee_for_machine_info = Vec::new();
-
-        // 记录没有提交原始信息的委员会
         summary.unruly = machine_committee.summary_unruly();
+        let uniq_len = submit_info.iter().collect::<BTreeSet<_>>().len();
 
-        // 如果没有人提交确认信息，则无共识。返回分派了订单的委员会列表，对其进行惩罚
         if machine_committee.confirmed_committee.is_empty() {
-            return MachineConfirmStatus::NoConsensus(summary)
-        }
-
-        // 记录上反对上线的委员会
-        for a_committee in machine_committee.confirmed_committee {
-            let submit_machine_info =
-                Self::committee_online_ops(a_committee.clone(), machine_id).machine_info;
-            if !submit_machine_info.is_support {
-                ItemList::add_item(&mut summary.against, a_committee);
+            // Case: Zero info
+            summary.verify_result = VerifyResult::NoConsensus;
+        } else if submit_info.iter().min().unwrap() == submit_info.iter().max().unwrap() {
+            // Cases: One submit info; Two same info; Three same info
+            let info = submit_info[0].clone();
+            if info.is_support {
+                summary.info = Some(info);
+                summary.valid_vote = machine_committee.confirmed_committee;
+                summary.verify_result = VerifyResult::Confirmed;
             } else {
-                match uniq_machine_info.iter().position(|r| r == &submit_machine_info) {
-                    None => {
-                        uniq_machine_info.push(submit_machine_info.clone());
-                        committee_for_machine_info.push(vec![a_committee.clone()]);
-                    },
-                    Some(index) =>
-                        ItemList::add_item(&mut committee_for_machine_info[index], a_committee),
-                };
+                summary.valid_vote = machine_committee.confirmed_committee;
+                summary.verify_result = VerifyResult::Refused;
             }
-        }
-
-        // 统计committee_for_machine_info中有多少委员会站队最多
-        let support_committee_num: Vec<usize> =
-            committee_for_machine_info.iter().map(|item| item.len()).collect();
-        // 最多多少个委员会达成一致意见
-        let max_support = support_committee_num.clone().into_iter().max();
-        if max_support.is_none() {
-            // 如果没有支持者，且有反对者，则拒绝接入。
-            if !summary.against.is_empty() {
-                return MachineConfirmStatus::Refuse(summary)
-            }
-            // 反对者支持者都为0
-            return MachineConfirmStatus::NoConsensus(summary)
-        }
-
-        let max_support_num = max_support.unwrap();
-
-        // 多少个机器信息的支持等于最大的支持
-        let max_support_group = support_committee_num
-            .clone()
-            .into_iter()
-            .filter(|n| n == &max_support_num)
-            .count();
-
-        if max_support_group == 1 {
-            let committee_group_index =
-                support_committee_num.into_iter().position(|r| r == max_support_num).unwrap();
-
-            // 记录所有的无效支持
-            for (index, committees) in committee_for_machine_info.iter().enumerate() {
-                if index != committee_group_index {
-                    for a_committee in committees {
-                        ItemList::add_item(&mut summary.invalid_support, a_committee.clone());
-                    }
-                }
-            }
-
-            if summary.against.len() > max_support_num {
-                // 反对多于支持
-                for a_committee in committee_for_machine_info[committee_group_index].clone() {
-                    ItemList::add_item(&mut summary.invalid_support, a_committee);
-                }
-                return MachineConfirmStatus::Refuse(summary)
-            } else if summary.against.len() == max_support_num {
-                // 反对等于支持
-                for a_committee in committee_for_machine_info[committee_group_index].clone() {
-                    ItemList::add_item(&mut summary.invalid_support, a_committee);
-                }
-                summary.invalid_support = committee_for_machine_info[committee_group_index].clone();
-                return MachineConfirmStatus::NoConsensus(summary)
-            } else {
-                // 反对小于支持
-                // 记录上所有的有效支持
-                summary.valid_support = committee_for_machine_info[committee_group_index].clone();
-                summary.info = Some(uniq_machine_info[committee_group_index].clone());
-                return MachineConfirmStatus::Confirmed(summary)
-            }
+        } else if uniq_len == submit_info.len() {
+            // Cases: Two different info; Three different info
+            summary.invalid_vote = machine_committee.confirmed_committee;
+            summary.verify_result = VerifyResult::NoConsensus;
         } else {
-            // 如果多于两组是Max个委员会支, 则所有的支持都是无效的支持
-            for committees in &committee_for_machine_info {
-                for a_committee in committees {
-                    ItemList::add_item(&mut summary.invalid_support, a_committee.clone());
-                }
-            }
-            // Now will be Refuse or NoConsensus
-            if summary.against.len() > max_support_num {
-                return MachineConfirmStatus::Refuse(summary)
+            // Cases: Three info: two is same.
+            let (valid_1, valid_2, invalid) = if submit_info[0] == submit_info[1] {
+                (0, 1, 2)
+            } else if submit_info[0] == submit_info[2] {
+                (0, 2, 1)
             } else {
-                // against <= max_support 且 max_support_group > 1，且反对的不占多数
-                return MachineConfirmStatus::NoConsensus(summary)
+                (1, 2, 0)
+            };
+
+            summary.invalid_vote = vec![machine_committee.confirmed_committee[invalid].clone()];
+            if submit_info[valid_1].is_support {
+                summary.info = Some(submit_info[valid_1].clone());
+                summary.valid_vote = vec![
+                    machine_committee.confirmed_committee[valid_1].clone(),
+                    machine_committee.confirmed_committee[valid_2].clone(),
+                ];
+                summary.verify_result = VerifyResult::Confirmed;
+            } else {
+                ItemList::expand_to_order(
+                    &mut summary.valid_vote,
+                    vec![
+                        machine_committee.confirmed_committee[valid_1].clone(),
+                        machine_committee.confirmed_committee[valid_2].clone(),
+                    ],
+                );
+                summary.verify_result = VerifyResult::Refused;
             }
-        }
+        };
+        summary
     }
 
     // - Writes: StashTotalStake, MachinesInfo, LiveMachines, StashMachines
@@ -2057,10 +2074,9 @@ impl<T: Config> Pallet<T> {
         } else {
             PendingConfirming::<T>::insert(pending_confirming_deadline, pending_confirming);
         }
-
-        let mut machine_rent_order = Self::machine_rent_order(&rent_order.machine_id);
-        machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index);
-        MachineRentOrder::<T>::insert(&rent_order.machine_id, machine_rent_order);
+        MachineRentOrder::<T>::mutate(&rent_order.machine_id, |machine_rent_order| {
+            machine_rent_order.clean_expired_order(rent_order_id, rent_order.gpu_index.clone());
+        });
 
         let mut rent_order_list = Self::user_rented(who);
         ItemList::rm_item(&mut rent_order_list, &rent_order_id);

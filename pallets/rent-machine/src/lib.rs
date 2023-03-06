@@ -22,7 +22,10 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Zero};
+use sp_runtime::{
+    traits::{CheckedAdd, CheckedSub, SaturatedConversion, Saturating, Zero},
+    Perbill,
+};
 use sp_std::{prelude::*, str, vec::Vec};
 
 type BalanceOf<T> =
@@ -294,6 +297,10 @@ impl<T: Config> Pallet<T> {
         let machine_rented_gpu = <online_profile::Module<T>>::machine_rented_gpu(&machine_id);
         let gpu_num = machine_info.gpu_num();
 
+        if gpu_num == 0 || duration == Zero::zero() {
+            return Ok(().into())
+        }
+
         // 检查还有空闲的GPU
         ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
@@ -481,11 +488,33 @@ impl<T: Config> Pallet<T> {
         fee_amount: BalanceOf<T>,
     ) -> DispatchResult {
         let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
-        let galaxy_is_on = <online_profile::Module<T>>::galaxy_is_on();
-        let rent_fee_to = if galaxy_is_on { rent_fee_pot } else { machine_stash };
+        // 如果Phase1Destruction开启，租金销毁50%
+        // 如果银河竞赛开启(Phase2Destruction开启)，则租金100%销毁，
+        let phase1_destruction = <online_profile::Module<T>>::phase1_destruction();
+        let phase2_destruction = <online_profile::Module<T>>::phase2_destruction();
 
-        <T as Config>::Currency::transfer(renter, &rent_fee_to, fee_amount, KeepAlive)?;
-        T::RTOps::change_machine_rent_fee(fee_amount, machine_id, galaxy_is_on);
+        let destroy_percent = {
+            if phase2_destruction.2 {
+                phase2_destruction.1
+            } else if phase1_destruction.2 {
+                phase1_destruction.1
+            } else {
+                Perbill::from_rational_approximation(0u32, 100u32)
+            }
+        };
+
+        let destroy_fee = destroy_percent * fee_amount;
+        let stash_fee = fee_amount.saturating_sub(destroy_fee);
+
+        if !destroy_fee.is_zero() {
+            <T as Config>::Currency::transfer(renter, &rent_fee_pot, destroy_fee, KeepAlive)?;
+        }
+        if !stash_fee.is_zero() {
+            <T as Config>::Currency::transfer(renter, &machine_stash, stash_fee, KeepAlive)?;
+        }
+
+        T::RTOps::change_machine_rent_fee(machine_id, stash_fee, destroy_fee);
+
         Ok(())
     }
 
@@ -588,12 +617,13 @@ impl<T: Config> Pallet<T> {
             let rent_duration = now - rent_info.rent_start;
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
-            let is_last_rent = Self::is_last_rent(&machine_id);
+            let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter);
             T::RTOps::change_machine_status_on_rent_end(
                 &machine_id,
                 rent_info.gpu_num,
                 rent_duration,
-                is_last_rent,
+                is_last_rent.0,
+                is_last_rent.1,
                 rent_info.renter.clone(),
             );
 
@@ -602,18 +632,24 @@ impl<T: Config> Pallet<T> {
     }
 
     // 当没有正在租用的机器时，可以修改得分快照
-    fn is_last_rent(machine_id: &MachineId) -> bool {
+    // 判断machine_id的订单是否只有1个
+    // 判断renter是否只租用了machine_id一次
+    fn is_last_rent(machine_id: &MachineId, renter: &T::AccountId) -> (bool, bool) {
         let machine_order = Self::machine_rent_order(machine_id);
-        let mut renting_count = 0;
+        let mut machine_order_count = 0;
+        let mut renter_order_count = 0;
 
         // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
         for order_id in machine_order.rent_order {
             let rent_info = Self::rent_info(order_id);
-            if rent_info.rent_status == RentStatus::Renting {
-                renting_count += 1;
+            if renter == &rent_info.renter {
+                renter_order_count += 1;
+            }
+            if matches!(rent_info.rent_status, RentStatus::Renting) {
+                machine_order_count += 1;
             }
         }
 
-        renting_count < 2
+        (machine_order_count < 2, renter_order_count < 2)
     }
 }

@@ -15,7 +15,7 @@ pub trait OcRpcApi<BlockHash, AccountId, BlockNumber, Balance>
 where
     Balance: Display + FromStr,
 {
-    #[rpc(name = "onilneCommittee_getCommitteeMachineList")]
+    #[rpc(name = "onlineCommittee_getCommitteeMachineList")]
     fn get_committee_machine_list(
         &self,
         committee: AccountId,

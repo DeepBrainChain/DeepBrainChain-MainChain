@@ -2,6 +2,7 @@ use super::super::{mock::*, OCCommitteeMachineList, OCMachineCommitteeList, *};
 use committee::CommitteeList;
 use dbc_support::{
     live_machine::LiveMachine,
+    machine_info::MachineInfo,
     machine_type::{
         CommitteeUploadInfo, Latitude, Longitude, MachineInfoDetail, MachineStatus,
         StakerCustomizeInfo,
@@ -52,7 +53,7 @@ fn machine_online_works() {
             hex::decode(sig).unwrap()
         ));
 
-        let mut machine_info = online_profile::MachineInfo {
+        let mut machine_info = MachineInfo {
             controller,
             machine_stash: stash,
             bonding_height: 3,
@@ -298,7 +299,7 @@ fn machine_online_works() {
             LiveMachine { online_machine: vec!(machine_id.clone()), ..Default::default() }
         );
 
-        let mut machine_info = online_profile::MachineInfo {
+        let mut machine_info = MachineInfo {
             machine_status: MachineStatus::Online,
             last_machine_restake: 6,
             online_height: 6,
@@ -709,7 +710,7 @@ fn machine_online_works() {
 
         committee_upload_info.rand_str = vec![];
         machine_info.machine_info_detail.committee_upload_info = committee_upload_info;
-        let machine_info = online_profile::MachineInfo {
+        let machine_info = MachineInfo {
             last_machine_restake: 8644,
             last_online_height: 8644,
             stake_amount: 800000 * ONE_DBC,
@@ -873,12 +874,40 @@ fn committee_not_submit_hash_slash_works() {
             }
         );
 
+        let committee4_box_pubkey =
+            hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
+                .unwrap()
+                .try_into()
+                .unwrap();
+
+        assert_eq!(
+            Committee::committee_stake(committee4),
+            committee::CommitteeStakeInfo {
+                box_pubkey: committee4_box_pubkey,
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 1000 * ONE_DBC,
+                can_claim_reward: 0,
+                claimed_reward: 0,
+            }
+        );
+
         // 惩罚
         run_to_block(4327 + 2880 * 2 + 1);
+
+        assert_eq!(
+            Committee::committee_stake(committee4),
+            committee::CommitteeStakeInfo {
+                box_pubkey: committee4_box_pubkey,
+                staked_amount: 19000 * ONE_DBC,
+                used_stake: 0,
+                can_claim_reward: 0,
+                claimed_reward: 0,
+            }
+        );
     })
 }
 
-// 三个委员会两个正常工作，一个提交Hash之后，没有提交原始值，检查惩罚机制
+// TODO: 三个委员会两个正常工作，一个提交Hash之后，没有提交原始值，检查惩罚机制
 #[test]
 fn committee_not_wubmit_raw_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
@@ -974,7 +1003,7 @@ fn committee_not_equal_then_redistribute_works() {
             hex::decode(sig).unwrap()
         ));
 
-        let mut machine_info = online_profile::MachineInfo {
+        let mut machine_info = MachineInfo {
             controller,
             machine_stash: stash,
             bonding_height: 3,
@@ -1120,7 +1149,7 @@ fn committee_not_equal_then_redistribute_works() {
             }
         );
 
-        // 如果on_finalize先执行lease_committee 再z执行online_profile则没有内容，否则被重新分配了
+        // NOTE: 如果on_finalize先执行lease_committee 再z执行online_profile则没有内容，否则被重新分配了
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
             OCMachineCommitteeList {
@@ -1139,6 +1168,18 @@ fn committee_not_equal_then_redistribute_works() {
                 staked_dbc: 1000 * ONE_DBC,
                 verify_time: vec![497, 1937, 3377],
                 ..Default::default()
+            }
+        );
+
+        assert_eq!(
+            Committee::committee_stake(committee1),
+            committee::CommitteeStakeInfo {
+                box_pubkey: committee1_box_pubkey,
+                staked_amount: 20000 * ONE_DBC,
+                // FIXME: 重新分派时，将退还已使用的质押
+                used_stake: 1000 * ONE_DBC,
+                can_claim_reward: 0,
+                claimed_reward: 0,
             }
         );
     })
@@ -1219,7 +1260,7 @@ fn two_submit_hash_reach_submit_raw_works() {
             hex::decode(sig).unwrap()
         ));
 
-        let mut machine_info = online_profile::MachineInfo {
+        let mut machine_info = MachineInfo {
             controller,
             machine_stash: stash,
             bonding_height: 3,

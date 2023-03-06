@@ -923,6 +923,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 
 [[package]]
+name = "council-reward"
+version = "0.1.0"
+dependencies = [
+ "dbc-price-ocw",
+ "dbc-support",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-elections-phragmen",
+ "pallet-randomness-collective-flip",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "cpp_demangle"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1335,6 +1358,7 @@ dependencies = [
  "hex",
  "pallet-authorship",
  "pallet-session",
+ "pallet-staking-reward-curve 3.0.0",
  "pallet-timestamp",
  "parity-scale-codec",
  "parking_lot 0.11.1",
@@ -4126,6 +4150,7 @@ version = "2.0.1"
 dependencies = [
  "committee",
  "committee-runtime-api",
+ "council-reward",
  "dbc-price-ocw",
  "dbc-staking",
  "dbc-support",
@@ -4172,7 +4197,7 @@ dependencies = [
  "pallet-session",
  "pallet-session-benchmarking",
  "pallet-society",
- "pallet-staking-reward-curve",
+ "pallet-staking-reward-curve 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=49a4103f4bfef55be20a5c6d26e18ff3003c3353)",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-tips",
@@ -5039,6 +5064,17 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "static_assertions",
+]
+
+[[package]]
+name = "pallet-staking-reward-curve"
+version = "3.0.0"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "sp-runtime",
+ "syn",
 ]
 
 [[package]]

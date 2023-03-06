@@ -8,6 +8,10 @@ use sp_std::{
 
 // Reference： primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
 // from_ss58check_with_version
+// eg.
+// let account: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
+// let account_id32: [u8; 32] = Self::get_accountid32(&treasury).unwrap_or_default();
+// let account = T::AccountId::decode(&mut &account_id32[..]).ok().unwrap_or_default();
 pub fn get_accountid32(addr: &[u8]) -> Option<[u8; 32]> {
     let mut data: [u8; 35] = [0; 35];
 

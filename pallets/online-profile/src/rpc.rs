@@ -1,6 +1,7 @@
 use crate::types::*;
 use dbc_support::{
     live_machine::LiveMachine,
+    machine_info::MachineInfo,
     machine_type::{Latitude, Longitude},
     MachineId,
 };

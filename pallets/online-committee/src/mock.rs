@@ -189,7 +189,7 @@ impl committee::Config for TestRuntime {
 impl online_committee::Config for TestRuntime {
     type Event = Event;
     type Currency = Balances;
-    type OCOperations = OnlineProfile;
+    type OCOps = OnlineProfile;
     type ManageCommittee = Committee;
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
@@ -332,6 +332,17 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         assert_ok!(OnlineProfile::set_standard_gpu_point_price(
             RawOrigin::Root.into(),
             StandardGpuPointPrice { gpu_point: 100, gpu_price: 28229 },
+        ));
+
+        online_profile::Phase1Destruction::<TestRuntime>::put((
+            2500,
+            Perbill::from_rational_approximation(50u32, 100u32),
+            false,
+        ));
+        online_profile::Phase2Destruction::<TestRuntime>::put((
+            5000,
+            Perbill::from_rational_approximation(100u32, 100u32),
+            false,
         ));
 
         // Set: Price URL: https://dbchaininfo.congtu.cloud/query/dbc_info?language=CN

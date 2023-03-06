@@ -76,13 +76,10 @@ pub struct MachineGradeStatus {
     pub is_rented: bool,
 }
 
-impl<AccountId> EraStashPoints<AccountId>
-where
-    AccountId: Ord + Clone,
-{
+impl<AccountId: Ord + Clone> EraStashPoints<AccountId> {
     /// 增加一台在线的机器，gpu数量 + gpu的总得分
     /// NOTE: 只修改当前Era，调用下线逻辑前应检查机器存在
-    pub fn change_machine_online_status(
+    pub fn on_online_changed(
         &mut self,
         stash: AccountId,
         gpu_num: u64,
@@ -94,38 +91,29 @@ where
             .entry(stash.clone())
             .or_insert(StashMachineStatistics { ..Default::default() });
 
-        let old_grade = staker_statistic.total_grades().unwrap_or_default();
+        let pre_grade = staker_statistic.total_grades().unwrap_or_default();
 
-        if is_online {
-            staker_statistic.online_gpu_num =
-                staker_statistic.online_gpu_num.saturating_add(gpu_num);
+        staker_statistic.online_gpu_num = if is_online {
+            staker_statistic.online_gpu_num.saturating_add(gpu_num)
         } else {
             // 避免上线24小时即下线时，当前Era还没有初始化该值
-            staker_statistic.online_gpu_num =
-                staker_statistic.online_gpu_num.saturating_sub(gpu_num);
-        }
-
+            staker_statistic.online_gpu_num.saturating_sub(gpu_num)
+        };
         // 根据显卡数量n更新inflation系数: inflation = min(10%, n/10000)
         // 当stash账户显卡数量n=1000时，inflation最大为10%
-        staker_statistic.inflation = if staker_statistic.online_gpu_num <= 1000 {
-            Perbill::from_rational_approximation(staker_statistic.online_gpu_num, 10_000)
-        } else {
-            Perbill::from_rational_approximation(1000u64, 10_000)
-        };
-
+        staker_statistic.inflation =
+            Perbill::from_rational_approximation(staker_statistic.online_gpu_num.min(1000), 10_000);
         // 根据在线情况更改stash的基础分
-        if is_online {
-            staker_statistic.machine_total_calc_point =
-                staker_statistic.machine_total_calc_point.saturating_add(basic_grade);
+        staker_statistic.machine_total_calc_point = if is_online {
+            staker_statistic.machine_total_calc_point.saturating_add(basic_grade)
         } else {
-            staker_statistic.machine_total_calc_point =
-                staker_statistic.machine_total_calc_point.saturating_sub(basic_grade);
-        }
+            staker_statistic.machine_total_calc_point.saturating_sub(basic_grade)
+        };
 
         // 更新系统分数记录
         let new_grade = staker_statistic.total_grades().unwrap_or_default();
 
-        self.total = self.total.saturating_add(new_grade).saturating_sub(old_grade);
+        self.total = self.total.saturating_add(new_grade).saturating_sub(pre_grade);
 
         // 更新该stash账户的记录
         if staker_statistic.online_gpu_num == 0 {
@@ -137,30 +125,26 @@ where
     }
 
     /// 因机器租用状态改变，而影响得分
-    pub fn change_machine_rent_status(
-        &mut self,
-        stash: AccountId,
-        basic_grade: u64,
-        is_rented: bool,
-    ) {
+    pub fn on_rent_changed(&mut self, stash: AccountId, basic_grade: u64, is_rented: bool) {
         let mut staker_statistic = self
             .staker_statistic
             .entry(stash.clone())
             .or_insert(StashMachineStatistics { ..Default::default() });
 
         // 因租用而产生的分数
-        let grade_by_rent = Perbill::from_rational_approximation(30u64, 100u64) * basic_grade;
+        let grade_on_rent = Perbill::from_rational_approximation(30u64, 100u64) * basic_grade;
 
-        // 更新rent_extra_grade
-        if is_rented {
-            self.total = self.total.saturating_add(grade_by_rent);
-            staker_statistic.rent_extra_grade =
-                staker_statistic.rent_extra_grade.saturating_add(grade_by_rent);
+        // 更新 rent_extra_grade
+        self.total = if is_rented {
+            self.total.saturating_add(grade_on_rent)
         } else {
-            self.total = self.total.saturating_sub(grade_by_rent);
-            staker_statistic.rent_extra_grade =
-                staker_statistic.rent_extra_grade.saturating_sub(grade_by_rent);
-        }
+            self.total.saturating_sub(grade_on_rent)
+        };
+        staker_statistic.rent_extra_grade = if is_rented {
+            staker_statistic.rent_extra_grade.saturating_add(grade_on_rent)
+        } else {
+            staker_statistic.rent_extra_grade.saturating_sub(grade_on_rent)
+        };
 
         let staker_statistic = (*staker_statistic).clone();
         self.staker_statistic.insert(stash, staker_statistic);

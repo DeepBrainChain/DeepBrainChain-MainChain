@@ -6,7 +6,7 @@ use dbc_support::{
         ReportConfirmStatus, ReportResultType, ReportStatus, ReporterReportList,
     },
     traits::{GNOps, ManageCommittee},
-    ItemList, ReportId, ONE_DAY, ONE_HOUR, THREE_HOUR,
+    ItemList, ReportId, ONE_HOUR, THREE_HOUR,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
 use sp_runtime::traits::{Saturating, Zero};
@@ -457,14 +457,6 @@ impl<T: Config> Pallet<T> {
 
                 LiveMachines::<T>::put(live_machine);
                 MachinesInfo::<T>::insert(&report_info.machine_id, machine_info.clone());
-
-                // When Reported offline, after 5 days, reach max slash amount;
-                let now = <frame_system::Module<T>>::block_number();
-                PendingOfflineSlash::<T>::insert(
-                    now + (5 * ONE_DAY).saturated_into::<T::BlockNumber>(),
-                    &report_info.machine_id,
-                    (Some(report_info.reporter.clone()), machine_info.renters),
-                );
             },
             // 报告失败
             ReportConfirmStatus::Refuse(mut sp_committees, ag_committee) => {

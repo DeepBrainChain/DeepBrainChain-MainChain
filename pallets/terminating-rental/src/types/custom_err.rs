@@ -23,6 +23,9 @@ impl<T: Config> From<OnlineErr> for Error<T> {
         match err {
             OnlineErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
             OnlineErr::TelecomIsNull => Error::TelecomIsNull,
+            OnlineErr::NotMachineController => Error::NotMachineController,
+            OnlineErr::CalcStakeAmountFailed => Error::CalaStakeAmountFailed,
+            OnlineErr::ClaimRewardFailed => Error::ClaimRewardFailed,
         }
     }
 }

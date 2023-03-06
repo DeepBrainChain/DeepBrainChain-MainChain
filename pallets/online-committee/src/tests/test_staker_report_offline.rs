@@ -226,18 +226,13 @@ fn test_staker_report_offline4() {
             machine_id.clone()
         ));
 
-        assert_eq!(
-            OnlineProfile::pending_offline_slash(13 + 2880 * 10, machine_id.clone()),
-            (None, vec![])
-        );
-
         run_to_block(50 + 2880 * 10);
-        assert_eq!(OnlineProfile::pending_exec_slash(13 + 2880 * (10 + 2)), vec![0]);
 
         assert_ok!(OnlineProfile::controller_report_online(
             Origin::signed(*controller),
             machine_id.clone()
         ));
+        assert_eq!(OnlineProfile::pending_exec_slash(51 + 2880 * (10 + 2)), vec![0]);
 
         assert_eq!(
             OnlineProfile::live_machines(),
@@ -251,9 +246,9 @@ fn test_staker_report_offline4() {
             OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id,
-                slash_time: 13 + 2880 * 10,
+                slash_time: 51 + 2880 * 10,
                 slash_amount: 8000 * 40 * ONE_DBC,
-                slash_exec_time: 13 + 2880 * 10 + 2880 * 2,
+                slash_exec_time: 51 + 2880 * 10 + 2880 * 2,
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
@@ -295,42 +290,43 @@ fn test_staker_report_offline4() {
     })
 }
 
-// 空闲超过10天，下线，再上线不扣钱
-#[test]
-fn test_staker_report_offline5() {
-    new_test_with_machine_online().execute_with(|| {
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
-            .as_bytes()
-            .to_vec();
+// // 机器上线超一年，空闲超过10天，下线，再上线不惩罚
+// // 注意，不满一年，任何情况下线都是要被惩罚的
+// #[test]
+// fn test_staker_report_offline5() {
+//     new_test_with_machine_online().execute_with(|| {
+//         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+//             .as_bytes()
+//             .to_vec();
 
-        // 空闲10天
-        run_to_block(50 + 2880 * 10);
+//         // 空闲10天
+//         run_to_block(50 + 2880 * 10);
 
-        assert_ok!(OnlineProfile::controller_report_offline(
-            Origin::signed(*controller),
-            machine_id.clone()
-        ));
-        run_to_block(50 + 2880 * 10 + 5);
-        assert_ok!(OnlineProfile::controller_report_online(
-            Origin::signed(*controller),
-            machine_id
-        ));
+//         assert_ok!(OnlineProfile::controller_report_offline(
+//             Origin::signed(*controller),
+//             machine_id.clone()
+//         ));
+//         run_to_block(50 + 2880 * 10 + 5);
+//         assert_ok!(OnlineProfile::controller_report_online(
+//             Origin::signed(*controller),
+//             machine_id
+//         ));
 
-        // 不存在其他的slash：
-        assert_eq!(OnlineProfile::pending_slash(0), OPPendingSlashInfo::default());
-        assert_eq!(OnlineProfile::pending_slash(1), OPPendingSlashInfo::default());
+//         // 不存在其他的slash：
+//         assert_eq!(OnlineProfile::pending_slash(0), OPPendingSlashInfo::default());
+//         assert_eq!(OnlineProfile::pending_slash(1), OPPendingSlashInfo::default());
 
-        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
-        assert_eq!(
-            OnlineProfile::sys_info(),
-            online_profile::SysInfoDetail {
-                total_gpu_num: 4,
-                total_calc_points: 59914,
-                total_staker: 1,
-                total_stake: 400000 * ONE_DBC,
-                ..Default::default()
-            }
-        );
-    });
-}
+//         assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
+//         assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
+//         assert_eq!(
+//             OnlineProfile::sys_info(),
+//             online_profile::SysInfoDetail {
+//                 total_gpu_num: 4,
+//                 total_calc_points: 59914,
+//                 total_staker: 1,
+//                 total_stake: 400000 * ONE_DBC,
+//                 ..Default::default()
+//             }
+//         );
+//     });
+// }

@@ -9,6 +9,8 @@ use sp_runtime::{
 };
 use sp_std::{ops, vec::Vec};
 
+/// After order distribution 36 hours, allow committee submit raw info
+pub const SUBMIT_RAW_START: u32 = 4320;
 /// Summary committee's opinion after 48 hours
 pub const SUBMIT_RAW_END: u32 = 5760;
 /// After order distribution 36 hours, allow committee submit raw info
@@ -16,86 +18,56 @@ pub const SUBMIT_HASH_END: u32 = 4320;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct Summary<AccountId> {
-    /// Machine will be online, and those committee will get reward
-    pub valid_support: Vec<AccountId>,
-    /// Machine will be online, and those committee cannot get reward
-    /// for they submit different message from majority committee
-    pub invalid_support: Vec<AccountId>,
+    pub valid_vote: Vec<AccountId>,
+    /// Those committee cannot get reward.
+    /// For they submit different message from majority committee
+    pub invalid_vote: Vec<AccountId>,
     /// Committees, that not submit all message
     /// such as: not submit hash, not submit raw info before deadline
     pub unruly: Vec<AccountId>,
-    /// Committees, refuse machine online
-    pub against: Vec<AccountId>,
     /// Raw machine info, most majority committee submit
     pub info: Option<CommitteeUploadInfo>,
+    pub verify_result: VerifyResult,
 }
 
 /// What will happen after all committee submit raw machine info
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-pub enum MachineConfirmStatus<AccountId> {
+pub enum VerifyResult {
     /// Machine is confirmed by committee, so can be online later
-    Confirmed(Summary<AccountId>),
+    Confirmed,
     /// Machine is refused, will not online
-    Refuse(Summary<AccountId>),
+    Refused,
     /// No consensus, so machine will be redistributed and verified later
-    NoConsensus(Summary<AccountId>),
+    NoConsensus,
 }
 
-impl<AccountId: Default + Clone> Default for MachineConfirmStatus<AccountId> {
+impl Default for VerifyResult {
     fn default() -> Self {
-        Self::Confirmed(Summary { ..Default::default() })
+        Self::Confirmed
     }
 }
 
-impl<AccountId: Clone + Ord> MachineConfirmStatus<AccountId> {
-    // TODO: Refa it
-    pub fn get_committee_group(self) -> (Vec<AccountId>, Vec<AccountId>, Vec<AccountId>) {
-        let mut inconsistent_committee = Vec::new();
-        let mut unruly_committee = Vec::new();
-        let mut reward_committee = Vec::new();
-
-        match self {
-            Self::Confirmed(summary) => {
-                unruly_committee = summary.unruly.clone();
-                reward_committee = summary.valid_support.clone();
-
-                for a_committee in summary.against {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
-                }
-                for a_committee in summary.invalid_support {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
-                }
-            },
-            Self::NoConsensus(summary) =>
-                for a_committee in summary.unruly {
-                    ItemList::add_item(&mut unruly_committee, a_committee);
-                },
-            Self::Refuse(summary) => {
-                for a_committee in summary.unruly {
-                    ItemList::add_item(&mut unruly_committee, a_committee);
-                }
-                for a_committee in summary.invalid_support {
-                    ItemList::add_item(&mut inconsistent_committee, a_committee);
-                }
-                for a_committee in summary.against {
-                    ItemList::add_item(&mut reward_committee, a_committee);
-                }
-            },
+impl<AccountId: Clone + Ord> Summary<AccountId> {
+    pub fn should_slash_committee(&self) -> bool {
+        if !self.unruly.is_empty() {
+            return true
         }
-
-        (inconsistent_committee, unruly_committee, reward_committee)
+        match self.verify_result {
+            VerifyResult::NoConsensus => false,
+            VerifyResult::Confirmed | VerifyResult::Refused => !self.invalid_vote.is_empty(),
+        }
     }
 
     pub fn into_book_result(&self) -> OCBookResultType {
-        match self {
-            Self::Confirmed(_) => OCBookResultType::OnlineSucceed,
-            Self::Refuse(_) => OCBookResultType::OnlineRefused,
-            Self::NoConsensus(_) => OCBookResultType::NoConsensus,
+        match self.verify_result {
+            VerifyResult::Confirmed => OCBookResultType::OnlineSucceed,
+            VerifyResult::Refused => OCBookResultType::OnlineRefused,
+            VerifyResult::NoConsensus => OCBookResultType::NoConsensus,
         }
     }
 
     pub fn is_refused(&self) -> bool {
-        matches!(self, Self::Refuse(_))
+        matches!(self.verify_result, VerifyResult::Refused)
     }
 }
 
@@ -274,6 +246,11 @@ where
         Ok(())
     }
 
+    pub fn can_submit_raw(&self, now: BlockNumber) -> bool {
+        matches!(self.status, OCVerifyStatus::SubmittingHash) &&
+            now >= self.book_time + SUBMIT_RAW_START.into()
+    }
+
     pub fn submit_raw(&mut self, time: BlockNumber, committee: AccountId) -> Result<(), VerifyErr> {
         if self.status != OCVerifyStatus::SubmittingRaw {
             ensure!(time >= self.confirm_start_time, VerifyErr::TimeNotAllow);
@@ -306,14 +283,14 @@ where
         unruly
     }
 
-    pub fn after_summary(&mut self, summary_result: MachineConfirmStatus<AccountId>) {
-        match summary_result {
-            MachineConfirmStatus::Confirmed(summary) => {
+    pub fn after_summary(&mut self, summary_result: Summary<AccountId>) {
+        match summary_result.verify_result {
+            VerifyResult::Confirmed => {
                 self.status = OCVerifyStatus::Finished;
-                self.onlined_committee = summary.valid_support;
+                self.onlined_committee = summary_result.valid_vote;
             },
-            MachineConfirmStatus::NoConsensus(_) => {},
-            MachineConfirmStatus::Refuse(_) => {
+            VerifyResult::NoConsensus => {},
+            VerifyResult::Refused => {
                 self.status = OCVerifyStatus::Finished;
             },
         }
@@ -362,12 +339,9 @@ impl<B: Saturating + Copy + CheckedAdd + Zero> StashMachine<B> {
         ItemList::add_item(&mut self.total_machine, machine_id);
     }
 
-    pub fn update_rent_fee(&mut self, amount: B, is_burn: bool) {
-        if is_burn {
-            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
-        } else {
-            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
-        }
+    pub fn update_rent_fee(&mut self, rent_fee: B, burn_fee: B) {
+        self.total_rent_fee = self.total_rent_fee.saturating_add(rent_fee);
+        self.total_burn_fee = self.total_burn_fee.saturating_add(burn_fee);
     }
 
     pub fn claim_reward(&mut self) -> Result<B, ()> {

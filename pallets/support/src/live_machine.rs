@@ -109,4 +109,17 @@ impl LiveMachine {
         ItemList::rm_item(&mut self.rented_machine, &machine_id);
         ItemList::add_item(&mut self.offline_machine, machine_id);
     }
+
+    // 从记录中清除该机器ID
+    pub fn clean(&mut self, machine_id: &MachineId) {
+        ItemList::rm_item(&mut self.bonding_machine, machine_id);
+        ItemList::rm_item(&mut self.confirmed_machine, machine_id);
+        ItemList::rm_item(&mut self.booked_machine, machine_id);
+        ItemList::rm_item(&mut self.online_machine, machine_id);
+        ItemList::rm_item(&mut self.fulfilling_machine, machine_id);
+        ItemList::rm_item(&mut self.refused_machine, machine_id);
+        ItemList::rm_item(&mut self.rented_machine, machine_id);
+        ItemList::rm_item(&mut self.offline_machine, machine_id);
+        ItemList::rm_item(&mut self.refused_mut_hardware_machine, machine_id);
+    }
 }

@@ -15,20 +15,17 @@ pub trait OCOps {
     type CommitteeUploadInfo;
     type Balance;
 
-    fn oc_booked_machine(id: Self::MachineId);
-    fn oc_revert_booked_machine(id: Self::MachineId);
+    fn booked_machine(id: Self::MachineId);
+    fn revert_booked_machine(id: Self::MachineId);
 
-    fn oc_confirm_machine(
-        who: Vec<Self::AccountId>,
-        machine_info: Self::CommitteeUploadInfo,
-    ) -> Result<(), ()>;
-    fn oc_refuse_machine(machien_id: Self::MachineId) -> Option<(Self::AccountId, Self::Balance)>;
-    fn oc_change_staked_balance(
+    fn confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo);
+    fn refuse_machine(machien_id: Self::MachineId) -> Option<(Self::AccountId, Self::Balance)>;
+    fn change_staked_balance(
         stash: Self::AccountId,
         amount: Self::Balance,
         is_add: bool,
     ) -> Result<(), ()>;
-    fn oc_exec_slash(stash: Self::AccountId, amount: Self::Balance) -> Result<(), ()>;
+    fn exec_slash(stash: Self::AccountId, amount: Self::Balance) -> Result<(), ()>;
 }
 
 pub trait RTOps {
@@ -46,12 +43,19 @@ pub trait RTOps {
         machine_id: &Self::MachineId,
         gpu_num: u32,
         rent_duration: Self::BlockNumber,
-        is_last_rent: bool,
+        is_machine_last_rent: bool,
+        is_user_last_rent: bool,
         renter: Self::AccountId,
     );
     fn change_machine_status_on_confirm_expired(machine_id: &Self::MachineId, gpu_num: u32);
 
-    fn change_machine_rent_fee(amount: Self::Balance, machine_id: Self::MachineId, is_burn: bool);
+    fn change_machine_rent_fee(
+        machine_id: Self::MachineId,
+        rent_fee: Self::Balance,
+        burn_fee: Self::Balance,
+    );
+
+    fn reset_machine_renters(machine_id: Self::MachineId, renters: Vec<Self::AccountId>);
 }
 
 pub trait OPRPCQuery {

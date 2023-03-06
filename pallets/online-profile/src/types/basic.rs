@@ -16,30 +16,13 @@ pub const REBOND_FREQUENCY: u32 = 365 * 2880;
 pub const MAX_SLASH_THRESHOLD: u32 = 2880 * 5;
 // PendingSlash will be exec in two days
 
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum CustomErr {
-    ClaimRewardFailed,
-    NotAllowedChangeMachineInfo,
-    NotMachineController,
-    CalcStakeAmountFailed,
-}
-
-impl<T: Config> From<CustomErr> for Error<T> {
-    fn from(err: CustomErr) -> Self {
-        match err {
-            CustomErr::ClaimRewardFailed => Error::ClaimRewardFailed,
-            CustomErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
-            CustomErr::NotMachineController => Error::NotMachineController,
-            CustomErr::CalcStakeAmountFailed => Error::CalcStakeAmountFailed,
-        }
-    }
-}
-
 use dbc_support::custom_err::OnlineErr;
 impl<T: Config> From<OnlineErr> for Error<T> {
     fn from(err: OnlineErr) -> Self {
         match err {
+            OnlineErr::ClaimRewardFailed => Error::ClaimRewardFailed,
+            OnlineErr::NotMachineController => Error::NotMachineController,
+            OnlineErr::CalcStakeAmountFailed => Error::CalcStakeAmountFailed,
             OnlineErr::TelecomIsNull => Error::TelecomIsNull,
             OnlineErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
         }
@@ -60,7 +43,7 @@ pub struct UserMutHardwareStakeInfo<Balance, BlockNumber> {
 pub struct PhaseRewardInfoDetail<Balance> {
     pub online_reward_start_era: EraIndex, // When online reward will start
     pub first_phase_duration: EraIndex,
-    pub galaxy_on_era: EraIndex,         // When galaxy is on
+    pub galaxy_on_era: EraIndex, // When galaxy is on (开启后100%销毁租金，此后60天奖励翻倍)
     pub phase_0_reward_per_era: Balance, // first 3 years
     pub phase_1_reward_per_era: Balance, // next 5 years
     pub phase_2_reward_per_era: Balance, // next 5 years
@@ -108,12 +91,9 @@ impl<Balance: Saturating + Copy> SysInfoDetail<Balance> {
         }
     }
 
-    pub fn on_rent_fee_changed(&mut self, amount: Balance, is_burn: bool) {
-        if is_burn {
-            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
-        } else {
-            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
-        }
+    pub fn on_rent_fee_changed(&mut self, rent_fee: Balance, burn_fee: Balance) {
+        self.total_rent_fee = self.total_rent_fee.saturating_add(rent_fee);
+        self.total_burn_fee = self.total_burn_fee.saturating_add(burn_fee);
     }
 }
 
