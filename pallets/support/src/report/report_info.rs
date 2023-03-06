@@ -156,7 +156,7 @@ where
         }
 
         // 禁止对快速报告进行检查，快速报告会处理这种情况
-        if let MachineFaultType::RentedInaccessible(..) = self.machine_fault_type {
+        if matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)) {
             return false
         }
 

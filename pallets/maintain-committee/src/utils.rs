@@ -114,7 +114,7 @@ impl<T: Config> Pallet<T> {
         report_result: ReportResultType,
     ) {
         // 未达成共识，则退还报告人质押
-        if let ReportResultType::NoConsensus = report_result {
+        if matches!(report_result, ReportResultType::NoConsensus) {
             return
         }
 

@@ -660,7 +660,7 @@ impl<T: Config> Pallet<T> {
         ItemList::expand_to_order(&mut should_slash, slash_info.unruly_committee.clone());
 
         let mut should_reward = slash_info.inconsistent_committee.clone();
-        if let OCBookResultType::OnlineRefused = slash_info.book_result {
+        if matches!(slash_info.book_result, OCBookResultType::OnlineRefused) {
             ItemList::add_item(&mut should_reward, slash_info.machine_stash.clone());
         }
 

@@ -287,7 +287,7 @@ pub mod pallet {
             let order_stake = Self::get_stake_per_order()?;
 
             // 支付手续费或押金: 10 DBC | 1000 DBC
-            if let MachineFaultType::RentedInaccessible(..) = report_info.machine_fault_type {
+            if matches!(report_info.machine_fault_type, MachineFaultType::RentedInaccessible(..)) {
                 Self::pay_fixed_tx_fee(committee.clone())?;
             } else {
                 <T as Config>::ManageCommittee::change_used_stake(
@@ -1098,7 +1098,7 @@ impl<T: Config> Pallet<T> {
 
         let mut report_info = Self::report_info(&report_id);
 
-        if let ReportStatus::WaitingBook = report_info.report_status {
+        if matches!(report_info.report_status, ReportStatus::WaitingBook) {
             report_info.report_status = ReportStatus::SubmittingRaw;
             ReportInfo::<T>::insert(report_id, report_info);
             return Ok(())

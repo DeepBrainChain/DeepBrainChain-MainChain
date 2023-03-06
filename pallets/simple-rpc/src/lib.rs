@@ -44,7 +44,7 @@ pub mod pallet {
 impl<T: Config> Module<T> {
     pub fn get_staker_identity(account: impl EncodeLike<T::AccountId>) -> Vec<u8> {
         let account_info = <pallet_identity::Module<T>>::identity(account);
-        if let None = account_info {
+        if account_info.is_none() {
             return Vec::new()
         }
         let account_info = account_info.unwrap();

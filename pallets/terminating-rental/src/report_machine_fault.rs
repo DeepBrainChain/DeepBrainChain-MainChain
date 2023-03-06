@@ -514,7 +514,7 @@ impl<T: Config> Pallet<T> {
 
         let mut report_info = Self::report_info(&report_id);
 
-        if let ReportStatus::WaitingBook = report_info.report_status {
+        if matches!(report_info.report_status, ReportStatus::WaitingBook) {
             report_info.report_status = ReportStatus::SubmittingRaw;
             ReportInfo::<T>::insert(report_id, report_info);
             return Ok(())
