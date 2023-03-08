@@ -153,7 +153,6 @@ pub fn apply<T: Config>() -> Weight {
         StorageVersion::<T>::put(3);
         fix_slashed_online_machine::<T>() +
             fix_online_rent_orders::<T>() +
-            regenerate_era_stash_points::<T>() +
             regenerate_sys_info::<T>() +
             reset_params::<T>()
     } else {
@@ -274,30 +273,6 @@ fn fix_online_rent_orders<T: Config>() -> Weight {
     0
 }
 
-// NOTE: 必须要重新计算 EraStashPoints.total
-fn regenerate_era_stash_points<T: Config>() -> Weight {
-    let current_era = Pallet::<T>::current_era();
-    let next_era = current_era.saturating_add(1);
-    let mut current_era_stash_points = Pallet::<T>::eras_stash_points(current_era);
-
-    current_era_stash_points.total = Zero::zero();
-    for (_, staker_info) in current_era_stash_points.staker_statistic.clone() {
-        let grades = staker_info.total_grades().unwrap_or_default();
-        current_era_stash_points.total = current_era_stash_points.total.saturating_add(grades);
-    }
-    ErasStashPoints::<T>::insert(current_era, current_era_stash_points);
-
-    let mut next_era_stash_points = Pallet::<T>::eras_stash_points(next_era);
-    next_era_stash_points.total = Zero::zero();
-    for (_, staker_info) in next_era_stash_points.staker_statistic.clone() {
-        let grades = staker_info.total_grades().unwrap_or_default();
-        next_era_stash_points.total = next_era_stash_points.total.saturating_add(grades);
-    }
-    ErasStashPoints::<T>::insert(current_era, next_era_stash_points);
-
-    0
-}
-
 fn regenerate_sys_info<T: Config>() -> Weight {
     let all_stash = <StashMachines<T> as IterableStorageMap<T::AccountId, _>>::iter()
         .map(|(stash, _)| stash)
@@ -328,6 +303,7 @@ fn regenerate_sys_info<T: Config>() -> Weight {
         sys_info.total_gpu_num = total_gpu_num;
     });
 
+    // NOTE: 要重新计算 EraStashPoints.total 以修复多次退出未成功造成的该值小于实际值
     let current_era = Pallet::<T>::current_era();
     let next_era = current_era.saturating_add(1);
     ErasStashPoints::<T>::mutate(current_era, |era_stash_points| {

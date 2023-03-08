@@ -1586,7 +1586,10 @@ impl<T: Config> Pallet<T> {
 
         match summary.verify_result.clone() {
             VerifyResult::Confirmed => {
-                Self::confirm_machine(summary.valid_vote.clone(), summary.info.clone().unwrap());
+                let _ = Self::confirm_machine(
+                    summary.valid_vote.clone(),
+                    summary.info.clone().unwrap(),
+                );
                 summary.valid_vote.iter().for_each(|a_committee| {
                     // TODO: 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
                     CommitteeMachine::<T>::mutate(&a_committee, |record| {

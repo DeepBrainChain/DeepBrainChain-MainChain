@@ -335,10 +335,6 @@ pub mod pallet {
             let _ = Self::check_pending_slash();
             0
         }
-
-        fn on_runtime_upgrade() -> Weight {
-            0
-        }
     }
 
     #[pallet::call]
