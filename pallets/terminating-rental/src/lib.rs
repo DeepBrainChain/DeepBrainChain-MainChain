@@ -5,6 +5,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod migrations;
 mod online_verify_slash;
 mod report_machine_fault;
 mod rpc;
@@ -353,6 +354,11 @@ pub mod pallet {
     pub(super) type UnhandledReportResult<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<ReportId>, ValueQuery>;
 
+    // The current storage version.
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, u16, ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
@@ -372,6 +378,15 @@ pub mod pallet {
             let _ = Self::check_if_offline_timeout();
 
             let _ = Self::exec_report_slash();
+        }
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            frame_support::debug::RuntimeLogger::init();
+            frame_support::debug::info!("🔍️ TerminatingRental Storage Migration start");
+            let weight1 = migrations::apply::<T>();
+            frame_support::debug::info!("🚀 TerminatingRental Storage Migration end");
+
+            weight1
         }
     }
 
