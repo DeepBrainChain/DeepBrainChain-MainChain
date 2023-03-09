@@ -191,7 +191,10 @@ impl<T: Config> Pallet<T> {
             reward_to_committee =
                 Perbill::from_rational_approximation(20u32, 100u32) * slash_info.slash_amount
         };
-        let slash_to_treasury = slash_info.slash_amount - reward_to_reporter - reward_to_committee;
+        let slash_to_treasury = slash_info
+            .slash_amount
+            .saturating_sub(reward_to_reporter)
+            .saturating_sub(reward_to_committee);
 
         // reward to reporter:
         if reward_to_reporter > Zero::zero() && !slash_info.renters.is_empty() {

@@ -39,8 +39,12 @@ pub fn parse_price(price_str: &str) -> Option<u64> {
 
         if let JsonValue::Number(price) = obj[0].1.clone() {
             return Some(
-                price.integer as u64 * 10_u64.pow(6) +
-                    price.fraction * 10_u64.pow(6) / 10_u64.pow(price.fraction_length),
+                (price.integer as u64).saturating_mul(10_u64.pow(6)).saturating_add(
+                    price
+                        .fraction
+                        .saturating_mul(10_u64.pow(6))
+                        .saturating_div(10_u64.pow(price.fraction_length)),
+                ),
             )
         }
     }

@@ -3,7 +3,10 @@ use crate::{
     ItemList, MachineId, ReportId, TWO_DAY,
 };
 use codec::{Decode, Encode};
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_runtime::{
+    traits::{Saturating, Zero},
+    RuntimeDebug,
+};
 use sp_std::{
     cmp::PartialEq,
     ops::{Add, Sub},
@@ -132,7 +135,14 @@ where
         report_info: &MTReportInfoDetail<Account, Block, Balance>,
     ) where
         Account: Default + Clone + Ord,
-        Block: Default + PartialEq + Zero + From<u32> + Copy + Sub<Output = Block> + PartialOrd,
+        Block: Default
+            + PartialEq
+            + Zero
+            + From<u32>
+            + Copy
+            + Sub<Output = Block>
+            + PartialOrd
+            + Saturating,
         Balance: Default + Copy,
     {
         self.report_id = report_id;

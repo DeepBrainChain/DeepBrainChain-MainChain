@@ -95,7 +95,7 @@ impl<T: Config> Pallet<T> {
                 reporter_stake.used_stake =
                     reporter_stake.used_stake.saturating_add(stake_params.stake_per_report);
                 ensure!(
-                    reporter_stake.staked_amount - reporter_stake.used_stake >=
+                    reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake) >=
                         stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                     Error::<T>::StakeNotEnough
                 );

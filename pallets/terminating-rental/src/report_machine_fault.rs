@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
                 reporter_stake.used_stake =
                     reporter_stake.used_stake.saturating_add(stake_params.stake_per_report);
                 ensure!(
-                    reporter_stake.staked_amount - reporter_stake.used_stake >=
+                    reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake) >=
                         stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                     Error::<T>::StakeNotEnough
                 );
@@ -326,7 +326,7 @@ impl<T: Config> Pallet<T> {
             ..report_result
         };
 
-        if now - report_info.first_book_time < THREE_HOUR.into() {
+        if now.saturating_sub(report_info.first_book_time) < THREE_HOUR.into() {
             // 处理三小时之前的问题，报告人/委员会不按时提交信息的情况
             Self::summary_before_submit_raw(
                 report_id,
@@ -363,7 +363,7 @@ impl<T: Config> Pallet<T> {
         let committee_ops = Self::committee_report_ops(&verifying_committee, &report_id);
 
         // 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
-        if now - committee_ops.booked_time >= HALF_HOUR.into() &&
+        if now.saturating_sub(committee_ops.booked_time) >= HALF_HOUR.into() &&
             committee_ops.encrypted_err_info.is_none()
         {
             reporter_report.clean_not_submit_encrypted_report(report_id);
@@ -393,7 +393,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 委员会没有提交Hash，删除该委员会，并惩罚
-        if now - committee_ops.booked_time >= ONE_HOUR.into() {
+        if now.saturating_sub(committee_ops.booked_time) >= ONE_HOUR.into() {
             report_info.clean_not_submit_hash_committee(&verifying_committee);
             live_report.clean_not_submit_hash_report(report_id);
 
@@ -524,7 +524,7 @@ impl<T: Config> Pallet<T> {
         let verifying_committee = report_info.verifying_committee.ok_or(())?;
         let committee_ops = Self::committee_report_ops(&verifying_committee, &report_id);
 
-        if now - committee_ops.booked_time < ONE_HOUR.into() {
+        if now.saturating_sub(committee_ops.booked_time) < ONE_HOUR.into() {
             // 从最后一个委员会的存储中删除,并退还质押
             CommitteeReportOrder::<T>::mutate(&verifying_committee, |committee_order| {
                 committee_order.clean_unfinished_order(&report_id);

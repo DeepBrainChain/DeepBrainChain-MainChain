@@ -214,7 +214,7 @@ pub mod pallet {
 
             // 在stake_amount设置0前记录，用作事件
             let rent_fee = rent_info.stake_amount;
-            let rent_duration = rent_info.rent_end - rent_info.rent_start;
+            let rent_duration = rent_info.rent_end.saturating_sub(rent_info.rent_start);
 
             rent_info.confirm_rent(now);
             rent_info.stake_amount = Default::default();
@@ -315,7 +315,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // 最大租用时间限制MaximumRentalDuration
-        let duration = duration.min((Self::maximum_rental_duration() * ONE_DAY).into());
+        let duration =
+            duration.min((Self::maximum_rental_duration().saturating_mul(ONE_DAY)).into());
 
         // NOTE: 用户提交订单，需要扣除10个DBC
         <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone())
@@ -415,8 +416,11 @@ impl<T: Config> Pallet<T> {
         let wanted_rent_end = old_rent_end + duration;
 
         // 计算实际可续租时间 (块高)
-        let add_duration: T::BlockNumber =
-            if max_rent_end >= wanted_rent_end { duration } else { max_rent_end - old_rent_end };
+        let add_duration: T::BlockNumber = if max_rent_end >= wanted_rent_end {
+            duration
+        } else {
+            max_rent_end.saturating_sub(old_rent_end)
+        };
 
         if add_duration == 0u32.into() {
             return Ok(().into())
@@ -614,7 +618,7 @@ impl<T: Config> Pallet<T> {
         for rent_id in pending_ending {
             let rent_info = Self::rent_info(&rent_id);
             let machine_id = rent_info.machine_id.clone();
-            let rent_duration = now - rent_info.rent_start;
+            let rent_duration = now.saturating_sub(rent_info.rent_start);
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
             let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter);
@@ -643,10 +647,10 @@ impl<T: Config> Pallet<T> {
         for order_id in machine_order.rent_order {
             let rent_info = Self::rent_info(order_id);
             if renter == &rent_info.renter {
-                renter_order_count += 1;
+                renter_order_count = renter_order_count.saturating_add(1);
             }
             if matches!(rent_info.rent_status, RentStatus::Renting) {
-                machine_order_count += 1;
+                machine_order_count = machine_order_count.saturating_add(1);
             }
         }
 

@@ -132,7 +132,7 @@ impl<T: Config> OCOps for Pallet<T> {
                 );
 
                 // 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
-                let offline_duration = now - reonline_stake.offline_time;
+                let offline_duration = now.saturating_sub(reonline_stake.offline_time);
                 // 记录该惩罚数据
                 let slash_info = Self::new_slash_when_offline(
                     committee_upload_info.machine_id,

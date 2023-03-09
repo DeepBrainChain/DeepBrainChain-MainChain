@@ -26,7 +26,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_core::H256;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedMul, CheckedSub, Zero},
+    traits::{CheckedAdd, CheckedMul, CheckedSub, Saturating, Zero},
     SaturatedConversion,
 };
 use sp_std::{collections::btree_map::BTreeMap, convert::From, prelude::*, str, vec::Vec};
@@ -600,7 +600,7 @@ pub mod pallet {
 
             // 当出现需要补交质押时，补充质押并记录到机器信息中
             if machine_info.stake_amount < stake_need {
-                let extra_stake = stake_need - machine_info.stake_amount;
+                let extra_stake = stake_need.saturating_sub(machine_info.stake_amount);
                 Self::change_stake(&machine_info.machine_stash, extra_stake, true)
                     .map_err(|_| Error::<T>::BalanceNotEnough)?;
                 machine_info.stake_amount = stake_need;
@@ -613,7 +613,7 @@ pub mod pallet {
                     Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
                 // 根据下线时间，惩罚stash
-                let offline_duration = now - reonline_stake.offline_time;
+                let offline_duration = now.saturating_sub(reonline_stake.offline_time);
                 // 如果下线的时候空闲超过10天，则不进行惩罚
                 if reonline_stake.offline_time < machine_info.last_online_height + 28800u32.into() {
                     // 记录该惩罚数据
@@ -747,7 +747,7 @@ pub mod pallet {
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             };
-            let offline_duration = now - offline_time;
+            let offline_duration = now.saturating_sub(offline_time);
 
             // MachineStatus改为之前的状态
             let mut slash_info = match machine_info.machine_status.clone() {
@@ -789,9 +789,10 @@ pub mod pallet {
 
             // NOTE: 如果机器上线超过一年，空闲超过10天，下线后上线不添加惩罚
             if now >= machine_info.online_height &&
-                now - machine_info.online_height > (365 * 2880u32).into() &&
+                now.saturating_sub(machine_info.online_height) > (365 * 2880u32).into() &&
                 offline_time >= machine_info.last_online_height &&
-                offline_time - machine_info.last_online_height >= (10 * 2880u32).into() &&
+                offline_time.saturating_sub(machine_info.last_online_height) >=
+                    (10 * 2880u32).into() &&
                 matches!(&machine_info.machine_status, &MachineStatus::StakerReportOffline(..))
             {
                 slash_info.slash_amount = Zero::zero();
@@ -857,7 +858,7 @@ pub mod pallet {
             ensure!(machine_info.reward_deadline <= current_era + 365, Error::<T>::TimeNotAllowed);
             // 确保机器距离上次租用超过10天
             ensure!(
-                now - machine_info.last_online_height >= 28800u32.into(),
+                now.saturating_sub(machine_info.last_online_height) >= 28800u32.into(),
                 Error::<T>::TimeNotAllowed
             );
 
@@ -879,7 +880,7 @@ pub mod pallet {
 
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
             ensure!(
-                now - machine_info.last_machine_restake >= REBOND_FREQUENCY.into(),
+                now.saturating_sub(machine_info.last_machine_restake) >= REBOND_FREQUENCY.into(),
                 Error::<T>::TooFastToReStake
             );
 

@@ -69,8 +69,8 @@ impl<T: Config> Pallet<T> {
         let phase_reward_info = Self::phase_reward_info()?;
 
         let reward_start_era = phase_reward_info.online_reward_start_era as u64;
-        let era_duration =
-            (current_era >= reward_start_era).then(|| current_era - reward_start_era)?;
+        let era_duration = (current_era >= reward_start_era)
+            .then(|| current_era.saturating_sub(reward_start_era))?;
 
         let era_reward = if era_duration < phase_reward_info.first_phase_duration as u64 {
             phase_reward_info.phase_0_reward_per_era
@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
                 let mut all_machine = Self::all_machine_id_snap();
                 let release_num = all_machine.snap_len / 60;
 
-                let release_era = Self::current_era() - 1;
+                let release_era = Self::current_era().saturating_sub(1);
                 let era_total_reward = Self::era_reward(release_era);
                 let era_machine_points = Self::eras_machine_points(release_era);
                 let era_stash_points = Self::eras_stash_points(release_era);
@@ -194,7 +194,7 @@ impl<T: Config> Pallet<T> {
 
         let latest_reward = if !machine_reward_info.recent_machine_reward.is_empty() {
             machine_reward_info.recent_machine_reward
-                [machine_reward_info.recent_machine_reward.len() - 1]
+                [machine_reward_info.recent_machine_reward.len().saturating_sub(1)]
         } else {
             Zero::zero()
         };
@@ -214,7 +214,7 @@ impl<T: Config> Pallet<T> {
                 // 1% of released_reward to committee, 99% of released reward to stash
                 let release_to_stash =
                     Perbill::from_rational_approximation(99u32, 100u32) * released_reward;
-                let release_to_committee = released_reward - release_to_stash;
+                let release_to_committee = released_reward.saturating_sub(release_to_stash);
                 (release_to_stash, release_to_committee)
             };
 
@@ -227,26 +227,28 @@ impl<T: Config> Pallet<T> {
         }
 
         // NOTE: reward of actual get will change depend on how much days left
-        let machine_actual_total_reward =
-            if release_era > machine_reward_info.reward_committee_deadline {
-                machine_total_reward
-            } else if release_era > machine_reward_info.reward_committee_deadline - 150 {
-                // 减去委员会释放的部分
+        let machine_actual_total_reward = if release_era >
+            machine_reward_info.reward_committee_deadline
+        {
+            machine_total_reward
+        } else if release_era > machine_reward_info.reward_committee_deadline.saturating_sub(150) {
+            // 减去委员会释放的部分
 
-                // 每天机器奖励释放总奖励的1/200 (150天释放75%)
-                let total_daily_release =
-                    Perbill::from_rational_approximation(1u32, 200u32) * machine_total_reward;
-                // 委员会每天分得释放奖励的1%
-                let total_committee_release =
-                    Perbill::from_rational_approximation(1u32, 100u32) * total_daily_release;
-                // 委员会还能获得奖励的天数
-                let release_day = machine_reward_info.reward_committee_deadline - release_era;
+            // 每天机器奖励释放总奖励的1/200 (150天释放75%)
+            let total_daily_release =
+                Perbill::from_rational_approximation(1u32, 200u32) * machine_total_reward;
+            // 委员会每天分得释放奖励的1%
+            let total_committee_release =
+                Perbill::from_rational_approximation(1u32, 100u32) * total_daily_release;
+            // 委员会还能获得奖励的天数
+            let release_day =
+                machine_reward_info.reward_committee_deadline.saturating_sub(release_era);
 
-                machine_total_reward -
-                    total_committee_release * release_day.saturated_into::<BalanceOf<T>>()
-            } else {
-                Perbill::from_rational_approximation(99u32, 100u32) * machine_total_reward
-            };
+            machine_total_reward -
+                total_committee_release * release_day.saturated_into::<BalanceOf<T>>()
+        } else {
+            Perbill::from_rational_approximation(99u32, 100u32) * machine_total_reward
+        };
 
         // record reward
         stash_machine.can_claim_reward =

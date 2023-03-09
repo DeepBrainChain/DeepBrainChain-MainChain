@@ -4,7 +4,10 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::ensure;
-use sp_runtime::{traits::Zero, Perbill, RuntimeDebug};
+use sp_runtime::{
+    traits::{Saturating, Zero},
+    Perbill, RuntimeDebug,
+};
 use sp_std::{cmp::PartialEq, ops::Sub, vec, vec::Vec};
 
 // 报告的详细信息
@@ -49,8 +52,14 @@ pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
 impl<Account, BlockNumber, Balance> MTReportInfoDetail<Account, BlockNumber, Balance>
 where
     Account: Default + Clone + Ord,
-    BlockNumber:
-        Default + PartialEq + Zero + From<u32> + Copy + Sub<Output = BlockNumber> + PartialOrd,
+    BlockNumber: Default
+        + PartialEq
+        + Zero
+        + From<u32>
+        + Copy
+        + Sub<Output = BlockNumber>
+        + PartialOrd
+        + Saturating,
     Balance: Default,
 {
     pub fn new(
@@ -161,7 +170,7 @@ where
         }
 
         // 未全部提交了原始信息且未达到了四个小时，需要继续等待
-        if now - self.first_book_time < FOUR_HOUR.into() &&
+        if now.saturating_sub(self.first_book_time) < FOUR_HOUR.into() &&
             self.hashed_committee.len() != self.confirmed_committee.len()
         {
             return false
@@ -263,8 +272,14 @@ where
 impl<Account, BlockNumber, Balance> MTReportInfoDetail<Account, BlockNumber, Balance>
 where
     Account: Default + Clone + Ord,
-    BlockNumber:
-        Default + PartialEq + Zero + From<u32> + Copy + Sub<Output = BlockNumber> + PartialOrd,
+    BlockNumber: Default
+        + PartialEq
+        + Zero
+        + From<u32>
+        + Copy
+        + Sub<Output = BlockNumber>
+        + PartialOrd
+        + Saturating,
     Balance: Default,
 {
     pub fn can_summary_inaccessible(&self, now: BlockNumber) -> Result<(), ()> {
@@ -284,7 +299,7 @@ where
 
         if matches!(self.report_status, ReportStatus::SubmittingRaw) {
             // 不到10分钟，且没全部提交确认，允许继续提交
-            if now - self.first_book_time < TEN_MINUTE.into() &&
+            if now.saturating_sub(self.first_book_time) < TEN_MINUTE.into() &&
                 self.confirmed_committee.len() < self.hashed_committee.len()
             {
                 return Err(())

@@ -227,7 +227,7 @@ impl<T: Config> Pallet<T> {
         let free_balance = T::Currency::free_balance(&who);
         let burn_amount = if free_balance >= burn_amount { burn_amount } else { free_balance };
 
-        T::Currency::make_free_balance_be(&who, free_balance - burn_amount);
+        T::Currency::make_free_balance_be(&who, free_balance.saturating_sub(burn_amount));
         // ensure T::CurrencyToVote will work correctly.
         T::Currency::burn(burn_amount);
 

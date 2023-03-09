@@ -641,7 +641,8 @@ pub mod pallet {
             ensure!(machine_info.can_rent(), Error::<T>::MachineNotRentable);
 
             // 最大租用时间限制MaximumRentalDuration
-            let duration = duration.min((Self::maximum_rental_duration() * 24 * 60).into());
+            let duration =
+                duration.min((Self::maximum_rental_duration().saturating_mul(24 * 60)).into());
 
             // NOTE: 用户提交订单，需要扣除10个DBC
             Self::pay_fixed_tx_fee(renter.clone())?;
@@ -748,7 +749,7 @@ pub mod pallet {
 
             // 在stake_amount设置0前记录，用作事件
             let rent_fee = order_info.stake_amount;
-            let rent_duration = order_info.rent_end - order_info.rent_start;
+            let rent_duration = order_info.rent_end.saturating_sub(order_info.rent_start);
 
             order_info.confirm_rent(now);
 
@@ -926,7 +927,7 @@ pub mod pallet {
                     now.saturating_sub(rent_order.rent_start) / 120u32.into() * 120u32.into();
                 let rent_fee = Perbill::from_rational_approximation(
                     rent_duration,
-                    rent_order.rent_end - rent_order.rent_start,
+                    rent_order.rent_end.saturating_sub(rent_order.rent_start),
                 ) * rent_order.stake_amount;
 
                 // NOTE: Here will change machine_info again.
@@ -1004,7 +1005,7 @@ pub mod pallet {
                     now.saturating_sub(rent_order.rent_start) / 120u32.into() * 120u32.into();
                 let rent_fee = Perbill::from_rational_approximation(
                     rent_duration,
-                    rent_order.rent_end - rent_order.rent_start,
+                    rent_order.rent_end.saturating_sub(rent_order.rent_start),
                 ) * rent_order.stake_amount;
 
                 Self::pay_rent_fee(&rent_order, rent_fee, machine_id.clone())?;
@@ -1497,8 +1498,9 @@ impl<T: Config> Pallet<T> {
 
         let mut verify_sequence = Vec::new();
         for i in 0..3 {
-            let lucky_index =
-                <generic_func::Module<T>>::random_u32(committee.len() as u32 - 1u32) as usize;
+            let lucky_index = <generic_func::Module<T>>::random_u32(
+                (committee.len() as u32).saturating_sub(1u32),
+            ) as usize;
             verify_sequence.push(VerifySequence {
                 who: committee[lucky_index].clone(),
                 index: (i..DISTRIBUTION as usize).step_by(3).collect(),
@@ -1978,7 +1980,7 @@ impl<T: Config> Pallet<T> {
             // 如果 rent_fee >= max_stake - machine_info.stake_amount,
             // 则质押 max_stake - machine_info.stake_amount
             // 如果 rent_fee < max_stake - machine_info.stake_amount, 则质押 rent_fee
-            let stake_amount = rent_fee.min(max_stake - machine_info.stake_amount);
+            let stake_amount = rent_fee.min(max_stake.saturating_sub(machine_info.stake_amount));
 
             <T as Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)?;
             machine_info.stake_amount = machine_info.stake_amount.saturating_add(stake_amount);
@@ -2001,7 +2003,7 @@ impl<T: Config> Pallet<T> {
         for rent_id in pending_ending {
             let rent_order = Self::rent_order(&rent_id);
             let machine_id = rent_order.machine_id.clone();
-            let rent_duration = now - rent_order.rent_start;
+            let rent_duration = now.saturating_sub(rent_order.rent_start);
 
             let _ = Self::pay_rent_fee(&rent_order, rent_order.stake_amount, machine_id.clone());
 
