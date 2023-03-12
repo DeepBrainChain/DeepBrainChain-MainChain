@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod traits;

@@ -102,4 +102,5 @@ std = [
   "sp-runtime/std",
   "sp-std/std",
   "sp-io/std",
+  "dbc-support/std",
 ]
