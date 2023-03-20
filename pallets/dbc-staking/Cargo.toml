@@ -15,9 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 static_assertions = "1.1.0"
 serde = { version = "1.0.101", optional = true }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive",
-] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 dbc-support = { path = "../support", default-features = false }
 
@@ -28,9 +26,7 @@ sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', 
 sp-staking = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
 frame-support = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
 frame-system = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-pallet-session = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false, features = [
-  'historical',
-] }
+pallet-session = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false, features = ['historical'] }
 pallet-authorship = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
 sp-application-crypto = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
 pallet-timestamp = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }

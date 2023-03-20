@@ -4,9 +4,7 @@ name = "online-committee-rpc"
 version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", features = [
-    "derive",
-] }
+codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"

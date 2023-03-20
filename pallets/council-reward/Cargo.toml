@@ -5,9 +5,7 @@ version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive",
-] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.101", optional = true }
 dbc-support = { package = "dbc-support", path = "../support", default-features = false }
 
