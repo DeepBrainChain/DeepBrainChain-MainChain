@@ -2760,7 +2760,6 @@ checksum = "489b9c612e60c766f751ab40fcb43cbb55a1e10bb44a9b4307ed510ca598cbd7"
 dependencies = [
  "failure",
  "futures 0.1.31",
- "hyper 0.12.36",
  "jsonrpc-core",
  "jsonrpc-pubsub",
  "log",
@@ -4129,19 +4128,6 @@ dependencies = [
  "substrate-frame-rpc-system",
  "terminating-rental-rpc",
  "terminating-rental-runtime-api",
-]
-
-[[package]]
-name = "node-rpc-client"
-version = "2.0.0"
-dependencies = [
- "futures 0.1.31",
- "hyper 0.12.36",
- "jsonrpc-core-client",
- "log",
- "node-primitives",
- "sc-rpc",
- "sp-tracing",
 ]
 
 [[package]]

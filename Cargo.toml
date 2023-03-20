@@ -7,7 +7,6 @@ members = [
   'inspect',
   'primitives',
   'rpc',
-  'rpc-client',
   'runtime',
   'testing',
   'pallets/dbc-staking',
