@@ -1,41 +1,3 @@
-[dev-dependencies]
-pretty_assertions = '0.6.1'
-
-[dev-dependencies.sp-serializer]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.codec]
-default-features = false
-features = ['derive']
-package = 'parity-scale-codec'
-version = '2.0.0'
-
-[dependencies.frame-system]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-application-crypto]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-core]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-runtime]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
 [package]
 authors = ['Parity Technologies <admin@parity.io>']
 edition = '2018'
@@ -47,6 +9,17 @@ version = '2.0.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive'] }
+frame-system = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+sp-application-crypto = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+sp-core = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+sp-runtime = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+
+[dev-dependencies]
+pretty_assertions = '0.6.1'
+sp-serializer = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
 
 [features]
 default = ['std']

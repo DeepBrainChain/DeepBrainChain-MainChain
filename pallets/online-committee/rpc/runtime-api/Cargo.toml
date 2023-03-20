@@ -4,33 +4,13 @@ name = "online-committee-runtime-api"
 version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive",
-] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 online-committee = { version = "0.1.0", path = "../../../online-committee", default-features = false }
+dbc-support = { default-features = false, path = '../../../support' }
 
-[dependencies.sp-api]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-runtime]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-std]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.dbc-support]
-default-features = false
-package = 'dbc-support'
-path = '../../../support'
+sp-api = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+sp-runtime = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+sp-std = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
 
 [features]
 default = ["std"]

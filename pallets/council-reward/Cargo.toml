@@ -5,87 +5,26 @@ version = "0.1.0"
 authors = ["bobo <dongkaige@gmail.com>"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive",
-] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.101", optional = true }
 dbc-support = { package = "dbc-support", path = "../support", default-features = false }
 
-[dependencies.pallet-collective]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+pallet-collective = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+frame-system = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+frame-support = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+pallet-elections-phragmen = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+sp-std = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+sp-runtime = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
 
-[dependencies.frame-system]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.frame-support]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.pallet-elections-phragmen]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-std]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-runtime]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.pallet-balances]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.pallet-randomness-collective-flip]
-git = 'https://github.com/paritytech/substrate.git'
-package = 'pallet-randomness-collective-flip'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.dbc-price-ocw]
-package = 'dbc-price-ocw'
-path = '../dbc-price-ocw'
-
-[dev-dependencies.sp-core]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.pallet-treasury]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.generic-func]
-default-features = false
-package = 'generic-func'
-path = '../generic-func'
-
-[dev-dependencies.sp-keyring]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.sp-io]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+[dev-dependencies]
+pallet-balances = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
+pallet-randomness-collective-flip = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
+sp-core = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
+pallet-treasury = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
+sp-keyring = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
+sp-io = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
+dbc-price-ocw = { package = 'dbc-price-ocw', path = '../dbc-price-ocw' }
+generic-func = { package = 'generic-func', path = '../generic-func', default-features = false }
 
 [features]
 default = ["std"]

@@ -20,7 +20,5 @@ quote = "1.0.3"
 proc-macro2 = "1.0.6"
 proc-macro-crate = "0.1.4"
 
-[dev-dependencies.sp-runtime]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+[dev-dependencies]
+sp-runtime = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
