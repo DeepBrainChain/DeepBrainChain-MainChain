@@ -5,7 +5,6 @@ use dbc_support::{
     ItemList, ReportHash, ReportId,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
-use sp_io::hashing::blake2_128;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::vec::Vec;
 
@@ -46,14 +45,6 @@ impl<T: Config> Pallet<T> {
         reward_who: Vec<T::AccountId>,
     ) -> Result<(), ()> {
         <T as Config>::SlashAndReward::slash_and_reward(slash_who, slash_amount, reward_who)
-    }
-
-    pub fn get_hash(raw_str: Vec<Vec<u8>>) -> [u8; 16] {
-        let mut full_str = Vec::new();
-        for a_str in raw_str {
-            full_str.extend(a_str);
-        }
-        blake2_128(&full_str)
     }
 
     pub fn get_new_report_id() -> ReportId {

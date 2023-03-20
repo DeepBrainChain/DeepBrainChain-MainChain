@@ -14,17 +14,6 @@ pub mod rpc_types;
 mod types;
 
 use codec::alloc::string::ToString;
-use frame_support::{
-    dispatch::{DispatchResult, DispatchResultWithPostInfo},
-    pallet_prelude::*,
-    traits::{Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency},
-};
-use sp_runtime::{
-    traits::{CheckedAdd, CheckedMul, CheckedSub, SaturatedConversion, Saturating, Zero},
-    Perbill,
-};
-use sp_std::{collections::btree_set::BTreeSet, prelude::*, str, vec::Vec};
-
 use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,
@@ -36,6 +25,7 @@ use dbc_support::{
         ReporterStakeInfo, ReporterStakeParamsInfo,
     },
     traits::{DbcPrice, GNOps, ManageCommittee},
+    utils::{get_hash, OnlineCommitteeSummary},
     verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
     verify_online::{
         OCCommitteeMachineList, OCCommitteeOps as IRCommitteeOnlineOps, OCMachineCommitteeList,
@@ -44,6 +34,16 @@ use dbc_support::{
     },
     BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId, TWO_DAY,
 };
+use frame_support::{
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    pallet_prelude::*,
+    traits::{Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency},
+};
+use sp_runtime::{
+    traits::{CheckedAdd, CheckedMul, CheckedSub, SaturatedConversion, Saturating, Zero},
+    Perbill,
+};
+use sp_std::{prelude::*, str, vec::Vec};
 
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;
@@ -1385,7 +1385,6 @@ pub mod pallet {
 }
 
 // 检查bonding信息
-// TODO: 与online_profile合并
 impl<T: Config> Pallet<T> {
     pub fn check_bonding_msg(
         stash: T::AccountId,
@@ -1698,80 +1697,6 @@ impl<T: Config> Pallet<T> {
         UnhandledOnlineSlash::<T>::mutate(|unhandled_slash| {
             ItemList::add_item(unhandled_slash, slash_id);
         });
-    }
-
-    // 总结机器的确认情况: 检查机器是否被确认，并检查提交的信息是否一致
-    // 返回三种状态：
-    // 1. 无共识：处理办法：退还委员会质押，机器重新派单。
-    // 2. 支持上线: 处理办法：扣除所有反对上线，支持上线但提交无效信息的委员会的质押。
-    // 3. 反对上线: 处理办法：反对的委员会平分支持的委员会的质押。扣5%矿工质押，
-    // 允许矿工再次质押而上线。
-    pub fn summary_confirmation(
-        machine_committee: OCMachineCommitteeList<T::AccountId, T::BlockNumber>,
-        committee_submit_info: Vec<CommitteeUploadInfo>,
-    ) -> Summary<T::AccountId> {
-        // 如果是反对上线，则需要忽略其他字段，只添加is_support=false的字段
-        let mut submit_info = vec![];
-        committee_submit_info.into_iter().for_each(|info| {
-            if info.is_support {
-                submit_info.push(info);
-            } else {
-                submit_info.push(CommitteeUploadInfo { is_support: false, ..Default::default() })
-            }
-        });
-
-        let mut summary = Summary::default();
-        summary.unruly = machine_committee.summary_unruly();
-        let uniq_len = submit_info.iter().collect::<BTreeSet<_>>().len();
-
-        if machine_committee.confirmed_committee.is_empty() {
-            // Case: Zero info
-            summary.verify_result = VerifyResult::NoConsensus;
-        } else if submit_info.iter().min().unwrap() == submit_info.iter().max().unwrap() {
-            // Cases: One submit info; Two same info; Three same info
-            let info = submit_info[0].clone();
-            if info.is_support {
-                summary.info = Some(info);
-                summary.valid_vote = machine_committee.confirmed_committee;
-                summary.verify_result = VerifyResult::Confirmed;
-            } else {
-                summary.valid_vote = machine_committee.confirmed_committee;
-                summary.verify_result = VerifyResult::Refused;
-            }
-        } else if uniq_len == submit_info.len() {
-            // Cases: Two different info; Three different info
-            summary.invalid_vote = machine_committee.confirmed_committee;
-            summary.verify_result = VerifyResult::NoConsensus;
-        } else {
-            // Cases: Three info: two is same.
-            let (valid_1, valid_2, invalid) = if submit_info[0] == submit_info[1] {
-                (0, 1, 2)
-            } else if submit_info[0] == submit_info[2] {
-                (0, 2, 1)
-            } else {
-                (1, 2, 0)
-            };
-
-            summary.invalid_vote = vec![machine_committee.confirmed_committee[invalid].clone()];
-            if submit_info[valid_1].is_support {
-                summary.info = Some(submit_info[valid_1].clone());
-                summary.valid_vote = vec![
-                    machine_committee.confirmed_committee[valid_1].clone(),
-                    machine_committee.confirmed_committee[valid_2].clone(),
-                ];
-                summary.verify_result = VerifyResult::Confirmed;
-            } else {
-                ItemList::expand_to_order(
-                    &mut summary.valid_vote,
-                    vec![
-                        machine_committee.confirmed_committee[valid_1].clone(),
-                        machine_committee.confirmed_committee[valid_2].clone(),
-                    ],
-                );
-                summary.verify_result = VerifyResult::Refused;
-            }
-        };
-        summary
     }
 
     // - Writes: StashTotalStake, MachinesInfo, LiveMachines, StashMachines
@@ -2165,11 +2090,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-use sp_io::hashing::blake2_128;
-pub fn get_hash(raw_str: Vec<Vec<u8>>) -> [u8; 16] {
-    let mut full_str = Vec::new();
-    for a_str in raw_str {
-        full_str.extend(a_str);
-    }
-    blake2_128(&full_str)
+impl<T: Config> OnlineCommitteeSummary for Pallet<T> {
+    type AccountId = T::AccountId;
+    type BlockNumber = T::BlockNumber;
 }

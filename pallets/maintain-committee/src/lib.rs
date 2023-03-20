@@ -20,6 +20,7 @@ use dbc_support::{
         ReporterStakeParamsInfo,
     },
     traits::{GNOps, MTOps, ManageCommittee},
+    utils::get_hash,
     verify_slash::OPSlashReason,
     ItemList, MachineId, RentOrderId, ReportHash, ReportId, FIVE_MINUTE, HALF_HOUR, ONE_HOUR,
     THREE_HOUR, TWO_DAY,
@@ -407,7 +408,7 @@ pub mod pallet {
                 report_info.get_reporter_hash().map_err::<Error<T>, _>(Into::into)?;
 
             // 检查是否与报告人提交的Hash一致
-            let reporter_report_hash = Self::get_hash(vec![
+            let reporter_report_hash = get_hash(vec![
                 machine_id.clone(),
                 rent_order_id.to_string().into(),
                 reporter_rand_str.clone(),
@@ -420,7 +421,7 @@ pub mod pallet {
 
             // 检查委员会提交是否与第一次Hash一致
             let is_support: Vec<u8> = if support_report { "1".into() } else { "0".into() };
-            let committee_report_hash = Self::get_hash(vec![
+            let committee_report_hash = get_hash(vec![
                 machine_id.clone(),
                 rent_order_id.to_string().into(),
                 reporter_rand_str,
@@ -467,11 +468,8 @@ pub mod pallet {
             // 检查Hash是否一致
             let is_support_u8 = if is_support { "1".into() } else { "0".into() };
             ensure!(
-                Self::get_hash(vec![
-                    report_id.to_string().into(),
-                    committee_rand_str,
-                    is_support_u8
-                ]) == committee_ops.confirm_hash,
+                get_hash(vec![report_id.to_string().into(), committee_rand_str, is_support_u8]) ==
+                    committee_ops.confirm_hash,
                 Error::<T>::NotEqualCommitteeSubmit
             );
 

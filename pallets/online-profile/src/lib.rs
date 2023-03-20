@@ -1037,10 +1037,7 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
         Self::update_region_on_exit(&machine_info);
-        // FIXME: 评估调用多次该方法造成的影响！
         Self::update_snap_on_online_changed(machine_id.clone(), false);
-
-        // NOTE: 下面的在machine_exit时都没有被调用，因此不受影响
 
         LiveMachines::<T>::mutate(|live_machines| {
             live_machines.on_exit(&machine_id);
