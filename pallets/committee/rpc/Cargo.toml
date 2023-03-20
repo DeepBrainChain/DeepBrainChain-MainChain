@@ -6,14 +6,16 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", features = [
+    "derive",
+] }
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
 committee = { version = "0.1.0", path = "../../committee" }
 committee-runtime-api = { version = "0.1.0", path = "./runtime-api" }
 
-sp-runtime = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
-sp-api = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
-sp-rpc = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
+sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+sp-api = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+sp-blockchain = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+sp-rpc = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }

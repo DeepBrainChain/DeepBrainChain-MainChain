@@ -5,28 +5,30 @@ name = "committee"
 version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
+  "derive",
+] }
 dbc-support = { package = "dbc-support", path = "../support", default-features = false }
 serde = { version = "1.0.101", optional = true }
 
-frame-support = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
-frame-system = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
-pallet-collective = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
-sp-io = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
-sp-runtime = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
-sp-std = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false }
+frame-support = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
+frame-system = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
+pallet-collective = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
+sp-io = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
+sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
+sp-std = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
 
 dbc-price-ocw = { package = 'dbc-price-ocw', path = '../dbc-price-ocw', default-features = false }
 generic-func = { package = 'generic-func', path = '../generic-func', default-features = false }
 # Optional imports for benchmarking
-frame-benchmarking = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353', default-features = false, optional = true }
+frame-benchmarking = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false, optional = true }
 
 [dev-dependencies]
 hex = { version = '0.4' }
-sp-core = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
-sp-keyring = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
-pallet-balances = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
-frame-benchmarking = { git = 'https://github.com/paritytech/substrate', rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353' }
+sp-core = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+sp-keyring = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+pallet-balances = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+frame-benchmarking = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 
 [features]
 default = ["std"]
