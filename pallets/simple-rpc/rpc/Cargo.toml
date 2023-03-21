@@ -14,9 +14,9 @@ dbc-support = { version = "0.1.0", path = "../../support", default-features = fa
 simple-rpc = { version = "0.1.0", path = "../../simple-rpc", default-features = false }
 simple-rpc-runtime-api = { version = "0.1.0", path = "./runtime-api", default-features = false }
 
-sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-api = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 
 [features]
 default = ["std"]

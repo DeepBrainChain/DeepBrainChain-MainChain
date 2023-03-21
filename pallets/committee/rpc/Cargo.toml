@@ -13,7 +13,7 @@ jsonrpc-derive = "15.0"
 committee = { version = "0.1.0", path = "../../committee" }
 committee-runtime-api = { version = "0.1.0", path = "./runtime-api" }
 
-sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-api = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-rpc = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }

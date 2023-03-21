@@ -14,7 +14,7 @@ dbc-support = { version = "0.1.0", path = "../../support" }
 online-profile = { version = "0.1.0", path = "../../online-profile" }
 online-profile-runtime-api = { version = "0.1.0", path = "./runtime-api" }
 
-sp-api = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-rpc = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }

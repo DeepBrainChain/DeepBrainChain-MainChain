@@ -11,12 +11,12 @@ dbc-support = { package = "dbc-support", path = "../support", default-features =
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
 hex = { version = "0.4", optional = true, default-features = false }
 
-frame-support = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-frame-system = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-core = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-pallet-randomness-collective-flip = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-std = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 
 [features]
 default = ["std"]

@@ -1,17 +1,17 @@
 [package]
-authors = ['Parity Technologies <admin@parity.io>']
-edition = '2018'
-homepage = 'https://substrate.dev'
-license = 'Apache-2.0'
-name = 'node-rpc'
-repository = 'https://github.com/paritytech/substrate/'
-version = '2.0.0'
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+homepage = "https://substrate.dev"
+license = "Apache-2.0"
+name = "node-rpc"
+repository = "https://github.com/paritytech/substrate/"
+version = "2.0.0"
 
 [package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpc-core = '15.1.0'
+jsonrpc-core = "15.1.0"
 committee-rpc = { path = "../pallets/committee/rpc" }
 committee-runtime-api = { path = "../pallets/committee/rpc/runtime-api" }
 online-committee-rpc = { path = "../pallets/online-committee/rpc" }
@@ -24,27 +24,27 @@ simple-rpc-rpc = { path = "../pallets/simple-rpc/rpc" }
 simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api" }
 terminating-rental-rpc = { path = "../pallets/terminating-rental/rpc" }
 terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/runtime-api" }
-node-primitives = { path = '../primitives', version = '2.0.0' }
-node-runtime = { path = '../runtime', version = '2.0.0' }
-pallet-contracts-rpc = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-transaction-payment-rpc = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-chain-spec = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-client-api = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-consensus-babe = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-consensus-babe-rpc = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-consensus-epochs = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-finality-grandpa = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-finality-grandpa-rpc = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-keystore = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-rpc = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-rpc-api = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-sync-state-rpc = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-api = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-block-builder = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-blockchain = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-consensus = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-consensus-babe = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-keystore = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-transaction-pool = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-substrate-frame-rpc-system = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+node-primitives = { path = "../primitives", version = "2.0.0" }
+node-runtime = { path = "../runtime", version = "2.0.0" }
+pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-chain-spec = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-consensus-babe-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-consensus-epochs = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-keystore = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-rpc-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-sync-state-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-consensus-babe = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-keystore = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-transaction-pool = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }

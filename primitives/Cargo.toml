@@ -1,32 +1,32 @@
 [package]
-authors = ['Parity Technologies <admin@parity.io>']
-edition = '2018'
-homepage = 'https://substrate.dev'
-license = 'Apache-2.0'
-name = 'node-primitives'
-repository = 'https://github.com/paritytech/substrate/'
-version = '2.0.0'
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
+homepage = "https://substrate.dev"
+license = "Apache-2.0"
+name = "node-primitives"
+repository = "https://github.com/paritytech/substrate/"
+version = "2.0.0"
 
 [package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive'] }
-frame-system = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-application-crypto = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-core = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-application-crypto = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 
 [dev-dependencies]
-pretty_assertions = '0.6.1'
-sp-serializer = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+pretty_assertions = "0.6.1"
+sp-serializer = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 
 [features]
-default = ['std']
+default = ["std"]
 std = [
-  'codec/std',
-  'frame-system/std',
-  'sp-application-crypto/std',
-  'sp-core/std',
-  'sp-runtime/std',
+  "codec/std",
+  "frame-system/std",
+  "sp-application-crypto/std",
+  "sp-core/std",
+  "sp-runtime/std",
 ]

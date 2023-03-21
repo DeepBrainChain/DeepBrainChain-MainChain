@@ -1,54 +1,54 @@
 [package]
-authors = ['Parity Technologies <admin@parity.io>']
-description = 'Substrate node implementation in Rust.'
-edition = '2018'
-homepage = 'https://substrate.dev'
-license = 'Apache-2.0'
-name = 'node-executor'
-repository = 'https://github.com/paritytech/substrate/'
-version = '2.0.0'
+authors = ["Parity Technologies <admin@parity.io>"]
+description = "Substrate node implementation in Rust."
+edition = "2018"
+homepage = "https://substrate.dev"
+license = "Apache-2.0"
+name = "node-executor"
+repository = "https://github.com/paritytech/substrate/"
+version = "2.0.0"
 
 [package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-trie-root = '0.16.0'
-codec = { package = 'parity-scale-codec', version = '2.0.0' }
-node-primitives = { path = '../primitives', version = '2.0.0' }
-node-runtime = { path = '../runtime', version = '2.0.0' }
-frame-benchmarking = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-executor = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-core = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-io = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-keystore = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-state-machine = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-trie = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+trie-root = "0.16.0"
+codec = { package = "parity-scale-codec", version = "2.0.0" }
+node-primitives = { path = "../primitives", version = "2.0.0" }
+node-runtime = { path = "../runtime", version = "2.0.0" }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-executor = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-io = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-keystore = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-trie = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 
 [dev-dependencies]
-criterion = '0.3.0'
-wat = '1.0'
-node-testing = { version = '2.0.0', path = '../testing' }
-frame-support = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-frame-system = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-balances = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-contracts = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-grandpa = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-im-online = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-indices = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-session = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-timestamp = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-transaction-payment = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-treasury = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-application-crypto = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-externalities = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-substrate-test-client = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+criterion = "0.3.0"
+wat = "1.0"
+node-testing = { version = "2.0.0", path = "../testing" }
+frame-support = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-im-online = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-indices = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-session = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-treasury = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-application-crypto = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-externalities = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+substrate-test-client = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 
 [[bench]]
 harness = false
-name = 'bench'
+name = "bench"
 
 [features]
 stress-test = []
-wasmi-errno = ['sc-executor/wasmi-errno']
-wasmtime = ['sc-executor/wasmtime']
+wasmi-errno = ["sc-executor/wasmi-errno"]
+wasmtime = ["sc-executor/wasmtime"]

@@ -8,30 +8,30 @@ codec = { package = "parity-scale-codec", version = "2.0.0", default-features = 
 dbc-support = { path = "../support", default-features = false }
 serde = { version = "1.0.101", optional = true }
 
-frame-support = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-frame-system = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-std = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-runtime = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-sp-io = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 
-online-profile = { path = '../online-profile', default-features = false }
-generic-func = { path = '../generic-func', default-features = false }
-dbc-price-ocw = { path = '../dbc-price-ocw', default-features = false }
+online-profile = { path = "../online-profile", default-features = false }
+generic-func = { path = "../generic-func", default-features = false }
+dbc-price-ocw = { path = "../dbc-price-ocw", default-features = false }
 
 [dev-dependencies]
-once_cell = '1'
-hex = '0.4'
+once_cell = "1"
+hex = "0.4"
 
-pallet-balances = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-treasury = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-core = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-randomness-collective-flip = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sp-keyring = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-collective = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-pallet-timestamp = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
+pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-treasury = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-collective = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 
-committee = { path = '../committee' }
-online-committee = { path = '../online-committee' }
+committee = { path = "../committee" }
+online-committee = { path = "../online-committee" }
 
 [features]
 default = ["std"]
