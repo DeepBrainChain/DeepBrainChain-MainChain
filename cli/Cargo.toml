@@ -110,9 +110,7 @@ regex = '1'
 serde_json = '1.0'
 tempfile = '3.1.0'
 sc-consensus = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-consensus-babe = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', features = [
-  'test-helpers',
-] }
+sc-consensus-babe = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', features = ['test-helpers'] }
 sc-consensus-epochs = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 sc-keystore = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 sc-service-test = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }

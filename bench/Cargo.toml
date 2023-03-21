@@ -1,3 +1,11 @@
+[package]
+authors = ['Parity Technologies <admin@parity.io>']
+description = 'Substrate node integration benchmarks.'
+edition = '2018'
+license = 'GPL-3.0-or-later WITH Classpath-exception-2.0'
+name = 'node-bench'
+version = '0.8.0'
+
 [dependencies]
 derive_more = '0.99.2'
 fs_extra = '1'
@@ -14,9 +22,7 @@ tempfile = '3.1.0'
 futures = { version = "0.3.4", features = ["thread-pool"] }
 parity-db = { version = "0.2.4" }
 rand = { version = "0.7.2", features = ["small_rng"] }
-parity-util-mem = { version = "0.9.0", default-features = false, features = [
-    "primitive-types",
-] }
+parity-util-mem = { version = "0.9.0", default-features = false, features = ["primitive-types"] }
 node-primitives = { version = "2.0.0", path = "../primitives" }
 node-runtime = { version = "2.0.0", path = "../runtime" }
 node-testing = { version = "2.0.0", path = "../testing" }
@@ -33,11 +39,3 @@ sp-tracing = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 sp-transaction-pool = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 sp-trie = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 sp-timestamp = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', default-features = false }
-
-[package]
-authors = ['Parity Technologies <admin@parity.io>']
-description = 'Substrate node integration benchmarks.'
-edition = '2018'
-license = 'GPL-3.0-or-later WITH Classpath-exception-2.0'
-name = 'node-bench'
-version = '0.8.0'

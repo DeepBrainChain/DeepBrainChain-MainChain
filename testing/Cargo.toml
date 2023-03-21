@@ -37,17 +37,9 @@ pallet-transaction-payment = { git = 'https://github.com/paritytech/substrate', 
 pallet-treasury = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 sc-block-builder = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 sc-client-api = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
-sc-client-db = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', features = [
-    'kvdb-rocksdb',
-    'parity-db',
-] }
-sc-executor = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', features = [
-    'wasmtime',
-] }
-sc-service = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', features = [
-    'test-helpers',
-    'db',
-] }
+sc-client-db = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', features = ['kvdb-rocksdb', 'parity-db'] }
+sc-executor = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', features = ['wasmtime'] }
+sc-service = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0', features = ['test-helpers', 'db'] }
 sp-api = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 sp-block-builder = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
 sp-blockchain = { git = 'https://github.com/paritytech/substrate', tag = 'v3.0.0' }
