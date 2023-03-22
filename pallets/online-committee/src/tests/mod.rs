@@ -9,10 +9,16 @@ use once_cell::sync::Lazy;
 use sp_core::sr25519;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 
-const controller: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Eve));
-const stash: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Ferdie));
+const controller: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Eve));
+const stash: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Ferdie));
 
-const committee1: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Alice));
-const committee2: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Charlie));
-const committee3: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Dave));
-const committee4: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Eve));
+const committee1: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Alice));
+const committee2: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Charlie));
+const committee3: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Dave));
+const committee4: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Eve));

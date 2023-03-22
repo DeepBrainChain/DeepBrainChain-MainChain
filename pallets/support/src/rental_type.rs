@@ -1,13 +1,11 @@
-use codec::{Decode, Encode};
 #[cfg(feature = "std")]
-use generic_func::rpc_types::serde_text;
-use generic_func::{ItemList, MachineId};
+use super::rpc_types::serde_text;
+use super::{ItemList, MachineId, RentOrderId};
+use codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::{vec, vec::Vec};
-
-pub type RentOrderId = u64;
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -34,41 +32,18 @@ pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
     pub gpu_index: Vec<u32>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub struct MachineGPUOrder {
-    // 机器所有GPU对应的RentOrder
-    pub rent_order: Vec<RentOrderId>,
-    // 机器订单已经使用的gpu:
-    pub used_gpu: Vec<u32>,
+pub enum RentStatus {
+    WaitingVerifying,
+    Renting,
+    RentExpired,
 }
 
-impl MachineGPUOrder {
-    // 获取可以被租用的GPU index
-    pub fn gen_rentable_gpu(&mut self, need_gpu: u32, total_gpu: u32) -> Vec<u32> {
-        let mut out = vec![];
-
-        for i in 0..total_gpu {
-            if out.len() == need_gpu as usize {
-                return out;
-            }
-
-            if self.used_gpu.binary_search(&i).is_err() {
-                out.push(i);
-                ItemList::add_item(&mut self.used_gpu, i);
-            }
-        }
-
-        out
-    }
-
-    // 根据gpu_index清理使用的GPU index
-    pub fn clean_expired_order(&mut self, order_id: RentOrderId, gpu_index: Vec<u32>) {
-        ItemList::rm_item(&mut self.rent_order, &order_id);
-        for index in gpu_index {
-            ItemList::rm_item(&mut self.used_gpu, &index);
-        }
+impl Default for RentStatus {
+    fn default() -> Self {
+        RentStatus::RentExpired
     }
 }
 
@@ -99,22 +74,44 @@ impl<A, B: Default, C: Default> RentOrderDetail<A, B, C> {
 
     pub fn confirm_rent(&mut self, confirm_rent_time: B) {
         self.confirm_rent = confirm_rent_time;
-        self.stake_amount = C::default();
         self.rent_status = RentStatus::Renting;
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum RentStatus {
-    WaitingVerifying,
-    Renting,
-    RentExpired,
+pub struct MachineGPUOrder {
+    // 机器所有GPU对应的RentOrder
+    pub rent_order: Vec<RentOrderId>,
+    // 机器订单已经使用的gpu:
+    pub used_gpu: Vec<u32>,
 }
 
-impl Default for RentStatus {
-    fn default() -> Self {
-        RentStatus::RentExpired
+impl MachineGPUOrder {
+    // 获取可以被租用的GPU index
+    pub fn gen_rentable_gpu(&mut self, need_gpu: u32, total_gpu: u32) -> Vec<u32> {
+        let mut out = vec![];
+
+        for i in 0..total_gpu {
+            if out.len() == need_gpu as usize {
+                return out
+            }
+
+            if self.used_gpu.binary_search(&i).is_err() {
+                out.push(i);
+                ItemList::add_item(&mut self.used_gpu, i);
+            }
+        }
+
+        out
+    }
+
+    // 根据gpu_index清理使用的GPU index
+    pub fn clean_expired_order(&mut self, order_id: RentOrderId, gpu_index: Vec<u32>) {
+        ItemList::rm_item(&mut self.rent_order, &order_id);
+        for index in gpu_index {
+            ItemList::rm_item(&mut self.used_gpu, &index);
+        }
     }
 }

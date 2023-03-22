@@ -1,8 +1,8 @@
 use codec::Codec;
-use generic_func::RpcBalance;
+use dbc_support::{rpc_types::RpcBalance, verify_online::OCMachineCommitteeList};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
-use online_committee::{rpc::RpcOCCommitteeOps, rpc_types::RpcOCCommitteeMachineList, OCMachineCommitteeList};
+use online_committee::{rpc::RpcOCCommitteeOps, rpc_types::RpcOCCommitteeMachineList};
 
 use online_committee_runtime_api::OcRpcApi as OcStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
@@ -15,7 +15,7 @@ pub trait OcRpcApi<BlockHash, AccountId, BlockNumber, Balance>
 where
     Balance: Display + FromStr,
 {
-    #[rpc(name = "onilneCommittee_getCommitteeMachineList")]
+    #[rpc(name = "onlineCommittee_getCommitteeMachineList")]
     fn get_committee_machine_list(
         &self,
         committee: AccountId,
@@ -49,8 +49,8 @@ impl<C, M> OcStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, BlockNumber, Balance> OcRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance>
-    for OcStorage<C, Block>
+impl<C, Block, AccountId, BlockNumber, Balance>
+    OcRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance> for OcStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
@@ -91,16 +91,17 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api.get_committee_ops(&at, committee, machine_id).map(|ops| RpcOCCommitteeOps {
-            booked_time: ops.booked_time,
-            staked_dbc: ops.staked_dbc.into(),
-            verify_time: ops.verify_time,
-            confirm_hash: ops.confirm_hash,
-            hash_time: ops.hash_time,
-            confirm_time: ops.confirm_time,
-            machine_status: ops.machine_status,
-            machine_info: ops.machine_info,
-        });
+        let runtime_api_result =
+            api.get_committee_ops(&at, committee, machine_id).map(|ops| RpcOCCommitteeOps {
+                booked_time: ops.booked_time,
+                staked_dbc: ops.staked_dbc.into(),
+                verify_time: ops.verify_time,
+                confirm_hash: ops.confirm_hash,
+                hash_time: ops.hash_time,
+                confirm_time: ops.confirm_time,
+                machine_status: ops.machine_status,
+                machine_info: ops.machine_info,
+            });
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

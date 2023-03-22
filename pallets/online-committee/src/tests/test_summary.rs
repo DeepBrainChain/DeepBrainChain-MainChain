@@ -1,14 +1,17 @@
 use super::super::{mock::*, *};
 use crate::tests::{committee1, committee2, committee3, committee4, stash};
+use committee::CommitteeStakeInfo;
+use dbc_support::{live_machine::LiveMachine, machine_type::CommitteeUploadInfo};
 use frame_support::assert_ok;
-use online_profile::CommitteeUploadInfo;
 use std::convert::TryInto;
 
 fn get_machine_id() -> Vec<u8> {
-    "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241".as_bytes().to_vec()
+    "484f457327950359de97c4b4c193bb3c8ddbe1dce56f038b3ac2b90e40995241"
+        .as_bytes()
+        .to_vec()
 }
 
-fn get_base_machine_info() -> online_profile::CommitteeUploadInfo {
+fn get_base_machine_info() -> CommitteeUploadInfo {
     CommitteeUploadInfo {
         machine_id: get_machine_id(),
         gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
@@ -27,801 +30,473 @@ fn get_base_machine_info() -> online_profile::CommitteeUploadInfo {
     }
 }
 
-// fn decode_hash(hash: &str) -> [u8; 16] {
-//     hex::decode(hash).unwrap().try_into().unwrap()
-// }
-
-// fn get_support_info() {
-//     let rand_str1 = "abcdefg1";
-//     let rand_str2 = "abcdefg2";
-//     let rand_str3 = "abcdefg3";
-
-//     let hash1 = decode_hash("2a0834c7aa168781cd2c40bc5259833e");
-//     let hash2 = decode_hash("422b76afb204fc7b94afe2912d82c659");
-//     let hash3 = decode_hash("08e1544c321b862db7f09008551a022f");
-// }
-
-// fn get_against_info() {
-//     let rand_str1 = "abcdefg1";
-//     let rand_str2 = "abcdefg2";
-//     let rand_str3 = "abcdefg3";
-
-//     let hash1 = decode_hash("9e100b5d89fdc4dc0932bfda23474f08");
-//     let hash2 = decode_hash("8702590323bf06ffb5f0fc5d1f9e0770");
-//     let hash3 = decode_hash("cf838f58d88f5ed2b66548531e4e0ca4");
-// }
-
 // NOTE: 测试summary函数
 // 当全部提交Hash+全部提交原始值时:
-// case 1: 3个支持，内容一致 ->上线
-// case 2: 3个支持，2内容一致 -> 上线 + 惩罚
-// case 3: 2个支持，1个反对 (2个一致) -> 上线 + 惩罚
-// case 4: 3个支持，内容都不一致 -> 无共识 + 重新分配
-// case 5: 2个支持，1个反对（2个不一致） -> 无共识 + 重新分配
-// case 6: 2个反对，1个支持 -> 不上线 + 奖励 + 惩罚
-// case 7: 3个反对 -> 不上线 + 奖励
-// case 8: 2提交Hash， 2提交原始值，都是反对
-// case 9: 2提交Hash， 2提交原始值，都是支持
-// case 10: 全部提交Hash，2提交原始值，且都是支持，两个不相同
-// case 11: 全部提交Hash，2提交原始值时，且都是支持，两个相同
+//
+// case 1_1 只有1个提交信息，是支持
+// case 1_2 只有1个提交信息，是反对
+//
+// case 2_1 2个提交信息，都支持，但内容相同
+// case 2_2 2个提交信息，都支持，但内容不同
+// case 2_3 2个提交信息，都反对，但内容不同
+// case 2_4 2个提交信息，一支持一反对
+//
+// case 3_1: 3个支持，内容一致 ->上线
+// case 3_2: 3个支持，2个内容一致，上线
+// case 3_3: 3个支持，3个内容不一致，重新分派
+// case 3_4: 2支持，1反对，支持信息一致。上线
+// case 3_5: 2支持，1反对，支持信息不一致。重新分派
+// case 3_6: 1支持，2反对，拒绝上线
+// case 3_7: 3个反对，信息不一致 -> 拒绝上线
 
-// case 1: 3个支持，内容一致 ->上线
+// case 1_1 只有1个提交信息，是支持
 #[test]
-fn test_summary_confirmation1() {
+fn test_summary_confirmation1_1() {
     new_test_with_init_params_ext().execute_with(|| {
         run_to_block(10);
 
-        let machine_id = get_machine_id();
-        // let mut upload_info = get_base_machine_info();
+        let upload_info1 = get_base_machine_info();
 
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2, *committee1],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2, *committee1],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
-
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
-        };
-
-        let committee1_ops = OCCommitteeOps {
-            verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        // 构建committee_ops
-        <CommitteeOps<TestRuntime>>::insert(&*committee1, &machine_id, committee1_ops);
-        <CommitteeOps<TestRuntime>>::insert(&*committee2, &machine_id, committee2_ops);
-        <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
-
-        let summary = Summary {
-            valid_support: vec![*committee3, *committee2, *committee1],
-            info: Some(committee_ops.machine_info),
+        let summary_expect1 = Summary {
+            valid_vote: vec![*committee1],
+            unruly: vec![*committee3, *committee2],
+            info: Some(upload_info1.clone()),
+            verify_result: VerifyResult::Confirmed,
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info1];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect1, summary);
     })
 }
 
-// case 2: 3个支持，2内容一致 -> 上线 + 惩罚
+// case 1_2 只有1个提交信息，是反对
 #[test]
-fn test_summary_confirmation2() {
+fn test_summary_confirmation1_2() {
     new_test_with_init_params_ext().execute_with(|| {
         run_to_block(10);
 
-        let machine_id = get_machine_id();
+        let upload_info1 = CommitteeUploadInfo { is_support: false, ..get_base_machine_info() };
 
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2, *committee1],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2, *committee1],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
-
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
-        };
-
-        let committee1_ops = OCCommitteeOps {
-            verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
-        };
-
-        // 构建committee_ops
-        <CommitteeOps<TestRuntime>>::insert(&*committee1, &machine_id, committee1_ops);
-        <CommitteeOps<TestRuntime>>::insert(&*committee2, &machine_id, committee2_ops);
-        <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
-
-        let summary = Summary {
-            valid_support: vec![*committee2, *committee1],
-            invalid_support: vec![*committee3],
-            info: Some(committee_ops.machine_info),
+        let summary_expect1 = Summary {
+            valid_vote: vec![*committee1],
+            unruly: vec![*committee3, *committee2],
+            verify_result: VerifyResult::Refused,
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info1];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect1, summary);
     })
 }
 
-// case 3: 2个支持，1个反对 (2个一致) -> 上线 + 惩罚
+// case 2_1 2个提交信息，都支持，但内容相同
 #[test]
-fn test_summary_confirmation3() {
-    new_test_with_init_params_ext().execute_with(|| {
-        run_to_block(10);
-        let machine_id = get_machine_id();
-
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2, *committee1],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2, *committee1],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
-
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16888,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
-        };
-
-        let committee1_ops = OCCommitteeOps {
-            verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
-        };
-
-        // 构建committee_ops
-        CommitteeOps::<TestRuntime>::insert(&*committee1, &machine_id, committee1_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee2, &machine_id, committee2_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
-
-        let summary = Summary {
-            valid_support: vec![*committee2, *committee1],
-            against: vec![*committee3],
-            info: Some(committee_ops.machine_info),
-            ..Default::default()
-        };
-
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
-    })
-}
-
-// case 4: 3个支持，内容都不一致 -> 无共识 + 重新分配
-#[test]
-fn test_summary_confirmation4() {
-    new_test_with_init_params_ext().execute_with(|| {
-        let machine_id = get_machine_id();
-
-        run_to_block(10);
-
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2, *committee1],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2, *committee1],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
-
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
-        };
-
-        let committee1_ops = OCCommitteeOps {
-            verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-
-            machine_info: CommitteeUploadInfo { gpu_num: 5, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
-        };
-
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
-            ..committee_ops
-        };
-
-        // 构建committee_ops
-        CommitteeOps::<TestRuntime>::insert(&*committee1, &machine_id, committee1_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee2, &machine_id, committee2_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
-
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::NoConsensus(Summary {
-                invalid_support: vec![*committee3, *committee2, *committee1],
-                ..Default::default()
-            }),
-        );
-    })
-}
-
-// case 5: 2个支持，1个反对（2个不一致） -> 无共识 + 重新分配
-#[test]
-fn test_summary_confirmation5() {
+fn test_summary_confirmation2_1() {
     new_test_with_init_params_ext().execute_with(|| {
         run_to_block(10);
 
-        let machine_id = get_machine_id();
+        let upload_info2 = get_base_machine_info();
+        let upload_info3 = get_base_machine_info();
 
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2, *committee1],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2, *committee1],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
-
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
-        };
-
-        let committee1_ops = OCCommitteeOps {
-            verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 4, ..committee_ops.machine_info.clone() },
-
-            ..committee_ops.clone()
-        };
-
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
-
-            ..committee_ops.clone()
-        };
-
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops
-        };
-
-        // 构建committee_ops
-        CommitteeOps::<TestRuntime>::insert(&*committee1, &*machine_id, committee1_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee2, &*machine_id, committee2_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee3, &*machine_id, committee3_ops);
-
-        let summary = Summary {
-            invalid_support: vec![*committee2, *committee1],
-            against: vec![*committee3],
-            ..Default::default()
-        };
-
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::NoConsensus(summary));
-    })
-}
-
-// case 6: 2个反对，1个支持 -> 不上线 + 奖励 + 惩罚
-#[test]
-fn test_summary_confirmation6() {
-    new_test_with_init_params_ext().execute_with(|| {
-        run_to_block(10);
-        let machine_id = get_machine_id();
-
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2, *committee1],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2, *committee1],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
-
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
-        };
-
-        let committee1_ops = OCCommitteeOps {
-            verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
-        };
-
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
-        };
-
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops
-        };
-
-        // 构建committee_ops
-        CommitteeOps::<TestRuntime>::insert(&*committee1, &*machine_id, committee1_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee2, &*machine_id, committee2_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee3, &*machine_id, committee3_ops);
-
-        let summary = Summary {
-            invalid_support: vec![*committee2],
-            against: vec![*committee3, *committee1],
-            ..Default::default()
-        };
-
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Refuse(summary.clone()));
-    })
-}
-
-// case 7: 3个反对 -> 不上线 + 奖励
-#[test]
-fn test_summary_confirmation7() {
-    new_test_with_init_params_ext().execute_with(|| {
-        let machine_id = get_machine_id();
-
-        run_to_block(10);
-
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2, *committee1],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2, *committee1],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
-
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
-        };
-
-        let committee1_ops = OCCommitteeOps {
-            verify_time: vec![1622, 3062, 4502],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
-        };
-
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
-        };
-
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops
-        };
-
-        // 构建committee_ops
-        CommitteeOps::<TestRuntime>::insert(&*committee1, &machine_id, committee1_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee2, &machine_id, committee2_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
-
-        let summary = Summary { against: vec![*committee3, *committee2, *committee1], ..Default::default() };
-
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Refuse(summary.clone()));
-    })
-}
-
-// case 8: 2提交Hash， 2提交原始值，且都是反对
-#[test]
-fn test_summary_confirmation8() {
-    new_test_with_init_params_ext().execute_with(|| {
-        let machine_id = get_machine_id();
-
-        run_to_block(10);
-
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
-
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
-        };
-
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
-        };
-
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, is_support: false, ..committee_ops.machine_info.clone() },
-            ..committee_ops
-        };
-
-        // 构建committee_ops
-        CommitteeOps::<TestRuntime>::insert(&*committee2, &machine_id, committee2_ops);
-        CommitteeOps::<TestRuntime>::insert(&*committee3, &machine_id, committee3_ops);
-
-        let summary =
-            Summary { unruly: vec![*committee1], against: vec![*committee3, *committee2], ..Default::default() };
-
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Refuse(summary.clone()));
-    })
-}
-
-// case 9: 2提交Hash，2提交原始值，且都是支持
-#[test]
-fn test_summary_confirmation9() {
-    new_test_with_init_params_ext().execute_with(|| {
-        let machine_id = get_machine_id();
-
-        run_to_block(10);
-
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
-
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
-        };
-
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        // 构建committee_ops
-        <CommitteeOps<TestRuntime>>::insert(&*committee2, &*machine_id, committee2_ops);
-        <CommitteeOps<TestRuntime>>::insert(&*committee3, &*machine_id, committee3_ops);
-
-        let summary = Summary {
-            valid_support: vec![*committee3, *committee2],
+        let summary_expect = Summary {
+            valid_vote: vec![*committee3, *committee2],
             unruly: vec![*committee1],
-            info: Some(committee_ops.machine_info),
+            info: Some(upload_info2.clone()),
+            verify_result: VerifyResult::Confirmed,
             ..Default::default()
         };
 
-        assert_eq!(OnlineCommittee::summary_confirmation(&machine_id), MachineConfirmStatus::Confirmed(summary));
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+
+        let submit_info = vec![upload_info3, upload_info2];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
     })
 }
 
-// case 10: 3提交Hash，2提交原始值，且都是支持，且两个互不相等
+// case 2_2 2个提交信息，都支持，但内容不同
 #[test]
-fn test_summary_confirmation10() {
+fn test_summary_confirmation2_2() {
     new_test_with_init_params_ext().execute_with(|| {
-        let machine_id = get_machine_id();
-
         run_to_block(10);
 
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
+        let upload_info2 = get_base_machine_info();
+        let upload_info3 = CommitteeUploadInfo { gpu_num: 8, ..get_base_machine_info() };
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
-
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
+        let summary_expect = Summary {
+            invalid_vote: vec![*committee3, *committee2],
+            unruly: vec![*committee1],
+            info: None,
+            verify_result: VerifyResult::NoConsensus,
+            ..Default::default()
         };
 
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            machine_info: CommitteeUploadInfo { gpu_num: 3, ..committee_ops.machine_info.clone() },
-            ..committee_ops.clone()
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
         };
 
-        let committee3_ops =
-            OCCommitteeOps { verify_time: vec![662, 2102, 3542], confirm_hash: machine_info_hash, ..committee_ops };
+        let submit_info = vec![upload_info3, upload_info2];
 
-        // 构建committee_ops
-        <CommitteeOps<TestRuntime>>::insert(&*committee2, &machine_id, committee2_ops);
-        <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
-
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::NoConsensus(Summary {
-                unruly: vec![*committee1],
-                invalid_support: vec![*committee3, *committee2],
-                ..Default::default()
-            })
-        );
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
     })
 }
 
-// case 11: 3提交Hash，2提交原始值，且都是支持，且两个相等
+// case 2_3 2个提交信息，都反对，但内容不同
 #[test]
-fn test_summary_confirmation11() {
+fn test_summary_confirmation2_3() {
     new_test_with_init_params_ext().execute_with(|| {
-        let machine_id = get_machine_id();
-
         run_to_block(10);
 
-        // 构建 machine_committee
-        <MachineCommittee<TestRuntime>>::insert(
-            &machine_id,
-            OCMachineCommitteeList {
-                book_time: 9,
-                booked_committee: vec![*committee3, *committee2, *committee1],
-                hashed_committee: vec![*committee3, *committee2],
-                confirm_start_time: 5432,
-                confirmed_committee: vec![*committee3, *committee2],
-                onlined_committee: vec![],
-                status: OCVerifyStatus::Summarizing,
-            },
-        );
+        let upload_info2 = CommitteeUploadInfo { is_support: false, ..get_base_machine_info() };
+        let upload_info3 = upload_info2.clone();
 
-        let machine_info_hash: [u8; 16] = hex::decode("d80b116fd318f19fd89da792aba5e875").unwrap().try_into().unwrap();
-        let committee_upload_info = get_base_machine_info();
+        let summary_expect = Summary {
+            unruly: vec![*committee1],
+            valid_vote: vec![*committee3, *committee2],
+            verify_result: VerifyResult::Refused,
 
-        let committee_ops = OCCommitteeOps {
-            staked_dbc: 1000 * ONE_DBC,
-            verify_time: vec![],
-            confirm_hash: machine_info_hash,
-            hash_time: 16887,
-            confirm_time: 16891,
-            machine_status: OCMachineStatus::Confirmed,
-            machine_info: committee_upload_info,
+            ..Default::default()
         };
 
-        let committee2_ops = OCCommitteeOps {
-            verify_time: vec![1142, 2582, 4022],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
         };
+        let submit_info = vec![upload_info3, upload_info2];
 
-        let committee3_ops = OCCommitteeOps {
-            verify_time: vec![662, 2102, 3542],
-            confirm_hash: machine_info_hash,
-            ..committee_ops.clone()
-        };
-
-        // 构建committee_ops
-        <CommitteeOps<TestRuntime>>::insert(&*committee2, &machine_id, committee2_ops);
-        <CommitteeOps<TestRuntime>>::insert(&*committee3, &machine_id, committee3_ops);
-
-        assert_eq!(
-            OnlineCommittee::summary_confirmation(&machine_id),
-            MachineConfirmStatus::Confirmed(Summary {
-                unruly: vec![*committee1],
-                valid_support: vec![*committee3, *committee2],
-                info: Some(committee_ops.machine_info),
-                ..Default::default()
-            })
-        );
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
     })
 }
 
-// 机器成功上线，拒绝的委员会惩罚被执行
+// case 2_4 2个提交信息，一支持一反对
+#[test]
+fn test_summary_confirmation2_4() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info2 = CommitteeUploadInfo { is_support: false, ..get_base_machine_info() };
+        let upload_info3 = get_base_machine_info();
+
+        let summary_expect = Summary {
+            unruly: vec![*committee1],
+            invalid_vote: vec![*committee3, *committee2],
+            verify_result: VerifyResult::NoConsensus,
+
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info3, upload_info2];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
+    })
+}
+
+// case 3_1: 3个支持，内容一致 ->上线
+#[test]
+fn test_summary_confirmation3_1() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info1 = get_base_machine_info();
+        let upload_info2 = get_base_machine_info();
+        let upload_info3 = get_base_machine_info();
+
+        let summary_expect = Summary {
+            valid_vote: vec![*committee3, *committee2, *committee1],
+            info: Some(upload_info1.clone()),
+            verify_result: VerifyResult::Confirmed,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2, *committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info1, upload_info2, upload_info3];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
+    })
+}
+
+// case 3_2: 3个支持，2个内容一致，上线
+#[test]
+fn test_summary_confirmation3_2() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info = get_base_machine_info();
+        let upload_info2 = get_base_machine_info();
+        let upload_info3 = CommitteeUploadInfo { gpu_num: 3, ..upload_info.clone() };
+
+        let summary_expect = Summary {
+            valid_vote: vec![*committee2, *committee1],
+            invalid_vote: vec![*committee3],
+            info: Some(upload_info.clone()),
+            verify_result: VerifyResult::Confirmed,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2, *committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info3, upload_info2, upload_info];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
+    })
+}
+
+// case 3_3: 3个支持，3个内容不一致，重新分派
+#[test]
+fn test_summary_confirmation3_3() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info1 = get_base_machine_info();
+        let upload_info2 = CommitteeUploadInfo { gpu_num: 5, ..upload_info1.clone() };
+        let upload_info3 = CommitteeUploadInfo { gpu_num: 3, ..upload_info1.clone() };
+
+        let summary_expect = Summary {
+            invalid_vote: vec![*committee3, *committee2, *committee1],
+            verify_result: VerifyResult::NoConsensus,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2, *committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info3, upload_info2, upload_info1];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
+    })
+}
+
+// case 3_4: 2支持，1反对，支持信息一致。上线
+#[test]
+fn test_summary_confirmation3_4() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+        let upload_info = get_base_machine_info();
+        let upload_info2 = get_base_machine_info();
+        let upload_info3 = CommitteeUploadInfo { is_support: false, ..upload_info.clone() };
+
+        let summary_expect = Summary {
+            valid_vote: vec![*committee2, *committee1],
+            invalid_vote: vec![*committee3],
+            info: Some(upload_info.clone()),
+            verify_result: VerifyResult::Confirmed,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2, *committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info3, upload_info2, upload_info];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
+    })
+}
+
+// case 3_5: 2支持，1反对，支持信息不一致。重新分派
+#[test]
+fn test_summary_confirmation3_5() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info1 = get_base_machine_info();
+        let upload_info2 = CommitteeUploadInfo { gpu_num: 3, ..upload_info1.clone() };
+        let upload_info3 = CommitteeUploadInfo { is_support: false, ..upload_info1.clone() };
+
+        let summary_expect = Summary {
+            invalid_vote: vec![*committee3, *committee2, *committee1],
+            verify_result: VerifyResult::NoConsensus,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2, *committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info3, upload_info2, upload_info1];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
+    })
+}
+
+// case 3_6: 1支持，2反对，拒绝上线
+#[test]
+fn test_summary_confirmation3_6() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info1 = CommitteeUploadInfo { is_support: false, ..get_base_machine_info() };
+        let upload_info2 = CommitteeUploadInfo { ..get_base_machine_info() };
+        let upload_info3 = CommitteeUploadInfo { is_support: false, ..get_base_machine_info() };
+
+        let summary_expect = Summary {
+            valid_vote: vec![*committee3, *committee1],
+            invalid_vote: vec![*committee2],
+            verify_result: VerifyResult::Refused,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2, *committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info3, upload_info2, upload_info1];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
+    })
+}
+
+// case 3_7: 3个反对，信息不一致 -> 拒绝上线
+#[test]
+fn test_summary_confirmation3_7() {
+    new_test_with_init_params_ext().execute_with(|| {
+        run_to_block(10);
+
+        let upload_info1 =
+            CommitteeUploadInfo { gpu_num: 2, is_support: false, ..get_base_machine_info() };
+        let upload_info2 = CommitteeUploadInfo { gpu_num: 3, ..upload_info1.clone() };
+        let upload_info3 = CommitteeUploadInfo { gpu_num: 4, ..upload_info1.clone() };
+
+        let summary_expect = Summary {
+            valid_vote: vec![*committee3, *committee2, *committee1],
+            verify_result: VerifyResult::Refused,
+            ..Default::default()
+        };
+
+        let machine_committee = OCMachineCommitteeList {
+            book_time: 9,
+            booked_committee: vec![*committee3, *committee2, *committee1],
+            hashed_committee: vec![*committee3, *committee2, *committee1],
+            confirm_start_time: 5432,
+            confirmed_committee: vec![*committee3, *committee2, *committee1],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::Summarizing,
+        };
+        let submit_info = vec![upload_info1, upload_info2, upload_info3];
+
+        let summary = OnlineCommittee::summary_confirmation(machine_committee, submit_info);
+        assert_eq!(summary_expect, summary);
+    })
+}
+
+fn decode_box_pubkey<T: AsRef<[u8]>>(x: T) -> [u8; 32] {
+    hex::decode(x).unwrap().try_into().unwrap()
+}
+
+// 机器成功上线，拒绝的委员会惩罚被执行，
+// 且惩罚执行时正确退还未被惩罚的委员会的质押
 #[test]
 fn test_machine_online_succeed_slash_execed() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee2_box_pubkey = hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee3_box_pubkey = hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee4_box_pubkey = hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let committee1_box_pubkey =
+            decode_box_pubkey("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f");
+        let committee2_box_pubkey =
+            decode_box_pubkey("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e");
+        let committee3_box_pubkey =
+            decode_box_pubkey("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438");
+        let committee4_box_pubkey =
+            decode_box_pubkey("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529");
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
         // let mut committee_upload_info = get_base_machine_info();
         // committee_upload_info.rand_str = "abcdefg1".as_bytes().to_vec();
 
@@ -845,20 +520,23 @@ fn test_machine_online_succeed_slash_execed() {
         };
 
         // 委员会提交机器Hash
-        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] =
+            hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
-        let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] =
+            hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
 
-        let machine_info_hash3: [u8; 16] = hex::decode("fe3d8c7eb5dc36f3f923aff6f3367544").unwrap().try_into().unwrap();
+        let machine_info_hash3: [u8; 16] =
+            hex::decode("fe3d8c7eb5dc36f3f923aff6f3367544").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee4),
             machine_id.clone(),
@@ -866,20 +544,29 @@ fn test_machine_online_succeed_slash_execed() {
         ));
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee1), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee1),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee2),
+            committee_upload_info.clone()
+        ));
 
         // 第三个委员会提交错误的机器信息
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.mem_num = 450;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee4), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee4),
+            committee_upload_info.clone()
+        ));
 
         run_to_block(11);
         let current_machine_info = OnlineProfile::machines_info(&machine_id);
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
+            LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
         );
         assert_eq!(current_machine_info.reward_committee, vec![*committee2, *committee1]);
 
@@ -1009,56 +696,46 @@ fn test_machine_online_succeed_slash_execed() {
 #[test]
 fn test_machine_online_failed_slash_execed() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee2_box_pubkey = hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee3_box_pubkey = hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let committee1_box_pubkey =
+            decode_box_pubkey("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f");
+        let committee2_box_pubkey =
+            decode_box_pubkey("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e");
+        let committee3_box_pubkey =
+            decode_box_pubkey("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529");
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         // 三个委员会提交Hash
+        let base_info = get_base_machine_info();
         let mut committee_upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
-            gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
-            gpu_num: 4,
-            cuda_core: 8704,
-            gpu_mem: 10,
-            calc_point: 59890,
-            sys_disk: 500,
-            data_disk: 3905,
-            cpu_type: "Intel(R) Xeon(R) Silver 4214R".as_bytes().to_vec(),
-            cpu_core_num: 46,
-            cpu_rate: 2400,
-            mem_num: 440,
 
             rand_str: "abcdefg1".as_bytes().to_vec(),
             is_support: false,
+            ..base_info
         };
 
         // 委员会提交机器Hash
         // 委员会1，2反对，3支持
-        let machine_info_hash1: [u8; 16] = hex::decode("cee14a520ba6a988c306aab9dc3794b1").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] =
+            hex::decode("cee14a520ba6a988c306aab9dc3794b1").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
-        let machine_info_hash2: [u8; 16] = hex::decode("8c7e7ca563169689f1c789f8d4f510f8").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] =
+            hex::decode("8c7e7ca563169689f1c789f8d4f510f8").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
 
-        let machine_info_hash3: [u8; 16] = hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
+        let machine_info_hash3: [u8; 16] =
+            hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee4),
             machine_id.clone(),
@@ -1066,14 +743,23 @@ fn test_machine_online_failed_slash_execed() {
         ));
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee1), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee1),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee2),
+            committee_upload_info.clone()
+        ));
 
         // 第三个委员会提交错误的机器信息
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.is_support = true;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee4), committee_upload_info));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee4),
+            committee_upload_info
+        ));
 
         run_to_block(11);
         // 机器被拒绝上线，将会产生对委员会3和satsh账户的pending_slash
@@ -1100,7 +786,7 @@ fn test_machine_online_failed_slash_execed() {
 
         assert_eq!(
             OnlineProfile::live_machines(),
-            online_profile::LiveMachine { refused_machine: vec![machine_id], ..Default::default() }
+            LiveMachine { refused_machine: vec![machine_id], ..Default::default() }
         );
 
         // 检查前后委员会/stash质押的变化
@@ -1188,24 +874,30 @@ fn test_machine_online_failed_slash_execed() {
 #[test]
 fn test_machine_online_succeed_against_committee_apply_review() {
     new_test_with_online_machine_distribution().execute_with(|| {
-        // let committee1_box_pubkey = hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
+        // let committee1_box_pubkey =
+        // hex::decode("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f")
         //     .unwrap()
         //     .try_into()
         //     .unwrap();
-        // let committee2_box_pubkey = hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
+        // let committee2_box_pubkey =
+        // hex::decode("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e")
         //     .unwrap()
         //     .try_into()
         //     .unwrap();
-        // let committee3_box_pubkey = hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
+        // let committee3_box_pubkey =
+        // hex::decode("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438")
         //     .unwrap()
         //     .try_into()
         //     .unwrap();
-        // let committee4_box_pubkey = hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
+        // let committee4_box_pubkey =
+        // hex::decode("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529")
         //     .unwrap()
         //     .try_into()
         //     .unwrap();
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         // 三个委员会提交Hash
         let mut committee_upload_info = CommitteeUploadInfo {
@@ -1227,37 +919,57 @@ fn test_machine_online_succeed_against_committee_apply_review() {
         };
 
         // 委员会提交机器Hash
-        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] =
+            hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
-        let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] =
+            hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
 
-        let machine_info_hash3: [u8; 16] = hex::decode("fe3d8c7eb5dc36f3f923aff6f3367544").unwrap().try_into().unwrap();
-        assert_ok!(OnlineCommittee::submit_confirm_hash(Origin::signed(*committee4), machine_id, machine_info_hash3));
+        let machine_info_hash3: [u8; 16] =
+            hex::decode("fe3d8c7eb5dc36f3f923aff6f3367544").unwrap().try_into().unwrap();
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(*committee4),
+            machine_id,
+            machine_info_hash3
+        ));
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee1), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee1),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee2),
+            committee_upload_info.clone()
+        ));
 
         // 第三个委员会提交错误的机器信息
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.mem_num = 450;
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee4), committee_upload_info));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(*committee4),
+            committee_upload_info
+        ));
 
         run_to_block(12);
 
         // committee 3 apply_slash_review
         let slash_reason = "They are wrong.".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(*committee4), 0, slash_reason.clone()));
+        assert_ok!(OnlineCommittee::apply_slash_review(
+            Origin::signed(*committee4),
+            0,
+            slash_reason.clone()
+        ));
 
         assert_eq!(
             OnlineCommittee::pending_slash_review(0),
@@ -1273,5 +985,120 @@ fn test_machine_online_succeed_against_committee_apply_review() {
         assert_eq!(Balances::reserved_balance(&*committee4), (20000 + 1000) * ONE_DBC);
 
         assert_ok!(OnlineCommittee::do_cancel_slash(0));
+    })
+}
+
+// 两个委员会提交信息不同，另一委员会未完成验证，则无法上线。且产生惩罚
+#[test]
+fn test_machine_noconsensus_works() {
+    new_test_with_online_machine_distribution().execute_with(|| {
+        let base_info = get_base_machine_info();
+
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        let hash1 = hex::decode("80d57cfbe2e8a56c889ec220ad204b4a").unwrap().try_into().unwrap();
+        let upload_info1 = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            rand_str: "abc1".as_bytes().to_vec(),
+            ..base_info.clone()
+        };
+        let hash2 = hex::decode("f2e10bdd510e642a127145a8abbd8214").unwrap().try_into().unwrap();
+        let upload_info2 = CommitteeUploadInfo {
+            machine_id: machine_id.clone(),
+            rand_str: "abc2".as_bytes().to_vec(),
+            gpu_num: 5,
+            ..base_info.clone()
+        };
+
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(*committee1),
+            machine_id.clone(),
+            hash1
+        ));
+        assert_ok!(OnlineCommittee::submit_confirm_hash(
+            Origin::signed(*committee2),
+            machine_id.clone(),
+            hash2
+        ));
+
+        // 无共识，机器将重新分派，并惩罚未完成工作的委员会
+        run_to_block(11 + 2880 + 1440);
+
+        // 委员会提交原始信息
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee1), upload_info1));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(*committee2), upload_info2));
+
+        run_to_block(11 + 2880 + 1440 + 1);
+
+        assert_eq!(
+            OnlineCommittee::pending_slash(0),
+            crate::OCPendingSlashInfo {
+                machine_id: machine_id.clone(),
+
+                inconsistent_committee: vec![*committee2, *committee1],
+                unruly_committee: vec![*committee4],
+                reward_committee: vec![],
+                committee_stake: 1000 * ONE_DBC,
+
+                slash_time: 4332,
+                slash_exec_time: 4332 + 2880 * 2,
+
+                book_result: crate::OCBookResultType::NoConsensus,
+                slash_result: crate::OCSlashResult::Pending,
+                ..Default::default()
+            }
+        );
+
+        run_to_block(4332 + 2880 * 2 + 1);
+
+        let committee_stake_info = committee::CommitteeStakeInfo {
+            staked_amount: 20000 * ONE_DBC,
+            used_stake: 1000 * ONE_DBC, // Because of reassignment
+            can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
+            claimed_reward: 0,
+            ..Default::default()
+        };
+        assert_eq!(
+            &CommitteeStakeInfo {
+                box_pubkey: Default::default(),
+                ..Committee::committee_stake(&*committee1)
+            },
+            &committee_stake_info
+        );
+        assert_eq!(
+            &CommitteeStakeInfo {
+                box_pubkey: Default::default(),
+                ..Committee::committee_stake(&*committee2)
+            },
+            &committee_stake_info
+        );
+        assert_eq!(
+            &CommitteeStakeInfo {
+                box_pubkey: Default::default(),
+                ..Committee::committee_stake(&*committee3)
+            },
+            &committee_stake_info
+        );
+
+        assert_eq!(
+            CommitteeStakeInfo {
+                box_pubkey: Default::default(),
+                ..Committee::committee_stake(&*committee4)
+            },
+            committee::CommitteeStakeInfo {
+                staked_amount: 19000 * ONE_DBC,
+                used_stake: 1000 * ONE_DBC,
+                can_claim_reward: 0, // 1100000 * 0.25 * 0.01 / 2
+                claimed_reward: 0,
+                ..Default::default()
+            }
+        );
+
+        assert_eq!(Balances::reserved_balance(&*committee1), 20000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*committee2), 20000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*committee3), 20000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*committee4), 19000 * ONE_DBC);
     })
 }

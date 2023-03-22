@@ -43,8 +43,10 @@ fn should_submit_unsigned_transaction() {
         };
 
         let call = pallet_im_online::Call::heartbeat(heartbeat_data, signature);
-        SubmitTransaction::<Runtime, pallet_im_online::Call<Runtime>>::submit_unsigned_transaction(call.into())
-            .unwrap();
+        SubmitTransaction::<Runtime, pallet_im_online::Call<Runtime>>::submit_unsigned_transaction(
+            call.into(),
+        )
+        .unwrap();
 
         assert_eq!(state.read().transactions.len(), 1)
     });
@@ -59,17 +61,31 @@ fn should_submit_signed_transaction() {
     t.register_extension(TransactionPoolExt::new(pool));
 
     let keystore = KeyStore::new();
-    SyncCryptoStore::sr25519_generate_new(&keystore, sr25519::AuthorityId::ID, Some(&format!("{}/hunter1", PHRASE)))
-        .unwrap();
-    SyncCryptoStore::sr25519_generate_new(&keystore, sr25519::AuthorityId::ID, Some(&format!("{}/hunter2", PHRASE)))
-        .unwrap();
-    SyncCryptoStore::sr25519_generate_new(&keystore, sr25519::AuthorityId::ID, Some(&format!("{}/hunter3", PHRASE)))
-        .unwrap();
+    SyncCryptoStore::sr25519_generate_new(
+        &keystore,
+        sr25519::AuthorityId::ID,
+        Some(&format!("{}/hunter1", PHRASE)),
+    )
+    .unwrap();
+    SyncCryptoStore::sr25519_generate_new(
+        &keystore,
+        sr25519::AuthorityId::ID,
+        Some(&format!("{}/hunter2", PHRASE)),
+    )
+    .unwrap();
+    SyncCryptoStore::sr25519_generate_new(
+        &keystore,
+        sr25519::AuthorityId::ID,
+        Some(&format!("{}/hunter3", PHRASE)),
+    )
+    .unwrap();
     t.register_extension(KeystoreExt(Arc::new(keystore)));
 
     t.execute_with(|| {
-        let results = Signer::<Runtime, TestAuthorityId>::all_accounts()
-            .send_signed_transaction(|_| pallet_balances::Call::transfer(Default::default(), Default::default()));
+        let results =
+            Signer::<Runtime, TestAuthorityId>::all_accounts().send_signed_transaction(|_| {
+                pallet_balances::Call::transfer(Default::default(), Default::default())
+            });
 
         let len = results.len();
         assert_eq!(len, 3);
@@ -85,22 +101,34 @@ fn should_submit_signed_twice_from_the_same_account() {
     t.register_extension(TransactionPoolExt::new(pool));
 
     let keystore = KeyStore::new();
-    SyncCryptoStore::sr25519_generate_new(&keystore, sr25519::AuthorityId::ID, Some(&format!("{}/hunter1", PHRASE)))
-        .unwrap();
-    SyncCryptoStore::sr25519_generate_new(&keystore, sr25519::AuthorityId::ID, Some(&format!("{}/hunter2", PHRASE)))
-        .unwrap();
+    SyncCryptoStore::sr25519_generate_new(
+        &keystore,
+        sr25519::AuthorityId::ID,
+        Some(&format!("{}/hunter1", PHRASE)),
+    )
+    .unwrap();
+    SyncCryptoStore::sr25519_generate_new(
+        &keystore,
+        sr25519::AuthorityId::ID,
+        Some(&format!("{}/hunter2", PHRASE)),
+    )
+    .unwrap();
     t.register_extension(KeystoreExt(Arc::new(keystore)));
 
     t.execute_with(|| {
-        let result = Signer::<Runtime, TestAuthorityId>::any_account()
-            .send_signed_transaction(|_| pallet_balances::Call::transfer(Default::default(), Default::default()));
+        let result =
+            Signer::<Runtime, TestAuthorityId>::any_account().send_signed_transaction(|_| {
+                pallet_balances::Call::transfer(Default::default(), Default::default())
+            });
 
         assert!(result.is_some());
         assert_eq!(state.read().transactions.len(), 1);
 
         // submit another one from the same account. The nonce should be incremented.
-        let result = Signer::<Runtime, TestAuthorityId>::any_account()
-            .send_signed_transaction(|_| pallet_balances::Call::transfer(Default::default(), Default::default()));
+        let result =
+            Signer::<Runtime, TestAuthorityId>::any_account().send_signed_transaction(|_| {
+                pallet_balances::Call::transfer(Default::default(), Default::default())
+            });
 
         assert!(result.is_some());
         assert_eq!(state.read().transactions.len(), 2);
@@ -188,13 +216,19 @@ fn submitted_transaction_should_be_valid() {
     t.register_extension(TransactionPoolExt::new(pool));
 
     let keystore = KeyStore::new();
-    SyncCryptoStore::sr25519_generate_new(&keystore, sr25519::AuthorityId::ID, Some(&format!("{}/hunter1", PHRASE)))
-        .unwrap();
+    SyncCryptoStore::sr25519_generate_new(
+        &keystore,
+        sr25519::AuthorityId::ID,
+        Some(&format!("{}/hunter1", PHRASE)),
+    )
+    .unwrap();
     t.register_extension(KeystoreExt(Arc::new(keystore)));
 
     t.execute_with(|| {
-        let results = Signer::<Runtime, TestAuthorityId>::all_accounts()
-            .send_signed_transaction(|_| pallet_balances::Call::transfer(Default::default(), Default::default()));
+        let results =
+            Signer::<Runtime, TestAuthorityId>::all_accounts().send_signed_transaction(|_| {
+                pallet_balances::Call::transfer(Default::default(), Default::default())
+            });
         let len = results.len();
         assert_eq!(len, 1);
         assert_eq!(results.into_iter().filter_map(|x| x.1.ok()).count(), len);

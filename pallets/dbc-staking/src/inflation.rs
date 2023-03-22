@@ -25,11 +25,15 @@ use sp_runtime::{traits::AtLeast32BitUnsigned, Perbill};
 /// The total payout to all validators (and their nominators) per era and maximum payout.
 ///
 /// Defined as such:
-/// `staker-payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year`
-/// `maximum-payout = max_yearly_inflation * total_tokens / era_per_year`
+/// `staker-payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens /
+/// era_per_year` `maximum-payout = max_yearly_inflation * total_tokens / era_per_year`
 ///
 /// `era_duration` is expressed in millisecond.
-pub fn compute_total_payout<N>(milliseconds_per_year: u64, yearly_inflation_amount: N, era_duration: u64) -> (N, N)
+pub fn compute_total_payout<N>(
+    milliseconds_per_year: u64,
+    yearly_inflation_amount: N,
+    era_duration: u64,
+) -> (N, N)
 where
     N: AtLeast32BitUnsigned + Clone,
 {
@@ -62,7 +66,10 @@ mod test {
 
         // check maximum inflation.
         // not 10_000 due to rounding error.
-        assert_eq!(super::compute_total_payout(YEAR, 1_000_000_000u64, era_duration).1, 999_315_537); // 最大值为 total_token * 10%, 这个10% 由I_NPOS 中的max_inflation所定义
+        assert_eq!(
+            super::compute_total_payout(YEAR, 1_000_000_000u64, era_duration).1,
+            999_315_537
+        ); // 最大值为 total_token * 10%, 这个10% 由I_NPOS 中的max_inflation所定义
 
         //super::I_NPOS.calculate_for_fraction_times_denominator(25, 100)
         assert_eq!(super::compute_total_payout(YEAR, 0u64, era_duration).0, 0);
@@ -86,6 +93,9 @@ mod test {
         assert_eq!(super::compute_total_payout(DAY, 75_000u64, SIX_HOURS).0, 18_750);
 
         const HOUR: u64 = 60 * 60 * 1000;
-        assert_eq!(super::compute_total_payout(SIX_HOURS, 2_500_000_000_000u64, HOUR).0, 416_666_665_000);
+        assert_eq!(
+            super::compute_total_payout(SIX_HOURS, 2_500_000_000_000u64, HOUR).0,
+            416_666_665_000
+        );
     }
 }

@@ -1,18 +1,22 @@
 use crate as maintain_committee;
 use dbc_price_ocw::MAX_LEN;
+use dbc_support::machine_type::{
+    CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
+};
 use frame_support::{
     assert_ok, parameter_types,
     traits::{OnFinalize, OnInitialize},
 };
 use frame_system::EnsureRoot;
 pub use frame_system::RawOrigin;
-use online_profile::{CommitteeUploadInfo, StakerCustomizeInfo, StandardGpuPointPrice};
 pub use sp_core::{
     sr25519::{self, Signature},
     u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
-pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
+pub use sp_keyring::{
+    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
+};
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
@@ -185,9 +189,10 @@ impl committee::Config for TestRuntime {
 impl online_committee::Config for TestRuntime {
     type Event = Event;
     type Currency = Balances;
-    type OCOperations = OnlineProfile;
+    type OCOps = OnlineProfile;
     type ManageCommittee = Committee;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -203,7 +208,8 @@ impl online_profile::Config for TestRuntime {
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -213,7 +219,8 @@ impl maintain_committee::Config for TestRuntime {
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -273,7 +280,8 @@ pub fn run_to_block(n: BlockNumber) {
 
 // 初始条件：设置参数，并上线一台机器
 pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
-    let mut storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    let mut storage =
+        frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {
@@ -366,7 +374,9 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         // use Bob pubkey
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
         let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
         let sig = "b4084f70730b183127e9db78c6d8dcf79039f23466cd1ee8b536c40c3027a83d\
@@ -396,8 +406,8 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
                 server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: online_profile::Longitude::East(1157894),
-                latitude: online_profile::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
@@ -408,22 +418,34 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
 
-        let committee1_box_pubkey = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee2_box_pubkey = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let committee3_box_pubkey = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let committee1_box_pubkey =
+            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee2_box_pubkey =
+            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let committee3_box_pubkey =
+            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+                .unwrap()
+                .try_into()
+                .unwrap();
 
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), committee1_box_pubkey));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), committee2_box_pubkey));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), committee3_box_pubkey));
+        assert_ok!(Committee::committee_set_box_pubkey(
+            Origin::signed(committee1),
+            committee1_box_pubkey
+        ));
+        assert_ok!(Committee::committee_set_box_pubkey(
+            Origin::signed(committee2),
+            committee2_box_pubkey
+        ));
+        assert_ok!(Committee::committee_set_box_pubkey(
+            Origin::signed(committee3),
+            committee3_box_pubkey
+        ));
 
         run_to_block(5);
 
@@ -469,11 +491,20 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
         };
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(committee1),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(committee2),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(committee3),
+            committee_upload_info
+        ));
 
         run_to_block(10);
     });
@@ -486,12 +517,19 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
 pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     let mut ext = new_test_with_init_machine_online();
     ext.execute_with(|| {
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         // 报告人租用机器
         let reporter = sr25519::Public::from(Sr25519Keyring::Two);
         // rent machine for 1 days
-        assert_ok!(RentMachine::rent_machine(Origin::signed(reporter), machine_id.clone(), 4, 1 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(reporter),
+            machine_id.clone(),
+            4,
+            1 * 2880
+        ));
         assert_ok!(RentMachine::confirm_rent(Origin::signed(reporter), 0));
     });
 

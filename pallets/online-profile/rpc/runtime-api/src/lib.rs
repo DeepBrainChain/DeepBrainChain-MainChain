@@ -3,10 +3,13 @@
 #![allow(clippy::unnecessary_mut_passed)]
 
 use codec::Codec;
-use generic_func::MachineId;
-pub use online_profile::{
-    rpc_types::StakerInfo, EraIndex, Latitude, LiveMachine, Longitude, MachineInfo, PosInfo, SysInfoDetail,
+use dbc_support::{
+    live_machine::LiveMachine,
+    machine_info::MachineInfo,
+    machine_type::{Latitude, Longitude},
+    EraIndex, MachineId,
 };
+pub use online_profile::{rpc_types::StakerInfo, PosInfo, SysInfoDetail};
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 

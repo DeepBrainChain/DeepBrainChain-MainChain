@@ -6,7 +6,9 @@ pub use sp_core::{
     u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
-pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
+pub use sp_keyring::{
+    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
+};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -83,7 +85,8 @@ frame_support::construct_runtime!(
 );
 
 pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
-    let mut storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    let mut storage =
+        frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {

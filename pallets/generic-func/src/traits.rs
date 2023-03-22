@@ -1,5 +1,6 @@
 use crate::{BalanceOf, Config, Pallet};
 use dbc_support::traits::GNOps;
+pub use dbc_support::ItemList;
 use frame_support::traits::{BalanceStatus, OnUnbalanced, ReservableCurrency};
 use sp_runtime::{
     traits::{CheckedSub, Zero},
@@ -20,22 +21,24 @@ impl<T: Config> GNOps for Pallet<T> {
         let reward_to_num = reward_who.len() as u32;
 
         if slash_who.is_empty() || each_slash == Zero::zero() {
-            return Ok(());
+            return Ok(())
         }
 
         if reward_to_num == 0 {
             // Slash to Treasury
             for a_slash_person in slash_who {
                 if T::Currency::reserved_balance(&a_slash_person) >= each_slash {
-                    let (imbalance, _missing) = T::Currency::slash_reserved(&a_slash_person, each_slash);
+                    let (imbalance, _missing) =
+                        T::Currency::slash_reserved(&a_slash_person, each_slash);
                     T::Slash::on_unbalanced(imbalance);
                 }
             }
-            return Ok(());
+            return Ok(())
         }
 
         for a_slash_person in slash_who {
-            let reward_each_get = Perbill::from_rational_approximation(1u32, reward_to_num) * each_slash;
+            let reward_each_get =
+                Perbill::from_rational_approximation(1u32, reward_to_num) * each_slash;
             let mut left_reward = each_slash;
 
             for a_committee in &reward_who {
@@ -60,7 +63,8 @@ impl<T: Config> GNOps for Pallet<T> {
                 }
             }
             if left_reward > Zero::zero() {
-                let (imbalance, _missing) = T::Currency::slash_reserved(&a_slash_person, left_reward);
+                let (imbalance, _missing) =
+                    T::Currency::slash_reserved(&a_slash_person, left_reward);
                 T::Slash::on_unbalanced(imbalance);
             }
         }

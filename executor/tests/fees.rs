@@ -18,12 +18,14 @@
 use codec::{Encode, Joiner};
 use frame_support::{
     traits::Currency,
-    weights::{constants::ExtrinsicBaseWeight, GetDispatchInfo, IdentityFee, WeightToFeePolynomial},
+    weights::{
+        constants::ExtrinsicBaseWeight, GetDispatchInfo, IdentityFee, WeightToFeePolynomial,
+    },
 };
 use node_primitives::Balance;
 use node_runtime::{
-    constants::currency::*, Balances, Call, CheckedExtrinsic, Multiplier, Runtime, TransactionByteFee,
-    TransactionPayment,
+    constants::currency::*, Balances, Call, CheckedExtrinsic, Multiplier, Runtime,
+    TransactionByteFee, TransactionPayment,
 };
 use node_testing::keyring::*;
 use sp_core::NeverNativeValue;
@@ -51,7 +53,10 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
         1,
         GENESIS_HASH.into(),
         vec![
-            CheckedExtrinsic { signed: None, function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)) },
+            CheckedExtrinsic {
+                signed: None,
+                function: Call::Timestamp(pallet_timestamp::Call::set(42 * 1000)),
+            },
             CheckedExtrinsic {
                 signed: Some((charlie(), signed_extra(0, 0))),
                 function: Call::System(frame_system::Call::fill_block(Perbill::from_percent(60))),
@@ -65,7 +70,10 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
         2,
         block1.1.clone(),
         vec![
-            CheckedExtrinsic { signed: None, function: Call::Timestamp(pallet_timestamp::Call::set(52 * 1000)) },
+            CheckedExtrinsic {
+                signed: None,
+                function: Call::Timestamp(pallet_timestamp::Call::set(52 * 1000)),
+            },
             CheckedExtrinsic {
                 signed: Some((charlie(), signed_extra(1, 0))),
                 function: Call::System(frame_system::Call::remark(vec![0; 1])),
@@ -73,12 +81,22 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
         ],
     );
 
-    println!("++ Block 1 size: {} / Block 2 size {}", block1.0.encode().len(), block2.0.encode().len(),);
+    println!(
+        "++ Block 1 size: {} / Block 2 size {}",
+        block1.0.encode().len(),
+        block2.0.encode().len(),
+    );
 
     // execute a big block.
-    executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block1.0, true, None)
-        .0
-        .unwrap();
+    executor_call::<NeverNativeValue, fn() -> _>(
+        &mut t,
+        "Core_execute_block",
+        &block1.0,
+        true,
+        None,
+    )
+    .0
+    .unwrap();
 
     // weight multiplier is increased for next block.
     t.execute_with(|| {
@@ -89,9 +107,15 @@ fn fee_multiplier_increases_and_decreases_on_big_weight() {
     });
 
     // execute a big block.
-    executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block2.0, true, None)
-        .0
-        .unwrap();
+    executor_call::<NeverNativeValue, fn() -> _>(
+        &mut t,
+        "Core_execute_block",
+        &block2.0,
+        true,
+        None,
+    )
+    .0
+    .unwrap();
 
     // weight multiplier is increased for next block.
     t.execute_with(|| {
@@ -123,7 +147,10 @@ fn transaction_fee_is_correct() {
     let mut t = new_test_ext(compact_code_unwrap(), false);
     t.insert(<frame_system::Account<Runtime>>::hashed_key_for(alice()), new_account_info(100));
     t.insert(<frame_system::Account<Runtime>>::hashed_key_for(bob()), new_account_info(10));
-    t.insert(<pallet_balances::TotalIssuance<Runtime>>::hashed_key().to_vec(), (110 * DOLLARS).encode());
+    t.insert(
+        <pallet_balances::TotalIssuance<Runtime>>::hashed_key().to_vec(),
+        (110 * DOLLARS).encode(),
+    );
     t.insert(<frame_system::BlockHash<Runtime>>::hashed_key_for(0), vec![0u8; 32]);
 
     let tip = 1_000_000;
@@ -213,7 +240,10 @@ fn block_weight_capacity_report() {
 
         xts.insert(
             0,
-            CheckedExtrinsic { signed: None, function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)) },
+            CheckedExtrinsic {
+                signed: None,
+                function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
+            },
         );
 
         // NOTE: this is super slow. Can probably be improved.
@@ -228,7 +258,14 @@ fn block_weight_capacity_report() {
             len / 1024 / 1024,
         );
 
-        let r = executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block.0, true, None).0;
+        let r = executor_call::<NeverNativeValue, fn() -> _>(
+            &mut t,
+            "Core_execute_block",
+            &block.0,
+            true,
+            None,
+        )
+        .0;
 
         println!(" || Result = {:?}", r);
         assert!(r.is_ok());
@@ -267,10 +304,17 @@ fn block_length_capacity_report() {
             block_number,
             previous_hash,
             vec![
-                CheckedExtrinsic { signed: None, function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)) },
+                CheckedExtrinsic {
+                    signed: None,
+                    function: Call::Timestamp(pallet_timestamp::Call::set(time * 1000)),
+                },
                 CheckedExtrinsic {
                     signed: Some((charlie(), signed_extra(nonce, 0))),
-                    function: Call::System(frame_system::Call::remark(vec![0u8; (block_number * factor) as usize])),
+                    function: Call::System(frame_system::Call::remark(vec![
+                        0u8;
+                        (block_number * factor)
+                            as usize
+                    ])),
                 },
             ],
         );
@@ -283,7 +327,14 @@ fn block_length_capacity_report() {
             len / 1024 / 1024,
         );
 
-        let r = executor_call::<NeverNativeValue, fn() -> _>(&mut t, "Core_execute_block", &block.0, true, None).0;
+        let r = executor_call::<NeverNativeValue, fn() -> _>(
+            &mut t,
+            "Core_execute_block",
+            &block.0,
+            true,
+            None,
+        )
+        .0;
 
         println!(" || Result = {:?}", r);
         assert!(r.is_ok());

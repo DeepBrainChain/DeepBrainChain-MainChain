@@ -9,8 +9,11 @@ use sp_runtime::{
 };
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
-use generic_func::RpcBalance;
-use rent_machine::{MachineGPUOrder, RentOrderDetail, RentOrderId};
+use dbc_support::{
+    rental_type::{MachineGPUOrder, RentOrderDetail},
+    rpc_types::RpcBalance,
+    RentOrderId,
+};
 use rent_machine_runtime_api::RmRpcApi as RmStorageRuntimeApi;
 
 #[rpc]
@@ -29,10 +32,19 @@ where
     fn get_rent_list(&self, renter: AccountId, at: Option<BlockHash>) -> Result<Vec<RentOrderId>>;
 
     #[rpc(name = "rentMachine_isMachineRenter")]
-    fn is_machine_renter(&self, machine_id: String, renter: AccountId, at: Option<BlockHash>) -> Result<bool>;
+    fn is_machine_renter(
+        &self,
+        machine_id: String,
+        renter: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<bool>;
 
     #[rpc(name = "rentMachine_getMachineRentId")]
-    fn get_machine_rent_id(&self, machine_id: String, at: Option<BlockHash>) -> Result<MachineGPUOrder>;
+    fn get_machine_rent_id(
+        &self,
+        machine_id: String,
+        at: Option<BlockHash>,
+    ) -> Result<MachineGPUOrder>;
 }
 
 pub struct RmStorage<C, M> {
@@ -46,8 +58,8 @@ impl<C, M> RmStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, BlockNumber, Balance> RmRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance>
-    for RmStorage<C, Block>
+impl<C, Block, AccountId, BlockNumber, Balance>
+    RmRpcApi<<Block as BlockT>::Hash, AccountId, BlockNumber, Balance> for RmStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
@@ -66,17 +78,18 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_rent_order(&at, rent_id).map(|order_detail| RentOrderDetail {
-            machine_id: order_detail.machine_id,
-            renter: order_detail.renter,
-            rent_start: order_detail.rent_start,
-            confirm_rent: order_detail.confirm_rent,
-            rent_end: order_detail.rent_end,
-            stake_amount: order_detail.stake_amount.into(),
-            rent_status: order_detail.rent_status,
-            gpu_num: order_detail.gpu_num,
-            gpu_index: order_detail.gpu_index,
-        });
+        let runtime_api_result =
+            api.get_rent_order(&at, rent_id).map(|order_detail| RentOrderDetail {
+                machine_id: order_detail.machine_id,
+                renter: order_detail.renter,
+                rent_start: order_detail.rent_start,
+                confirm_rent: order_detail.confirm_rent,
+                rent_end: order_detail.rent_end,
+                stake_amount: order_detail.stake_amount.into(),
+                rent_status: order_detail.rent_status,
+                gpu_num: order_detail.gpu_num,
+                gpu_index: order_detail.gpu_index,
+            });
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),
@@ -84,7 +97,11 @@ where
         })
     }
 
-    fn get_rent_list(&self, renter: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<RentOrderId>> {
+    fn get_rent_list(
+        &self,
+        renter: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<RentOrderId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -114,7 +131,11 @@ where
         })
     }
 
-    fn get_machine_rent_id(&self, machine_id: String, at: Option<<Block as BlockT>::Hash>) -> Result<MachineGPUOrder> {
+    fn get_machine_rent_id(
+        &self,
+        machine_id: String,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<MachineGPUOrder> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

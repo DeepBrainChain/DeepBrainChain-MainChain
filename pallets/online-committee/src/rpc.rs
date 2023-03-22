@@ -1,9 +1,9 @@
-use crate::{
-    types::OCMachineCommitteeList, BalanceOf, CommitteeUploadInfo, Config, OCCommitteeMachineList, OCMachineStatus,
-    Pallet,
-};
+use crate::{BalanceOf, CommitteeUploadInfo, Config, Pallet};
 use codec::{Decode, Encode};
-use generic_func::MachineId;
+use dbc_support::{
+    verify_online::{OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus},
+    MachineId,
+};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
@@ -16,7 +16,7 @@ pub struct RpcOCCommitteeOps<BlockNumber, Balance> {
     pub booked_time: BlockNumber,
     pub staked_dbc: Balance,
     pub verify_time: Vec<BlockNumber>,
-    #[cfg_attr(feature = "std", serde(with = "generic_func::rpc_types::serde_hash"))]
+    #[cfg_attr(feature = "std", serde(with = "dbc_support::rpc_types::serde_hash"))]
     pub confirm_hash: [u8; 16],
     pub hash_time: BlockNumber,
     pub confirm_time: BlockNumber, // 委员会提交raw信息的时间
@@ -26,7 +26,9 @@ pub struct RpcOCCommitteeOps<BlockNumber, Balance> {
 
 // RPC
 impl<T: Config> Pallet<T> {
-    pub fn get_machine_committee_list(machine_id: MachineId) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
+    pub fn get_machine_committee_list(
+        machine_id: MachineId,
+    ) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
         Self::machine_committee(machine_id)
     }
 

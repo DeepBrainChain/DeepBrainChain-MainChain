@@ -1,11 +1,13 @@
 use sp_std::vec::Vec;
 
-use crate::{BalanceOf, Config, MachineGPUOrder, Pallet, RentOrderDetail, RentOrderId};
-use generic_func::MachineId;
+use crate::{BalanceOf, Config, MachineGPUOrder, Pallet, RentOrderId};
+use dbc_support::{rental_type::RentOrderDetail, MachineId};
 
 // RPC
 impl<T: Config> Pallet<T> {
-    pub fn get_rent_order(rent_id: RentOrderId) -> RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+    pub fn get_rent_order(
+        rent_id: RentOrderId,
+    ) -> RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>> {
         Self::rent_info(&rent_id)
     }
 
@@ -20,7 +22,7 @@ impl<T: Config> Pallet<T> {
             let rent_info = Self::rent_info(order_id);
 
             if rent_info.renter == renter {
-                return true;
+                return true
             }
         }
 

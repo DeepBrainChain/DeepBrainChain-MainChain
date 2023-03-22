@@ -1,115 +1,41 @@
-[dependencies]
-derive_more = '0.99.2'
-fs_extra = '1'
-hash-db = '0.15.2'
-hex = '0.4.0'
-kvdb = '0.9.0'
-kvdb-rocksdb = '0.11.0'
-lazy_static = '1.4.0'
-log = '0.4.8'
-serde = '1.0.101'
-serde_json = '1.0.41'
-structopt = '0.3'
-tempfile = '3.1.0'
-
-[dependencies.futures]
-features = ['thread-pool']
-version = '0.3.4'
-
-[dependencies.node-primitives]
-path = '../primitives'
-version = '2.0.0'
-
-[dependencies.node-runtime]
-path = '../runtime'
-version = '2.0.0'
-
-[dependencies.node-testing]
-path = '../testing'
-version = '2.0.0'
-
-[dependencies.parity-db]
-version = '0.2.4'
-
-[dependencies.parity-util-mem]
-default-features = false
-features = ['primitive-types']
-version = '0.9.0'
-
-[dependencies.rand]
-features = ['small_rng']
-version = '0.7.2'
-
-[dependencies.sc-basic-authorship]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '0.9.0'
-
-[dependencies.sc-cli]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '0.9.0'
-
-[dependencies.sc-client-api]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sc-transaction-pool]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-consensus]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '0.9.0'
-
-[dependencies.sp-core]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-inherents]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-runtime]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-state-machine]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '0.9.0'
-
-[dependencies.sp-timestamp]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-tracing]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-transaction-pool]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-trie]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
 [package]
-authors = ['Parity Technologies <admin@parity.io>']
-description = 'Substrate node integration benchmarks.'
-edition = '2018'
-license = 'GPL-3.0-or-later WITH Classpath-exception-2.0'
-name = 'node-bench'
-version = '0.8.0'
+authors = ["Parity Technologies <admin@parity.io>"]
+description = "Substrate node integration benchmarks."
+edition = "2018"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+name = "node-bench"
+version = "0.8.0"
+
+[dependencies]
+derive_more = "0.99.2"
+fs_extra = "1"
+hash-db = "0.15.2"
+hex = "0.4.0"
+kvdb = "0.9.0"
+kvdb-rocksdb = "0.11.0"
+lazy_static = "1.4.0"
+log = "0.4.8"
+serde = "1.0.101"
+serde_json = "1.0.41"
+structopt = "0.3"
+tempfile = "3.1.0"
+futures = { version = "0.3.4", features = ["thread-pool"] }
+parity-db = { version = "0.2.4" }
+rand = { version = "0.7.2", features = ["small_rng"] }
+parity-util-mem = { version = "0.9.0", default-features = false, features = ["primitive-types"] }
+node-primitives = { version = "2.0.0", path = "../primitives" }
+node-runtime = { version = "2.0.0", path = "../runtime" }
+node-testing = { version = "2.0.0", path = "../testing" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-cli = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sc-transaction-pool = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-tracing = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-transaction-pool = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-trie = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-timestamp = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }

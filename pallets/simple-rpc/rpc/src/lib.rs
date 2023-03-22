@@ -1,5 +1,5 @@
 use codec::Codec;
-use generic_func::RpcBalance;
+use dbc_support::rpc_types::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use simple_rpc::StakerListInfo;
@@ -40,7 +40,8 @@ impl<C, M> SrStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, Balance> SimpleRpcApi<<Block as BlockT>::Hash, AccountId, Balance> for SrStorage<C, Block>
+impl<C, Block, AccountId, Balance> SimpleRpcApi<<Block as BlockT>::Hash, AccountId, Balance>
+    for SrStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Codec,
@@ -50,7 +51,11 @@ where
     C: HeaderBackend<Block>,
     C::Api: SrStorageRuntimeApi<Block, AccountId, Balance>,
 {
-    fn get_staker_identity(&self, account: AccountId, at: Option<<Block as BlockT>::Hash>) -> Result<String> {
+    fn get_staker_identity(
+        &self,
+        account: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<String> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -75,23 +80,24 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_staker_list_info(&at, cur_page, per_page).map(|staker_info_list| {
-            {
-                staker_info_list.into_iter().map(|staker_info| StakerListInfo {
-                    index: staker_info.index,
-                    staker_name: staker_info.staker_name,
-                    staker_account: staker_info.staker_account,
-                    calc_points: staker_info.calc_points,
-                    total_gpu_num: staker_info.total_gpu_num,
-                    total_rented_gpu: staker_info.total_rented_gpu,
-                    total_rent_fee: staker_info.total_rent_fee.into(),
-                    total_burn_fee: staker_info.total_burn_fee.into(),
-                    total_reward: staker_info.total_reward.into(),
-                    total_released_reward: staker_info.total_released_reward.into(),
-                })
-            }
-            .collect::<Vec<_>>()
-        });
+        let runtime_api_result =
+            api.get_staker_list_info(&at, cur_page, per_page).map(|staker_info_list| {
+                {
+                    staker_info_list.into_iter().map(|staker_info| StakerListInfo {
+                        index: staker_info.index,
+                        staker_name: staker_info.staker_name,
+                        staker_account: staker_info.staker_account,
+                        calc_points: staker_info.calc_points,
+                        total_gpu_num: staker_info.total_gpu_num,
+                        total_rented_gpu: staker_info.total_rented_gpu,
+                        total_rent_fee: staker_info.total_rent_fee.into(),
+                        total_burn_fee: staker_info.total_burn_fee.into(),
+                        total_reward: staker_info.total_reward.into(),
+                        total_released_reward: staker_info.total_released_reward.into(),
+                    })
+                }
+                .collect::<Vec<_>>()
+            });
 
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),

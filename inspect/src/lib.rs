@@ -38,14 +38,16 @@ use sp_runtime::{
 use std::{fmt, fmt::Debug, marker::PhantomData, str::FromStr};
 
 /// A helper type for a generic block input.
-pub type BlockAddressFor<TBlock> = BlockAddress<<HashFor<TBlock> as Hash>::Output, NumberFor<TBlock>>;
+pub type BlockAddressFor<TBlock> =
+    BlockAddress<<HashFor<TBlock> as Hash>::Output, NumberFor<TBlock>>;
 
 /// A Pretty formatter implementation.
 pub trait PrettyPrinter<TBlock: Block> {
     /// Nicely format block.
     fn fmt_block(&self, fmt: &mut fmt::Formatter, block: &TBlock) -> fmt::Result;
     /// Nicely format extrinsic.
-    fn fmt_extrinsic(&self, fmt: &mut fmt::Formatter, extrinsic: &TBlock::Extrinsic) -> fmt::Result;
+    fn fmt_extrinsic(&self, fmt: &mut fmt::Formatter, extrinsic: &TBlock::Extrinsic)
+        -> fmt::Result;
 }
 
 /// Default dummy debug printer.
@@ -64,7 +66,11 @@ impl<TBlock: Block> PrettyPrinter<TBlock> for DebugPrinter {
         Ok(())
     }
 
-    fn fmt_extrinsic(&self, fmt: &mut fmt::Formatter, extrinsic: &TBlock::Extrinsic) -> fmt::Result {
+    fn fmt_extrinsic(
+        &self,
+        fmt: &mut fmt::Formatter,
+        extrinsic: &TBlock::Extrinsic,
+    ) -> fmt::Result {
         writeln!(fmt, " {:?}", extrinsic)?;
         writeln!(fmt, " Bytes: {:?}", HexDisplay::from(&extrinsic.encode()))?;
         Ok(())
@@ -142,15 +148,23 @@ impl<TBlock: Block, TPrinter: PrettyPrinter<TBlock>> Inspector<TBlock, TPrinter>
             BlockAddress::Number(number) => {
                 let id = BlockId::number(number);
                 let not_found = format!("Could not find block {:?}", id);
-                let body = self.chain.block_body(&id)?.ok_or_else(|| Error::NotFound(not_found.clone()))?;
-                let header = self.chain.header(id)?.ok_or_else(|| Error::NotFound(not_found.clone()))?;
+                let body = self
+                    .chain
+                    .block_body(&id)?
+                    .ok_or_else(|| Error::NotFound(not_found.clone()))?;
+                let header =
+                    self.chain.header(id)?.ok_or_else(|| Error::NotFound(not_found.clone()))?;
                 TBlock::new(header, body)
             },
             BlockAddress::Hash(hash) => {
                 let id = BlockId::hash(hash);
                 let not_found = format!("Could not find block {:?}", id);
-                let body = self.chain.block_body(&id)?.ok_or_else(|| Error::NotFound(not_found.clone()))?;
-                let header = self.chain.header(id)?.ok_or_else(|| Error::NotFound(not_found.clone()))?;
+                let body = self
+                    .chain
+                    .block_body(&id)?
+                    .ok_or_else(|| Error::NotFound(not_found.clone()))?;
+                let header =
+                    self.chain.header(id)?.ok_or_else(|| Error::NotFound(not_found.clone()))?;
                 TBlock::new(header, body)
             },
         })
@@ -172,7 +186,10 @@ impl<TBlock: Block, TPrinter: PrettyPrinter<TBlock>> Inspector<TBlock, TPrinter>
             ExtrinsicAddress::Block(block, index) => {
                 let block = self.get_block(block)?;
                 block.extrinsics().get(index).cloned().ok_or_else(|| {
-                    Error::NotFound(format!("Could not find extrinsic {} in block {:?}", index, block))
+                    Error::NotFound(format!(
+                        "Could not find extrinsic {} in block {:?}",
+                        index, block
+                    ))
                 })?
             },
             ExtrinsicAddress::Bytes(bytes) => TBlock::Extrinsic::decode(&mut &*bytes)?,
@@ -199,12 +216,12 @@ impl<Hash: FromStr, Number: FromStr> FromStr for BlockAddress<Hash, Number> {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // try to parse hash first
         if let Ok(hash) = s.parse() {
-            return Ok(Self::Hash(hash));
+            return Ok(Self::Hash(hash))
         }
 
         // then number
         if let Ok(number) = s.parse() {
-            return Ok(Self::Number(number));
+            return Ok(Self::Number(number))
         }
 
         // then assume it's bytes (hex-encoded)
@@ -229,12 +246,15 @@ impl<Hash: FromStr + Debug, Number: FromStr + Debug> FromStr for ExtrinsicAddres
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // first try raw bytes
         if let Ok(bytes) = sp_core::bytes::from_hex(s).map(Self::Bytes) {
-            return Ok(bytes);
+            return Ok(bytes)
         }
 
         // split by a bunch of different characters
         let mut it = s.split(|c| c == '.' || c == ':' || c == ' ');
-        let block = it.next().expect("First element of split iterator is never empty; qed").parse()?;
+        let block = it
+            .next()
+            .expect("First element of split iterator is never empty; qed")
+            .parse()?;
 
         let index = it
             .next()
@@ -260,7 +280,10 @@ mod tests {
         let b2 = BlockAddress::from_str("0");
         let b3 = BlockAddress::from_str("0x0012345f");
 
-        assert_eq!(b0, Ok(BlockAddress::Hash("3BfC20f0B9aFcAcE800D73D2191166FF16540258".parse().unwrap())));
+        assert_eq!(
+            b0,
+            Ok(BlockAddress::Hash("3BfC20f0B9aFcAcE800D73D2191166FF16540258".parse().unwrap()))
+        );
         assert_eq!(b1, Ok(BlockAddress::Number(1234)));
         assert_eq!(b2, Ok(BlockAddress::Number(0)));
         assert_eq!(b3, Ok(BlockAddress::Bytes(vec![0, 0x12, 0x34, 0x5f])));

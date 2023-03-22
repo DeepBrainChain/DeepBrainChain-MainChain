@@ -1,5 +1,4 @@
-use super::super::mock::*;
-use super::super::Error;
+use super::super::{mock::*, Error};
 use frame_support::{assert_noop, assert_ok};
 use std::convert::TryInto;
 
@@ -8,12 +7,16 @@ use std::convert::TryInto;
 fn test_committee_cancel_report_works() {
     new_test_with_init_params_ext().execute_with(|| {
         let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
-        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let report_hash: [u8; 16] =
+            hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+        let reporter_boxpubkey =
+            hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         // 报告硬件造假允许取消
         {
@@ -77,12 +80,16 @@ fn test_committee_cancel_report_works() {
 fn test_committee_cancel_booked_report_works() {
     new_test_with_init_params_ext().execute_with(|| {
         let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let report_hash: [u8; 16] = hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
-        let reporter_boxpubkey = hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let report_hash: [u8; 16] =
+            hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
+        let reporter_boxpubkey =
+            hex::decode("1e71b5a83ccdeff1592062a1d4da4a272691f08e2024a1ca75a81d534a76210a")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
         let committee = sr25519::Public::from(Sr25519Keyring::One).into();
 
         // 报告硬件造假允许取消

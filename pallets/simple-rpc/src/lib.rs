@@ -1,13 +1,13 @@
+#![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::EncodeLike;
-use dbc_support::traits::OPRPCQuery;
+use dbc_support::{traits::OPRPCQuery, verify_online::StashMachine};
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
-use online_profile::StashMachine;
 pub use pallet::*;
 use pallet_identity::Data;
 use sp_std::vec::Vec;
@@ -15,7 +15,8 @@ use sp_std::vec::Vec;
 pub mod rpc_types;
 pub use rpc_types::*;
 
-type BalanceOf<T> = <<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -24,7 +25,10 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_identity::Config {
         type Currency: ReservableCurrency<Self::AccountId>;
-        type OPRpcQuery: OPRPCQuery<AccountId = Self::AccountId, StashMachine = StashMachine<BalanceOf<Self>>>;
+        type OPRpcQuery: OPRPCQuery<
+            AccountId = Self::AccountId,
+            StashMachine = StashMachine<BalanceOf<Self>>,
+        >;
     }
 
     #[pallet::pallet]
@@ -41,8 +45,8 @@ pub mod pallet {
 impl<T: Config> Module<T> {
     pub fn get_staker_identity(account: impl EncodeLike<T::AccountId>) -> Vec<u8> {
         let account_info = <pallet_identity::Module<T>>::identity(account);
-        if let None = account_info {
-            return Vec::new();
+        if account_info.is_none() {
+            return Vec::new()
         }
         let account_info = account_info.unwrap();
 
@@ -53,12 +57,15 @@ impl<T: Config> Module<T> {
     }
 
     // 返回total_page
-    pub fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
+    pub fn get_staker_list_info(
+        cur_page: u64,
+        per_page: u64,
+    ) -> Vec<StakerListInfo<BalanceOf<T>, T::AccountId>> {
         let all_stash = T::OPRpcQuery::get_all_stash();
         let mut stash_list_info = Vec::new();
 
         if all_stash.len() == 0 {
-            return stash_list_info;
+            return stash_list_info
         }
 
         let cur_page = cur_page as usize;
@@ -67,7 +74,7 @@ impl<T: Config> Module<T> {
         let mut page_end = page_start + per_page;
 
         if page_start >= all_stash.len() {
-            return stash_list_info;
+            return stash_list_info
         }
 
         if page_end >= all_stash.len() {
@@ -92,7 +99,8 @@ impl<T: Config> Module<T> {
                 total_rent_fee: staker_info.total_rent_fee,
                 total_burn_fee: staker_info.total_burn_fee,
                 total_reward: staker_info.total_earned_reward,
-                total_released_reward: staker_info.total_claimed_reward + staker_info.can_claim_reward,
+                total_released_reward: staker_info.total_claimed_reward +
+                    staker_info.can_claim_reward,
             })
         }
 

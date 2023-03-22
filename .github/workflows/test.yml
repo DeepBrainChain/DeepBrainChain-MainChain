@@ -5,9 +5,13 @@ name: testcase
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [master]
+    branches:
+      - master
+      - v2.4-dev
   pull_request:
-    branches: [master]
+    branches:
+      - master
+      - v2.4-dev
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -25,6 +29,7 @@ jobs:
           - rent-machine
           - maintain-committee
           - committee
+          - terminating-rental
 
     steps:
       - name: Add wasm toolchain

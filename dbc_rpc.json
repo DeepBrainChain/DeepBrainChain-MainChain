@@ -200,15 +200,11 @@
           "isOptional": true
         }
       ],
-      "type": "LCCommitteeMachineList"
+      "type": "OCMachineCommitteeList"
     },
     "getCommitteeOps": {
       "description": "Get ops committee can do",
       "params": [
-        {
-          "name": "committee",
-          "type": "AccountId"
-        },
         {
           "name": "machine_id",
           "type": "MachineId"
@@ -219,7 +215,7 @@
           "isOptional": true
         }
       ],
-      "type": "RpcLCCommitteeOps<BlockNumber, Balance>"
+      "type": "RpcOCCommitteeOps<BlockNumber, Balance>"
     },
     "getMachineCommitteeList": {
       "description": "Get machine info when is onlining",
@@ -234,7 +230,7 @@
           "isOptional": true
         }
       ],
-      "type": "LCMachineCommitteeList<AccountId, BlockNumber>"
+      "type": "OCMachineCommitteeList<AccountId, BlockNumber>"
     }
   },
   "rentMachine": {
@@ -286,6 +282,40 @@
         }
       ],
       "type": "Option<AccountId>"
+    },
+    "getMachineRentId": {
+      "description": "Get Machine Rent Id",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "String"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "MachineGPUOrder"
+    },
+    "isMachineRenter": {
+      "description": "Return if account is renter of machine",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "String"
+        },
+        {
+          "name": "renter",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "bool"
     }
   }
 }

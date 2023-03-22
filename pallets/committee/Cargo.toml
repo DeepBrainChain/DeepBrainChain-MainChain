@@ -5,88 +5,28 @@ name = "committee"
 version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive",
-] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 dbc-support = { package = "dbc-support", path = "../support", default-features = false }
 serde = { version = "1.0.101", optional = true }
 
-[dependencies.frame-support]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+frame-support = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+pallet-collective = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 
-[dependencies.frame-system]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.pallet-collective]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-io]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-runtime]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-std]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.dbc-price-ocw]
-default-features = false
-package = 'dbc-price-ocw'
-path = '../dbc-price-ocw'
-
-[dependencies.generic-func]
-default-features = false
-package = 'generic-func'
-path = '../generic-func'
-
+dbc-price-ocw = { package = "dbc-price-ocw", path = "../dbc-price-ocw", default-features = false }
+generic-func = { package = "generic-func", path = "../generic-func", default-features = false }
 # Optional imports for benchmarking
-[dependencies.frame-benchmarking]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-optional = true
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false, optional = true }
 
-[dev-dependencies.sp-core]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.sp-keyring]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.pallet-balances]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.hex]
-version = '0.4'
-
-[dev-dependencies.frame-benchmarking]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+[dev-dependencies]
+hex = { version = "0.4" }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 
 [features]
 default = ["std"]
@@ -102,4 +42,5 @@ std = [
   "sp-runtime/std",
   "sp-std/std",
   "sp-io/std",
+  "dbc-support/std",
 ]

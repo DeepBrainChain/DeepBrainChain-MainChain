@@ -1,10 +1,10 @@
 use codec::{Decode, Encode};
 #[cfg(feature = "std")]
-use generic_func::RpcText;
+use dbc_support::rpc_types::RpcText;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use crate::OCCommitteeMachineList;
+use dbc_support::verify_online::OCCommitteeMachineList;
 
 #[cfg(feature = "std")]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]

@@ -1,12 +1,16 @@
 //! RPC interface for the transaction payment module.
 
 use codec::Codec;
-use generic_func::RpcBalance;
+use dbc_support::{
+    machine_type::{Latitude, Longitude},
+    rpc_types::RpcBalance,
+    EraIndex,
+};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use online_profile::{
     rpc_types::{RpcLiveMachine, RpcMachineInfo, RpcStakerInfo, RpcStashMachine},
-    EraIndex, Latitude, Longitude, PosInfo, SysInfoDetail,
+    PosInfo, SysInfoDetail,
 };
 use online_profile_runtime_api::OpRpcApi as OpStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
@@ -47,7 +51,10 @@ where
     ) -> Result<RpcMachineInfo<AccountId, BlockNumber, RpcBalance<Balance>>>;
 
     #[rpc(name = "onlineProfile_getPosGpuInfo")]
-    fn get_pos_gpu_info(&self, at: Option<BlockHash>) -> Result<Vec<(Longitude, Latitude, PosInfo)>>;
+    fn get_pos_gpu_info(
+        &self,
+        at: Option<BlockHash>,
+    ) -> Result<Vec<(Longitude, Latitude, PosInfo)>>;
 
     #[rpc(name = "onlineProfile_getMachineEraReward")]
     fn get_machine_era_reward(
@@ -93,8 +100,8 @@ impl<C, M> OpStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, Balance, BlockNumber> OpRpcApi<<Block as BlockT>::Hash, AccountId, Balance, BlockNumber>
-    for OpStorage<C, Block>
+impl<C, Block, AccountId, Balance, BlockNumber>
+    OpRpcApi<<Block as BlockT>::Hash, AccountId, Balance, BlockNumber> for OpStorage<C, Block>
 where
     Block: BlockT,
     AccountId: Clone + std::fmt::Display + Codec + Ord,
@@ -117,7 +124,10 @@ where
         })
     }
 
-    fn get_op_info(&self, at: Option<<Block as BlockT>::Hash>) -> Result<SysInfoDetail<RpcBalance<Balance>>> {
+    fn get_op_info(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<SysInfoDetail<RpcBalance<Balance>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -197,25 +207,26 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api.get_machine_info(&at, machine_id).map(|machine_info| RpcMachineInfo {
-            controller: machine_info.controller,
-            machine_stash: machine_info.machine_stash,
-            renters: machine_info.renters,
-            last_machine_restake: machine_info.last_machine_restake,
-            bonding_height: machine_info.bonding_height,
-            online_height: machine_info.online_height,
-            last_online_height: machine_info.last_online_height,
-            init_stake_per_gpu: machine_info.init_stake_per_gpu.into(),
-            stake_amount: machine_info.stake_amount.into(),
-            machine_status: machine_info.machine_status,
-            total_rented_duration: machine_info.total_rented_duration,
-            total_rented_times: machine_info.total_rented_times,
-            total_rent_fee: machine_info.total_rent_fee.into(),
-            total_burn_fee: machine_info.total_burn_fee.into(),
-            machine_info_detail: machine_info.machine_info_detail.into(),
-            reward_committee: machine_info.reward_committee,
-            reward_deadline: machine_info.reward_deadline,
-        });
+        let runtime_api_result =
+            api.get_machine_info(&at, machine_id).map(|machine_info| RpcMachineInfo {
+                controller: machine_info.controller,
+                machine_stash: machine_info.machine_stash,
+                renters: machine_info.renters,
+                last_machine_restake: machine_info.last_machine_restake,
+                bonding_height: machine_info.bonding_height,
+                online_height: machine_info.online_height,
+                last_online_height: machine_info.last_online_height,
+                init_stake_per_gpu: machine_info.init_stake_per_gpu.into(),
+                stake_amount: machine_info.stake_amount.into(),
+                machine_status: machine_info.machine_status,
+                total_rented_duration: machine_info.total_rented_duration,
+                total_rented_times: machine_info.total_rented_times,
+                total_rent_fee: machine_info.total_rent_fee.into(),
+                total_burn_fee: machine_info.total_burn_fee.into(),
+                machine_info_detail: machine_info.machine_info_detail.into(),
+                reward_committee: machine_info.reward_committee,
+                reward_deadline: machine_info.reward_deadline,
+            });
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),
@@ -223,7 +234,10 @@ where
         })
     }
 
-    fn get_pos_gpu_info(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Vec<(Longitude, Latitude, PosInfo)>> {
+    fn get_pos_gpu_info(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<(Longitude, Latitude, PosInfo)>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -246,7 +260,9 @@ where
 
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api.get_machine_era_reward(&at, machine_id, era_index).map(|balance| balance.into());
+        let runtime_api_result = api
+            .get_machine_era_reward(&at, machine_id, era_index)
+            .map(|balance| balance.into());
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),
@@ -265,8 +281,9 @@ where
 
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result =
-            api.get_machine_era_released_reward(&at, machine_id, era_index).map(|balance| balance.into());
+        let runtime_api_result = api
+            .get_machine_era_released_reward(&at, machine_id, era_index)
+            .map(|balance| balance.into());
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),
@@ -283,7 +300,8 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_stash_era_reward(&at, stash, era_index).map(|balance| balance.into());
+        let runtime_api_result =
+            api.get_stash_era_reward(&at, stash, era_index).map(|balance| balance.into());
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),
@@ -300,7 +318,9 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_stash_era_released_reward(&at, stash, era_index).map(|balance| balance.into());
+        let runtime_api_result = api
+            .get_stash_era_released_reward(&at, stash, era_index)
+            .map(|balance| balance.into());
         runtime_api_result.map_err(|e| RpcError {
             code: ErrorCode::ServerError(9876),
             message: "Something wrong".into(),

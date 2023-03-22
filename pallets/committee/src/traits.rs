@@ -1,5 +1,6 @@
-use crate::{BalanceOf, CommitteeStake, Config, Pallet, ReportId};
-use dbc_support::traits::ManageCommittee;
+use crate::{BalanceOf, CommitteeStake, Config, Pallet};
+use dbc_support::{traits::ManageCommittee, ReportId};
+use sp_runtime::traits::Saturating;
 use sp_std::vec::Vec;
 
 impl<T: Config> ManageCommittee for Pallet<T> {
@@ -21,7 +22,11 @@ impl<T: Config> ManageCommittee for Pallet<T> {
 
     // 改变委员会使用的质押数量
     // - Writes: CommitteeStake.used_stake(Add or Sub), Committee
-    fn change_used_stake(committee: T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
+    fn change_used_stake(
+        committee: T::AccountId,
+        amount: BalanceOf<T>,
+        is_add: bool,
+    ) -> Result<(), ()> {
         Self::do_change_used_stake(committee, amount, is_add)
     }
 
@@ -41,8 +46,9 @@ impl<T: Config> ManageCommittee for Pallet<T> {
     }
 
     fn add_reward(committee: T::AccountId, reward: BalanceOf<T>) {
-        let mut committee_stake = Self::committee_stake(&committee);
-        committee_stake.can_claim_reward += reward;
-        CommitteeStake::<T>::insert(&committee, committee_stake);
+        CommitteeStake::<T>::mutate(&committee, |committee_stake| {
+            committee_stake.can_claim_reward =
+                committee_stake.can_claim_reward.saturating_add(reward);
+        });
     }
 }

@@ -34,7 +34,7 @@ const MAX_SLASHES: u32 = 1000;
 // read and write operations.
 fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
     if spans == 0 {
-        return;
+        return
     }
 
     // For the first slashing span, we initialize
@@ -63,7 +63,8 @@ pub fn create_validator_with_nominators<T: Config>(
     let mut points_individual = Vec::new();
 
     let (v_stash, v_controller) = create_stash_controller::<T>(0, 100, destination.clone())?;
-    let validator_prefs = ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+    let validator_prefs =
+        ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
     Staking::<T>::validate(RawOrigin::Signed(v_controller).into(), validator_prefs)?;
     let stash_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(v_stash.clone());
 
@@ -80,7 +81,10 @@ pub fn create_validator_with_nominators<T: Config>(
             create_stash_and_dead_controller::<T>(u32::max_value() - i, 100, destination.clone())?
         };
         if i < n {
-            Staking::<T>::nominate(RawOrigin::Signed(n_controller.clone()).into(), vec![stash_lookup.clone()])?;
+            Staking::<T>::nominate(
+                RawOrigin::Signed(n_controller.clone()).into(),
+                vec![stash_lookup.clone()],
+            )?;
             nominators.push((n_stash, n_controller));
         }
     }
@@ -94,14 +98,18 @@ pub fn create_validator_with_nominators<T: Config>(
     assert!(new_validators[0] == v_stash, "Our validator was not selected!");
 
     // Give Era Points
-    let reward =
-        EraRewardPoints::<T::AccountId> { total: points_total, individual: points_individual.into_iter().collect() };
+    let reward = EraRewardPoints::<T::AccountId> {
+        total: points_total,
+        individual: points_individual.into_iter().collect(),
+    };
 
     let current_era = CurrentEra::get().unwrap();
     ErasRewardPoints::<T>::insert(current_era, reward);
 
     // Create reward pool
-    let total_payout = T::Currency::minimum_balance().saturating_mul(upper_bound.into()).saturating_mul(1000u32.into());
+    let total_payout = T::Currency::minimum_balance()
+        .saturating_mul(upper_bound.into())
+        .saturating_mul(1000u32.into());
     <ErasValidatorReward<T>>::insert(current_era, total_payout);
 
     Ok((v_stash, nominators))
@@ -756,148 +764,5 @@ benchmarks! {
                 size,
             ).is_err()
         );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mock::{Balances, ExtBuilder, Origin, Staking, Test};
-    use frame_support::assert_ok;
-
-    #[test]
-    fn create_validators_with_nominators_for_era_works() {
-        ExtBuilder::default().has_stakers(true).build().execute_with(|| {
-            let v = 10;
-            let n = 100;
-
-            create_validators_with_nominators_for_era::<Test>(v, n, MAX_NOMINATIONS, false, None).unwrap();
-
-            let count_validators = Validators::<Test>::iter().count();
-            let count_nominators = Nominators::<Test>::iter().count();
-
-            assert_eq!(count_validators, v as usize);
-            assert_eq!(count_nominators, n as usize);
-        });
-    }
-
-    #[test]
-    fn create_validator_with_nominators_works() {
-        ExtBuilder::default().has_stakers(true).build().execute_with(|| {
-            let n = 10;
-
-            let (validator_stash, nominators) = create_validator_with_nominators::<Test>(
-                n,
-                <Test as Config>::MaxNominatorRewardedPerValidator::get() as u32,
-                false,
-                RewardDestination::Staked,
-            )
-            .unwrap();
-
-            assert_eq!(nominators.len() as u32, n);
-
-            let current_era = CurrentEra::get().unwrap();
-
-            let original_free_balance = Balances::free_balance(&validator_stash);
-            assert_ok!(Staking::payout_stakers(Origin::signed(1337), validator_stash, current_era));
-            let new_free_balance = Balances::free_balance(&validator_stash);
-
-            assert!(original_free_balance < new_free_balance);
-        });
-    }
-
-    #[test]
-    fn add_slashing_spans_works() {
-        ExtBuilder::default().has_stakers(true).build().execute_with(|| {
-            let n = 10;
-
-            let (validator_stash, _nominators) = create_validator_with_nominators::<Test>(
-                n,
-                <Test as Config>::MaxNominatorRewardedPerValidator::get() as u32,
-                false,
-                RewardDestination::Staked,
-            )
-            .unwrap();
-
-            // Add 20 slashing spans
-            let num_of_slashing_spans = 20;
-            add_slashing_spans::<Test>(&validator_stash, num_of_slashing_spans);
-
-            let slashing_spans = SlashingSpans::<Test>::get(&validator_stash).unwrap();
-            assert_eq!(slashing_spans.iter().count(), num_of_slashing_spans as usize);
-            for i in 0..num_of_slashing_spans {
-                assert!(SpanSlash::<Test>::contains_key((&validator_stash, i)));
-            }
-
-            // Test everything is cleaned up
-            assert_ok!(Staking::kill_stash(&validator_stash, num_of_slashing_spans));
-            assert!(SlashingSpans::<Test>::get(&validator_stash).is_none());
-            for i in 0..num_of_slashing_spans {
-                assert!(!SpanSlash::<Test>::contains_key((&validator_stash, i)));
-            }
-        });
-    }
-
-    #[test]
-    fn test_payout_all() {
-        ExtBuilder::default().has_stakers(true).build().execute_with(|| {
-            let v = 10;
-            let n = 100;
-
-            let selected_benchmark = SelectedBenchmark::payout_all;
-            let c =
-                vec![(frame_benchmarking::BenchmarkParameter::v, v), (frame_benchmarking::BenchmarkParameter::n, n)];
-            let closure_to_benchmark = <SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::instance(
-                &selected_benchmark,
-                &c,
-                true,
-            )
-            .unwrap();
-
-            assert_ok!(closure_to_benchmark());
-        });
-    }
-
-    #[test]
-    fn test_benchmarks() {
-        ExtBuilder::default().has_stakers(true).build().execute_with(|| {
-            assert_ok!(test_benchmark_bond::<Test>());
-            assert_ok!(test_benchmark_bond_extra::<Test>());
-            assert_ok!(test_benchmark_unbond::<Test>());
-            assert_ok!(test_benchmark_withdraw_unbonded_update::<Test>());
-            assert_ok!(test_benchmark_withdraw_unbonded_kill::<Test>());
-            assert_ok!(test_benchmark_validate::<Test>());
-            assert_ok!(test_benchmark_kick::<Test>());
-            assert_ok!(test_benchmark_nominate::<Test>());
-            assert_ok!(test_benchmark_chill::<Test>());
-            assert_ok!(test_benchmark_set_payee::<Test>());
-            assert_ok!(test_benchmark_set_controller::<Test>());
-            assert_ok!(test_benchmark_set_validator_count::<Test>());
-            assert_ok!(test_benchmark_force_no_eras::<Test>());
-            assert_ok!(test_benchmark_force_new_era::<Test>());
-            assert_ok!(test_benchmark_force_new_era_always::<Test>());
-            assert_ok!(test_benchmark_set_invulnerables::<Test>());
-            assert_ok!(test_benchmark_force_unstake::<Test>());
-            assert_ok!(test_benchmark_cancel_deferred_slash::<Test>());
-            assert_ok!(test_benchmark_payout_stakers_dead_controller::<Test>());
-            assert_ok!(test_benchmark_payout_stakers_alive_staked::<Test>());
-            assert_ok!(test_benchmark_rebond::<Test>());
-            assert_ok!(test_benchmark_set_history_depth::<Test>());
-            assert_ok!(test_benchmark_reap_stash::<Test>());
-            assert_ok!(test_benchmark_new_era::<Test>());
-            assert_ok!(test_benchmark_do_slash::<Test>());
-            assert_ok!(test_benchmark_payout_all::<Test>());
-            // only run one of them to same time on the CI. ignore the other two.
-            assert_ok!(test_benchmark_submit_solution_initial::<Test>());
-        });
-    }
-
-    #[test]
-    #[ignore]
-    fn test_benchmarks_offchain() {
-        ExtBuilder::default().has_stakers(false).build().execute_with(|| {
-            assert_ok!(test_benchmark_submit_solution_better::<Test>());
-            assert_ok!(test_benchmark_submit_solution_weaker::<Test>());
-        });
     }
 }

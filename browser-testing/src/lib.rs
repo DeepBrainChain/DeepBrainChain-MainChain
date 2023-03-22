@@ -60,7 +60,8 @@ async fn runs() {
 
     // Check that the node handles rpc calls.
     // TODO: Re-add the code that checks if the node is syncing.
-    let chain_name: String =
-        deserialize_rpc_result(JsFuture::from(client.rpc_send(&rpc_call("system_chain"))).await.unwrap());
+    let chain_name: String = deserialize_rpc_result(
+        JsFuture::from(client.rpc_send(&rpc_call("system_chain"))).await.unwrap(),
+    );
     assert_eq!(chain_name, "Development");
 }

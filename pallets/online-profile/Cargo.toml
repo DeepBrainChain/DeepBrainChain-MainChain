@@ -6,88 +6,28 @@ version = "0.1.0"
 
 [dependencies]
 bs58 = { package = "bs58", version = "0.4.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive"
-] }
-dbc-support = { package = "dbc-support", path = "../support", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
 
-[dependencies.frame-support]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+frame-support = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 
-[dependencies.frame-system]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+dbc-support = { path = "../support", default-features = false }
+generic-func = { path = "../generic-func", default-features = false }
+dbc-price-ocw = { path = "../dbc-price-ocw", default-features = false }
 
-[dependencies.sp-std]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+[dev-dependencies]
+sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-io = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 
-[dependencies.sp-runtime]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.generic-func]
-default-features = false
-package = 'generic-func'
-path = '../generic-func'
-
-[dependencies.dbc-price-ocw]
-default-features = false
-package = 'dbc-price-ocw'
-path = '../dbc-price-ocw'
-
-[dependencies.sp-io]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-core]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-package = 'sp-core'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.pallet-staking]
-package = 'dbc-staking'
-path = '../dbc-staking'
-
-[dev-dependencies.sp-keyring]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.sp-core]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.pallet-balances]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.sp-io]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.pallet-randomness-collective-flip]
-git = 'https://github.com/paritytech/substrate.git'
-package = 'pallet-randomness-collective-flip'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+pallet-staking = { package = "dbc-staking", path = "../dbc-staking" }
 
 [features]
 default = ["std"]
@@ -97,9 +37,10 @@ std = [
   "frame-support/std",
   "frame-system/std",
   "generic-func/std",
+  "dbc-support/std",
   "sp-core/std",
   "sp-io/std",
   "sp-std/std",
   "sp-runtime/std",
-  "serde"
+  "serde",
 ]

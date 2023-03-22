@@ -122,7 +122,10 @@ impl core::BenchmarkDescription for TrieReadBenchmarkDescription {
         let mut query_keys = KeyValues::new();
         let every_x_key = self.database_size.keys() / SAMPLE_SIZE;
         for idx in 0..self.database_size.keys() {
-            let kv = (KUSAMA_STATE_DISTRIBUTION.key(&mut rng).to_vec(), KUSAMA_STATE_DISTRIBUTION.value(&mut rng));
+            let kv = (
+                KUSAMA_STATE_DISTRIBUTION.key(&mut rng).to_vec(),
+                KUSAMA_STATE_DISTRIBUTION.value(&mut rng),
+            );
             if idx % every_x_key == 0 {
                 // warmup keys go to separate tree with high prob
                 let mut actual_warmup_key = warmup_prefix.clone();
@@ -141,7 +144,13 @@ impl core::BenchmarkDescription for TrieReadBenchmarkDescription {
 
         let root = generate_trie(database.open(self.database_type), key_values);
 
-        Box::new(TrieReadBenchmark { database, root, warmup_keys, query_keys, database_type: self.database_type })
+        Box::new(TrieReadBenchmark {
+            database,
+            root,
+            warmup_keys,
+            query_keys,
+            database_type: self.database_type,
+        })
     }
 
     fn name(&self) -> Cow<'static, str> {
@@ -222,7 +231,10 @@ impl core::BenchmarkDescription for TrieWriteBenchmarkDescription {
         let mut warmup_keys = KeyValues::new();
         let every_x_key = self.database_size.keys() / SAMPLE_SIZE;
         for idx in 0..self.database_size.keys() {
-            let kv = (KUSAMA_STATE_DISTRIBUTION.key(&mut rng).to_vec(), KUSAMA_STATE_DISTRIBUTION.value(&mut rng));
+            let kv = (
+                KUSAMA_STATE_DISTRIBUTION.key(&mut rng).to_vec(),
+                KUSAMA_STATE_DISTRIBUTION.value(&mut rng),
+            );
             if idx % every_x_key == 0 {
                 // warmup keys go to separate tree with high prob
                 let mut actual_warmup_key = warmup_prefix.clone();
@@ -238,7 +250,12 @@ impl core::BenchmarkDescription for TrieWriteBenchmarkDescription {
 
         let root = generate_trie(database.open(self.database_type), key_values);
 
-        Box::new(TrieWriteBenchmark { database, root, warmup_keys, database_type: self.database_type })
+        Box::new(TrieWriteBenchmark {
+            database,
+            root,
+            warmup_keys,
+            database_type: self.database_type,
+        })
     }
 
     fn name(&self) -> Cow<'static, str> {
@@ -269,7 +286,8 @@ impl core::Benchmark for TrieWriteBenchmark {
 
         let mut overlay = HashMap::new();
         let mut trie = SimpleTrie { db: kvdb.clone(), overlay: &mut overlay };
-        let mut trie_db_mut = TrieDBMut::from_existing(&mut trie, &mut new_root).expect("Failed to create TrieDBMut");
+        let mut trie_db_mut =
+            TrieDBMut::from_existing(&mut trie, &mut new_root).expect("Failed to create TrieDBMut");
 
         for (warmup_key, warmup_value) in self.warmup_keys.iter() {
             let value = trie_db_mut
@@ -340,7 +358,9 @@ impl SizePool {
 
     fn value<R: Rng>(&self, rng: &mut R) -> Vec<u8> {
         let sr = (rng.next_u64() % self.total as u64) as u32;
-        let mut range = self.distribution.range((std::ops::Bound::Included(sr), std::ops::Bound::Unbounded));
+        let mut range = self
+            .distribution
+            .range((std::ops::Bound::Included(sr), std::ops::Bound::Unbounded));
         let size = *range.next().unwrap().1 as usize;
         random_vec(rng, size)
     }

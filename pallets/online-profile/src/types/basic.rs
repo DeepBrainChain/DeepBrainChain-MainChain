@@ -1,34 +1,30 @@
 use crate::{Config, Error};
 use codec::{Decode, Encode};
+use dbc_support::EraIndex;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{traits::Saturating, RuntimeDebug};
 use sp_std::vec::Vec;
 
-pub type EraIndex = u32;
 pub type TelecomName = Vec<u8>;
 
-/// 2880 blocks per era
-pub const BLOCK_PER_ERA: u64 = 2880;
 /// Reward duration for committee (Era)
 pub const REWARD_DURATION: u32 = 365 * 2;
 /// Rebond frequency, 1 year
 pub const REBOND_FREQUENCY: u32 = 365 * 2880;
 /// Max Slash Threshold: 120h, 5 era
 pub const MAX_SLASH_THRESHOLD: u32 = 2880 * 5;
-/// PendingSlash will be exec in two days
-pub const TWO_DAY: u32 = 5760;
+// PendingSlash will be exec in two days
 
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum CustomErr {
-    ClaimRewardFailed,
-}
-
-impl<T: Config> From<CustomErr> for Error<T> {
-    fn from(err: CustomErr) -> Self {
+use dbc_support::custom_err::OnlineErr;
+impl<T: Config> From<OnlineErr> for Error<T> {
+    fn from(err: OnlineErr) -> Self {
         match err {
-            CustomErr::ClaimRewardFailed => Error::<T>::ClaimRewardFailed,
+            OnlineErr::ClaimRewardFailed => Error::ClaimRewardFailed,
+            OnlineErr::NotMachineController => Error::NotMachineController,
+            OnlineErr::CalcStakeAmountFailed => Error::CalcStakeAmountFailed,
+            OnlineErr::TelecomIsNull => Error::TelecomIsNull,
+            OnlineErr::NotAllowedChangeMachineInfo => Error::NotAllowedChangeMachineInfo,
         }
     }
 }
@@ -47,19 +43,10 @@ pub struct UserMutHardwareStakeInfo<Balance, BlockNumber> {
 pub struct PhaseRewardInfoDetail<Balance> {
     pub online_reward_start_era: EraIndex, // When online reward will start
     pub first_phase_duration: EraIndex,
-    pub galaxy_on_era: EraIndex,         // When galaxy is on
+    pub galaxy_on_era: EraIndex, // When galaxy is on (开启后100%销毁租金，此后60天奖励翻倍)
     pub phase_0_reward_per_era: Balance, // first 3 years
     pub phase_1_reward_per_era: Balance, // next 5 years
     pub phase_2_reward_per_era: Balance, // next 5 years
-}
-
-/// Standard GPU rent price Per Era
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
-pub struct StandardGpuPointPrice {
-    /// Standard GPU calc points
-    pub gpu_point: u64,
-    /// Standard GPU price
-    pub gpu_price: u64,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -96,7 +83,7 @@ pub struct SysInfoDetail<Balance> {
 }
 
 impl<Balance: Saturating + Copy> SysInfoDetail<Balance> {
-    pub fn change_stake(&mut self, amount: Balance, is_add: bool) {
+    pub fn on_stake_changed(&mut self, amount: Balance, is_add: bool) {
         if is_add {
             self.total_stake = self.total_stake.saturating_add(amount);
         } else {
@@ -104,12 +91,9 @@ impl<Balance: Saturating + Copy> SysInfoDetail<Balance> {
         }
     }
 
-    pub fn change_rent_fee(&mut self, amount: Balance, is_burn: bool) {
-        if is_burn {
-            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
-        } else {
-            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
-        }
+    pub fn on_rent_fee_changed(&mut self, rent_fee: Balance, burn_fee: Balance) {
+        self.total_rent_fee = self.total_rent_fee.saturating_add(rent_fee);
+        self.total_burn_fee = self.total_burn_fee.saturating_add(burn_fee);
     }
 }
 
@@ -129,7 +113,7 @@ pub struct PosInfo {
 }
 
 impl PosInfo {
-    pub fn is_rented(&mut self, is_rented: bool, gpu_num: u32) {
+    pub fn on_rent_changed(&mut self, is_rented: bool, gpu_num: u32) {
         if is_rented {
             self.rented_gpu = self.rented_gpu.saturating_add(gpu_num as u64);
         } else {
@@ -137,7 +121,7 @@ impl PosInfo {
         }
     }
 
-    pub fn is_online(&mut self, is_online: bool, gpu_num: u32, calc_point: u64) {
+    pub fn on_online_changed(&mut self, is_online: bool, gpu_num: u32, calc_point: u64) {
         let gpu_num = gpu_num as u64;
         if is_online {
             self.online_gpu = self.online_gpu.saturating_add(gpu_num);
@@ -152,40 +136,9 @@ impl PosInfo {
 
     // NOTE: 与下线不同，退出时，不增加offline_gpu数量
     // 返回是否为空
-    pub fn machine_exit(&mut self, gpu_num: u32, calc_point: u64) -> bool {
+    pub fn on_machine_exit(&mut self, gpu_num: u32, calc_point: u64) -> bool {
         self.online_gpu = self.online_gpu.saturating_sub(gpu_num as u64);
         self.online_gpu_calc_points = self.online_gpu_calc_points.saturating_sub(calc_point);
         self == &PosInfo::default()
-    }
-}
-
-/// The reason why a stash account is punished
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
-pub enum OPSlashReason<BlockNumber> {
-    /// Controller report rented machine offline
-    RentedReportOffline(BlockNumber),
-    /// Controller report online machine offline
-    OnlineReportOffline(BlockNumber),
-    /// Reporter report rented machine is offline
-    RentedInaccessible(BlockNumber),
-    /// Reporter report rented machine hardware fault
-    RentedHardwareMalfunction(BlockNumber),
-    /// Reporter report rented machine is fake
-    RentedHardwareCounterfeit(BlockNumber),
-    /// Machine is online, but rent failed
-    OnlineRentFailed(BlockNumber),
-    /// Committee refuse machine online
-    CommitteeRefusedOnline,
-    /// Committee refuse changed hardware info machine reonline
-    CommitteeRefusedMutHardware,
-    /// Machine change hardware is passed, so should reward committee
-    ReonlineShouldReward,
-}
-
-impl<BlockNumber> Default for OPSlashReason<BlockNumber> {
-    fn default() -> Self {
-        Self::CommitteeRefusedOnline
     }
 }

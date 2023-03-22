@@ -4,106 +4,34 @@ name = "rent-machine"
 version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = [
-  "derive"
-] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 dbc-support = { path = "../support", default-features = false }
 serde = { version = "1.0.101", optional = true }
 
-[dependencies.frame-support]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+frame-support = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 
-[dependencies.frame-system]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-std]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-runtime]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-io]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.online-profile]
-default-features = false
-package = 'online-profile'
-path = '../online-profile'
-
-[dependencies.generic-func]
-default-features = false
-package = 'generic-func'
-path = '../generic-func'
-
-[dependencies.dbc-price-ocw]
-default-features = false
-package = 'dbc-price-ocw'
-path = '../dbc-price-ocw'
+online-profile = { path = "../online-profile", default-features = false }
+generic-func = { path = "../generic-func", default-features = false }
+dbc-price-ocw = { path = "../dbc-price-ocw", default-features = false }
 
 [dev-dependencies]
-once_cell = '1'
+once_cell = "1"
+hex = "0.4"
 
-[dev-dependencies.pallet-balances]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-treasury = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-collective = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 
-[dev-dependencies.committee]
-package = 'committee'
-path = '../committee'
-
-[dev-dependencies.online-committee]
-package = 'online-committee'
-path = '../online-committee'
-
-[dev-dependencies.pallet-treasury]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.sp-core]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.pallet-randomness-collective-flip]
-git = 'https://github.com/paritytech/substrate.git'
-package = 'pallet-randomness-collective-flip'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.sp-keyring]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.hex]
-version = '0.4'
-
-[dev-dependencies.pallet-collective]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dev-dependencies.pallet-timestamp]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+committee = { path = "../committee" }
+online-committee = { path = "../online-committee" }
 
 [features]
 default = ["std"]

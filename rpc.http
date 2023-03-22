@@ -1,4 +1,4 @@
-# 使用VScode插件：`Rust Client`
+# 使用VScode插件：`REST Client`
 
 @url = https://httprentgpu.dbcwallet.io:9002
 @url2 = https://httpinfo.dbcwallet.io
@@ -209,7 +209,7 @@ content-type: application/json
 {
   "jsonrpc": "2.0",
   "id": 1,
-  "method": "onilneCommittee_getCommitteeMachineList",
+  "method": "onlineCommittee_getCommitteeMachineList",
   "params": ["{{committee}}"]
 }
 

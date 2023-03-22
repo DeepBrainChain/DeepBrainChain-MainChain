@@ -5,32 +5,16 @@ name = "rent-machine-rpc"
 version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", features = [
-  "derive"
-] }
+codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
 generic-func = { version = "0.1.0", path = "../../generic-func" }
+dbc-support = { version = "0.1.0", path = "../../support" }
 rent-machine = { version = "0.1.0", path = "../../rent-machine" }
 rent-machine-runtime-api = { version = "0.1.0", path = "./runtime-api" }
 
-[dependencies.sp-api]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-runtime]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-blockchain]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
-
-[dependencies.sp-rpc]
-git = 'https://github.com/paritytech/substrate.git'
-rev = '49a4103f4bfef55be20a5c6d26e18ff3003c3353'
-version = '3.0.0'
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }

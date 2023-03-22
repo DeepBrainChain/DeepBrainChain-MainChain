@@ -1,8 +1,14 @@
 use super::super::mock::*;
 use crate::mock::{new_test_ext_after_machine_online, run_to_block};
+use dbc_support::{
+    live_machine::LiveMachine,
+    machine_info::MachineInfo,
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
+    verify_online::StashMachine,
+    MachineId,
+};
 use frame_support::assert_ok;
-use generic_func::MachineId;
-use online_profile::{LiveMachine, MachineStatus, PosGPUInfo, StashMachine};
+use online_profile::PosGPUInfo;
 use pallet_balances::AccountData;
 use std::convert::TryInto;
 use system::AccountInfo;
@@ -56,13 +62,13 @@ fn fulfill_machine_works() {
         assert_ok!(OnlineProfile::add_machine_info(
             Origin::signed(controller),
             machine_id2.clone(),
-            online_profile::StakerCustomizeInfo {
+            StakerCustomizeInfo {
                 // server_room: H256::from_low_u64_be(1),
                 server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: online_profile::Longitude::East(1157894),
-                latitude: online_profile::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
@@ -89,7 +95,7 @@ fn fulfill_machine_works() {
             machine_info_hash3
         ));
 
-        let mut committee_upload_info = online_profile::CommitteeUploadInfo {
+        let mut committee_upload_info = CommitteeUploadInfo {
             machine_id: machine_id2.clone(),
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,
@@ -172,7 +178,9 @@ fn reset_controller_works() {
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let pre_controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let post_controller = sr25519::Public::from(Sr25519Keyring::Dave);
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         assert_ok!(OnlineProfile::stash_reset_controller(Origin::signed(stash), post_controller));
 
@@ -199,7 +207,9 @@ fn galaxy_on_works() {
 #[test]
 fn machine_exit_works() {
     new_test_ext_after_machine_online().execute_with(|| {
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
 
@@ -213,15 +223,21 @@ fn machine_exit_works() {
         {
             // 确保machine退出后，还能继续领奖励?还是说直接不能领奖励了
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.stake_amount, 0);
-            assert_eq!(machine_info.machine_status, MachineStatus::Exit);
+            assert_eq!(machine_info, MachineInfo::default());
 
             // PosGPUInfo已经被清空
-            assert!(!PosGPUInfo::<TestRuntime>::contains_key(machine_info.longitude(), machine_info.latitude()));
+            assert!(!PosGPUInfo::<TestRuntime>::contains_key(
+                machine_info.longitude(),
+                machine_info.latitude()
+            ));
             // 从live_machine中被删除
+            let live_machine = OnlineProfile::live_machines();
+            assert!(!live_machine.online_machine.binary_search(&machine_id).is_ok());
 
             // 从controller_machines中删除
-            assert!(OnlineProfile::controller_machines(&controller).binary_search(&machine_id).is_err());
+            assert!(OnlineProfile::controller_machines(&controller)
+                .binary_search(&machine_id)
+                .is_err());
 
             // ErasMachinePoints不应该再存在该变量
 
@@ -230,6 +246,7 @@ fn machine_exit_works() {
             assert_eq!(
                 stash_machines,
                 StashMachine {
+                    total_machine: vec![machine_id],
                     // 因为total_rent_fee为0， total_burn_fee为0
                     ..Default::default()
                 }

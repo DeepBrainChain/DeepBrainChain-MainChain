@@ -37,7 +37,10 @@ where
     C: HeaderBackend<Block>,
     C::Api: CmStorageRuntimeApi<Block, AccountId>,
 {
-    fn get_committee_list(&self, at: Option<<Block as BlockT>::Hash>) -> Result<CommitteeList<AccountId>> {
+    fn get_committee_list(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<CommitteeList<AccountId>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

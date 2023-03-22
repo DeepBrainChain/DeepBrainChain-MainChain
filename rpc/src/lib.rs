@@ -37,7 +37,9 @@ use sc_client_api::AuxStore;
 use sc_consensus_babe::{Config, Epoch};
 use sc_consensus_babe_rpc::BabeRpcHandler;
 use sc_consensus_epochs::SharedEpochChanges;
-use sc_finality_grandpa::{FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState};
+use sc_finality_grandpa::{
+    FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
+};
 use sc_finality_grandpa_rpc::GrandpaRpcHandler;
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
@@ -107,7 +109,9 @@ pub struct FullDeps<C, P, SC, B> {
 pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 
 /// Instantiate all Full RPC extensions.
-pub fn create_full<C, P, SC, B>(deps: FullDeps<C, P, SC, B>) -> jsonrpc_core::IoHandler<sc_rpc_api::Metadata>
+pub fn create_full<C, P, SC, B>(
+    deps: FullDeps<C, P, SC, B>,
+) -> jsonrpc_core::IoHandler<sc_rpc_api::Metadata>
 where
     C: ProvideRuntimeApi<Block>
         + HeaderBackend<Block>
@@ -126,6 +130,7 @@ where
     C::Api: online_committee_runtime_api::OcRpcApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: committee_runtime_api::CmRpcApi<Block, AccountId>,
+    C::Api: terminating_rental_runtime_api::IrRpcApi<Block, AccountId, Balance, BlockNumber>,
     P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -169,23 +174,39 @@ where
         finality_provider,
     )));
 
-    io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(sc_sync_state_rpc::SyncStateRpcHandler::new(
-        chain_spec,
+    io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
+        sc_sync_state_rpc::SyncStateRpcHandler::new(
+            chain_spec,
+            client.clone(),
+            shared_authority_set,
+            shared_epoch_changes,
+            deny_unsafe,
+        ),
+    ));
+
+    io.extend_with(online_profile_rpc::OpRpcApi::to_delegate(online_profile_rpc::OpStorage::new(
         client.clone(),
-        shared_authority_set,
-        shared_epoch_changes,
-        deny_unsafe,
     )));
 
-    io.extend_with(online_profile_rpc::OpRpcApi::to_delegate(online_profile_rpc::OpStorage::new(client.clone())));
+    io.extend_with(online_committee_rpc::OcRpcApi::to_delegate(
+        online_committee_rpc::OcStorage::new(client.clone()),
+    ));
 
-    io.extend_with(online_committee_rpc::OcRpcApi::to_delegate(online_committee_rpc::OcStorage::new(client.clone())));
+    io.extend_with(rent_machine_rpc::RmRpcApi::to_delegate(rent_machine_rpc::RmStorage::new(
+        client.clone(),
+    )));
 
-    io.extend_with(rent_machine_rpc::RmRpcApi::to_delegate(rent_machine_rpc::RmStorage::new(client.clone())));
+    io.extend_with(simple_rpc_rpc::SimpleRpcApi::to_delegate(simple_rpc_rpc::SrStorage::new(
+        client.clone(),
+    )));
 
-    io.extend_with(simple_rpc_rpc::SimpleRpcApi::to_delegate(simple_rpc_rpc::SrStorage::new(client.clone())));
+    io.extend_with(committee_rpc::CmRpcApi::to_delegate(committee_rpc::CmStorage::new(
+        client.clone(),
+    )));
 
-    io.extend_with(committee_rpc::CmRpcApi::to_delegate(committee_rpc::CmStorage::new(client)));
+    io.extend_with(terminating_rental_rpc::IrRpcApi::to_delegate(
+        terminating_rental_rpc::IrStorage::new(client),
+    ));
 
     io
 }

@@ -1,6 +1,8 @@
-use super::super::mock::*;
-use super::super::Error;
-use crate::types::{MTOrderStatus, ReportStatus};
+use super::super::{mock::*, Error};
+use crate::{MTOrderStatus, ReportStatus};
+use dbc_support::{
+    live_machine::LiveMachine, machine_type::MachineStatus, verify_slash::OPSlashReason,
+};
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
 use std::convert::TryInto;
@@ -21,12 +23,18 @@ use std::convert::TryInto;
 // case10: 2人预订，都反对
 // case11: 2人预订，一同意，一反对
 
-const committee: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::One));
-const reporter: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Two));
-const machine_stash: Lazy<sp_core::sr25519::Public> = Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Ferdie));
+const committee: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::One));
+const reporter: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Two));
+const machine_stash: Lazy<sp_core::sr25519::Public> =
+    Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Ferdie));
 
-const machine_id: Lazy<Vec<u8>> =
-    Lazy::new(|| "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec());
+const machine_id: Lazy<Vec<u8>> = Lazy::new(|| {
+    "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+        .as_bytes()
+        .to_vec()
+});
 
 // 报告机器被租用，但是无法访问: 只有一个人预订，10分钟后检查结果，两天后结果执行
 #[test]
@@ -51,7 +59,10 @@ fn report_machine_inaccessible_works1() {
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     machine_id: machine_id.clone(),
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: crate::ReportStatus::Reported,
 
                     ..Default::default()
@@ -64,7 +75,8 @@ fn report_machine_inaccessible_works1() {
 
             // TODO: 检查free_balance
             // reporter=committee，因此需要质押40000，减去租用机器的租金
-            // assert_eq!(Balances::free_balance(&reporter), INIT_BALANCE - 40000 * ONE_DBC - 10 * ONE_DBC);
+            // assert_eq!(Balances::free_balance(&reporter), INIT_BALANCE - 40000 * ONE_DBC - 10 *
+            // ONE_DBC);
         }
 
         // 委员会订阅机器故障报告
@@ -90,7 +102,10 @@ fn report_machine_inaccessible_works1() {
                     verifying_committee: None,
                     booked_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::WaitingBook,
                     ..Default::default()
                 }
@@ -108,7 +123,10 @@ fn report_machine_inaccessible_works1() {
                 &crate::MTCommitteeOrderList { booked_report: vec![0], ..Default::default() }
             );
 
-            assert_eq!(Balances::free_balance(&*committee), INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC);
+            assert_eq!(
+                Balances::free_balance(&*committee),
+                INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC
+            );
         }
 
         // 委员会首先提交Hash: 内容为 订单ID + 验证人自己的随机数 + 机器是否有问题
@@ -141,7 +159,10 @@ fn report_machine_inaccessible_works1() {
                     booked_committee: vec![*committee],
                     hashed_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::WaitingBook,
                     ..Default::default()
                 }
@@ -158,7 +179,11 @@ fn report_machine_inaccessible_works1() {
             );
             assert_eq!(
                 &MaintainCommittee::committee_order(&*committee),
-                &crate::MTCommitteeOrderList { booked_report: vec![], hashed_report: vec![0], ..Default::default() }
+                &crate::MTCommitteeOrderList {
+                    booked_report: vec![],
+                    hashed_report: vec![0],
+                    ..Default::default()
+                }
             );
         }
 
@@ -188,7 +213,10 @@ fn report_machine_inaccessible_works1() {
                     confirmed_committee: vec![*committee],
                     support_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -229,7 +257,10 @@ fn report_machine_inaccessible_works1() {
                     confirmed_committee: vec![*committee],
                     support_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::CommitteeConfirmed,
                     ..Default::default()
                 }
@@ -274,7 +305,10 @@ fn report_machine_inaccessible_works1() {
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
             let unhandled_report_result: Vec<u64> = vec![0];
-            assert_eq!(&MaintainCommittee::unhandled_report_result(22 + 2880 * 2), &unhandled_report_result);
+            assert_eq!(
+                &MaintainCommittee::unhandled_report_result(22 + 2880 * 2),
+                &unhandled_report_result
+            );
             assert_eq!(
                 &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { succeed_report: vec![0], ..Default::default() }
@@ -288,14 +322,14 @@ fn report_machine_inaccessible_works1() {
         {
             assert_eq!(
                 OnlineProfile::live_machines(),
-                online_profile::LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
+                LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
             );
             let machine_info = OnlineProfile::machines_info(machine_id.clone());
             assert_eq!(
                 machine_info.machine_status,
-                online_profile::MachineStatus::ReporterReportOffline(
-                    online_profile::OPSlashReason::RentedInaccessible(11),
-                    Box::new(online_profile::MachineStatus::Rented),
+                MachineStatus::ReporterReportOffline(
+                    OPSlashReason::RentedInaccessible(11),
+                    Box::new(MachineStatus::Rented),
                     *reporter,
                     vec![*committee],
                 )
@@ -355,7 +389,10 @@ fn report_machine_inaccessible_works2() {
                     // support_committee: vec![committee],
                     against_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -397,7 +434,10 @@ fn report_machine_inaccessible_works2() {
                     // support_committee: vec![committee],
                     against_committee: vec![*committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::CommitteeConfirmed,
                     ..Default::default()
                 }
@@ -442,7 +482,10 @@ fn report_machine_inaccessible_works2() {
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
             let unhandled_report_result: Vec<u64> = vec![0];
-            assert_eq!(&MaintainCommittee::unhandled_report_result(22 + 2880 * 2), &unhandled_report_result);
+            assert_eq!(
+                &MaintainCommittee::unhandled_report_result(22 + 2880 * 2),
+                &unhandled_report_result
+            );
             assert_eq!(
                 &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { failed_report: vec![0], ..Default::default() }
@@ -504,7 +547,10 @@ fn report_machine_inaccessible_works3() {
                     // support_committee: vec![committee],
                     // against_committee: vec![committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -545,10 +591,17 @@ fn report_machine_inaccessible_works3() {
                 &crate::MTLiveReportList { bookable_report: vec![1], ..Default::default() }
             );
             let unhandled_report_result: Vec<u64> = vec![0];
-            assert_eq!(&MaintainCommittee::unhandled_report_result(31 + 2880 * 2), &unhandled_report_result);
+            assert_eq!(
+                &MaintainCommittee::unhandled_report_result(31 + 2880 * 2),
+                &unhandled_report_result
+            );
             assert_eq!(
                 &MaintainCommittee::reporter_report(&*reporter),
-                &crate::ReporterReportList { processing_report: vec![1], failed_report: vec![0], ..Default::default() }
+                &crate::ReporterReportList {
+                    processing_report: vec![1],
+                    failed_report: vec![0],
+                    ..Default::default()
+                }
             );
         }
 
@@ -566,7 +619,10 @@ fn report_machine_inaccessible_works3() {
                     report_time: 11,
                     reporter_stake: 1000 * ONE_DBC,
                     machine_id: machine_id.clone(),
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: crate::ReportStatus::Reported,
 
                     ..Default::default()
@@ -574,12 +630,17 @@ fn report_machine_inaccessible_works3() {
             );
             assert_eq!(
                 &MaintainCommittee::reporter_report(&*reporter),
-                &crate::ReporterReportList { processing_report: vec![1], failed_report: vec![0], ..Default::default() }
+                &crate::ReporterReportList {
+                    processing_report: vec![1],
+                    failed_report: vec![0],
+                    ..Default::default()
+                }
             );
 
             // TODO: 检查free_balance
             // reporter=committee，因此需要质押40000，减去租用机器的租金
-            // assert_eq!(Balances::free_balance(&reporter), INIT_BALANCE - 40000 * ONE_DBC - 10 * ONE_DBC);
+            // assert_eq!(Balances::free_balance(&reporter), INIT_BALANCE - 40000 * ONE_DBC - 10 *
+            // ONE_DBC);
         }
     })
 }
@@ -622,7 +683,10 @@ fn report_machine_inaccessible_works4() {
                     // support_committee: vec![committee],
                     // against_committee: vec![committee],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -663,10 +727,17 @@ fn report_machine_inaccessible_works4() {
                 &crate::MTLiveReportList { bookable_report: vec![1], ..Default::default() }
             );
             let unhandled_report_result: Vec<u64> = vec![0];
-            assert_eq!(&MaintainCommittee::unhandled_report_result(22 + 2880 * 2), &unhandled_report_result);
+            assert_eq!(
+                &MaintainCommittee::unhandled_report_result(22 + 2880 * 2),
+                &unhandled_report_result
+            );
             assert_eq!(
                 &MaintainCommittee::reporter_report(&*reporter),
-                &crate::ReporterReportList { processing_report: vec![1], failed_report: vec![0], ..Default::default() }
+                &crate::ReporterReportList {
+                    processing_report: vec![1],
+                    failed_report: vec![0],
+                    ..Default::default()
+                }
             );
         }
 
@@ -713,7 +784,10 @@ fn report_machine_inaccessible_works5() {
                     verifying_committee: None,
                     booked_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::Verifying,
                     ..Default::default()
                 }
@@ -731,7 +805,10 @@ fn report_machine_inaccessible_works5() {
                 &crate::MTCommitteeOrderList { booked_report: vec![0], ..Default::default() }
             );
 
-            assert_eq!(Balances::free_balance(&committee1), INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC);
+            assert_eq!(
+                Balances::free_balance(&committee1),
+                INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC
+            );
         }
 
         // 委员会首先提交Hash: 内容为 订单ID + 验证人自己的随机数 + 机器是否有问题
@@ -802,7 +879,10 @@ fn report_machine_inaccessible_works5() {
                     booked_committee: vec![committee2, committee3, committee1],
                     hashed_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -819,7 +899,11 @@ fn report_machine_inaccessible_works5() {
             );
             assert_eq!(
                 &MaintainCommittee::committee_order(&committee1),
-                &crate::MTCommitteeOrderList { booked_report: vec![], hashed_report: vec![0], ..Default::default() }
+                &crate::MTCommitteeOrderList {
+                    booked_report: vec![],
+                    hashed_report: vec![0],
+                    ..Default::default()
+                }
             );
         }
 
@@ -864,7 +948,10 @@ fn report_machine_inaccessible_works5() {
                     confirmed_committee: vec![committee2, committee3, committee1],
                     support_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -910,7 +997,10 @@ fn report_machine_inaccessible_works5() {
                     confirmed_committee: vec![committee2, committee3, committee1],
                     support_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::CommitteeConfirmed,
                     ..Default::default()
                 }
@@ -955,7 +1045,10 @@ fn report_machine_inaccessible_works5() {
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
             let unhandled_report_result: Vec<u64> = vec![0];
-            assert_eq!(&MaintainCommittee::unhandled_report_result(11 + 2880 * 2), &unhandled_report_result);
+            assert_eq!(
+                &MaintainCommittee::unhandled_report_result(11 + 2880 * 2),
+                &unhandled_report_result
+            );
             assert_eq!(
                 &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { succeed_report: vec![0], ..Default::default() }
@@ -1054,7 +1147,10 @@ fn report_machine_inaccessible_works8() {
                     confirmed_committee: vec![committee2, committee3, committee1],
                     against_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::SubmittingRaw,
                     ..Default::default()
                 }
@@ -1096,7 +1192,10 @@ fn report_machine_inaccessible_works8() {
                     confirmed_committee: vec![committee2, committee3, committee1],
                     against_committee: vec![committee2, committee3, committee1],
                     confirm_start: 11 + 10,
-                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
+                    machine_fault_type: crate::MachineFaultType::RentedInaccessible(
+                        machine_id.clone(),
+                        0
+                    ),
                     report_status: ReportStatus::CommitteeConfirmed,
                     ..Default::default()
                 }
@@ -1141,7 +1240,10 @@ fn report_machine_inaccessible_works8() {
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
             let unhandled_report_result: Vec<u64> = vec![0];
-            assert_eq!(&MaintainCommittee::unhandled_report_result(11 + 2880 * 2), &unhandled_report_result);
+            assert_eq!(
+                &MaintainCommittee::unhandled_report_result(11 + 2880 * 2),
+                &unhandled_report_result
+            );
             assert_eq!(
                 &MaintainCommittee::reporter_report(&*reporter),
                 &crate::ReporterReportList { failed_report: vec![0], ..Default::default() }

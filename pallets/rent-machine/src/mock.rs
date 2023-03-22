@@ -1,24 +1,28 @@
 use crate as rent_machine;
 use dbc_price_ocw::MAX_LEN;
+use dbc_support::machine_type::{
+    CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
+};
 use frame_support::{
     assert_ok, parameter_types,
     traits::{OnFinalize, OnInitialize},
 };
+use frame_system::EnsureRoot;
 pub use frame_system::{self as system, RawOrigin};
 pub use sp_core::{
     sr25519::{self, Signature},
     u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
-pub use sp_keyring::{ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring};
+pub use sp_keyring::{
+    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
+};
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
     ModuleId, Perbill, Permill,
 };
 use std::convert::TryInto;
-
-use frame_system::EnsureRoot;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -161,7 +165,8 @@ impl online_profile::Config for TestRuntime {
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -174,9 +179,10 @@ impl dbc_price_ocw::Config for TestRuntime {
 impl online_committee::Config for TestRuntime {
     type Event = Event;
     type Currency = Balances;
-    type OCOperations = OnlineProfile;
+    type OCOps = OnlineProfile;
     type ManageCommittee = Committee;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -238,7 +244,8 @@ frame_support::construct_runtime!(
 );
 
 pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
-    let mut storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    let mut storage =
+        frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
     #[rustfmt::skip]
     pallet_balances::GenesisConfig::<TestRuntime> {
@@ -266,7 +273,9 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
     let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
 
     // Bob pubkey
-    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+    let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+        .as_bytes()
+        .to_vec();
     let msg = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48\
                    5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
     let sig = "b4084f70730b183127e9db78c6d8dcf79039f23466cd1ee8b536c40c3027a83d\
@@ -324,7 +333,7 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         // 设置标准GPU租金价格: (3080得分1000；租金每月1000RMB) {1000; 150_000_000};
         assert_ok!(OnlineProfile::set_standard_gpu_point_price(
             RawOrigin::Root.into(),
-            online_profile::StandardGpuPointPrice { gpu_point: 1000, gpu_price: 5_000_000 }
+            StandardGpuPointPrice { gpu_point: 1000, gpu_price: 5_000_000 }
         ));
         // 设置机器租金支付地址
         assert_ok!(RentMachine::set_rent_fee_pot(RawOrigin::Root.into(), pot_two));
@@ -352,13 +361,13 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         assert_ok!(OnlineProfile::add_machine_info(
             Origin::signed(controller),
             machine_id.clone(),
-            online_profile::StakerCustomizeInfo {
+            StakerCustomizeInfo {
                 // server_room: H256::from_low_u64_be(1),
                 server_room: server_room[0],
                 upload_net: 10000,
                 download_net: 10000,
-                longitude: online_profile::Longitude::East(1157894),
-                latitude: online_profile::Latitude::North(235678),
+                longitude: Longitude::East(1157894),
+                latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
             }
         ));
@@ -370,37 +379,50 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee2));
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee3));
 
-        let one_box_pubkey: [u8; 32] = hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee1), one_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee2), one_box_pubkey.clone()));
-        assert_ok!(Committee::committee_set_box_pubkey(Origin::signed(committee3), one_box_pubkey.clone()));
+        let one_box_pubkey: [u8; 32] =
+            hex::decode("9dccbab2d61405084eac440f877a6479bc827373b2e414e81a6170ebe5aadd12")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        assert_ok!(Committee::committee_set_box_pubkey(
+            Origin::signed(committee1),
+            one_box_pubkey.clone()
+        ));
+        assert_ok!(Committee::committee_set_box_pubkey(
+            Origin::signed(committee2),
+            one_box_pubkey.clone()
+        ));
+        assert_ok!(Committee::committee_set_box_pubkey(
+            Origin::signed(committee3),
+            one_box_pubkey.clone()
+        ));
 
         run_to_block(5);
 
         // 委员会提交机器Hash
-        let machine_info_hash1: [u8; 16] = hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
+        let machine_info_hash1: [u8; 16] =
+            hex::decode("fd8885a22a9d9784adaa36effcd77522").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
-        let machine_info_hash2: [u8; 16] = hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
+        let machine_info_hash2: [u8; 16] =
+            hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
-        let machine_info_hash3: [u8; 16] = hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
+        let machine_info_hash3: [u8; 16] =
+            hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
             Origin::signed(committee3),
             machine_id.clone(),
             machine_info_hash3
         ));
 
-        let mut committee_upload_info = online_profile::CommitteeUploadInfo {
+        let mut committee_upload_info = CommitteeUploadInfo {
             machine_id: machine_id.clone(),
             gpu_type: "GeForceRTX3080".as_bytes().to_vec(),
             gpu_num: 4,
@@ -419,11 +441,20 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
         };
 
         // 委员会提交原始信息
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee1), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(committee1),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee2), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(committee2),
+            committee_upload_info.clone()
+        ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
-        assert_ok!(OnlineCommittee::submit_confirm_raw(Origin::signed(committee3), committee_upload_info.clone()));
+        assert_ok!(OnlineCommittee::submit_confirm_raw(
+            Origin::signed(committee3),
+            committee_upload_info.clone()
+        ));
 
         run_to_block(10);
     });

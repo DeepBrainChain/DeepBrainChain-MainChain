@@ -1,7 +1,10 @@
 use super::super::mock::*;
 use crate::{ConfirmingOrder, MachineGPUOrder, RentInfo, RentOrderDetail, RentOrderId, RentStatus};
+use dbc_support::{
+    live_machine::LiveMachine, machine_type::MachineStatus, verify_online::StashMachine,
+};
 use frame_support::assert_ok;
-use online_profile::{EraStashPoints, LiveMachine, StashMachine, SysInfoDetail};
+use online_profile::{EraStashPoints, SysInfoDetail};
 
 #[test]
 fn report_individual_gpu() {
@@ -10,10 +13,17 @@ fn report_individual_gpu() {
         let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
 
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
 
         // 两人各租用1台机器
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 1 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(renter1),
+            machine_id.clone(),
+            2,
+            1 * 2880
+        ));
         // 检查 renter1 状态
         {
             // rent_machine:
@@ -53,11 +63,16 @@ fn report_individual_gpu() {
             // machine_info; machine_rented_gpu;
             assert_eq!(OnlineProfile::machine_rented_gpu(&machine_id), 2);
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+            assert_eq!(machine_info.machine_status, MachineStatus::Rented);
         }
 
         // 检查renter2 状态，应该与1一致
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter2), machine_id.clone(), 2, 1 * 2880));
+        assert_ok!(RentMachine::rent_machine(
+            Origin::signed(renter2),
+            machine_id.clone(),
+            2,
+            1 * 2880
+        ));
         // 检查状态
         {
             // rent_machine:
@@ -92,7 +107,7 @@ fn report_individual_gpu() {
             // machine_info; machine_rented_gpu;
             assert_eq!(OnlineProfile::machine_rented_gpu(&machine_id), 4);
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+            assert_eq!(machine_info.machine_status, MachineStatus::Rented);
         }
 
         // 两个订单分别进行确认租用
@@ -123,7 +138,10 @@ fn report_individual_gpu() {
             // EraStashPoints, ErasMachinePoints, SysInfo, StashMachines
 
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(OnlineProfile::eras_stash_points(1), EraStashPoints { ..Default::default() });
+            assert_eq!(
+                OnlineProfile::eras_stash_points(1),
+                EraStashPoints { ..Default::default() }
+            );
             assert_eq!(
                 OnlineProfile::live_machines(),
                 LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
@@ -184,7 +202,10 @@ fn report_individual_gpu() {
 
             let machine_info = OnlineProfile::machines_info(&machine_id);
             assert_eq!(machine_info.renters, vec![renter2, renter1]);
-            assert_eq!(OnlineProfile::eras_stash_points(1), EraStashPoints { ..Default::default() });
+            assert_eq!(
+                OnlineProfile::eras_stash_points(1),
+                EraStashPoints { ..Default::default() }
+            );
             assert_eq!(
                 OnlineProfile::live_machines(),
                 LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
@@ -285,7 +306,7 @@ fn report_individual_gpu() {
             assert!(live_machines.online_machine.binary_search(&machine_id).is_err());
             assert!(live_machines.rented_machine.binary_search(&machine_id).is_ok());
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Rented);
+            assert_eq!(machine_info.machine_status, MachineStatus::Rented);
             assert_eq!(machine_info.total_rented_duration, 1440);
             assert_eq!(machine_info.renters, vec![renter1]);
 
@@ -317,7 +338,7 @@ fn report_individual_gpu() {
             assert!(live_machines.online_machine.binary_search(&machine_id).is_ok());
             assert!(live_machines.rented_machine.binary_search(&machine_id).is_err());
             let machine_info = OnlineProfile::machines_info(&machine_id);
-            assert_eq!(machine_info.machine_status, online_profile::MachineStatus::Online);
+            assert_eq!(machine_info.machine_status, MachineStatus::Online);
             assert_eq!(machine_info.total_rented_duration, 4320);
             assert_eq!(machine_info.renters, vec![]);
 

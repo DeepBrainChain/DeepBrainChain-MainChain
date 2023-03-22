@@ -26,8 +26,8 @@ use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, debug, parameter_types,
     traits::{
-        Currency, Imbalance, InstanceFilter, KeyOwnerProofSystem, LockIdentifier, OnUnbalanced, Randomness,
-        U128CurrencyToVote,
+        Currency, Imbalance, InstanceFilter, KeyOwnerProofSystem, LockIdentifier, OnUnbalanced,
+        Randomness, U128CurrencyToVote,
     },
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -42,7 +42,9 @@ use frame_system::{
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use pallet_contracts::WeightInfo;
-use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_grandpa::{
+    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
@@ -60,7 +62,8 @@ use sp_runtime::{
     curve::PiecewiseLinear,
     generic, impl_opaque_keys,
     traits::{
-        self, BlakeTwo256, Block as BlockT, ConvertInto, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
+        self, BlakeTwo256, Block as BlockT, ConvertInto, NumberFor, OpaqueKeys,
+        SaturatedConversion, StaticLookup,
     },
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber, ModuleId, Perbill, Percent, Permill, Perquintill,
@@ -71,8 +74,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
-use generic_func::MachineId;
-use rent_machine::{MachineGPUOrder, RentOrderId};
+use dbc_support::{rental_type::MachineGPUOrder, EraIndex, MachineId, RentOrderId};
 
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
@@ -115,7 +117,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 270,
+    spec_version: 271,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -261,18 +263,18 @@ impl InstanceFilter<Call> for ProxyType {
             ProxyType::Any => true,
             ProxyType::NonTransfer => !matches!(
                 c,
-                Call::Balances(..)
-                    | Call::Vesting(pallet_vesting::Call::vested_transfer(..))
-                    | Call::Indices(pallet_indices::Call::transfer(..))
+                Call::Balances(..) |
+                    Call::Vesting(pallet_vesting::Call::vested_transfer(..)) |
+                    Call::Indices(pallet_indices::Call::transfer(..))
             ),
             ProxyType::Governance => matches!(
                 c,
-                Call::Democracy(..)
-                    | Call::Council(..)
-                    | Call::Society(..)
-                    | Call::TechnicalCommittee(..)
-                    | Call::Elections(..)
-                    | Call::Treasury(..)
+                Call::Democracy(..) |
+                    Call::Council(..) |
+                    Call::Society(..) |
+                    Call::TechnicalCommittee(..) |
+                    Call::Elections(..) |
+                    Call::Treasury(..)
             ),
             ProxyType::Staking => matches!(c, Call::Staking(..)),
         }
@@ -334,13 +336,18 @@ impl pallet_babe::Config for Runtime {
 
     type KeyOwnerProofSystem = Historical;
 
-    type KeyOwnerProof =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
+    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::Proof;
 
-    type KeyOwnerIdentification =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::IdentificationTuple;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        pallet_babe::AuthorityId,
+    )>>::IdentificationTuple;
 
-    type HandleEquivocation = pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, Offences, ReportLongevity>;
+    type HandleEquivocation =
+        pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, Offences, ReportLongevity>;
 
     type WeightInfo = ();
 }
@@ -385,7 +392,8 @@ impl pallet_transaction_payment::Config for Runtime {
     type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
-    type FeeMultiplierUpdate = TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
+    type FeeMultiplierUpdate =
+        TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 }
 
 parameter_types! {
@@ -455,7 +463,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
     pub const BondingDuration: pallet_staking::EraIndex = 14;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 27; // 1/4 the bonding duration.
+    pub const SlashDeferDuration: pallet_staking::EraIndex = 14; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 128;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 8;
@@ -523,20 +531,26 @@ impl pallet_democracy::Config for Runtime {
     type VotingPeriod = VotingPeriod;
     type MinimumDeposit = MinimumDeposit;
     /// A straight majority of the council can decide what their next motion is.
-    type ExternalOrigin = pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective>;
+    type ExternalOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective>;
     /// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
-    type ExternalMajorityOrigin = pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
+    type ExternalMajorityOrigin =
+        pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
     /// A unanimous council can have the next scheduled referendum be a straight default-carries
     /// (NTB) vote.
-    type ExternalDefaultOrigin = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
+    type ExternalDefaultOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
     /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
-    type FastTrackOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
-    type InstantOrigin = pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCollective>;
+    type FastTrackOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>;
+    type InstantOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCollective>;
     type InstantAllowed = InstantAllowed;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     // To cancel a proposal which has been passed, 2/3 of the council must agree to it.
-    type CancellationOrigin = pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
+    type CancellationOrigin =
+        pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>;
     // To cancel a proposal before it has been passed, the technical committee must be unanimous or
     // Root must agree.
     type CancelProposalOrigin = EnsureOneOf<
@@ -583,7 +597,7 @@ parameter_types! {
     pub const VotingBondBase: Balance = deposit(1, 64);
     // additional data per vote is 32 bytes (account id).
     pub const VotingBondFactor: Balance = deposit(0, 32);
-    pub const TermDuration: BlockNumber = 60 * DAYS;
+    pub const TermDuration: BlockNumber = 120 * DAYS;
     pub const DesiredMembers: u32 = 21;
     pub const DesiredRunnersUp: u32 = 7;
     pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
@@ -781,7 +795,8 @@ where
     ) -> Option<(Call, <UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload)> {
         let tip = 0;
         // take the biggest period possible.
-        let period = BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+        let period =
+            BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
         let current_block = System::block_number()
             .saturated_into::<u64>()
             // The `System::block_number` is initialized with `n+1`,
@@ -852,13 +867,19 @@ impl pallet_grandpa::Config for Runtime {
 
     type KeyOwnerProofSystem = Historical;
 
-    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+    type KeyOwnerProof =
+        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 
-    type KeyOwnerIdentification =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::IdentificationTuple;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        GrandpaId,
+    )>>::IdentificationTuple;
 
-    type HandleEquivocation =
-        pallet_grandpa::EquivocationHandler<Self::KeyOwnerIdentification, Offences, ReportLongevity>;
+    type HandleEquivocation = pallet_grandpa::EquivocationHandler<
+        Self::KeyOwnerIdentification,
+        Offences,
+        ReportLongevity,
+    >;
 
     type WeightInfo = ();
 }
@@ -927,7 +948,8 @@ impl pallet_society::Config for Runtime {
     type MembershipChanged = ();
     type RotationPeriod = RotationPeriod;
     type MaxLockDuration = MaxLockDuration;
-    type FounderSetOrigin = pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
+    type FounderSetOrigin =
+        pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
     type SuspensionJudgementOrigin = pallet_society::EnsureFounder<Runtime>;
     type ChallengePeriod = ChallengePeriod;
 }
@@ -1020,7 +1042,8 @@ impl online_profile::Config for Runtime {
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -1038,9 +1061,10 @@ impl committee::Config for Runtime {
 impl online_committee::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
-    type OCOperations = OnlineProfile;
+    type OCOps = OnlineProfile;
     type ManageCommittee = Committee;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -1050,7 +1074,8 @@ impl maintain_committee::Config for Runtime {
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
     type Slash = Treasury;
-    type CancelSlashOrigin = pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -1059,6 +1084,36 @@ impl rent_machine::Config for Runtime {
     type Event = Event;
     type RTOps = OnlineProfile;
     type DbcPrice = DBCPriceOCW;
+}
+
+impl terminating_rental::Config for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type Slash = Treasury;
+    type ManageCommittee = Committee;
+    type DbcPrice = DBCPriceOCW;
+    type SlashAndReward = GenericFunc;
+}
+
+parameter_types! {
+    // 首要投票人：5000 USD 或 60万 DBC 取价值较小
+    pub const PrimerReward: (u64, Balance) = (5_000_000_000u64, 600_000 * DBCS);
+    // 排名第二的议会成员：2000 USD 或 20万 DBC 取价值较小
+    pub const SecondReward: (u64, Balance) = (2_000_000_000u64, 200_000 * DBCS);
+    // 排名第三的议会成员：2000 USD 或 20万 DBC 取价值较小
+    pub const ThirdReward: (u64, Balance) = (2_000_000_000u64, 200_000 * DBCS);
+    // 发放周期
+    pub const RewardFrequency: BlockNumber = 30 * DAYS;
+}
+
+impl council_reward::Config for Runtime {
+    type Event = Event;
+    type DbcPrice = DBCPriceOCW;
+    type Currency = Balances;
+    type RewardFrequency = RewardFrequency;
+    type PrimerReward = PrimerReward;
+    type SecondReward = SecondReward;
+    type ThirdReward = ThirdReward;
 }
 
 construct_runtime!(
@@ -1111,6 +1166,8 @@ construct_runtime!(
         OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
         MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
         RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
+        TerminatingRental: terminating_rental::{Module, Storage, Call, Event<T>},
+        CouncilReward: council_reward::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -1145,8 +1202,13 @@ pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllModules>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    frame_system::ChainContext<Runtime>,
+    Runtime,
+    AllModules,
+>;
 
 /// MMR helper types.
 mod mmr {
@@ -1173,31 +1235,31 @@ impl_runtime_apis! {
             OnlineProfile::get_staker_info(who)
         }
 
-        fn get_machine_list() -> online_profile::LiveMachine {
+        fn get_machine_list() -> dbc_support::live_machine::LiveMachine {
             OnlineProfile::get_machine_list()
         }
 
-        fn get_machine_info(machine_id: MachineId) -> online_profile::MachineInfo<AccountId, BlockNumber, Balance> {
+        fn get_machine_info(machine_id: MachineId) -> dbc_support::machine_info::MachineInfo<AccountId, BlockNumber, Balance> {
             OnlineProfile::get_machine_info(machine_id)
         }
 
-        fn get_pos_gpu_info() -> Vec<(online_profile::Longitude, online_profile::Latitude, online_profile::PosInfo)> {
+        fn get_pos_gpu_info() -> Vec<(dbc_support::machine_type::Longitude, dbc_support::machine_type::Latitude, online_profile::PosInfo)> {
             OnlineProfile::get_pos_gpu_info()
         }
 
-        fn get_machine_era_reward(machine_id: MachineId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_machine_era_reward(machine_id: MachineId, era_index: EraIndex) -> Balance {
             OnlineProfile::get_machine_era_reward(machine_id, era_index)
         }
 
-        fn get_machine_era_released_reward(machine_id: MachineId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_machine_era_released_reward(machine_id: MachineId, era_index: EraIndex) -> Balance {
             OnlineProfile::get_machine_era_released_reward(machine_id, era_index)
         }
 
-        fn get_stash_era_reward(stash: AccountId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_stash_era_reward(stash: AccountId, era_index: EraIndex) -> Balance {
             OnlineProfile::get_stash_era_reward(stash, era_index)
         }
 
-        fn get_stash_era_released_reward(stash: AccountId, era_index: online_profile::EraIndex) -> Balance {
+        fn get_stash_era_released_reward(stash: AccountId, era_index: EraIndex) -> Balance {
             OnlineProfile::get_stash_era_released_reward(stash, era_index)
         }
 
@@ -1215,7 +1277,7 @@ impl_runtime_apis! {
     }
 
     impl online_committee_runtime_api::OcRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_committee_machine_list(committee: AccountId) -> online_committee::OCCommitteeMachineList {
+        fn get_committee_machine_list(committee: AccountId) -> dbc_support::verify_online::OCCommitteeMachineList {
             OnlineCommittee::get_committee_machine_list(committee)
         }
 
@@ -1223,13 +1285,13 @@ impl_runtime_apis! {
             OnlineCommittee::get_committee_ops(committee, machine_id)
         }
 
-        fn get_machine_committee_list(machine_id: MachineId) -> online_committee::OCMachineCommitteeList<AccountId, BlockNumber> {
+        fn get_machine_committee_list(machine_id: MachineId) -> dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber> {
             OnlineCommittee::get_machine_committee_list(machine_id)
         }
     }
 
     impl rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_rent_order(rent_id: RentOrderId) -> rent_machine::RentOrderDetail<AccountId, BlockNumber, Balance> {
+        fn get_rent_order(rent_id: RentOrderId) -> dbc_support::rental_type::RentOrderDetail<AccountId, BlockNumber, Balance> {
             RentMachine::get_rent_order(rent_id)
         }
 
@@ -1249,6 +1311,52 @@ impl_runtime_apis! {
     impl committee_runtime_api::CmRpcApi<Block, AccountId> for Runtime {
         fn get_committee_list() -> committee::CommitteeList<AccountId> {
             Committee::get_committee_list()
+        }
+    }
+
+    impl terminating_rental_runtime_api::IrRpcApi<Block, AccountId, Balance, BlockNumber> for Runtime {
+        fn get_total_staker_num() -> u64 {
+            TerminatingRental::get_total_staker_num()
+        }
+
+        fn get_staker_info(who: AccountId) -> terminating_rental::rpc_types::StakerInfo<Balance, BlockNumber, AccountId> {
+            TerminatingRental::get_staker_info(who)
+        }
+
+        fn get_machine_list() -> dbc_support::live_machine::LiveMachine {
+            TerminatingRental::get_machine_list()
+        }
+
+        fn get_machine_info(machine_id: MachineId) -> dbc_support::machine_info::MachineInfo<AccountId, BlockNumber, Balance> {
+            TerminatingRental::get_machine_info(machine_id)
+        }
+
+        fn get_committee_machine_list(committee: AccountId) -> dbc_support::verify_online::OCCommitteeMachineList {
+            TerminatingRental::get_committee_machine_list(committee)
+        }
+
+        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> terminating_rental::rpc_types::RpcIRCommitteeOps<BlockNumber, Balance> {
+            TerminatingRental::get_committee_ops(committee, machine_id)
+        }
+
+        fn get_machine_committee_list(machine_id: MachineId) -> dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber> {
+            TerminatingRental::get_machine_committee_list(machine_id)
+        }
+
+        fn get_rent_order(rent_id: RentOrderId) -> dbc_support::rental_type::RentOrderDetail<AccountId, BlockNumber, Balance> {
+            TerminatingRental::get_rent_order(rent_id)
+        }
+
+        fn get_rent_list(renter: AccountId) -> Vec<RentOrderId> {
+            TerminatingRental::get_rent_list(renter)
+        }
+
+        fn is_machine_renter(machine_id: MachineId, renter: AccountId) -> bool {
+            TerminatingRental::is_machine_renter(machine_id, renter)
+        }
+
+        fn get_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
+            TerminatingRental::get_machine_rent_id(machine_id)
         }
     }
 
