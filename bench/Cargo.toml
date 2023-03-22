@@ -1,0 +1,44 @@
+[package]
+name = "node-bench"
+version = "0.9.0-dev"
+authors = ["Parity Technologies <admin@parity.io>"]
+description = "Substrate node integration benchmarks."
+edition = "2021"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+array-bytes = "4.1"
+clap = { version = "4.0.9", features = ["derive"] }
+log = "0.4.17"
+node-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+node-testing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+kitchensink-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+serde = "1.0.136"
+serde_json = "1.0.85"
+derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
+kvdb = "0.13.0"
+kvdb-rocksdb = "0.17.0"
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+hash-db = "0.15.2"
+tempfile = "3.1.0"
+fs_extra = "1"
+rand = { version = "0.8.5", features = ["small_rng"] }
+lazy_static = "1.4.0"
+parity-db = "0.4.2"
+sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+futures = { version = "0.3.21", features = ["thread-pool"] }

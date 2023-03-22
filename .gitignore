@@ -1,0 +1,9 @@
+**/target/
+**/node_modules/
+.vscode
+.DS_Store
+.idea/
+nohup.out
+.local
+.cargo/
+*.log
