@@ -27,12 +27,12 @@ use sp_runtime::{
     traits::Hash as HashT, transaction_validity::InvalidTransaction, ApplyExtrinsicResult,
 };
 
+use dbc_primitives::{Balance, Hash};
 use dbc_runtime::{
     constants::{currency::*, time::SLOT_DURATION},
     Balances, CheckedExtrinsic, Header, Runtime, RuntimeCall, RuntimeEvent, System,
     TransactionPayment, Treasury, UncheckedExtrinsic,
 };
-use dbc_primitives::{Balance, Hash};
 use node_testing::keyring::*;
 use wat;
 

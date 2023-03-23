@@ -23,6 +23,8 @@
 #![recursion_limit = "512"]
 
 use codec::{Decode, Encode, MaxEncodedLen};
+pub use dbc_primitives::{AccountId, Signature};
+use dbc_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use frame_election_provider_support::{
     onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
 };
@@ -48,8 +50,6 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureWithSuccess,
 };
-pub use dbc_primitives::{AccountId, Signature};
-use dbc_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -304,12 +304,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ),
             ProxyType::Governance => matches!(
                 c,
-                RuntimeCall::Democracy(..)
-                    | RuntimeCall::Council(..)
-                    | RuntimeCall::Society(..)
-                    | RuntimeCall::TechnicalCommittee(..)
-                    | RuntimeCall::Elections(..)
-                    | RuntimeCall::Treasury(..)
+                RuntimeCall::Democracy(..) |
+                    RuntimeCall::Council(..) |
+                    RuntimeCall::Society(..) |
+                    RuntimeCall::TechnicalCommittee(..) |
+                    RuntimeCall::Elections(..) |
+                    RuntimeCall::Treasury(..)
             ),
             ProxyType::Staking => matches!(c, RuntimeCall::Staking(..)),
         }
@@ -659,8 +659,8 @@ impl Get<Option<BalancingConfig>> for OffchainRandomBalancing {
             max => {
                 let seed = sp_io::offchain::random_seed();
                 let random = <u32>::decode(&mut TrailingZeroInput::new(&seed))
-                    .expect("input is padded with zeroes; qed")
-                    % max.saturating_add(1);
+                    .expect("input is padded with zeroes; qed") %
+                    max.saturating_add(1);
                 random as usize
             },
         };

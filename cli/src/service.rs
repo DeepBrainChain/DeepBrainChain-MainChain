@@ -562,11 +562,11 @@ pub fn new_full(
 mod tests {
     use crate::service::{new_full_base, NewFullBase};
     use codec::Encode;
+    use dbc_primitives::{Block, DigestItem, Signature};
     use dbc_runtime::{
         constants::{currency::CENTS, time::SLOT_DURATION},
         Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
     };
-    use dbc_primitives::{Block, DigestItem, Signature};
     use sc_client_api::BlockBackend;
     use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
     use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
@@ -683,7 +683,7 @@ mod tests {
                         sc_consensus_babe::authorship::claim_slot(slot.into(), &epoch, &keystore)
                             .map(|(digest, _)| digest)
                     {
-                        break (babe_pre_digest, epoch_descriptor);
+                        break (babe_pre_digest, epoch_descriptor)
                     }
 
                     slot += 1;

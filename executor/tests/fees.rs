@@ -16,17 +16,17 @@
 // limitations under the License.
 
 use codec::{Encode, Joiner};
-use frame_support::{
-    dispatch::GetDispatchInfo,
-    traits::Currency,
-    weights::{constants::ExtrinsicBaseWeight, IdentityFee, WeightToFee},
-};
+use dbc_primitives::Balance;
 use dbc_runtime::{
     constants::{currency::*, time::SLOT_DURATION},
     Balances, CheckedExtrinsic, Multiplier, Runtime, RuntimeCall, TransactionByteFee,
     TransactionPayment,
 };
-use dbc_primitives::Balance;
+use frame_support::{
+    dispatch::GetDispatchInfo,
+    traits::Currency,
+    weights::{constants::ExtrinsicBaseWeight, IdentityFee, WeightToFee},
+};
 use node_testing::keyring::*;
 use sp_runtime::{traits::One, Perbill};
 
