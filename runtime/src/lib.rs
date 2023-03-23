@@ -306,7 +306,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::Democracy(..) |
                     RuntimeCall::Council(..) |
-                    RuntimeCall::Society(..) |
+                    // RuntimeCall::Society(..) |
                     RuntimeCall::TechnicalCommittee(..) |
                     RuntimeCall::Elections(..) |
                     RuntimeCall::Treasury(..)
@@ -1341,37 +1341,6 @@ impl pallet_recovery::Config for Runtime {
 }
 
 parameter_types! {
-    pub const CandidateDeposit: Balance = 10 * DOLLARS;
-    pub const WrongSideDeduction: Balance = 2 * DOLLARS;
-    pub const MaxStrikes: u32 = 10;
-    pub const RotationPeriod: BlockNumber = 80 * HOURS;
-    pub const PeriodSpend: Balance = 500 * DOLLARS;
-    pub const MaxLockDuration: BlockNumber = 36 * 30 * DAYS;
-    pub const ChallengePeriod: BlockNumber = 7 * DAYS;
-    pub const MaxCandidateIntake: u32 = 10;
-    pub const SocietyPalletId: PalletId = PalletId(*b"py/socie");
-}
-
-impl pallet_society::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type PalletId = SocietyPalletId;
-    type Currency = Balances;
-    type Randomness = RandomnessCollectiveFlip;
-    type CandidateDeposit = CandidateDeposit;
-    type WrongSideDeduction = WrongSideDeduction;
-    type MaxStrikes = MaxStrikes;
-    type PeriodSpend = PeriodSpend;
-    type MembershipChanged = ();
-    type RotationPeriod = RotationPeriod;
-    type MaxLockDuration = MaxLockDuration;
-    type FounderSetOrigin =
-        pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>;
-    type SuspensionJudgementOrigin = pallet_society::EnsureFounder<Runtime>;
-    type MaxCandidateIntake = MaxCandidateIntake;
-    type ChallengePeriod = ChallengePeriod;
-}
-
-parameter_types! {
     pub const MinVestedTransfer: Balance = 100 * DOLLARS;
     pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
         WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
@@ -1396,25 +1365,6 @@ impl pallet_mmr::Config for Runtime {
     type LeafData = pallet_mmr::ParentNumberAndHash<Self>;
     type OnNewRoot = ();
     type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const LotteryPalletId: PalletId = PalletId(*b"py/lotto");
-    pub const MaxCalls: u32 = 10;
-    pub const MaxGenerateRandom: u32 = 10;
-}
-
-impl pallet_lottery::Config for Runtime {
-    type PalletId = LotteryPalletId;
-    type RuntimeCall = RuntimeCall;
-    type Currency = Balances;
-    type Randomness = RandomnessCollectiveFlip;
-    type RuntimeEvent = RuntimeEvent;
-    type ManagerOrigin = EnsureRoot<AccountId>;
-    type MaxCalls = MaxCalls;
-    type ValidateCall = Lottery;
-    type MaxGenerateRandom = MaxGenerateRandom;
-    type WeightInfo = pallet_lottery::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1497,24 +1447,6 @@ parameter_types! {
 
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
-// parameter_types! {
-//     pub const AllianceMotionDuration: BlockNumber = ALLIANCE_MOTION_DURATION_IN_BLOCKS;
-//     pub const AllianceMaxProposals: u32 = 100;
-//     pub const AllianceMaxMembers: u32 = 100;
-// }
-
-// type AllianceCollective = pallet_collective::Instance3;
-// impl pallet_collective::Config<AllianceCollective> for Runtime {
-//     type RuntimeOrigin = RuntimeOrigin;
-//     type Proposal = RuntimeCall;
-//     type RuntimeEvent = RuntimeEvent;
-//     type MotionDuration = AllianceMotionDuration;
-//     type MaxProposals = AllianceMaxProposals;
-//     type MaxMembers = AllianceMaxMembers;
-//     type DefaultVote = pallet_collective::PrimeDefaultVote;
-//     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-// }
-
 parameter_types! {
     // pub const MaxFellows: u32 = AllianceMaxMembers::get();
     pub const MaxAllies: u32 = 100;
@@ -1557,7 +1489,7 @@ construct_runtime!(
         Historical: pallet_session_historical::{Pallet},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip,
         Identity: pallet_identity,
-        Society: pallet_society,
+        // Society: pallet_society,
         Recovery: pallet_recovery,
         Vesting: pallet_vesting,
         Scheduler: pallet_scheduler,
@@ -1568,7 +1500,7 @@ construct_runtime!(
         Tips: pallet_tips,
         Assets: pallet_assets,
         Mmr: pallet_mmr,
-        Lottery: pallet_lottery,
+        // Lottery: pallet_lottery,
         Nfts: pallet_nfts,
         VoterList: pallet_bags_list::<Instance1>,
         ChildBounties: pallet_child_bounties,
@@ -1669,7 +1601,7 @@ mod benches {
         [pallet_identity, Identity]
         [pallet_im_online, ImOnline]
         [pallet_indices, Indices]
-        [pallet_lottery, Lottery]
+        // [pallet_lottery, Lottery]
         [pallet_membership, TechnicalMembership]
         [pallet_message_queue, MessageQueue]
         [pallet_mmr, Mmr]
