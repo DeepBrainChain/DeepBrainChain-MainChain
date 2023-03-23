@@ -1,5 +1,5 @@
 [package]
-name = "node-bench"
+name = "dbc-bench"
 version = "0.9.0-dev"
 authors = ["Parity Technologies <admin@parity.io>"]
 description = "Substrate node integration benchmarks."
@@ -16,7 +16,7 @@ array-bytes = "4.1"
 clap = { version = "4.0.9", features = ["derive"] }
 log = "0.4.17"
 dbc-primitives = { path = "../primitives" }
-node-testing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+dbc-testing = { path = "../testing" }
 dbc-runtime = { path = "../runtime" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }

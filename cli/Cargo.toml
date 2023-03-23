@@ -99,7 +99,7 @@ dbc-runtime = { path = "../runtime" }
 # CLI-specific dependencies
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", optional = true }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", optional = true }
-node-inspect = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", optional = true }
+dbc-inspect = { path = "../inspect", optional = true }
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", optional = true }
 serde_json = "1.0.85"
 
@@ -131,7 +131,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 [build-dependencies]
 clap = { version = "4.0.9", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
-node-inspect = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", optional = true }
+dbc-inspect = { path = "../inspect", optional = true }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", optional = true }
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", optional = true }
 substrate-frame-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", optional = true }
@@ -142,7 +142,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "p
 [features]
 default = ["cli"]
 cli = [
-	"node-inspect",
+	"dbc-inspect",
 	"sc-cli",
 	"frame-benchmarking-cli",
 	"substrate-frame-cli",
