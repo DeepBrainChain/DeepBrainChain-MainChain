@@ -2789,6 +2789,7 @@ dependencies = [
  "hex",
  "pallet-randomness-collective-flip",
  "parity-scale-codec",
+ "rand_chacha 0.2.2",
  "scale-info",
  "serde",
  "sp-core",

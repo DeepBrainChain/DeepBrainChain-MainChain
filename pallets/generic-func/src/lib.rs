@@ -9,12 +9,11 @@ use frame_support::{
     traits::{Currency, OnUnbalanced, Randomness, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
+use rand_chacha::rand_core::SeedableRng;
 use sp_core::H256;
-use sp_runtime::{
-    traits::{BlakeTwo256, Saturating},
-    RandomNumberGenerator,
-};
+use sp_runtime::traits::{BlakeTwo256, Saturating};
 use sp_std::prelude::*;
+use frame_support::weights::Weight;
 
 pub use pallet::*;
 
@@ -33,7 +32,7 @@ pub mod pallet {
         type Currency: ReservableCurrency<Self::AccountId>;
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type BlockPerEra: Get<u32>;
-        type RandomnessSource: Randomness<H256>;
+        type RandomnessSource: Randomness<H256, Self::BlockNumber>;
         type FixedTxFee: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
@@ -196,7 +195,10 @@ impl<T: Config> Pallet<T> {
     pub fn random_u32(max: u32) -> u32 {
         let subject = Self::update_nonce();
         let random_seed = T::RandomnessSource::random(&subject);
-        let mut rng = <RandomNumberGenerator<BlakeTwo256>>::new(random_seed);
+
+        let mut rng = rand_chacha::ChaChaRng::from_seed(random_seed);
+
+        // let mut rng = <RandomNumberGenerator<BlakeTwo256>>::new(random_seed);
         rng.pick_u32(max)
     }
 
