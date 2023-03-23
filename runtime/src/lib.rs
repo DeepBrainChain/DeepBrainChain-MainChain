@@ -295,12 +295,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::Any => true,
             ProxyType::NonTransfer => !matches!(
                 c,
-                RuntimeCall::Balances(..)
-                    | RuntimeCall::Assets(..)
-                    // | RuntimeCall::Uniques(..)
-                    | RuntimeCall::Nfts(..)
-                    | RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. })
-                    | RuntimeCall::Indices(pallet_indices::Call::transfer { .. })
+                RuntimeCall::Balances(..) |
+                    RuntimeCall::Assets(..) |
+                    RuntimeCall::Nfts(..) |
+                    RuntimeCall::Indices(pallet_indices::Call::transfer { .. })
             ),
             ProxyType::Governance => matches!(
                 c,
@@ -1340,24 +1338,6 @@ impl pallet_recovery::Config for Runtime {
     type RecoveryDeposit = RecoveryDeposit;
 }
 
-parameter_types! {
-    pub const MinVestedTransfer: Balance = 100 * DOLLARS;
-    pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-        WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
-}
-
-impl pallet_vesting::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type BlockNumberToBalance = ConvertInto;
-    type MinVestedTransfer = MinVestedTransfer;
-    type WeightInfo = pallet_vesting::weights::SubstrateWeight<Runtime>;
-    type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
-    // `VestingInfo` encode length is 36bytes. 28 schedules gets encoded as 1009 bytes, which is the
-    // highest number of schedules that encodes less than 2^10.
-    const MAX_VESTING_SCHEDULES: u32 = 28;
-}
-
 impl pallet_mmr::Config for Runtime {
     const INDEXING_PREFIX: &'static [u8] = b"mmr";
     type Hashing = <Runtime as frame_system::Config>::Hashing;
@@ -1489,9 +1469,7 @@ construct_runtime!(
         Historical: pallet_session_historical::{Pallet},
         RandomnessCollectiveFlip: pallet_randomness_collective_flip,
         Identity: pallet_identity,
-        // Society: pallet_society,
         Recovery: pallet_recovery,
-        Vesting: pallet_vesting,
         Scheduler: pallet_scheduler,
         Preimage: pallet_preimage,
         Proxy: pallet_proxy,
@@ -1500,13 +1478,11 @@ construct_runtime!(
         Tips: pallet_tips,
         Assets: pallet_assets,
         Mmr: pallet_mmr,
-        // Lottery: pallet_lottery,
         Nfts: pallet_nfts,
         VoterList: pallet_bags_list::<Instance1>,
         ChildBounties: pallet_child_bounties,
         Referenda: pallet_referenda,
         ConvictionVoting: pallet_conviction_voting,
-        // AllianceMotion: pallet_collective::<Instance3>,
         NominationPools: pallet_nomination_pools,
         RankedPolls: pallet_referenda::<Instance2>,
         RankedCollective: pallet_ranked_collective,
@@ -1623,10 +1599,8 @@ mod benches {
         [pallet_tips, Tips]
         [pallet_transaction_storage, TransactionStorage]
         [pallet_treasury, Treasury]
-        [pallet_uniques, Uniques]
         [pallet_nfts, Nfts]
         [pallet_utility, Utility]
-        [pallet_vesting, Vesting]
         [pallet_whitelist, Whitelist]
     );
 }

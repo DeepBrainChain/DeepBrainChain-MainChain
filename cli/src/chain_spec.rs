@@ -22,8 +22,7 @@ use dbc_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
     BalancesConfig, Block, CouncilConfig, DemocracyConfig, ElectionsConfig, GrandpaConfig,
     ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig,
-    SessionKeys, SocietyConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-    TechnicalCommitteeConfig,
+    SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
 use grandpa_primitives::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -348,16 +347,7 @@ pub fn testnet_genesis(
         grandpa: GrandpaConfig { authorities: vec![] },
         technical_membership: Default::default(),
         treasury: Default::default(),
-        society: SocietyConfig {
-            members: endowed_accounts
-                .iter()
-                .take((num_endowed_accounts + 1) / 2)
-                .cloned()
-                .collect(),
-            pot: 0,
-            max_members: 999,
-        },
-        vesting: Default::default(),
+        // vesting: Default::default(),
         assets: pallet_assets::GenesisConfig {
             // This asset is used by the NIS pallet as counterpart currency.
             assets: vec![(9, get_account_id_from_seed::<sr25519::Public>("Alice"), true, 1)],
