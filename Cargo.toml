@@ -1,10 +1,12 @@
 [[bin]]
-name = "polkadot"
+name = "dbc-chain"
 path = "src/main.rs"
 
 [package]
 name = "dbc"
 version = "3.0.0"
+default-run = "dbc-chain"
+edition = "2021"
 
 [dependencies]
 cli = { package = "dbc-cli", path = "cli" }
