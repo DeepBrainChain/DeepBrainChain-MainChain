@@ -1463,6 +1463,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "dbc"
+version = "3.0.0"
+dependencies = [
+ "node-cli",
+]
+
+[[package]]
 name = "dbc-runtime"
 version = "3.0.0-dev"
 dependencies = [

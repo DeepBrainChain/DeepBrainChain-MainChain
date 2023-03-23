@@ -1,3 +1,14 @@
+[[bin]]
+name = "polkadot"
+path = "src/main.rs"
+
+[package]
+name = "dbc"
+version = "3.0.0"
+
+[dependencies]
+cli = { package = "node-cli", path = "cli" }
+
 [workspace]
 members = [
   "bench",

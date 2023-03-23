@@ -45,3 +45,5 @@ mod command;
 pub use cli::*;
 #[cfg(feature = "cli")]
 pub use command::*;
+
+pub use sc_cli::Result;
