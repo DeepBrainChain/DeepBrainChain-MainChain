@@ -36,7 +36,7 @@ use frame_support::{
     traits::{
         AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Currency, EitherOfDiverse,
         EqualPrivilegeOnly, Everything, Imbalance, InstanceFilter, KeyOwnerProofSystem,
-        LockIdentifier, Nothing, OnUnbalanced, U128CurrencyToVote, WithdrawReasons,
+        LockIdentifier, Nothing, OnUnbalanced, U128CurrencyToVote,
     },
     weights::{
         constants::{
@@ -1420,6 +1420,19 @@ impl pallet_nfts::Config for Runtime {
 }
 
 parameter_types! {
+    pub const BlockPerEra: u32 = 3600 * 24 / 30;
+}
+
+impl generic_func::Config for Runtime {
+    type BlockPerEra = BlockPerEra;
+    type Currency = Balances;
+    type RuntimeEvent = RuntimeEvent;
+    type RandomnessSource = RandomnessCollectiveFlip;
+    type FixedTxFee = Treasury;
+    type Slash = Treasury;
+}
+
+parameter_types! {
     pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
     pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
     pub const MigrationMaxKeyLen: u32 = 512;
@@ -1486,6 +1499,7 @@ construct_runtime!(
         NominationPools: pallet_nomination_pools,
         RankedPolls: pallet_referenda::<Instance2>,
         RankedCollective: pallet_ranked_collective,
+        GenericFunc: generic_func,
     }
 );
 

@@ -1,0 +1,49 @@
+[package]
+authors = ["bobo <dongkaige@gmail.com>"]
+edition = "2018"
+name = "terminating-rental"
+version = "0.1.0"
+
+[dependencies]
+bs58 = { package = "bs58", version = "0.4.0", default-features = false }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.101", optional = true, features = ["derive"] }
+
+frame-support = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+
+committee = { path = "../committee", default-features = false }
+dbc-support = { path = "../support", default-features = false }
+generic-func = { path = "../generic-func", default-features = false }
+online-committee = { path = "../online-committee", default-features = false }
+
+[dev-dependencies]
+hex = "0.4"
+dbc-price-ocw = { package = "dbc-price-ocw", path = "../dbc-price-ocw" }
+
+pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-treasury = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-io = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+
+[features]
+default = ["std"]
+std = [
+  "codec/std",
+  "serde",
+  "frame-support/std",
+  "frame-system/std",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-std/std",
+  "sp-runtime/std",
+  "committee/std",
+  "dbc-support/std",
+  "generic-func/std",
+  "online-committee/std",
+]

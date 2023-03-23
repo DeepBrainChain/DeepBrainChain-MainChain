@@ -1,0 +1,26 @@
+[package]
+authors = ["bobo"]
+edition = "2018"
+name = "rent-machine-runtime-api"
+version = "0.1.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+
+rent-machine = { version = "0.1.0", path = "../../../rent-machine", default-features = false }
+dbc-support = { path = "../../../support", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+  "codec/std",
+  "rent-machine/std",
+  "sp-api/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "dbc-support/std",
+]

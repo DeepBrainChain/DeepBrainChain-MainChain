@@ -1672,6 +1672,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "generic-func",
  "log",
  "pallet-alliance",
  "pallet-asset-tx-payment",
@@ -1743,6 +1744,21 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "dbc-support"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "frame-support",
+ "hex",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2760,6 +2776,24 @@ checksum = "bff49e947297f3312447abdca79f45f4738097cc82b06e72054d2223f601f1b9"
 dependencies = [
  "typenum",
  "version_check",
+]
+
+[[package]]
+name = "generic-func"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "dbc-support",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "pallet-randomness-collective-flip",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

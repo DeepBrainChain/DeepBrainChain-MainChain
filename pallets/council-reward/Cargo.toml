@@ -1,0 +1,40 @@
+[package]
+edition = "2018"
+name = "council-reward"
+version = "0.1.0"
+authors = ["bobo <dongkaige@gmail.com>"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.101", optional = true }
+dbc-support = { package = "dbc-support", path = "../support", default-features = false }
+
+pallet-collective = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+
+[dev-dependencies]
+pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-core = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+pallet-treasury = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-io = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+dbc-price-ocw = { package = "dbc-price-ocw", path = "../dbc-price-ocw" }
+generic-func = { package = "generic-func", path = "../generic-func", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+  "frame-system/std",
+  "pallet-collective/std",
+  "frame-system/std",
+  "dbc-support/std",
+  "pallet-elections-phragmen/std",
+  "sp-std/std",
+  "sp-runtime/std",
+  "serde",
+]

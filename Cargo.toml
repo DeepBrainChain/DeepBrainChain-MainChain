@@ -15,12 +15,37 @@ dbc-cli = { package = "dbc-cli", path = "cli" }
 members = [
   "bench",
   "cli",
-  # "executor",
+  "executor",
   "inspect",
   "primitives",
   "rpc",
   "runtime",
-  "testing"
+  "testing",
+
+  # "pallets/dbc-staking",
+  # "pallets/generic-func",
+  # "pallets/dbc-price-ocw",
+  # "pallets/online-profile",
+  # "pallets/online-profile/rpc",
+  # "pallets/online-profile/rpc/runtime-api",
+  # "pallets/committee",
+  # "pallets/committee/rpc",
+  # "pallets/committee/rpc/runtime-api",
+  # "pallets/online-committee",
+  # "pallets/online-committee/rpc",
+  # "pallets/online-committee/rpc/runtime-api",
+  # "pallets/simple-rpc",
+  # "pallets/simple-rpc/rpc",
+  # "pallets/simple-rpc/rpc/runtime-api",
+  # "pallets/maintain-committee",
+  # "pallets/rent-machine",
+  # "pallets/rent-machine/rpc",
+  # "pallets/rent-machine/rpc/runtime-api",
+  "pallets/support"
+  # "pallets/terminating-rental",
+  # "pallets/terminating-rental/rpc",
+  # "pallets/terminating-rental/rpc/runtime-api",
+  # "pallets/council-reward",
 ]
 
 [features]
