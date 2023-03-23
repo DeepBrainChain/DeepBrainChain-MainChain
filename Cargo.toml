@@ -7,7 +7,7 @@ name = "dbc"
 version = "3.0.0"
 
 [dependencies]
-cli = { package = "node-cli", path = "cli" }
+cli = { package = "dbc-cli", path = "cli" }
 
 [workspace]
 members = [
