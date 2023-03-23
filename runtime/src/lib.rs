@@ -32,10 +32,9 @@ use frame_support::{
     pallet_prelude::Get,
     parameter_types,
     traits::{
-        fungible::ItemOf, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32,
-        Currency, EitherOfDiverse, EqualPrivilegeOnly, Everything, Imbalance, InstanceFilter,
-        KeyOwnerProofSystem, LockIdentifier, Nothing, OnUnbalanced, U128CurrencyToVote,
-        WithdrawReasons,
+        AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Currency, EitherOfDiverse,
+        EqualPrivilegeOnly, Everything, Imbalance, InstanceFilter, KeyOwnerProofSystem,
+        LockIdentifier, Nothing, OnUnbalanced, U128CurrencyToVote, WithdrawReasons,
     },
     weights::{
         constants::{
@@ -57,7 +56,6 @@ use pallet_grandpa::{
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
-use pallet_nis::WithMaximumOf;
 use pallet_session::historical::{self as pallet_session_historical};
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
@@ -95,9 +93,7 @@ pub use sp_runtime::BuildStorage;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-#[cfg(not(feature = "runtime-benchmarks"))]
-use impls::AllianceIdentityVerifier;
-use impls::{AllianceProposalProvider, Author, CreditToBlockAuthor};
+use impls::{Author, CreditToBlockAuthor};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -301,7 +297,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::Balances(..)
                     | RuntimeCall::Assets(..)
-                    | RuntimeCall::Uniques(..)
+                    // | RuntimeCall::Uniques(..)
                     | RuntimeCall::Nfts(..)
                     | RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. })
                     | RuntimeCall::Indices(pallet_indices::Call::transfer { .. })
@@ -586,16 +582,6 @@ impl pallet_staking::Config for Runtime {
     type OnStakerSlash = NominationPools;
     type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
     type BenchmarkingConfig = StakingBenchmarkingConfig;
-}
-
-impl pallet_fast_unstake::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type ControlOrigin = frame_system::EnsureRoot<AccountId>;
-    type BatchSize = ConstU32<128>;
-    type Deposit = ConstU128<{ DOLLARS }>;
-    type Currency = Balances;
-    type Staking = Staking;
-    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -911,11 +897,6 @@ impl pallet_ranked_collective::Config for Runtime {
     type VoteWeight = pallet_ranked_collective::Geometric;
 }
 
-impl pallet_remark::Config for Runtime {
-    type WeightInfo = pallet_remark::weights::SubstrateWeight<Self>;
-    type RuntimeEvent = RuntimeEvent;
-}
-
 impl pallet_root_testing::Config for Runtime {}
 
 parameter_types! {
@@ -1135,25 +1116,6 @@ impl pallet_bounties::Config for Runtime {
     type MaximumReasonLength = MaximumReasonLength;
     type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
     type ChildBountyManager = ChildBounties;
-}
-
-parameter_types! {
-    /// Allocate at most 20% of each block for message processing.
-    ///
-    /// Is set to 20% since the scheduler can already consume a maximum of 80%.
-    pub MessageQueueServiceWeight: Option<Weight> = Some(Perbill::from_percent(20) * RuntimeBlockWeights::get().max_block);
-}
-
-impl pallet_message_queue::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
-    /// NOTE: Always set this to `NoopMessageProcessor` for benchmarking.
-    type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor;
-    type Size = u32;
-    type QueueChangeHandler = ();
-    type HeapSize = ConstU32<{ 64 * 1024 }>;
-    type MaxStale = ConstU32<128>;
-    type ServiceWeight = MessageQueueServiceWeight;
 }
 
 parameter_types! {
@@ -1487,44 +1449,6 @@ impl pallet_assets::Config for Runtime {
 }
 
 parameter_types! {
-    pub IgnoredIssuance: Balance = Treasury::pot();
-    pub const QueueCount: u32 = 300;
-    pub const MaxQueueLen: u32 = 1000;
-    pub const FifoQueueLen: u32 = 500;
-    pub const NisBasePeriod: BlockNumber = 30 * DAYS;
-    pub const MinBid: Balance = 100 * DOLLARS;
-    pub const MinReceipt: Perquintill = Perquintill::from_percent(1);
-    pub const IntakePeriod: BlockNumber = 10;
-    pub MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
-    pub const ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
-    pub Target: Perquintill = Perquintill::zero();
-    pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
-}
-
-impl pallet_nis::Config for Runtime {
-    type WeightInfo = pallet_nis::weights::SubstrateWeight<Runtime>;
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type CurrencyBalance = Balance;
-    type FundOrigin = frame_system::EnsureSigned<AccountId>;
-    type Counterpart = ItemOf<Assets, ConstU32<9u32>, AccountId>;
-    type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
-    type Deficit = ();
-    type IgnoredIssuance = IgnoredIssuance;
-    type Target = Target;
-    type PalletId = NisPalletId;
-    type QueueCount = QueueCount;
-    type MaxQueueLen = MaxQueueLen;
-    type FifoQueueLen = FifoQueueLen;
-    type BasePeriod = NisBasePeriod;
-    type MinBid = MinBid;
-    type MinReceipt = MinReceipt;
-    type IntakePeriod = IntakePeriod;
-    type MaxIntakeWeight = MaxIntakeWeight;
-    type ThawThrottle = ThawThrottle;
-}
-
-parameter_types! {
     pub const CollectionDeposit: Balance = 100 * DOLLARS;
     pub const ItemDeposit: Balance = 1 * DOLLARS;
     pub const KeyLimit: u32 = 32;
@@ -1533,27 +1457,6 @@ parameter_types! {
     pub const ItemAttributesApprovalsLimit: u32 = 20;
     pub const MaxTips: u32 = 10;
     pub const MaxDeadlineDuration: BlockNumber = 12 * 30 * DAYS;
-}
-
-impl pallet_uniques::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type CollectionId = u32;
-    type ItemId = u32;
-    type Currency = Balances;
-    type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-    type CollectionDeposit = CollectionDeposit;
-    type ItemDeposit = ItemDeposit;
-    type MetadataDepositBase = MetadataDepositBase;
-    type AttributeDepositBase = MetadataDepositBase;
-    type DepositPerByte = MetadataDepositPerByte;
-    type StringLimit = StringLimit;
-    type KeyLimit = KeyLimit;
-    type ValueLimit = ValueLimit;
-    type WeightInfo = pallet_uniques::weights::SubstrateWeight<Runtime>;
-    #[cfg(feature = "runtime-benchmarks")]
-    type Helper = ();
-    type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
-    type Locker = ();
 }
 
 parameter_types! {
@@ -1586,46 +1489,10 @@ impl pallet_nfts::Config for Runtime {
     type Locker = ();
 }
 
-impl pallet_transaction_storage::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type RuntimeCall = RuntimeCall;
-    type FeeDestination = ();
-    type WeightInfo = pallet_transaction_storage::weights::SubstrateWeight<Runtime>;
-    type MaxBlockTransactions =
-        ConstU32<{ pallet_transaction_storage::DEFAULT_MAX_BLOCK_TRANSACTIONS }>;
-    type MaxTransactionSize =
-        ConstU32<{ pallet_transaction_storage::DEFAULT_MAX_TRANSACTION_SIZE }>;
-}
-
-impl pallet_whitelist::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-    type WhitelistOrigin = EnsureRoot<AccountId>;
-    type DispatchWhitelistedOrigin = EnsureRoot<AccountId>;
-    type Preimages = Preimage;
-    type WeightInfo = pallet_whitelist::weights::SubstrateWeight<Runtime>;
-}
-
 parameter_types! {
     pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
     pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
     pub const MigrationMaxKeyLen: u32 = 512;
-}
-
-impl pallet_state_trie_migration::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type ControlOrigin = EnsureRoot<AccountId>;
-    type Currency = Balances;
-    type MaxKeyLen = MigrationMaxKeyLen;
-    type SignedDepositPerItem = MigrationSignedDepositPerItem;
-    type SignedDepositBase = MigrationSignedDepositBase;
-    // Warning: this is not advised, as it might allow the chain to be temporarily DOS-ed.
-    // Preferably, if the chain's governance/maintenance team is planning on using a specific
-    // account for the migration, put it here to make sure only that account can trigger the signed
-    // migrations.
-    type SignedFilter = EnsureSigned<Self::AccountId>;
-    type WeightInfo = ();
 }
 
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
@@ -1653,42 +1520,6 @@ parameter_types! {
     pub const MaxAllies: u32 = 100;
     pub const AllyDeposit: Balance = 10 * DOLLARS;
     pub const RetirementPeriod: BlockNumber = ALLIANCE_MOTION_DURATION_IN_BLOCKS + (1 * DAYS);
-}
-
-impl pallet_alliance::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type Proposal = RuntimeCall;
-    type AdminOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
-    >;
-    type MembershipManager = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
-    >;
-    type AnnouncementOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
-    >;
-    type Currency = Balances;
-    type Slashed = Treasury;
-    type InitializeMembers = AllianceMotion;
-    type MembershipChanged = AllianceMotion;
-    #[cfg(not(feature = "runtime-benchmarks"))]
-    type IdentityVerifier = AllianceIdentityVerifier;
-    #[cfg(feature = "runtime-benchmarks")]
-    type IdentityVerifier = ();
-    type ProposalProvider = AllianceProposalProvider;
-    type MaxProposals = AllianceMaxProposals;
-    type MaxFellows = MaxFellows;
-    type MaxAllies = MaxAllies;
-    type MaxUnscrupulousItems = ConstU32<100>;
-    type MaxWebsiteUrlLength = ConstU32<255>;
-    type MaxAnnouncementsCount = ConstU32<100>;
-    type MaxMembersCount = AllianceMaxMembers;
-    type AllyDeposit = AllyDeposit;
-    type WeightInfo = pallet_alliance::weights::SubstrateWeight<Runtime>;
-    type RetirementPeriod = RetirementPeriod;
 }
 
 construct_runtime!(
@@ -1738,25 +1569,15 @@ construct_runtime!(
         Assets: pallet_assets,
         Mmr: pallet_mmr,
         Lottery: pallet_lottery,
-        Nis: pallet_nis,
-        Uniques: pallet_uniques,
         Nfts: pallet_nfts,
-        TransactionStorage: pallet_transaction_storage,
         VoterList: pallet_bags_list::<Instance1>,
-        StateTrieMigration: pallet_state_trie_migration,
         ChildBounties: pallet_child_bounties,
         Referenda: pallet_referenda,
-        Remark: pallet_remark,
-        RootTesting: pallet_root_testing,
         ConvictionVoting: pallet_conviction_voting,
-        Whitelist: pallet_whitelist,
         AllianceMotion: pallet_collective::<Instance3>,
-        Alliance: pallet_alliance,
         NominationPools: pallet_nomination_pools,
         RankedPolls: pallet_referenda::<Instance2>,
         RankedCollective: pallet_ranked_collective,
-        FastUnstake: pallet_fast_unstake,
-        MessageQueue: pallet_message_queue,
     }
 );
 
@@ -1807,7 +1628,6 @@ pub type Executive = frame_executive::Executive<
 // `OnRuntimeUpgrade`.
 type Migrations = (
     pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
-    pallet_alliance::migration::Migration<Runtime>,
     pallet_contracts::Migration<Runtime>,
 );
 
