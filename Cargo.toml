@@ -9,7 +9,7 @@ default-run = "dbc-chain"
 edition = "2021"
 
 [dependencies]
-cli = { package = "dbc-cli", path = "cli" }
+dbc-cli = { package = "dbc-cli", path = "cli" }
 
 [workspace]
 members = [
@@ -22,3 +22,7 @@ members = [
   "runtime",
   "testing"
 ]
+
+[features]
+try-runtime = [ "dbc-cli/try-runtime" ]
+runtime-benchmarks = [ "dbc-cli/runtime-benchmarks" ]
