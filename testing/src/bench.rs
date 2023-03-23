@@ -34,11 +34,11 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use futures::executor;
-use kitchensink_runtime::{
+use dbc_runtime::{
     constants::currency::DOLLARS, AccountId, BalancesCall, CheckedExtrinsic, MinimumPeriod,
     RuntimeCall, Signature, SystemCall, UncheckedExtrinsic,
 };
-use node_primitives::Block;
+use dbc_primitives::Block;
 use sc_block_builder::BlockBuilderProvider;
 use sc_client_api::{
     execution_extensions::{ExecutionExtensions, ExecutionStrategies},
@@ -267,7 +267,7 @@ pub struct BlockContentIterator<'a> {
     iteration: usize,
     content: BlockContent,
     runtime_version: sc_executor::RuntimeVersion,
-    genesis_hash: node_primitives::Hash,
+    genesis_hash: dbc_primitives::Hash,
     keyring: &'a BenchKeyring,
 }
 
@@ -304,13 +304,13 @@ impl<'a> Iterator for BlockContentIterator<'a> {
             CheckedExtrinsic {
                 signed: Some((
                     sender,
-                    signed_extra(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
+                    signed_extra(0, dbc_runtime::ExistentialDeposit::get() + 1),
                 )),
                 function: match self.content.block_type {
                     BlockType::RandomTransfersKeepAlive => {
                         RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
                             dest: sp_runtime::MultiAddress::Id(receiver),
-                            value: kitchensink_runtime::ExistentialDeposit::get() + 1,
+                            value: dbc_runtime::ExistentialDeposit::get() + 1,
                         })
                     },
                     BlockType::RandomTransfersReaping => {
@@ -319,7 +319,7 @@ impl<'a> Iterator for BlockContentIterator<'a> {
                             // Transfer so that ending balance would be 1 less than existential
                             // deposit so that we kill the sender account.
                             value: 100 * DOLLARS
-                                - (kitchensink_runtime::ExistentialDeposit::get() - 1),
+                                - (dbc_runtime::ExistentialDeposit::get() - 1),
                         })
                     },
                     BlockType::Noop => {
@@ -605,9 +605,9 @@ impl BenchKeyring {
     }
 
     /// Generate genesis with accounts from this keyring endowed with some balance.
-    pub fn generate_genesis(&self) -> kitchensink_runtime::GenesisConfig {
+    pub fn generate_genesis(&self) -> dbc_runtime::GenesisConfig {
         crate::genesis::config_endowed(
-            Some(kitchensink_runtime::wasm_binary_unwrap()),
+            Some(dbc_runtime::wasm_binary_unwrap()),
             self.collect_account_ids(),
         )
     }

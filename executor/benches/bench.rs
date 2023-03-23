@@ -17,13 +17,13 @@
 
 use codec::{Decode, Encode};
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use frame_support::Hashable;
-use kitchensink_runtime::{
+use dbc_executor::ExecutorDispatch;
+use dbc_primitives::{BlockNumber, Hash};
+use dbc_runtime::{
     constants::currency::*, Block, BuildStorage, CheckedExtrinsic, GenesisConfig, Header,
     RuntimeCall, UncheckedExtrinsic,
 };
-use node_executor::ExecutorDispatch;
-use node_primitives::{BlockNumber, Hash};
+use frame_support::Hashable;
 use node_testing::keyring::*;
 use sc_executor::{
     Externalities, NativeElseWasmExecutor, RuntimeVersionOf, WasmExecutionMethod,
@@ -41,7 +41,7 @@ criterion_main!(benches);
 
 /// The wasm runtime code.
 pub fn compact_code_unwrap() -> &'static [u8] {
-    kitchensink_runtime::WASM_BINARY.expect(
+    dbc_runtime::WASM_BINARY.expect(
         "Development wasm binary is not available. Testing is only supported with the flag \
 		 disabled.",
     )
@@ -49,9 +49,9 @@ pub fn compact_code_unwrap() -> &'static [u8] {
 
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 
-const TRANSACTION_VERSION: u32 = kitchensink_runtime::VERSION.transaction_version;
+const TRANSACTION_VERSION: u32 = dbc_runtime::VERSION.transaction_version;
 
-const SPEC_VERSION: u32 = kitchensink_runtime::VERSION.spec_version;
+const SPEC_VERSION: u32 = dbc_runtime::VERSION.spec_version;
 
 const HEAP_PAGES: u64 = 20;
 

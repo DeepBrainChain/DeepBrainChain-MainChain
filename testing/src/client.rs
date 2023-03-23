@@ -24,21 +24,21 @@ use sp_runtime::BuildStorage;
 pub use substrate_test_client::*;
 
 /// Call executor for `kitchensink-runtime` `TestClient`.
-pub type ExecutorDispatch = sc_executor::NativeElseWasmExecutor<node_executor::ExecutorDispatch>;
+pub type ExecutorDispatch = sc_executor::NativeElseWasmExecutor<dbc_executor::ExecutorDispatch>;
 
 /// Default backend type.
-pub type Backend = sc_client_db::Backend<node_primitives::Block>;
+pub type Backend = sc_client_db::Backend<dbc_primitives::Block>;
 
 /// Test client type.
 pub type Client = client::Client<
     Backend,
-    client::LocalCallExecutor<node_primitives::Block, Backend, ExecutorDispatch>,
-    node_primitives::Block,
-    kitchensink_runtime::RuntimeApi,
+    client::LocalCallExecutor<dbc_primitives::Block, Backend, ExecutorDispatch>,
+    dbc_primitives::Block,
+    dbc_runtime::RuntimeApi,
 >;
 
 /// Transaction for kitchensink-runtime.
-pub type Transaction = sc_client_api::backend::TransactionFor<Backend, node_primitives::Block>;
+pub type Transaction = sc_client_api::backend::TransactionFor<Backend, dbc_primitives::Block>;
 
 /// Genesis configuration parameters for `TestClient`.
 #[derive(Default)]
@@ -61,8 +61,8 @@ pub trait TestClientBuilderExt: Sized {
 
 impl TestClientBuilderExt
     for substrate_test_client::TestClientBuilder<
-        node_primitives::Block,
-        client::LocalCallExecutor<node_primitives::Block, Backend, ExecutorDispatch>,
+        dbc_primitives::Block,
+        client::LocalCallExecutor<dbc_primitives::Block, Backend, ExecutorDispatch>,
         Backend,
         GenesisParameters,
     >

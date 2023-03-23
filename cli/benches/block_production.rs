@@ -18,7 +18,7 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 
-use kitchensink_runtime::{constants::currency::*, BalancesCall};
+use dbc_runtime::{constants::currency::*, BalancesCall};
 use node_cli::service::{create_extrinsic, FullClient};
 use sc_block_builder::{BlockBuilderProvider, BuiltBlock, RecordProof};
 use sc_client_api::execution_extensions::ExecutionStrategies;
@@ -120,9 +120,9 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 }
 
 fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
-    kitchensink_runtime::UncheckedExtrinsic {
+    dbc_runtime::UncheckedExtrinsic {
         signature: None,
-        function: kitchensink_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set { now }),
+        function: dbc_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set { now }),
     }
     .into()
 }
@@ -130,8 +130,8 @@ fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
 fn import_block(
     mut client: &FullClient,
     built: BuiltBlock<
-        node_primitives::Block,
-        <FullClient as sp_api::CallApiAt<node_primitives::Block>>::StateBackend,
+        dbc_primitives::Block,
+        <FullClient as sp_api::CallApiAt<dbc_primitives::Block>>::StateBackend,
     >,
 ) {
     let mut params = BlockImportParams::new(BlockOrigin::File, built.block.header);

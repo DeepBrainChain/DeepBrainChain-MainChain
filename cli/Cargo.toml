@@ -91,10 +91,10 @@ pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", bra
 pallet-im-online = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 
 # node-specific dependencies
-kitchensink-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-node-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-node-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-node-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+dbc-rpc = { path = "../rpc" }
+dbc-primitives = { path = "../primitives" }
+dbc-executor = { path = "../executor" }
+dbc-runtime = { path = "../runtime" }
 
 # CLI-specific dependencies
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", optional = true }
@@ -153,12 +153,15 @@ cli = [
 	"try-runtime-cli",
 ]
 runtime-benchmarks = [
-	"kitchensink-runtime/runtime-benchmarks",
+	"dbc-runtime/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks"
 ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
-try-runtime = ["kitchensink-runtime/try-runtime", "try-runtime-cli/try-runtime"]
+try-runtime = [
+	"dbc-runtime/try-runtime",
+	"try-runtime-cli/try-runtime"
+]
 
 [[bench]]
 name = "transaction_pool"

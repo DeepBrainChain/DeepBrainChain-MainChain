@@ -2,7 +2,7 @@
 name = "dbc-runtime"
 version = "3.0.0-dev"
 authors = ["Parity Technologies <admin@parity.io>"]
-description = "Substrate node kitchensink runtime."
+description = "DBC node mainnet runtime."
 edition = "2021"
 build = "build.rs"
 license = "Apache-2.0"
@@ -28,7 +28,7 @@ sp-authority-discovery = { git = "https://github.com/paritytech/substrate", bran
 sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-node-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+dbc-primitives = { path = "../primitives", default-features = false }
 sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
@@ -49,7 +49,7 @@ frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", b
 frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 frame-try-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false, optional = true }
-# pallet-alliance = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+pallet-alliance = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
@@ -90,7 +90,7 @@ pallet-ranked-collective = { git = "https://github.com/paritytech/substrate", br
 pallet-recovery = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-referenda = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 # pallet-remark = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-# pallet-root-testing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+pallet-root-testing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", features = [ "historical" ], default-features = false }
 pallet-session-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false, optional = true }
 pallet-staking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
@@ -156,7 +156,7 @@ std = [
 	"pallet-nomination-pools-benchmarking?/std",
 	"pallet-identity/std",
 	"pallet-scheduler/std",
-	"node-primitives/std",
+	"dbc-primitives/std",
 	"sp-offchain/std",
 	"pallet-offences/std",
 	"pallet-preimage/std",
@@ -191,7 +191,7 @@ std = [
 	"pallet-ranked-collective/std",
 	"pallet-referenda/std",
 	# "pallet-remark/std",
-	# "pallet-root-testing/std",
+	"pallet-root-testing/std",
 	"pallet-recovery/std",
 	"pallet-uniques/std",
 	"pallet-nfts/std",
@@ -200,7 +200,7 @@ std = [
 	"frame-try-runtime?/std",
 	"sp-io/std",
 	"pallet-child-bounties/std",
-	# "pallet-alliance/std",
+	"pallet-alliance/std",
 	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
@@ -208,7 +208,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	# "pallet-alliance/runtime-benchmarks",
+	"pallet-alliance/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
@@ -262,7 +262,7 @@ try-runtime = [
 	"frame-executive/try-runtime",
 	"frame-system/try-runtime",
 	"frame-support/try-runtime",
-	# "pallet-alliance/try-runtime",
+	"pallet-alliance/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -297,7 +297,7 @@ try-runtime = [
 	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
 	# "pallet-remark/try-runtime",
-	# "pallet-root-testing/try-runtime",
+	"pallet-root-testing/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	# "pallet-state-trie-migration/try-runtime",

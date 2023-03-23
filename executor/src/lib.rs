@@ -22,16 +22,16 @@ pub use sc_executor::NativeElseWasmExecutor;
 
 // Declare an instance of the native executor named `ExecutorDispatch`. Include the wasm binary as
 // the equivalent wasm code.
-pub struct ExecutorDispatch;
+pub struct DBCExecutorDispatch;
 
-impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
+impl sc_executor::NativeExecutionDispatch for DBCExecutorDispatch {
     type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
     fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        kitchensink_runtime::api::dispatch(method, data)
+        dbc_runtime::api::dispatch(method, data)
     }
 
     fn native_version() -> sc_executor::NativeVersion {
-        kitchensink_runtime::native_version()
+        dbc_runtime::native_version()
     }
 }

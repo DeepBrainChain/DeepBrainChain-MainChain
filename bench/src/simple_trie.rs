@@ -20,7 +20,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use hash_db::{AsHashDB, HashDB, Hasher as _, Prefix};
 use kvdb::KeyValueDB;
-use node_primitives::Hash;
+use dbc_primitives::Hash;
 use sp_trie::DBValue;
 
 pub type Hasher = sp_core::Blake2Hasher;

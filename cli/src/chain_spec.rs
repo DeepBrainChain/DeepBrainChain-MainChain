@@ -18,14 +18,14 @@
 
 //! Substrate chain configurations.
 
-use grandpa_primitives::AuthorityId as GrandpaId;
-use kitchensink_runtime::{
+use dbc_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
     BalancesConfig, Block, CouncilConfig, DemocracyConfig, ElectionsConfig, GrandpaConfig,
     ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig,
     SessionKeys, SocietyConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
     TechnicalCommitteeConfig,
 };
+use grandpa_primitives::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
@@ -39,8 +39,8 @@ use sp_runtime::{
     Perbill,
 };
 
-pub use kitchensink_runtime::GenesisConfig;
-pub use node_primitives::{AccountId, Balance, Signature};
+pub use dbc_primitives::{AccountId, Balance, Signature};
+pub use dbc_runtime::GenesisConfig;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -341,7 +341,7 @@ pub fn testnet_genesis(
         sudo: SudoConfig { key: Some(root_key) },
         babe: BabeConfig {
             authorities: vec![],
-            epoch_config: Some(kitchensink_runtime::BABE_GENESIS_EPOCH_CONFIG),
+            epoch_config: Some(dbc_runtime::BABE_GENESIS_EPOCH_CONFIG),
         },
         im_online: ImOnlineConfig { keys: vec![] },
         authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
@@ -363,9 +363,9 @@ pub fn testnet_genesis(
             assets: vec![(9, get_account_id_from_seed::<sr25519::Public>("Alice"), true, 1)],
             ..Default::default()
         },
-        transaction_storage: Default::default(),
+        // transaction_storage: Default::default(),
         transaction_payment: Default::default(),
-        alliance: Default::default(),
+        // alliance: Default::default(),
         alliance_motion: Default::default(),
         nomination_pools: NominationPoolsConfig {
             min_create_bond: 10 * DOLLARS,

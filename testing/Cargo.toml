@@ -19,9 +19,9 @@ futures = "0.3.21"
 log = "0.4.17"
 tempfile = "3.1.0"
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-node-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-node-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-kitchensink-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+dbc-executor = { path = "../executor" }
+dbc-primitives = { path = "../primitives" }
+dbc-runtime = { path = "../runtime" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }

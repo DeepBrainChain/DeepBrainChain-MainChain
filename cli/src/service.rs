@@ -21,11 +21,11 @@
 //! Service implementation. Specialized wrapper over substrate service.
 
 use codec::Encode;
+use dbc_executor::DBCExecutorDispatch;
+use dbc_primitives::Block;
+use dbc_runtime::RuntimeApi;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
-use kitchensink_runtime::RuntimeApi;
-use node_executor::ExecutorDispatch;
-use node_primitives::Block;
 use sc_client_api::BlockBackend;
 use sc_consensus_babe::{self, SlotProportion};
 use sc_executor::NativeElseWasmExecutor;
@@ -40,7 +40,7 @@ use std::sync::Arc;
 
 /// The full client type definition.
 pub type FullClient =
-    sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
+    sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<DBCExecutorDispatch>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
@@ -69,43 +69,41 @@ pub fn fetch_nonce(client: &FullClient, account: sp_core::sr25519::Pair) -> u32 
 pub fn create_extrinsic(
     client: &FullClient,
     sender: sp_core::sr25519::Pair,
-    function: impl Into<kitchensink_runtime::RuntimeCall>,
+    function: impl Into<dbc_runtime::RuntimeCall>,
     nonce: Option<u32>,
-) -> kitchensink_runtime::UncheckedExtrinsic {
+) -> dbc_runtime::UncheckedExtrinsic {
     let function = function.into();
     let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
     let best_hash = client.chain_info().best_hash;
     let best_block = client.chain_info().best_number;
     let nonce = nonce.unwrap_or_else(|| fetch_nonce(client, sender.clone()));
 
-    let period = kitchensink_runtime::BlockHashCount::get()
+    let period = dbc_runtime::BlockHashCount::get()
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
     let tip = 0;
-    let extra: kitchensink_runtime::SignedExtra = (
-        frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
-        frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
-        frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
-        frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
-        frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
+    let extra: dbc_runtime::SignedExtra = (
+        frame_system::CheckNonZeroSender::<dbc_runtime::Runtime>::new(),
+        frame_system::CheckSpecVersion::<dbc_runtime::Runtime>::new(),
+        frame_system::CheckTxVersion::<dbc_runtime::Runtime>::new(),
+        frame_system::CheckGenesis::<dbc_runtime::Runtime>::new(),
+        frame_system::CheckEra::<dbc_runtime::Runtime>::from(generic::Era::mortal(
             period,
             best_block.saturated_into(),
         )),
-        frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
-        frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
-        pallet_asset_tx_payment::ChargeAssetTxPayment::<kitchensink_runtime::Runtime>::from(
-            tip, None,
-        ),
+        frame_system::CheckNonce::<dbc_runtime::Runtime>::from(nonce),
+        frame_system::CheckWeight::<dbc_runtime::Runtime>::new(),
+        pallet_asset_tx_payment::ChargeAssetTxPayment::<dbc_runtime::Runtime>::from(tip, None),
     );
 
-    let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
+    let raw_payload = dbc_runtime::SignedPayload::from_raw(
         function.clone(),
         extra.clone(),
         (
             (),
-            kitchensink_runtime::VERSION.spec_version,
-            kitchensink_runtime::VERSION.transaction_version,
+            dbc_runtime::VERSION.spec_version,
+            dbc_runtime::VERSION.transaction_version,
             genesis_hash,
             best_hash,
             (),
@@ -115,10 +113,10 @@ pub fn create_extrinsic(
     );
     let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
-    kitchensink_runtime::UncheckedExtrinsic::new_signed(
+    dbc_runtime::UncheckedExtrinsic::new_signed(
         function,
         sp_runtime::AccountId32::from(sender.public()).into(),
-        kitchensink_runtime::Signature::Sr25519(signature),
+        dbc_runtime::Signature::Sr25519(signature),
         extra,
     )
 }
@@ -135,7 +133,7 @@ pub fn new_partial(
         sc_transaction_pool::FullPool<Block, FullClient>,
         (
             impl Fn(
-                node_rpc::DenyUnsafe,
+                dbc_rpc::DenyUnsafe,
                 sc_rpc::SubscriptionTaskExecutor,
             ) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>,
             (
@@ -160,7 +158,7 @@ pub fn new_partial(
         })
         .transpose()?;
 
-    let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
+    let executor = NativeElseWasmExecutor::<DBCExecutorDispatch>::new(
         config.wasm_method,
         config.default_heap_pages,
         config.max_runtime_instances,
@@ -256,18 +254,18 @@ pub fn new_partial(
 
         let rpc_backend = backend.clone();
         let rpc_extensions_builder = move |deny_unsafe, subscription_executor| {
-            let deps = node_rpc::FullDeps {
+            let deps = dbc_rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
                 select_chain: select_chain.clone(),
                 chain_spec: chain_spec.cloned_box(),
                 deny_unsafe,
-                babe: node_rpc::BabeDeps {
+                babe: dbc_rpc::BabeDeps {
                     babe_config: babe_config.clone(),
                     shared_epoch_changes: shared_epoch_changes.clone(),
                     keystore: keystore.clone(),
                 },
-                grandpa: node_rpc::GrandpaDeps {
+                grandpa: dbc_rpc::GrandpaDeps {
                     shared_voter_state: shared_voter_state.clone(),
                     shared_authority_set: shared_authority_set.clone(),
                     justification_stream: justification_stream.clone(),
@@ -276,7 +274,7 @@ pub fn new_partial(
                 },
             };
 
-            node_rpc::create_full(deps, rpc_backend.clone()).map_err(Into::into)
+            dbc_rpc::create_full(deps, rpc_backend.clone()).map_err(Into::into)
         };
 
         (rpc_extensions_builder, shared_voter_state2)
@@ -564,11 +562,11 @@ pub fn new_full(
 mod tests {
     use crate::service::{new_full_base, NewFullBase};
     use codec::Encode;
-    use kitchensink_runtime::{
+    use dbc_runtime::{
         constants::{currency::CENTS, time::SLOT_DURATION},
         Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
     };
-    use node_primitives::{Block, DigestItem, Signature};
+    use dbc_primitives::{Block, DigestItem, Signature};
     use sc_client_api::BlockBackend;
     use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
     use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};

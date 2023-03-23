@@ -15,7 +15,7 @@ dbc-cli = { package = "dbc-cli", path = "cli" }
 members = [
   "bench",
   "cli",
-  "executor",
+  # "executor",
   "inspect",
   "primitives",
   "rpc",

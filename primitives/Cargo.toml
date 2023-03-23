@@ -1,5 +1,5 @@
 [package]
-name = "node-primitives"
+name = "dbc-primitives"
 version = "2.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 description = "Substrate node low-level primitives."

@@ -22,10 +22,10 @@ use crate::{
     service::{new_partial, FullClient},
     Cli, Subcommand,
 };
+use dbc_executor::DBCExecutorDispatch;
+use dbc_primitives::Block;
+use dbc_runtime::{ExistentialDeposit, RuntimeApi};
 use frame_benchmarking_cli::*;
-use kitchensink_runtime::{ExistentialDeposit, RuntimeApi};
-use node_executor::ExecutorDispatch;
-use node_primitives::Block;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 use sp_keyring::Sr25519Keyring;
@@ -77,7 +77,7 @@ impl SubstrateCli for Cli {
     }
 
     fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        &kitchensink_runtime::VERSION
+        &dbc_runtime::VERSION
     }
 }
 
@@ -96,7 +96,7 @@ pub fn run() -> Result<()> {
         Some(Subcommand::Inspect(cmd)) => {
             let runner = cli.create_runner(cmd)?;
 
-            runner.sync_run(|config| cmd.run::<Block, RuntimeApi, ExecutorDispatch>(config))
+            runner.sync_run(|config| cmd.run::<Block, RuntimeApi, DBCExecutorDispatch>(config))
         },
         Some(Subcommand::Benchmark(cmd)) => {
             let runner = cli.create_runner(cmd)?;
@@ -114,7 +114,7 @@ pub fn run() -> Result<()> {
                             );
                         }
 
-                        cmd.run::<Block, ExecutorDispatch>(config)
+                        cmd.run::<Block, DBCExecutorDispatch>(config)
                     },
                     BenchmarkCmd::Block(cmd) => {
                         // ensure that we keep the task manager alive
@@ -243,7 +243,7 @@ pub fn run() -> Result<()> {
                 Ok((
                     cmd.run::<Block, ExtendedHostFunctions<
                         sp_io::SubstrateHostFunctions,
-                        <ExecutorDispatch as NativeExecutionDispatch>::ExtendHostFunctions,
+                        <DBCExecutorDispatch as NativeExecutionDispatch>::ExtendHostFunctions,
                     >>(),
                     task_manager,
                 ))

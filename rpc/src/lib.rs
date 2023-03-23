@@ -34,7 +34,7 @@
 use std::sync::Arc;
 
 use jsonrpsee::RpcModule;
-use node_primitives::{AccountId, Balance, Block, BlockNumber, Hash, Index};
+use dbc_primitives::{AccountId, Balance, Block, BlockNumber, Hash, Index};
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{BabeConfiguration, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;

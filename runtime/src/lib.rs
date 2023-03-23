@@ -48,8 +48,8 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureWithSuccess,
 };
-pub use node_primitives::{AccountId, Signature};
-use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
+pub use dbc_primitives::{AccountId, Signature};
+use dbc_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -1525,7 +1525,7 @@ parameter_types! {
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
-        NodeBlock = node_primitives::Block,
+        NodeBlock = dbc_primitives::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
         System: frame_system,
