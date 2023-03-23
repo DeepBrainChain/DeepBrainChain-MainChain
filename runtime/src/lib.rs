@@ -1497,26 +1497,26 @@ parameter_types! {
 
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
-parameter_types! {
-    pub const AllianceMotionDuration: BlockNumber = ALLIANCE_MOTION_DURATION_IN_BLOCKS;
-    pub const AllianceMaxProposals: u32 = 100;
-    pub const AllianceMaxMembers: u32 = 100;
-}
+// parameter_types! {
+//     pub const AllianceMotionDuration: BlockNumber = ALLIANCE_MOTION_DURATION_IN_BLOCKS;
+//     pub const AllianceMaxProposals: u32 = 100;
+//     pub const AllianceMaxMembers: u32 = 100;
+// }
 
-type AllianceCollective = pallet_collective::Instance3;
-impl pallet_collective::Config<AllianceCollective> for Runtime {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type MotionDuration = AllianceMotionDuration;
-    type MaxProposals = AllianceMaxProposals;
-    type MaxMembers = AllianceMaxMembers;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-}
+// type AllianceCollective = pallet_collective::Instance3;
+// impl pallet_collective::Config<AllianceCollective> for Runtime {
+//     type RuntimeOrigin = RuntimeOrigin;
+//     type Proposal = RuntimeCall;
+//     type RuntimeEvent = RuntimeEvent;
+//     type MotionDuration = AllianceMotionDuration;
+//     type MaxProposals = AllianceMaxProposals;
+//     type MaxMembers = AllianceMaxMembers;
+//     type DefaultVote = pallet_collective::PrimeDefaultVote;
+//     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+// }
 
 parameter_types! {
-    pub const MaxFellows: u32 = AllianceMaxMembers::get();
+    // pub const MaxFellows: u32 = AllianceMaxMembers::get();
     pub const MaxAllies: u32 = 100;
     pub const AllyDeposit: Balance = 10 * DOLLARS;
     pub const RetirementPeriod: BlockNumber = ALLIANCE_MOTION_DURATION_IN_BLOCKS + (1 * DAYS);
@@ -1574,7 +1574,7 @@ construct_runtime!(
         ChildBounties: pallet_child_bounties,
         Referenda: pallet_referenda,
         ConvictionVoting: pallet_conviction_voting,
-        AllianceMotion: pallet_collective::<Instance3>,
+        // AllianceMotion: pallet_collective::<Instance3>,
         NominationPools: pallet_nomination_pools,
         RankedPolls: pallet_referenda::<Instance2>,
         RankedCollective: pallet_ranked_collective,
