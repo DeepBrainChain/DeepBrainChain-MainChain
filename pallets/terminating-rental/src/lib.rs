@@ -1498,9 +1498,8 @@ impl<T: Config> Pallet<T> {
 
         let mut verify_sequence = Vec::new();
         for i in 0..3 {
-            let lucky_index = <generic_func::Module<T>>::random_u32(
-                (committee.len() as u32).saturating_sub(1u32),
-            ) as usize;
+            let lucky_index =
+                <generic_func::Module<T>>::random_u32((committee.len() as u32)) as usize;
             verify_sequence.push(VerifySequence {
                 who: committee[lucky_index].clone(),
                 index: (i..DISTRIBUTION as usize).step_by(3).collect(),

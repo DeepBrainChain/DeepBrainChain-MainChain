@@ -1,4 +1,3 @@
-use sp_core::crypto::{ByteArray, Public};
 use sp_runtime::traits::Verify;
 use sp_std::{
     convert::{TryFrom, TryInto},

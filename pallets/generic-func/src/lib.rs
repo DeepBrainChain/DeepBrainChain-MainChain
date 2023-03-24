@@ -7,13 +7,16 @@ pub use dbc_support::ItemList;
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, OnUnbalanced, Randomness, ReservableCurrency},
+    weights::Weight,
 };
 use frame_system::pallet_prelude::*;
-use rand_chacha::rand_core::SeedableRng;
+use rand_chacha::{
+    rand_core::{RngCore, SeedableRng},
+    ChaChaRng,
+};
 use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, Saturating};
+use sp_runtime::traits::Saturating;
 use sp_std::prelude::*;
-use frame_support::weights::Weight;
 
 pub use pallet::*;
 
@@ -68,23 +71,27 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
+            let weight = Weight::default();
+
             let frequency = Self::destroy_hook();
 
             match frequency {
                 Some(frequency) => {
                     if frequency.1 == 0u32.into() {
-                        return 0
+                        return weight
                     }
                     if block_number % frequency.1 == 0u32.into() {
                         Self::auto_destroy(frequency.0);
                     }
                 },
-                None => return 0,
+                None => return weight,
             }
-            0
+            weight
         }
 
         fn on_runtime_upgrade() -> Weight {
+            let weight = Weight::default();
+
             // let rent_fee_pot: Vec<u8> =
             //     b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
             // let account_id32: [u8; 32] =
@@ -93,13 +100,14 @@ pub mod pallet {
             // let destroy_frequency: T::BlockNumber = (2880 * 7u32).into();
             // DestroyHook::<T>::put((account, destroy_frequency));
 
-            0
+            weight
         }
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置租用机器手续费：10 DBC
+        #[pallet::call_index(0)]
         #[pallet::weight(0)]
         pub fn set_fixed_tx_fee(
             origin: OriginFor<T>,
@@ -110,6 +118,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(1)]
         #[pallet::weight(0)]
         pub fn deposit_into_treasury(
             origin: OriginFor<T>,
@@ -128,6 +137,7 @@ pub mod pallet {
         }
 
         /// fre == 0 将销毁DestroyHook
+        #[pallet::call_index(2)]
         #[pallet::weight(0)]
         pub fn set_auto_destroy(
             origin: OriginFor<T>,
@@ -144,6 +154,7 @@ pub mod pallet {
         }
 
         // 将DBC销毁
+        #[pallet::call_index(3)]
         #[pallet::weight(0)]
         pub fn destroy_free_dbc(
             origin: OriginFor<T>,
@@ -155,6 +166,7 @@ pub mod pallet {
         }
 
         // 强制销毁DBC
+        #[pallet::call_index(4)]
         #[pallet::weight(0)]
         pub fn force_destroy_free_dbc(
             origin: OriginFor<T>,
@@ -167,8 +179,8 @@ pub mod pallet {
         }
     }
 
-    #[pallet::event]
     // #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         DonateToTreasury(T::AccountId, BalanceOf<T>),
@@ -191,21 +203,24 @@ impl<T: Config> Pallet<T> {
         nonce.encode()
     }
 
-    // Generate random num, range: [0, max]
+    /// Pick a new PRN, in the range [0, `max`) (exclusive).
+    fn pick_u32<R: RngCore>(rng: &mut R, max: u32) -> u32 {
+        rng.next_u32() % max
+    }
+
+    // Generate random num, range: [0, `max`)(exclusive)
     pub fn random_u32(max: u32) -> u32 {
         let subject = Self::update_nonce();
-        let random_seed = T::RandomnessSource::random(&subject);
-
-        let mut rng = rand_chacha::ChaChaRng::from_seed(random_seed);
-
-        // let mut rng = <RandomNumberGenerator<BlakeTwo256>>::new(random_seed);
-        rng.pick_u32(max)
+        let (random_seed, _) = T::RandomnessSource::random(&subject);
+        // let random_seed = sp_io::offchain::random_seed();
+        let mut rng = ChaChaRng::from_seed(random_seed.into());
+        Self::pick_u32(&mut rng, max)
     }
 
     /// 产生随机的ServerRoomId
     pub fn random_server_room() -> H256 {
         let subject = Self::update_nonce();
-        T::RandomnessSource::random(&subject)
+        T::RandomnessSource::random(&subject).0
     }
 
     // 每次交易消耗一些交易费: 10DBC

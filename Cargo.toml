@@ -8,6 +8,10 @@ version = "3.0.0"
 default-run = "dbc-chain"
 edition = "2021"
 
+[profile.release]
+panic = "unwind"
+opt-level = 3
+
 [dependencies]
 dbc-cli = { package = "dbc-cli", path = "cli" }
 

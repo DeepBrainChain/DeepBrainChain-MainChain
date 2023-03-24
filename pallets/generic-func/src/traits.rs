@@ -37,8 +37,7 @@ impl<T: Config> GNOps for Pallet<T> {
         }
 
         for a_slash_person in slash_who {
-            let reward_each_get =
-                Perbill::from_rational_approximation(1u32, reward_to_num) * each_slash;
+            let reward_each_get = Perbill::from_rational(1u32, reward_to_num) * each_slash;
             let mut left_reward = each_slash;
 
             for a_committee in &reward_who {
