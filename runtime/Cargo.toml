@@ -110,7 +110,10 @@ pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", bra
 pallet-uniques = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 # pallet-whitelist = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 
+# DBC pallets
 generic-func = { path = "../pallets/generic-func", default-features = false }
+council-reward = { path = "../pallets/council-reward", default-features = false }
+dbc-price-ocw = { path = "../pallets/dbc-price-ocw", default-features = false }
 
 [features]
 default = ["std"]
@@ -202,7 +205,9 @@ std = [
 	"pallet-child-bounties/std",
 	"pallet-alliance/std",
 	"substrate-wasm-builder",
-	"generic-func/std"
+	"generic-func/std",
+	"council-reward/std",
+	"dbc-price-ocw/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

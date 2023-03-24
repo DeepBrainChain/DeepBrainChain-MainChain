@@ -21,4 +21,4 @@ proc-macro2 = "1.0.6"
 proc-macro-crate = "0.1.4"
 
 [dev-dependencies]
-sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }

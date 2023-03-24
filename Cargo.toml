@@ -28,7 +28,7 @@ members = [
 
   # "pallets/dbc-staking",
   # "pallets/generic-func",
-  # "pallets/dbc-price-ocw",
+  "pallets/dbc-price-ocw",
   # "pallets/online-profile",
   # "pallets/online-profile/rpc",
   # "pallets/online-profile/rpc/runtime-api",
@@ -45,11 +45,11 @@ members = [
   # "pallets/rent-machine",
   # "pallets/rent-machine/rpc",
   # "pallets/rent-machine/rpc/runtime-api",
-  "pallets/support"
+  "pallets/support",
   # "pallets/terminating-rental",
   # "pallets/terminating-rental/rpc",
   # "pallets/terminating-rental/rpc/runtime-api",
-  # "pallets/council-reward",
+  "pallets/council-reward",
 ]
 
 [features]

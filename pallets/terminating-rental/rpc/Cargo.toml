@@ -10,9 +10,9 @@ jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
 serde = { version = "1.0.101", features = ["derive"] }
 
-sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
-sp-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
 
 dbc-support = { version = "0.1.0", path = "../../support" }
 terminating-rental = { version = "0.1.0", path = "../../terminating-rental" }

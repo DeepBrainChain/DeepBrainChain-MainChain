@@ -6,9 +6,9 @@ edition = "2018"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 
-sp-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+sp-api = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37", default-features = false }
 
 dbc-support = { path = "../../../support", default-features = false }
 terminating-rental = { version = "0.1.0", path = "../../../terminating-rental", default-features = false }

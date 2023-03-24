@@ -1433,6 +1433,33 @@ impl generic_func::Config for Runtime {
 }
 
 parameter_types! {
+    // 首要投票人：5000 USD 或 60万 DBC 取价值较小
+    pub const PrimerReward: (u64, Balance) = (5_000_000_000u64, 600_000 * DBCS);
+    // 排名第二的议会成员：2000 USD 或 20万 DBC 取价值较小
+    pub const SecondReward: (u64, Balance) = (2_000_000_000u64, 200_000 * DBCS);
+    // 排名第三的议会成员：2000 USD 或 20万 DBC 取价值较小
+    pub const ThirdReward: (u64, Balance) = (2_000_000_000u64, 200_000 * DBCS);
+    // 发放周期
+    pub const RewardFrequency: BlockNumber = 30 * DAYS;
+}
+
+impl council_reward::Config for Runtime {
+    type Event = Event;
+    type DbcPrice = DBCPriceOCW;
+    type Currency = Balances;
+    type RewardFrequency = RewardFrequency;
+    type PrimerReward = PrimerReward;
+    type SecondReward = SecondReward;
+    type ThirdReward = ThirdReward;
+}
+
+impl dbc_price_ocw::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
+}
+
+parameter_types! {
     pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
     pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
     pub const MigrationMaxKeyLen: u32 = 512;
@@ -1500,6 +1527,8 @@ construct_runtime!(
         RankedPolls: pallet_referenda::<Instance2>,
         RankedCollective: pallet_ranked_collective,
         GenericFunc: generic_func,
+        CouncilReward: council_reward,
+        DBCPriceOCW: dbc_price_ocw,
     }
 );
 
