@@ -1459,6 +1459,18 @@ impl dbc_price_ocw::Config for Runtime {
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 
+impl online_profile::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type BondingDuration = BondingDuration;
+    type DbcPrice = DBCPriceOCW;
+    type ManageCommittee = Committee;
+    type Slash = Treasury;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+    type SlashAndReward = GenericFunc;
+}
+
 parameter_types! {
     pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
     pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
@@ -1529,6 +1541,7 @@ construct_runtime!(
         GenericFunc: generic_func,
         CouncilReward: council_reward,
         DBCPriceOCW: dbc_price_ocw,
+        OnlineProfile: online_profile
     }
 );
 

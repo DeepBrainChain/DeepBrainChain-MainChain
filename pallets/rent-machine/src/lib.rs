@@ -43,7 +43,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type RTOps: RTOps<
             MachineId = MachineId,
@@ -178,7 +178,7 @@ pub mod pallet {
             rent_id: RentOrderId,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut rent_info = Self::rent_info(&rent_id);
             let machine_id = rent_info.machine_id.clone();
@@ -255,7 +255,6 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         PayTxFee(T::AccountId, BalanceOf<T>),
@@ -293,7 +292,7 @@ impl<T: Config> Pallet<T> {
         rent_gpu_num: u32,
         duration: T::BlockNumber,
     ) -> DispatchResultWithPostInfo {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
         let machine_rented_gpu = <online_profile::Module<T>>::machine_rented_gpu(&machine_id);
         let gpu_num = machine_info.gpu_num();
@@ -320,7 +319,7 @@ impl<T: Config> Pallet<T> {
             duration.min((Self::maximum_rental_duration().saturating_mul(ONE_DAY)).into());
 
         // NOTE: 用户提交订单，需要扣除10个DBC
-        <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone())
+        <generic_func::Pallet<T>>::pay_fixed_tx_fee(renter.clone())
             .map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
         // 获得machine_price(每天的价格)
@@ -410,7 +409,7 @@ impl<T: Config> Pallet<T> {
         let calc_point = machine_info.calc_point();
 
         // 确保租用时间不超过设定的限制，计算最多续费租用到
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         // 最大结束块高为 今天租用开始的时间 + 60天
         // 60 days * 24 hour/day * 60 min/hour * 2 block/min
         let max_rent_end = now.checked_add(&(ONE_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
@@ -525,7 +524,7 @@ impl<T: Config> Pallet<T> {
 
     // 定时检查机器是否30分钟没有上线
     fn check_machine_starting_status() {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
 
         if !<ConfirmingOrder<T>>::contains_key(now) {
             return
@@ -610,7 +609,7 @@ impl<T: Config> Pallet<T> {
     // onlineProfile判断机器是否需要变成online状态，或者记录下之前是租用状态，
     // 以便机器再次上线时进行正确的惩罚
     fn check_if_rent_finished() {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         if !<RentEnding<T>>::contains_key(now) {
             return
         }

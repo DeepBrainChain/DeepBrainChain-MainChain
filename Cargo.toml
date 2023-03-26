@@ -27,9 +27,9 @@ members = [
   "testing",
 
   # "pallets/dbc-staking",
-  # "pallets/generic-func",
+  "pallets/generic-func",
   "pallets/dbc-price-ocw",
-  # "pallets/online-profile",
+  "pallets/online-profile",
   # "pallets/online-profile/rpc",
   # "pallets/online-profile/rpc/runtime-api",
   # "pallets/committee",

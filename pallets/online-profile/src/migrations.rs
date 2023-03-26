@@ -1,7 +1,7 @@
 use crate::{
     BalanceOf, Config, ErasStashPoints, LiveMachines, MachineId, MachinesInfo, Pallet,
     PendingSlash, Phase1Destruction, Phase2Destruction, StandardGPUPointPrice, StashMachines,
-    StashStake, StorageVersion, SysInfo,
+    StashStake, pallet::StorageVersion, SysInfo,
 };
 use codec::{Decode, Encode};
 use dbc_support::{
@@ -10,7 +10,7 @@ use dbc_support::{
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
     EraIndex,
 };
-use frame_support::{debug::info, traits::Get, weights::Weight, IterableStorageMap, RuntimeDebug};
+use frame_support::{traits::Get, weights::Weight, IterableStorageMap, RuntimeDebug};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
@@ -136,9 +136,7 @@ where
 ///
 /// Use with care and run at your own risk.
 pub fn apply<T: Config>() -> Weight {
-    frame_support::debug::RuntimeLogger::init();
-
-    info!(
+    log::info!(
         target: "runtime::online_profile",
         "Running migration for onlineProfile pallet"
     );
@@ -156,7 +154,7 @@ pub fn apply<T: Config>() -> Weight {
             regenerate_sys_info::<T>() +
             reset_params::<T>()
     } else {
-        frame_support::debug::info!(" >>> Unused migration!");
+        log::info!(" >>> Unused migration!");
         0
     }
 }
@@ -167,7 +165,7 @@ fn migrate_machine_info_to_v2<T: Config>() -> Weight {
     );
     let count = MachinesInfo::<T>::iter_values().count();
 
-    info!(
+    log::info!(
         target: "runtime::onlineProfile",
         "migrated {} onlineProfile machineInfo.",
         count,
@@ -184,7 +182,7 @@ fn migrate_pending_slash_to_v2<T: Config>() -> Weight {
     >(|_, slash_info| Some(slash_info.into()));
     let count = PendingSlash::<T>::iter_values().count();
 
-    info!(
+    log::info!(
         target: "runtime::onlineProfile",
         "migrated {} onlineProfile PendingSlash.",
         count,

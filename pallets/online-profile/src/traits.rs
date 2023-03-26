@@ -54,7 +54,7 @@ impl<T: Config> OCOps for Pallet<T> {
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
     ) {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let current_era = Self::current_era();
         let machine_id = committee_upload_info.machine_id.clone();
 
@@ -334,7 +334,7 @@ impl<T: Config> RTOps for Pallet<T> {
                     ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
                     ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
 
-                    machine_info.last_online_height = <frame_system::Module<T>>::block_number();
+                    machine_info.last_online_height = <frame_system::Pallet<T>>::block_number();
                     machine_info.machine_status = MachineStatus::Online;
 
                     // 租用结束

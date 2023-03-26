@@ -46,7 +46,7 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config + online_profile::Config + generic_func::Config + committee::Config
     {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type OCOps: OCOps<
             AccountId = Self::AccountId,
@@ -150,7 +150,7 @@ pub mod pallet {
             hash: [u8; 16],
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut machine_submited_hash = Self::machine_submited_hash(&machine_id);
             ensure!(machine_submited_hash.binary_search(&hash).is_err(), Error::<T>::DuplicateHash);
@@ -182,7 +182,7 @@ pub mod pallet {
             machine_info_detail: CommitteeUploadInfo,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let machine_id = machine_info_detail.machine_id.clone();
 
             let mut machine_committee = Self::machine_committee(&machine_id);
@@ -218,7 +218,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             // 申请人
             let applicant = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let slash_info = Self::pending_slash(slash_id);
             let stake_amount = <T as Config>::ManageCommittee::stake_per_order()
                 .ok_or(Error::<T>::GetStakeAmountFailed)?;
@@ -285,7 +285,6 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         AddConfirmHash(T::AccountId, [u8; 16]),
@@ -317,7 +316,7 @@ impl<T: Config> Pallet<T> {
     // 获取所有新加入的机器，并进行分派给委员会
     pub fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let confirm_start = now + SUBMIT_RAW_START.into();
 
         for machine_id in live_machines.confirmed_machine {
@@ -347,7 +346,7 @@ impl<T: Config> Pallet<T> {
         let mut verify_sequence = Vec::new();
         for i in 0..3 {
             let lucky_index =
-                <generic_func::Module<T>>::random_u32((committee.len() as u32)) as usize;
+                <generic_func::Pallet<T>>::random_u32((committee.len() as u32)) as usize;
             verify_sequence.push(VerifySequence {
                 who: committee[lucky_index].clone(),
                 index: (i..DISTRIBUTION as usize).step_by(3).collect(),
@@ -401,7 +400,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn statistic_result() {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let booked_machine = <online_profile::Pallet<T>>::live_machines().booked_machine;
         let committee_stake_per_order =
             <T as Config>::ManageCommittee::stake_per_order().unwrap_or_default();
@@ -546,7 +545,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_cancel_slash(slash_id: SlashId) -> DispatchResultWithPostInfo {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let mut slash_info = Self::pending_slash(slash_id);
         let slash_review_info = Self::pending_slash_review(slash_id);
         let committee_order_stake = <T as Config>::ManageCommittee::stake_per_order()

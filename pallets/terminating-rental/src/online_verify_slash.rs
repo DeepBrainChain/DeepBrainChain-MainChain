@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn do_a_slash(slash_id: SlashId, pending_unhandled_slash: &mut Vec<SlashId>) -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let mut slash_info = Self::pending_online_slash(slash_id);
         if now < slash_info.slash_exec_time {
             return Ok(())

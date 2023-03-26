@@ -10,7 +10,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = [
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
-serde = { version = "1.0.101", features = ["derive"] }
+serde = { version = "1.0.136", features = ["derive"] }
 dbc-support = { version = "0.1.0", path = "../../support" }
 online-committee = { version = "0.1.0", path = "../../online-committee" }
 online-committee-runtime-api = { version = "0.1.0", path = "./runtime-api" }

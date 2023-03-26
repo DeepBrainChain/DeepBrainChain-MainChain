@@ -10,7 +10,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = [
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
-serde = { version = "1.0.101", features = ["derive"] }
+serde = { version = "1.0.136", features = ["derive"] }
 
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }

@@ -71,7 +71,6 @@ pub mod pallet {
     pub(super) type AvgPrice<T> = StorageValue<_, u64>;
 
     #[pallet::event]
-    // #[pallet::metadata(T::AccountId = "AccountId")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         AddNewPrice(u64),

@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
     // NOTE: 确保 PendingSlash 添加时，添加该变量
     // PendingSlash 删除时，删除该变量
     pub fn exec_pending_slash() {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let pending_exec_slash = Self::pending_exec_slash(now);
 
         for slash_id in pending_exec_slash {
@@ -78,7 +78,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn check_pending_slash() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         if !PendingSlashReviewChecking::<T>::contains_key(now) {
             return Ok(())
         }
@@ -147,7 +147,7 @@ impl<T: Config> Pallet<T> {
         committee: Option<Vec<T::AccountId>>,
         slash_reason: OPSlashReason<T::BlockNumber>,
     ) -> OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let machine_info = Self::machines_info(&machine_id);
 
         if slash_percent == 0 {

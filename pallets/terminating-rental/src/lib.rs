@@ -75,7 +75,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + generic_func::Config + committee::Config {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type ManageCommittee: ManageCommittee<
@@ -466,7 +466,7 @@ pub mod pallet {
             Self::pay_fixed_tx_fee(controller.clone())?;
 
             StashServerRooms::<T>::mutate(stash, |server_rooms| {
-                let new_server_room = <generic_func::Module<T>>::random_server_room();
+                let new_server_room = <generic_func::Pallet<T>>::random_server_room();
                 ItemList::add_item(server_rooms, new_server_room);
 
                 Self::deposit_event(Event::ServerRoomGenerated(controller, new_server_room));
@@ -485,7 +485,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let online_deposit = Self::online_deposit();
 
             ensure!(!MachinesInfo::<T>::contains_key(&machine_id), Error::<T>::MachineIdExist);
@@ -553,7 +553,7 @@ pub mod pallet {
             hash: [u8; 16],
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut machine_submited_hash = Self::machine_submited_hash(&machine_id);
             ensure!(machine_submited_hash.binary_search(&hash).is_err(), Error::<T>::DuplicateHash);
@@ -584,7 +584,7 @@ pub mod pallet {
             machine_info_detail: CommitteeUploadInfo,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let machine_id = machine_info_detail.machine_id.clone();
 
             let mut machine_committee = Self::machine_committee(&machine_id);
@@ -621,7 +621,7 @@ pub mod pallet {
             duration: T::BlockNumber,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let machine_info = Self::machines_info(&machine_id);
             let machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
             let gpu_num = machine_info.gpu_num();
@@ -724,7 +724,7 @@ pub mod pallet {
             rent_id: RentOrderId,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut order_info = Self::rent_order(&rent_id);
             let machine_id = order_info.machine_id.clone();
@@ -799,7 +799,7 @@ pub mod pallet {
             let calc_point = machine_info.calc_point();
 
             // 确保租用时间不超过设定的限制，计算最多续费租用到
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             // 最大结束块高为 今天租用开始的时间 + 60天
             // 2880 块/天 * 60 days
             let max_rent_end =
@@ -868,7 +868,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
             let rent_order = Self::rent_order(rent_id);
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             ensure!(renter == rent_order.renter, Error::<T>::NotOrderRenter);
 
@@ -913,7 +913,7 @@ pub mod pallet {
                 Error::<T>::NotMachineController
             );
 
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let machine_rent_order = Self::machine_rent_order(&machine_id);
 
             machine_info.machine_offline(now);
@@ -990,7 +990,7 @@ pub mod pallet {
                 Error::<T>::NotMachineController
             );
 
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             ensure!(
                 now.saturating_sub(machine_info.online_height) >= (365 * 2880u32).into(),
                 Error::<T>::TimeNotAllow
@@ -1160,7 +1160,7 @@ pub mod pallet {
             encrypted_err_info: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut report_info = Self::report_info(&report_id);
             let mut committee_ops = Self::committee_report_ops(&to_committee, &report_id);
@@ -1195,7 +1195,7 @@ pub mod pallet {
             hash: ReportHash,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut committee_order = Self::committee_report_order(&committee);
             let mut committee_ops = Self::committee_report_ops(&committee, &report_id);
@@ -1242,7 +1242,7 @@ pub mod pallet {
             support_report: bool,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut report_info = Self::report_info(report_id);
 
@@ -1296,7 +1296,6 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         ControllerStashBonded(T::AccountId, T::AccountId),
@@ -1432,7 +1431,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn pay_fixed_tx_fee(who: T::AccountId) -> DispatchResultWithPostInfo {
-        <generic_func::Module<T>>::pay_fixed_tx_fee(who).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+        <generic_func::Pallet<T>>::pay_fixed_tx_fee(who).map_err(|_| Error::<T>::PayTxFeeFailed)?;
         Ok(().into())
     }
 
@@ -1469,7 +1468,7 @@ impl<T: Config> Pallet<T> {
     // 获取所有新加入的机器，并进行分派给委员会
     pub fn distribute_machines() {
         let live_machines = Self::live_machines();
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let confirm_start = now + SUBMIT_HASH_END.into();
 
         for machine_id in live_machines.confirmed_machine {
@@ -1499,7 +1498,7 @@ impl<T: Config> Pallet<T> {
         let mut verify_sequence = Vec::new();
         for i in 0..3 {
             let lucky_index =
-                <generic_func::Module<T>>::random_u32((committee.len() as u32)) as usize;
+                <generic_func::Pallet<T>>::random_u32((committee.len() as u32)) as usize;
             verify_sequence.push(VerifySequence {
                 who: committee[lucky_index].clone(),
                 index: (i..DISTRIBUTION as usize).step_by(3).collect(),
@@ -1563,7 +1562,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn statistic_online_verify() {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let booked_machine = Self::live_machines().booked_machine;
 
         let committee_stake_per_order =
@@ -1703,7 +1702,7 @@ impl<T: Config> Pallet<T> {
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let machine_id = committee_upload_info.machine_id.clone();
         let mut machine_info = Self::machines_info(&machine_id);
 
@@ -1919,7 +1918,7 @@ impl<T: Config> Pallet<T> {
     // onlineProfile判断机器是否需要变成online状态，或者记录下之前是租用状态，
     // 以便机器再次上线时进行正确的惩罚
     fn check_if_rent_finished() {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         if !<PendingRentEnding<T>>::contains_key(now) {
             return
         }
@@ -1978,7 +1977,7 @@ impl<T: Config> Pallet<T> {
                     ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
                     ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
 
-                    machine_info.last_online_height = <frame_system::Module<T>>::block_number();
+                    machine_info.last_online_height = <frame_system::Pallet<T>>::block_number();
                     machine_info.machine_status = MachineStatus::Online;
 
                     // 租用结束
@@ -2051,7 +2050,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn check_if_offline_timeout() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         if !<OfflineMachines<T>>::contains_key(now) {
             return Ok(())
         }

@@ -50,7 +50,7 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config + online_profile::Config + generic_func::Config + rent_machine::Config
     {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type ManageCommittee: ManageCommittee<
             AccountId = Self::AccountId,
@@ -315,7 +315,7 @@ pub mod pallet {
             encrypted_err_info: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut report_info = Self::report_info(&report_id);
             let mut committee_ops = Self::committee_ops(&to_committee, &report_id);
@@ -350,7 +350,7 @@ pub mod pallet {
             hash: ReportHash,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut committee_order = Self::committee_order(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &report_id);
@@ -397,7 +397,7 @@ pub mod pallet {
             support_report: bool,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut report_info = Self::report_info(report_id);
 
@@ -457,7 +457,7 @@ pub mod pallet {
             is_support: bool,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let report_info = Self::report_info(report_id);
             let committee_ops = Self::committee_ops(&committee, &report_id);
@@ -495,7 +495,7 @@ pub mod pallet {
             reason: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let applicant = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let reporter_stake_params =
                 Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
             let report_result_info = Self::report_result(report_result_id);
@@ -576,7 +576,7 @@ pub mod pallet {
                 Error::<T>::NotPendingReviewSlash
             );
 
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let mut report_result = Self::report_result(slashed_report_id);
             let slash_review_info = Self::pending_slash_review(slashed_report_id);
             let (applicant, staked) =
@@ -646,7 +646,6 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         ReportMachineFault(T::AccountId, MachineFaultType),
@@ -752,7 +751,7 @@ impl<T: Config> Pallet<T> {
         // 获取处理报告需要的信息
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
         let report_id = Self::get_new_report_id();
-        let report_time = report_time.unwrap_or_else(|| <frame_system::Module<T>>::block_number());
+        let report_time = report_time.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
 
         // 记录到 live_report & reporter_report
         live_report.new_report(report_id);
@@ -778,7 +777,7 @@ impl<T: Config> Pallet<T> {
         report_info: &mut MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         order_stake: BalanceOf<T>,
     ) {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let mft = report_info.machine_fault_type.clone();
 
         report_info.book_report(committee.clone(), now);
@@ -819,7 +818,7 @@ impl<T: Config> Pallet<T> {
         report_id: ReportId,
         live_report: &mut MTLiveReportList,
     ) -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let mut report_info = Self::report_info(&report_id);
 
         report_info.can_summary_inaccessible(now)?;
@@ -977,7 +976,7 @@ impl<T: Config> Pallet<T> {
         report_id: ReportId,
         live_report: &mut MTLiveReportList,
     ) -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
         let report_info = Self::report_info(&report_id);
@@ -1131,7 +1130,7 @@ impl<T: Config> Pallet<T> {
 
     // 统计委员会正在提交原始值的机器
     fn summary_submitting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
         let mut report_info = Self::report_info(&report_id);

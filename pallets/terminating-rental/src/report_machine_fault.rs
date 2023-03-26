@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
         // 获取处理报告需要的信息
         let stake_params = Self::reporter_stake_params();
         let report_id = Self::get_new_report_id();
-        let report_time = report_time.unwrap_or_else(|| <frame_system::Module<T>>::block_number());
+        let report_time = report_time.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
 
         // 记录到 live_report & reporter_report
         live_report.new_report(report_id);
@@ -143,7 +143,7 @@ impl<T: Config> Pallet<T> {
         report_info: &mut MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         order_stake: BalanceOf<T>,
     ) {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let mft = report_info.machine_fault_type.clone();
 
         report_info.book_report(committee.clone(), now);
@@ -161,7 +161,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn exec_report_slash() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
 
         for slashed_report_id in Self::unhandled_report_result(now) {
             let mut report_result_info = Self::report_result(&slashed_report_id);
@@ -304,7 +304,7 @@ impl<T: Config> Pallet<T> {
         report_id: ReportId,
         live_report: &mut MTLiveReportList,
     ) -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
         let report_info = Self::report_info(&report_id);
@@ -414,7 +414,7 @@ impl<T: Config> Pallet<T> {
 
     // 统计委员会正在提交原始值的机器
     fn summary_submitting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
         let mut report_info = Self::report_info(&report_id);

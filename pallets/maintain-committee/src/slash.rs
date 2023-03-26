@@ -11,7 +11,7 @@ use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {
     pub fn exec_slash() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
 
         for slashed_report_id in Self::unhandled_report_result(now) {
             let mut report_result_info = Self::report_result(&slashed_report_id);
@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn exec_review() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let all_pending_review = <PendingSlashReview<T> as IterableStorageMap<ReportId, _>>::iter()
             .map(|(renter, _)| renter)
             .collect::<Vec<_>>();

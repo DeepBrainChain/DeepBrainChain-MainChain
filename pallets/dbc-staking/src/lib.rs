@@ -2925,7 +2925,7 @@ impl<T: Config> Module<T> {
 
             let reward_start_height = RewardStartHeight::<T>::get().saturated_into::<u64>();
 
-            let current_block_height = <frame_system::Module<T>>::block_number();
+            let current_block_height = <frame_system::Pallet<T>>::block_number();
             let current_block_height = current_block_height.saturated_into::<u64>();
 
             // Milliseconds per year for the Julian year (365.25 days).
@@ -3398,7 +3398,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
         frame_support::debug::native::trace!(
             target: LOG_TARGET,
             "[{}] planning new_session({})",
-            <frame_system::Module<T>>::block_number(),
+            <frame_system::Pallet<T>>::block_number(),
             new_index
         );
         Self::new_session(new_index)
@@ -3407,7 +3407,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
         frame_support::debug::native::trace!(
             target: LOG_TARGET,
             "[{}] starting start_session({})",
-            <frame_system::Module<T>>::block_number(),
+            <frame_system::Pallet<T>>::block_number(),
             start_index
         );
         Self::start_session(start_index)
@@ -3416,7 +3416,7 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Module<T> {
         frame_support::debug::native::trace!(
             target: LOG_TARGET,
             "[{}] ending end_session({})",
-            <frame_system::Module<T>>::block_number(),
+            <frame_system::Pallet<T>>::block_number(),
             end_index
         );
         Self::end_session(end_index)
