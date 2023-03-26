@@ -3,7 +3,7 @@ name = "pallet-staking-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 homepage = "https://substrate.dev"
 repository = "https://github.com/paritytech/substrate/"
@@ -14,22 +14,26 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 honggfuzz = "0.5"
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-dbc-staking = { version = "3.0.0", path = "..", features = ["runtime-benchmarks"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
+    "derive",
+] }
+dbc-staking = { version = "3.0.0", path = "..", features = [
+    "runtime-benchmarks",
+] }
 pallet-staking-reward-curve = { version = "3.0.0", path = "../reward-curve" }
 serde = "1.0.101"
 
-pallet-session = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-pallet-indices = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-frame-system = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-frame-support = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-std = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-io = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-core = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-npos-elections = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
+pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+pallet-indices = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-npos-elections = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 
 [features]
 # Note feature std is required so that impl_opaque_keys derive serde.

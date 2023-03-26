@@ -1,20 +1,22 @@
 [package]
 authors = ["bobo <dongkaige@gmail.com>"]
-edition = "2018"
+edition = "2021"
 name = "terminating-rental"
 version = "0.1.0"
 
 [dependencies]
 bs58 = { package = "bs58", version = "0.4.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
+  "derive",
+] }
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
 
-frame-support = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 
 committee = { path = "../committee", default-features = false }
 dbc-support = { path = "../support", default-features = false }
@@ -25,11 +27,11 @@ online-committee = { path = "../online-committee", default-features = false }
 hex = "0.4"
 dbc-price-ocw = { package = "dbc-price-ocw", path = "../dbc-price-ocw" }
 
-pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-pallet-treasury = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-io = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+pallet-treasury = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 
 [features]
 default = ["std"]

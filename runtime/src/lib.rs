@@ -1444,7 +1444,7 @@ parameter_types! {
 }
 
 impl council_reward::Config for Runtime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type DbcPrice = DBCPriceOCW;
     type Currency = Balances;
     type RewardFrequency = RewardFrequency;
@@ -1455,7 +1455,7 @@ impl council_reward::Config for Runtime {
 
 impl dbc_price_ocw::Config for Runtime {
     type Currency = Balances;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 

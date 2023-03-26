@@ -1,18 +1,20 @@
 [package]
 name = "terminating-rental-rpc"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", features = [
+    "derive",
+] }
 jsonrpc-core = "15.0"
 jsonrpc-core-client = "15.0"
 jsonrpc-derive = "15.0"
 serde = { version = "1.0.101", features = ["derive"] }
 
-sp-runtime = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-api = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 
 dbc-support = { version = "0.1.0", path = "../../support" }
 terminating-rental = { version = "0.1.0", path = "../../terminating-rental" }

@@ -6,6 +6,7 @@ authors = ["bobo <dongkaige@gmail.com>"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 serde = { version = "1.0.136", optional = true, features = ["derive"] }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
@@ -15,17 +16,18 @@ pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", b
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 
+dbc-support = { package = "dbc-support", path = "../support", default-features = false }
+
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-pallet-treasury = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-core = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-io = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", tag = "polkadot-v0.9.37" }
+pallet-treasury = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 
 dbc-price-ocw = { package = "dbc-price-ocw", path = "../dbc-price-ocw" }
-dbc-support = { package = "dbc-support", path = "../support", default-features = false }
-generic-func = { package = "generic-func", path = "../generic-func", default-features = false }
+generic-func = { package = "generic-func", path = "../generic-func" }
 
 [features]
 default = ["std"]

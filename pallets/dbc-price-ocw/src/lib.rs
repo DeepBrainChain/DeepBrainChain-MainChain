@@ -34,13 +34,16 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config + CreateSignedTransaction<Call<Self>> + generic_func::Config
     {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type RandomnessSource: Randomness<H256>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RandomnessSource: Randomness<H256, Self::BlockNumber>;
         type Currency: ReservableCurrency<Self::AccountId>;
     }
 
+    // NOTE: We need #[pallet::without_storage_info] to solve trait `MaxEncodedLen` is not implemented for `VecDeque`
+
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
+    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     #[pallet::type_value]
@@ -68,7 +71,7 @@ pub mod pallet {
     pub(super) type AvgPrice<T> = StorageValue<_, u64>;
 
     #[pallet::event]
-    #[pallet::metadata(T::AccountId = "AccountId")]
+    // #[pallet::metadata(T::AccountId = "AccountId")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         AddNewPrice(u64),
@@ -104,6 +107,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
         #[pallet::weight(0)]
         pub fn submit_price_unsigned(
             origin: OriginFor<T>,
@@ -115,6 +119,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(1)]
         #[pallet::weight(0)]
         pub fn submit_price_by_root(
             origin: OriginFor<T>,
@@ -126,6 +131,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(2)]
         #[pallet::weight(0)]
         pub fn add_price_url(origin: OriginFor<T>, new_url: URL) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -135,6 +141,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(3)]
         #[pallet::weight(0)]
         pub fn set_price_update_frequency(
             origin: OriginFor<T>,
@@ -148,6 +155,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(4)]
         #[pallet::weight(0)]
         pub fn rm_price_url_by_index(
             origin: OriginFor<T>,
@@ -181,7 +189,8 @@ pub mod pallet {
             };
 
             match call {
-                Call::submit_price_unsigned(_price) => valid_tx(b"submit_price_unsigned".to_vec()),
+                Call::submit_price_unsigned { price: _ } =>
+                    valid_tx(b"submit_price_unsigned".to_vec()),
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -191,13 +200,13 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     fn gen_rand_url() -> Option<u32> {
         let price_url = Self::price_url()?;
-        Some(<generic_func::Module<T>>::random_u32(price_url.len() as u32))
+        Some(<generic_func::Pallet<T>>::random_u32(price_url.len() as u32))
     }
 
     fn fetch_price_and_send_unsigned_tx() -> Result<(), Error<T>> {
         let price = Self::fetch_price().map_err(|_| <Error<T>>::FetchPriceFailed)?;
 
-        let call = Call::submit_price_unsigned(price);
+        let call = Call::submit_price_unsigned { price };
         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
             .map_err(|_| <Error<T>>::OffchainUnsignedTxError)
     }
