@@ -364,22 +364,18 @@ impl<T: Config> RTOps for Pallet<T> {
 
         MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
     }
+    fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) {
+        let mut machine_info = Self::machines_info(&machine_id);
+        let mut staker_machine = Self::stash_machines(&machine_info.machine_stash);
+        let mut sys_info = Self::sys_info();
 
-    fn change_machine_rent_fee(
-        machine_id: MachineId,
-        rent_fee: BalanceOf<T>,
-        burn_fee: BalanceOf<T>,
-    ) {
-        SysInfo::<T>::mutate(|sys_info| {
-            sys_info.on_rent_fee_changed(rent_fee, burn_fee);
-        });
-        MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
-            StashMachines::<T>::mutate(&machine_info.machine_stash, |staker_machine| {
-                staker_machine.update_rent_fee(rent_fee, burn_fee);
-            });
+        sys_info.change_rent_fee(amount, is_burn);
+        staker_machine.change_rent_fee(amount, is_burn);
+        machine_info.change_rent_fee(amount, is_burn);
 
-            machine_info.update_rent_fee(rent_fee, burn_fee);
-        });
+        SysInfo::<T>::put(sys_info);
+        StashMachines::<T>::insert(&machine_info.machine_stash, staker_machine);
+        MachinesInfo::<T>::insert(&machine_id, machine_info);
     }
 
     fn reset_machine_renters(machine_id: MachineId, renters: Vec<T::AccountId>) {

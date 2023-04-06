@@ -1,7 +1,6 @@
 use crate::{
     BalanceOf, Config, ErasStashPoints, LiveMachines, MachineId, MachinesInfo, Pallet,
-    PendingSlash, Phase1Destruction, Phase2Destruction, StandardGPUPointPrice, StashMachines,
-    StashStake, StorageVersion, SysInfo,
+    PendingSlash, StandardGPUPointPrice, StashMachines, StashStake, StorageVersion, SysInfo,
 };
 use codec::{Decode, Encode};
 use dbc_support::{
@@ -319,12 +318,6 @@ fn regenerate_sys_info<T: Config>() -> Weight {
 // 1.销毁达到2500卡启动
 // 2.单位算力值价格变更为60％
 fn reset_params<T: Config>() -> Weight {
-    let percent_50 = Perbill::from_rational_approximation(50u32, 100u32);
-    let percent_100 = Perbill::from_rational_approximation(100u32, 100u32);
-
-    Phase1Destruction::<T>::put((2500, percent_50, false));
-    Phase2Destruction::<T>::put((5000, percent_100, false));
-
     let mut standard_gpu_point_price = Pallet::<T>::standard_gpu_point_price().unwrap_or_default();
     standard_gpu_point_price.gpu_price =
         Perbill::from_rational_approximation(60u32, 100u32) * standard_gpu_point_price.gpu_price;

@@ -67,6 +67,14 @@ where
     BlockNumber: Default,
     Balance: Copy + Default + Saturating,
 {
+    pub fn change_rent_fee(&mut self, amount: Balance, is_burn: bool) {
+        if is_burn {
+            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
+        } else {
+            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
+        }
+    }
+
     pub fn new_bonding(
         controller: AccountId,
         stash: AccountId,
