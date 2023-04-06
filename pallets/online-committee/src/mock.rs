@@ -334,17 +334,6 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             StandardGpuPointPrice { gpu_point: 100, gpu_price: 28229 },
         ));
 
-        online_profile::Phase1Destruction::<TestRuntime>::put((
-            2500,
-            Perbill::from_rational_approximation(50u32, 100u32),
-            false,
-        ));
-        online_profile::Phase2Destruction::<TestRuntime>::put((
-            5000,
-            Perbill::from_rational_approximation(100u32, 100u32),
-            false,
-        ));
-
         // Set: Price URL: https://dbchaininfo.congtu.cloud/query/dbc_info?language=CN
         // 初始化price_ocw (0.012$)
         assert_eq!(DBCPriceOCW::avg_price(), None);
