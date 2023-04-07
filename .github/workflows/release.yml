@@ -27,7 +27,7 @@ jobs:
         run: cargo build --release
 
       - name: Create archive
-        run: tar czf dbc-daily-release.tar.gz --directory=target/release/ dbc-chain
+        run: tar czf dbc-daily-release.tar.gz target/release/dbc-chain target/release/wbuild/node-runtime/node_runtime.compact.wasm
 
       - name: Release
         uses: softprops/action-gh-release@v1
