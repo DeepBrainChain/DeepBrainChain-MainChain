@@ -1,8 +1,6 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 pub mod weights;
 
 use codec::{Decode, Encode, HasCompact};
@@ -433,6 +431,94 @@ pub mod pallet {
                 }
 
                 Self::deposit_event(Event::Transferred(id, origin, dest, amount));
+                Ok(().into())
+            })
+        }
+
+        #[pallet::weight(T::WeightInfo::transfer())]
+        pub(super) fn transfer_and_lock(
+            origin: OriginFor<T>,
+            id: T::AssetId,
+            target: T::AccountId,
+            amount: T::Balance,
+            lock_duration: <T as frame_system::Config>::BlockNumber,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+            ensure!(!amount.is_zero(), Error::<T>::AmountZero);
+
+            let mut origin_account = Account::<T>::get(id, &origin);
+            ensure!(!origin_account.is_frozen, Error::<T>::Frozen);
+            origin_account.balance =
+                origin_account.balance.checked_sub(&amount).ok_or(Error::<T>::BalanceLow)?;
+
+            let dest = target; //T::Lookup::lookup(target)?;
+            let now = <frame_system::Module<T>>::block_number();
+            Asset::<T>::try_mutate(id, |maybe_details| {
+                let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(!details.is_frozen, Error::<T>::Frozen);
+
+                if dest == origin {
+                    return Ok(().into())
+                }
+
+                let mut amount = amount;
+                if origin_account.balance < details.min_balance {
+                    amount += origin_account.balance;
+                    origin_account.balance = Zero::zero();
+                }
+
+                let lock = AssetLock {
+                    from: origin.clone(),
+                    balance: amount,
+                    unlock_time: lock_duration.saturating_add(now),
+                };
+                AssetLocks::<T>::mutate(id, &dest, |locks| locks.push(lock));
+
+                match origin_account.balance.is_zero() {
+                    false => {
+                        Self::dezombify(&origin, details, &mut origin_account.is_zombie);
+                        Account::<T>::insert(id, &origin, &origin_account)
+                    },
+                    true => {
+                        Self::dead_account(&origin, details, origin_account.is_zombie);
+                        Account::<T>::remove(id, &origin);
+                    },
+                }
+
+                Self::deposit_event(Event::Transferred(id, origin, dest, amount));
+                Ok(().into())
+            })
+        }
+
+        #[pallet::weight(T::WeightInfo::transfer())]
+        pub(super) fn unlock(
+            origin: OriginFor<T>,
+            id: T::AssetId,
+            lock_index: u32,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+            let lock_index = lock_index as usize;
+
+            AssetLocks::<T>::mutate(id, &origin, |locks| {
+                ensure!(locks.len() > 0 && lock_index < locks.len(), Error::<T>::Unknown);
+
+                let lock = locks[lock_index].clone();
+
+                Asset::<T>::try_mutate(id, |maybe_details| {
+                    let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
+                    Account::<T>::try_mutate(id, &origin, |a| -> DispatchResultWithPostInfo {
+                        let new_balance = a.balance.saturating_add(lock.balance);
+                        ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
+                        if a.balance.is_zero() {
+                            a.is_zombie = Self::new_account(&origin, details)?;
+                        }
+                        a.balance = new_balance;
+                        Ok(().into())
+                    })
+                })?;
+
+                locks.remove(lock_index);
+
                 Ok(().into())
             })
         }
@@ -891,6 +977,18 @@ pub mod pallet {
     }
 
     #[pallet::storage]
+    #[pallet::getter(fn asset_locks)]
+    pub(super) type AssetLocks<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AssetId,
+        Blake2_128Concat,
+        T::AccountId,
+        Vec<AssetLock<T::AccountId, T::Balance, T::BlockNumber>>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
     /// Details of an asset.
     pub(super) type Asset<T: Config> = StorageMap<
         _,
@@ -946,6 +1044,17 @@ pub struct AssetDetails<
     accounts: u32,
     /// Whether the asset is frozen for permissionless transfers.
     is_frozen: bool,
+}
+
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]
+pub struct AssetLock<
+    AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
+    Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
+    BlockNumber: Encode + Decode + Clone + Debug + Eq + PartialEq,
+> {
+    from: AccountId,
+    balance: Balance,
+    unlock_time: BlockNumber,
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]
