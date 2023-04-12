@@ -22,6 +22,7 @@ serde = { version = "1.0.102", optional = true }
 node-primitives = { path = "../primitives", version = "2.0.0", default-features = false }
 
 pallet-staking = { package = "dbc-staking", path = "../pallets/dbc-staking", default-features = false }
+pallet-assets = { package = "dbc-assets", path = "../pallets/dbc-assets", default-features = false }
 generic-func = { package = "generic-func", path = "../pallets/generic-func", default-features = false }
 dbc-support = { package = "dbc-support", path = "../pallets/support", default-features = false }
 dbc-price-ocw = { path = "../pallets/dbc-price-ocw", default-features = false }
@@ -47,7 +48,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0"
 frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false, optional = true }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 
-pallet-assets = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
+# pallet-assets = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-babe = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
@@ -155,6 +156,7 @@ std = [
   "sp-runtime/std",
   "sp-staking/std",
   "pallet-staking/std",
+  "pallet-assets/std",
   "sp-keyring",
   "sp-session/std",
   "pallet-sudo/std",

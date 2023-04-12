@@ -1330,6 +1330,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "dbc-assets"
+version = "3.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "dbc-price-ocw"
 version = "0.1.0"
 dependencies = [
@@ -4137,6 +4150,7 @@ dependencies = [
  "committee",
  "committee-runtime-api",
  "council-reward",
+ "dbc-assets",
  "dbc-price-ocw",
  "dbc-staking",
  "dbc-support",
@@ -4154,7 +4168,6 @@ dependencies = [
  "online-committee-runtime-api",
  "online-profile",
  "online-profile-runtime-api",
- "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -4524,20 +4537,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
 dependencies = [
  "stable_deref_trait",
-]
-
-[[package]]
-name = "pallet-assets"
-version = "3.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "serde",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
