@@ -425,5 +425,23 @@
     "used_stake": "Balance",
     "can_claim_reward": "Balance",
     "claimed_reward": "Balance"
+  },
+  "AssetLock": {
+    "from": "AccountId",
+    "balance": "u128",
+    "unlock_time": "BlockNumber"
+  },
+  "AssetDetails": {
+    "owner": "AccountId",
+    "issuer": "AccountId",
+    "admin": "AccountId",
+    "freezer": "AccountId",
+    "supply": "u64",
+    "deposit": "Balance",
+    "max_zombies": "u32",
+    "min_balance": "u64",
+    "zombies": "u32",
+    "accounts": "u32",
+    "is_frozen": "bool"
   }
 }
