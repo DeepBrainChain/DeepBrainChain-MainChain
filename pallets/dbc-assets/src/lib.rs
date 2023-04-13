@@ -224,6 +224,8 @@ pub mod pallet {
 
                 *maybe_details = None;
                 Account::<T>::remove_prefix(&id);
+                // Remove lock records
+                AssetLocks::<T>::remove_prefix(&id);
                 Self::deposit_event(Event::Destroyed(id));
                 Ok(().into())
             })
@@ -260,6 +262,8 @@ pub mod pallet {
 
                 *maybe_details = None;
                 Account::<T>::remove_prefix(&id);
+                // Remove lock records
+                AssetLocks::<T>::remove_prefix(&id);
                 Self::deposit_event(Event::Destroyed(id));
                 Ok(().into())
             })
