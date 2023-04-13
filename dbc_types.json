@@ -428,7 +428,7 @@
   },
   "AssetLock": {
     "from": "AccountId",
-    "balance": "u128",
+    "balance": "u64",
     "unlock_time": "BlockNumber"
   },
   "AssetDetails": {
