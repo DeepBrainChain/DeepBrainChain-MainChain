@@ -489,7 +489,7 @@ pub mod pallet {
                     },
                 }
 
-                Self::deposit_event(Event::Transferred(id, origin, dest, amount));
+                Self::deposit_event(Event::TransferLocked(id, origin, dest, amount, lock_duration));
                 Ok(().into())
             })
         }
@@ -523,6 +523,7 @@ pub mod pallet {
 
                 locks.remove(lock_index);
 
+                Self::deposit_event(Event::Unlocked(id, lock.balance));
                 Ok(().into())
             })
         }
@@ -943,6 +944,10 @@ pub mod pallet {
         MaxZombiesChanged(T::AssetId, u32),
         /// New metadata has been set for an asset. \[asset_id, name, symbol, decimals\]
         MetadataSet(T::AssetId, Vec<u8>, Vec<u8>, u8),
+        // Transfer and lock: asset_id, from, to, amount, lock_duration
+        TransferLocked(T::AssetId, T::AccountId, T::AccountId, T::Balance, T::BlockNumber),
+        // Unlock: asset_id, amount
+        Unlocked(T::AssetId, T::Balance),
     }
 
     #[deprecated(note = "use `Event` instead")]
