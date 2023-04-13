@@ -502,12 +502,13 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
             let lock_index = lock_index as usize;
+            let now = <frame_system::Module<T>>::block_number();
 
             AssetLocks::<T>::mutate(id, &origin, |locks| {
                 ensure!(locks.len() > 0 && lock_index < locks.len(), Error::<T>::Unknown);
 
                 let lock = locks[lock_index].clone();
-
+                ensure!(now >= lock.unlock_time, Error::<T>::BadState);
                 Asset::<T>::try_mutate(id, |maybe_details| {
                     let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
                     Account::<T>::try_mutate(id, &origin, |a| -> DispatchResultWithPostInfo {
