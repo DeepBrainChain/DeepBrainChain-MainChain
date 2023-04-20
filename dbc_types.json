@@ -426,6 +426,11 @@
     "can_claim_reward": "Balance",
     "claimed_reward": "Balance"
   },
+  "AssetBalance": {
+    "balance": "u64",
+    "is_frozen": "bool",
+    "is_zombie": "bool"
+  },
   "AssetLock": {
     "from": "AccountId",
     "balance": "u64",

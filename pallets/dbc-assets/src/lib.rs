@@ -13,7 +13,7 @@ use sp_runtime::{
     traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
     RuntimeDebug,
 };
-use sp_std::{fmt::Debug, prelude::*};
+use sp_std::{collections::btree_set::BTreeSet, fmt::Debug, prelude::*};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -26,6 +26,7 @@ pub mod pallet {
     use super::*;
     use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
     use frame_system::pallet_prelude::*;
+    use sp_std::collections::btree_map::BTreeMap;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
@@ -471,12 +472,19 @@ pub mod pallet {
                     origin_account.balance = Zero::zero();
                 }
 
+                let mut locks = Self::asset_locks(id, &dest);
                 let lock = AssetLock {
                     from: origin.clone(),
                     balance: amount,
                     unlock_time: lock_duration.saturating_add(now),
                 };
-                AssetLocks::<T>::mutate(id, &dest, |locks| locks.push(lock));
+
+                if let Some(lock_id) = Self::get_new_lock_id(id, &dest) {
+                    locks.insert(lock_id, lock);
+                    AssetLocks::<T>::insert(id, &dest, locks);
+                } else {
+                    return Err(Error::<T>::TooManyLocks.into())
+                }
 
                 match origin_account.balance.is_zero() {
                     false => {
@@ -501,32 +509,38 @@ pub mod pallet {
             lock_index: u32,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
-            let lock_index = lock_index as usize;
+            // let lock_index = lock_index as usize;
             let now = <frame_system::Module<T>>::block_number();
 
-            AssetLocks::<T>::mutate(id, &origin, |locks| {
-                ensure!(locks.len() > 0 && lock_index < locks.len(), Error::<T>::Unknown);
+            let mut locks = Self::asset_locks(id, &origin);
 
-                let lock = locks[lock_index].clone();
-                ensure!(now >= lock.unlock_time, Error::<T>::BadState);
-                Asset::<T>::try_mutate(id, |maybe_details| {
-                    let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                    Account::<T>::try_mutate(id, &origin, |a| -> DispatchResultWithPostInfo {
-                        let new_balance = a.balance.saturating_add(lock.balance);
-                        ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
-                        if a.balance.is_zero() {
-                            a.is_zombie = Self::new_account(&origin, details)?;
-                        }
-                        a.balance = new_balance;
-                        Ok(().into())
-                    })
-                })?;
+            ensure!(locks.contains_key(&lock_index), Error::<T>::Unknown);
+            let lock = locks.get(&lock_index).cloned().unwrap_or_default();
 
-                locks.remove(lock_index);
+            ensure!(now >= lock.unlock_time, Error::<T>::BadState);
+            Asset::<T>::try_mutate(id, |maybe_details| {
+                let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
+                Account::<T>::try_mutate(id, &origin, |a| -> DispatchResultWithPostInfo {
+                    let new_balance = a.balance.saturating_add(lock.balance);
+                    ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
+                    if a.balance.is_zero() {
+                        a.is_zombie = Self::new_account(&origin, details)?;
+                    }
+                    a.balance = new_balance;
+                    Ok(().into())
+                })
+            })?;
 
-                Self::deposit_event(Event::Unlocked(id, lock.balance));
-                Ok(().into())
-            })
+            // 如果长度为0，则移除该记录
+            locks.remove(&lock_index);
+            if locks.is_empty() {
+                AssetLocks::<T>::remove(id, &origin);
+            } else {
+                AssetLocks::<T>::insert(id, &origin, locks);
+            }
+
+            Self::deposit_event(Event::Unlocked(id, lock.balance));
+            Ok(().into())
         }
 
         /// Move some assets from one account to another.
@@ -984,6 +998,7 @@ pub mod pallet {
         BadState,
         /// Invalid metadata given.
         BadMetadata,
+        TooManyLocks,
     }
 
     #[pallet::storage]
@@ -994,7 +1009,7 @@ pub mod pallet {
         T::AssetId,
         Blake2_128Concat,
         T::AccountId,
-        Vec<AssetLock<T::AccountId, T::Balance, T::BlockNumber>>,
+        BTreeMap<u32, AssetLock<T::AccountId, T::Balance, T::BlockNumber>>,
         ValueQuery,
     >;
 
@@ -1155,5 +1170,18 @@ impl<T: Config> Pallet<T> {
             frame_system::Module::<T>::dec_consumers(who);
         }
         d.accounts = d.accounts.saturating_sub(1);
+    }
+
+    fn get_new_lock_id(asset_id: T::AssetId, who: &T::AccountId) -> Option<u32> {
+        let asset_lock = Self::asset_locks(asset_id, who);
+        let ids: BTreeSet<_> = asset_lock.keys().cloned().collect();
+
+        // 允许最多1000个locked_transfer
+        for id in 0..1000 {
+            if !ids.contains(&id) {
+                return Some(id)
+            }
+        }
+        None
     }
 }
