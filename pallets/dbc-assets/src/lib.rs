@@ -227,6 +227,7 @@ pub mod pallet {
                 Account::<T>::remove_prefix(&id);
                 // Remove lock records
                 AssetLocks::<T>::remove_prefix(&id);
+                Locked::<T>::remove_prefix(&id);
                 Self::deposit_event(Event::Destroyed(id));
                 Ok(().into())
             })
@@ -482,6 +483,9 @@ pub mod pallet {
                 if let Some(lock_id) = Self::get_new_lock_id(id, &dest) {
                     locks.insert(lock_id, lock);
                     AssetLocks::<T>::insert(id, &dest, locks);
+                    Locked::<T>::mutate(id, &dest, |locked| {
+                        *locked = locked.saturating_add(amount)
+                    });
                 } else {
                     return Err(Error::<T>::TooManyLocks.into())
                 }
@@ -535,8 +539,12 @@ pub mod pallet {
             locks.remove(&lock_index);
             if locks.is_empty() {
                 AssetLocks::<T>::remove(id, &origin);
+                Locked::<T>::remove(id, &origin);
             } else {
                 AssetLocks::<T>::insert(id, &origin, locks);
+                Locked::<T>::mutate(id, &origin, |locked| {
+                    *locked = locked.saturating_sub(lock.balance)
+                });
             }
 
             Self::deposit_event(Event::Unlocked(id, lock.balance));
@@ -1010,6 +1018,18 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId,
         BTreeMap<u32, AssetLock<T::AccountId, T::Balance, T::BlockNumber>>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn locked)]
+    pub(super) type Locked<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AssetId,
+        Blake2_128Concat,
+        T::AccountId,
+        T::Balance,
         ValueQuery,
     >;
 

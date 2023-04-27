@@ -260,17 +260,17 @@ impl<T: Config> Pallet<T> {
             &release_era,
             &machine_reward_info.machine_stash,
             |old_value| {
-                *old_value += machine_actual_total_reward;
+                *old_value = old_value.saturating_add(machine_actual_total_reward);
             },
         );
 
         ErasMachineReleasedReward::<T>::mutate(&release_era, &machine_id, |old_value| {
-            *old_value += reward_to_stash
+            *old_value = old_value.saturating_add(reward_to_stash)
         });
         ErasStashReleasedReward::<T>::mutate(
             &release_era,
             &machine_reward_info.machine_stash,
-            |old_value| *old_value += reward_to_stash,
+            |old_value| *old_value = old_value.saturating_add(reward_to_stash),
         );
 
         StashMachines::<T>::insert(&machine_reward_info.machine_stash, stash_machine);
