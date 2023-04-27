@@ -963,6 +963,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "committee2"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1706,6 +1718,7 @@ dependencies = [
 name = "dbc-runtime"
 version = "3.0.0-dev"
 dependencies = [
+ "committee2",
  "council-reward",
  "dbc-price-ocw",
  "dbc-primitives",
@@ -1719,7 +1732,6 @@ dependencies = [
  "frame-try-runtime",
  "generic-func",
  "log",
- "online-profile2",
  "pallet-alliance",
  "pallet-asset-tx-payment",
  "pallet-assets",
@@ -4883,22 +4895,6 @@ name = "once_cell"
 version = "1.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7e5500299e16ebb147ae15a00a942af264cf3688f47923b8fc2cd5858f23ad3"
-
-[[package]]
-name = "online-profile2"
-version = "0.1.0"
-dependencies = [
- "bs58",
- "dbc-support",
- "frame-support",
- "frame-system",
- "generic-func",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-runtime",
- "sp-std",
-]
 
 [[package]]
 name = "oorandom"

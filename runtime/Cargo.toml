@@ -114,7 +114,8 @@ pallet-uniques = { git = "https://github.com/paritytech/substrate", branch = "po
 generic-func = { path = "../pallets/generic-func", default-features = false }
 council-reward = { path = "../pallets/council-reward", default-features = false }
 dbc-price-ocw = { path = "../pallets/dbc-price-ocw", default-features = false }
-online-profile2 = { path = "../pallets/online-profile2", default-features = false }
+# online-profile2 = { path = "../pallets/online-profile2", default-features = false }
+committee2 = { path = "../pallets/committee2", default-features = false }
 
 [features]
 default = ["std"]
@@ -209,7 +210,8 @@ std = [
 	"generic-func/std",
 	"council-reward/std",
 	"dbc-price-ocw/std",
-	"online-profile2/std",
+	# "online-profile2/std",
+	"committee2/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

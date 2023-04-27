@@ -1459,16 +1459,22 @@ impl dbc_price_ocw::Config for Runtime {
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 
-impl online_profile2::Config for Runtime {
+// impl online_profile2::Config for Runtime {
+//     type Currency = Balances;
+//     type RuntimeEvent = RuntimeEvent;
+//     type BondingDuration = BondingDuration;
+//     type DbcPrice = DBCPriceOCW;
+//     type ManageCommittee = Committee;
+//     type Slash = Treasury;
+//     type CancelSlashOrigin =
+//         pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+//     type SlashAndReward = GenericFunc;
+// }
+
+impl committee2::Config for Runtime {
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
-    type BondingDuration = BondingDuration;
-    type DbcPrice = DBCPriceOCW;
-    type ManageCommittee = Committee;
-    type Slash = Treasury;
-    type CancelSlashOrigin =
-        pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
-    type SlashAndReward = GenericFunc;
+    // type WeightInfo = committee::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1541,7 +1547,8 @@ construct_runtime!(
         GenericFunc: generic_func,
         CouncilReward: council_reward,
         DBCPriceOCW: dbc_price_ocw,
-        OnlineProfile2: online_profile2,
+        // OnlineProfile2: online_profile2,
+        Committee2: committee2,
     }
 );
 
