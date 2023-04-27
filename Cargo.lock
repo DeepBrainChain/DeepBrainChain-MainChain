@@ -4889,11 +4889,15 @@ name = "online-profile2"
 version = "0.1.0"
 dependencies = [
  "bs58",
+ "dbc-support",
  "frame-support",
  "frame-system",
+ "generic-func",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
