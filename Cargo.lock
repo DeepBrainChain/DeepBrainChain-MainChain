@@ -966,12 +966,15 @@ dependencies = [
 name = "committee2"
 version = "0.1.0"
 dependencies = [
+ "dbc-support",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "scale-info",
  "serde",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
