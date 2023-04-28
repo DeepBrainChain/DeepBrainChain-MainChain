@@ -6,12 +6,10 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-    "derive",
-] }
-jsonrpc-core = "15.0"
-jsonrpc-core-client = "15.0"
-jsonrpc-derive = "15.0"
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+jsonrpc-core = "18.0"
+jsonrpc-core-client = "18.0"
+jsonrpc-derive = "18.0"
 dbc-support = { version = "0.1.0", path = "../../support", default-features = false }
 simple-rpc = { version = "0.1.0", path = "../../simple-rpc", default-features = false }
 simple-rpc-runtime-api = { version = "0.1.0", path = "./runtime-api", default-features = false }

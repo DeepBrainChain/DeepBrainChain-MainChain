@@ -57,6 +57,7 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
+    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     #[pallet::hooks]
@@ -149,6 +150,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置机器租金支付目标地址
+        #[pallet::call_index(0)]
         #[pallet::weight(0)]
         pub fn set_rent_fee_pot(
             origin: OriginFor<T>,
@@ -160,6 +162,7 @@ pub mod pallet {
         }
 
         /// 用户租用机器(按天租用)
+        #[pallet::call_index(1)]
         #[pallet::weight(10000)]
         pub fn rent_machine(
             origin: OriginFor<T>,
@@ -172,6 +175,7 @@ pub mod pallet {
         }
 
         /// 用户在租用15min(30个块)内确认机器租用成功
+        #[pallet::call_index(2)]
         #[pallet::weight(10000)]
         pub fn confirm_rent(
             origin: OriginFor<T>,
@@ -243,6 +247,7 @@ pub mod pallet {
         }
 
         /// 用户续租(按天续租), 通过order_id来续租
+        #[pallet::call_index(3)]
         #[pallet::weight(10000)]
         pub fn relet_machine(
             origin: OriginFor<T>,
@@ -255,7 +260,7 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    // #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         PayTxFee(T::AccountId, BalanceOf<T>),

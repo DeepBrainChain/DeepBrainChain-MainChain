@@ -64,6 +64,7 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
+    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     #[pallet::hooks]
@@ -143,6 +144,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
         #[pallet::weight(10000)]
         pub fn submit_confirm_hash(
             origin: OriginFor<T>,
@@ -176,6 +178,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(1)]
         #[pallet::weight(10000)]
         pub fn submit_confirm_raw(
             origin: OriginFor<T>,
@@ -210,6 +213,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(2)]
         #[pallet::weight(10000)]
         pub fn apply_slash_review(
             origin: OriginFor<T>,
@@ -272,6 +276,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(3)]
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
             <T as Config>::CancelSlashOrigin::ensure_origin(origin)?;
@@ -285,7 +290,7 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    // #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         AddConfirmHash(T::AccountId, [u8; 16]),

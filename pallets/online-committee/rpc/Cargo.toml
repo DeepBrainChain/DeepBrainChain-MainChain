@@ -4,12 +4,10 @@ name = "online-committee-rpc"
 version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = [
-    "derive",
-] }
-jsonrpc-core = "15.0"
-jsonrpc-core-client = "15.0"
-jsonrpc-derive = "15.0"
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
+jsonrpc-core = "18.0"
+jsonrpc-core-client = "18.0"
+jsonrpc-derive = "18.0"
 serde = { version = "1.0.101", features = ["derive"] }
 dbc-support = { version = "0.1.0", path = "../../support" }
 online-committee = { version = "0.1.0", path = "../../online-committee" }

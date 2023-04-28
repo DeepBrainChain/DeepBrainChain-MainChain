@@ -65,6 +65,7 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
+    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     #[pallet::storage]
@@ -341,6 +342,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// When reward start to distribute
+        #[pallet::call_index(0)]
         #[pallet::weight(0)]
         pub fn set_reward_info(
             origin: OriginFor<T>,
@@ -351,6 +353,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(1)]
         #[pallet::weight(0)]
         pub fn set_online_stake_params(
             origin: OriginFor<T>,
@@ -362,6 +365,7 @@ pub mod pallet {
         }
 
         /// 设置标准GPU标准算力与租用价格
+        #[pallet::call_index(2)]
         #[pallet::weight(0)]
         pub fn set_standard_gpu_point_price(
             origin: OriginFor<T>,
@@ -373,6 +377,7 @@ pub mod pallet {
         }
 
         /// Stash account set a controller
+        #[pallet::call_index(3)]
         #[pallet::weight(10000)]
         pub fn set_controller(
             origin: OriginFor<T>,
@@ -395,6 +400,7 @@ pub mod pallet {
 
         // - Writes: controller_machines, stash_controller, controller_stash, machine_info,
         /// Stash account reset controller for one machine
+        #[pallet::call_index(4)]
         #[pallet::weight(10000)]
         pub fn stash_reset_controller(
             origin: OriginFor<T>,
@@ -430,6 +436,7 @@ pub mod pallet {
         /// Committee will verify it later
         /// NOTE: User need to add machine basic info(pos & net speed), after
         /// committee verify finished, will be slashed for `OnlineReportOffline`
+        #[pallet::call_index(5)]
         #[pallet::weight(10000)]
         pub fn offline_machine_change_hardware_info(
             origin: OriginFor<T>,
@@ -474,6 +481,7 @@ pub mod pallet {
         }
 
         /// Controller account submit online request machine
+        #[pallet::call_index(6)]
         #[pallet::weight(10000)]
         pub fn bond_machine(
             origin: OriginFor<T>,
@@ -521,6 +529,7 @@ pub mod pallet {
         }
 
         /// Controller generate new server room id, record to stash account
+        #[pallet::call_index(7)]
         #[pallet::weight(10000)]
         pub fn gen_server_room(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
@@ -539,6 +548,7 @@ pub mod pallet {
 
         // NOTE: 添加机房信息。在机器上线之前的任何阶段及机器主动下线时，可以调用该方法更改机房信息
         /// Controller add machine pos & net info
+        #[pallet::call_index(8)]
         #[pallet::weight(10000)]
         pub fn add_machine_info(
             origin: OriginFor<T>,
@@ -574,6 +584,7 @@ pub mod pallet {
 
         // 机器第一次上线后处于补交质押状态时
         // 或者机器更改配置信息后，处于质押不足状态时, 需要补交质押才能上线
+        #[pallet::call_index(9)]
         #[pallet::weight(10000)]
         pub fn fulfill_machine(
             origin: OriginFor<T>,
@@ -671,6 +682,7 @@ pub mod pallet {
         }
 
         /// 控制账户进行领取收益到stash账户
+        #[pallet::call_index(10)]
         #[pallet::weight(10000)]
         pub fn claim_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
@@ -690,6 +702,7 @@ pub mod pallet {
         }
 
         /// 控制账户报告机器下线:Online/Rented时允许
+        #[pallet::call_index(11)]
         #[pallet::weight(10000)]
         pub fn controller_report_offline(
             origin: OriginFor<T>,
@@ -723,6 +736,7 @@ pub mod pallet {
         // 要根据几个订单的状态来判断机器是否是在线/租用状态
         // 需要在rentMachine中提供一个查询接口
         /// 控制账户报告机器上线
+        #[pallet::call_index(12)]
         #[pallet::weight(10000)]
         pub fn controller_report_online(
             origin: OriginFor<T>,
@@ -843,6 +857,7 @@ pub mod pallet {
         }
 
         /// 超过365天的机器可以在距离上次租用10天，且没被租用时退出
+        #[pallet::call_index(13)]
         #[pallet::weight(10000)]
         pub fn machine_exit(
             origin: OriginFor<T>,
@@ -869,6 +884,7 @@ pub mod pallet {
         /// 满足365天可以申请重新质押，退回质押币
         /// 在系统中上线满365天之后，可以按当时机器需要的质押数量，重新入网。多余的币解绑
         /// 在重新上线之后，下次再执行本操作，需要等待365天
+        #[pallet::call_index(14)]
         #[pallet::weight(10000)]
         pub fn restake_online_machine(
             origin: OriginFor<T>,
@@ -908,6 +924,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(15)]
         #[pallet::weight(10000)]
         pub fn apply_slash_review(
             origin: OriginFor<T>,
@@ -954,7 +971,8 @@ pub mod pallet {
             Self::deposit_event(Event::ApplySlashReview(slash_id));
             Ok(().into())
         }
-
+        
+        #[pallet::call_index(16)]
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
@@ -963,7 +981,7 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    // #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         BondMachine(T::AccountId, MachineId, BalanceOf<T>),
