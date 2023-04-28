@@ -2,7 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(unused_crate_dependencies)]
 
-pub mod migrations;
+// pub mod migrations;
 mod online_reward;
 mod rpc;
 mod slash;
@@ -31,7 +31,13 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, Saturating, Zero},
     SaturatedConversion,
 };
-use sp_std::{collections::btree_map::BTreeMap, convert::From, prelude::*, str, vec::Vec};
+use sp_std::{
+    collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+    convert::From,
+    prelude::*,
+    str,
+    vec::Vec,
+};
 
 pub use pallet::*;
 pub use traits::*;
@@ -51,7 +57,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + generic_func::Config {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type BondingDuration: Get<EraIndex>;
         type DbcPrice: DbcPrice<Balance = BalanceOf<Self>>;
@@ -60,7 +66,7 @@ pub mod pallet {
             Balance = BalanceOf<Self>,
         >;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
-        type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
+        type CancelSlashOrigin: EnsureOrigin<Self::RuntimeOrigin>;
         type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
     }
 
@@ -139,7 +145,6 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ValueQuery,
     >;
 
     /// 记录机器被租用的GPU个数
@@ -263,7 +268,6 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         MachineRecentRewardInfo<T::AccountId, BalanceOf<T>>,
-        ValueQuery,
     >;
 
     /// 将要发放奖励的机器
@@ -289,7 +293,6 @@ pub mod pallet {
         Blake2_128Concat,
         u64,
         OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ValueQuery,
     >;
 
     #[pallet::storage]
@@ -299,7 +302,6 @@ pub mod pallet {
         Blake2_128Concat,
         SlashId,
         OPPendingSlashReviewInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
-        ValueQuery,
     >;
 
     // 记录块高 -> 到期的slash_review
@@ -311,7 +313,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn rented_finished)]
     pub(super) type RentedFinished<T: Config> =
-        StorageMap<_, Blake2_128Concat, MachineId, T::AccountId, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, MachineId, T::AccountId>;
 
     // 记录某个时间需要执行的惩罚
     #[pallet::storage]
@@ -336,7 +338,7 @@ pub mod pallet {
             }
             Self::exec_pending_slash();
             let _ = Self::check_pending_slash();
-            0
+            Weight::zero()
         }
     }
 
@@ -417,9 +419,11 @@ pub mod pallet {
             let controller_machines = Self::controller_machines(&pre_controller);
 
             controller_machines.iter().for_each(|machine_id| {
-                MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
+                MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
+                    let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
                     machine_info.controller = new_controller.clone();
-                })
+                    Ok(())
+                });
             });
 
             ControllerMachines::<T>::remove(&pre_controller);
@@ -444,9 +448,9 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
-            let mut machine_info = Self::machines_info(&machine_id);
+            let mut machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
 
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
             // 只允许在线状态的机器修改信息
@@ -492,7 +496,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             ensure!(!MachinesInfo::<T>::contains_key(&machine_id), Error::<T>::MachineIdExist);
             // 依赖stash_machine中的记录发放奖励。因此Machine退出后，仍保留
@@ -539,7 +543,7 @@ pub mod pallet {
             Self::pay_fixed_tx_fee(controller.clone())?;
 
             StashServerRooms::<T>::mutate(&stash, |stash_server_rooms| {
-                let new_server_room = <generic_func::Module<T>>::random_server_room();
+                let new_server_room = <generic_func::Pallet<T>>::random_server_room();
                 ItemList::add_item(stash_server_rooms, new_server_room);
                 Self::deposit_event(Event::ServerRoomGenerated(controller, new_server_room));
             });
@@ -558,7 +562,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             // 查询机器Id是否在该账户的控制下
-            let machine_info = Self::machines_info(&machine_id);
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
             machine_info
                 .can_add_server_room(&controller)
                 .map_err::<Error<T>, _>(Into::into)?;
@@ -575,8 +579,10 @@ pub mod pallet {
                 live_machines
                     .on_add_server_room(machine_id.clone(), machine_info.machine_status.clone())
             });
-            MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
+            MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
+                let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
                 machine_info.add_server_room_info(server_room_info);
+                Ok(())
             });
 
             Self::deposit_event(Event::MachineInfoAdded(machine_id));
@@ -592,10 +598,10 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let current_era = Self::current_era();
 
-            let mut machine_info = Self::machines_info(&machine_id);
+            let mut machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
             let mut live_machine = Self::live_machines();
 
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
@@ -637,7 +643,8 @@ pub mod pallet {
                         vec![],
                         None,
                         offline_duration,
-                    );
+                    )
+                    .map_err(|_| Error::<T>::Unknown)?;
                     let slash_id = Self::get_new_slash_id();
 
                     PendingExecSlash::<T>::mutate(
@@ -662,7 +669,8 @@ pub mod pallet {
                         machine_stash: machine_info.machine_stash.clone(),
                         reward_committee_deadline: machine_info.reward_deadline,
                         reward_committee: machine_info.reward_committee.clone(),
-                        ..Default::default()
+                        recent_machine_reward: VecDeque::new(),
+                        recent_reward_sum: 0u32.into(),
                     },
                 );
             }
@@ -710,8 +718,8 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
-            let machine_info = Self::machines_info(&machine_id);
+            let now = <frame_system::Pallet<T>>::block_number();
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
 
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
 
@@ -744,9 +752,9 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
-            let mut machine_info = Self::machines_info(&machine_id);
+            let mut machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
 
             let mut live_machine = Self::live_machines();
@@ -802,6 +810,7 @@ pub mod pallet {
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             };
+            let mut slash_info = slash_info.as_mut().ok_or(Error::<T>::Unknown)?;
 
             // NOTE: 如果机器上线超过一年，空闲超过10天，下线后上线不添加惩罚
             if now >= machine_info.online_height &&
@@ -865,8 +874,8 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let machine_info = Self::machines_info(&machine_id);
-            let now = <frame_system::Module<T>>::block_number();
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            let now = <frame_system::Pallet<T>>::block_number();
             let current_era = Self::current_era();
 
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
@@ -892,8 +901,8 @@ pub mod pallet {
             machine_id: MachineId,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
-            let mut machine_info = Self::machines_info(&machine_id);
+            let now = <frame_system::Pallet<T>>::block_number();
+            let mut machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
             let pre_stake = machine_info.stake_amount;
 
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
@@ -933,10 +942,11 @@ pub mod pallet {
             reason: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
-            let slash_info = Self::pending_slash(slash_id);
-            let machine_info = Self::machines_info(&slash_info.machine_id);
+            let slash_info = Self::pending_slash(slash_id).ok_or(Error::<T>::Unknown)?;
+            let machine_info =
+                Self::machines_info(&slash_info.machine_id).ok_or(Error::<T>::Unknown)?;
             let online_stake_params =
                 Self::online_stake_params().ok_or(Error::<T>::GetReonlineStakeFailed)?;
 
@@ -1042,6 +1052,7 @@ pub mod pallet {
         SlashIdNotExist,
         TimeNotAllowed,
         ExpiredSlash,
+        Unknown,
     }
 }
 
@@ -1078,8 +1089,9 @@ impl<T: Config> Pallet<T> {
     pub fn do_cancel_slash(slash_id: u64) -> DispatchResultWithPostInfo {
         ensure!(PendingSlash::<T>::contains_key(slash_id), Error::<T>::SlashIdNotExist);
 
-        let slash_info = Self::pending_slash(slash_id);
-        let pending_slash_review = Self::pending_slash_review(slash_id);
+        let slash_info = Self::pending_slash(slash_id).ok_or(Error::<T>::Unknown)?;
+        let pending_slash_review =
+            Self::pending_slash_review(slash_id).ok_or(Error::<T>::Unknown)?;
 
         Self::change_stake(&slash_info.slash_who, slash_info.slash_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
@@ -1112,8 +1124,8 @@ impl<T: Config> Pallet<T> {
     fn machine_offline(
         machine_id: MachineId,
         machine_status: MachineStatus<T::BlockNumber, T::AccountId>,
-    ) {
-        let mut machine_info = Self::machines_info(&machine_id);
+    ) -> Result<(), ()> {
+        let mut machine_info = Self::machines_info(&machine_id).ok_or(())?;
 
         LiveMachines::<T>::mutate(|live_machines| {
             live_machines.on_offline(machine_id.clone());
@@ -1133,6 +1145,7 @@ impl<T: Config> Pallet<T> {
         machine_info.machine_status = machine_status;
 
         MachinesInfo::<T>::insert(&machine_id, machine_info);
+        Ok(())
     }
 
     fn change_stake(who: &T::AccountId, amount: BalanceOf<T>, is_add: bool) -> Result<(), ()> {
@@ -1179,8 +1192,8 @@ impl<T: Config> Pallet<T> {
     // When Offline:
     // - Writes: (currentEra) ErasStashPoints, ErasMachinePoints, (nextEra) ErasStashPoints,
     //   ErasMachinePoints SysInfo, StashMachines
-    fn update_snap_on_online_changed(machine_id: MachineId, is_online: bool) {
-        let machine_info = Self::machines_info(&machine_id);
+    fn update_snap_on_online_changed(machine_id: MachineId, is_online: bool) -> Result<(), ()> {
+        let machine_info = Self::machines_info(&machine_id).ok_or(())?;
         let machine_base_info = machine_info.machine_info_detail.committee_upload_info.clone();
         let current_era = Self::current_era();
 
@@ -1281,12 +1294,13 @@ impl<T: Config> Pallet<T> {
 
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+        Ok(())
     }
 
     // - Writes:
     // ErasStashPoints, ErasMachinePoints, SysInfo, StashMachines
-    fn update_snap_on_rent_changed(machine_id: MachineId, is_rented: bool) {
-        let machine_info = Self::machines_info(&machine_id);
+    fn update_snap_on_rent_changed(machine_id: MachineId, is_rented: bool) -> Result<(), ()> {
+        let machine_info = Self::machines_info(&machine_id).ok_or(())?;
         let current_era = Self::current_era();
 
         let mut current_era_stash_snap = Self::eras_stash_points(current_era);
@@ -1365,5 +1379,6 @@ impl<T: Config> Pallet<T> {
 
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+        Ok(())
     }
 }

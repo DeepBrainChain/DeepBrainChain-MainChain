@@ -1,11 +1,12 @@
 use super::MachineId;
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct OPPendingSlashInfo<AccountId, BlockNumber, Balance> {
     /// Who will be slashed
     pub slash_who: AccountId,
@@ -27,7 +28,7 @@ pub struct OPPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub slash_reason: OPSlashReason<BlockNumber>,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct OPPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
     pub applicant: AccountId,
     pub staked_amount: Balance,
@@ -37,7 +38,7 @@ pub struct OPPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
 }
 
 /// The reason why a stash account is punished
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum OPSlashReason<BlockNumber> {

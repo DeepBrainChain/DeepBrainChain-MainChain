@@ -1,5 +1,5 @@
 use crate::{
-    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward,
+    types::*, BalanceOf, Config, ControllerMachines, Error, LiveMachines, MachineRecentReward,
     MachineRentedGPU, MachinesInfo, Pallet, PendingExecSlash, PendingSlash, RentedFinished,
     StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
@@ -15,7 +15,7 @@ use sp_runtime::{
     traits::{CheckedSub, Saturating},
     Perbill, SaturatedConversion,
 };
-use sp_std::{prelude::Box, vec, vec::Vec};
+use sp_std::{collections::vec_deque::VecDeque, prelude::Box, vec, vec::Vec};
 
 /// 审查委员会可以执行的操作
 impl<T: Config> OCOps for Pallet<T> {
@@ -27,25 +27,29 @@ impl<T: Config> OCOps for Pallet<T> {
     // 委员会订阅了一个机器ID
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
     // - Writes: LiveMachine, MachinesInfo
-    fn booked_machine(id: MachineId) {
+    fn booked_machine(id: MachineId) -> Result<(), ()> {
         LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.confirmed_machine, &id);
             ItemList::add_item(&mut live_machines.booked_machine, id.clone());
         });
-        MachinesInfo::<T>::mutate(&id, |machine_info| {
+        MachinesInfo::<T>::try_mutate(&id, |machine_info| {
+            let machine_info = machine_info.as_mut().ok_or(())?;
             machine_info.machine_status = MachineStatus::CommitteeVerifying;
-        });
+            Ok(())
+        })
     }
 
     // 由于委员会没有达成一致，需要重新返回到bonding_machine
-    fn revert_booked_machine(id: MachineId) {
+    fn revert_booked_machine(id: MachineId) -> Result<(), ()> {
         LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.booked_machine, &id);
             ItemList::add_item(&mut live_machines.confirmed_machine, id.clone());
         });
         MachinesInfo::<T>::mutate(&id, |machine_info| {
+            let machine_info = machine_info.as_mut().ok_or(())?;
             machine_info.machine_status = MachineStatus::DistributingOrder;
-        });
+            Ok(())
+        })
     }
 
     // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
@@ -53,12 +57,12 @@ impl<T: Config> OCOps for Pallet<T> {
     fn confirm_machine(
         reported_committee: Vec<T::AccountId>,
         committee_upload_info: CommitteeUploadInfo,
-    ) {
-        let now = <frame_system::Module<T>>::block_number();
+    ) -> Result<(), ()> {
+        let now = <frame_system::Pallet<T>>::block_number();
         let current_era = Self::current_era();
         let machine_id = committee_upload_info.machine_id.clone();
 
-        let mut machine_info = Self::machines_info(&machine_id);
+        let mut machine_info = Self::machines_info(&machine_id).ok_or(())?;
         let mut live_machines = Self::live_machines();
 
         let is_reonline =
@@ -141,7 +145,7 @@ impl<T: Config> OCOps for Pallet<T> {
                     vec![],
                     None,
                     offline_duration,
-                );
+                )?;
                 let slash_id = Self::get_new_slash_id();
 
                 PendingExecSlash::<T>::mutate(slash_info.slash_exec_time, |pending_exec_slash| {
@@ -155,18 +159,21 @@ impl<T: Config> OCOps for Pallet<T> {
                         machine_stash: machine_info.machine_stash.clone(),
                         reward_committee_deadline: machine_info.reward_deadline,
                         reward_committee: machine_info.reward_committee,
-                        ..Default::default()
+
+                        recent_machine_reward: VecDeque::new(),
+                        recent_reward_sum: 0u32.into(),
                     },
                 );
             }
         }
+        Ok(())
     }
 
     // When committees reach an agreement to refuse machine, change machine status and record refuse
     // time
     fn refuse_machine(machine_id: MachineId) -> Option<(T::AccountId, BalanceOf<T>)> {
         // Refuse controller bond machine, and clean storage
-        let machine_info = Self::machines_info(&machine_id);
+        let machine_info = Self::machines_info(&machine_id)?;
 
         // In case this offline is for change hardware info, when reonline is refused, reward to
         // committee and machine info should not be deleted
@@ -263,18 +270,24 @@ impl<T: Config> RTOps for Pallet<T> {
     }
 
     // 在rent_machine; rent_machine_by_minutes中使用, confirm_rent之前
-    fn change_machine_status_on_rent_start(machine_id: &MachineId, gpu_num: u32) {
-        MachinesInfo::<T>::mutate(machine_id, |machine_info| {
+    fn change_machine_status_on_rent_start(machine_id: &MachineId, gpu_num: u32) -> Result<(), ()> {
+        MachinesInfo::<T>::try_mutate(machine_id, |machine_info| {
+            let machine_info = machine_info.as_mut().ok_or(())?;
             machine_info.machine_status = MachineStatus::Rented;
+            Ok(())
         });
         MachineRentedGPU::<T>::mutate(machine_id, |machine_rented_gpu| {
             *machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
         });
+        Ok(())
     }
 
     // 在confirm_rent中使用
-    fn change_machine_status_on_confirmed(machine_id: &MachineId, renter: Self::AccountId) {
-        let mut machine_info = Self::machines_info(machine_id);
+    fn change_machine_status_on_confirmed(
+        machine_id: &MachineId,
+        renter: Self::AccountId,
+    ) -> Result<(), ()> {
+        let mut machine_info = Self::machines_info(machine_id).ok_or(())?;
         let mut live_machines = Self::live_machines();
 
         ItemList::add_item(&mut machine_info.renters, renter);
@@ -294,6 +307,7 @@ impl<T: Config> RTOps for Pallet<T> {
         }
 
         MachinesInfo::<T>::insert(&machine_id, machine_info);
+        Ok(())
     }
 
     fn change_machine_status_on_rent_end(
@@ -303,8 +317,8 @@ impl<T: Config> RTOps for Pallet<T> {
         is_machine_last_rent: bool,
         is_renter_last_rent: bool,
         renter: Self::AccountId,
-    ) {
-        let mut machine_info = Self::machines_info(machine_id);
+    ) -> Result<(), ()> {
+        let mut machine_info = Self::machines_info(machine_id).ok_or(())?;
         let mut live_machines = Self::live_machines();
         let mut machine_rented_gpu = Self::machine_rented_gpu(machine_id);
         machine_rented_gpu = machine_rented_gpu.saturating_sub(rented_gpu_num);
@@ -312,7 +326,7 @@ impl<T: Config> RTOps for Pallet<T> {
         // 租用结束
         let gpu_num = machine_info.gpu_num();
         if gpu_num == 0 {
-            return
+            return Ok(())
         }
         machine_info.total_rented_duration +=
             Perbill::from_rational_approximation(rented_gpu_num, gpu_num) * rent_duration;
@@ -334,7 +348,7 @@ impl<T: Config> RTOps for Pallet<T> {
                     ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
                     ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
 
-                    machine_info.last_online_height = <frame_system::Module<T>>::block_number();
+                    machine_info.last_online_height = <frame_system::Pallet<T>>::block_number();
                     machine_info.machine_status = MachineStatus::Online;
 
                     // 租用结束
@@ -348,42 +362,55 @@ impl<T: Config> RTOps for Pallet<T> {
         MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
         LiveMachines::<T>::put(live_machines);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
+        Ok(())
     }
 
-    fn change_machine_status_on_confirm_expired(machine_id: &MachineId, gpu_num: u32) {
+    fn change_machine_status_on_confirm_expired(
+        machine_id: &MachineId,
+        gpu_num: u32,
+    ) -> Result<(), ()> {
         let mut machine_rented_gpu = Self::machine_rented_gpu(&machine_id);
 
         machine_rented_gpu = machine_rented_gpu.saturating_sub(gpu_num);
 
         if machine_rented_gpu == 0 {
             // 已经没有正在租用的机器时，改变机器的状态
-            MachinesInfo::<T>::mutate(machine_id, |machine_info| {
+            MachinesInfo::<T>::try_mutate(machine_id, |machine_info| {
+                let machine_info = machine_info.as_mut().ok_or(())?;
                 machine_info.machine_status = MachineStatus::Online;
+                Ok(())
             });
         }
 
         MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
+        Ok(())
     }
 
     fn change_machine_rent_fee(
         machine_id: MachineId,
         rent_fee: BalanceOf<T>,
         burn_fee: BalanceOf<T>,
-    ) {
+    ) -> Result<(), ()> {
         SysInfo::<T>::mutate(|sys_info| {
             sys_info.on_rent_fee_changed(rent_fee, burn_fee);
         });
         MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
+            let machine_info = machine_info.as_mut().ok_or(())?;
             StashMachines::<T>::mutate(&machine_info.machine_stash, |staker_machine| {
                 staker_machine.update_rent_fee(rent_fee, burn_fee);
             });
 
             machine_info.update_rent_fee(rent_fee, burn_fee);
-        });
+            Ok(())
+        })
     }
 
-    fn reset_machine_renters(machine_id: MachineId, renters: Vec<T::AccountId>) {
-        MachinesInfo::<T>::mutate(machine_id, |machine_info| machine_info.renters = renters);
+    fn reset_machine_renters(machine_id: MachineId, renters: Vec<T::AccountId>) -> Result<(), ()> {
+        MachinesInfo::<T>::mutate(machine_id, |machine_info| {
+            let machine_info = machine_info.as_mut().ok_or(())?;
+            machine_info.renters = renters;
+            Ok(())
+        })
     }
 }
 
@@ -413,16 +440,17 @@ impl<T: Config> MTOps for Pallet<T> {
         committee: Vec<T::AccountId>,
         machine_id: MachineId,
         fault_type: OPSlashReason<T::BlockNumber>,
-    ) {
+    ) ->Result<(),()> {
         Self::machine_offline(
             machine_id.clone(),
             MachineStatus::ReporterReportOffline(
                 fault_type,
-                Box::new(Self::machines_info(&machine_id).machine_status),
+                Box::new(Self::machines_info(&machine_id).ok_or(())?.machine_status),
                 reporter.clone(),
                 committee,
             ),
         );
+        Ok(())
     }
 
     // stake some balance when apply for slash review

@@ -15,10 +15,13 @@ pub trait OCOps {
     type CommitteeUploadInfo;
     type Balance;
 
-    fn booked_machine(id: Self::MachineId);
-    fn revert_booked_machine(id: Self::MachineId);
+    fn booked_machine(id: Self::MachineId) -> Result<(), ()>;
+    fn revert_booked_machine(id: Self::MachineId) -> Result<(), ()>;
 
-    fn confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo);
+    fn confirm_machine(
+        who: Vec<Self::AccountId>,
+        machine_info: Self::CommitteeUploadInfo,
+    ) -> Result<(), ()>;
     fn refuse_machine(machien_id: Self::MachineId) -> Option<(Self::AccountId, Self::Balance)>;
     fn change_staked_balance(
         stash: Self::AccountId,
@@ -37,8 +40,14 @@ pub trait RTOps {
 
     fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64>;
 
-    fn change_machine_status_on_rent_start(machine_id: &Self::MachineId, gpu_num: u32);
-    fn change_machine_status_on_confirmed(machine_id: &Self::MachineId, renter: Self::AccountId);
+    fn change_machine_status_on_rent_start(
+        machine_id: &Self::MachineId,
+        gpu_num: u32,
+    ) -> Result<(), ()>;
+    fn change_machine_status_on_confirmed(
+        machine_id: &Self::MachineId,
+        renter: Self::AccountId,
+    ) -> Result<(), ()>;
     fn change_machine_status_on_rent_end(
         machine_id: &Self::MachineId,
         gpu_num: u32,
@@ -46,16 +55,22 @@ pub trait RTOps {
         is_machine_last_rent: bool,
         is_user_last_rent: bool,
         renter: Self::AccountId,
-    );
-    fn change_machine_status_on_confirm_expired(machine_id: &Self::MachineId, gpu_num: u32);
+    ) -> Result<(), ()>;
+    fn change_machine_status_on_confirm_expired(
+        machine_id: &Self::MachineId,
+        gpu_num: u32,
+    ) -> Result<(), ()>;
 
     fn change_machine_rent_fee(
         machine_id: Self::MachineId,
         rent_fee: Self::Balance,
         burn_fee: Self::Balance,
-    );
+    ) -> Result<(), ()>;
 
-    fn reset_machine_renters(machine_id: Self::MachineId, renters: Vec<Self::AccountId>);
+    fn reset_machine_renters(
+        machine_id: Self::MachineId,
+        renters: Vec<Self::AccountId>,
+    ) -> Result<(), ()>;
 }
 
 pub trait OPRPCQuery {
@@ -107,7 +122,7 @@ pub trait MTOps {
         committee: Vec<Self::AccountId>,
         machine_id: Self::MachineId,
         fault_type: Self::FaultType,
-    );
+    ) -> Result<(), ()>;
     fn mt_change_staked_balance(
         stash: Self::AccountId,
         amount: Self::Balance,

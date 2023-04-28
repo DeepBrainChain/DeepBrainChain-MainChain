@@ -1,5 +1,6 @@
 use codec::{Decode, Encode};
 use dbc_support::{EraIndex, MachineId};
+use scale_info::TypeInfo;
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{
     collections::{btree_map::BTreeMap, vec_deque::VecDeque},
@@ -7,7 +8,7 @@ use sp_std::{
     vec::Vec,
 };
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct MachineRecentRewardInfo<AccountId, Balance> {
     // machine total reward(committee reward included)
     pub machine_stash: AccountId,
@@ -46,7 +47,7 @@ where
 
 /// 记录每个Era的机器的总分
 /// NOTE: 这个账户应该是stash账户，而不是controller账户
-#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+#[derive(PartialEq, Encode, Decode, RuntimeDebug, Clone, TypeInfo)]
 pub struct EraStashPoints<AccountId: Ord> {
     /// Total grade of the system (inflation grades from onlineStatus or multipGPU is counted)
     pub total: u64,
@@ -54,8 +55,17 @@ pub struct EraStashPoints<AccountId: Ord> {
     pub staker_statistic: BTreeMap<AccountId, StashMachineStatistics>,
 }
 
+impl<AccountId: Ord> Default for EraStashPoints<AccountId> {
+    fn default() -> Self {
+        Self {
+            total: 0,
+            staker_statistic: BTreeMap::new(),
+        }
+    }
+}
+
 /// Stash账户的统计
-#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone, TypeInfo)]
 pub struct StashMachineStatistics {
     /// 用户在线的GPU数量
     pub online_gpu_num: u64,
@@ -68,7 +78,7 @@ pub struct StashMachineStatistics {
 }
 
 // 每台机器的基础得分与租用情况
-#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone, TypeInfo)]
 pub struct MachineGradeStatus {
     /// 机器的基础得分
     pub basic_grade: u64,
@@ -102,7 +112,7 @@ impl<AccountId: Ord + Clone> EraStashPoints<AccountId> {
         // 根据显卡数量n更新inflation系数: inflation = min(10%, n/10000)
         // 当stash账户显卡数量n=1000时，inflation最大为10%
         staker_statistic.inflation =
-            Perbill::from_rational_approximation(staker_statistic.online_gpu_num.min(1000), 10_000);
+            Perbill::from_rational(staker_statistic.online_gpu_num.min(1000), 10_000);
         // 根据在线情况更改stash的基础分
         staker_statistic.machine_total_calc_point = if is_online {
             staker_statistic.machine_total_calc_point.saturating_add(basic_grade)
@@ -132,7 +142,7 @@ impl<AccountId: Ord + Clone> EraStashPoints<AccountId> {
             .or_insert(StashMachineStatistics { ..Default::default() });
 
         // 因租用而产生的分数
-        let grade_on_rent = Perbill::from_rational_approximation(30u64, 100u64) * basic_grade;
+        let grade_on_rent = Perbill::from_rational(30u64, 100u64) * basic_grade;
 
         // 更新 rent_extra_grade
         self.total = if is_rented {
@@ -164,7 +174,7 @@ impl StashMachineStatistics {
 impl MachineGradeStatus {
     pub fn machine_actual_grade(&self, inflation: Perbill) -> u64 {
         let rent_extra_grade = if self.is_rented {
-            Perbill::from_rational_approximation(30u32, 100u32) * self.basic_grade
+            Perbill::from_rational(30u32, 100u32) * self.basic_grade
         } else {
             0
         };
@@ -176,7 +186,7 @@ impl MachineGradeStatus {
 }
 
 // 奖励发放前，对所有machine_id进行备份
-#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone)]
+#[derive(PartialEq, Encode, Decode, Default, RuntimeDebug, Clone, TypeInfo)]
 pub struct AllMachineIdSnapDetail {
     pub all_machine_id: VecDeque<MachineId>,
     pub snap_len: u64,

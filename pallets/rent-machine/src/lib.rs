@@ -44,7 +44,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type RTOps: RTOps<
             MachineId = MachineId,

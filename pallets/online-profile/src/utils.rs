@@ -1,7 +1,7 @@
 use crate::{BalanceOf, Config, Error, MachineId, Pallet, PosGPUInfo};
 use dbc_support::{machine_info::MachineInfo, verify_slash::OPSlashReason};
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure};
-use sp_core::crypto::Public;
+use sp_core::{crypto::Public, ByteArray};
 use sp_runtime::traits::Verify;
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -99,7 +99,7 @@ pub fn verify_sig(msg: Vec<u8>, sig: Vec<u8>, account: Vec<u8>) -> Option<()> {
     let pubkey_hex = pubkey_hex.ok()?;
 
     let account_id32: [u8; 32] = pubkey_hex.try_into().ok()?;
-    let public = sp_core::sr25519::Public::from_slice(&account_id32);
+    let public = sp_core::sr25519::Public::from_slice(&account_id32).ok()?;
 
     signature.verify(&msg[..], &public).then(|| ())
 }
@@ -107,7 +107,7 @@ pub fn verify_sig(msg: Vec<u8>, sig: Vec<u8>, account: Vec<u8>) -> Option<()> {
 #[allow(dead_code)]
 fn get_public_from_str(addr: &[u8]) -> Option<sp_core::sr25519::Public> {
     let account_id32: [u8; 32] = dbc_support::utils::get_accountid32(addr)?;
-    Some(sp_core::sr25519::Public::from_slice(&account_id32))
+    Some(sp_core::sr25519::Public::from_slice(&account_id32).ok()?)
 }
 
 // 根据下线时长确定 slash 比例.

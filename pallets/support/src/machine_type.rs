@@ -8,15 +8,16 @@ use sp_core::H256;
 use sp_io::hashing::blake2_128;
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::Box, vec, vec::Vec};
+use scale_info::TypeInfo;
 
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Longitude {
     East(u64),
     West(u64),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Latitude {
     South(u64),
@@ -35,7 +36,7 @@ impl Default for Latitude {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default, PartialOrd, Ord, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct CommitteeUploadInfo {
     #[cfg_attr(feature = "std", serde(with = "serde_text"))]
@@ -97,7 +98,7 @@ impl CommitteeUploadInfo {
 }
 
 // 由机器管理者自定义的提交
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct StakerCustomizeInfo {
     pub server_room: H256,
@@ -114,7 +115,7 @@ pub struct StakerCustomizeInfo {
 }
 
 /// Standard GPU rent price Per Era
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct StandardGpuPointPrice {
     /// Standard GPU calc points
     pub gpu_point: u64,
@@ -123,7 +124,7 @@ pub struct StandardGpuPointPrice {
 }
 
 /// All kind of status of a machine
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum MachineStatus<BlockNumber, AccountId> {
@@ -162,7 +163,7 @@ impl<BlockNumber, AccountId> Default for MachineStatus<BlockNumber, AccountId> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct MachineInfoDetail {
     pub committee_upload_info: CommitteeUploadInfo,

@@ -1,6 +1,7 @@
 use crate::{custom_err::VerifyErr, machine_type::CommitteeUploadInfo, ItemList, MachineId};
 use codec::{Decode, Encode};
 use frame_support::ensure;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
@@ -304,7 +305,7 @@ pub struct VerifySequence<AccountId> {
 }
 
 /// stash account overview self-status
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct StashMachine<Balance> {

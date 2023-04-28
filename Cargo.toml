@@ -30,7 +30,7 @@ members = [
   "pallets/generic-func",
   "pallets/dbc-price-ocw",
   # "pallets/online-profile2",
-  # "pallets/online-profile",
+  "pallets/online-profile",
   # "pallets/online-profile/rpc",
   # "pallets/online-profile/rpc/runtime-api",
   # "pallets/committee",

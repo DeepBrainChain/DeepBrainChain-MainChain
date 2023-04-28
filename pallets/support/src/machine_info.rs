@@ -8,16 +8,17 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::ensure;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
     traits::{Saturating, Zero},
     RuntimeDebug,
 };
-use sp_std::vec::Vec;
+use sp_std::{vec, vec::Vec};
 
 /// All details of a machine
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
@@ -63,9 +64,9 @@ pub struct MachineInfo<AccountId: Ord, BlockNumber, Balance> {
 // For OnlineProfile
 impl<AccountId, BlockNumber, Balance> MachineInfo<AccountId, BlockNumber, Balance>
 where
-    AccountId: Ord + Default,
-    BlockNumber: Default,
-    Balance: Copy + Default + Saturating,
+    AccountId: Ord,
+    BlockNumber: Default + From<u32>,
+    Balance: Copy + Default + Saturating + From<u32>,
 {
     pub fn new_bonding(
         controller: AccountId,
@@ -76,11 +77,21 @@ where
         Self {
             controller,
             machine_stash: stash,
+            renters: vec![],
+            last_machine_restake: 0u32.into(),
             bonding_height: now,
+            online_height: 0u32.into(),
+            last_online_height: 0u32.into(),
             init_stake_per_gpu,
             stake_amount: init_stake_per_gpu,
             machine_status: MachineStatus::AddingCustomizeInfo,
-            ..Default::default()
+            total_rented_duration: 0u32.into(),
+            total_rented_times: 0u32.into(),
+            total_rent_fee: 0u32.into(),
+            total_burn_fee: 0u32.into(),
+            machine_info_detail: MachineInfoDetail::default(),
+            reward_committee: vec![],
+            reward_deadline: 0u32.into(),
         }
     }
 
@@ -142,19 +153,19 @@ where
 // For Terminating Renting
 impl<AccountId, BlockNumber, Balance> MachineInfo<AccountId, BlockNumber, Balance>
 where
-    AccountId: Ord + Default,
+    AccountId: Ord,
     BlockNumber: Copy + Default,
     Balance: Copy + Default + Saturating + Zero,
 {
-    pub fn bond_machine(stash: AccountId, now: BlockNumber, stake_amount: Balance) -> Self {
-        Self {
-            machine_stash: stash,
-            bonding_height: now,
-            stake_amount,
-            machine_status: MachineStatus::AddingCustomizeInfo,
-            ..Default::default()
-        }
-    }
+    // pub fn bond_machine(stash: AccountId, now: BlockNumber, stake_amount: Balance) -> Self {
+    //     Self {
+    //         machine_stash: stash,
+    //         bonding_height: now,
+    //         stake_amount,
+    //         machine_status: MachineStatus::AddingCustomizeInfo,
+    //         ..Default::default()
+    //     }
+    // }
 
     fn can_add_customize_info(&self) -> bool {
         matches!(

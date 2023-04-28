@@ -11,7 +11,7 @@ use dbc_support::{
 };
 use sp_runtime::{
     traits::{CheckedMul, Saturating, Zero},
-    Perbill, SaturatedConversion,
+    PerThing, SaturatedConversion,Perbill
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
@@ -51,7 +51,7 @@ impl<T: Config> Pallet<T> {
         let online_stake_params = Self::online_stake_params()?;
 
         let stake_per_gpu = if sys_info.total_gpu_num > 10_000 {
-            Perbill::from_rational_approximation(10_000u64, sys_info.total_gpu_num) *
+            Perbill::from_rational(10_000u64, sys_info.total_gpu_num) *
                 online_stake_params.online_stake_per_gpu
         } else {
             online_stake_params.online_stake_per_gpu
@@ -162,8 +162,7 @@ impl<T: Config> Pallet<T> {
         if era_stash_points.total == 0 {
             Zero::zero()
         } else {
-            Perbill::from_rational_approximation(machine_actual_grade, era_stash_points.total) *
-                era_total_reward
+            Perbill::from_rational(machine_actual_grade, era_stash_points.total) * era_total_reward
         }
     }
 
@@ -173,8 +172,8 @@ impl<T: Config> Pallet<T> {
         era_total_reward: BalanceOf<T>,
         era_machine_points: &BTreeMap<MachineId, MachineGradeStatus>,
         era_stash_points: &EraStashPoints<T::AccountId>,
-    ) {
-        let mut machine_reward_info = Self::machine_recent_reward(&machine_id);
+    ) -> Result<(), ()> {
+        let mut machine_reward_info = Self::machine_recent_reward(&machine_id).ok_or(())?;
         let mut stash_machine = Self::stash_machines(&machine_reward_info.machine_stash);
 
         let machine_total_reward = Self::calc_machine_total_reward(
@@ -189,7 +188,7 @@ impl<T: Config> Pallet<T> {
 
         if machine_reward_info.recent_reward_sum == Zero::zero() {
             MachineRecentReward::<T>::insert(&machine_id, machine_reward_info);
-            return
+            return Ok(())
         }
 
         let latest_reward = if !machine_reward_info.recent_machine_reward.is_empty() {
@@ -201,9 +200,8 @@ impl<T: Config> Pallet<T> {
 
         // total released reward = sum(1..n-1) * (1/200) + n * (50/200) = 49/200*n + 1/200 *
         // sum(1..n)
-        let released_reward = Perbill::from_rational_approximation(49u32, 200u32) * latest_reward +
-            Perbill::from_rational_approximation(1u32, 200u32) *
-                machine_reward_info.recent_reward_sum;
+        let released_reward = Perbill::from_rational(49u32, 200u32) * latest_reward +
+            Perbill::from_rational(1u32, 200u32) * machine_reward_info.recent_reward_sum;
 
         // if should reward to committee
         let (reward_to_stash, reward_to_committee) =
@@ -212,16 +210,14 @@ impl<T: Config> Pallet<T> {
                 (released_reward, Zero::zero())
             } else {
                 // 1% of released_reward to committee, 99% of released reward to stash
-                let release_to_stash =
-                    Perbill::from_rational_approximation(99u32, 100u32) * released_reward;
+                let release_to_stash = Perbill::from_rational(99u32, 100u32) * released_reward;
                 let release_to_committee = released_reward.saturating_sub(release_to_stash);
                 (release_to_stash, release_to_committee)
             };
 
-        let committee_each_get = Perbill::from_rational_approximation(
-            1u32,
-            machine_reward_info.reward_committee.len() as u32,
-        ) * reward_to_committee;
+        let committee_each_get =
+            Perbill::from_rational(1u32, machine_reward_info.reward_committee.len() as u32) *
+                reward_to_committee;
         for a_committee in machine_reward_info.reward_committee.clone() {
             T::ManageCommittee::add_reward(a_committee, committee_each_get);
         }
@@ -235,11 +231,10 @@ impl<T: Config> Pallet<T> {
             // 减去委员会释放的部分
 
             // 每天机器奖励释放总奖励的1/200 (150天释放75%)
-            let total_daily_release =
-                Perbill::from_rational_approximation(1u32, 200u32) * machine_total_reward;
+            let total_daily_release = Perbill::from_rational(1u32, 200u32) * machine_total_reward;
             // 委员会每天分得释放奖励的1%
             let total_committee_release =
-                Perbill::from_rational_approximation(1u32, 100u32) * total_daily_release;
+                Perbill::from_rational(1u32, 100u32) * total_daily_release;
             // 委员会还能获得奖励的天数
             let release_day =
                 machine_reward_info.reward_committee_deadline.saturating_sub(release_era);
@@ -247,7 +242,7 @@ impl<T: Config> Pallet<T> {
             machine_total_reward -
                 total_committee_release * release_day.saturated_into::<BalanceOf<T>>()
         } else {
-            Perbill::from_rational_approximation(99u32, 100u32) * machine_total_reward
+            Perbill::from_rational(99u32, 100u32) * machine_total_reward
         };
 
         // record reward
@@ -276,5 +271,6 @@ impl<T: Config> Pallet<T> {
 
         StashMachines::<T>::insert(&machine_reward_info.machine_stash, stash_machine);
         MachineRecentReward::<T>::insert(&machine_id, machine_reward_info);
+        Ok(())
     }
 }

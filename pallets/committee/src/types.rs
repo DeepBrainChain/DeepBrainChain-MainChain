@@ -1,4 +1,4 @@
-use frame_support::scale_info::TypeInfo;
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
