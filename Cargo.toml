@@ -34,7 +34,7 @@ members = [
   # "pallets/online-profile/rpc",
   # "pallets/online-profile/rpc/runtime-api",
   # "pallets/committee",
-  "pallets/committee2",
+  "pallets/committee",
   # "pallets/committee/rpc",
   # "pallets/committee/rpc/runtime-api",
   # "pallets/online-committee",

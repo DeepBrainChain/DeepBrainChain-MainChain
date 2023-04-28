@@ -1,12 +1,12 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod migrations;
+// pub mod migrations;
 mod rpc;
 mod traits;
 mod types;
-#[allow(clippy::all)]
-pub mod weights;
+// #[allow(clippy::all)]
+// pub mod weights;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
@@ -31,7 +31,7 @@ type BalanceOf<T> =
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
-pub use weights::WeightInfo;
+// pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -39,13 +39,14 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
-        type WeightInfo: WeightInfo;
+        // type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
+    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     #[pallet::hooks]
@@ -75,6 +76,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // 设置committee每次操作需要质押数量
+        #[pallet::call_index(0)]
         #[pallet::weight(0)]
         pub fn set_committee_stake_params(
             origin: OriginFor<T>,
@@ -88,7 +90,9 @@ pub mod pallet {
         // 该操作由社区决定
         // 添加到委员会，直接添加到fulfill列表中。每次finalize将会读取委员会币数量，
         // 币足则放到committee中 TODO: add max_committee config for better weight
-        #[pallet::weight(<T as Config>::WeightInfo::add_committee(100u32))]
+        #[pallet::call_index(1)]
+        #[pallet::weight(10000)]
+        // #[pallet::weight(<T as Config>::WeightInfo::add_committee(100u32))]
         pub fn add_committee(
             origin: OriginFor<T>,
             member: T::AccountId,
@@ -108,6 +112,7 @@ pub mod pallet {
         }
 
         /// 委员会添用于非对称加密的公钥信息，并绑定质押
+        #[pallet::call_index(2)]
         #[pallet::weight(10000)]
         pub fn committee_set_box_pubkey(
             origin: OriginFor<T>,
@@ -151,6 +156,7 @@ pub mod pallet {
         }
 
         /// 委员会增加质押
+        #[pallet::call_index(3)]
         #[pallet::weight(10000)]
         pub fn committee_add_stake(
             origin: OriginFor<T>,
@@ -176,6 +182,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(4)]
         #[pallet::weight(10000)]
         pub fn committee_reduce_stake(
             origin: OriginFor<T>,
@@ -195,6 +202,7 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(5)]
         #[pallet::weight(10000)]
         pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
@@ -215,6 +223,7 @@ pub mod pallet {
         }
 
         // 委员会停止接单
+        #[pallet::call_index(6)]
         #[pallet::weight(10000)]
         pub fn chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
@@ -238,6 +247,7 @@ pub mod pallet {
         }
 
         // 委员会可以接单
+        #[pallet::call_index(7)]
         #[pallet::weight(10000)]
         pub fn undo_chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
@@ -260,6 +270,7 @@ pub mod pallet {
         }
 
         /// Only In Chill list & used_stake == 0 can exit.
+        #[pallet::call_index(8)]
         #[pallet::weight(10000)]
         pub fn exit_committee(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
@@ -282,7 +293,7 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    // #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         PayTxFee(T::AccountId, BalanceOf<T>),

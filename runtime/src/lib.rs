@@ -1471,7 +1471,7 @@ impl dbc_price_ocw::Config for Runtime {
 //     type SlashAndReward = GenericFunc;
 // }
 
-impl committee2::Config for Runtime {
+impl committee::Config for Runtime {
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     // type WeightInfo = committee::weights::SubstrateWeight<Runtime>;
@@ -1548,7 +1548,7 @@ construct_runtime!(
         CouncilReward: council_reward,
         DBCPriceOCW: dbc_price_ocw,
         // OnlineProfile2: online_profile2,
-        Committee2: committee2,
+        Committee: committee,
     }
 );
 

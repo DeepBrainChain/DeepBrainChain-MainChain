@@ -1,12 +1,13 @@
+use frame_support::scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 use codec::{Decode, Encode};
 use sp_runtime::{Perbill, RuntimeDebug};
-use sp_std::vec::Vec;
+use sp_std::{vec, vec::Vec};
 
 // 处于不同状态的委员会的列表
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct CommitteeList<AccountId: Ord> {
@@ -18,6 +19,17 @@ pub struct CommitteeList<AccountId: Ord> {
     pub waiting_box_pubkey: Vec<AccountId>,
     /// 等待补充质押的委员会
     pub fulfilling_list: Vec<AccountId>,
+}
+
+impl<AccountId: Ord> Default for CommitteeList<AccountId> {
+    fn default() -> Self {
+        Self {
+            normal: vec![],
+            chill_list: vec![],
+            waiting_box_pubkey: vec![],
+            fulfilling_list: vec![],
+        }
+    }
 }
 
 impl<AccountId: Ord> CommitteeList<AccountId> {
@@ -42,7 +54,7 @@ impl<AccountId: Ord> CommitteeList<AccountId> {
 }
 
 /// 与委员会质押基本参数
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct CommitteeStakeParamsInfo<Balance> {
     /// 第一次委员会质押的基准数值
     pub stake_baseline: Balance,
@@ -53,7 +65,7 @@ pub struct CommitteeStakeParamsInfo<Balance> {
 }
 
 /// 委员会质押的状况
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct CommitteeStakeInfo<Balance> {
     pub box_pubkey: [u8; 32],
     pub staked_amount: Balance,

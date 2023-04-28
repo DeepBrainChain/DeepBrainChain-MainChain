@@ -963,16 +963,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "committee2"
+name = "committee"
 version = "0.1.0"
 dependencies = [
+ "dbc-price-ocw",
  "dbc-support",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "generic-func",
+ "hex",
+ "pallet-balances",
+ "pallet-collective",
  "parity-scale-codec",
  "scale-info",
  "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]
@@ -1721,7 +1729,7 @@ dependencies = [
 name = "dbc-runtime"
 version = "3.0.0-dev"
 dependencies = [
- "committee2",
+ "committee",
  "council-reward",
  "dbc-price-ocw",
  "dbc-primitives",
