@@ -966,20 +966,16 @@ dependencies = [
 name = "committee"
 version = "0.1.0"
 dependencies = [
- "dbc-price-ocw",
  "dbc-support",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "generic-func",
  "hex",
  "pallet-balances",
- "pallet-collective",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "sp-core",
- "sp-io",
  "sp-keyring",
  "sp-runtime",
  "sp-std",
@@ -1080,7 +1076,6 @@ dependencies = [
  "pallet-treasury",
  "parity-scale-codec",
  "scale-info",
- "serde",
  "sp-core",
  "sp-io",
  "sp-keyring",
@@ -2893,18 +2888,13 @@ dependencies = [
 name = "generic-func"
 version = "0.1.0"
 dependencies = [
- "bs58",
  "dbc-support",
  "frame-support",
  "frame-system",
- "hex",
- "pallet-randomness-collective-flip",
  "parity-scale-codec",
  "rand_chacha 0.3.1",
  "scale-info",
- "serde",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]

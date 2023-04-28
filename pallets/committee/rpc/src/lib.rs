@@ -1,3 +1,5 @@
+#![warn(unused_crate_dependencies)]
+
 use codec::Codec;
 use committee::CommitteeList;
 use committee_runtime_api::CmRpcApi as CmStorageRuntimeApi;

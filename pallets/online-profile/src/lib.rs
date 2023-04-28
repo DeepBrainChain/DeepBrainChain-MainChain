@@ -1,5 +1,6 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(unused_crate_dependencies)]
 
 pub mod migrations;
 mod online_reward;
@@ -971,7 +972,7 @@ pub mod pallet {
             Self::deposit_event(Event::ApplySlashReview(slash_id));
             Ok(().into())
         }
-        
+
         #[pallet::call_index(16)]
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {

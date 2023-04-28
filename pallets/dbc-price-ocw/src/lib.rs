@@ -1,5 +1,6 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(unused_crate_dependencies)]
 
 // use alt_serde::{Deserialize, Deserializer};
 use dbc_support::traits::DbcPrice;

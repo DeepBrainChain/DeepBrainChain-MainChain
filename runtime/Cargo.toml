@@ -116,6 +116,8 @@ council-reward = { path = "../pallets/council-reward", default-features = false 
 dbc-price-ocw = { path = "../pallets/dbc-price-ocw", default-features = false }
 # online-profile2 = { path = "../pallets/online-profile2", default-features = false }
 committee = { path = "../pallets/committee", default-features = false }
+# simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-features = false }
+# simple-rpc-runtime-api = { package = "simple-rpc-runtime-api", path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
 
 [features]
 default = ["std"]
@@ -212,6 +214,8 @@ std = [
 	"dbc-price-ocw/std",
 	# "online-profile2/std",
 	"committee/std",
+	# "simple-rpc/std",
+ 	# "simple-rpc-runtime-api/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

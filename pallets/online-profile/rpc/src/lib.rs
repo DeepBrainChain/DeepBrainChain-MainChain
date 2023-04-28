@@ -1,4 +1,5 @@
 //! RPC interface for the transaction payment module.
+#![warn(unused_crate_dependencies)]
 
 use codec::Codec;
 use dbc_support::{

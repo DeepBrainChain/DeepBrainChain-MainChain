@@ -1477,6 +1477,11 @@ impl committee::Config for Runtime {
     // type WeightInfo = committee::weights::SubstrateWeight<Runtime>;
 }
 
+// impl simple_rpc::Config for Runtime {
+//     type Currency = Balances;
+//     type OPRpcQuery = OnlineProfile;
+// }
+
 parameter_types! {
     pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
     pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
@@ -1549,6 +1554,7 @@ construct_runtime!(
         DBCPriceOCW: dbc_price_ocw,
         // OnlineProfile2: online_profile2,
         Committee: committee,
+        // SimpleRpc: simple_rpc,
     }
 );
 
@@ -2069,6 +2075,16 @@ impl_runtime_apis! {
             Ok(batches)
         }
     }
+
+    // impl simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance> for Runtime {
+    //     fn get_staker_identity(who: AccountId) -> Vec<u8> {
+    //         SimpleRpc::get_staker_identity(who)
+    //     }
+
+    //     fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<simple_rpc::StakerListInfo<Balance, AccountId>> {
+    //         SimpleRpc::get_staker_list_info(cur_page, per_page)
+    //     }
+    // }
 }
 
 #[cfg(test)]

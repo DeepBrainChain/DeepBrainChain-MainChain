@@ -1,3 +1,5 @@
+#![warn(unused_crate_dependencies)]
+
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;

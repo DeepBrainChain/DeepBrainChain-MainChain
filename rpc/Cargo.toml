@@ -38,3 +38,6 @@ sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polka
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 substrate-state-trie-migration-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+
+# simple-rpc-rpc = { path = "../pallets/simple-rpc/rpc" }
+# simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api" }

@@ -1,3 +1,5 @@
+#![warn(unused_crate_dependencies)]
+
 use codec::Codec;
 use dbc_support::rpc_types::RpcBalance;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
