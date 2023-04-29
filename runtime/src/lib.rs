@@ -1467,7 +1467,7 @@ impl online_profile::Config for Runtime {
     type ManageCommittee = Committee;
     type Slash = Treasury;
     type CancelSlashOrigin =
-        pallet_collective::EnsureProportionAtLeast<_1, _5, AccountId, TechnicalCollective>;
+        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 5>;
     type SlashAndReward = GenericFunc;
 }
 

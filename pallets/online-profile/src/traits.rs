@@ -194,7 +194,7 @@ impl<T: Config> OCOps for Pallet<T> {
         // let mut sys_info = Self::sys_info();
 
         // Slash 5% of init stake(5% of one gpu stake)
-        let slash = Perbill::from_rational_approximation(5u64, 100u64) * machine_info.stake_amount;
+        let slash = Perbill::from_rational(5u64, 100u64) * machine_info.stake_amount;
 
         let left_stake = machine_info.stake_amount.checked_sub(&slash)?;
         // Remain 5% of init stake(5% of one gpu stake)
@@ -274,8 +274,8 @@ impl<T: Config> RTOps for Pallet<T> {
         MachinesInfo::<T>::try_mutate(machine_id, |machine_info| {
             let machine_info = machine_info.as_mut().ok_or(())?;
             machine_info.machine_status = MachineStatus::Rented;
-            Ok(())
-        });
+            Ok::<(), ()>(())
+        })?;
         MachineRentedGPU::<T>::mutate(machine_id, |machine_rented_gpu| {
             *machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
         });
@@ -329,7 +329,7 @@ impl<T: Config> RTOps for Pallet<T> {
             return Ok(())
         }
         machine_info.total_rented_duration +=
-            Perbill::from_rational_approximation(rented_gpu_num, gpu_num) * rent_duration;
+            Perbill::from_rational(rented_gpu_num, gpu_num) * rent_duration;
 
         if is_renter_last_rent {
             // NOTE: 只有在是最后一个renter时，才移除
@@ -378,8 +378,8 @@ impl<T: Config> RTOps for Pallet<T> {
             MachinesInfo::<T>::try_mutate(machine_id, |machine_info| {
                 let machine_info = machine_info.as_mut().ok_or(())?;
                 machine_info.machine_status = MachineStatus::Online;
-                Ok(())
-            });
+                Ok::<(), ()>(())
+            })?;
         }
 
         MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
@@ -440,7 +440,7 @@ impl<T: Config> MTOps for Pallet<T> {
         committee: Vec<T::AccountId>,
         machine_id: MachineId,
         fault_type: OPSlashReason<T::BlockNumber>,
-    ) ->Result<(),()> {
+    ) -> Result<(), ()> {
         Self::machine_offline(
             machine_id.clone(),
             MachineStatus::ReporterReportOffline(

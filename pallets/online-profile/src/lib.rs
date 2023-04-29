@@ -422,7 +422,7 @@ pub mod pallet {
                 MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
                     let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
                     machine_info.controller = new_controller.clone();
-                    Ok(())
+                    Ok::<(), sp_runtime::DispatchError>(())
                 });
             });
 
@@ -582,8 +582,8 @@ pub mod pallet {
             MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
                 let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
                 machine_info.add_server_room_info(server_room_info);
-                Ok(())
-            });
+                Ok::<(), sp_runtime::DispatchError>(())
+            })?;
 
             Self::deposit_event(Event::MachineInfoAdded(machine_id));
             Ok(().into())
@@ -810,7 +810,7 @@ pub mod pallet {
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             };
-            let mut slash_info = slash_info.as_mut().ok_or(Error::<T>::Unknown)?;
+            let mut slash_info = slash_info.as_mut().map_err(|_| Error::<T>::Unknown)?;
 
             // NOTE: 如果机器上线超过一年，空闲超过10天，下线后上线不添加惩罚
             if now >= machine_info.online_height &&
