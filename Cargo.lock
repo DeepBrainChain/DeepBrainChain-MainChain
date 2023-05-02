@@ -1826,6 +1826,7 @@ dependencies = [
  "pallet-uniques",
  "pallet-utility",
  "parity-scale-codec",
+ "rent-machine",
  "scale-info",
  "sp-api",
  "sp-authority-discovery",
@@ -7040,6 +7041,65 @@ name = "regex-syntax"
 version = "0.6.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
+
+[[package]]
+name = "rent-machine"
+version = "0.1.0"
+dependencies = [
+ "committee",
+ "dbc-price-ocw",
+ "dbc-support",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "once_cell",
+ "online-committee",
+ "online-profile",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "rent-machine-rpc"
+version = "0.1.0"
+dependencies = [
+ "dbc-support",
+ "generic-func",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "rent-machine",
+ "rent-machine-runtime-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "rent-machine-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "dbc-support",
+ "parity-scale-codec",
+ "rent-machine",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
 
 [[package]]
 name = "resolv-conf"

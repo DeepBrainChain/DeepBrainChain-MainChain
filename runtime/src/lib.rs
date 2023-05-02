@@ -1487,6 +1487,13 @@ impl online_committee::Config for Runtime {
     type SlashAndReward = GenericFunc;
 }
 
+impl rent_machine::Config for Runtime {
+    type Currency = Balances;
+    type RuntimeEvent = RuntimeEvent;
+    type RTOps = OnlineProfile;
+    type DbcPrice = DBCPriceOCW;
+}
+
 // impl simple_rpc::Config for Runtime {
 //     type Currency = Balances;
 //     type OPRpcQuery = OnlineProfile;
@@ -1566,6 +1573,7 @@ construct_runtime!(
         Committee: committee,
         // SimpleRpc: simple_rpc,
         OnlineCommittee: online_committee,
+        RentMachine: rent_machine,
     }
 );
 

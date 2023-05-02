@@ -2,12 +2,13 @@
 use super::rpc_types::serde_text;
 use super::{ItemList, MachineId, RentOrderId};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::{vec, vec::Vec};
 
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
@@ -32,7 +33,7 @@ pub struct RentOrderDetail<AccountId, BlockNumber, Balance> {
     pub gpu_index: Vec<u32>,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub enum RentStatus {
@@ -78,7 +79,7 @@ impl<A, B: Default, C: Default> RentOrderDetail<A, B, C> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct MachineGPUOrder {

@@ -2,7 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(unused_crate_dependencies)]
 
-pub mod migrations;
+// pub mod migrations;
 mod rpc;
 
 #[cfg(test)]
@@ -68,18 +68,18 @@ pub mod pallet {
             Self::check_if_rent_finished();
         }
 
-        fn on_runtime_upgrade() -> Weight {
-            frame_support::debug::RuntimeLogger::init();
-            frame_support::debug::info!("🔍️ OnlineProfile Storage Migration start");
-            let weight1 = online_profile::migrations::apply::<T>();
-            frame_support::debug::info!("🚀 OnlineProfile Storage Migration end");
+        // fn on_runtime_upgrade() -> Weight {
+        //     frame_support::debug::RuntimeLogger::init();
+        //     frame_support::debug::info!("🔍️ OnlineProfile Storage Migration start");
+        //     let weight1 = online_profile::migrations::apply::<T>();
+        //     frame_support::debug::info!("🚀 OnlineProfile Storage Migration end");
 
-            frame_support::debug::RuntimeLogger::init();
-            frame_support::debug::info!("🔍️ RentMachine Storage Migration start");
-            let weight2 = migrations::apply::<T>();
-            frame_support::debug::info!("🚀 RentMachine Storage Migration end");
-            weight1 + weight2
-        }
+        //     frame_support::debug::RuntimeLogger::init();
+        //     frame_support::debug::info!("🔍️ RentMachine Storage Migration start");
+        //     let weight2 = migrations::apply::<T>();
+        //     frame_support::debug::info!("🚀 RentMachine Storage Migration end");
+        //     weight1 + weight2
+        // }
     }
 
     // 存储用户当前租用的机器列表
@@ -106,7 +106,6 @@ pub mod pallet {
         Blake2_128Concat,
         RentOrderId,
         RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ValueQuery,
     >;
 
     // 等待用户确认租用成功的机器
@@ -183,9 +182,9 @@ pub mod pallet {
             rent_id: RentOrderId,
         ) -> DispatchResultWithPostInfo {
             let renter = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
-            let mut rent_info = Self::rent_info(&rent_id);
+            let mut rent_info = Self::rent_info(&rent_id).ok_or(Error::<T>::Unknown)?;
             let machine_id = rent_info.machine_id.clone();
             let gpu_num = rent_info.gpu_num.clone();
             ensure!(rent_info.renter == renter, Error::<T>::NoOrderExist);
@@ -202,7 +201,8 @@ pub mod pallet {
                 Error::<T>::ExpiredConfirm
             );
 
-            let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
+            let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id)
+                .ok_or(Error::<T>::Unknown)?;
             ensure!(
                 machine_info.machine_status == MachineStatus::Rented,
                 Error::<T>::StatusNotAllowed
@@ -289,6 +289,7 @@ pub mod pallet {
         OnlyHalfHourAllowed,
         GPUNotEnough,
         NotMachineRenter,
+        Unknown,
     }
 }
 
@@ -299,9 +300,10 @@ impl<T: Config> Pallet<T> {
         rent_gpu_num: u32,
         duration: T::BlockNumber,
     ) -> DispatchResultWithPostInfo {
-        let now = <frame_system::Module<T>>::block_number();
-        let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
-        let machine_rented_gpu = <online_profile::Module<T>>::machine_rented_gpu(&machine_id);
+        let now = <frame_system::Pallet<T>>::block_number();
+        let machine_info =
+            <online_profile::Pallet<T>>::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+        let machine_rented_gpu = <online_profile::Pallet<T>>::machine_rented_gpu(&machine_id);
         let gpu_num = machine_info.gpu_num();
 
         if gpu_num == 0 || duration == Zero::zero() {
@@ -326,7 +328,7 @@ impl<T: Config> Pallet<T> {
             duration.min((Self::maximum_rental_duration().saturating_mul(ONE_DAY)).into());
 
         // NOTE: 用户提交订单，需要扣除10个DBC
-        <generic_func::Module<T>>::pay_fixed_tx_fee(renter.clone())
+        <generic_func::Pallet<T>>::pay_fixed_tx_fee(renter.clone())
             .map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
         // 获得machine_price(每天的价格)
@@ -403,7 +405,7 @@ impl<T: Config> Pallet<T> {
         rent_id: RentOrderId,
         duration: T::BlockNumber,
     ) -> DispatchResultWithPostInfo {
-        let mut rent_info = Self::rent_info(&rent_id);
+        let mut rent_info = Self::rent_info(&rent_id).ok_or(Error::<T>::Unknown)?;
         let old_rent_end = rent_info.rent_end;
         let machine_id = rent_info.machine_id.clone();
         let gpu_num = rent_info.gpu_num;
@@ -412,11 +414,12 @@ impl<T: Config> Pallet<T> {
         ensure!(rent_info.renter == renter, Error::<T>::NotMachineRenter);
         ensure!(rent_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 
-        let machine_info = <online_profile::Module<T>>::machines_info(&machine_id);
+        let machine_info =
+            <online_profile::Pallet<T>>::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
         let calc_point = machine_info.calc_point();
 
         // 确保租用时间不超过设定的限制，计算最多续费租用到
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         // 最大结束块高为 今天租用开始的时间 + 60天
         // 60 days * 24 hour/day * 60 min/hour * 2 block/min
         let max_rent_end = now.checked_add(&(ONE_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
@@ -501,8 +504,8 @@ impl<T: Config> Pallet<T> {
         let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
         // 如果Phase1Destruction开启，租金销毁50%
         // 如果银河竞赛开启(Phase2Destruction开启)，则租金100%销毁，
-        let phase1_destruction = <online_profile::Module<T>>::phase1_destruction();
-        let phase2_destruction = <online_profile::Module<T>>::phase2_destruction();
+        let phase1_destruction = <online_profile::Pallet<T>>::phase1_destruction();
+        let phase2_destruction = <online_profile::Pallet<T>>::phase2_destruction();
 
         let destroy_percent = {
             if phase2_destruction.2 {
@@ -530,16 +533,16 @@ impl<T: Config> Pallet<T> {
     }
 
     // 定时检查机器是否30分钟没有上线
-    fn check_machine_starting_status() {
-        let now = <frame_system::Module<T>>::block_number();
+    fn check_machine_starting_status() -> Result<(), ()> {
+        let now = <frame_system::Pallet<T>>::block_number();
 
         if !<ConfirmingOrder<T>>::contains_key(now) {
-            return
+            return Ok(())
         }
 
         let pending_confirming = Self::confirming_order(now);
         for rent_id in pending_confirming {
-            let rent_info = Self::rent_info(&rent_id);
+            let rent_info = Self::rent_info(&rent_id).ok_or(())?;
 
             Self::clean_order(&rent_info.renter, rent_id);
             T::RTOps::change_machine_status_on_confirm_expired(
@@ -547,15 +550,16 @@ impl<T: Config> Pallet<T> {
                 rent_info.gpu_num,
             );
         }
+        Ok(())
     }
 
     // -Write: MachineRentOrder, RentEnding, RentOrder,
     // UserOrder, ConfirmingOrder
-    fn clean_order(who: &T::AccountId, rent_order_id: RentOrderId) {
+    fn clean_order(who: &T::AccountId, rent_order_id: RentOrderId) -> Result<(), ()> {
         let mut user_order = Self::user_order(who);
         ItemList::rm_item(&mut user_order, &rent_order_id);
 
-        let rent_info = Self::rent_info(rent_order_id);
+        let rent_info = Self::rent_info(rent_order_id).ok_or(())?;
 
         // return back staked money!
         if !rent_info.stake_amount.is_zero() {
@@ -589,6 +593,7 @@ impl<T: Config> Pallet<T> {
         } else {
             ConfirmingOrder::<T>::insert(pending_confirming_deadline, pending_confirming);
         }
+        Ok(())
     }
 
     // - Write: UserTotalStake
@@ -615,20 +620,20 @@ impl<T: Config> Pallet<T> {
     // 这里修rentMachine模块通知onlineProfile机器已经租用完成，
     // onlineProfile判断机器是否需要变成online状态，或者记录下之前是租用状态，
     // 以便机器再次上线时进行正确的惩罚
-    fn check_if_rent_finished() {
-        let now = <frame_system::Module<T>>::block_number();
+    fn check_if_rent_finished() -> Result<(), ()> {
+        let now = <frame_system::Pallet<T>>::block_number();
         if !<RentEnding<T>>::contains_key(now) {
-            return
+            return Ok(())
         }
         let pending_ending = Self::rent_ending(now);
 
         for rent_id in pending_ending {
-            let rent_info = Self::rent_info(&rent_id);
+            let rent_info = Self::rent_info(&rent_id).ok_or(())?;
             let machine_id = rent_info.machine_id.clone();
             let rent_duration = now.saturating_sub(rent_info.rent_start);
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
-            let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter);
+            let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter)?;
             T::RTOps::change_machine_status_on_rent_end(
                 &machine_id,
                 rent_info.gpu_num,
@@ -640,19 +645,20 @@ impl<T: Config> Pallet<T> {
 
             Self::clean_order(&rent_info.renter, rent_id);
         }
+        Ok(())
     }
 
     // 当没有正在租用的机器时，可以修改得分快照
     // 判断machine_id的订单是否只有1个
     // 判断renter是否只租用了machine_id一次
-    fn is_last_rent(machine_id: &MachineId, renter: &T::AccountId) -> (bool, bool) {
+    fn is_last_rent(machine_id: &MachineId, renter: &T::AccountId) -> Result<(bool, bool), ()> {
         let machine_order = Self::machine_rent_order(machine_id);
         let mut machine_order_count = 0;
         let mut renter_order_count = 0;
 
         // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
         for order_id in machine_order.rent_order {
-            let rent_info = Self::rent_info(order_id);
+            let rent_info = Self::rent_info(order_id).ok_or(())?;
             if renter == &rent_info.renter {
                 renter_order_count = renter_order_count.saturating_add(1);
             }
@@ -660,7 +666,6 @@ impl<T: Config> Pallet<T> {
                 machine_order_count = machine_order_count.saturating_add(1);
             }
         }
-
-        (machine_order_count < 2, renter_order_count < 2)
+        Ok((machine_order_count < 2, renter_order_count < 2))
     }
 }

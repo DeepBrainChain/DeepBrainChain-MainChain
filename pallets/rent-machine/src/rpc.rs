@@ -8,7 +8,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_rent_order(
         rent_id: RentOrderId,
     ) -> RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        Self::rent_info(&rent_id)
+        Self::rent_info(&rent_id).unwrap()
     }
 
     pub fn get_rent_list(renter: T::AccountId) -> Vec<RentOrderId> {
@@ -19,7 +19,7 @@ impl<T: Config> Pallet<T> {
         let machine_order = Self::machine_rent_order(machine_id);
 
         for order_id in machine_order.rent_order {
-            let rent_info = Self::rent_info(order_id);
+            let rent_info = Self::rent_info(order_id).unwrap();
 
             if rent_info.renter == renter {
                 return true
