@@ -1477,6 +1477,16 @@ impl committee::Config for Runtime {
     // type WeightInfo = committee::weights::SubstrateWeight<Runtime>;
 }
 
+impl online_committee::Config for Runtime {
+    type Currency = Balances;
+    type RuntimeEvent = RuntimeEvent;
+    type OCOps = OnlineProfile;
+    type ManageCommittee = Committee;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 5>;
+    type SlashAndReward = GenericFunc;
+}
+
 // impl simple_rpc::Config for Runtime {
 //     type Currency = Balances;
 //     type OPRpcQuery = OnlineProfile;
@@ -1555,6 +1565,7 @@ construct_runtime!(
         OnlineProfile: online_profile,
         Committee: committee,
         // SimpleRpc: simple_rpc,
+        OnlineCommittee: online_committee,
     }
 );
 

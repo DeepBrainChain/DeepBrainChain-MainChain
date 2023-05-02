@@ -118,6 +118,7 @@ online-profile = { path = "../pallets/online-profile", default-features = false 
 committee = { path = "../pallets/committee", default-features = false }
 # simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-features = false }
 # simple-rpc-runtime-api = { package = "simple-rpc-runtime-api", path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
+online-committee = { path = "../pallets/online-committee", default-features = false }
 
 [features]
 default = ["std"]
@@ -216,6 +217,7 @@ std = [
 	"committee/std",
 	# "simple-rpc/std",
  	# "simple-rpc-runtime-api/std",
+	"online-committee/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_machine_committee_list(
         machine_id: MachineId,
     ) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
-        Self::machine_committee(machine_id)
+        Self::machine_committee(machine_id).unwrap()
     }
 
     pub fn get_committee_machine_list(committee: T::AccountId) -> OCCommitteeMachineList {
@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
         machine_id: MachineId,
     ) -> RpcOCCommitteeOps<T::BlockNumber, BalanceOf<T>> {
         let oc_committee_ops = Self::committee_ops(&committee, &machine_id);
-        let committee_info = Self::machine_committee(&machine_id);
+        let committee_info = Self::machine_committee(&machine_id).unwrap();
 
         RpcOCCommitteeOps {
             booked_time: committee_info.book_time,

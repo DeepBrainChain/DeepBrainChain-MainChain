@@ -83,7 +83,7 @@ pub trait OnlineCommitteeSummary {
         committee_submit_info: Vec<CommitteeUploadInfo>,
     ) -> Summary<Self::AccountId>
     where
-        Self::AccountId: Clone + Ord + Default,
+        Self::AccountId: Clone + Ord,
         Self::BlockNumber: Copy + PartialOrd + ops::Add<Output = Self::BlockNumber> + From<u32>,
     {
         // 如果是反对上线，则需要忽略其他字段，只添加is_support=false的字段

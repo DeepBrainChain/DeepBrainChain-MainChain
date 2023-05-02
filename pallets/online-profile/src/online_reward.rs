@@ -11,7 +11,7 @@ use dbc_support::{
 };
 use sp_runtime::{
     traits::{CheckedMul, Saturating, Zero},
-    PerThing, SaturatedConversion,Perbill
+    PerThing, Perbill, SaturatedConversion,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 

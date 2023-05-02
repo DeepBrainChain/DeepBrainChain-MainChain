@@ -25,8 +25,8 @@ impl<T: Config> Pallet<T> {
     fn do_a_pending_review(a_pending_review: SlashId) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
 
-        let review_info = Self::pending_slash_review(a_pending_review);
-        let slash_info = Self::pending_slash(a_pending_review);
+        let review_info = Self::pending_slash_review(a_pending_review).ok_or(())?;
+        let slash_info = Self::pending_slash(a_pending_review).ok_or(())?;
 
         if review_info.expire_time < now {
             return Ok(())
@@ -81,7 +81,7 @@ impl<T: Config> Pallet<T> {
 
     fn do_a_slash(slash_id: SlashId, pending_unhandled_slash: &mut Vec<SlashId>) -> Result<(), ()> {
         let now = <frame_system::Module<T>>::block_number();
-        let mut slash_info = Self::pending_slash(slash_id);
+        let mut slash_info = Self::pending_slash(slash_id).ok_or(())?;
         if now < slash_info.slash_exec_time {
             return Ok(())
         }

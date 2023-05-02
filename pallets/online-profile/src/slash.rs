@@ -154,8 +154,7 @@ impl<T: Config> Pallet<T> {
             return Err(())
         }
 
-        let slash_amount =
-            Perbill::from_rational(slash_percent, 100) * machine_info.stake_amount;
+        let slash_amount = Perbill::from_rational(slash_percent, 100) * machine_info.stake_amount;
 
         Ok(OPPendingSlashInfo {
             slash_who: machine_info.machine_stash,
@@ -184,12 +183,10 @@ impl<T: Config> Pallet<T> {
 
         let (mut reward_to_reporter, mut reward_to_committee) = (Zero::zero(), Zero::zero());
         if !slash_info.renters.is_empty() {
-            reward_to_reporter =
-                Perbill::from_rational(10u32, 100u32) * slash_info.slash_amount
+            reward_to_reporter = Perbill::from_rational(10u32, 100u32) * slash_info.slash_amount
         };
         if slash_info.reward_to_committee.is_some() {
-            reward_to_committee =
-                Perbill::from_rational(20u32, 100u32) * slash_info.slash_amount
+            reward_to_committee = Perbill::from_rational(20u32, 100u32) * slash_info.slash_amount
         };
         let slash_to_treasury = slash_info
             .slash_amount

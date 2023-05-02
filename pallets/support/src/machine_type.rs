@@ -2,13 +2,13 @@
 use super::rpc_types::serde_text;
 use super::{verify_slash::OPSlashReason, MachineId};
 use codec::{alloc::string::ToString, Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_io::hashing::blake2_128;
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::Box, vec, vec::Vec};
-use scale_info::TypeInfo;
 
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

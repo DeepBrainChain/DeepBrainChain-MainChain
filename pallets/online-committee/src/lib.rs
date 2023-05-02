@@ -47,7 +47,7 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config + online_profile::Config + generic_func::Config + committee::Config
     {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type OCOps: OCOps<
             AccountId = Self::AccountId,
@@ -59,7 +59,7 @@ pub mod pallet {
             AccountId = Self::AccountId,
             Balance = BalanceOf<Self>,
         >;
-        type CancelSlashOrigin: EnsureOrigin<Self::Origin>;
+        type CancelSlashOrigin: EnsureOrigin<Self::RuntimeOrigin>;
         type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
     }
 
@@ -73,7 +73,7 @@ pub mod pallet {
         fn on_initialize(_n: BlockNumberFor<T>) -> frame_support::weights::Weight {
             Self::check_and_exec_pending_review();
             Self::check_and_exec_pending_slash();
-            0
+            Weight::zero()
         }
 
         fn on_finalize(_block_number: T::BlockNumber) {
@@ -95,7 +95,6 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         OCMachineCommitteeList<T::AccountId, T::BlockNumber>,
-        ValueQuery,
     >;
 
     #[pallet::storage]
@@ -126,7 +125,6 @@ pub mod pallet {
         Blake2_128Concat,
         SlashId,
         OCPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        ValueQuery,
     >;
 
     #[pallet::storage]
@@ -136,7 +134,6 @@ pub mod pallet {
         Blake2_128Concat,
         SlashId,
         OCPendingSlashReviewInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
-        ValueQuery,
     >;
 
     #[pallet::storage]
@@ -153,13 +150,14 @@ pub mod pallet {
             hash: [u8; 16],
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
             let mut machine_submited_hash = Self::machine_submited_hash(&machine_id);
             ensure!(machine_submited_hash.binary_search(&hash).is_err(), Error::<T>::DuplicateHash);
             ItemList::add_item(&mut machine_submited_hash, hash);
 
-            let mut machine_committee = Self::machine_committee(&machine_id);
+            let mut machine_committee =
+                Self::machine_committee(&machine_id).ok_or(Error::<T>::Unknown)?;
             let mut committee_machine = Self::committee_machine(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &machine_id);
 
@@ -186,10 +184,11 @@ pub mod pallet {
             machine_info_detail: CommitteeUploadInfo,
         ) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
             let machine_id = machine_info_detail.machine_id.clone();
 
-            let mut machine_committee = Self::machine_committee(&machine_id);
+            let mut machine_committee =
+                Self::machine_committee(&machine_id).ok_or(Error::<T>::Unknown)?;
             let mut committee_machine = Self::committee_machine(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &machine_id);
 
@@ -223,8 +222,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             // 申请人
             let applicant = ensure_signed(origin)?;
-            let now = <frame_system::Module<T>>::block_number();
-            let slash_info = Self::pending_slash(slash_id);
+            let now = <frame_system::Pallet<T>>::block_number();
+            let slash_info = Self::pending_slash(slash_id).ok_or(Error::<T>::Unknown)?;
             let stake_amount = <T as Config>::ManageCommittee::stake_per_order()
                 .ok_or(Error::<T>::GetStakeAmountFailed)?;
 
@@ -234,8 +233,8 @@ pub mod pallet {
 
             // 判断申述人是machine_controller还是committee
 
-            let controller_stash =
-                <online_profile::Pallet<T>>::controller_stash(&applicant).unwrap_or_default();
+            let controller_stash = <online_profile::Pallet<T>>::controller_stash(&applicant)
+                .ok_or(Error::<T>::Unknown)?;
             // 申述人是被惩罚stash账户的controller
             let is_slashed_stash = slash_info.applicant_is_stash(controller_stash.clone());
             // 申述人是被惩罚的委员会账户
@@ -316,6 +315,7 @@ pub mod pallet {
         NotPendingReviewSlash,
         ExpiredApply,
         Overflow,
+        Unknown,
     }
 }
 
@@ -323,7 +323,7 @@ impl<T: Config> Pallet<T> {
     // 获取所有新加入的机器，并进行分派给委员会
     pub fn distribute_machines() {
         let live_machines = <online_profile::Pallet<T>>::live_machines();
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let confirm_start = now + SUBMIT_RAW_START.into();
 
         for machine_id in live_machines.confirmed_machine {
@@ -345,7 +345,7 @@ impl<T: Config> Pallet<T> {
     // 分派一个machineId给随机的委员会
     // 返回3个随机顺序的账户及其对应的验证顺序
     pub fn get_work_index() -> Option<Vec<VerifySequence<T::AccountId>>> {
-        let mut committee = <committee::Module<T>>::available_committee()?;
+        let mut committee = <committee::Pallet<T>>::available_committee()?;
         if committee.len() < 3 {
             return None
         };
@@ -353,7 +353,7 @@ impl<T: Config> Pallet<T> {
         let mut verify_sequence = Vec::new();
         for i in 0..3 {
             let lucky_index =
-                <generic_func::Module<T>>::random_u32((committee.len() as u32)) as usize;
+                <generic_func::Pallet<T>>::random_u32((committee.len() as u32)) as usize;
             verify_sequence.push(VerifySequence {
                 who: committee[lucky_index].clone(),
                 index: (i..DISTRIBUTION as usize).step_by(3).collect(),
@@ -377,10 +377,12 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| ())?;
 
         // 修改machine对应的委员会
-        MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
+        MachineCommittee::<T>::try_mutate(&machine_id, |machine_committee| {
+            let machine_committee = machine_committee.as_mut().ok_or(Error::<T>::Unknown)?;
             ItemList::add_item(&mut machine_committee.booked_committee, work_index.who.clone());
             machine_committee.book_time = now;
             machine_committee.confirm_start_time = confirm_start;
+            Ok::<(), sp_runtime::DispatchError>(())
         });
 
         // 修改委员会对应的machine
@@ -407,7 +409,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn statistic_result() {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let booked_machine = <online_profile::Pallet<T>>::live_machines().booked_machine;
         let committee_stake_per_order =
             <T as Config>::ManageCommittee::stake_per_order().unwrap_or_default();
@@ -418,17 +420,21 @@ impl<T: Config> Pallet<T> {
     }
 
     // 对已经提交完原始值的机器进行处理
-    fn summary_raw(machine_id: MachineId, now: T::BlockNumber, stake_per_order: BalanceOf<T>) {
-        let mut machine_committee = Self::machine_committee(&machine_id);
+    fn summary_raw(
+        machine_id: MachineId,
+        now: T::BlockNumber,
+        stake_per_order: BalanceOf<T>,
+    ) -> Result<(), ()> {
+        let mut machine_committee = Self::machine_committee(&machine_id).ok_or(())?;
 
         // 如果是在提交Hash的状态，且已经到提交原始值的时间，则改变状态并返回
         if machine_committee.can_submit_raw(now) {
             machine_committee.status = OCVerifyStatus::SubmittingRaw;
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            return
+            return Ok(())
         }
         if !machine_committee.can_summary(now) {
-            return
+            return Ok(())
         }
 
         let mut submit_info = vec![];
@@ -469,7 +475,7 @@ impl<T: Config> Pallet<T> {
 
         // NOTE: 添加惩罚
         if stash_slash.is_some() || summary.should_slash_committee() {
-            let (machine_stash, stash_slash_amount) = stash_slash.unwrap_or_default();
+            let (machine_stash, stash_slash_amount) = stash_slash.ok_or(())?;
             Self::add_summary_slash(
                 machine_id.clone(),
                 machine_stash,
@@ -486,8 +492,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
-            machine_committee.after_summary(summary.clone())
+        MachineCommittee::<T>::try_mutate(&machine_id, |machine_committee| {
+            let machine_committee = machine_committee.as_mut().ok_or(())?;
+            machine_committee.after_summary(summary.clone());
+            Ok::<(), ()>(())
         });
 
         // Do cleaning
@@ -498,6 +506,7 @@ impl<T: Config> Pallet<T> {
                 committee_machine.online_cleanup(&machine_id)
             });
         }
+        Ok(())
     }
 
     fn add_summary_slash(
@@ -537,7 +546,7 @@ impl<T: Config> Pallet<T> {
     // 该函数将清除本模块信息，并将online_profile机器状态改为ocw_confirmed_machine
     // 清除信息： OCCommitteeMachineList, OCMachineCommitteeList, OCCommitteeOps
     fn revert_book(machine_id: MachineId) -> Result<(), ()> {
-        let machine_committee = Self::machine_committee(&machine_id);
+        let machine_committee = Self::machine_committee(&machine_id).ok_or(())?;
 
         // 清除预订了机器的委员会
         for booked_committee in machine_committee.booked_committee {
@@ -552,9 +561,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_cancel_slash(slash_id: SlashId) -> DispatchResultWithPostInfo {
-        let now = <frame_system::Module<T>>::block_number();
-        let mut slash_info = Self::pending_slash(slash_id);
-        let slash_review_info = Self::pending_slash_review(slash_id);
+        let now = <frame_system::Pallet<T>>::block_number();
+        let mut slash_info = Self::pending_slash(slash_id).ok_or(Error::<T>::Unknown)?;
+        let slash_review_info = Self::pending_slash_review(slash_id).ok_or(Error::<T>::Unknown)?;
         let committee_order_stake = <T as Config>::ManageCommittee::stake_per_order()
             .ok_or(Error::<T>::GetStakeAmountFailed)?;
 

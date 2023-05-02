@@ -57,10 +57,7 @@ pub struct EraStashPoints<AccountId: Ord> {
 
 impl<AccountId: Ord> Default for EraStashPoints<AccountId> {
     fn default() -> Self {
-        Self {
-            total: 0,
-            staker_statistic: BTreeMap::new(),
-        }
+        Self { total: 0, staker_statistic: BTreeMap::new() }
     }
 }
 

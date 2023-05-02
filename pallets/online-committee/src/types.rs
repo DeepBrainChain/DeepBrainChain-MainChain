@@ -1,6 +1,7 @@
 use crate::{Config, Error};
 use codec::{Decode, Encode};
 use dbc_support::custom_err::VerifyErr;
+use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
@@ -20,7 +21,7 @@ impl<T: Config> From<VerifyErr> for Error<T> {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct OCPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
     pub applicant: AccountId,
     pub staked_amount: Balance,
