@@ -120,6 +120,7 @@ committee = { path = "../pallets/committee", default-features = false }
 # simple-rpc-runtime-api = { package = "simple-rpc-runtime-api", path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
 online-committee = { path = "../pallets/online-committee", default-features = false }
 rent-machine = { path = "../pallets/rent-machine", default-features = false }
+maintain-committee = { path = "../pallets/maintain-committee", default-features = false }
 
 [features]
 default = ["std"]
@@ -220,6 +221,7 @@ std = [
  	# "simple-rpc-runtime-api/std",
 	"online-committee/std",
 	"rent-machine/std",
+	"maintain-committee/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

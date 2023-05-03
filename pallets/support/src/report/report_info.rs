@@ -4,6 +4,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::ensure;
+use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Saturating, Zero},
     Perbill, RuntimeDebug,
@@ -11,7 +12,7 @@ use sp_runtime::{
 use sp_std::{cmp::PartialEq, ops::Sub, vec, vec::Vec};
 
 // 报告的详细信息
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
     ///报告人
     pub reporter: AccountId,
@@ -51,7 +52,7 @@ pub struct MTReportInfoDetail<AccountId, BlockNumber, Balance> {
 
 impl<Account, BlockNumber, Balance> MTReportInfoDetail<Account, BlockNumber, Balance>
 where
-    Account: Default + Clone + Ord,
+    Account: Clone + Ord,
     BlockNumber: Default
         + PartialEq
         + Zero
@@ -73,7 +74,20 @@ where
             report_time,
             machine_fault_type: machine_fault_type.clone(),
             reporter_stake,
-            ..Default::default()
+
+            first_book_time: BlockNumber::default(),
+            machine_id: MachineId::default(),
+            rent_order_id: RentOrderId::default(),
+            err_info: vec![],
+            verifying_committee: None,
+            booked_committee: vec![],
+            get_encrypted_info_committee: vec![],
+            hashed_committee: vec![],
+            confirm_start: BlockNumber::default(),
+            confirmed_committee: vec![],
+            support_committee: vec![],
+            against_committee: vec![],
+            report_status: ReportStatus::default(),
         };
 
         // 该类型错误可以由程序快速完成检测，因此可以提交并需记录machine_id
@@ -271,7 +285,7 @@ where
 // 处理inaccessible类型的报告
 impl<Account, BlockNumber, Balance> MTReportInfoDetail<Account, BlockNumber, Balance>
 where
-    Account: Default + Clone + Ord,
+    Account: Clone + Ord,
     BlockNumber: Default
         + PartialEq
         + Zero
@@ -313,7 +327,7 @@ where
 // 处理除了inaccessible错误之外的错误
 impl<Account, BlockNumber, Balance> MTReportInfoDetail<Account, BlockNumber, Balance>
 where
-    Account: Default + Clone + Ord,
+    Account: Clone + Ord,
     BlockNumber:
         Default + PartialEq + Zero + From<u32> + Copy + Sub<Output = BlockNumber> + PartialOrd,
     Balance: Default,
@@ -344,7 +358,7 @@ where
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum MachineFaultType {
     /// 机器被租用，但无法访问的故障 (机器离线)
     RentedInaccessible(MachineId, RentOrderId),
@@ -385,7 +399,7 @@ impl MachineFaultType {
     // }
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum ReportStatus {
     /// 没有委员会预订过的报告, 允许报告人取消
     Reported,
@@ -406,7 +420,7 @@ impl Default for ReportStatus {
 }
 
 /// Reporter stake params
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct ReporterStakeParamsInfo<Balance> {
     /// First time when report
     pub stake_baseline: Balance,

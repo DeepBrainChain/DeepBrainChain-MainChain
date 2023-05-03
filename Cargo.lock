@@ -1771,6 +1771,7 @@ dependencies = [
  "frame-try-runtime",
  "generic-func",
  "log",
+ "maintain-committee",
  "online-committee",
  "online-profile",
  "pallet-alliance",
@@ -4491,6 +4492,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "maintain-committee"
+version = "0.1.0"
+dependencies = [
+ "committee",
+ "dbc-price-ocw",
+ "dbc-support",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "once_cell",
+ "online-committee",
+ "online-profile",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-identity",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "rent-machine",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5124,6 +5156,37 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "online-profile-rpc"
+version = "0.1.0"
+dependencies = [
+ "dbc-support",
+ "generic-func",
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "online-profile",
+ "online-profile-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "online-profile-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "dbc-support",
+ "online-profile",
+ "parity-scale-codec",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]

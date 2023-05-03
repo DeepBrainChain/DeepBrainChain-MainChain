@@ -3,6 +3,7 @@ use crate::{
     ItemList, MachineId, ReportId, TWO_DAY,
 };
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Saturating, Zero},
     RuntimeDebug,
@@ -10,11 +11,12 @@ use sp_runtime::{
 use sp_std::{
     cmp::PartialEq,
     ops::{Add, Sub},
+    vec,
     vec::Vec,
 };
 
 /// 报告的处理结果
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct MTReportResultInfo<AccountId, BlockNumber, Balance> {
     pub report_id: ReportId,
     pub reporter: AccountId,
@@ -34,7 +36,7 @@ pub struct MTReportResultInfo<AccountId, BlockNumber, Balance> {
     pub slash_result: MCSlashResult,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum MCSlashResult {
     Pending,
     Canceled,
@@ -47,7 +49,7 @@ impl Default for MCSlashResult {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum ReportResultType {
     ReportSucceed,
     ReportRefused,
@@ -63,7 +65,7 @@ impl Default for ReportResultType {
 
 impl<AccountId, BlockNumber, Balance> MTReportResultInfo<AccountId, BlockNumber, Balance>
 where
-    AccountId: Default + Clone + Ord,
+    AccountId: Clone + Ord,
     BlockNumber: From<u32> + Add<Output = BlockNumber> + Default + Copy,
     Balance: Default + Copy,
 {
@@ -82,8 +84,11 @@ where
             machine_stash,
             machine_id: report_info.machine_id.clone(),
             reporter_stake: report_info.reporter_stake,
-
-            ..Default::default()
+            inconsistent_committee: vec![],
+            unruly_committee: vec![],
+            reward_committee: vec![],
+            committee_stake: Balance::default(),
+            report_result: ReportResultType::default(),
         }
     }
 
@@ -134,7 +139,7 @@ where
         committee_order_stake: Balance,
         report_info: &MTReportInfoDetail<Account, Block, Balance>,
     ) where
-        Account: Default + Clone + Ord,
+        Account: Clone + Ord,
         Block: Default
             + PartialEq
             + Zero

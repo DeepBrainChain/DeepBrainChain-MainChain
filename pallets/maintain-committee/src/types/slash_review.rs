@@ -1,8 +1,9 @@
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct MTPendingSlashReviewInfo<AccountId, Balance, BlockNumber> {
     pub applicant: AccountId,
     pub staked_amount: Balance,

@@ -11,10 +11,10 @@ use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {
     pub fn exec_slash() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
 
         for slashed_report_id in Self::unhandled_report_result(now) {
-            let mut report_result_info = Self::report_result(&slashed_report_id);
+            let mut report_result_info = Self::report_result(&slashed_report_id).ok_or(())?;
 
             let MTReportResultInfo {
                 reporter,
@@ -82,14 +82,14 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn exec_review() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let all_pending_review = <PendingSlashReview<T> as IterableStorageMap<ReportId, _>>::iter()
             .map(|(renter, _)| renter)
             .collect::<Vec<_>>();
 
         for a_pending_review in all_pending_review {
-            let review_info = Self::pending_slash_review(a_pending_review);
-            let report_result_info = Self::report_result(&a_pending_review);
+            let review_info = Self::pending_slash_review(a_pending_review).ok_or(())?;
+            let report_result_info = Self::report_result(&a_pending_review).ok_or(())?;
 
             if review_info.expire_time < now {
                 continue

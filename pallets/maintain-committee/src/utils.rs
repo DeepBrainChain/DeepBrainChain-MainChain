@@ -19,7 +19,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn pay_fixed_tx_fee(who: T::AccountId) -> DispatchResultWithPostInfo {
-        <generic_func::Module<T>>::pay_fixed_tx_fee(who).map_err(|_| Error::<T>::PayTxFeeFailed)?;
+        <generic_func::Pallet<T>>::pay_fixed_tx_fee(who).map_err(|_| Error::<T>::PayTxFeeFailed)?;
         Ok(().into())
     }
 

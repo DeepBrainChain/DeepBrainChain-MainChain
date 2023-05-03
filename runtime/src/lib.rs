@@ -1494,6 +1494,17 @@ impl rent_machine::Config for Runtime {
     type DbcPrice = DBCPriceOCW;
 }
 
+impl maintain_committee::Config for Runtime {
+    type Currency = Balances;
+    type RuntimeEvent = RuntimeEvent;
+    type ManageCommittee = Committee;
+    type MTOps = OnlineProfile;
+    type Slash = Treasury;
+    type CancelSlashOrigin =
+        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 5>;
+    type SlashAndReward = GenericFunc;
+}
+
 // impl simple_rpc::Config for Runtime {
 //     type Currency = Balances;
 //     type OPRpcQuery = OnlineProfile;
@@ -1574,6 +1585,7 @@ construct_runtime!(
         // SimpleRpc: simple_rpc,
         OnlineCommittee: online_committee,
         RentMachine: rent_machine,
+        MaintainCommittee: maintain_committee,
     }
 );
 

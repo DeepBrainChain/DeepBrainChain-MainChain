@@ -1,11 +1,12 @@
 use crate::{report::MachineFaultType, ItemList, ReportId};
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::{cmp::PartialEq, vec::Vec};
 
 /// 机器故障的报告列表
 /// 记录该模块中所有活跃的报告, 根据ReportStatus来区分
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct MTLiveReportList {
     /// 委员会可以抢单的报告
     pub bookable_report: Vec<ReportId>,

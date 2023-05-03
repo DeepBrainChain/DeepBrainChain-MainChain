@@ -1,11 +1,12 @@
 use crate::{custom_err::ReportErr, report::MachineFaultType, ItemList, ReportHash, ReportId};
 use codec::{Decode, Encode};
 use frame_support::ensure;
+use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::{cmp::PartialEq, vec::Vec};
 
 /// 委员会抢到的报告的列表
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct MTCommitteeOrderList {
     /// 委员会预订的报告
     pub booked_report: Vec<ReportId>,
@@ -52,7 +53,7 @@ impl MTCommitteeOrderList {
 }
 
 /// 委员会抢单之后，对应订单的状态
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum MTOrderStatus {
     /// 预订报告，状态将等待加密信息
     WaitingEncrypt,
@@ -71,7 +72,7 @@ impl Default for MTOrderStatus {
 }
 
 /// 委员会对报告的操作信息
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct MTCommitteeOpsDetail<BlockNumber, Balance> {
     pub booked_time: BlockNumber,
     /// reporter 提交的加密后的信息
