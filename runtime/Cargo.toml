@@ -121,6 +121,7 @@ committee = { path = "../pallets/committee", default-features = false }
 online-committee = { path = "../pallets/online-committee", default-features = false }
 rent-machine = { path = "../pallets/rent-machine", default-features = false }
 maintain-committee = { path = "../pallets/maintain-committee", default-features = false }
+terminating-rental = { path = "../pallets/terminating-rental", default-features =false }
 
 [features]
 default = ["std"]
@@ -222,6 +223,7 @@ std = [
 	"online-committee/std",
 	"rent-machine/std",
 	"maintain-committee/std",
+	"terminating-rental/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -1505,6 +1505,15 @@ impl maintain_committee::Config for Runtime {
     type SlashAndReward = GenericFunc;
 }
 
+impl terminating_rental::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type Slash = Treasury;
+    type ManageCommittee = Committee;
+    type DbcPrice = DBCPriceOCW;
+    type SlashAndReward = GenericFunc;
+}
+
 // impl simple_rpc::Config for Runtime {
 //     type Currency = Balances;
 //     type OPRpcQuery = OnlineProfile;
@@ -1586,6 +1595,7 @@ construct_runtime!(
         OnlineCommittee: online_committee,
         RentMachine: rent_machine,
         MaintainCommittee: maintain_committee,
+        TerminatingRental: terminating_rental,
     }
 );
 

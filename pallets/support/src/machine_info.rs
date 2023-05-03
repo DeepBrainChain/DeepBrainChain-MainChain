@@ -157,15 +157,29 @@ where
     BlockNumber: Copy + Default,
     Balance: Copy + Default + Saturating + Zero,
 {
-    // pub fn bond_machine(stash: AccountId, now: BlockNumber, stake_amount: Balance) -> Self {
-    //     Self {
-    //         machine_stash: stash,
-    //         bonding_height: now,
-    //         stake_amount,
-    //         machine_status: MachineStatus::AddingCustomizeInfo,
-    //         ..Default::default()
-    //     }
-    // }
+    pub fn bond_machine(stash: AccountId, now: BlockNumber, stake_amount: Balance) -> Self {
+        Self {
+            machine_stash: stash,
+            bonding_height: now,
+            stake_amount,
+            machine_status: MachineStatus::AddingCustomizeInfo,
+
+            // FIXME:
+            controller: todo!(),
+            renters: todo!(),
+            last_machine_restake: todo!(),
+            online_height: todo!(),
+            last_online_height: todo!(),
+            init_stake_per_gpu: todo!(),
+            total_rented_duration: todo!(),
+            total_rented_times: todo!(),
+            total_rent_fee: todo!(),
+            total_burn_fee: todo!(),
+            machine_info_detail: todo!(),
+            reward_committee: todo!(),
+            reward_deadline: todo!(),
+        }
+    }
 
     fn can_add_customize_info(&self) -> bool {
         matches!(

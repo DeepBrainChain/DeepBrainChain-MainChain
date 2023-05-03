@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
         let mut staker_machines = Vec::new();
 
         for machine_id in &staker_info.total_machine {
-            let machine_info = Self::machines_info(machine_id);
+            let machine_info = Self::machines_info(machine_id).unwrap();
             staker_machines.push(MachineBriefInfo {
                 machine_id: machine_id.to_vec(),
                 gpu_num: machine_info.gpu_num(),
@@ -47,7 +47,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_machine_info(
         machine_id: MachineId,
     ) -> MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        Self::machines_info(&machine_id)
+        Self::machines_info(&machine_id).unwrap()
     }
 }
 
@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_machine_committee_list(
         machine_id: MachineId,
     ) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
-        Self::machine_committee(machine_id)
+        Self::machine_committee(machine_id).unwrap()
     }
 
     pub fn get_committee_machine_list(committee: T::AccountId) -> OCCommitteeMachineList {
@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
         machine_id: MachineId,
     ) -> RpcIRCommitteeOps<T::BlockNumber, BalanceOf<T>> {
         let oc_committee_ops = Self::committee_online_ops(&committee, &machine_id);
-        let committee_info = Self::machine_committee(&machine_id);
+        let committee_info = Self::machine_committee(&machine_id).unwrap();
 
         RpcIRCommitteeOps {
             booked_time: committee_info.book_time,
@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_rent_order(
         rent_id: RentOrderId,
     ) -> RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        Self::rent_order(&rent_id)
+        Self::rent_order(&rent_id).unwrap()
     }
 
     pub fn get_rent_list(renter: T::AccountId) -> Vec<RentOrderId> {
@@ -98,7 +98,7 @@ impl<T: Config> Pallet<T> {
         let machine_order = Self::machine_rent_order(machine_id);
 
         for order_id in machine_order.rent_order {
-            let rent_order = Self::rent_order(order_id);
+            let rent_order = Self::rent_order(order_id).unwrap();
 
             if rent_order.renter == renter {
                 return true

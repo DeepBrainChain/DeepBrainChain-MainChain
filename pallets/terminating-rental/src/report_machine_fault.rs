@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
         // 获取处理报告需要的信息
         let stake_params = Self::reporter_stake_params();
         let report_id = Self::get_new_report_id();
-        let report_time = report_time.unwrap_or_else(|| <frame_system::Module<T>>::block_number());
+        let report_time = report_time.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
 
         // 记录到 live_report & reporter_report
         live_report.new_report(report_id);
@@ -143,7 +143,7 @@ impl<T: Config> Pallet<T> {
         report_info: &mut MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         order_stake: BalanceOf<T>,
     ) {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let mft = report_info.machine_fault_type.clone();
 
         report_info.book_report(committee.clone(), now);
@@ -161,10 +161,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn exec_report_slash() -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
 
         for slashed_report_id in Self::unhandled_report_result(now) {
-            let mut report_result_info = Self::report_result(&slashed_report_id);
+            let mut report_result_info = Self::report_result(&slashed_report_id).ok_or(())?;
 
             let MTReportResultInfo {
                 reporter,
@@ -304,14 +304,14 @@ impl<T: Config> Pallet<T> {
         report_id: ReportId,
         live_report: &mut MTLiveReportList,
     ) -> Result<(), ()> {
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
-        let report_info = Self::report_info(&report_id);
+        let report_info = Self::report_info(&report_id).ok_or(())?;
         report_info.can_summary_fault()?;
 
         let mut reporter_report = Self::reporter_report(&report_info.reporter);
-        let mut report_result = Self::report_result(report_id);
+        let mut report_result = Self::report_result(report_id).ok_or(())?;
 
         // 初始化report_result
         report_result = MTReportResultInfo {
@@ -352,7 +352,7 @@ impl<T: Config> Pallet<T> {
         reporter_report: &mut ReporterReportList,
         report_result: &mut MTReportResultInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> Result<(), ()> {
-        let mut report_info = Self::report_info(&report_id);
+        let mut report_info = Self::report_info(&report_id).ok_or(())?;
 
         // Reported, WaitingBook, CommitteeConfirmed, SubmittingRaw
         if !matches!(report_info.report_status, ReportStatus::Verifying) {
@@ -413,15 +413,18 @@ impl<T: Config> Pallet<T> {
     }
 
     // 统计委员会正在提交原始值的机器
-    fn summary_submitting_raw(report_id: ReportId, live_report: &mut MTLiveReportList) {
-        let now = <frame_system::Module<T>>::block_number();
+    fn summary_submitting_raw(
+        report_id: ReportId,
+        live_report: &mut MTLiveReportList,
+    ) -> Result<(), ()> {
+        let now = <frame_system::Pallet<T>>::block_number();
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
-        let mut report_info = Self::report_info(&report_id);
-        let mut report_result = Self::report_result(report_id);
+        let mut report_info = Self::report_info(&report_id).ok_or(())?;
+        let mut report_result = Self::report_result(report_id).ok_or(())?;
 
         if !report_info.can_summary(now) {
-            return
+            return Ok(())
         }
 
         let fault_report_result = report_info.summary();
@@ -442,7 +445,7 @@ impl<T: Config> Pallet<T> {
                 });
 
                 // 根据错误类型，下线机器并记录
-                let mut machine_info = Self::machines_info(&report_info.machine_id);
+                let mut machine_info = Self::machines_info(&report_info.machine_id).ok_or(())?;
                 let mut live_machine = Self::live_machines();
 
                 live_machine.machine_offline(report_info.machine_id.clone());
@@ -500,6 +503,7 @@ impl<T: Config> Pallet<T> {
         }
         ReportResult::<T>::insert(report_id, report_result);
         ReportInfo::<T>::insert(report_id, report_info);
+        Ok(())
     }
 
     // 在到提交raw的时间点后，修改report_info的状态；
@@ -512,7 +516,7 @@ impl<T: Config> Pallet<T> {
         live_report.clean_unfinished_report(&report_id);
         ItemList::add_item(&mut live_report.waiting_raw_report, report_id);
 
-        let mut report_info = Self::report_info(&report_id);
+        let mut report_info = Self::report_info(&report_id).ok_or(())?;
 
         if matches!(report_info.report_status, ReportStatus::WaitingBook) {
             report_info.report_status = ReportStatus::SubmittingRaw;
@@ -538,9 +542,11 @@ impl<T: Config> Pallet<T> {
 
             CommitteeReportOps::<T>::remove(&verifying_committee, report_id);
 
-            ReportInfo::<T>::mutate(report_id, |report_info| {
+            ReportInfo::<T>::try_mutate(report_id, |report_info| {
                 // 将最后一个委员会移除，不惩罚
+                let report_info = report_info.as_mut().ok_or(())?;
                 report_info.clean_not_submit_raw_committee(&verifying_committee);
+                Ok::<(), ()>(())
             });
         }
         Ok(())
