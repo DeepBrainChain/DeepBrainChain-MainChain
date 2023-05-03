@@ -656,7 +656,7 @@ pub mod pallet {
 
             // 根据租用时长计算rent_fee
             let rent_fee_value = machine_price
-                .checked_mul(&duration.saturated_into::<u64>())
+                .checked_mul(duration.saturated_into::<u64>())
                 .ok_or(Error::<T>::Overflow)?
                 .checked_div(24 * 60 * 2)
                 .ok_or(Error::<T>::Overflow)?;
@@ -819,7 +819,7 @@ pub mod pallet {
                 Self::get_machine_price(calc_point, gpu_num, machine_info.gpu_num())
                     .ok_or(Error::<T>::GetMachinePriceFailed)?;
             let rent_fee_value = machine_price
-                .checked_mul(&add_duration.saturated_into::<u64>())
+                .checked_mul(add_duration.saturated_into::<u64>())
                 .ok_or(Error::<T>::Overflow)?
                 .checked_div(2880)
                 .ok_or(Error::<T>::Overflow)?;
