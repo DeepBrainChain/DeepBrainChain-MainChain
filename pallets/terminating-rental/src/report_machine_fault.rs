@@ -547,7 +547,7 @@ impl<T: Config> Pallet<T> {
                 let report_info = report_info.as_mut().ok_or(())?;
                 report_info.clean_not_submit_raw_committee(&verifying_committee);
                 Ok::<(), ()>(())
-            });
+            })?;
         }
         Ok(())
     }

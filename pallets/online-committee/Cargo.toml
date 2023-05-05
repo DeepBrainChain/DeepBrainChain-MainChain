@@ -14,7 +14,6 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "pol
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 
 online-profile = { path = "../online-profile", default-features = false }
 generic-func = { path = "../generic-func", default-features = false }
@@ -46,7 +45,6 @@ std = [
   "online-profile/std",
   "generic-func/std",
   "serde",
-  "sp-io/std",
   "sp-runtime/std",
   "sp-std/std",
   "dbc-support/std",

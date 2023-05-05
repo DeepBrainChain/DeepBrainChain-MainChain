@@ -1,5 +1,5 @@
 use crate::{
-    types::*, BalanceOf, Config, ControllerMachines, Error, LiveMachines, MachineRecentReward,
+    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward,
     MachineRentedGPU, MachinesInfo, Pallet, PendingExecSlash, PendingSlash, RentedFinished,
     StashMachines, StashStake, SysInfo, UserMutHardwareStake,
 };
@@ -121,7 +121,7 @@ impl<T: Config> OCOps for Pallet<T> {
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         if matches!(machine_info.machine_status, MachineStatus::Online) {
             Self::update_region_on_online_changed(&machine_info, true);
-            Self::update_snap_on_online_changed(machine_id.clone(), true);
+            Self::update_snap_on_online_changed(machine_id.clone(), true)?;
 
             if is_reonline {
                 // 仅在Oline成功时删掉reonline_stake记录，以便补充质押时惩罚时检查状态
@@ -297,7 +297,7 @@ impl<T: Config> RTOps for Pallet<T> {
 
         // NOTE: 该检查确保得分快照不被改变多次
         if live_machines.rented_machine.binary_search(machine_id).is_err() {
-            Self::update_snap_on_rent_changed(machine_id.to_vec(), true);
+            Self::update_snap_on_rent_changed(machine_id.to_vec(), true)?;
 
             ItemList::rm_item(&mut live_machines.online_machine, machine_id);
             ItemList::add_item(&mut live_machines.rented_machine, machine_id.clone());
@@ -352,7 +352,7 @@ impl<T: Config> RTOps for Pallet<T> {
                     machine_info.machine_status = MachineStatus::Online;
 
                     // 租用结束
-                    Self::update_snap_on_rent_changed(machine_id.to_vec(), false);
+                    Self::update_snap_on_rent_changed(machine_id.to_vec(), false)?;
                     Self::update_region_on_rent_changed(&machine_info, false);
                 }
             },
@@ -449,8 +449,7 @@ impl<T: Config> MTOps for Pallet<T> {
                 reporter.clone(),
                 committee,
             ),
-        );
-        Ok(())
+        )
     }
 
     // stake some balance when apply for slash review

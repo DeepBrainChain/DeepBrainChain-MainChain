@@ -370,7 +370,7 @@ pub mod pallet {
             Self::distribute_machines();
 
             // Self::check_machine_starting_status();
-            Self::check_if_rent_finished();
+            let _ = Self::check_if_rent_finished();
             // 检查OfflineMachines是否到达了10天
             let _ = Self::check_if_offline_timeout();
 
@@ -506,7 +506,7 @@ pub mod pallet {
             });
             MachinesInfo::<T>::insert(
                 &machine_id,
-                MachineInfo::bond_machine(stash, now, online_deposit),
+                MachineInfo::bond_machine(controller, stash, now, online_deposit),
             );
 
             Ok(().into())
@@ -700,7 +700,8 @@ pub mod pallet {
             );
 
             // 改变online_profile状态，影响机器佣金
-            Self::change_machine_status_on_rent_start(&machine_id, rent_gpu_num);
+            Self::change_machine_status_on_rent_start(&machine_id, rent_gpu_num)
+                .map_err(|_| Error::<T>::Unknown)?;
 
             UserRented::<T>::mutate(&renter, |user_rented| {
                 ItemList::add_item(user_rented, rent_id);
@@ -765,7 +766,8 @@ pub mod pallet {
             order_info.confirm_rent(now);
 
             // 改变online_profile状态
-            Self::change_machine_status_on_confirmed(&machine_id, renter.clone());
+            Self::change_machine_status_on_confirmed(&machine_id, renter.clone())
+                .map_err(|_| Error::<T>::Unknown)?;
 
             // TODO: 当为空时，删除
             PendingConfirming::<T>::mutate(
@@ -885,7 +887,7 @@ pub mod pallet {
             ensure!(renter == rent_order.renter, Error::<T>::NotOrderRenter);
 
             let rent_duration = now.saturating_sub(rent_order.rent_start);
-            let rent_fee = Perbill::from_rational_approximation(
+            let rent_fee = Perbill::from_rational(
                 rent_duration,
                 rent_order.rent_end.saturating_sub(rent_order.rent_start),
             ) * rent_order.stake_amount;
@@ -904,7 +906,7 @@ pub mod pallet {
                     let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
                     ItemList::rm_item(&mut machine_info.renters, &renter);
                     Ok::<(), sp_runtime::DispatchError>(())
-                });
+                })?;
             }
             MachineRentOrder::<T>::insert(&rent_order.machine_id, machine_rent_order);
 
@@ -941,7 +943,7 @@ pub mod pallet {
                 // 根据时间(小时向下取整)计算需要的租金
                 let rent_duration =
                     now.saturating_sub(rent_order.rent_start) / 120u32.into() * 120u32.into();
-                let rent_fee = Perbill::from_rational_approximation(
+                let rent_fee = Perbill::from_rational(
                     rent_duration,
                     rent_order.rent_end.saturating_sub(rent_order.rent_start),
                 ) * rent_order.stake_amount;
@@ -1021,7 +1023,7 @@ pub mod pallet {
                 // 根据时间(小时向下取整)计算需要的租金
                 let rent_duration =
                     now.saturating_sub(rent_order.rent_start) / 120u32.into() * 120u32.into();
-                let rent_fee = Perbill::from_rational_approximation(
+                let rent_fee = Perbill::from_rational(
                     rent_duration,
                     rent_order.rent_end.saturating_sub(rent_order.rent_start),
                 ) * rent_order.stake_amount;
@@ -1510,7 +1512,7 @@ impl<T: Config> Pallet<T> {
                     let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, work_index);
                 }
                 // 将机器状态从ocw_confirmed_machine改为booked_machine
-                Self::book_machine(machine_id.clone());
+                let _ = Self::book_machine(machine_id.clone());
             };
         }
     }
@@ -1526,7 +1528,7 @@ impl<T: Config> Pallet<T> {
         let mut verify_sequence = Vec::new();
         for i in 0..3 {
             let lucky_index =
-                <generic_func::Pallet<T>>::random_u32((committee.len() as u32)) as usize;
+                <generic_func::Pallet<T>>::random_u32(committee.len() as u32) as usize;
             verify_sequence.push(VerifySequence {
                 who: committee[lucky_index].clone(),
                 index: (i..DISTRIBUTION as usize).step_by(3).collect(),
@@ -1559,7 +1561,7 @@ impl<T: Config> Pallet<T> {
             machine_committee.book_time = now;
             machine_committee.confirm_start_time = confirm_start;
             Ok::<(), ()>(())
-        });
+        })?;
         CommitteeMachine::<T>::mutate(&work_index.who, |committee_machine| {
             ItemList::add_item(&mut committee_machine.booked_machine, machine_id.clone());
         });
@@ -1601,7 +1603,7 @@ impl<T: Config> Pallet<T> {
             <T as Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         for machine_id in booked_machine {
-            Self::summary_raw(machine_id, now, committee_stake_per_order);
+            let _ = Self::summary_raw(machine_id, now, committee_stake_per_order);
         }
     }
 
@@ -1651,7 +1653,7 @@ impl<T: Config> Pallet<T> {
             VerifyResult::Refused => {},
             VerifyResult::NoConsensus => {
                 let _ = Self::revert_book(machine_id.clone());
-                Self::revert_booked_machine(machine_id.clone());
+                Self::revert_booked_machine(machine_id.clone())?;
 
                 for a_committee in summary.invalid_vote.clone() {
                     let _ = <T as Config>::ManageCommittee::change_used_stake(
@@ -1690,7 +1692,7 @@ impl<T: Config> Pallet<T> {
             let machine_committee = machine_committee.as_mut().ok_or(())?;
             machine_committee.after_summary(summary.clone());
             Ok::<(), ()>(())
-        });
+        })?;
 
         // Do cleaning
         for a_committee in machine_committee.booked_committee {
@@ -1881,7 +1883,7 @@ impl<T: Config> Pallet<T> {
             let machine_info = machine_info.as_mut().ok_or(())?;
             machine_info.machine_status = MachineStatus::Rented;
             Ok::<(), ()>(())
-        });
+        })?;
         MachineRentedGPU::<T>::mutate(machine_id, |machine_rented_gpu| {
             *machine_rented_gpu = machine_rented_gpu.saturating_add(gpu_num);
         });
@@ -1899,12 +1901,13 @@ impl<T: Config> Pallet<T> {
             StashMachines::<T>::mutate(&machine_info.machine_stash, |stash_machine| {
                 stash_machine.total_rented_gpu =
                     stash_machine.total_rented_gpu.saturating_add(machine_info.gpu_num() as u64);
-            });
+                Ok::<(), ()>(())
+            })?;
 
             ItemList::add_item(&mut machine_info.renters, renter);
             machine_info.total_rented_times += 1;
             Ok::<(), ()>(())
-        });
+        })?;
 
         LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.online_machine, machine_id);
@@ -1926,12 +1929,11 @@ impl<T: Config> Pallet<T> {
 
         // NOTE: 将租金的1%转给委员会，剩余的转给stash账户
         // 可能足用人质押数量大于需要支付的租金，因此需要解绑质押，再转对应的租金
-        let reward_to_stash = Perbill::from_rational_approximation(99u32, 100u32) * rent_fee;
+        let reward_to_stash = Perbill::from_rational(99u32, 100u32) * rent_fee;
         let reward_to_committee = rent_fee.saturating_sub(reward_to_stash);
-        let committee_each_get = Perbill::from_rational_approximation(
-            1u32,
-            machine_info.reward_committee.len() as u32,
-        ) * reward_to_committee;
+        let committee_each_get =
+            Perbill::from_rational(1u32, machine_info.reward_committee.len() as u32) *
+                reward_to_committee;
         for a_committee in machine_info.reward_committee.clone() {
             let _ = <T as Config>::Currency::transfer(
                 &rent_order.renter,
@@ -1985,7 +1987,7 @@ impl<T: Config> Pallet<T> {
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
             let is_last_rent = Self::is_last_rent(&machine_id)?;
-            Self::change_machine_status_on_rent_end(
+            let _ = Self::change_machine_status_on_rent_end(
                 &machine_id,
                 rent_order.gpu_num,
                 rent_duration,
@@ -1993,7 +1995,7 @@ impl<T: Config> Pallet<T> {
                 rent_order.renter.clone(),
             );
 
-            Self::clean_order(&rent_order.renter, rent_id);
+            let _ = Self::clean_order(&rent_order.renter, rent_id);
         }
         Ok(())
     }
@@ -2015,7 +2017,7 @@ impl<T: Config> Pallet<T> {
             return Ok(())
         }
         machine_info.total_rented_duration +=
-            Perbill::from_rational_approximation(rented_gpu_num, gpu_num) * rent_duration;
+            Perbill::from_rational(rented_gpu_num, gpu_num) * rent_duration;
         ItemList::rm_item(&mut machine_info.renters, &renter);
 
         match machine_info.machine_status {

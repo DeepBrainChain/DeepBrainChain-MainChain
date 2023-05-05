@@ -337,7 +337,7 @@ impl<T: Config> Pallet<T> {
                     let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, work_index);
                 }
                 // 将机器状态从ocw_confirmed_machine改为booked_machine
-                T::OCOps::booked_machine(machine_id);
+                let _ = T::OCOps::booked_machine(machine_id);
             };
         }
     }
@@ -353,7 +353,7 @@ impl<T: Config> Pallet<T> {
         let mut verify_sequence = Vec::new();
         for i in 0..3 {
             let lucky_index =
-                <generic_func::Pallet<T>>::random_u32((committee.len() as u32)) as usize;
+                <generic_func::Pallet<T>>::random_u32(committee.len() as u32) as usize;
             verify_sequence.push(VerifySequence {
                 who: committee[lucky_index].clone(),
                 index: (i..DISTRIBUTION as usize).step_by(3).collect(),
@@ -378,12 +378,12 @@ impl<T: Config> Pallet<T> {
 
         // 修改machine对应的委员会
         MachineCommittee::<T>::try_mutate(&machine_id, |machine_committee| {
-            let machine_committee = machine_committee.as_mut().ok_or(Error::<T>::Unknown)?;
+            let machine_committee = machine_committee.as_mut().ok_or(())?;
             ItemList::add_item(&mut machine_committee.booked_committee, work_index.who.clone());
             machine_committee.book_time = now;
             machine_committee.confirm_start_time = confirm_start;
-            Ok::<(), sp_runtime::DispatchError>(())
-        });
+            Ok::<(), ()>(())
+        })?;
 
         // 修改委员会对应的machine
         CommitteeMachine::<T>::mutate(&work_index.who, |committee_machine| {
@@ -415,7 +415,7 @@ impl<T: Config> Pallet<T> {
             <T as Config>::ManageCommittee::stake_per_order().unwrap_or_default();
 
         for machine_id in booked_machine {
-            Self::summary_raw(machine_id, now, committee_stake_per_order);
+            let _ = Self::summary_raw(machine_id, now, committee_stake_per_order);
         }
     }
 
@@ -454,7 +454,7 @@ impl<T: Config> Pallet<T> {
                 T::OCOps::confirm_machine(
                     summary.valid_vote.clone(),
                     summary.info.clone().unwrap(),
-                );
+                )?;
                 summary.valid_vote.iter().for_each(|a_committee| {
                     // TODO: 如果机器成功上线，则从委员会确认的机器中删除，添加到成功上线的记录中
                     CommitteeMachine::<T>::mutate(&a_committee, |record| {
@@ -465,7 +465,7 @@ impl<T: Config> Pallet<T> {
             VerifyResult::Refused => {},
             VerifyResult::NoConsensus => {
                 let _ = Self::revert_book(machine_id.clone());
-                T::OCOps::revert_booked_machine(machine_id.clone());
+                T::OCOps::revert_booked_machine(machine_id.clone())?;
 
                 for a_committee in summary.invalid_vote.clone() {
                     let _ = Self::change_committee_used_stake(a_committee, stake_per_order, false);
@@ -496,7 +496,7 @@ impl<T: Config> Pallet<T> {
             let machine_committee = machine_committee.as_mut().ok_or(())?;
             machine_committee.after_summary(summary.clone());
             Ok::<(), ()>(())
-        });
+        })?;
 
         // Do cleaning
         for a_committee in machine_committee.booked_committee {

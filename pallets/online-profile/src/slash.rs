@@ -64,7 +64,7 @@ impl<T: Config> Pallet<T> {
                     slash_info.reward_to_committee.unwrap_or_default(),
                 );
             } else {
-                Self::do_slash_deposit(&slash_info);
+                let _ = Self::do_slash_deposit(&slash_info);
             }
 
             Self::deposit_event(Event::<T>::SlashExecuted(

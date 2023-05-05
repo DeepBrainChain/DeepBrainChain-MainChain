@@ -11,7 +11,7 @@ use dbc_support::{
 };
 use sp_runtime::{
     traits::{CheckedMul, Saturating, Zero},
-    PerThing, Perbill, SaturatedConversion,
+    Perbill, SaturatedConversion,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
 
                 for _ in 0..=release_num {
                     if let Some(machine_id) = all_machine.all_machine_id.pop_front() {
-                        Self::distribute_reward_to_machine(
+                        let _ = Self::distribute_reward_to_machine(
                             machine_id,
                             release_era,
                             era_total_reward,

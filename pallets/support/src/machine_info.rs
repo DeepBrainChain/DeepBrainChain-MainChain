@@ -157,27 +157,30 @@ where
     BlockNumber: Copy + Default,
     Balance: Copy + Default + Saturating + Zero,
 {
-    pub fn bond_machine(stash: AccountId, now: BlockNumber, stake_amount: Balance) -> Self {
+    pub fn bond_machine(
+        controller: AccountId,
+        stash: AccountId,
+        now: BlockNumber,
+        stake_amount: Balance,
+    ) -> Self {
         Self {
             machine_stash: stash,
             bonding_height: now,
             stake_amount,
             machine_status: MachineStatus::AddingCustomizeInfo,
-
-            // FIXME:
-            controller: todo!(),
-            renters: todo!(),
-            last_machine_restake: todo!(),
-            online_height: todo!(),
-            last_online_height: todo!(),
-            init_stake_per_gpu: todo!(),
-            total_rented_duration: todo!(),
-            total_rented_times: todo!(),
-            total_rent_fee: todo!(),
-            total_burn_fee: todo!(),
-            machine_info_detail: todo!(),
-            reward_committee: todo!(),
-            reward_deadline: todo!(),
+            controller,
+            renters: vec![],
+            last_machine_restake: BlockNumber::default(),
+            online_height: BlockNumber::default(),
+            last_online_height: BlockNumber::default(),
+            init_stake_per_gpu: Balance::default(),
+            total_rented_duration: BlockNumber::default(),
+            total_rented_times: u64::default(),
+            total_rent_fee: Balance::default(),
+            total_burn_fee: Balance::default(),
+            machine_info_detail: MachineInfoDetail::default(),
+            reward_committee: vec![],
+            reward_deadline: u32::default(),
         }
     }
 

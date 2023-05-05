@@ -64,8 +64,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(_block_number: T::BlockNumber) {
-            Self::check_machine_starting_status();
-            Self::check_if_rent_finished();
+            let _ = Self::check_machine_starting_status();
+            let _ = Self::check_if_rent_finished();
         }
 
         // fn on_runtime_upgrade() -> Weight {
@@ -226,7 +226,7 @@ pub mod pallet {
             rent_info.stake_amount = Default::default();
 
             // 改变online_profile状态
-            T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone());
+            T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone()).map_err(|_| Error::<T>::Unknown)?;
 
             ConfirmingOrder::<T>::mutate(
                 rent_info.rent_start + WAITING_CONFIRMING_DELAY.into(),
@@ -381,7 +381,8 @@ impl<T: Config> Pallet<T> {
         });
 
         // 改变online_profile状态，影响机器佣金
-        T::RTOps::change_machine_status_on_rent_start(&machine_id, rent_gpu_num);
+        T::RTOps::change_machine_status_on_rent_start(&machine_id, rent_gpu_num)
+            .map_err(|_| Error::<T>::Unknown)?;
 
         ConfirmingOrder::<T>::mutate(now + WAITING_CONFIRMING_DELAY.into(), |pending_confirming| {
             ItemList::add_item(pending_confirming, rent_id);
@@ -513,7 +514,7 @@ impl<T: Config> Pallet<T> {
             } else if phase1_destruction.2 {
                 phase1_destruction.1
             } else {
-                Perbill::from_rational_approximation(0u32, 100u32)
+                Perbill::from_rational(0u32, 100u32)
             }
         };
 
@@ -527,7 +528,8 @@ impl<T: Config> Pallet<T> {
             <T as Config>::Currency::transfer(renter, &machine_stash, stash_fee, KeepAlive)?;
         }
 
-        T::RTOps::change_machine_rent_fee(machine_id, stash_fee, destroy_fee);
+        T::RTOps::change_machine_rent_fee(machine_id, stash_fee, destroy_fee)
+            .map_err(|_| Error::<T>::Unknown)?;
 
         Ok(())
     }
@@ -544,11 +546,11 @@ impl<T: Config> Pallet<T> {
         for rent_id in pending_confirming {
             let rent_info = Self::rent_info(&rent_id).ok_or(())?;
 
-            Self::clean_order(&rent_info.renter, rent_id);
+            Self::clean_order(&rent_info.renter, rent_id)?;
             T::RTOps::change_machine_status_on_confirm_expired(
                 &rent_info.machine_id,
                 rent_info.gpu_num,
-            );
+            )?;
         }
         Ok(())
     }
@@ -634,7 +636,7 @@ impl<T: Config> Pallet<T> {
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
             let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter)?;
-            T::RTOps::change_machine_status_on_rent_end(
+            let _ = T::RTOps::change_machine_status_on_rent_end(
                 &machine_id,
                 rent_info.gpu_num,
                 rent_duration,
@@ -643,7 +645,7 @@ impl<T: Config> Pallet<T> {
                 rent_info.renter.clone(),
             );
 
-            Self::clean_order(&rent_info.renter, rent_id);
+            let _ = Self::clean_order(&rent_info.renter, rent_id);
         }
         Ok(())
     }

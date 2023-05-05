@@ -306,7 +306,7 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::StakeFailed)?;
             }
 
-            Self::book_report(committee.clone(), report_id, &mut report_info, order_stake);
+            Self::book_report(committee.clone(), report_id, &mut report_info, order_stake).map_err(|_| Error::<T>::Unknown)?;
             Self::deposit_event(Event::CommitteeBookReport(committee, report_id));
             Ok(().into())
         }
@@ -487,7 +487,7 @@ pub mod pallet {
                 let report_info = report_info.as_mut().ok_or(Error::<T>::Unknown)?;
                 report_info.add_raw(committee.clone(), is_support, None, vec![]);
                 Ok::<(), sp_runtime::DispatchError>(())
-            });
+            })?;
             CommitteeOps::<T>::mutate(&committee, &report_id, |committee_ops| {
                 committee_ops.add_raw(now, is_support, vec![]);
             });
@@ -926,7 +926,7 @@ impl<T: Config> Pallet<T> {
                 report_info.support_committee.clone(),
                 report_info.machine_id.clone(),
                 into_op_err(&report_info.machine_fault_type, report_info.report_time),
-            );
+            )?;
 
             ItemList::expand_to_order(
                 &mut report_result.inconsistent_committee,
@@ -1146,7 +1146,7 @@ impl<T: Config> Pallet<T> {
                 // 将最后一个委员会移除，不惩罚
                 report_info.clean_not_submit_raw_committee(&verifying_committee);
                 Ok::<(), ()>(())
-            });
+            })?;
         }
         Ok(())
     }
@@ -1189,7 +1189,7 @@ impl<T: Config> Pallet<T> {
                     sp_committee,
                     report_info.machine_id.clone(),
                     into_op_err(&report_info.machine_fault_type, report_info.report_time),
-                );
+                )?;
             },
             // 报告失败
             ReportConfirmStatus::Refuse(mut sp_committees, ag_committee) => {

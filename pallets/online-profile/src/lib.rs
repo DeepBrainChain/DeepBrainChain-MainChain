@@ -418,13 +418,16 @@ pub mod pallet {
             let pre_controller = Self::stash_controller(&stash).unwrap();
             let controller_machines = Self::controller_machines(&pre_controller);
 
-            controller_machines.iter().for_each(|machine_id| {
-                MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
-                    let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
-                    machine_info.controller = new_controller.clone();
-                    Ok::<(), sp_runtime::DispatchError>(())
-                });
-            });
+            controller_machines
+                .iter()
+                .try_for_each(|machine_id| -> Result<(), DispatchError> {
+                    MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
+                        let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
+                        machine_info.controller = new_controller.clone();
+                        Ok::<(), sp_runtime::DispatchError>(())
+                    })?;
+                    Ok(())
+                })?;
 
             ControllerMachines::<T>::remove(&pre_controller);
             ControllerMachines::<T>::insert(&new_controller, controller_machines);
@@ -474,7 +477,8 @@ pub mod pallet {
                 UserMutHardwareStakeInfo { stake_amount, offline_time: now },
             );
             Self::update_region_on_online_changed(&machine_info, false);
-            Self::update_snap_on_online_changed(machine_id.clone(), false);
+            Self::update_snap_on_online_changed(machine_id.clone(), false)
+                .map_err(|_| Error::<T>::Unknown)?;
 
             LiveMachines::<T>::mutate(|live_machines| {
                 live_machines.on_offline_change_hardware(machine_id.clone());
@@ -679,7 +683,8 @@ pub mod pallet {
             machine_info.last_machine_restake = now;
 
             Self::update_region_on_online_changed(&machine_info, true);
-            Self::update_snap_on_online_changed(machine_id.clone(), true);
+            Self::update_snap_on_online_changed(machine_id.clone(), true)
+                .map_err(|_| Error::<T>::Unknown)?;
 
             ItemList::rm_item(&mut live_machine.fulfilling_machine, &machine_id);
             ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
@@ -735,7 +740,8 @@ pub mod pallet {
             Self::machine_offline(
                 machine_id.clone(),
                 MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status)),
-            );
+            )
+            .map_err(|_| Error::<T>::Unknown)?;
 
             Self::deposit_event(Event::ControllerReportOffline(machine_id));
             Ok(().into())
@@ -847,11 +853,13 @@ pub mod pallet {
 
             ItemList::rm_item(&mut live_machine.offline_machine, &machine_id);
 
-            Self::update_snap_on_online_changed(machine_id.clone(), true);
+            Self::update_snap_on_online_changed(machine_id.clone(), true)
+                .map_err(|_| Error::<T>::Unknown)?;
             Self::update_region_on_online_changed(&machine_info, true);
             if machine_info.machine_status == MachineStatus::Rented {
                 ItemList::add_item(&mut live_machine.rented_machine, machine_id.clone());
-                Self::update_snap_on_rent_changed(machine_id.clone(), true);
+                Self::update_snap_on_rent_changed(machine_id.clone(), true)
+                    .map_err(|_| Error::<T>::Unknown)?;
                 Self::update_region_on_rent_changed(&machine_info, true);
             } else {
                 ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
@@ -1067,7 +1075,8 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
         Self::update_region_on_exit(&machine_info);
-        Self::update_snap_on_online_changed(machine_id.clone(), false);
+        Self::update_snap_on_online_changed(machine_id.clone(), false)
+            .map_err(|_| Error::<T>::Unknown)?;
 
         LiveMachines::<T>::mutate(|live_machines| {
             live_machines.on_exit(&machine_id);
@@ -1134,12 +1143,12 @@ impl<T: Config> Pallet<T> {
         // 先根据机器当前状态，之后再变更成下线状态
         if matches!(machine_info.machine_status, MachineStatus::Rented) {
             Self::update_region_on_rent_changed(&machine_info, false);
-            Self::update_snap_on_rent_changed(machine_id.clone(), false);
+            Self::update_snap_on_rent_changed(machine_id.clone(), false)?;
         }
 
         // When offline, pos_info will be removed
         Self::update_region_on_online_changed(&machine_info, false);
-        Self::update_snap_on_online_changed(machine_id.clone(), false);
+        Self::update_snap_on_online_changed(machine_id.clone(), false)?;
 
         // After re-online, machine status is same as former
         machine_info.machine_status = machine_status;
