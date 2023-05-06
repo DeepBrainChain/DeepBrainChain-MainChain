@@ -64,8 +64,8 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
                     book_time: 2,
                     booked_committee: vec![committee3, committee2, committee4],
                     confirm_start_time: 4320 + 2,
-                    hashed_committee: todo!(),
-                    confirmed_committee: todo!(),
+                    hashed_committee: vec![],
+                    confirmed_committee: vec![],
                     onlined_committee: todo!(),
                     status: todo!()
                 })
@@ -119,7 +119,7 @@ fn committee_not_submit_slash_works() {
                     hashed_committee: vec![committee3, committee2],
                     confirm_start_time: 4320 + 2,
                     status: OCVerifyStatus::SubmittingRaw,
-                    confirmed_committee: todo!(),
+                    confirmed_committee: vec![],
                     onlined_committee: todo!()
                 })
             );
@@ -314,8 +314,8 @@ fn machine_refused_slash_works() {
                     slash_exec_time: 4 + 2880 * 2,
                     book_result: OCBookResultType::OnlineRefused,
                     slash_result: OCSlashResult::Pending,
-                    inconsistent_committee: todo!(),
-                    unruly_committee: todo!()
+                    inconsistent_committee: vec![],
+                    unruly_committee: vec![]
                 })
             );
         }

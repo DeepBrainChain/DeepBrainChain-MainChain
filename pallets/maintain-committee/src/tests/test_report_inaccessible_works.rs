@@ -64,17 +64,17 @@ fn report_machine_inaccessible_works1() {
                         0
                     ),
                     report_status: crate::ReportStatus::Reported,
-                    first_book_time: todo!(),
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    verifying_committee: todo!(),
-                    booked_committee: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    hashed_committee: todo!(),
-                    confirm_start: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    first_book_time: 0,
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    verifying_committee: None,
+                    booked_committee: vec![],
+                    get_encrypted_info_committee: vec![],
+                    hashed_committee: vec![],
+                    confirm_start: 0,
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -116,13 +116,13 @@ fn report_machine_inaccessible_works1() {
                         0
                     ),
                     report_status: ReportStatus::WaitingBook,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    hashed_committee: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    hashed_committee: vec![],
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -179,12 +179,12 @@ fn report_machine_inaccessible_works1() {
                         0
                     ),
                     report_status: ReportStatus::WaitingBook,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -238,10 +238,10 @@ fn report_machine_inaccessible_works1() {
                         0
                     ),
                     report_status: ReportStatus::SubmittingRaw,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -285,10 +285,10 @@ fn report_machine_inaccessible_works1() {
                         0
                     ),
                     report_status: ReportStatus::CommitteeConfirmed,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -304,9 +304,9 @@ fn report_machine_inaccessible_works1() {
                     slash_exec_time: 22 + 2880 * 2,
                     report_result: crate::ReportResultType::ReportSucceed,
                     slash_result: crate::MCSlashResult::Pending,
-                    inconsistent_committee: todo!(),
-                    unruly_committee: todo!(),
-                    committee_stake: todo!()
+                    inconsistent_committee: vec![],
+                    unruly_committee: vec![],
+                    committee_stake: 0
                 })
             );
             assert_eq!(
@@ -419,10 +419,10 @@ fn report_machine_inaccessible_works2() {
                         0
                     ),
                     report_status: ReportStatus::SubmittingRaw,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    support_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    support_committee: vec![]
                 })
             );
             assert_eq!(
@@ -466,10 +466,10 @@ fn report_machine_inaccessible_works2() {
                         0
                     ),
                     report_status: ReportStatus::CommitteeConfirmed,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    support_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    support_committee: vec![]
                 })
             );
             assert_eq!(
@@ -485,9 +485,9 @@ fn report_machine_inaccessible_works2() {
                     slash_exec_time: 22 + 2880 * 2,
                     report_result: crate::ReportResultType::ReportRefused,
                     slash_result: crate::MCSlashResult::Pending,
-                    inconsistent_committee: todo!(),
-                    unruly_committee: todo!(),
-                    committee_stake: todo!()
+                    inconsistent_committee: vec![],
+                    unruly_committee: vec![],
+                    committee_stake: 0
                 })
             );
             assert_eq!(
@@ -579,12 +579,12 @@ fn report_machine_inaccessible_works3() {
                         0
                     ),
                     report_status: ReportStatus::SubmittingRaw,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -600,9 +600,9 @@ fn report_machine_inaccessible_works3() {
                     slash_exec_time: 31 + 2880 * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
-                    inconsistent_committee: todo!(),
+                    inconsistent_committee: vec![],
                     reward_committee: todo!(),
-                    committee_stake: todo!()
+                    committee_stake: 0
                 })
             );
             assert_eq!(
@@ -656,17 +656,17 @@ fn report_machine_inaccessible_works3() {
                         0
                     ),
                     report_status: crate::ReportStatus::Reported,
-                    first_book_time: todo!(),
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    verifying_committee: todo!(),
-                    booked_committee: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    hashed_committee: todo!(),
-                    confirm_start: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    first_book_time: 0,
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    verifying_committee: None,
+                    booked_committee: vec![],
+                    get_encrypted_info_committee: vec![],
+                    hashed_committee: vec![],
+                    confirm_start: 0,
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -725,13 +725,13 @@ fn report_machine_inaccessible_works4() {
                         0
                     ),
                     report_status: ReportStatus::SubmittingRaw,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    hashed_committee: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    hashed_committee: vec![],
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -747,9 +747,9 @@ fn report_machine_inaccessible_works4() {
                     slash_exec_time: 22 + 2880 * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
-                    inconsistent_committee: todo!(),
+                    inconsistent_committee: vec![],
                     reward_committee: todo!(),
-                    committee_stake: todo!()
+                    committee_stake: 0
                 })
             );
             assert_eq!(
@@ -832,13 +832,13 @@ fn report_machine_inaccessible_works5() {
                         0
                     ),
                     report_status: ReportStatus::Verifying,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    hashed_committee: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    hashed_committee: vec![],
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -933,12 +933,12 @@ fn report_machine_inaccessible_works5() {
                         0
                     ),
                     report_status: ReportStatus::SubmittingRaw,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -1007,10 +1007,10 @@ fn report_machine_inaccessible_works5() {
                         0
                     ),
                     report_status: ReportStatus::SubmittingRaw,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -1059,10 +1059,10 @@ fn report_machine_inaccessible_works5() {
                         0
                     ),
                     report_status: ReportStatus::CommitteeConfirmed,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    against_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -1078,9 +1078,9 @@ fn report_machine_inaccessible_works5() {
                     slash_exec_time: 11 + 2880 * 2,
                     report_result: crate::ReportResultType::ReportSucceed,
                     slash_result: crate::MCSlashResult::Pending,
-                    inconsistent_committee: todo!(),
-                    unruly_committee: todo!(),
-                    committee_stake: todo!()
+                    inconsistent_committee: vec![],
+                    unruly_committee: vec![],
+                    committee_stake: 0
                 })
             );
             assert_eq!(
@@ -1212,10 +1212,10 @@ fn report_machine_inaccessible_works8() {
                         0
                     ),
                     report_status: ReportStatus::SubmittingRaw,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    support_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    support_committee: vec![]
                 })
             );
             assert_eq!(
@@ -1260,10 +1260,10 @@ fn report_machine_inaccessible_works8() {
                         0
                     ),
                     report_status: ReportStatus::CommitteeConfirmed,
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    support_committee: todo!()
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    support_committee: vec![]
                 })
             );
             assert_eq!(
@@ -1279,9 +1279,9 @@ fn report_machine_inaccessible_works8() {
                     slash_exec_time: 11 + 2880 * 2,
                     report_result: crate::ReportResultType::ReportRefused,
                     slash_result: crate::MCSlashResult::Pending,
-                    inconsistent_committee: todo!(),
-                    unruly_committee: todo!(),
-                    committee_stake: todo!()
+                    inconsistent_committee: vec![],
+                    unruly_committee: vec![],
+                    committee_stake: 0
                 })
             );
             assert_eq!(

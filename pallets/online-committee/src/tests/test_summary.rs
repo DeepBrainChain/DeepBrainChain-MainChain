@@ -583,7 +583,7 @@ fn test_machine_online_succeed_slash_execed() {
                 book_result: crate::OCBookResultType::OnlineSucceed,
                 slash_result: crate::OCSlashResult::Pending,
                 machine_stash: todo!(),
-                unruly_committee: todo!()
+                unruly_committee: vec![]
             })
         );
         assert_ok!(OnlineCommittee::unhandled_slash().binary_search(&0));

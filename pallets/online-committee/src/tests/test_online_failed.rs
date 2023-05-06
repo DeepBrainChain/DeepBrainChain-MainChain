@@ -174,8 +174,8 @@ fn test_machine_online_refused_claim_reserved() {
                 booked_committee: vec![*committee2, *committee1, *committee4],
                 confirm_start_time: 6 + 4320,
                 status: OCVerifyStatus::SubmittingHash,
-                hashed_committee: todo!(),
-                confirmed_committee: todo!(),
+                hashed_committee: vec![],
+                confirmed_committee: vec![],
                 onlined_committee: todo!()
             })
         );

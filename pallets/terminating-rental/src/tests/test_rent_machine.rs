@@ -394,19 +394,19 @@ fn machine_online_inaccessible_slash_works() {
                         Default::default(),
                         Default::default()
                     ),
-                    first_book_time: todo!(),
-                    machine_id: todo!(),
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    verifying_committee: todo!(),
-                    booked_committee: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    hashed_committee: todo!(),
-                    confirm_start: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!(),
-                    report_status: todo!()
+                    first_book_time: 0,
+                    machine_id: vec![],
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    verifying_committee: None,
+                    booked_committee: vec![],
+                    get_encrypted_info_committee: vec![],
+                    hashed_committee: vec![],
+                    confirm_start: 0,
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![],
+                    report_status: ReportStatus::default()
                 })
             );
         }
@@ -433,14 +433,14 @@ fn machine_online_inaccessible_slash_works() {
                         Default::default(),
                         Default::default()
                     ),
-                    machine_id: todo!(),
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    get_encrypted_info_committee: todo!(),
-                    hashed_committee: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    machine_id: vec![],
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    get_encrypted_info_committee: vec![],
+                    hashed_committee: vec![],
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(
@@ -484,13 +484,13 @@ fn machine_online_inaccessible_slash_works() {
                         Default::default(),
                         Default::default()
                     ),
-                    machine_id: todo!(),
-                    rent_order_id: todo!(),
-                    err_info: todo!(),
-                    hashed_committee: todo!(),
-                    confirmed_committee: todo!(),
-                    support_committee: todo!(),
-                    against_committee: todo!()
+                    machine_id: vec![],
+                    rent_order_id: 0,
+                    err_info: vec![],
+                    hashed_committee: vec![],
+                    confirmed_committee: vec![],
+                    support_committee: vec![],
+                    against_committee: vec![]
                 })
             );
             assert_eq!(

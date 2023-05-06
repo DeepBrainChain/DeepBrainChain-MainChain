@@ -71,14 +71,14 @@ fn test_heart_beat1() {
                     report_hash,
                     reporter_boxpubkey
                 ),
-                machine_id: todo!(),
-                rent_order_id: todo!(),
-                err_info: todo!(),
-                get_encrypted_info_committee: todo!(),
-                hashed_committee: todo!(),
-                confirmed_committee: todo!(),
-                support_committee: todo!(),
-                against_committee: todo!()
+                machine_id: vec![],
+                rent_order_id: 0,
+                err_info: vec![],
+                get_encrypted_info_committee: vec![],
+                hashed_committee: vec![],
+                confirmed_committee: vec![],
+                support_committee: vec![],
+                against_committee: vec![]
             })
         );
         assert_eq!(
@@ -188,13 +188,13 @@ fn test_heart_beat2() {
                     report_hash,
                     reporter_boxpubkey
                 ),
-                machine_id: todo!(),
-                rent_order_id: todo!(),
-                err_info: todo!(),
-                hashed_committee: todo!(),
-                confirmed_committee: todo!(),
-                support_committee: todo!(),
-                against_committee: todo!()
+                machine_id: vec![],
+                rent_order_id: 0,
+                err_info: vec![],
+                hashed_committee: vec![],
+                confirmed_committee: vec![],
+                support_committee: vec![],
+                against_committee: vec![]
             })
         );
 
@@ -330,13 +330,13 @@ fn test_heart_beat3() {
                     report_hash,
                     reporter_boxpubkey
                 ),
-                machine_id: todo!(),
-                rent_order_id: todo!(),
-                err_info: todo!(),
-                verifying_committee: todo!(),
-                confirmed_committee: todo!(),
-                support_committee: todo!(),
-                against_committee: todo!()
+                machine_id: vec![],
+                rent_order_id: 0,
+                err_info: vec![],
+                verifying_committee: None,
+                confirmed_committee: vec![],
+                support_committee: vec![],
+                against_committee: vec![]
             })
         );
     })
@@ -400,14 +400,14 @@ fn test_apply_slash_review() {
                     report_hash,
                     reporter_boxpubkey
                 ),
-                machine_id,
-                rent_order_id: todo!(),
-                err_info: todo!(),
-                get_encrypted_info_committee: todo!(),
-                hashed_committee: todo!(),
-                confirmed_committee: todo!(),
-                support_committee: todo!(),
-                against_committee: todo!()
+                machine_id: vec![],
+                rent_order_id: 0,
+                err_info: vec![],
+                get_encrypted_info_committee: vec![],
+                hashed_committee: vec![],
+                confirmed_committee: vec![],
+                support_committee: vec![],
+                against_committee: vec![]
             })
         );
         assert_eq!(
@@ -508,7 +508,7 @@ fn test_apply_slash_review() {
                 report_result: crate::ReportResultType::ReportSucceed,
                 slash_result: crate::MCSlashResult::Pending,
                 machine_stash: todo!(),
-                machine_id
+                machine_id: vec![]
             })
         );
     })

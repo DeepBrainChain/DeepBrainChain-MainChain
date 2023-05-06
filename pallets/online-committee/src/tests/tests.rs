@@ -190,8 +190,8 @@ fn machine_online_works() {
                 book_time: 4,
                 confirm_start_time: 4324,
                 booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: todo!(),
-                confirmed_committee: todo!(),
+                hashed_committee: vec![],
+                confirmed_committee: vec![],
                 onlined_committee: todo!(),
                 status: todo!()
             })
@@ -600,8 +600,8 @@ fn machine_online_works() {
                 book_time: 2880 * 3 + 3,
                 confirm_start_time: 2880 * 3 + 3 + 4320,
                 booked_committee: vec![committee2, committee3, committee1],
-                hashed_committee: todo!(),
-                confirmed_committee: todo!(),
+                hashed_committee: vec![],
+                confirmed_committee: vec![],
                 onlined_committee: todo!(),
                 status: todo!()
             })
@@ -1191,8 +1191,8 @@ fn committee_not_equal_then_redistribute_works() {
                 book_time: 17,
                 booked_committee: vec![committee3, committee1, committee2],
                 confirm_start_time: 4337,
-                hashed_committee: todo!(),
-                confirmed_committee: todo!(),
+                hashed_committee: vec![],
+                confirmed_committee: vec![],
                 onlined_committee: todo!(),
                 status: todo!()
             })
@@ -1374,8 +1374,8 @@ fn two_submit_hash_reach_submit_raw_works() {
                 booked_committee: vec![committee3, committee1, committee2],
                 confirm_start_time: 4336,
                 status: OCVerifyStatus::SubmittingHash,
-                hashed_committee: todo!(),
-                confirmed_committee: todo!(),
+                hashed_committee: vec![],
+                confirmed_committee: vec![],
                 onlined_committee: todo!()
             })
         );
@@ -1400,7 +1400,7 @@ fn two_submit_hash_reach_submit_raw_works() {
                 hashed_committee: vec![committee1, committee2],
                 confirm_start_time: 4336,
                 status: OCVerifyStatus::SubmittingHash,
-                confirmed_committee: todo!(),
+                confirmed_committee: vec![],
                 onlined_committee: todo!()
             })
         );
@@ -1415,7 +1415,7 @@ fn two_submit_hash_reach_submit_raw_works() {
                 hashed_committee: vec![committee1, committee2],
                 confirm_start_time: 4336,
                 status: OCVerifyStatus::SubmittingRaw,
-                confirmed_committee: todo!(),
+                confirmed_committee: vec![],
                 onlined_committee: todo!()
             })
         );

@@ -1,4 +1,5 @@
 use super::super::{mock::*, ReporterStakeInfo};
+use dbc_support::report::ReportStatus;
 use frame_support::assert_ok;
 use once_cell::sync::Lazy;
 use std::convert::TryInto;
@@ -57,22 +58,22 @@ fn report_machine_fault_works_case1() {
                 report_hash,
                 reporter_boxpubkey,
             ),
-            first_book_time: todo!(),
-            machine_id,
-            rent_order_id: todo!(),
-            err_info: todo!(),
-            verifying_committee: todo!(),
-            booked_committee: todo!(),
-            get_encrypted_info_committee: todo!(),
-            hashed_committee: todo!(),
-            confirm_start: todo!(),
-            confirmed_committee: todo!(),
-            support_committee: todo!(),
-            against_committee: todo!(),
-            report_status: todo!(),
+            first_book_time: BlockNumber::default(),
+            machine_id: vec![],
+            rent_order_id: u64::default(),
+            err_info: vec![],
+            verifying_committee: None,
+            booked_committee: vec![],
+            get_encrypted_info_committee: vec![],
+            hashed_committee: vec![],
+            confirm_start: BlockNumber::default(),
+            confirmed_committee: vec![],
+            support_committee: vec![],
+            against_committee: vec![],
+            report_status: ReportStatus::default(),
         };
         {
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_status));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_status.clone()));
             assert_eq!(
                 &MaintainCommittee::reporter_stake(&*reporter),
                 &ReporterStakeInfo {
@@ -118,7 +119,7 @@ fn report_machine_fault_works_case1() {
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { verifying_report: vec![0], ..Default::default() }
             );
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(&MaintainCommittee::committee_ops(&*committee1, 0), &committee_ops);
             assert_eq!(
                 &MaintainCommittee::committee_order(&*committee1),
@@ -145,7 +146,7 @@ fn report_machine_fault_works_case1() {
             // CommitteeOps, ReportInfo
 
             report_info.get_encrypted_info_committee.push(*committee1);
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             committee_ops.encrypted_err_info = Some(encrypted_err_info.clone());
             committee_ops.encrypted_time = 11;
             committee_ops.order_status = crate::MTOrderStatus::Verifying;
@@ -167,7 +168,7 @@ fn report_machine_fault_works_case1() {
             report_info.verifying_committee = None;
             report_info.hashed_committee.push(*committee1);
             report_info.report_status = crate::ReportStatus::WaitingBook;
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { bookable_report: vec![0], ..Default::default() }
@@ -186,7 +187,7 @@ fn report_machine_fault_works_case1() {
         run_to_block(360 + 13);
         {
             report_info.report_status = crate::ReportStatus::SubmittingRaw;
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
@@ -214,7 +215,7 @@ fn report_machine_fault_works_case1() {
             report_info.support_committee = vec![committee1.clone()];
             report_info.machine_id = machine_id.clone();
             report_info.err_info = err_reason;
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
 
             committee_ops.confirm_time = 374;
             committee_ops.confirm_result = true;
@@ -333,22 +334,22 @@ fn report_machine_fault_works_case2() {
                 report_hash,
                 reporter_boxpubkey,
             ),
-            first_book_time: todo!(),
-            machine_id,
-            rent_order_id: todo!(),
-            err_info: todo!(),
-            verifying_committee: todo!(),
-            booked_committee: todo!(),
-            get_encrypted_info_committee: todo!(),
-            hashed_committee: todo!(),
-            confirm_start: todo!(),
-            confirmed_committee: todo!(),
-            support_committee: todo!(),
-            against_committee: todo!(),
-            report_status: todo!(),
+            first_book_time: BlockNumber::default(),
+            machine_id: vec![],
+            rent_order_id: 0,
+            err_info: vec![],
+            verifying_committee: None,
+            booked_committee: vec![],
+            get_encrypted_info_committee: vec![],
+            hashed_committee: vec![],
+            confirm_start: 0,
+            confirmed_committee: vec![],
+            support_committee: vec![],
+            against_committee: vec![],
+            report_status: ReportStatus::default(),
         };
         {
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_status));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_status.clone()));
             assert_eq!(
                 &MaintainCommittee::reporter_stake(&*reporter),
                 &ReporterStakeInfo {
@@ -394,7 +395,7 @@ fn report_machine_fault_works_case2() {
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { verifying_report: vec![0], ..Default::default() }
             );
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(&MaintainCommittee::committee_ops(&*committee1, 0), &committee_ops);
             assert_eq!(
                 &MaintainCommittee::committee_order(&*committee1),
@@ -420,7 +421,7 @@ fn report_machine_fault_works_case2() {
             // - Writes:
             // CommitteeOps, ReportInfo
             report_info.get_encrypted_info_committee.push(*committee1);
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             committee_ops.encrypted_err_info = Some(encrypted_err_info.clone());
             committee_ops.encrypted_time = 11;
             committee_ops.order_status = crate::MTOrderStatus::Verifying;
@@ -488,7 +489,7 @@ fn report_machine_fault_works_case2() {
             report_info.hashed_committee = sorted_committee.clone();
 
             report_info.report_status = crate::ReportStatus::SubmittingRaw;
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
@@ -508,7 +509,7 @@ fn report_machine_fault_works_case2() {
         // 立即就可以提交原始值
         {
             report_info.report_status = crate::ReportStatus::SubmittingRaw;
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
@@ -559,7 +560,7 @@ fn report_machine_fault_works_case2() {
             report_info.support_committee = sorted_committee.clone();
             report_info.machine_id = machine_id.clone();
             report_info.err_info = err_reason;
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
 
             committee_ops.confirm_time = 11;
             committee_ops.confirm_result = true;
@@ -667,22 +668,22 @@ fn report_machine_fault_works_case3() {
                 report_hash,
                 reporter_boxpubkey,
             ),
-            first_book_time: todo!(),
-            machine_id,
-            rent_order_id: todo!(),
-            err_info: todo!(),
-            verifying_committee: todo!(),
-            booked_committee: todo!(),
-            get_encrypted_info_committee: todo!(),
-            hashed_committee: todo!(),
-            confirm_start: todo!(),
-            confirmed_committee: todo!(),
-            support_committee: todo!(),
-            against_committee: todo!(),
-            report_status: todo!(),
+            first_book_time: 0,
+            machine_id: vec![],
+            rent_order_id: 0,
+            err_info: vec![],
+            verifying_committee: None,
+            booked_committee: vec![],
+            get_encrypted_info_committee: vec![],
+            hashed_committee: vec![],
+            confirm_start: 0,
+            confirmed_committee: vec![],
+            support_committee: vec![],
+            against_committee: vec![],
+            report_status: ReportStatus::default(),
         };
         {
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_status));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_status.clone()));
             assert_eq!(
                 &MaintainCommittee::reporter_stake(&*reporter),
                 &ReporterStakeInfo {
@@ -728,7 +729,7 @@ fn report_machine_fault_works_case3() {
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { verifying_report: vec![0], ..Default::default() }
             );
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(&MaintainCommittee::committee_ops(&*committee1, 0), &committee_ops);
             assert_eq!(
                 &MaintainCommittee::committee_order(&*committee1),
@@ -754,7 +755,7 @@ fn report_machine_fault_works_case3() {
             // - Writes:
             // CommitteeOps, ReportInfo
             report_info.get_encrypted_info_committee.push(*committee1);
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             committee_ops.encrypted_err_info = Some(encrypted_err_info.clone());
             committee_ops.encrypted_time = 11;
             committee_ops.order_status = crate::MTOrderStatus::Verifying;
@@ -822,7 +823,7 @@ fn report_machine_fault_works_case3() {
             report_info.hashed_committee = sorted_committee.clone();
 
             report_info.report_status = crate::ReportStatus::SubmittingRaw;
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
@@ -842,7 +843,7 @@ fn report_machine_fault_works_case3() {
         // 立即就可以提交原始值
         {
             report_info.report_status = crate::ReportStatus::SubmittingRaw;
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { waiting_raw_report: vec![0], ..Default::default() }
@@ -893,7 +894,7 @@ fn report_machine_fault_works_case3() {
             report_info.against_committee = sorted_committee.clone();
             report_info.machine_id = machine_id.clone();
             report_info.err_info = err_reason;
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
 
             committee_ops.confirm_time = 11;
             committee_ops.confirm_result = false;
@@ -1000,22 +1001,22 @@ fn report_machine_fault_works_case4() {
                 report_hash,
                 reporter_boxpubkey,
             ),
-            first_book_time: todo!(),
-            machine_id: todo!(),
-            rent_order_id: todo!(),
-            err_info: todo!(),
-            verifying_committee: todo!(),
-            booked_committee: todo!(),
-            get_encrypted_info_committee: todo!(),
-            hashed_committee: todo!(),
-            confirm_start: todo!(),
-            confirmed_committee: todo!(),
-            support_committee: todo!(),
-            against_committee: todo!(),
-            report_status: todo!(),
+            first_book_time: 0,
+            machine_id: vec![],
+            rent_order_id: 0,
+            err_info: vec![],
+            verifying_committee: None,
+            booked_committee: vec![],
+            get_encrypted_info_committee: vec![],
+            hashed_committee: vec![],
+            confirm_start: 0,
+            confirmed_committee: vec![],
+            support_committee: vec![],
+            against_committee: vec![],
+            report_status: ReportStatus::default(),
         };
         {
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_status));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_status.clone()));
             assert_eq!(
                 &MaintainCommittee::reporter_stake(&*reporter),
                 &ReporterStakeInfo {
@@ -1061,7 +1062,7 @@ fn report_machine_fault_works_case4() {
                 &MaintainCommittee::live_report(),
                 &crate::MTLiveReportList { verifying_report: vec![0], ..Default::default() }
             );
-            assert_eq!(MaintainCommittee::report_info(0), Some(report_info));
+            assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
             assert_eq!(&MaintainCommittee::committee_ops(&*committee1, 0), &committee_ops);
             assert_eq!(
                 &MaintainCommittee::committee_order(&*committee1),
@@ -1139,7 +1140,7 @@ fn report_machine_fault_works_case4() {
                     slash_exec_time: 11 + 480 + 2880 * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
-                    inconsistent_committee: todo!(),
+                    inconsistent_committee: vec![],
                     reward_committee: todo!(),
                     machine_stash: todo!(),
                     machine_id: todo!()

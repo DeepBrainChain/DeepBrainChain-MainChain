@@ -97,8 +97,8 @@ fn verify_machine_works() {
                     booked_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 4320,
                     status: OCVerifyStatus::SubmittingHash,
-                    hashed_committee: todo!(),
-                    confirmed_committee: todo!(),
+                    hashed_committee: vec![],
+                    confirmed_committee: vec![],
                     onlined_committee: todo!()
                 })
             );
@@ -149,7 +149,7 @@ fn verify_machine_works() {
                     hashed_committee: vec![committee1,],
                     confirm_start_time: 2 + 2880 + 1440,
                     status: OCVerifyStatus::SubmittingHash,
-                    confirmed_committee: todo!(),
+                    confirmed_committee: vec![],
                     onlined_committee: todo!()
                 })
             );
@@ -196,7 +196,7 @@ fn verify_machine_works() {
                     hashed_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
                     status: OCVerifyStatus::SubmittingRaw,
-                    confirmed_committee: todo!(),
+                    confirmed_committee: vec![],
                     onlined_committee: todo!()
                 })
             );
