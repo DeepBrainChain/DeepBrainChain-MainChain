@@ -5,13 +5,13 @@ use dbc_support::machine_type::{
 };
 use frame_support::{
     assert_ok, parameter_types,
-    traits::{OnFinalize, OnInitialize},
+    traits::{ConstU32, OnFinalize, OnInitialize},
+    PalletId,
 };
-use frame_system::EnsureRoot;
 pub use frame_system::RawOrigin;
+use frame_system::{EnsureRoot, EnsureWithSuccess};
 pub use sp_core::{
     sr25519::{self, Signature},
-    u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
 pub use sp_keyring::{
@@ -20,11 +20,12 @@ pub use sp_keyring::{
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
-    ModuleId, Perbill, Permill,
+    Perbill, Permill,
 };
 use std::convert::TryInto;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
+type Balance = u128;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 // 1 DBC = 1 * 10^15
@@ -45,8 +46,8 @@ impl frame_system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -54,7 +55,7 @@ impl frame_system::Config for TestRuntime {
     type AccountId = sr25519::Public;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -63,16 +64,22 @@ impl frame_system::Config for TestRuntime {
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
+    type OnSetCode = ();
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
+    pub const MaxLocks :u32 = 50;
+    pub const MaxReservers: u32 = 50;
 }
 
 impl pallet_balances::Config for TestRuntime {
-    type Balance = u128;
     type MaxLocks = ();
-    type Event = Event;
+    type MaxReserves = MaxReservers;
+    type ReserveIdentifier = [u8; 8];
+    type Balance = u128;
+    type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
@@ -81,21 +88,24 @@ impl pallet_balances::Config for TestRuntime {
 
 impl dbc_price_ocw::Config for TestRuntime {
     type Currency = Balances;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 
-type TestExtrinsic = TestXt<Call, ()>;
+impl pallet_randomness_collective_flip::Config for TestRuntime {}
+
+type TestExtrinsic = TestXt<RuntimeCall, ()>;
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
 where
-    Call: From<LocalCall>,
+    RuntimeCall: From<LocalCall>,
 {
     fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: Call,
+        call: RuntimeCall,
         _public: <Signature as Verify>::Signer,
         _account: <TestRuntime as frame_system::Config>::AccountId,
         index: <TestRuntime as frame_system::Config>::Index,
-    ) -> Option<(Call, <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
+    ) -> Option<(RuntimeCall, <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)>
+    {
         Some((call, (index, ())))
     }
 }
@@ -107,9 +117,9 @@ impl frame_system::offchain::SigningTypes for TestRuntime {
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
 where
-    Call: From<C>,
+    RuntimeCall: From<C>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = TestExtrinsic;
 }
 
@@ -120,7 +130,7 @@ parameter_types! {
 impl generic_func::Config for TestRuntime {
     type BlockPerEra = BlockPerEra;
     type Currency = Balances;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
     type FixedTxFee = Treasury;
     type Slash = Treasury;
@@ -132,16 +142,17 @@ parameter_types! {
     pub const SpendPeriod: u64 = 2;
     pub const Burn: Permill = Permill::from_percent(50);
     pub const DataDepositPerByte: u64 = 1;
-    pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+    pub const TreasuryModuleId: PalletId = PalletId(*b"py/trsry");
     pub const MaxApprovals: u32 = 100;
+    pub const MaxBalance: Balance = Balance::max_value();
 }
 
 impl pallet_treasury::Config for TestRuntime {
-    type ModuleId = TreasuryModuleId;
+    type PalletId = TreasuryModuleId;
     type Currency = Balances;
     type ApproveOrigin = EnsureRoot<Self::AccountId>;
     type RejectOrigin = EnsureRoot<Self::AccountId>;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type OnSlash = ();
     type ProposalBond = ProposalBond;
     type ProposalBondMinimum = ProposalBondMinimum;
@@ -150,6 +161,9 @@ impl pallet_treasury::Config for TestRuntime {
     type BurnDestination = (); // Just gets burned.
     type WeightInfo = ();
     type SpendFunds = ();
+    type ProposalBondMaximum = ();
+    type MaxApprovals = MaxApprovals;
+    type SpendOrigin = EnsureWithSuccess<EnsureRoot<Self::AccountId>, Self::AccountId, MaxBalance>;
 }
 
 parameter_types! {
@@ -160,9 +174,9 @@ parameter_types! {
 
 type TechnicalCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
-    type Origin = Origin;
-    type Proposal = Call;
-    type Event = Event;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = CouncilMaxMembers;
@@ -182,17 +196,17 @@ impl pallet_timestamp::Config for TestRuntime {
 
 impl committee::Config for TestRuntime {
     type Currency = Balances;
-    type Event = Event;
-    type WeightInfo = ();
+    type RuntimeEvent = RuntimeEvent;
+    // type WeightInfo = ();
 }
 
 impl online_committee::Config for TestRuntime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type OCOps = OnlineProfile;
     type ManageCommittee = Committee;
     type CancelSlashOrigin =
-        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+        pallet_collective::EnsureProportionAtLeast<Self::AccountId, TechnicalCollective, 2, 3>;
     type SlashAndReward = GenericFunc;
 }
 
@@ -203,30 +217,30 @@ parameter_types! {
 
 impl online_profile::Config for TestRuntime {
     type Currency = Balances;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BondingDuration = BondingDuration;
     type DbcPrice = DBCPriceOCW;
     type ManageCommittee = Committee;
     type Slash = Treasury;
     type CancelSlashOrigin =
-        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+        pallet_collective::EnsureProportionAtLeast<Self::AccountId, TechnicalCollective, 2, 3>;
     type SlashAndReward = GenericFunc;
 }
 
 impl maintain_committee::Config for TestRuntime {
     type Currency = Balances;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ManageCommittee = Committee;
     type MTOps = OnlineProfile;
     type Slash = Treasury;
     type CancelSlashOrigin =
-        pallet_collective::EnsureProportionAtLeast<_2, _3, Self::AccountId, TechnicalCollective>;
+        pallet_collective::EnsureProportionAtLeast<Self::AccountId, TechnicalCollective, 2, 3>;
     type SlashAndReward = GenericFunc;
 }
 
 impl rent_machine::Config for TestRuntime {
     type Currency = Balances;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type RTOps = OnlineProfile;
     type DbcPrice = DBCPriceOCW;
 }
@@ -238,19 +252,19 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
-        OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
-        Balances: pallet_balances::{Module, Call, Storage, Event<T>},
-        Committee: committee::{Module, Call, Storage, Event<T>},
-        DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
-        Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
-        GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        MaintainCommittee: maintain_committee::{Module, Call, Storage, Event<T>},
-        TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        RentMachine: rent_machine::{Module, Storage, Call, Event<T>},
+        System: frame_system,
+        OnlineCommittee: online_committee,
+        OnlineProfile: online_profile,
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip,
+        Balances: pallet_balances,
+        Committee: committee,
+        DBCPriceOCW: dbc_price_ocw,
+        Treasury: pallet_treasury,
+        GenericFunc: generic_func,
+        Timestamp: pallet_timestamp,
+        MaintainCommittee: maintain_committee,
+        TechnicalCommittee: pallet_collective::<Instance2>,
+        RentMachine: rent_machine,
     }
 );
 
@@ -383,16 +397,16 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
                    ab040be4ed2db57b67eaac406817a69ce72a13f8ac11ba460e15d318b1504481";
 
         // stash 账户设置控制账户
-        assert_ok!(OnlineProfile::set_controller(Origin::signed(stash), controller));
+        assert_ok!(OnlineProfile::set_controller(RuntimeOrigin::signed(stash), controller));
 
         // controller 生成server_name
-        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
-        assert_ok!(OnlineProfile::gen_server_room(Origin::signed(controller)));
+        assert_ok!(OnlineProfile::gen_server_room(RuntimeOrigin::signed(controller)));
+        assert_ok!(OnlineProfile::gen_server_room(RuntimeOrigin::signed(controller)));
 
         let server_room = OnlineProfile::stash_server_rooms(&stash);
 
         assert_ok!(OnlineProfile::bond_machine(
-            Origin::signed(controller),
+            RuntimeOrigin::signed(controller),
             machine_id.clone(),
             msg.as_bytes().to_vec(),
             hex::decode(sig).unwrap()
@@ -400,7 +414,7 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
 
         // 控制账户添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
-            Origin::signed(controller),
+            RuntimeOrigin::signed(controller),
             machine_id.clone(),
             StakerCustomizeInfo {
                 server_room: server_room[0],
@@ -435,15 +449,15 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
                 .unwrap();
 
         assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             committee1_box_pubkey
         ));
         assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee2),
+            RuntimeOrigin::signed(committee2),
             committee2_box_pubkey
         ));
         assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee3),
+            RuntimeOrigin::signed(committee3),
             committee3_box_pubkey
         ));
 
@@ -452,7 +466,7 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
         // 委员会提交机器Hash
         let machine_info_hash = "fd8885a22a9d9784adaa36effcd77522";
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             machine_id.clone(),
             hex::decode(machine_info_hash).unwrap().try_into().unwrap()
         ));
@@ -460,7 +474,7 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
         // 委员会提交机器Hash
         let machine_info_hash = "c016090e0943c17f5d4999dc6eb52683";
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(committee2),
+            RuntimeOrigin::signed(committee2),
             machine_id.clone(),
             hex::decode(machine_info_hash).unwrap().try_into().unwrap()
         ));
@@ -468,7 +482,7 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
         // 委员会提交机器Hash
         let machine_info_hash = "4a6b2df1e1a77b9bcdab5e31dc7950d2";
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(committee3),
+            RuntimeOrigin::signed(committee3),
             machine_id.clone(),
             hex::decode(machine_info_hash).unwrap().try_into().unwrap()
         ));
@@ -492,17 +506,17 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(committee2),
+            RuntimeOrigin::signed(committee2),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(committee3),
+            RuntimeOrigin::signed(committee3),
             committee_upload_info
         ));
 
@@ -525,12 +539,12 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
         let reporter = sr25519::Public::from(Sr25519Keyring::Two);
         // rent machine for 1 days
         assert_ok!(RentMachine::rent_machine(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             machine_id.clone(),
             4,
             1 * 2880
         ));
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(reporter), 0));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter), 0));
     });
 
     ext

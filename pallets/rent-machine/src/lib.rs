@@ -226,7 +226,8 @@ pub mod pallet {
             rent_info.stake_amount = Default::default();
 
             // 改变online_profile状态
-            T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone()).map_err(|_| Error::<T>::Unknown)?;
+            T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone())
+                .map_err(|_| Error::<T>::Unknown)?;
 
             ConfirmingOrder::<T>::mutate(
                 rent_info.rent_start + WAITING_CONFIRMING_DELAY.into(),

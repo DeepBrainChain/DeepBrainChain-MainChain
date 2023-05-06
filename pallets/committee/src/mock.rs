@@ -1,9 +1,8 @@
 pub use crate as committee;
-use frame_support::parameter_types;
+use frame_support::{parameter_types, traits::ConstU32};
 pub use frame_system::RawOrigin;
 pub use sp_core::{
     sr25519::{self, Signature},
-    u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
 pub use sp_keyring::{
@@ -31,8 +30,8 @@ impl frame_system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -40,7 +39,7 @@ impl frame_system::Config for TestRuntime {
     type AccountId = sr25519::Public;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -49,16 +48,22 @@ impl frame_system::Config for TestRuntime {
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
+    type OnSetCode = ();
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
+    pub const MaxLocks :u32 = 50;
+    pub const MaxReservers: u32 = 50;
 }
 
 impl pallet_balances::Config for TestRuntime {
-    type Balance = u128;
     type MaxLocks = ();
-    type Event = Event;
+    type MaxReserves = MaxReservers;
+    type ReserveIdentifier = [u8; 8];
+    type Balance = u128;
+    type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
@@ -67,8 +72,8 @@ impl pallet_balances::Config for TestRuntime {
 
 impl committee::Config for TestRuntime {
     type Currency = Balances;
-    type Event = Event;
-    type WeightInfo = ();
+    type RuntimeEvent = RuntimeEvent;
+    // type WeightInfo = ();
 }
 
 // Configure a mock runtime to test the pallet.
@@ -78,9 +83,9 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Balances: pallet_balances::{Module, Call, Storage, Event<T>},
-        Committee: committee::{Module, Call, Storage, Event<T>},
+        System: frame_system,
+        Balances: pallet_balances,
+        Committee: committee,
     }
 );
 
@@ -114,7 +119,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             committee::CommitteeStakeParamsInfo {
                 stake_baseline: 20000 * ONE_DBC,
                 stake_per_order: 1000 * ONE_DBC,
-                min_free_stake_percent: Perbill::from_rational_approximation(40u32, 100u32),
+                min_free_stake_percent: Perbill::from_rational(40u32, 100u32),
             },
         );
     });

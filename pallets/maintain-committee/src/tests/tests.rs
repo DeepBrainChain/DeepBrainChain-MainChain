@@ -23,7 +23,7 @@ fn test_heart_beat1() {
             hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
         ));
 
@@ -32,7 +32,7 @@ fn test_heart_beat1() {
         // ReporterStake, ReportInfo, LiveReport, ReporterReport
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee1), 0));
 
         // book_fault_order:
         // - Writes:
@@ -58,7 +58,7 @@ fn test_heart_beat1() {
         );
         assert_eq!(
             MaintainCommittee::report_info(0),
-            crate::MTReportInfoDetail {
+            Some(crate::MTReportInfoDetail {
                 reporter,
                 report_time: 11,
                 reporter_stake: 1000 * ONE_DBC,
@@ -71,29 +71,33 @@ fn test_heart_beat1() {
                     report_hash,
                     reporter_boxpubkey
                 ),
-                ..Default::default()
-            }
+                machine_id: todo!(),
+                rent_order_id: todo!(),
+                err_info: todo!(),
+                get_encrypted_info_committee: todo!(),
+                hashed_committee: todo!(),
+                confirmed_committee: todo!(),
+                support_committee: todo!(),
+                against_committee: todo!()
+            })
         );
         assert_eq!(
             MaintainCommittee::report_result(0),
-            crate::MTReportResultInfo {
+            Some(crate::MTReportResultInfo {
                 report_id: 0,
                 reporter,
                 reporter_stake: 1000 * ONE_DBC,
-
                 inconsistent_committee: vec![],
                 unruly_committee: vec![],
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
-
                 slash_time: 11 + 60,
                 slash_exec_time: 11 + 60 + 2880 * 2,
-
                 report_result: crate::ReportResultType::ReporterNotSubmitEncryptedInfo,
                 slash_result: crate::MCSlashResult::Pending,
-
-                ..Default::default()
-            }
+                machine_stash: todo!(),
+                machine_id: todo!()
+            })
         );
 
         // TODO: 运行到某个时间
@@ -116,7 +120,7 @@ fn test_heart_beat2() {
             hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
         ));
 
@@ -125,7 +129,7 @@ fn test_heart_beat2() {
         // ReporterStake, ReportInfo, LiveReport, ReporterReport
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee1), 0));
 
         // book_fault_order:
         // - Writes:
@@ -138,7 +142,7 @@ fn test_heart_beat2() {
                 .try_into()
                 .unwrap();
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             0,
             committee1,
             encrypted_err_info.clone()
@@ -170,7 +174,7 @@ fn test_heart_beat2() {
         // Because no committee book now, so revert this field
         assert_eq!(
             MaintainCommittee::report_info(0),
-            crate::MTReportInfoDetail {
+            Some(crate::MTReportInfoDetail {
                 reporter: reporter.clone(),
                 report_time: 11,
                 reporter_stake: 1000 * ONE_DBC,
@@ -184,30 +188,33 @@ fn test_heart_beat2() {
                     report_hash,
                     reporter_boxpubkey
                 ),
-                ..Default::default()
-            }
+                machine_id: todo!(),
+                rent_order_id: todo!(),
+                err_info: todo!(),
+                hashed_committee: todo!(),
+                confirmed_committee: todo!(),
+                support_committee: todo!(),
+                against_committee: todo!()
+            })
         );
 
         assert_eq!(
             MaintainCommittee::report_result(0),
-            crate::MTReportResultInfo {
+            Some(crate::MTReportResultInfo {
                 report_id: 0,
                 reporter,
                 reporter_stake: 1000 * ONE_DBC,
-
                 inconsistent_committee: vec![],
                 unruly_committee: vec![committee1],
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
-
                 slash_time: 131,
                 slash_exec_time: 5891,
-
                 report_result: crate::ReportResultType::ReportRefused,
                 slash_result: crate::MCSlashResult::Pending,
-
-                ..Default::default()
-            }
+                machine_stash: todo!(),
+                machine_id: todo!()
+            })
         );
 
         // 惩罚
@@ -233,7 +240,7 @@ fn test_heart_beat3() {
             hex::decode("986fffc16e63d3f7c43fe1a272ba3ba1").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
         ));
 
@@ -242,7 +249,7 @@ fn test_heart_beat3() {
         // ReporterStake, ReportInfo, LiveReport, ReporterReport
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee1), 0));
 
         // book_fault_order:
         // - Writes:
@@ -255,7 +262,7 @@ fn test_heart_beat3() {
                 .try_into()
                 .unwrap();
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             0,
             committee1,
             encrypted_err_info.clone()
@@ -272,7 +279,7 @@ fn test_heart_beat3() {
         let committee_hash: [u8; 16] =
             hex::decode("0029f96394d458279bcd0c232365932a").unwrap().try_into().unwrap();
         assert_ok!(MaintainCommittee::committee_submit_verify_hash(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             0,
             committee_hash.clone()
         ));
@@ -280,10 +287,10 @@ fn test_heart_beat3() {
         // 第二个委员会去预订: 第一次预订时间为11， 则开始提交原始值时间为11 + 3*120
         run_to_block(3 * 120);
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee2), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee2), 0));
         // 报告人给第二个委员会提供加密信息
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             0,
             committee2,
             encrypted_err_info.clone()
@@ -309,7 +316,7 @@ fn test_heart_beat3() {
         );
         assert_eq!(
             MaintainCommittee::report_info(0),
-            crate::MTReportInfoDetail {
+            Some(crate::MTReportInfoDetail {
                 reporter: reporter.clone(),
                 report_time: 11,
                 first_book_time: 11,
@@ -318,15 +325,19 @@ fn test_heart_beat3() {
                 hashed_committee: vec![committee1],
                 confirm_start: 371,
                 reporter_stake: 1000 * ONE_DBC,
-
                 report_status: crate::ReportStatus::Verifying,
-                // report_status: crate::ReportStatus::SubmittingRaw,
                 machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(
                     report_hash,
                     reporter_boxpubkey
                 ),
-                ..Default::default()
-            }
+                machine_id: todo!(),
+                rent_order_id: todo!(),
+                err_info: todo!(),
+                verifying_committee: todo!(),
+                confirmed_committee: todo!(),
+                support_committee: todo!(),
+                against_committee: todo!()
+            })
         );
     })
 }
@@ -364,35 +375,40 @@ fn test_apply_slash_review() {
             hex::decode("2611557f5306f050019eeb27648c5494").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             crate::MachineFaultType::OnlineRentFailed(report_hash, reporter_boxpubkey),
         ));
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee1), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee1), 0));
         assert_eq!(
             MaintainCommittee::live_report(),
             crate::MTLiveReportList { verifying_report: vec![0], ..Default::default() }
         );
         assert_eq!(
             MaintainCommittee::report_info(0),
-            crate::MTReportInfoDetail {
+            Some(crate::MTReportInfoDetail {
                 reporter,
                 report_time: 11,
                 reporter_stake: 1000 * ONE_DBC,
                 first_book_time: 11,
                 verifying_committee: Some(committee1),
                 booked_committee: vec![committee1],
-
                 confirm_start: 11 + 360,
                 report_status: crate::ReportStatus::Verifying,
                 machine_fault_type: crate::MachineFaultType::OnlineRentFailed(
                     report_hash,
                     reporter_boxpubkey
                 ),
-
-                ..Default::default()
-            }
+                machine_id,
+                rent_order_id: todo!(),
+                err_info: todo!(),
+                get_encrypted_info_committee: todo!(),
+                hashed_committee: todo!(),
+                confirmed_committee: todo!(),
+                support_committee: todo!(),
+                against_committee: todo!()
+            })
         );
         assert_eq!(
             MaintainCommittee::committee_ops(committee1, 0),
@@ -410,7 +426,7 @@ fn test_apply_slash_review() {
                 .try_into()
                 .unwrap();
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             0,
             committee1,
             encrypted_err_info.clone()
@@ -418,17 +434,17 @@ fn test_apply_slash_review() {
 
         // committee提交验证Hash
         assert_ok!(MaintainCommittee::committee_submit_verify_hash(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             0,
             committee_hash.clone()
         ));
 
         // more than 1 hour later
         run_to_block(11 + 130);
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee2), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee2), 0));
 
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             0,
             committee2,
             encrypted_err_info.clone()
@@ -438,7 +454,7 @@ fn test_apply_slash_review() {
         run_to_block(360 + 13);
 
         assert_ok!(MaintainCommittee::committee_submit_verify_raw(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             0,
             machine_id.clone(),
             0,
@@ -453,7 +469,7 @@ fn test_apply_slash_review() {
 
         assert_eq!(
             MaintainCommittee::report_info(0),
-            crate::MTReportInfoDetail {
+            Some(crate::MTReportInfoDetail {
                 reporter: reporter.clone(),
                 report_time: 11,
                 reporter_stake: 1000 * ONE_DBC,
@@ -474,12 +490,12 @@ fn test_apply_slash_review() {
                     report_hash,
                     reporter_boxpubkey
                 ),
-            }
+            })
         );
         // check report report result
         assert_eq!(
             MaintainCommittee::report_result(0),
-            crate::MTReportResultInfo {
+            Some(crate::MTReportResultInfo {
                 report_id: 0,
                 reporter,
                 reporter_stake: 1000 * ONE_DBC,
@@ -487,14 +503,13 @@ fn test_apply_slash_review() {
                 unruly_committee: vec![committee2],
                 reward_committee: vec![committee1],
                 committee_stake: 1000 * ONE_DBC,
-                // machine_stash: stash,
-                // machine_id: machine_id.clone(),
                 slash_time: 374,
                 slash_exec_time: 374 + 2880 * 2,
                 report_result: crate::ReportResultType::ReportSucceed,
                 slash_result: crate::MCSlashResult::Pending,
-                ..Default::default()
-            }
+                machine_stash: todo!(),
+                machine_id
+            })
         );
     })
 }

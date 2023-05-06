@@ -65,7 +65,7 @@ fn committee_set_box_pubkey_works() {
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
         assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             committee1_box_pubkey
         ));
 
@@ -93,7 +93,7 @@ fn committee_set_box_pubkey_works() {
                 .unwrap();
 
         assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             committee1_box_pubkey2
         ));
     })
@@ -112,11 +112,14 @@ fn committee_add_stake_works() {
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
         assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             committee1_box_pubkey
         ));
 
-        assert_ok!(Committee::committee_add_stake(Origin::signed(committee1), 5000 * ONE_DBC));
+        assert_ok!(Committee::committee_add_stake(
+            RuntimeOrigin::signed(committee1),
+            5000 * ONE_DBC
+        ));
 
         assert_eq!(
             Committee::committee_stake(&committee1),
@@ -145,13 +148,19 @@ fn committee_reduce_stake_works() {
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
         assert_ok!(Committee::committee_set_box_pubkey(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             committee1_box_pubkey
         ));
 
-        assert_ok!(Committee::committee_add_stake(Origin::signed(committee1), 5000 * ONE_DBC));
+        assert_ok!(Committee::committee_add_stake(
+            RuntimeOrigin::signed(committee1),
+            5000 * ONE_DBC
+        ));
 
-        assert_ok!(Committee::committee_reduce_stake(Origin::signed(committee1), 4000 * ONE_DBC));
+        assert_ok!(Committee::committee_reduce_stake(
+            RuntimeOrigin::signed(committee1),
+            4000 * ONE_DBC
+        ));
 
         assert_eq!(
             Committee::committee_stake(&committee1),
@@ -166,7 +175,7 @@ fn committee_reduce_stake_works() {
         assert_eq!(Balances::reserved_balance(&committee1), 21000 * ONE_DBC);
 
         assert_noop!(
-            Committee::committee_reduce_stake(Origin::signed(committee1), 2000 * ONE_DBC),
+            Committee::committee_reduce_stake(RuntimeOrigin::signed(committee1), 2000 * ONE_DBC),
             Error::<TestRuntime>::BalanceNotEnough
         );
     })
@@ -182,7 +191,7 @@ fn committee_claim_reward_works() {
             super::CommitteeStakeInfo { can_claim_reward: 1000 * ONE_DBC, ..Default::default() },
         );
 
-        assert_ok!(Committee::claim_reward(Origin::signed(committee1)));
+        assert_ok!(Committee::claim_reward(RuntimeOrigin::signed(committee1)));
         assert_eq!(Balances::free_balance(&committee1), INIT_BALANCE + 1000 * ONE_DBC);
         assert_eq!(
             Committee::committee_stake(&committee1),
@@ -205,13 +214,13 @@ fn committee_chill_works() {
             waiting_box_pubkey: vec![committee3],
             fulfilling_list: vec![committee4],
         });
-        assert_ok!(Committee::chill(Origin::signed(committee1)));
-        assert_ok!(Committee::chill(Origin::signed(committee2)));
+        assert_ok!(Committee::chill(RuntimeOrigin::signed(committee1)));
+        assert_ok!(Committee::chill(RuntimeOrigin::signed(committee2)));
         assert_noop!(
-            Committee::chill(Origin::signed(committee3)),
+            Committee::chill(RuntimeOrigin::signed(committee3)),
             Error::<TestRuntime>::PubkeyNotSet
         );
-        assert_ok!(Committee::chill(Origin::signed(committee4)));
+        assert_ok!(Committee::chill(RuntimeOrigin::signed(committee4)));
 
         assert_eq!(
             Committee::committee(),
@@ -245,10 +254,10 @@ fn committee_undo_chill_works() {
         );
 
         assert_noop!(
-            Committee::undo_chill(Origin::signed(committee1)),
+            Committee::undo_chill(RuntimeOrigin::signed(committee1)),
             Error::<TestRuntime>::NotInChillList
         );
-        assert_ok!(Committee::undo_chill(Origin::signed(committee2)));
+        assert_ok!(Committee::undo_chill(RuntimeOrigin::signed(committee2)));
 
         assert_eq!(
             Committee::committee(),
@@ -274,7 +283,7 @@ fn committee_undo_chill_works() {
                 ..Default::default()
             },
         );
-        assert_ok!(Committee::undo_chill(Origin::signed(committee2)));
+        assert_ok!(Committee::undo_chill(RuntimeOrigin::signed(committee2)));
         assert_eq!(
             Committee::committee(),
             super::CommitteeList {
@@ -300,7 +309,7 @@ fn committee_exit_works() {
             ..Default::default()
         });
 
-        assert_ok!(Committee::exit_committee(Origin::signed(committee2)));
+        assert_ok!(Committee::exit_committee(RuntimeOrigin::signed(committee2)));
 
         assert_eq!(
             Committee::committee(),

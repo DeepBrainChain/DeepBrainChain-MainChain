@@ -15,18 +15,28 @@ fn test_renters_change_works() {
         let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
 
         // 对四卡的机器分两次租用
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 60));
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 120));
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(renter1),
+            machine_id.clone(),
+            2,
+            60
+        ));
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(renter1),
+            machine_id.clone(),
+            2,
+            120
+        ));
 
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter1), 0));
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter1), 1));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter1), 1));
 
-        let machine_info = OnlineProfile::machines_info(&machine_id);
+        let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert_eq!(machine_info.renters, vec![renter1]);
 
         assert_eq!(
             RentMachine::rent_info(0),
-            RentOrderDetail {
+            Some(RentOrderDetail {
                 machine_id: machine_id.clone(),
                 renter: renter1,
                 rent_start: 11,
@@ -36,18 +46,18 @@ fn test_renters_change_works() {
                 rent_status: RentStatus::Renting,
                 gpu_num: 2,
                 gpu_index: vec![0, 1],
-            }
+            })
         );
 
         run_to_block(80);
 
-        let machine_info = OnlineProfile::machines_info(&machine_id);
+        let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Rented);
         assert_eq!(machine_info.renters, vec![renter1]);
 
         run_to_block(140);
 
-        let machine_info = OnlineProfile::machines_info(&machine_id);
+        let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert!(machine_info.renters.is_empty());
     })
 }
@@ -61,15 +71,20 @@ fn test_renters_change_works2() {
 
         let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
 
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 2, 60));
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter1), 0));
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(renter1),
+            machine_id.clone(),
+            2,
+            60
+        ));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
 
-        let machine_info = OnlineProfile::machines_info(&machine_id);
+        let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert_eq!(machine_info.renters, vec![renter1]);
 
         run_to_block(80);
 
-        let machine_info = OnlineProfile::machines_info(&machine_id);
+        let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Online);
         assert!(machine_info.renters.is_empty());
     })

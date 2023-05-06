@@ -18,8 +18,8 @@ pub fn new_test_with_machine_bonding_ext() -> sp_io::TestExternalities {
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let controller = sr25519::Public::from(Sr25519Keyring::Eve);
 
-        assert_ok!(IRMachine::set_controller(Origin::signed(stash), controller));
-        assert_ok!(IRMachine::gen_server_room(Origin::signed(controller)));
+        assert_ok!(IRMachine::set_controller(RuntimeOrigin::signed(stash), controller));
+        assert_ok!(IRMachine::gen_server_room(RuntimeOrigin::signed(controller)));
 
         // Bob pubkey
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
@@ -31,17 +31,17 @@ pub fn new_test_with_machine_bonding_ext() -> sp_io::TestExternalities {
                    ab040be4ed2db57b67eaac406817a69ce72a13f8ac11ba460e15d318b1504481";
 
         assert_ok!(IRMachine::bond_machine(
-            Origin::signed(controller),
+            RuntimeOrigin::signed(controller),
             machine_id.clone(),
             msg.as_bytes().to_vec(),
             hex::decode(sig).unwrap()
         ));
 
-        assert_ok!(IRMachine::gen_server_room(Origin::signed(controller)));
+        assert_ok!(IRMachine::gen_server_room(RuntimeOrigin::signed(controller)));
         let server_rooms = IRMachine::stash_server_rooms(stash);
 
         assert_ok!(IRMachine::add_machine_info(
-            Origin::signed(controller),
+            RuntimeOrigin::signed(controller),
             machine_id.clone(),
             StakerCustomizeInfo {
                 server_room: server_rooms[0],
@@ -92,13 +92,15 @@ fn verify_machine_works() {
             );
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                OCMachineCommitteeList {
+                Some(OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
-                    confirm_start_time: 2 + 4320, // 36h = 2880 + 1440
+                    confirm_start_time: 2 + 4320,
                     status: OCVerifyStatus::SubmittingHash,
-                    ..Default::default()
-                }
+                    hashed_committee: todo!(),
+                    confirmed_committee: todo!(),
+                    onlined_committee: todo!()
+                })
             );
             assert_eq!(
                 IRMachine::committee_machine(&committee1),
@@ -132,7 +134,7 @@ fn verify_machine_works() {
             hex::decode("4983040157403addac94ca860ddbff7f").unwrap().try_into().unwrap();
 
         assert_ok!(IRMachine::submit_confirm_hash(
-            Origin::signed(committee1),
+            RuntimeOrigin::signed(committee1),
             machine_id.clone(),
             hash1
         ));
@@ -141,14 +143,15 @@ fn verify_machine_works() {
             assert_eq!(IRMachine::machine_submited_hash(&machine_id), vec![hash1]);
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                OCMachineCommitteeList {
+                Some(OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee1,],
                     confirm_start_time: 2 + 2880 + 1440,
                     status: OCVerifyStatus::SubmittingHash,
-                    ..Default::default()
-                }
+                    confirmed_committee: todo!(),
+                    onlined_committee: todo!()
+                })
             );
             assert_eq!(
                 IRMachine::committee_machine(&committee1),
@@ -170,7 +173,7 @@ fn verify_machine_works() {
             )
         }
         assert_ok!(IRMachine::submit_confirm_hash(
-            Origin::signed(committee2),
+            RuntimeOrigin::signed(committee2),
             machine_id.clone(),
             hash2
         ));
@@ -179,7 +182,7 @@ fn verify_machine_works() {
         }
 
         assert_ok!(IRMachine::submit_confirm_hash(
-            Origin::signed(committee4),
+            RuntimeOrigin::signed(committee4),
             machine_id.clone(),
             hash3
         ));
@@ -187,14 +190,15 @@ fn verify_machine_works() {
             assert_eq!(IRMachine::machine_submited_hash(&machine_id), vec![hash2, hash3, hash1]);
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                OCMachineCommitteeList {
+                Some(OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
-                    status: OCVerifyStatus::SubmittingRaw, // 达到三人将变为提交Raw状态
-                    ..Default::default()
-                }
+                    status: OCVerifyStatus::SubmittingRaw,
+                    confirmed_committee: todo!(),
+                    onlined_committee: todo!()
+                })
             );
         }
 
@@ -218,19 +222,22 @@ fn verify_machine_works() {
         };
 
         // 委员会添加机器原始值
-        assert_ok!(IRMachine::submit_confirm_raw(Origin::signed(committee1), upload_info.clone()));
+        assert_ok!(IRMachine::submit_confirm_raw(
+            RuntimeOrigin::signed(committee1),
+            upload_info.clone()
+        ));
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                OCMachineCommitteeList {
+                Some(OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
                     confirmed_committee: vec![committee1],
                     status: OCVerifyStatus::SubmittingRaw,
-                    ..Default::default()
-                }
+                    onlined_committee: todo!()
+                })
             );
             assert_eq!(
                 IRMachine::committee_machine(&committee1),
@@ -253,22 +260,25 @@ fn verify_machine_works() {
             )
         }
         upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
-        assert_ok!(IRMachine::submit_confirm_raw(Origin::signed(committee2), upload_info.clone()));
+        assert_ok!(IRMachine::submit_confirm_raw(
+            RuntimeOrigin::signed(committee2),
+            upload_info.clone()
+        ));
         upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
-        assert_ok!(IRMachine::submit_confirm_raw(Origin::signed(committee4), upload_info));
+        assert_ok!(IRMachine::submit_confirm_raw(RuntimeOrigin::signed(committee4), upload_info));
 
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                OCMachineCommitteeList {
+                Some(OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee2, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
                     confirmed_committee: vec![committee2, committee1, committee4],
                     status: OCVerifyStatus::Summarizing,
-                    ..Default::default()
-                }
+                    onlined_committee: todo!()
+                })
             );
         }
 
@@ -285,7 +295,7 @@ fn verify_machine_works() {
                 LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
             );
 
-            let machine_info = IRMachine::machines_info(&machine_id);
+            let machine_info = IRMachine::machines_info(&machine_id).unwrap();
             assert_eq!(machine_info.machine_status, MachineStatus::Online);
             assert_eq!(machine_info.reward_committee, vec![committee2, committee1, committee4]);
 
@@ -309,7 +319,7 @@ fn verify_machine_works() {
             // - Writes: CommitteeStake
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                OCMachineCommitteeList {
+                Some(OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee2, committee1, committee4],
                     hashed_committee: vec![committee2, committee1, committee4],
@@ -317,8 +327,7 @@ fn verify_machine_works() {
                     confirmed_committee: vec![committee2, committee1, committee4],
                     status: OCVerifyStatus::Finished,
                     onlined_committee: vec![committee2, committee1, committee4],
-                    ..Default::default()
-                }
+                })
             );
 
             assert_eq!(

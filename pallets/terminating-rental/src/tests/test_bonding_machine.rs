@@ -13,9 +13,9 @@ fn gen_server_room_works() {
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let controller = sr25519::Public::from(Sr25519Keyring::Eve);
 
-        assert_ok!(IRMachine::set_controller(Origin::signed(stash), controller));
-        assert_ok!(IRMachine::gen_server_room(Origin::signed(controller)));
-        assert_ok!(IRMachine::gen_server_room(Origin::signed(controller)));
+        assert_ok!(IRMachine::set_controller(RuntimeOrigin::signed(stash), controller));
+        assert_ok!(IRMachine::gen_server_room(RuntimeOrigin::signed(controller)));
+        assert_ok!(IRMachine::gen_server_room(RuntimeOrigin::signed(controller)));
 
         let server_rooms = IRMachine::stash_server_rooms(stash);
         assert_eq!(server_rooms.len(), 2);
@@ -38,8 +38,8 @@ fn bond_machine_works() {
         let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
         let controller = sr25519::Public::from(Sr25519Keyring::Eve);
 
-        assert_ok!(IRMachine::set_controller(Origin::signed(stash), controller));
-        assert_ok!(IRMachine::gen_server_room(Origin::signed(controller)));
+        assert_ok!(IRMachine::set_controller(RuntimeOrigin::signed(stash), controller));
+        assert_ok!(IRMachine::gen_server_room(RuntimeOrigin::signed(controller)));
 
         // Bob pubkey
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
@@ -53,7 +53,7 @@ fn bond_machine_works() {
         // - Writes: LiveMachine, StashMachines, MachineInfo,
         // - Write: StashStake, Balance
         assert_ok!(IRMachine::bond_machine(
-            Origin::signed(controller),
+            RuntimeOrigin::signed(controller),
             machine_id.clone(),
             msg.as_bytes().to_vec(),
             hex::decode(sig).unwrap()
@@ -69,23 +69,36 @@ fn bond_machine_works() {
             );
             assert_eq!(
                 IRMachine::machines_info(machine_id.clone()),
-                MachineInfo {
+                Some(MachineInfo {
                     machine_stash: stash,
                     bonding_height: 2,
                     stake_amount: 10000 * ONE_DBC,
-                    ..Default::default()
-                }
+                    controller,
+                    renters: todo!(),
+                    last_machine_restake: todo!(),
+                    online_height: todo!(),
+                    last_online_height: todo!(),
+                    init_stake_per_gpu: todo!(),
+                    machine_status: todo!(),
+                    total_rented_duration: todo!(),
+                    total_rented_times: todo!(),
+                    total_rent_fee: todo!(),
+                    total_burn_fee: todo!(),
+                    machine_info_detail: todo!(),
+                    reward_committee: todo!(),
+                    reward_deadline: todo!()
+                })
             );
 
             assert_eq!(IRMachine::stash_stake(stash), 10000 * ONE_DBC);
             assert_eq!(Balances::reserved_balance(stash), 10000 * ONE_DBC);
         }
 
-        assert_ok!(IRMachine::gen_server_room(Origin::signed(controller)));
+        assert_ok!(IRMachine::gen_server_room(RuntimeOrigin::signed(controller)));
         let server_rooms = IRMachine::stash_server_rooms(stash);
 
         assert_ok!(IRMachine::add_machine_info(
-            Origin::signed(controller),
+            RuntimeOrigin::signed(controller),
             machine_id.clone(),
             StakerCustomizeInfo {
                 server_room: server_rooms[0],

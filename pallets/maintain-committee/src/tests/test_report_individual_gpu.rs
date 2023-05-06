@@ -28,20 +28,20 @@ pub fn new_test_with_machine_two_renter() -> sp_io::TestExternalities {
 
     ext.execute_with(|| {
         assert_ok!(RentMachine::rent_machine(
-            Origin::signed(renter1),
+            RuntimeOrigin::signed(renter1),
             machine_id.clone(),
             2,
             1 * 2880
         ));
         assert_ok!(RentMachine::rent_machine(
-            Origin::signed(renter2),
+            RuntimeOrigin::signed(renter2),
             machine_id.clone(),
             2,
             1 * 2880
         ));
 
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter1), 0));
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter2), 1));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter2), 1));
     });
 
     ext
@@ -61,12 +61,12 @@ fn report_individual_gpu_inaccessible() {
 
     new_test_with_machine_two_renter().execute_with(|| {
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(renter1),
+            RuntimeOrigin::signed(renter1),
             MachineFaultType::RentedInaccessible(machine_id.clone(), 0)
         ));
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee), 0));
 
         // 委员会提交Hash: 内容为 订单ID + 验证人自己的随机数 + 机器是否有问题
         // hash(0abcd1) => 0x73124a023f585b4018b9ed3593c7470a
@@ -75,7 +75,7 @@ fn report_individual_gpu_inaccessible() {
         // - Writes:
         // LiveReport, CommitteeOps, CommitteeOrder, ReportInfo
         assert_ok!(MaintainCommittee::committee_submit_verify_hash(
-            Origin::signed(committee),
+            RuntimeOrigin::signed(committee),
             0,
             offline_committee_hash.clone()
         ));
@@ -85,7 +85,7 @@ fn report_individual_gpu_inaccessible() {
         // - Writes:
         // ReportInfo, committee_ops,
         assert_ok!(MaintainCommittee::committee_submit_inaccessible_raw(
-            Origin::signed(committee),
+            RuntimeOrigin::signed(committee),
             0,
             "abcd".as_bytes().to_vec(),
             true

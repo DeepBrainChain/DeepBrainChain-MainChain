@@ -1,12 +1,12 @@
 use crate as council_reward;
 use frame_support::{
     parameter_types,
-    traits::{LockIdentifier, OnFinalize, OnInitialize, U128CurrencyToVote},
+    traits::{ConstU32, LockIdentifier, OnFinalize, OnInitialize, U128CurrencyToVote},
+    PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, EnsureWithSuccess};
 pub use sp_core::{
     sr25519::{self, Signature},
-    u32_trait::{_1, _2, _3, _4, _5},
     H256,
 };
 pub use sp_keyring::{
@@ -15,7 +15,7 @@ pub use sp_keyring::{
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
-    ModuleId, Permill,
+    Permill,
 };
 
 // 初始1000WDBC
@@ -48,8 +48,8 @@ impl frame_system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -57,7 +57,7 @@ impl frame_system::Config for TestRuntime {
     type AccountId = sr25519::Public;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -66,16 +66,22 @@ impl frame_system::Config for TestRuntime {
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
+    type OnSetCode = ();
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
+    pub const MaxLocks :u32 = 50;
+    pub const MaxReservers: u32 = 50;
 }
 
 impl pallet_balances::Config for TestRuntime {
-    type Balance = u128;
     type MaxLocks = ();
-    type Event = Event;
+    type MaxReserves = MaxReservers;
+    type ReserveIdentifier = [u8; 8];
+    type Balance = u128;
+    type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
@@ -88,16 +94,18 @@ parameter_types! {
     pub const SpendPeriod: u64 = 2;
     pub const Burn: Permill = Permill::from_percent(50);
     pub const DataDepositPerByte: u64 = 1;
-    pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+    pub const TreasuryModuleId: PalletId = PalletId(*b"py/trsry");
     pub const MaxApprovals: u32 = 100;
+
+    pub const MaxBalance: Balance = Balance::max_value();
 }
 
 impl pallet_treasury::Config for TestRuntime {
-    type ModuleId = TreasuryModuleId;
+    type PalletId = TreasuryModuleId;
     type Currency = Balances;
     type ApproveOrigin = EnsureRoot<Self::AccountId>;
     type RejectOrigin = EnsureRoot<Self::AccountId>;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type OnSlash = ();
     type ProposalBond = ProposalBond;
     type ProposalBondMinimum = ProposalBondMinimum;
@@ -106,6 +114,10 @@ impl pallet_treasury::Config for TestRuntime {
     type BurnDestination = (); // Just gets burned.
     type WeightInfo = ();
     type SpendFunds = ();
+
+    type ProposalBondMaximum = ();
+    type MaxApprovals = MaxApprovals;
+    type SpendOrigin = EnsureWithSuccess<EnsureRoot<Self::AccountId>, Self::AccountId, MaxBalance>;
 }
 
 parameter_types! {
@@ -116,9 +128,9 @@ parameter_types! {
 
 type CouncilCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<CouncilCollective> for TestRuntime {
-    type Origin = Origin;
-    type Proposal = Call;
-    type Event = Event;
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = CouncilMaxMembers;
@@ -139,8 +151,8 @@ parameter_types! {
 }
 
 impl pallet_elections_phragmen::Config for TestRuntime {
-    type Event = Event;
-    type ModuleId = ElectionsPhragmenModuleId;
+    type RuntimeEvent = RuntimeEvent;
+    type PalletId = ElectionsPhragmenModuleId;
     type Currency = Balances;
     type ChangeMembers = Council;
     // NOTE: this implies that council's genesis members cannot be set directly and must come from
@@ -156,11 +168,13 @@ impl pallet_elections_phragmen::Config for TestRuntime {
     type DesiredRunnersUp = DesiredRunnersUp;
     type TermDuration = TermDuration;
     type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<TestRuntime>;
+    type MaxCandidates = ();
+    type MaxVoters = ();
 }
 
 impl dbc_price_ocw::Config for TestRuntime {
     type Currency = Balances;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 
@@ -171,23 +185,24 @@ parameter_types! {
 impl generic_func::Config for TestRuntime {
     type BlockPerEra = BlockPerEra;
     type Currency = Balances;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
     type FixedTxFee = Treasury;
     type Slash = Treasury;
 }
 
-type TestExtrinsic = TestXt<Call, ()>;
+type TestExtrinsic = TestXt<RuntimeCall, ()>;
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
 where
-    Call: From<LocalCall>,
+    RuntimeCall: From<LocalCall>,
 {
     fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: Call,
+        call: RuntimeCall,
         _public: <Signature as Verify>::Signer,
         _account: <TestRuntime as frame_system::Config>::AccountId,
         index: <TestRuntime as frame_system::Config>::Index,
-    ) -> Option<(Call, <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)> {
+    ) -> Option<(RuntimeCall, <TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload)>
+    {
         Some((call, (index, ())))
     }
 }
@@ -199,9 +214,9 @@ impl frame_system::offchain::SigningTypes for TestRuntime {
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
 where
-    Call: From<C>,
+    RuntimeCall: From<C>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = TestExtrinsic;
 }
 
@@ -218,7 +233,7 @@ parameter_types! {
 }
 
 impl council_reward::Config for TestRuntime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type DbcPrice = DBCPriceOCW;
     type Currency = Balances;
     type RewardFrequency = RewardFrequency;
@@ -227,6 +242,8 @@ impl council_reward::Config for TestRuntime {
     type ThirdReward = ThirdReward;
 }
 
+impl pallet_randomness_collective_flip::Config for TestRuntime {}
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum TestRuntime
@@ -234,15 +251,15 @@ frame_support::construct_runtime!(
         Block = Block,
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic, {
-            System: frame_system::{Module, Call, Config, Storage, Event<T>},
-            RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
-            Balances: pallet_balances::{Module, Call, Storage, Event<T>},
-            DBCPriceOCW: dbc_price_ocw::{Module, Call, Storage, Event<T>, ValidateUnsigned},
-            Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
-            GenericFunc: generic_func::{Module, Call, Storage, Event<T>},
-            Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-            Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
-            CouncilReward: council_reward::{Module, Call, Storage, Event<T>},
+            System: frame_system,
+            RandomnessCollectiveFlip: pallet_randomness_collective_flip,
+            Balances: pallet_balances,
+            DBCPriceOCW: dbc_price_ocw,
+            Treasury: pallet_treasury,
+            GenericFunc: generic_func,
+            Council: pallet_collective::<Instance1>,
+            Elections: pallet_elections_phragmen,
+            CouncilReward: council_reward,
     }
 );
 

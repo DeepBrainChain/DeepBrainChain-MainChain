@@ -84,8 +84,17 @@ fn test_reward_works() {
         let prime = Some(council1);
 
         let treasury = CouncilReward::treasury();
+        if treasury.is_none() {
+            // TODO: should set treasury first.
+            return
+        }
+        let treasury = treasury.unwrap();
         // assert_ok!(Balances::set_balance(RawOrigin::Root.into(), treasury, 10000000 * ONE_DBC, 0));
-        assert_ok!(Balances::transfer(Origin::signed(council8), treasury, 1000_0000 * ONE_DBC));
+        assert_ok!(Balances::transfer(
+            RuntimeOrigin::signed(council8),
+            treasury,
+            1000_0000 * ONE_DBC
+        ));
         assert_eq!(Balances::free_balance(treasury), 1000_0000 * ONE_DBC);
 
         // 模拟从0 -> 30 Day

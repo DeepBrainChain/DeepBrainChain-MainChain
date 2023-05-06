@@ -306,7 +306,8 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::StakeFailed)?;
             }
 
-            Self::book_report(committee.clone(), report_id, &mut report_info, order_stake).map_err(|_| Error::<T>::Unknown)?;
+            Self::book_report(committee.clone(), report_id, &mut report_info, order_stake)
+                .map_err(|_| Error::<T>::Unknown)?;
             Self::deposit_event(Event::CommitteeBookReport(committee, report_id));
             Ok(().into())
         }

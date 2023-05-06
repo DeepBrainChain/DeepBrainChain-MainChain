@@ -26,12 +26,12 @@ fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
 
         // 记录：ReportInfo, LiveReport, ReporterReport 并支付处理所需的金额
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(reporter),
+            RuntimeOrigin::signed(reporter),
             crate::MachineFaultType::RentedInaccessible(machine_id.clone(), 0),
         ));
 
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee), 0));
 
         // 委员会首先提交Hash: 内容为 订单ID + 验证人自己的随机数 + 机器是否有问题
         // hash(0abcd1) => 0x73124a023f585b4018b9ed3593c7470a
@@ -40,7 +40,7 @@ fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
         // - Writes:
         // LiveReport, CommitteeOps, CommitteeOrder, ReportInfo
         assert_ok!(MaintainCommittee::committee_submit_verify_hash(
-            Origin::signed(committee),
+            RuntimeOrigin::signed(committee),
             0,
             offline_committee_hash.clone()
         ));
@@ -49,7 +49,7 @@ fn after_report_machine_inaccessible() -> sp_io::TestExternalities {
         // - Writes:
         // ReportInfo, committee_ops,
         assert_ok!(MaintainCommittee::committee_submit_inaccessible_raw(
-            Origin::signed(committee),
+            RuntimeOrigin::signed(committee),
             0,
             "abcd".as_bytes().to_vec(),
             true
@@ -87,11 +87,11 @@ fn apply_slash_review_case1() {
 
         // Stash apply reonline
         assert_ok!(OnlineProfile::controller_report_online(
-            Origin::signed(controller),
+            RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
 
-        let machine_info = OnlineProfile::machines_info(&machine_id);
+        let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         {
             assert_eq!(machine_info.machine_status, MachineStatus::Rented);
             assert_eq!(
@@ -99,8 +99,8 @@ fn apply_slash_review_case1() {
                 &LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
             );
             assert_eq!(
-                &OnlineProfile::pending_slash(0),
-                &OPPendingSlashInfo {
+                OnlineProfile::pending_slash(0),
+                Some(OPPendingSlashInfo {
                     slash_who: machine_stash.clone(),
                     machine_id: machine_id.clone(),
                     slash_time: 24,
@@ -110,22 +110,21 @@ fn apply_slash_review_case1() {
                     renters: vec![reporter],
                     reward_to_committee: Some(vec![committee]),
                     slash_reason: OPSlashReason::RentedInaccessible(11),
-                    ..Default::default()
-                }
+                })
             );
         }
 
-        assert_ok!(OnlineProfile::apply_slash_review(Origin::signed(controller), 0, vec![]));
+        assert_ok!(OnlineProfile::apply_slash_review(RuntimeOrigin::signed(controller), 0, vec![]));
         {
             assert_eq!(
-                &OnlineProfile::pending_slash_review(0),
-                &OPPendingSlashReviewInfo {
+                OnlineProfile::pending_slash_review(0),
+                Some(OPPendingSlashReviewInfo {
                     applicant: controller,
                     staked_amount: 1000 * ONE_DBC,
                     apply_time: 24,
                     expire_time: 24 + 2880 * 2,
-                    ..Default::default()
-                }
+                    reason: todo!()
+                })
             );
             assert_eq!(
                 Balances::free_balance(machine_stash),
@@ -135,14 +134,8 @@ fn apply_slash_review_case1() {
 
         assert_ok!(OnlineProfile::do_cancel_slash(0));
         {
-            assert_eq!(
-                &OnlineProfile::pending_slash(0),
-                &OPPendingSlashInfo { ..Default::default() }
-            );
-            assert_eq!(
-                &OnlineProfile::pending_slash_review(0),
-                &OPPendingSlashReviewInfo { ..Default::default() }
-            );
+            assert_eq!(OnlineProfile::pending_slash(0), None);
+            assert_eq!(OnlineProfile::pending_slash_review(0), None);
             assert_eq!(
                 Balances::free_balance(machine_stash),
                 INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC
@@ -165,17 +158,17 @@ fn apply_slash_review_case1_1() {
 
         // Stash apply reonline
         assert_ok!(OnlineProfile::controller_report_online(
-            Origin::signed(controller),
+            RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
 
-        assert_ok!(OnlineProfile::apply_slash_review(Origin::signed(controller), 0, vec![]));
+        assert_ok!(OnlineProfile::apply_slash_review(RuntimeOrigin::signed(controller), 0, vec![]));
 
         // TODO: 没有执行取消，则两天后被执行
         run_to_block(25 + 2880 * 2);
 
         // assert_eq!(<online_profile::PendingSlashReview<TestRuntime>>::contains_key(0), true);
-        assert_eq!(OnlineProfile::pending_slash_review(0), OPPendingSlashReviewInfo::default());
+        assert_eq!(OnlineProfile::pending_slash_review(0), None);
         // 机器400000, 委员会质押20000, 申述1000， 罚款16000
         assert_eq!(
             Balances::free_balance(machine_stash),

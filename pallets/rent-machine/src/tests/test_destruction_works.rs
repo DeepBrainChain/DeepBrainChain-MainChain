@@ -26,8 +26,13 @@ fn test_phase1_destruction_works() {
         // Committee2 is also Two
         let pot_two = sr25519::Public::from(Sr25519Keyring::Two);
 
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 4, 60));
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter1), 0));
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(renter1),
+            machine_id.clone(),
+            4,
+            60
+        ));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
 
         // 检查租金
         assert_eq!(
@@ -64,8 +69,13 @@ fn test_phase2_destruction_works() {
         // Committee2 is also Two
         let pot_two = sr25519::Public::from(Sr25519Keyring::Two);
 
-        assert_ok!(RentMachine::rent_machine(Origin::signed(renter1), machine_id.clone(), 4, 60));
-        assert_ok!(RentMachine::confirm_rent(Origin::signed(renter1), 0));
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(renter1),
+            machine_id.clone(),
+            4,
+            60
+        ));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
 
         // 检查租金
         assert_eq!(Balances::free_balance(&stash), INIT_BALANCE - 400000 * ONE_DBC);

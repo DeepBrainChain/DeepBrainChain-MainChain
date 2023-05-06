@@ -28,7 +28,7 @@ fn test_machine_online_refused_after_some_online() {
         let server_room = OnlineProfile::stash_server_rooms(&*stash);
 
         assert_ok!(OnlineProfile::bond_machine(
-            Origin::signed(*controller),
+            RuntimeOrigin::signed(*controller),
             machine_id2.clone(),
             msg.as_bytes().to_vec(),
             hex::decode(sig).unwrap()
@@ -36,7 +36,7 @@ fn test_machine_online_refused_after_some_online() {
 
         // 控制账户添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
-            Origin::signed(*controller),
+            RuntimeOrigin::signed(*controller),
             machine_id2.clone(),
             StakerCustomizeInfo {
                 server_room: server_room[0],
@@ -57,17 +57,17 @@ fn test_machine_online_refused_after_some_online() {
         let machine_info_hash3: [u8; 16] =
             hex::decode("5425dd7deff26254321b6682a92254db").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             machine_id2.clone(),
             machine_info_hash1
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             machine_id2.clone(),
             machine_info_hash2
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             machine_id2.clone(),
             machine_info_hash3
         ));
@@ -92,17 +92,17 @@ fn test_machine_online_refused_after_some_online() {
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             committee_upload_info
         ));
 
@@ -117,7 +117,7 @@ fn test_machine_online_refused_after_some_online() {
         // Add two days later stash being slashed:
         assert_eq!(
             OnlineCommittee::pending_slash(0),
-            crate::OCPendingSlashInfo {
+            Some(crate::OCPendingSlashInfo {
                 machine_id: machine_id2.to_vec(),
                 machine_stash: *stash,
                 stash_slash_amount: 5000 * ONE_DBC,
@@ -129,7 +129,7 @@ fn test_machine_online_refused_after_some_online() {
                 slash_exec_time: 14 + 2880 * 2,
                 book_result: OCBookResultType::OnlineRefused,
                 slash_result: OCSlashResult::Pending,
-            }
+            })
         );
 
         // on_initialize will do slash
@@ -169,27 +169,29 @@ fn test_machine_online_refused_claim_reserved() {
 
         assert_eq!(
             OnlineCommittee::machine_committee(&*machine_id),
-            OCMachineCommitteeList {
+            Some(OCMachineCommitteeList {
                 book_time: 6,
                 booked_committee: vec![*committee2, *committee1, *committee4],
                 confirm_start_time: 6 + 4320,
                 status: OCVerifyStatus::SubmittingHash,
-                ..Default::default()
-            }
+                hashed_committee: todo!(),
+                confirmed_committee: todo!(),
+                onlined_committee: todo!()
+            })
         );
 
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             machine_id.clone(),
             machine_info_hash3
         ));
@@ -214,17 +216,17 @@ fn test_machine_online_refused_claim_reserved() {
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             committee_upload_info
         ));
 
@@ -236,7 +238,7 @@ fn test_machine_online_refused_claim_reserved() {
         // Add two days later stash being slashed:
         assert_eq!(
             OnlineCommittee::pending_slash(0),
-            crate::OCPendingSlashInfo {
+            Some(crate::OCPendingSlashInfo {
                 machine_id: machine_id.to_vec(),
                 machine_stash: *stash,
                 stash_slash_amount: 5000 * ONE_DBC,
@@ -248,7 +250,7 @@ fn test_machine_online_refused_claim_reserved() {
                 slash_exec_time: 11 + 2880 * 2,
                 book_result: OCBookResultType::OnlineRefused,
                 slash_result: OCSlashResult::Pending,
-            }
+            })
         );
 
         // 5771 on_initialize will do slash
@@ -295,17 +297,17 @@ fn test_online_refused_apply_review_ignored_works() {
             hex::decode("73af18cb31a2ebbea4eab9e9e519539e").unwrap().try_into().unwrap();
 
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             machine_id.clone(),
             machine_info_hash3
         ));
@@ -330,35 +332,39 @@ fn test_online_refused_apply_review_ignored_works() {
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             committee_upload_info
         ));
 
         run_to_block(11);
 
         // FIXME: 这里改为stash
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(*controller), 0, vec![]));
+        assert_ok!(OnlineCommittee::apply_slash_review(
+            RuntimeOrigin::signed(*controller),
+            0,
+            vec![]
+        ));
         assert_eq!(Balances::reserved_balance(*stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
         assert_eq!(OnlineProfile::stash_stake(*stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
         assert_eq!(
             OnlineCommittee::pending_slash_review(0),
-            OCPendingSlashReviewInfo {
+            Some(OCPendingSlashReviewInfo {
                 applicant: *stash,
                 staked_amount: 1000 * ONE_DBC,
                 apply_time: 12,
                 expire_time: 11 + 2880 * 2,
                 reason: vec![],
-            }
+            })
         );
 
         run_to_block(11 + 2880 * 2);
@@ -403,17 +409,17 @@ fn test_online_refused_apply_review_succeed_works() {
             hex::decode("73af18cb31a2ebbea4eab9e9e519539e").unwrap().try_into().unwrap();
 
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             machine_id.clone(),
             machine_info_hash3
         ));
@@ -438,24 +444,28 @@ fn test_online_refused_apply_review_succeed_works() {
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             committee_upload_info.clone()
         ));
 
         run_to_block(11);
 
         // stash申诉
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(*controller), 0, vec![]));
+        assert_ok!(OnlineCommittee::apply_slash_review(
+            RuntimeOrigin::signed(*controller),
+            0,
+            vec![]
+        ));
 
         // 申诉时的状态
         {
@@ -463,13 +473,13 @@ fn test_online_refused_apply_review_succeed_works() {
             assert_eq!(OnlineProfile::stash_stake(*stash), 5000 * ONE_DBC + 1000 * ONE_DBC);
             assert_eq!(
                 OnlineCommittee::pending_slash_review(0),
-                OCPendingSlashReviewInfo {
+                Some(OCPendingSlashReviewInfo {
                     applicant: *stash,
                     staked_amount: 1000 * ONE_DBC,
                     apply_time: 12,
                     expire_time: 11 + 2880 * 2,
                     reason: vec![],
-                }
+                })
             );
         }
 
@@ -511,17 +521,17 @@ fn test_online_refused_1_2_apply_review_failed_works() {
             hex::decode("4a6b2df1e1a77b9bcdab5e31dc7950d2").unwrap().try_into().unwrap();
 
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             machine_id.clone(),
             machine_info_hash3
         ));
@@ -546,25 +556,29 @@ fn test_online_refused_1_2_apply_review_failed_works() {
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         committee_upload_info.is_support = true;
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             committee_upload_info
         ));
 
         run_to_block(11);
 
         // stash申诉
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(*controller), 0, vec![]));
+        assert_ok!(OnlineCommittee::apply_slash_review(
+            RuntimeOrigin::signed(*controller),
+            0,
+            vec![]
+        ));
 
         // TODO: add this
     })
@@ -582,17 +596,17 @@ fn test_online_refused_1_2_apply_review_succeed_works() {
             hex::decode("73af18cb31a2ebbea4eab9e9e519539e").unwrap().try_into().unwrap();
 
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             machine_id.clone(),
             machine_info_hash1
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             machine_id.clone(),
             machine_info_hash2
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             machine_id.clone(),
             machine_info_hash3
         ));
@@ -617,24 +631,28 @@ fn test_online_refused_1_2_apply_review_succeed_works() {
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee2),
+            RuntimeOrigin::signed(*committee2),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            Origin::signed(*committee4),
+            RuntimeOrigin::signed(*committee4),
             committee_upload_info
         ));
 
         run_to_block(11);
 
         // stash申诉
-        assert_ok!(OnlineCommittee::apply_slash_review(Origin::signed(*controller), 0, vec![]));
+        assert_ok!(OnlineCommittee::apply_slash_review(
+            RuntimeOrigin::signed(*controller),
+            0,
+            vec![]
+        ));
 
         // TODO: add this
     })

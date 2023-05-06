@@ -976,6 +976,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core",
+ "sp-io",
  "sp-keyring",
  "sp-runtime",
  "sp-std",
@@ -7110,6 +7111,7 @@ name = "rent-machine"
 version = "0.1.0"
 dependencies = [
  "committee",
+ "dbc-price-ocw",
  "dbc-support",
  "frame-support",
  "frame-system",
@@ -7126,6 +7128,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core",
+ "sp-io",
  "sp-keyring",
  "sp-runtime",
  "sp-std",
@@ -8869,6 +8872,7 @@ dependencies = [
  "online-profile",
  "pallet-identity",
  "parity-scale-codec",
+ "scale-info",
  "serde",
  "sp-std",
 ]

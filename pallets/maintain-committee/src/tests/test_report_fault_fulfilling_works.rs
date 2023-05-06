@@ -39,11 +39,11 @@ fn report_machine_fault_fulfilling_works() {
             hex::decode("7980cfd18a2e6cb338f4924ae0fff495").unwrap().try_into().unwrap();
 
         assert_ok!(MaintainCommittee::report_machine_fault(
-            Origin::signed(*reporter),
+            RuntimeOrigin::signed(*reporter),
             crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
         ));
         // 委员会订阅机器故障报告
-        assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(*committee1), 0));
+        assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(*committee1), 0));
 
         // 提交加密信息
         let encrypted_err_info: Vec<u8> =
@@ -52,14 +52,14 @@ fn report_machine_fault_fulfilling_works() {
                 .try_into()
                 .unwrap();
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
-            Origin::signed(*reporter),
+            RuntimeOrigin::signed(*reporter),
             0,
             *committee1,
             encrypted_err_info.clone()
         ));
         // 提交验证Hash
         assert_ok!(MaintainCommittee::committee_submit_verify_hash(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             0,
             committee_hash.clone()
         ));
@@ -72,7 +72,7 @@ fn report_machine_fault_fulfilling_works() {
         // ReportInfo, CommitteeOps
         let extra_err_info = Vec::new();
         assert_ok!(MaintainCommittee::committee_submit_verify_raw(
-            Origin::signed(*committee1),
+            RuntimeOrigin::signed(*committee1),
             0,
             machine_id.clone(),
             0,
@@ -97,7 +97,7 @@ fn report_machine_fault_fulfilling_works() {
 
         // 报告人上线机器
         assert_ok!(OnlineProfile::controller_report_online(
-            Origin::signed(*controller),
+            RuntimeOrigin::signed(*controller),
             machine_id.clone()
         ));
         {

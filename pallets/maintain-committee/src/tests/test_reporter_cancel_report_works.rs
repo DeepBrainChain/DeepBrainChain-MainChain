@@ -21,7 +21,7 @@ fn test_committee_cancel_report_works() {
         // 报告硬件造假允许取消
         {
             assert_ok!(MaintainCommittee::report_machine_fault(
-                Origin::signed(reporter),
+                RuntimeOrigin::signed(reporter),
                 crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
             ));
             assert_eq!(
@@ -34,7 +34,10 @@ fn test_committee_cancel_report_works() {
                 }
             );
 
-            assert_ok!(MaintainCommittee::reporter_cancel_report(Origin::signed(reporter), 0));
+            assert_ok!(MaintainCommittee::reporter_cancel_report(
+                RuntimeOrigin::signed(reporter),
+                0
+            ));
             assert_eq!(
                 &MaintainCommittee::reporter_stake(reporter),
                 &crate::ReporterStakeInfo {
@@ -49,7 +52,7 @@ fn test_committee_cancel_report_works() {
         // 报告租用时无法访问允许取消
         {
             assert_ok!(MaintainCommittee::report_machine_fault(
-                Origin::signed(reporter),
+                RuntimeOrigin::signed(reporter),
                 crate::MachineFaultType::RentedInaccessible(machine_id, 0)
             ));
             assert_eq!(
@@ -61,7 +64,10 @@ fn test_committee_cancel_report_works() {
                     claimed_reward: 0
                 }
             );
-            assert_ok!(MaintainCommittee::reporter_cancel_report(Origin::signed(reporter), 1));
+            assert_ok!(MaintainCommittee::reporter_cancel_report(
+                RuntimeOrigin::signed(reporter),
+                1
+            ));
             assert_eq!(
                 &MaintainCommittee::reporter_stake(reporter),
                 &crate::ReporterStakeInfo {
@@ -95,14 +101,17 @@ fn test_committee_cancel_booked_report_works() {
         // 报告硬件造假允许取消
         {
             assert_ok!(MaintainCommittee::report_machine_fault(
-                Origin::signed(reporter),
+                RuntimeOrigin::signed(reporter),
                 crate::MachineFaultType::RentedHardwareMalfunction(report_hash, reporter_boxpubkey),
             ));
 
             // 委员会订阅机器故障报告
-            assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee), 0));
+            assert_ok!(MaintainCommittee::committee_book_report(
+                RuntimeOrigin::signed(committee),
+                0
+            ));
             assert_noop!(
-                MaintainCommittee::reporter_cancel_report(Origin::signed(reporter), 0),
+                MaintainCommittee::reporter_cancel_report(RuntimeOrigin::signed(reporter), 0),
                 Error::<TestRuntime>::OrderNotAllowCancel
             );
         }
@@ -110,15 +119,18 @@ fn test_committee_cancel_booked_report_works() {
         // 报告租用时无法访问允许取消
         {
             assert_ok!(MaintainCommittee::report_machine_fault(
-                Origin::signed(reporter),
+                RuntimeOrigin::signed(reporter),
                 crate::MachineFaultType::RentedInaccessible(machine_id, 0)
             ));
 
             // 委员会订阅机器故障报告
-            assert_ok!(MaintainCommittee::committee_book_report(Origin::signed(committee), 1));
+            assert_ok!(MaintainCommittee::committee_book_report(
+                RuntimeOrigin::signed(committee),
+                1
+            ));
 
             assert_noop!(
-                MaintainCommittee::reporter_cancel_report(Origin::signed(reporter), 1),
+                MaintainCommittee::reporter_cancel_report(RuntimeOrigin::signed(reporter), 1),
                 Error::<TestRuntime>::OrderNotAllowCancel
             );
         }
