@@ -79,7 +79,14 @@ where
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash, BlockNumber>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
+
+    C::Api: committee_rpc::CmStorageRuntimeApi<Block, AccountId>,
     C::Api: simple_rpc_rpc::SrStorageRuntimeApi<Block, AccountId, Balance>,
+    C::Api: online_profile_rpc::OpStorageRuntimeApi<Block, AccountId, Balance, BlockNumber>,
+    C::Api: online_committee_rpc::OcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
+    C::Api: rent_machine_rpc::RmStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
+    C::Api: terminating_rental_rpc::IrStorageRuntimeApi<Block, AccountId, Balance, BlockNumber>,
+
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
@@ -94,9 +101,15 @@ where
     use sc_rpc::dev::{Dev, DevApiServer};
     use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
     use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
-    use simple_rpc_rpc::{SimpleRpcApiServer, SrStorage};
     use substrate_frame_rpc_system::{System, SystemApiServer};
     use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
+
+    use committee_rpc::{CmRpcApiServer, CmStorage};
+    use online_committee_rpc::{OcRpcApiServer, OcStorage};
+    use online_profile_rpc::{OpRpcApiServer, OpStorage};
+    use rent_machine_rpc::{RmRpcApiServer, RmStorage};
+    use simple_rpc_rpc::{SimpleRpcApiServer, SrStorage};
+    use terminating_rental_rpc::{IrRpcApiServer, IrStorage};
 
     let mut io = RpcModule::new(());
     let FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa } = deps;
@@ -122,6 +135,12 @@ where
     io.merge(Mmr::new(client.clone()).into_rpc())?;
     io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
     io.merge(SrStorage::new(client.clone()).into_rpc())?;
+    io.merge(CmStorage::new(client.clone()).into_rpc())?;
+    io.merge(OcStorage::new(client.clone()).into_rpc())?;
+    io.merge(OpStorage::new(client.clone()).into_rpc())?;
+    io.merge(RmStorage::new(client.clone()).into_rpc())?;
+    io.merge(IrStorage::new(client.clone()).into_rpc())?;
+
     io.merge(
         Babe::new(
             client.clone(),

@@ -26,6 +26,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 pub use dbc_primitives::{AccountId, Signature};
 use dbc_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
+use dbc_support::{rental_type::MachineGPUOrder, EraIndex, MachineId, RentOrderId};
 use frame_election_provider_support::{
     onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
 };
@@ -2125,6 +2126,134 @@ impl_runtime_apis! {
 
         fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<simple_rpc::StakerListInfo<Balance, AccountId>> {
             SimpleRpc::get_staker_list_info(cur_page, per_page)
+        }
+    }
+
+    // Here implement custom runtime API.
+    impl online_profile_runtime_api::OpRpcApi<Block, AccountId, Balance, BlockNumber> for Runtime {
+        fn get_total_staker_num() -> u64 {
+            OnlineProfile::get_total_staker_num()
+        }
+
+        fn get_op_info() -> online_profile::SysInfoDetail<Balance> {
+            OnlineProfile::get_op_info()
+        }
+
+        fn get_staker_info(who: AccountId) -> online_profile::rpc_types::StakerInfo<Balance, BlockNumber, AccountId> {
+            OnlineProfile::get_staker_info(who)
+        }
+
+        fn get_machine_list() -> dbc_support::live_machine::LiveMachine {
+            OnlineProfile::get_machine_list()
+        }
+
+        fn get_machine_info(machine_id: MachineId) -> Option<dbc_support::machine_info::MachineInfo<AccountId, BlockNumber, Balance>> {
+            OnlineProfile::get_machine_info(machine_id)
+        }
+
+        fn get_pos_gpu_info() -> Vec<(dbc_support::machine_type::Longitude, dbc_support::machine_type::Latitude, online_profile::PosInfo)> {
+            OnlineProfile::get_pos_gpu_info()
+        }
+
+        fn get_machine_era_reward(machine_id: MachineId, era_index: EraIndex) -> Balance {
+            OnlineProfile::get_machine_era_reward(machine_id, era_index)
+        }
+
+        fn get_machine_era_released_reward(machine_id: MachineId, era_index: EraIndex) -> Balance {
+            OnlineProfile::get_machine_era_released_reward(machine_id, era_index)
+        }
+
+        fn get_stash_era_reward(stash: AccountId, era_index: EraIndex) -> Balance {
+            OnlineProfile::get_stash_era_reward(stash, era_index)
+        }
+
+        fn get_stash_era_released_reward(stash: AccountId, era_index: EraIndex) -> Balance {
+            OnlineProfile::get_stash_era_released_reward(stash, era_index)
+        }
+
+    }
+
+    impl online_committee_runtime_api::OcRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
+        fn get_committee_machine_list(committee: AccountId) -> dbc_support::verify_online::OCCommitteeMachineList {
+            OnlineCommittee::get_committee_machine_list(committee)
+        }
+
+        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> Option<online_committee::rpc::RpcOCCommitteeOps<BlockNumber, Balance>> {
+            OnlineCommittee::get_committee_ops(committee, machine_id)
+        }
+
+        fn get_machine_committee_list(machine_id: MachineId) -> Option<dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber>> {
+            OnlineCommittee::get_machine_committee_list(machine_id)
+        }
+    }
+
+    impl rent_machine_runtime_api::RmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
+        fn get_rent_order(rent_id: RentOrderId) -> Option<dbc_support::rental_type::RentOrderDetail<AccountId, BlockNumber, Balance>> {
+            RentMachine::get_rent_order(rent_id)
+        }
+
+        fn get_rent_list(renter: AccountId) -> Vec<RentOrderId> {
+            RentMachine::get_rent_list(renter)
+        }
+
+        fn is_machine_renter(machine_id: MachineId, renter: AccountId) -> bool {
+            RentMachine::is_machine_renter(machine_id, renter)
+        }
+
+        fn get_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
+            RentMachine::get_machine_rent_id(machine_id)
+        }
+    }
+
+    impl committee_runtime_api::CmRpcApi<Block, AccountId> for Runtime {
+        fn get_committee_list() -> committee::CommitteeList<AccountId> {
+            Committee::get_committee_list()
+        }
+    }
+
+    impl terminating_rental_runtime_api::IrRpcApi<Block, AccountId, Balance, BlockNumber> for Runtime {
+        fn get_total_staker_num() -> u64 {
+            TerminatingRental::get_total_staker_num()
+        }
+
+        fn get_staker_info(who: AccountId) -> terminating_rental::rpc_types::StakerInfo<Balance, BlockNumber, AccountId> {
+            TerminatingRental::get_staker_info(who)
+        }
+
+        fn get_machine_list() -> dbc_support::live_machine::LiveMachine {
+            TerminatingRental::get_machine_list()
+        }
+
+        fn get_machine_info(machine_id: MachineId) -> Option<dbc_support::machine_info::MachineInfo<AccountId, BlockNumber, Balance>> {
+            TerminatingRental::get_machine_info(machine_id)
+        }
+
+        fn get_committee_machine_list(committee: AccountId) -> dbc_support::verify_online::OCCommitteeMachineList {
+            TerminatingRental::get_committee_machine_list(committee)
+        }
+
+        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> Option<terminating_rental::rpc_types::RpcIRCommitteeOps<BlockNumber, Balance>> {
+            TerminatingRental::get_committee_ops(committee, machine_id)
+        }
+
+        fn get_machine_committee_list(machine_id: MachineId) -> Option<dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber>> {
+            TerminatingRental::get_machine_committee_list(machine_id)
+        }
+
+        fn get_rent_order(rent_id: RentOrderId) -> Option<dbc_support::rental_type::RentOrderDetail<AccountId, BlockNumber, Balance>> {
+            TerminatingRental::get_rent_order(rent_id)
+        }
+
+        fn get_rent_list(renter: AccountId) -> Vec<RentOrderId> {
+            TerminatingRental::get_rent_list(renter)
+        }
+
+        fn is_machine_renter(machine_id: MachineId, renter: AccountId) -> bool {
+            TerminatingRental::is_machine_renter(machine_id, renter)
+        }
+
+        fn get_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
+            TerminatingRental::get_machine_rent_id(machine_id)
         }
     }
 }

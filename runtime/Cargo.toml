@@ -49,7 +49,7 @@ frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", b
 frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 frame-try-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false, optional = true }
-pallet-alliance = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+# pallet-alliance = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
@@ -67,7 +67,7 @@ pallet-election-provider-multi-phase = { git = "https://github.com/paritytech/su
 pallet-election-provider-support-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false, optional = true }
 pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 # pallet-fast-unstake = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-pallet-nis = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+# pallet-nis = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-im-online = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-indices = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
@@ -107,21 +107,28 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 # pallet-transaction-storage = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-pallet-uniques = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+# pallet-uniques = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 # pallet-whitelist = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 
 # DBC pallets
-generic-func = { path = "../pallets/generic-func", default-features = false }
+committee = { path = "../pallets/committee", default-features = false }
 council-reward = { path = "../pallets/council-reward", default-features = false }
 dbc-price-ocw = { path = "../pallets/dbc-price-ocw", default-features = false }
-online-profile = { path = "../pallets/online-profile", default-features = false }
-committee = { path = "../pallets/committee", default-features = false }
-simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-features = false }
-simple-rpc-runtime-api = { package = "simple-rpc-runtime-api", path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
-online-committee = { path = "../pallets/online-committee", default-features = false }
-rent-machine = { path = "../pallets/rent-machine", default-features = false }
+dbc-support = { path = "../pallets/support", default-features = false }
+generic-func = { path = "../pallets/generic-func", default-features = false }
 maintain-committee = { path = "../pallets/maintain-committee", default-features = false }
+online-committee = { path = "../pallets/online-committee", default-features = false }
+online-profile = { path = "../pallets/online-profile", default-features = false }
+rent-machine = { path = "../pallets/rent-machine", default-features = false }
+simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-features = false }
 terminating-rental = { path = "../pallets/terminating-rental", default-features =false }
+
+committee-runtime-api = { path = "../pallets/committee/rpc/runtime-api", default-features = false }
+online-committee-runtime-api = { path = "../pallets/online-committee/rpc/runtime-api", default-features = false }
+online-profile-runtime-api = { path = "../pallets/online-profile/rpc/runtime-api", default-features = false }
+rent-machine-runtime-api = { path = "../pallets/rent-machine/rpc/runtime-api", default-features = false }
+simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
+terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/runtime-api", default-features =false }
 
 [features]
 default = ["std"]
@@ -153,7 +160,7 @@ std = [
 	"pallet-elections-phragmen/std",
 	# "pallet-fast-unstake/std",
 	"frame-executive/std",
-	"pallet-nis/std",
+	# "pallet-nis/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
 	"pallet-indices/std",
@@ -205,32 +212,40 @@ std = [
 	# "pallet-remark/std",
 	"pallet-root-testing/std",
 	"pallet-recovery/std",
-	"pallet-uniques/std",
+	# "pallet-uniques/std",
 	"pallet-nfts/std",
 	"log/std",
 	"frame-try-runtime?/std",
 	"sp-io/std",
 	"pallet-child-bounties/std",
-	"pallet-alliance/std",
+	# "pallet-alliance/std",
 	"substrate-wasm-builder",
-	"generic-func/std",
+
+	"committee/std",
 	"council-reward/std",
 	"dbc-price-ocw/std",
-	"online-profile/std",
-	"committee/std",
-	"simple-rpc/std",
- 	"simple-rpc-runtime-api/std",
-	"online-committee/std",
-	"rent-machine/std",
+	"dbc-support/std",
+	"generic-func/std",
 	"maintain-committee/std",
+	"online-committee/std",
+	"online-profile/std",
+	"rent-machine/std",
+	"simple-rpc/std",
 	"terminating-rental/std",
+
+	"committee-runtime-api/std",
+	"online-committee-runtime-api/std",
+	"online-profile-runtime-api/std",
+	"rent-machine-runtime-api/std",
+	"simple-rpc-runtime-api/std",
+	"terminating-rental-runtime-api/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-alliance/runtime-benchmarks",
+	# "pallet-alliance/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
@@ -245,7 +260,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
 	# "pallet-fast-unstake/runtime-benchmarks",
-	"pallet-nis/runtime-benchmarks",
+	# "pallet-nis/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
@@ -273,7 +288,7 @@ runtime-benchmarks = [
 	# "pallet-transaction-storage/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"pallet-uniques/runtime-benchmarks",
+	# "pallet-uniques/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	# "pallet-whitelist/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
@@ -283,7 +298,7 @@ try-runtime = [
 	"frame-executive/try-runtime",
 	"frame-system/try-runtime",
 	"frame-support/try-runtime",
-	"pallet-alliance/try-runtime",
+	# "pallet-alliance/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -299,7 +314,7 @@ try-runtime = [
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
 	# "pallet-fast-unstake/try-runtime",
-	"pallet-nis/try-runtime",
+	# "pallet-nis/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-im-online/try-runtime",
 	"pallet-indices/try-runtime",
@@ -332,7 +347,7 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-asset-tx-payment/try-runtime",
 	# "pallet-transaction-storage/try-runtime",
-	"pallet-uniques/try-runtime",
+	# "pallet-uniques/try-runtime",
 	"pallet-nfts/try-runtime",
 	# "pallet-whitelist/try-runtime",
 ]

@@ -5,10 +5,7 @@ edition = "2021"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
-jsonrpc-core = "18.0"
-jsonrpc-core-client = "18.0"
-jsonrpc-derive = "18.0"
-serde = { version = "1.0.101", features = ["derive"] }
+jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
 
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
