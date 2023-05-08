@@ -415,7 +415,7 @@ pub mod pallet {
                 Error::<T>::AlreadyController
             );
 
-            let pre_controller = Self::stash_controller(&stash).unwrap();
+            let pre_controller = Self::stash_controller(&stash).ok_or(Error::<T>::Unknown)?;
             let controller_machines = Self::controller_machines(&pre_controller);
 
             controller_machines

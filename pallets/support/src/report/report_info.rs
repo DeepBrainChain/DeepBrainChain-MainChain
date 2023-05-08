@@ -275,9 +275,9 @@ where
         }
 
         // 一般错误报告
-        if machine_id.is_some() {
+        if let Some(machine_id) = machine_id {
             self.err_info = err_reason;
-            self.machine_id = machine_id.unwrap();
+            self.machine_id = machine_id;
         }
     }
 }

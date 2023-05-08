@@ -46,14 +46,13 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     pub fn get_staker_identity(account: impl EncodeLike<T::AccountId>) -> Vec<u8> {
         let account_info = <pallet_identity::Pallet<T>>::identity(account);
-        if account_info.is_none() {
-            return Vec::new()
-        }
-        let account_info = account_info.unwrap();
 
-        match account_info.info.display {
-            Data::Raw(out) => return out.into(),
-            _ => return Vec::new(),
+        match account_info {
+            None => return Vec::new(),
+            Some(account_info) => match account_info.info.display {
+                Data::Raw(out) => return out.into(),
+                _ => return Vec::new(),
+            },
         }
     }
 

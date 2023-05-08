@@ -20,7 +20,7 @@ sp_api::decl_runtime_apis! {
         BlockNumber: Codec + MaybeDisplay,
         Balance: Codec + MaybeDisplay,
     {
-        fn get_rent_order(rent_id: RentOrderId) -> RentOrderDetail<AccountId, BlockNumber, Balance>;
+        fn get_rent_order(rent_id: RentOrderId) -> Option<RentOrderDetail<AccountId, BlockNumber, Balance>>;
         fn get_rent_list(renter: AccountId) -> Vec<RentOrderId>;
 
         fn is_machine_renter(machine_id: MachineId, renter: AccountId) -> bool;

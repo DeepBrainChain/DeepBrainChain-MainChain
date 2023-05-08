@@ -28,8 +28,8 @@ pub struct RpcOCCommitteeOps<BlockNumber, Balance> {
 impl<T: Config> Pallet<T> {
     pub fn get_machine_committee_list(
         machine_id: MachineId,
-    ) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
-        Self::machine_committee(machine_id).unwrap()
+    ) -> Option<OCMachineCommitteeList<T::AccountId, T::BlockNumber>> {
+        Self::machine_committee(machine_id)
     }
 
     pub fn get_committee_machine_list(committee: T::AccountId) -> OCCommitteeMachineList {
@@ -39,11 +39,15 @@ impl<T: Config> Pallet<T> {
     pub fn get_committee_ops(
         committee: T::AccountId,
         machine_id: MachineId,
-    ) -> RpcOCCommitteeOps<T::BlockNumber, BalanceOf<T>> {
+    ) -> Option<RpcOCCommitteeOps<T::BlockNumber, BalanceOf<T>>> {
         let oc_committee_ops = Self::committee_ops(&committee, &machine_id);
-        let committee_info = Self::machine_committee(&machine_id).unwrap();
 
-        RpcOCCommitteeOps {
+        let committee_info = match Self::machine_committee(&machine_id) {
+            Some(committee_info) => committee_info,
+            None => return None,
+        };
+
+        Some(RpcOCCommitteeOps {
             booked_time: committee_info.book_time,
             staked_dbc: oc_committee_ops.staked_dbc,
             verify_time: oc_committee_ops.verify_time,
@@ -52,6 +56,6 @@ impl<T: Config> Pallet<T> {
             confirm_time: oc_committee_ops.confirm_time,
             machine_status: oc_committee_ops.machine_status,
             machine_info: oc_committee_ops.machine_info,
-        }
+        })
     }
 }

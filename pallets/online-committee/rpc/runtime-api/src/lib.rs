@@ -20,8 +20,8 @@ sp_api::decl_runtime_apis! {
         BlockNumber: Codec + MaybeDisplay,
         Balance: Codec + MaybeDisplay,
     {
-        fn get_machine_committee_list(machine_id: MachineId) -> OCMachineCommitteeList<AccountId, BlockNumber>;
+        fn get_machine_committee_list(machine_id: MachineId) -> Option<OCMachineCommitteeList<AccountId, BlockNumber>>;
         fn get_committee_machine_list(committee: AccountId) -> OCCommitteeMachineList;
-        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> RpcOCCommitteeOps<BlockNumber, Balance>;
+        fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> Option<RpcOCCommitteeOps<BlockNumber, Balance>>;
     }
 }

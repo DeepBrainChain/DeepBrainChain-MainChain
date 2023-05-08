@@ -34,7 +34,10 @@ impl<T: Config> Pallet<T> {
         let mut staker_machines = Vec::new();
 
         for machine_id in &staker_info.total_machine {
-            let machine_info = Self::machines_info(machine_id).unwrap(); // FIXME: unwrap
+            let machine_info = match Self::machines_info(machine_id) {
+                Some(machine_info) => machine_info,
+                None => continue,
+            };
             staker_machines.push(MachineBriefInfo {
                 machine_id: machine_id.to_vec(),
                 gpu_num: machine_info.gpu_num(),
@@ -54,8 +57,8 @@ impl<T: Config> Pallet<T> {
     /// 获取机器详情
     pub fn get_machine_info(
         machine_id: MachineId,
-    ) -> MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        Self::machines_info(&machine_id).unwrap() // FIXME: unwrap
+    ) -> Option<MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>> {
+        Self::machines_info(&machine_id)
     }
 
     /// 获得系统中所有位置列表

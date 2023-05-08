@@ -26,7 +26,10 @@ impl<T: Config> Pallet<T> {
         let mut staker_machines = Vec::new();
 
         for machine_id in &staker_info.total_machine {
-            let machine_info = Self::machines_info(machine_id).unwrap();
+            let machine_info = match Self::machines_info(machine_id) {
+                Some(machine_info) => machine_info,
+                None => continue,
+            };
             staker_machines.push(MachineBriefInfo {
                 machine_id: machine_id.to_vec(),
                 gpu_num: machine_info.gpu_num(),
@@ -46,8 +49,8 @@ impl<T: Config> Pallet<T> {
     /// 获取机器详情
     pub fn get_machine_info(
         machine_id: MachineId,
-    ) -> MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        Self::machines_info(&machine_id).unwrap()
+    ) -> Option<MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>> {
+        Self::machines_info(&machine_id)
     }
 }
 
@@ -55,8 +58,8 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> Pallet<T> {
     pub fn get_machine_committee_list(
         machine_id: MachineId,
-    ) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
-        Self::machine_committee(machine_id).unwrap()
+    ) -> Option<OCMachineCommitteeList<T::AccountId, T::BlockNumber>> {
+        Self::machine_committee(machine_id)
     }
 
     pub fn get_committee_machine_list(committee: T::AccountId) -> OCCommitteeMachineList {
@@ -66,11 +69,14 @@ impl<T: Config> Pallet<T> {
     pub fn get_committee_ops(
         committee: T::AccountId,
         machine_id: MachineId,
-    ) -> RpcIRCommitteeOps<T::BlockNumber, BalanceOf<T>> {
+    ) -> Option<RpcIRCommitteeOps<T::BlockNumber, BalanceOf<T>>> {
         let oc_committee_ops = Self::committee_online_ops(&committee, &machine_id);
-        let committee_info = Self::machine_committee(&machine_id).unwrap();
 
-        RpcIRCommitteeOps {
+        let committee_info = match Self::machine_committee(&machine_id) {
+            Some(committee_info) => committee_info,
+            None => return None,
+        };
+        Some(RpcIRCommitteeOps {
             booked_time: committee_info.book_time,
             staked_dbc: oc_committee_ops.staked_dbc,
             verify_time: oc_committee_ops.verify_time,
@@ -79,15 +85,15 @@ impl<T: Config> Pallet<T> {
             confirm_time: oc_committee_ops.confirm_time,
             machine_status: oc_committee_ops.machine_status,
             machine_info: oc_committee_ops.machine_info,
-        }
+        })
     }
 }
 
 impl<T: Config> Pallet<T> {
     pub fn get_rent_order(
         rent_id: RentOrderId,
-    ) -> RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>> {
-        Self::rent_order(&rent_id).unwrap()
+    ) -> Option<RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>> {
+        Self::rent_order(&rent_id)
     }
 
     pub fn get_rent_list(renter: T::AccountId) -> Vec<RentOrderId> {
@@ -98,10 +104,10 @@ impl<T: Config> Pallet<T> {
         let machine_order = Self::machine_rent_order(machine_id);
 
         for order_id in machine_order.rent_order {
-            let rent_order = Self::rent_order(order_id).unwrap();
-
-            if rent_order.renter == renter {
-                return true
+            if let Some(rent_info) = Self::rent_order(order_id) {
+                if rent_info.renter == renter {
+                    return true
+                }
             }
         }
         false

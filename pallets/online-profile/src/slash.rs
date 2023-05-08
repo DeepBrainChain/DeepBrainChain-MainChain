@@ -52,7 +52,10 @@ impl<T: Config> Pallet<T> {
         let pending_exec_slash = Self::pending_exec_slash(now);
 
         for slash_id in pending_exec_slash {
-            let slash_info = Self::pending_slash(slash_id).unwrap(); // FIXME: unwrap
+            let slash_info = match Self::pending_slash(slash_id) {
+                Some(slash_info) => slash_info,
+                None => continue,
+            };
 
             if matches!(
                 slash_info.slash_reason,

@@ -26,7 +26,7 @@ sp_api::decl_runtime_apis! {
         fn get_op_info() -> SysInfoDetail<Balance>;
         fn get_staker_info(account: AccountId) -> StakerInfo<Balance, BlockNumber, AccountId>;
         fn get_machine_list() -> LiveMachine;
-        fn get_machine_info(machine_id: MachineId) -> MachineInfo<AccountId, BlockNumber, Balance>;
+        fn get_machine_info(machine_id: MachineId) -> Option<MachineInfo<AccountId, BlockNumber, Balance>>;
         fn get_pos_gpu_info() -> Vec<(Longitude, Latitude, PosInfo)>;
         fn get_machine_era_reward(machine_id: MachineId, era_index: EraIndex) -> Balance;
         fn get_machine_era_released_reward(machine_id: MachineId, era_index: EraIndex) -> Balance;
