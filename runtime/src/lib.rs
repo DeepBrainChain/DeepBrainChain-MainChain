@@ -18,6 +18,7 @@
 
 //! The Substrate runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
+#![warn(unused_crate_dependencies)]
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 512.
 #![recursion_limit = "512"]
@@ -1514,10 +1515,10 @@ impl terminating_rental::Config for Runtime {
     type SlashAndReward = GenericFunc;
 }
 
-// impl simple_rpc::Config for Runtime {
-//     type Currency = Balances;
-//     type OPRpcQuery = OnlineProfile;
-// }
+impl simple_rpc::Config for Runtime {
+    type Currency = Balances;
+    type OPRpcQuery = OnlineProfile;
+}
 
 parameter_types! {
     pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
@@ -1591,7 +1592,7 @@ construct_runtime!(
         DBCPriceOCW: dbc_price_ocw,
         OnlineProfile: online_profile,
         Committee: committee,
-        // SimpleRpc: simple_rpc,
+        SimpleRpc: simple_rpc,
         OnlineCommittee: online_committee,
         RentMachine: rent_machine,
         MaintainCommittee: maintain_committee,
@@ -2117,15 +2118,15 @@ impl_runtime_apis! {
         }
     }
 
-    // impl simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance> for Runtime {
-    //     fn get_staker_identity(who: AccountId) -> Vec<u8> {
-    //         SimpleRpc::get_staker_identity(who)
-    //     }
+    impl simple_rpc_runtime_api::SimpleRpcApi<Block, AccountId, Balance> for Runtime {
+        fn get_staker_identity(who: AccountId) -> Vec<u8> {
+            SimpleRpc::get_staker_identity(who)
+        }
 
-    //     fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<simple_rpc::StakerListInfo<Balance, AccountId>> {
-    //         SimpleRpc::get_staker_list_info(cur_page, per_page)
-    //     }
-    // }
+        fn get_staker_list_info(cur_page: u64, per_page: u64) -> Vec<simple_rpc::StakerListInfo<Balance, AccountId>> {
+            SimpleRpc::get_staker_list_info(cur_page, per_page)
+        }
+    }
 }
 
 #[cfg(test)]

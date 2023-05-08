@@ -1743,6 +1743,7 @@ dependencies = [
  "sc-rpc-spec-v2",
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
+ "simple-rpc-rpc",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -1830,6 +1831,8 @@ dependencies = [
  "parity-scale-codec",
  "rent-machine",
  "scale-info",
+ "simple-rpc",
+ "simple-rpc-runtime-api",
  "sp-api",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -8882,9 +8885,7 @@ name = "simple-rpc-rpc"
 version = "0.1.0"
 dependencies = [
  "dbc-support",
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpsee",
  "parity-scale-codec",
  "simple-rpc",
  "simple-rpc-runtime-api",

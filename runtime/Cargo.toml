@@ -116,8 +116,8 @@ council-reward = { path = "../pallets/council-reward", default-features = false 
 dbc-price-ocw = { path = "../pallets/dbc-price-ocw", default-features = false }
 online-profile = { path = "../pallets/online-profile", default-features = false }
 committee = { path = "../pallets/committee", default-features = false }
-# simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-features = false }
-# simple-rpc-runtime-api = { package = "simple-rpc-runtime-api", path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
+simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-features = false }
+simple-rpc-runtime-api = { package = "simple-rpc-runtime-api", path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
 online-committee = { path = "../pallets/online-committee", default-features = false }
 rent-machine = { path = "../pallets/rent-machine", default-features = false }
 maintain-committee = { path = "../pallets/maintain-committee", default-features = false }
@@ -218,8 +218,8 @@ std = [
 	"dbc-price-ocw/std",
 	"online-profile/std",
 	"committee/std",
-	# "simple-rpc/std",
- 	# "simple-rpc-runtime-api/std",
+	"simple-rpc/std",
+ 	"simple-rpc-runtime-api/std",
 	"online-committee/std",
 	"rent-machine/std",
 	"maintain-committee/std",

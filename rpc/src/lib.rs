@@ -79,6 +79,7 @@ where
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash, BlockNumber>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
+    C::Api: simple_rpc_rpc::SrStorageRuntimeApi<Block, AccountId, Balance>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
@@ -93,6 +94,7 @@ where
     use sc_rpc::dev::{Dev, DevApiServer};
     use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
     use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
+    use simple_rpc_rpc::{SimpleRpcApiServer, SrStorage};
     use substrate_frame_rpc_system::{System, SystemApiServer};
     use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
@@ -119,6 +121,7 @@ where
     // These RPCs should use an asynchronous caller instead.
     io.merge(Mmr::new(client.clone()).into_rpc())?;
     io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+    io.merge(SrStorage::new(client.clone()).into_rpc())?;
     io.merge(
         Babe::new(
             client.clone(),

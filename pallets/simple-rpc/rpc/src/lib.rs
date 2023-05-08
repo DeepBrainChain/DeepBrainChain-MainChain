@@ -2,10 +2,13 @@
 
 use codec::Codec;
 use dbc_support::rpc_types::RpcBalance;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use jsonrpsee::{
+    core::{Error as JsonRpseeError, RpcResult},
+    proc_macros::rpc,
+    types::error::{CallError, ErrorCode, ErrorObject},
+};
 use simple_rpc::StakerListInfo;
-use simple_rpc_runtime_api::SimpleRpcApi as SrStorageRuntimeApi;
+pub use simple_rpc_runtime_api::SimpleRpcApi as SrStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -14,21 +17,21 @@ use sp_runtime::{
 };
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
-#[rpc]
+#[rpc(client, server)]
 pub trait SimpleRpcApi<BlockHash, AccountId, Balance>
 where
     Balance: Display + FromStr,
 {
-    #[rpc(name = "onlineProfile_getStakerIdentity")]
-    fn get_staker_identity(&self, account: AccountId, at: Option<BlockHash>) -> Result<String>;
+    #[method(name = "onlineProfile_getStakerIdentity")]
+    fn get_staker_identity(&self, account: AccountId, at: Option<BlockHash>) -> RpcResult<String>;
 
-    #[rpc(name = "onlineProfile_getStakerListInfo")]
+    #[method(name = "onlineProfile_getStakerListInfo")]
     fn get_staker_list_info(
         &self,
         cur_page: u64,
         per_page: u64,
         at: Option<BlockHash>,
-    ) -> Result<Vec<StakerListInfo<RpcBalance<Balance>, AccountId>>>;
+    ) -> RpcResult<Vec<StakerListInfo<RpcBalance<Balance>, AccountId>>>;
 }
 
 pub struct SrStorage<C, M> {
@@ -42,7 +45,7 @@ impl<C, M> SrStorage<C, M> {
     }
 }
 
-impl<C, Block, AccountId, Balance> SimpleRpcApi<<Block as BlockT>::Hash, AccountId, Balance>
+impl<C, Block, AccountId, Balance> SimpleRpcApiServer<<Block as BlockT>::Hash, AccountId, Balance>
     for SrStorage<C, Block>
 where
     Block: BlockT,
@@ -57,20 +60,14 @@ where
         &self,
         account: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<String> {
+    ) -> RpcResult<String> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_staker_identity(&at, account);
-
-        match runtime_api_result {
-            Ok(data) => Ok(String::from_utf8_lossy(&data).to_string()),
-            Err(e) => Err(RpcError {
-                code: ErrorCode::ServerError(9876),
-                message: "Something wrong".into(),
-                data: Some(format!("{:?}", e).into()),
-            }),
-        }
+        let runtime_api_result = api.get_staker_identity(&at, account).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(1, "Something wrong", Some(e.to_string())))
+        })?;
+        Ok(String::from_utf8_lossy(&runtime_api_result).to_string())
     }
 
     fn get_staker_list_info(
@@ -78,12 +75,13 @@ where
         cur_page: u64,
         per_page: u64,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<StakerListInfo<RpcBalance<Balance>, AccountId>>> {
+    ) -> RpcResult<Vec<StakerListInfo<RpcBalance<Balance>, AccountId>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result =
-            api.get_staker_list_info(&at, cur_page, per_page).map(|staker_info_list| {
+        let runtime_api_result = api
+            .get_staker_list_info(&at, cur_page, per_page)
+            .map(|staker_info_list| {
                 {
                     staker_info_list.into_iter().map(|staker_info| StakerListInfo {
                         index: staker_info.index,
@@ -99,12 +97,14 @@ where
                     })
                 }
                 .collect::<Vec<_>>()
-            });
-
-        runtime_api_result.map_err(|e| RpcError {
-            code: ErrorCode::ServerError(9876),
-            message: "Something wrong".into(),
-            data: Some(format!("{:?}", e).into()),
-        })
+            })
+            .map_err(|e| {
+                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+                    ErrorCode::InternalError.code(),
+                    "Something wrong",
+                    Some(e.to_string()),
+                )))
+            })?;
+        Ok(runtime_api_result)
     }
 }
