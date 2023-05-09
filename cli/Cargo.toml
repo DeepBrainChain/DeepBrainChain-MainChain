@@ -83,10 +83,11 @@ sc-sync-state-rpc = { git = "https://github.com/paritytech/substrate", branch = 
 sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 
 # frame dependencies
+pallet-assets = { path = "../pallets/assets" }
+
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-im-online = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 

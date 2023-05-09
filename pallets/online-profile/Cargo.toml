@@ -25,7 +25,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "p
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 
-pallet-staking = { package = "dbc-staking", path = "../dbc-staking" }
+pallet-staking = { package = "dbc-staking", path = "../staking" }
 
 [features]
 default = ["std"]

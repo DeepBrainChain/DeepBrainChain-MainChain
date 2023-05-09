@@ -50,7 +50,6 @@ frame-election-provider-support = { git = "https://github.com/paritytech/substra
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 frame-try-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false, optional = true }
 # pallet-alliance = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-babe = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
@@ -93,8 +92,6 @@ pallet-referenda = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-root-testing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", features = [ "historical" ], default-features = false }
 pallet-session-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false, optional = true }
-pallet-staking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 # pallet-state-trie-migration = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 # pallet-society = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
@@ -111,6 +108,10 @@ pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", bra
 # pallet-whitelist = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 
 # DBC pallets
+pallet-assets = { path = "../pallets/assets", default-features = false }
+pallet-staking = { package = "dbc-staking", path = "../pallets/staking", default-features = false }
+pallet-staking-reward-curve = { package = "pallet-staking-reward-curve", path = "../pallets/staking/reward-curve", default-features = false }
+
 committee = { path = "../pallets/committee", default-features = false }
 council-reward = { path = "../pallets/council-reward", default-features = false }
 dbc-price-ocw = { path = "../pallets/dbc-price-ocw", default-features = false }
