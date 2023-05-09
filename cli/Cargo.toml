@@ -25,11 +25,6 @@ maintenance = { status = "actively-developed" }
 is-it-maintained-issue-resolution = { repository = "paritytech/substrate" }
 is-it-maintained-open-issues = { repository = "paritytech/substrate" }
 
-# [[bin]]
-# name = "substrate"
-# path = "bin/main.rs"
-# required-features = ["cli"]
-
 [lib]
 crate-type = ["cdylib", "rlib"]
 
