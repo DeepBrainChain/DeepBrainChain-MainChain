@@ -5182,7 +5182,6 @@ dependencies = [
 name = "pallet-assets"
 version = "4.0.0-dev"
 dependencies = [
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances",

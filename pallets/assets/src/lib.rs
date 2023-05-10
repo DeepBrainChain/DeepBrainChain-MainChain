@@ -1,20 +1,3 @@
-// This file is part of Substrate.
-
-// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //! # Assets Pallet
 //!
 //! A simple, secure module for dealing with fungible assets.
@@ -132,8 +115,6 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 pub mod migration;
 #[cfg(test)]
 pub mod mock;
@@ -202,17 +183,6 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T, I = ()>(_);
-
-    #[cfg(feature = "runtime-benchmarks")]
-    pub trait BenchmarkHelper<AssetIdParameter> {
-        fn create_asset_id_parameter(id: u32) -> AssetIdParameter;
-    }
-    #[cfg(feature = "runtime-benchmarks")]
-    impl<AssetIdParameter: From<u32>> BenchmarkHelper<AssetIdParameter> for () {
-        fn create_asset_id_parameter(id: u32) -> AssetIdParameter {
-            id.into()
-        }
-    }
 
     #[pallet::config]
     /// The module configuration trait.
@@ -306,10 +276,6 @@ pub mod pallet {
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
-
-        /// Helper trait for benchmarks.
-        #[cfg(feature = "runtime-benchmarks")]
-        type BenchmarkHelper: BenchmarkHelper<Self::AssetIdParameter>;
     }
 
     #[pallet::storage]
