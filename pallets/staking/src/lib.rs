@@ -301,19 +301,19 @@ mod pallet;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
-	traits::{Currency, Defensive, Get},
-	weights::Weight,
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+    traits::{Currency, Defensive, Get},
+    weights::Weight,
+    BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	curve::PiecewiseLinear,
-	traits::{AtLeast32BitUnsigned, Convert, Saturating, StaticLookup, Zero},
-	Perbill, Perquintill, Rounding, RuntimeDebug,
+    curve::PiecewiseLinear,
+    traits::{AtLeast32BitUnsigned, Convert, Saturating, StaticLookup, Zero},
+    Perbill, Perquintill, Rounding, RuntimeDebug,
 };
 use sp_staking::{
-	offence::{Offence, OffenceError, ReportOffence},
-	EraIndex, SessionIndex,
+    offence::{Offence, OffenceError, ReportOffence},
+    EraIndex, SessionIndex,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
@@ -344,10 +344,10 @@ pub type RewardPoint = u32;
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
+    <T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
+    <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
@@ -355,13 +355,13 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 /// Information regarding the active era (era in used in session).
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveEraInfo {
-	/// Index of era.
-	pub index: EraIndex,
-	/// Moment of start expressed as millisecond from `$UNIX_EPOCH`.
-	///
-	/// Start can be none if start hasn't been set for the era yet,
-	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
-	start: Option<u64>,
+    /// Index of era.
+    pub index: EraIndex,
+    /// Moment of start expressed as millisecond from `$UNIX_EPOCH`.
+    ///
+    /// Start can be none if start hasn't been set for the era yet,
+    /// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
+    start: Option<u64>,
 }
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -369,516 +369,516 @@ pub struct ActiveEraInfo {
 /// This points will be used to reward validators and their respective nominators.
 #[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EraRewardPoints<AccountId: Ord> {
-	/// Total number of points. Equals the sum of reward points for each validator.
-	pub total: RewardPoint,
-	/// The reward points earned by a given validator.
-	pub individual: BTreeMap<AccountId, RewardPoint>,
+    /// Total number of points. Equals the sum of reward points for each validator.
+    pub total: RewardPoint,
+    /// The reward points earned by a given validator.
+    pub individual: BTreeMap<AccountId, RewardPoint>,
 }
 
 impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
-	fn default() -> Self {
-		EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
-	}
+    fn default() -> Self {
+        EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
+    }
 }
 
 /// Indicates the initial status of the staker.
 #[derive(RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize, Clone))]
 pub enum StakerStatus<AccountId> {
-	/// Chilling.
-	Idle,
-	/// Declared desire in validating or already participating in it.
-	Validator,
-	/// Nominating for a group of other stakers.
-	Nominator(Vec<AccountId>),
+    /// Chilling.
+    Idle,
+    /// Declared desire in validating or already participating in it.
+    Validator,
+    /// Nominating for a group of other stakers.
+    Nominator(Vec<AccountId>),
 }
 
 /// A destination account for payment.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum RewardDestination<AccountId> {
-	/// Pay into the stash account, increasing the amount at stake accordingly.
-	Staked,
-	/// Pay into the stash account, not increasing the amount at stake.
-	Stash,
-	/// Pay into the controller account.
-	Controller,
-	/// Pay into a specified account.
-	Account(AccountId),
-	/// Receive no reward.
-	None,
+    /// Pay into the stash account, increasing the amount at stake accordingly.
+    Staked,
+    /// Pay into the stash account, not increasing the amount at stake.
+    Stash,
+    /// Pay into the controller account.
+    Controller,
+    /// Pay into a specified account.
+    Account(AccountId),
+    /// Receive no reward.
+    None,
 }
 
 impl<AccountId> Default for RewardDestination<AccountId> {
-	fn default() -> Self {
-		RewardDestination::Staked
-	}
+    fn default() -> Self {
+        RewardDestination::Staked
+    }
 }
 
 /// Preference of what happens regarding validation.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
 pub struct ValidatorPrefs {
-	/// Reward that validator takes up-front; only the rest is split between themselves and
-	/// nominators.
-	#[codec(compact)]
-	pub commission: Perbill,
-	/// Whether or not this validator is accepting more nominations. If `true`, then no nominator
-	/// who is not already nominating this validator may nominate them. By default, validators
-	/// are accepting nominations.
-	pub blocked: bool,
+    /// Reward that validator takes up-front; only the rest is split between themselves and
+    /// nominators.
+    #[codec(compact)]
+    pub commission: Perbill,
+    /// Whether or not this validator is accepting more nominations. If `true`, then no nominator
+    /// who is not already nominating this validator may nominate them. By default, validators
+    /// are accepting nominations.
+    pub blocked: bool,
 }
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
-	/// Amount of funds to be unlocked.
-	#[codec(compact)]
-	value: Balance,
-	/// Era number at which point it'll be unlocked.
-	#[codec(compact)]
-	era: EraIndex,
+    /// Amount of funds to be unlocked.
+    #[codec(compact)]
+    value: Balance,
+    /// Era number at which point it'll be unlocked.
+    #[codec(compact)]
+    era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
 #[derive(
-	PartialEqNoBound,
-	EqNoBound,
-	CloneNoBound,
-	Encode,
-	Decode,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	MaxEncodedLen,
+    PartialEqNoBound,
+    EqNoBound,
+    CloneNoBound,
+    Encode,
+    Decode,
+    RuntimeDebugNoBound,
+    TypeInfo,
+    MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct StakingLedger<T: Config> {
-	/// The stash account whose balance is actually locked and at stake.
-	pub stash: T::AccountId,
-	/// The total amount of the stash's balance that we are currently accounting for.
-	/// It's just `active` plus all the `unlocking` balances.
-	#[codec(compact)]
-	pub total: BalanceOf<T>,
-	/// The total amount of the stash's balance that will be at stake in any forthcoming
-	/// rounds.
-	#[codec(compact)]
-	pub active: BalanceOf<T>,
-	/// Any balance that is becoming free, which may eventually be transferred out of the stash
-	/// (assuming it doesn't get slashed first). It is assumed that this will be treated as a first
-	/// in, first out queue where the new (higher value) eras get pushed on the back.
-	pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
-	/// List of eras for which the stakers behind a validator have claimed rewards. Only updated
-	/// for validators.
-	pub claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
+    /// The stash account whose balance is actually locked and at stake.
+    pub stash: T::AccountId,
+    /// The total amount of the stash's balance that we are currently accounting for.
+    /// It's just `active` plus all the `unlocking` balances.
+    #[codec(compact)]
+    pub total: BalanceOf<T>,
+    /// The total amount of the stash's balance that will be at stake in any forthcoming
+    /// rounds.
+    #[codec(compact)]
+    pub active: BalanceOf<T>,
+    /// Any balance that is becoming free, which may eventually be transferred out of the stash
+    /// (assuming it doesn't get slashed first). It is assumed that this will be treated as a first
+    /// in, first out queue where the new (higher value) eras get pushed on the back.
+    pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
+    /// List of eras for which the stakers behind a validator have claimed rewards. Only updated
+    /// for validators.
+    pub claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
 }
 
 impl<T: Config> StakingLedger<T> {
-	/// Initializes the default object using the given `validator`.
-	pub fn default_from(stash: T::AccountId) -> Self {
-		Self {
-			stash,
-			total: Zero::zero(),
-			active: Zero::zero(),
-			unlocking: Default::default(),
-			claimed_rewards: Default::default(),
-		}
-	}
+    /// Initializes the default object using the given `validator`.
+    pub fn default_from(stash: T::AccountId) -> Self {
+        Self {
+            stash,
+            total: Zero::zero(),
+            active: Zero::zero(),
+            unlocking: Default::default(),
+            claimed_rewards: Default::default(),
+        }
+    }
 
-	/// Remove entries from `unlocking` that are sufficiently old and reduce the
-	/// total by the sum of their balances.
-	fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
-		let mut total = self.total;
-		let unlocking: BoundedVec<_, _> = self
-			.unlocking
-			.into_iter()
-			.filter(|chunk| {
-				if chunk.era > current_era {
-					true
-				} else {
-					total = total.saturating_sub(chunk.value);
-					false
-				}
-			})
-			.collect::<Vec<_>>()
-			.try_into()
-			.expect(
-				"filtering items from a bounded vec always leaves length less than bounds. qed",
-			);
+    /// Remove entries from `unlocking` that are sufficiently old and reduce the
+    /// total by the sum of their balances.
+    fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
+        let mut total = self.total;
+        let unlocking: BoundedVec<_, _> = self
+            .unlocking
+            .into_iter()
+            .filter(|chunk| {
+                if chunk.era > current_era {
+                    true
+                } else {
+                    total = total.saturating_sub(chunk.value);
+                    false
+                }
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect(
+                "filtering items from a bounded vec always leaves length less than bounds. qed",
+            );
 
-		Self {
-			stash: self.stash,
-			total,
-			active: self.active,
-			unlocking,
-			claimed_rewards: self.claimed_rewards,
-		}
-	}
+        Self {
+            stash: self.stash,
+            total,
+            active: self.active,
+            unlocking,
+            claimed_rewards: self.claimed_rewards,
+        }
+    }
 
-	/// Re-bond funds that were scheduled for unlocking.
-	///
-	/// Returns the updated ledger, and the amount actually rebonded.
-	fn rebond(mut self, value: BalanceOf<T>) -> (Self, BalanceOf<T>) {
-		let mut unlocking_balance = BalanceOf::<T>::zero();
+    /// Re-bond funds that were scheduled for unlocking.
+    ///
+    /// Returns the updated ledger, and the amount actually rebonded.
+    fn rebond(mut self, value: BalanceOf<T>) -> (Self, BalanceOf<T>) {
+        let mut unlocking_balance = BalanceOf::<T>::zero();
 
-		while let Some(last) = self.unlocking.last_mut() {
-			if unlocking_balance + last.value <= value {
-				unlocking_balance += last.value;
-				self.active += last.value;
-				self.unlocking.pop();
-			} else {
-				let diff = value - unlocking_balance;
+        while let Some(last) = self.unlocking.last_mut() {
+            if unlocking_balance + last.value <= value {
+                unlocking_balance += last.value;
+                self.active += last.value;
+                self.unlocking.pop();
+            } else {
+                let diff = value - unlocking_balance;
 
-				unlocking_balance += diff;
-				self.active += diff;
-				last.value -= diff;
-			}
+                unlocking_balance += diff;
+                self.active += diff;
+                last.value -= diff;
+            }
 
-			if unlocking_balance >= value {
-				break
-			}
-		}
+            if unlocking_balance >= value {
+                break
+            }
+        }
 
-		(self, unlocking_balance)
-	}
+        (self, unlocking_balance)
+    }
 
-	/// Slash the staker for a given amount of balance.
-	///
-	/// This implements a proportional slashing system, whereby we set our preference to slash as
-	/// such:
-	///
-	/// - If any unlocking chunks exist that are scheduled to be unlocked at `slash_era +
-	///   bonding_duration` and onwards, the slash is divided equally between the active ledger and
-	///   the unlocking chunks.
-	/// - If no such chunks exist, then only the active balance is slashed.
-	///
-	/// Note that the above is only a *preference*. If for any reason the active ledger, with or
-	/// without some portion of the unlocking chunks that are more justified to be slashed are not
-	/// enough, then the slashing will continue and will consume as much of the active and unlocking
-	/// chunks as needed.
-	///
-	/// This will never slash more than the given amount. If any of the chunks become dusted, the
-	/// last chunk is slashed slightly less to compensate. Returns the amount of funds actually
-	/// slashed.
-	///
-	/// `slash_era` is the era in which the slash (which is being enacted now) actually happened.
-	///
-	/// This calls `Config::OnStakerSlash::on_slash` with information as to how the slash was
-	/// applied.
-	pub fn slash(
-		&mut self,
-		slash_amount: BalanceOf<T>,
-		minimum_balance: BalanceOf<T>,
-		slash_era: EraIndex,
-	) -> BalanceOf<T> {
-		if slash_amount.is_zero() {
-			return Zero::zero()
-		}
+    /// Slash the staker for a given amount of balance.
+    ///
+    /// This implements a proportional slashing system, whereby we set our preference to slash as
+    /// such:
+    ///
+    /// - If any unlocking chunks exist that are scheduled to be unlocked at `slash_era +
+    ///   bonding_duration` and onwards, the slash is divided equally between the active ledger and
+    ///   the unlocking chunks.
+    /// - If no such chunks exist, then only the active balance is slashed.
+    ///
+    /// Note that the above is only a *preference*. If for any reason the active ledger, with or
+    /// without some portion of the unlocking chunks that are more justified to be slashed are not
+    /// enough, then the slashing will continue and will consume as much of the active and unlocking
+    /// chunks as needed.
+    ///
+    /// This will never slash more than the given amount. If any of the chunks become dusted, the
+    /// last chunk is slashed slightly less to compensate. Returns the amount of funds actually
+    /// slashed.
+    ///
+    /// `slash_era` is the era in which the slash (which is being enacted now) actually happened.
+    ///
+    /// This calls `Config::OnStakerSlash::on_slash` with information as to how the slash was
+    /// applied.
+    pub fn slash(
+        &mut self,
+        slash_amount: BalanceOf<T>,
+        minimum_balance: BalanceOf<T>,
+        slash_era: EraIndex,
+    ) -> BalanceOf<T> {
+        if slash_amount.is_zero() {
+            return Zero::zero()
+        }
 
-		use sp_runtime::PerThing as _;
-		use sp_staking::OnStakerSlash as _;
-		let mut remaining_slash = slash_amount;
-		let pre_slash_total = self.total;
+        use sp_runtime::PerThing as _;
+        use sp_staking::OnStakerSlash as _;
+        let mut remaining_slash = slash_amount;
+        let pre_slash_total = self.total;
 
-		// for a `slash_era = x`, any chunk that is scheduled to be unlocked at era `x + 28`
-		// (assuming 28 is the bonding duration) onwards should be slashed.
-		let slashable_chunks_start = slash_era + T::BondingDuration::get();
+        // for a `slash_era = x`, any chunk that is scheduled to be unlocked at era `x + 28`
+        // (assuming 28 is the bonding duration) onwards should be slashed.
+        let slashable_chunks_start = slash_era + T::BondingDuration::get();
 
-		// `Some(ratio)` if this is proportional, with `ratio`, `None` otherwise. In both cases, we
-		// slash first the active chunk, and then `slash_chunks_priority`.
-		let (maybe_proportional, slash_chunks_priority) = {
-			if let Some(first_slashable_index) =
-				self.unlocking.iter().position(|c| c.era >= slashable_chunks_start)
-			{
-				// If there exists a chunk who's after the first_slashable_start, then this is a
-				// proportional slash, because we want to slash active and these chunks
-				// proportionally.
+        // `Some(ratio)` if this is proportional, with `ratio`, `None` otherwise. In both cases, we
+        // slash first the active chunk, and then `slash_chunks_priority`.
+        let (maybe_proportional, slash_chunks_priority) = {
+            if let Some(first_slashable_index) =
+                self.unlocking.iter().position(|c| c.era >= slashable_chunks_start)
+            {
+                // If there exists a chunk who's after the first_slashable_start, then this is a
+                // proportional slash, because we want to slash active and these chunks
+                // proportionally.
 
-				// The indices of the first chunk after the slash up through the most recent chunk.
-				// (The most recent chunk is at greatest from this era)
-				let affected_indices = first_slashable_index..self.unlocking.len();
-				let unbonding_affected_balance =
-					affected_indices.clone().fold(BalanceOf::<T>::zero(), |sum, i| {
-						if let Some(chunk) = self.unlocking.get(i).defensive() {
-							sum.saturating_add(chunk.value)
-						} else {
-							sum
-						}
-					});
-				let affected_balance = self.active.saturating_add(unbonding_affected_balance);
-				let ratio = Perquintill::from_rational_with_rounding(
-					slash_amount,
-					affected_balance,
-					Rounding::Up,
-				)
-				.unwrap_or_else(|_| Perquintill::one());
-				(
-					Some(ratio),
-					affected_indices.chain((0..first_slashable_index).rev()).collect::<Vec<_>>(),
-				)
-			} else {
-				// We just slash from the last chunk to the most recent one, if need be.
-				(None, (0..self.unlocking.len()).rev().collect::<Vec<_>>())
-			}
-		};
+                // The indices of the first chunk after the slash up through the most recent chunk.
+                // (The most recent chunk is at greatest from this era)
+                let affected_indices = first_slashable_index..self.unlocking.len();
+                let unbonding_affected_balance =
+                    affected_indices.clone().fold(BalanceOf::<T>::zero(), |sum, i| {
+                        if let Some(chunk) = self.unlocking.get(i).defensive() {
+                            sum.saturating_add(chunk.value)
+                        } else {
+                            sum
+                        }
+                    });
+                let affected_balance = self.active.saturating_add(unbonding_affected_balance);
+                let ratio = Perquintill::from_rational_with_rounding(
+                    slash_amount,
+                    affected_balance,
+                    Rounding::Up,
+                )
+                .unwrap_or_else(|_| Perquintill::one());
+                (
+                    Some(ratio),
+                    affected_indices.chain((0..first_slashable_index).rev()).collect::<Vec<_>>(),
+                )
+            } else {
+                // We just slash from the last chunk to the most recent one, if need be.
+                (None, (0..self.unlocking.len()).rev().collect::<Vec<_>>())
+            }
+        };
 
-		// Helper to update `target` and the ledgers total after accounting for slashing `target`.
-		log!(
-			debug,
-			"slashing {:?} for era {:?} out of {:?}, priority: {:?}, proportional = {:?}",
-			slash_amount,
-			slash_era,
-			self,
-			slash_chunks_priority,
-			maybe_proportional,
-		);
+        // Helper to update `target` and the ledgers total after accounting for slashing `target`.
+        log!(
+            debug,
+            "slashing {:?} for era {:?} out of {:?}, priority: {:?}, proportional = {:?}",
+            slash_amount,
+            slash_era,
+            self,
+            slash_chunks_priority,
+            maybe_proportional,
+        );
 
-		let mut slash_out_of = |target: &mut BalanceOf<T>, slash_remaining: &mut BalanceOf<T>| {
-			let mut slash_from_target = if let Some(ratio) = maybe_proportional {
-				ratio.mul_ceil(*target)
-			} else {
-				*slash_remaining
-			}
-			// this is the total that that the slash target has. We can't slash more than
-			// this anyhow!
-			.min(*target)
-			// this is the total amount that we would have wanted to slash
-			// non-proportionally, a proportional slash should never exceed this either!
-			.min(*slash_remaining);
+        let mut slash_out_of = |target: &mut BalanceOf<T>, slash_remaining: &mut BalanceOf<T>| {
+            let mut slash_from_target = if let Some(ratio) = maybe_proportional {
+                ratio.mul_ceil(*target)
+            } else {
+                *slash_remaining
+            }
+            // this is the total that that the slash target has. We can't slash more than
+            // this anyhow!
+            .min(*target)
+            // this is the total amount that we would have wanted to slash
+            // non-proportionally, a proportional slash should never exceed this either!
+            .min(*slash_remaining);
 
-			// slash out from *target exactly `slash_from_target`.
-			*target = *target - slash_from_target;
-			if *target < minimum_balance {
-				// Slash the rest of the target if it's dust. This might cause the last chunk to be
-				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
-				// deal.
-				slash_from_target =
-					sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
-			}
+            // slash out from *target exactly `slash_from_target`.
+            *target = *target - slash_from_target;
+            if *target < minimum_balance {
+                // Slash the rest of the target if it's dust. This might cause the last chunk to be
+                // slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
+                // deal.
+                slash_from_target =
+                    sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
+            }
 
-			self.total = self.total.saturating_sub(slash_from_target);
-			*slash_remaining = slash_remaining.saturating_sub(slash_from_target);
-		};
+            self.total = self.total.saturating_sub(slash_from_target);
+            *slash_remaining = slash_remaining.saturating_sub(slash_from_target);
+        };
 
-		// If this is *not* a proportional slash, the active will always wiped to 0.
-		slash_out_of(&mut self.active, &mut remaining_slash);
+        // If this is *not* a proportional slash, the active will always wiped to 0.
+        slash_out_of(&mut self.active, &mut remaining_slash);
 
-		let mut slashed_unlocking = BTreeMap::<_, _>::new();
-		for i in slash_chunks_priority {
-			if remaining_slash.is_zero() {
-				break
-			}
+        let mut slashed_unlocking = BTreeMap::<_, _>::new();
+        for i in slash_chunks_priority {
+            if remaining_slash.is_zero() {
+                break
+            }
 
-			if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
-				slash_out_of(&mut chunk.value, &mut remaining_slash);
-				// write the new slashed value of this chunk to the map.
-				slashed_unlocking.insert(chunk.era, chunk.value);
-			} else {
-				break
-			}
-		}
+            if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
+                slash_out_of(&mut chunk.value, &mut remaining_slash);
+                // write the new slashed value of this chunk to the map.
+                slashed_unlocking.insert(chunk.era, chunk.value);
+            } else {
+                break
+            }
+        }
 
-		// clean unlocking chunks that are set to zero.
-		self.unlocking.retain(|c| !c.value.is_zero());
+        // clean unlocking chunks that are set to zero.
+        self.unlocking.retain(|c| !c.value.is_zero());
 
-		T::OnStakerSlash::on_slash(&self.stash, self.active, &slashed_unlocking);
-		pre_slash_total.saturating_sub(self.total)
-	}
+        T::OnStakerSlash::on_slash(&self.stash, self.active, &slashed_unlocking);
+        pre_slash_total.saturating_sub(self.total)
+    }
 }
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+    PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct Nominations<T: Config> {
-	/// The targets of nomination.
-	pub targets: BoundedVec<T::AccountId, T::MaxNominations>,
-	/// The era the nominations were submitted.
-	///
-	/// Except for initial nominations which are considered submitted at era 0.
-	pub submitted_in: EraIndex,
-	/// Whether the nominations have been suppressed. This can happen due to slashing of the
-	/// validators, or other events that might invalidate the nomination.
-	///
-	/// NOTE: this for future proofing and is thus far not used.
-	pub suppressed: bool,
+    /// The targets of nomination.
+    pub targets: BoundedVec<T::AccountId, T::MaxNominations>,
+    /// The era the nominations were submitted.
+    ///
+    /// Except for initial nominations which are considered submitted at era 0.
+    pub submitted_in: EraIndex,
+    /// Whether the nominations have been suppressed. This can happen due to slashing of the
+    /// validators, or other events that might invalidate the nomination.
+    ///
+    /// NOTE: this for future proofing and is thus far not used.
+    pub suppressed: bool,
 }
 
 /// The amount of exposure (to slashing) than an individual nominator has.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
-	/// The stash account of the nominator in question.
-	pub who: AccountId,
-	/// Amount of funds exposed.
-	#[codec(compact)]
-	pub value: Balance,
+    /// The stash account of the nominator in question.
+    pub who: AccountId,
+    /// Amount of funds exposed.
+    #[codec(compact)]
+    pub value: Balance,
 }
 
 /// A snapshot of the stake backing a single validator in the system.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct Exposure<AccountId, Balance: HasCompact> {
-	/// The total balance backing this validator.
-	#[codec(compact)]
-	pub total: Balance,
-	/// The validator's own stash that is exposed.
-	#[codec(compact)]
-	pub own: Balance,
-	/// The portions of nominators stashes that are exposed.
-	pub others: Vec<IndividualExposure<AccountId, Balance>>,
+    /// The total balance backing this validator.
+    #[codec(compact)]
+    pub total: Balance,
+    /// The validator's own stash that is exposed.
+    #[codec(compact)]
+    pub own: Balance,
+    /// The portions of nominators stashes that are exposed.
+    pub others: Vec<IndividualExposure<AccountId, Balance>>,
 }
 
 impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, Balance> {
-	fn default() -> Self {
-		Self { total: Default::default(), own: Default::default(), others: vec![] }
-	}
+    fn default() -> Self {
+        Self { total: Default::default(), own: Default::default(), others: vec![] }
+    }
 }
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
-	/// The stash ID of the offending validator.
-	validator: AccountId,
-	/// The validator's own slash.
-	own: Balance,
-	/// All other slashed stakers and amounts.
-	others: Vec<(AccountId, Balance)>,
-	/// Reporters of the offence; bounty payout recipients.
-	reporters: Vec<AccountId>,
-	/// The amount of payout.
-	payout: Balance,
+    /// The stash ID of the offending validator.
+    validator: AccountId,
+    /// The validator's own slash.
+    own: Balance,
+    /// All other slashed stakers and amounts.
+    others: Vec<(AccountId, Balance)>,
+    /// Reporters of the offence; bounty payout recipients.
+    reporters: Vec<AccountId>,
+    /// The amount of payout.
+    payout: Balance,
 }
 
 impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
-	/// Initializes the default object using the given `validator`.
-	pub fn default_from(validator: AccountId) -> Self {
-		Self {
-			validator,
-			own: Zero::zero(),
-			others: vec![],
-			reporters: vec![],
-			payout: Zero::zero(),
-		}
-	}
+    /// Initializes the default object using the given `validator`.
+    pub fn default_from(validator: AccountId) -> Self {
+        Self {
+            validator,
+            own: Zero::zero(),
+            others: vec![],
+            reporters: vec![],
+            payout: Zero::zero(),
+        }
+    }
 }
 
 /// Means for interacting with a specialized version of the `session` trait.
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
 pub trait SessionInterface<AccountId> {
-	/// Disable the validator at the given index, returns `false` if the validator was already
-	/// disabled or the index is out of bounds.
-	fn disable_validator(validator_index: u32) -> bool;
-	/// Get the validators from session.
-	fn validators() -> Vec<AccountId>;
-	/// Prune historical session tries up to but not including the given index.
-	fn prune_historical_up_to(up_to: SessionIndex);
+    /// Disable the validator at the given index, returns `false` if the validator was already
+    /// disabled or the index is out of bounds.
+    fn disable_validator(validator_index: u32) -> bool;
+    /// Get the validators from session.
+    fn validators() -> Vec<AccountId>;
+    /// Prune historical session tries up to but not including the given index.
+    fn prune_historical_up_to(up_to: SessionIndex);
 }
 
 impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
 where
-	T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
-	T: pallet_session::historical::Config<
-		FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
-		FullIdentificationOf = ExposureOf<T>,
-	>,
-	T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
-	T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
-	T::ValidatorIdOf: Convert<
-		<T as frame_system::Config>::AccountId,
-		Option<<T as frame_system::Config>::AccountId>,
-	>,
+    T: pallet_session::Config<ValidatorId = <T as frame_system::Config>::AccountId>,
+    T: pallet_session::historical::Config<
+        FullIdentification = Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+        FullIdentificationOf = ExposureOf<T>,
+    >,
+    T::SessionHandler: pallet_session::SessionHandler<<T as frame_system::Config>::AccountId>,
+    T::SessionManager: pallet_session::SessionManager<<T as frame_system::Config>::AccountId>,
+    T::ValidatorIdOf: Convert<
+        <T as frame_system::Config>::AccountId,
+        Option<<T as frame_system::Config>::AccountId>,
+    >,
 {
-	fn disable_validator(validator_index: u32) -> bool {
-		<pallet_session::Pallet<T>>::disable_index(validator_index)
-	}
+    fn disable_validator(validator_index: u32) -> bool {
+        <pallet_session::Pallet<T>>::disable_index(validator_index)
+    }
 
-	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
-		<pallet_session::Pallet<T>>::validators()
-	}
+    fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
+        <pallet_session::Pallet<T>>::validators()
+    }
 
-	fn prune_historical_up_to(up_to: SessionIndex) {
-		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
-	}
+    fn prune_historical_up_to(up_to: SessionIndex) {
+        <pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
+    }
 }
 
 impl<AccountId> SessionInterface<AccountId> for () {
-	fn disable_validator(_: u32) -> bool {
-		true
-	}
-	fn validators() -> Vec<AccountId> {
-		Vec::new()
-	}
-	fn prune_historical_up_to(_: SessionIndex) {
-		()
-	}
+    fn disable_validator(_: u32) -> bool {
+        true
+    }
+    fn validators() -> Vec<AccountId> {
+        Vec::new()
+    }
+    fn prune_historical_up_to(_: SessionIndex) {
+        ()
+    }
 }
 
 /// Handler for determining how much of a balance should be paid out on the current era.
 pub trait EraPayout<Balance> {
-	/// Determine the payout for this era.
-	///
-	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
-	/// paid out ("the rest").
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance);
+    /// Determine the payout for this era.
+    ///
+    /// Returns the amount to be paid to stakers in this era, as well as whatever else should be
+    /// paid out ("the rest").
+    fn era_payout(
+        total_staked: Balance,
+        total_issuance: Balance,
+        era_duration_millis: u64,
+    ) -> (Balance, Balance);
 }
 
 impl<Balance: Default> EraPayout<Balance> for () {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(Default::default(), Default::default())
-	}
+    fn era_payout(
+        _total_staked: Balance,
+        _total_issuance: Balance,
+        _era_duration_millis: u64,
+    ) -> (Balance, Balance) {
+        (Default::default(), Default::default())
+    }
 }
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
 impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
-	EraPayout<Balance> for ConvertCurve<T>
+    EraPayout<Balance> for ConvertCurve<T>
 {
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		let (validator_payout, max_payout) = inflation::compute_total_payout(
-			T::get(),
-			total_staked,
-			total_issuance,
-			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
-			era_duration_millis,
-		);
-		let rest = max_payout.saturating_sub(validator_payout.clone());
-		(validator_payout, rest)
-	}
+    fn era_payout(
+        total_staked: Balance,
+        total_issuance: Balance,
+        era_duration_millis: u64,
+    ) -> (Balance, Balance) {
+        let (validator_payout, max_payout) = inflation::compute_total_payout(
+            T::get(),
+            total_staked,
+            total_issuance,
+            // Duration of era; more than u64::MAX is rewarded as u64::MAX.
+            era_duration_millis,
+        );
+        let rest = max_payout.saturating_sub(validator_payout.clone());
+        (validator_payout, rest)
+    }
 }
 
 /// Mode of era-forcing.
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum Forcing {
-	/// Not forcing anything - just let whatever happen.
-	NotForcing,
-	/// Force a new era, then reset to `NotForcing` as soon as it is done.
-	/// Note that this will force to trigger an election until a new era is triggered, if the
-	/// election failed, the next session end will trigger a new election again, until success.
-	ForceNew,
-	/// Avoid a new era indefinitely.
-	ForceNone,
-	/// Force a new era at the end of all sessions indefinitely.
-	ForceAlways,
+    /// Not forcing anything - just let whatever happen.
+    NotForcing,
+    /// Force a new era, then reset to `NotForcing` as soon as it is done.
+    /// Note that this will force to trigger an election until a new era is triggered, if the
+    /// election failed, the next session end will trigger a new election again, until success.
+    ForceNew,
+    /// Avoid a new era indefinitely.
+    ForceNone,
+    /// Force a new era at the end of all sessions indefinitely.
+    ForceAlways,
 }
 
 impl Default for Forcing {
-	fn default() -> Self {
-		Forcing::NotForcing
-	}
+    fn default() -> Self {
+        Forcing::NotForcing
+    }
 }
 
 /// A `Convert` implementation that finds the stash of the given controller account,
@@ -886,9 +886,9 @@ impl Default for Forcing {
 pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
-	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
-		<Pallet<T>>::ledger(&controller).map(|l| l.stash)
-	}
+    fn convert(controller: T::AccountId) -> Option<T::AccountId> {
+        <Pallet<T>>::ledger(&controller).map(|l| l.stash)
+    }
 }
 
 /// A typed conversion from stash account ID to the active exposure of nominators
@@ -899,52 +899,52 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 pub struct ExposureOf<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
-	for ExposureOf<T>
+    for ExposureOf<T>
 {
-	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
-		<Pallet<T>>::active_era()
-			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
-	}
+    fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
+        <Pallet<T>>::active_era()
+            .map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
+    }
 }
 
 /// Filter historical offences out and only allow those from the bonding period.
 pub struct FilterHistoricalOffences<T, R> {
-	_inner: sp_std::marker::PhantomData<(T, R)>,
+    _inner: sp_std::marker::PhantomData<(T, R)>,
 }
 
 impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O>
-	for FilterHistoricalOffences<Pallet<T>, R>
+    for FilterHistoricalOffences<Pallet<T>, R>
 where
-	T: Config,
-	R: ReportOffence<Reporter, Offender, O>,
-	O: Offence<Offender>,
+    T: Config,
+    R: ReportOffence<Reporter, Offender, O>,
+    O: Offence<Offender>,
 {
-	fn report_offence(reporters: Vec<Reporter>, offence: O) -> Result<(), OffenceError> {
-		// Disallow any slashing from before the current bonding period.
-		let offence_session = offence.session_index();
-		let bonded_eras = BondedEras::<T>::get();
+    fn report_offence(reporters: Vec<Reporter>, offence: O) -> Result<(), OffenceError> {
+        // Disallow any slashing from before the current bonding period.
+        let offence_session = offence.session_index();
+        let bonded_eras = BondedEras::<T>::get();
 
-		if bonded_eras.first().filter(|(_, start)| offence_session >= *start).is_some() {
-			R::report_offence(reporters, offence)
-		} else {
-			<Pallet<T>>::deposit_event(Event::<T>::OldSlashingReportDiscarded {
-				session_index: offence_session,
-			});
-			Ok(())
-		}
-	}
+        if bonded_eras.first().filter(|(_, start)| offence_session >= *start).is_some() {
+            R::report_offence(reporters, offence)
+        } else {
+            <Pallet<T>>::deposit_event(Event::<T>::OldSlashingReportDiscarded {
+                session_index: offence_session,
+            });
+            Ok(())
+        }
+    }
 
-	fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
-		R::is_known_offence(offenders, time_slot)
-	}
+    fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
+        R::is_known_offence(offenders, time_slot)
+    }
 }
 
 /// Configurations of the benchmarking of the pallet.
 pub trait BenchmarkingConfig {
-	/// The maximum number of validators to use.
-	type MaxValidators: Get<u32>;
-	/// The maximum number of nominators to use.
-	type MaxNominators: Get<u32>;
+    /// The maximum number of validators to use.
+    type MaxValidators: Get<u32>;
+    /// The maximum number of nominators to use.
+    type MaxNominators: Get<u32>;
 }
 
 /// A mock benchmarking config for pallet-staking.
@@ -955,6 +955,6 @@ pub struct TestBenchmarkingConfig;
 
 #[cfg(feature = "std")]
 impl BenchmarkingConfig for TestBenchmarkingConfig {
-	type MaxValidators = frame_support::traits::ConstU32<100>;
-	type MaxNominators = frame_support::traits::ConstU32<100>;
+    type MaxValidators = frame_support::traits::ConstU32<100>;
+    type MaxNominators = frame_support::traits::ConstU32<100>;
 }
