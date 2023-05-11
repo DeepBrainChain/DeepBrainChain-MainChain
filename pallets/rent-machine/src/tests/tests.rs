@@ -45,9 +45,9 @@ fn rent_machine_should_works() {
             staker_grade_snap,
             &online_profile::StashMachineStatistics {
                 online_gpu_num: 4,
-                inflation: Perbill::from_rational_approximation(4u32, 10000u32),
+                inflation: Perbill::from_rational(4u32, 10000u32),
                 machine_total_calc_point: 59890,
-                rent_extra_grade: Perbill::from_rational_approximation(30u32, 100u32) * 59890,
+                rent_extra_grade: Perbill::from_rational(30u32, 100u32) * 59890,
             }
         );
 

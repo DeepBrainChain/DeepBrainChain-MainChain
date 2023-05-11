@@ -360,7 +360,7 @@ fn machine_online_works() {
             stash,
             online_profile::StashMachineStatistics {
                 online_gpu_num: 4,
-                inflation: Perbill::from_rational_approximation(4u32, 10000),
+                inflation: Perbill::from_rational(4u32, 10000),
                 machine_total_calc_point: 59890,
                 rent_extra_grade: 0,
             },
@@ -770,7 +770,7 @@ fn machine_online_works() {
             stash,
             online_profile::StashMachineStatistics {
                 online_gpu_num: 8,
-                inflation: Perbill::from_rational_approximation(8u32, 10000),
+                inflation: Perbill::from_rational(8u32, 10000),
                 machine_total_calc_point: 119780,
                 rent_extra_grade: 0,
             },

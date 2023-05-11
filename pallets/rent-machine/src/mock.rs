@@ -314,7 +314,7 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
             committee::CommitteeStakeParamsInfo {
                 stake_baseline: 20000 * ONE_DBC,
                 stake_per_order: 1000 * ONE_DBC,
-                min_free_stake_percent: Perbill::from_rational_approximation(40u32, 100u32),
+                min_free_stake_percent: Perbill::from_rational(40u32, 100u32),
             },
         );
         // assert_ok!(Committee::set_staked_usd_per_order(RawOrigin::Root.into(), 15_000_000));

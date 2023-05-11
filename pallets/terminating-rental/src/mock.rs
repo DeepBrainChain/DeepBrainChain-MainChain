@@ -275,7 +275,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             committee::CommitteeStakeParamsInfo {
                 stake_baseline: 20000 * ONE_DBC,
                 stake_per_order: 1000 * ONE_DBC,
-                min_free_stake_percent: Perbill::from_rational_approximation(40u32, 100u32),
+                min_free_stake_percent: Perbill::from_rational(40u32, 100u32),
             },
         ));
 

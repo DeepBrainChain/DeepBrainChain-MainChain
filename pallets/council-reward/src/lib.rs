@@ -68,8 +68,6 @@ pub mod pallet {
 
         // 当升级时设置国库地址
         fn on_runtime_upgrade() -> Weight {
-            let weight = Weight::default();
-
             Treasury::<T>::mutate(|treasury| {
                 let account: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
                 let account_id32: [u8; 32] =
@@ -78,7 +76,7 @@ pub mod pallet {
                 *treasury = T::AccountId::decode(&mut &account_id32[..]).ok()
             });
 
-            weight
+            Weight::zero()
         }
     }
 

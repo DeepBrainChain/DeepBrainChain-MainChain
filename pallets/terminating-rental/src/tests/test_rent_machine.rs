@@ -217,9 +217,9 @@ fn rent_machine_works() {
 
             let rent_fee = 1039756916666666666;
 
-            let reward_to_stash = Perbill::from_rational_approximation(99u32, 100u32) * rent_fee;
+            let reward_to_stash = Perbill::from_rational(99u32, 100u32) * rent_fee;
             let committee_each_get =
-                Perbill::from_rational_approximation(1u32, 3u32) * (rent_fee - reward_to_stash);
+                Perbill::from_rational(1u32, 3u32) * (rent_fee - reward_to_stash);
             let stash_get = rent_fee - committee_each_get * 3;
             assert_eq!(
                 Balances::free_balance(committee1),
