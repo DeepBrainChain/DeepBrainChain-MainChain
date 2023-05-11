@@ -26,7 +26,6 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
     traits::{CheckedAdd, CheckedSub, SaturatedConversion, Saturating, Zero},
-    Perbill,
 };
 use sp_std::{prelude::*, str, vec::Vec};
 
@@ -504,33 +503,11 @@ impl<T: Config> Pallet<T> {
         fee_amount: BalanceOf<T>,
     ) -> DispatchResult {
         let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
-        // 如果Phase1Destruction开启，租金销毁50%
-        // 如果银河竞赛开启(Phase2Destruction开启)，则租金100%销毁，
-        let phase1_destruction = <online_profile::Pallet<T>>::phase1_destruction();
-        let phase2_destruction = <online_profile::Pallet<T>>::phase2_destruction();
+        let galaxy_is_on = <online_profile::Pallet<T>>::galaxy_is_on();
+        let rent_fee_to = if galaxy_is_on { rent_fee_pot } else { machine_stash };
 
-        let destroy_percent = {
-            if phase2_destruction.2 {
-                phase2_destruction.1
-            } else if phase1_destruction.2 {
-                phase1_destruction.1
-            } else {
-                Perbill::from_rational(0u32, 100u32)
-            }
-        };
-
-        let destroy_fee = destroy_percent * fee_amount;
-        let stash_fee = fee_amount.saturating_sub(destroy_fee);
-
-        if !destroy_fee.is_zero() {
-            <T as Config>::Currency::transfer(renter, &rent_fee_pot, destroy_fee, KeepAlive)?;
-        }
-        if !stash_fee.is_zero() {
-            <T as Config>::Currency::transfer(renter, &machine_stash, stash_fee, KeepAlive)?;
-        }
-
-        T::RTOps::change_machine_rent_fee(machine_id, stash_fee, destroy_fee)
-            .map_err(|_| Error::<T>::Unknown)?;
+        <T as pallet::Config>::Currency::transfer(renter, &rent_fee_to, fee_amount, KeepAlive)?;
+        T::RTOps::change_machine_rent_fee(fee_amount, machine_id, galaxy_is_on).map_err(|_| Error::<T>::Unknown)?;
 
         Ok(())
     }

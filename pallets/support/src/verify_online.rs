@@ -364,6 +364,14 @@ impl<B: Saturating + Copy + CheckedAdd + Zero> StashMachine<B> {
         // .ok_or(CustomErr::ClaimRewardFailed)?;
         Ok(can_claim)
     }
+
+    pub fn change_rent_fee(&mut self, amount: B, is_burn: bool) {
+        if is_burn {
+            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
+        } else {
+            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
+        }
+    }
 }
 
 // In terminating pallet:

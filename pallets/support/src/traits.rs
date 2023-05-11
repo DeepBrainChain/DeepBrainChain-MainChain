@@ -61,11 +61,7 @@ pub trait RTOps {
         gpu_num: u32,
     ) -> Result<(), ()>;
 
-    fn change_machine_rent_fee(
-        machine_id: Self::MachineId,
-        rent_fee: Self::Balance,
-        burn_fee: Self::Balance,
-    ) -> Result<(), ()>;
+    fn change_machine_rent_fee(amount: Self::Balance, machine_id: Self::MachineId, is_burn: bool) -> Result<(), ()>;
 
     fn reset_machine_renters(
         machine_id: Self::MachineId,

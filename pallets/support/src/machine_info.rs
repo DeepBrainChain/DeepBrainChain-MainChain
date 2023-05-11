@@ -68,6 +68,14 @@ where
     BlockNumber: Default + From<u32>,
     Balance: Copy + Default + Saturating + From<u32>,
 {
+    pub fn change_rent_fee(&mut self, amount: Balance, is_burn: bool) {
+        if is_burn {
+            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
+        } else {
+            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
+        }
+    }
+
     pub fn new_bonding(
         controller: AccountId,
         stash: AccountId,
@@ -77,14 +85,15 @@ where
         Self {
             controller,
             machine_stash: stash,
-            renters: vec![],
-            last_machine_restake: 0u32.into(),
             bonding_height: now,
-            online_height: 0u32.into(),
-            last_online_height: 0u32.into(),
             init_stake_per_gpu,
             stake_amount: init_stake_per_gpu,
             machine_status: MachineStatus::AddingCustomizeInfo,
+
+            online_height: 0u32.into(),
+            last_online_height: 0u32.into(),
+            renters: vec![],
+            last_machine_restake: 0u32.into(),
             total_rented_duration: 0u32.into(),
             total_rented_times: 0u32.into(),
             total_rent_fee: 0u32.into(),

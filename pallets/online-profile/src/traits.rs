@@ -28,28 +28,30 @@ impl<T: Config> OCOps for Pallet<T> {
     // 将机器状态从ocw_confirmed_machine改为booked_machine，同时将机器状态改为booked
     // - Writes: LiveMachine, MachinesInfo
     fn booked_machine(id: MachineId) -> Result<(), ()> {
+        MachinesInfo::<T>::try_mutate(&id, |machine_info| {
+            let machine_info = machine_info.as_mut().ok_or(())?;
+            machine_info.machine_status = MachineStatus::CommitteeVerifying;
+            Ok::<(),()>(())
+        })?;
         LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.confirmed_machine, &id);
             ItemList::add_item(&mut live_machines.booked_machine, id.clone());
         });
-        MachinesInfo::<T>::try_mutate(&id, |machine_info| {
-            let machine_info = machine_info.as_mut().ok_or(())?;
-            machine_info.machine_status = MachineStatus::CommitteeVerifying;
-            Ok(())
-        })
+        Ok::<(),()>(())
     }
 
     // 由于委员会没有达成一致，需要重新返回到bonding_machine
     fn revert_booked_machine(id: MachineId) -> Result<(), ()> {
+        MachinesInfo::<T>::mutate(&id, |machine_info| {
+            let machine_info = machine_info.as_mut().ok_or(())?;
+            machine_info.machine_status = MachineStatus::DistributingOrder;
+            Ok::<(),()>(())
+        })?;
         LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.booked_machine, &id);
             ItemList::add_item(&mut live_machines.confirmed_machine, id.clone());
         });
-        MachinesInfo::<T>::mutate(&id, |machine_info| {
-            let machine_info = machine_info.as_mut().ok_or(())?;
-            machine_info.machine_status = MachineStatus::DistributingOrder;
-            Ok(())
-        })
+        Ok::<(),()>(())
     }
 
     // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
@@ -386,23 +388,19 @@ impl<T: Config> RTOps for Pallet<T> {
         Ok(())
     }
 
-    fn change_machine_rent_fee(
-        machine_id: MachineId,
-        rent_fee: BalanceOf<T>,
-        burn_fee: BalanceOf<T>,
-    ) -> Result<(), ()> {
-        SysInfo::<T>::mutate(|sys_info| {
-            sys_info.on_rent_fee_changed(rent_fee, burn_fee);
-        });
-        MachinesInfo::<T>::mutate(&machine_id, |machine_info| {
-            let machine_info = machine_info.as_mut().ok_or(())?;
-            StashMachines::<T>::mutate(&machine_info.machine_stash, |staker_machine| {
-                staker_machine.update_rent_fee(rent_fee, burn_fee);
-            });
+    fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) -> Result<(), ()> {
+        let mut machine_info = Self::machines_info(&machine_id).ok_or(())?;
+        let mut staker_machine = Self::stash_machines(&machine_info.machine_stash);
+        let mut sys_info = Self::sys_info();
 
-            machine_info.update_rent_fee(rent_fee, burn_fee);
-            Ok(())
-        })
+        sys_info.change_rent_fee(amount, is_burn);
+        staker_machine.change_rent_fee(amount, is_burn);
+        machine_info.change_rent_fee(amount, is_burn);
+
+        SysInfo::<T>::put(sys_info);
+        StashMachines::<T>::insert(&machine_info.machine_stash, staker_machine);
+        MachinesInfo::<T>::insert(&machine_id, machine_info);
+        Ok::<(),()>(())
     }
 
     fn reset_machine_renters(machine_id: MachineId, renters: Vec<T::AccountId>) -> Result<(), ()> {

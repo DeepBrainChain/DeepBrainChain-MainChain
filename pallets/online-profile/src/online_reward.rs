@@ -81,8 +81,7 @@ impl<T: Config> Pallet<T> {
             phase_reward_info.phase_2_reward_per_era
         };
 
-        if Self::phase2_destruction().2 && current_era < phase_reward_info.galaxy_on_era as u64 + 60
-        {
+        if Self::galaxy_is_on() && current_era < phase_reward_info.galaxy_on_era as u64 + 60 {
             Some(era_reward.checked_mul(&2u32.saturated_into::<BalanceOf<T>>())?)
         } else {
             Some(era_reward)
@@ -256,17 +255,17 @@ impl<T: Config> Pallet<T> {
             &release_era,
             &machine_reward_info.machine_stash,
             |old_value| {
-                *old_value += machine_actual_total_reward;
+                *old_value = old_value.saturating_add(machine_actual_total_reward);
             },
         );
 
         ErasMachineReleasedReward::<T>::mutate(&release_era, &machine_id, |old_value| {
-            *old_value += reward_to_stash
+            *old_value = old_value.saturating_add(reward_to_stash)
         });
         ErasStashReleasedReward::<T>::mutate(
             &release_era,
             &machine_reward_info.machine_stash,
-            |old_value| *old_value += reward_to_stash,
+            |old_value| *old_value = old_value.saturating_add(reward_to_stash),
         );
 
         StashMachines::<T>::insert(&machine_reward_info.machine_stash, stash_machine);

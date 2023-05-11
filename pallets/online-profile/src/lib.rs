@@ -51,8 +51,6 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 
 #[frame_support::pallet]
 pub mod pallet {
-    use sp_runtime::Perbill;
-
     use super::*;
 
     #[pallet::config]
@@ -99,15 +97,20 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    // 第一阶段销毁, 2500卡时销毁50%租金
+    /// If galaxy competition is begin: switch 5000 gpu
     #[pallet::storage]
-    #[pallet::getter(fn phase1_destruction)]
-    pub type Phase1Destruction<T: Config> = StorageValue<_, (u32, Perbill, bool), ValueQuery>;
+    #[pallet::getter(fn galaxy_is_on)]
+    pub(super) type GalaxyIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-    // 第二阶段销毁, 2500卡时销毁50%租金
+    #[pallet::type_value]
+    pub(super) fn GalaxyOnGPUThresholdDefault<T: Config>() -> u32 {
+        5000
+    }
+
     #[pallet::storage]
-    #[pallet::getter(fn phase2_destruction)]
-    pub type Phase2Destruction<T: Config> = StorageValue<_, (u32, Perbill, bool), ValueQuery>;
+    #[pallet::getter(fn galaxy_on_gpu_threshold)]
+    pub(super) type GalaxyOnGPUThreshold<T: Config> =
+        StorageValue<_, u32, ValueQuery, GalaxyOnGPUThresholdDefault<T>>;
 
     /// Statistics of gpu and stake
     #[pallet::storage]
@@ -379,8 +382,39 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Stash account set a controller
         #[pallet::call_index(3)]
+        #[pallet::weight(0)]
+        pub fn set_galaxy_on(origin: OriginFor<T>, is_on: bool) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            GalaxyIsOn::<T>::put(is_on);
+            Ok(().into())
+        }
+
+        #[pallet::call_index(4)]
+        #[pallet::weight(0)]
+        pub fn set_galaxy_on_gpu_threshold(
+            origin: OriginFor<T>,
+            gpu_threshold: u32,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            GalaxyOnGPUThreshold::<T>::put(gpu_threshold);
+
+            let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
+            let current_era = Self::current_era();
+            let sys_info = Self::sys_info();
+
+            // NOTE: 5000张卡开启银河竞赛
+            if !Self::galaxy_is_on() && sys_info.total_gpu_num >= gpu_threshold as u64 {
+                phase_reward_info.galaxy_on_era = current_era;
+                PhaseRewardInfo::<T>::put(phase_reward_info);
+                GalaxyIsOn::<T>::put(true);
+            }
+
+            Ok(().into())
+        }
+
+        /// Stash account set a controller
+        #[pallet::call_index(5)]
         #[pallet::weight(10000)]
         pub fn set_controller(
             origin: OriginFor<T>,
@@ -403,7 +437,7 @@ pub mod pallet {
 
         // - Writes: controller_machines, stash_controller, controller_stash, machine_info,
         /// Stash account reset controller for one machine
-        #[pallet::call_index(4)]
+        #[pallet::call_index(6)]
         #[pallet::weight(10000)]
         pub fn stash_reset_controller(
             origin: OriginFor<T>,
@@ -444,7 +478,7 @@ pub mod pallet {
         /// Committee will verify it later
         /// NOTE: User need to add machine basic info(pos & net speed), after
         /// committee verify finished, will be slashed for `OnlineReportOffline`
-        #[pallet::call_index(5)]
+        #[pallet::call_index(7)]
         #[pallet::weight(10000)]
         pub fn offline_machine_change_hardware_info(
             origin: OriginFor<T>,
@@ -490,7 +524,7 @@ pub mod pallet {
         }
 
         /// Controller account submit online request machine
-        #[pallet::call_index(6)]
+        #[pallet::call_index(8)]
         #[pallet::weight(10000)]
         pub fn bond_machine(
             origin: OriginFor<T>,
@@ -538,7 +572,7 @@ pub mod pallet {
         }
 
         /// Controller generate new server room id, record to stash account
-        #[pallet::call_index(7)]
+        #[pallet::call_index(9)]
         #[pallet::weight(10000)]
         pub fn gen_server_room(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
@@ -557,7 +591,7 @@ pub mod pallet {
 
         // NOTE: 添加机房信息。在机器上线之前的任何阶段及机器主动下线时，可以调用该方法更改机房信息
         /// Controller add machine pos & net info
-        #[pallet::call_index(8)]
+        #[pallet::call_index(10)]
         #[pallet::weight(10000)]
         pub fn add_machine_info(
             origin: OriginFor<T>,
@@ -578,16 +612,16 @@ pub mod pallet {
                 Error::<T>::ServerRoomNotFound
             );
 
-            // 当是第一次上线添加机房信息时
-            LiveMachines::<T>::mutate(|live_machines| {
-                live_machines
-                    .on_add_server_room(machine_id.clone(), machine_info.machine_status.clone())
-            });
             MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
                 let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
                 machine_info.add_server_room_info(server_room_info);
                 Ok::<(), sp_runtime::DispatchError>(())
             })?;
+            // 当是第一次上线添加机房信息时
+            LiveMachines::<T>::mutate(|live_machines| {
+                live_machines
+                    .on_add_server_room(machine_id.clone(), machine_info.machine_status.clone())
+            });
 
             Self::deposit_event(Event::MachineInfoAdded(machine_id));
             Ok(().into())
@@ -595,7 +629,7 @@ pub mod pallet {
 
         // 机器第一次上线后处于补交质押状态时
         // 或者机器更改配置信息后，处于质押不足状态时, 需要补交质押才能上线
-        #[pallet::call_index(9)]
+        #[pallet::call_index(11)]
         #[pallet::weight(10000)]
         pub fn fulfill_machine(
             origin: OriginFor<T>,
@@ -696,7 +730,7 @@ pub mod pallet {
         }
 
         /// 控制账户进行领取收益到stash账户
-        #[pallet::call_index(10)]
+        #[pallet::call_index(12)]
         #[pallet::weight(10000)]
         pub fn claim_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
@@ -716,7 +750,7 @@ pub mod pallet {
         }
 
         /// 控制账户报告机器下线:Online/Rented时允许
-        #[pallet::call_index(11)]
+        #[pallet::call_index(13)]
         #[pallet::weight(10000)]
         pub fn controller_report_offline(
             origin: OriginFor<T>,
@@ -751,7 +785,7 @@ pub mod pallet {
         // 要根据几个订单的状态来判断机器是否是在线/租用状态
         // 需要在rentMachine中提供一个查询接口
         /// 控制账户报告机器上线
-        #[pallet::call_index(12)]
+        #[pallet::call_index(14)]
         #[pallet::weight(10000)]
         pub fn controller_report_online(
             origin: OriginFor<T>,
@@ -815,8 +849,7 @@ pub mod pallet {
                     )
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
-            };
-            let mut slash_info = slash_info.as_mut().map_err(|_| Error::<T>::Unknown)?;
+            }.map_err(|_| Error::<T>::Unknown)?;
 
             // NOTE: 如果机器上线超过一年，空闲超过10天，下线后上线不添加惩罚
             if now >= machine_info.online_height &&
@@ -875,7 +908,7 @@ pub mod pallet {
         }
 
         /// 超过365天的机器可以在距离上次租用10天，且没被租用时退出
-        #[pallet::call_index(13)]
+        #[pallet::call_index(15)]
         #[pallet::weight(10000)]
         pub fn machine_exit(
             origin: OriginFor<T>,
@@ -902,7 +935,7 @@ pub mod pallet {
         /// 满足365天可以申请重新质押，退回质押币
         /// 在系统中上线满365天之后，可以按当时机器需要的质押数量，重新入网。多余的币解绑
         /// 在重新上线之后，下次再执行本操作，需要等待365天
-        #[pallet::call_index(14)]
+        #[pallet::call_index(16)]
         #[pallet::weight(10000)]
         pub fn restake_online_machine(
             origin: OriginFor<T>,
@@ -942,7 +975,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::call_index(15)]
+        #[pallet::call_index(17)]
         #[pallet::weight(10000)]
         pub fn apply_slash_review(
             origin: OriginFor<T>,
@@ -991,7 +1024,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::call_index(16)]
+        #[pallet::call_index(18)]
         #[pallet::weight(0)]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
@@ -1278,20 +1311,13 @@ impl<T: Config> Pallet<T> {
             .saturating_add(new_stash_grade)
             .saturating_sub(pre_stash_grade);
 
-        // NOTE: 2500张卡开启第一阶段销毁；5000张卡开启全部销毁
-        let mut phase1_destruction = Self::phase1_destruction();
-        let mut phase2_destruction = Self::phase2_destruction();
-        if !phase1_destruction.2 && sys_info.total_gpu_num >= phase1_destruction.0 as u64 {
-            phase1_destruction.2 = true;
-            Phase1Destruction::<T>::put(phase1_destruction);
-        }
-        if !phase2_destruction.2 && sys_info.total_gpu_num >= phase2_destruction.0 as u64 {
-            phase2_destruction.2 = true;
-            Phase2Destruction::<T>::put(phase2_destruction);
-
+        // NOTE: 5000张卡开启银河竞赛
+        if !Self::galaxy_is_on() && sys_info.total_gpu_num >= Self::galaxy_on_gpu_threshold() as u64
+        {
             let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
             phase_reward_info.galaxy_on_era = current_era;
             PhaseRewardInfo::<T>::put(phase_reward_info);
+            GalaxyIsOn::<T>::put(true);
         }
 
         if is_online && stash_machine.online_machine.len() == 1 {
