@@ -43,6 +43,45 @@ pub mod v1 {
         }
     }
 
+    #[derive(Decode)]
+    pub struct OldAssetMetadata<DepositBalance> {
+        deposit: DepositBalance,
+        name: Vec<u8>,
+        symbol: Vec<u8>,
+        decimals: u8,
+    }
+
+    impl<DepositBalance>OldAssetMetadata<DepositBalance> {
+        fn migrate_to_v1<BoundedString>(self, name: BoundedString, symbol: BoundedString) -> AssetMetadata<DepositBalance, BoundedString>{
+            AssetMetadata {
+                deposit: self.deposit,
+                name: name,
+                symbol: symbol,
+                decimals: self.decimals,
+                is_frozen: false
+            }
+        }
+    }
+
+    #[derive(Decode)]
+    pub struct OldAssetBalance<Balance> {
+        balance: Balance,
+        is_frozen: bool,
+        is_zombie: bool,
+    }
+
+    impl <Balance>OldAssetBalance<Balance> {
+        fn migrate_to_v1<DepositBalance, Extra> (self, reason:ExistenceReason<DepositBalance> ,extra: Extra) -> AssetAccount<Balance, DepositBalance, Extra> {
+            AssetAccount {
+                balance: self.balance,
+                is_frozen: self.is_frozen,
+                // TODO:
+                reason: reason,
+                extra: extra,
+            }
+        }
+    }
+
     pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
     impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
         fn on_runtime_upgrade() -> Weight {
@@ -57,6 +96,18 @@ pub mod v1 {
                     translated.saturating_inc();
                     Some(old_value.migrate_to_v1())
                 });
+                Metadata::<T>::translate::<OldAssetMetadata<DepositBalanceOf<T>>,_>(|_key, old_value| {
+                    // FIXME
+                    let bounded_name: BoundedVec<u8, T::StringLimit> = old_value.name.clone().try_into().unwrap();
+                    let bounded_symbol: BoundedVec<u8, T::StringLimit> = old_value.symbol.clone().try_into().unwrap();
+
+                    translated.saturating_inc();
+                    Some(old_value.migrate_to_v1(bounded_name, bounded_symbol))
+                });
+                // Account::<T>::translate::<OldAssetBalance<T::Balance>, _> (|_key1, _key2, old_value| {
+                //     Some(old_value.migrate_to_v1( ))
+                // });
+
                 current_version.put::<Pallet<T>>();
                 log::info!(
                     target: LOG_TARGET,
