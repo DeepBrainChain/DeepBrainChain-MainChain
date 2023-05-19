@@ -280,6 +280,7 @@ pub mod pallet {
         OnlyHalfHourAllowed,
         GPUNotEnough,
         NotMachineRenter,
+        ReletTooShort,
     }
 }
 
@@ -399,7 +400,8 @@ impl<T: Config> Pallet<T> {
         let machine_id = rent_info.machine_id.clone();
         let gpu_num = rent_info.gpu_num;
 
-        ensure!(duration % 60u32.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
+        // 续租允许10分钟及以上
+        ensure!(duration >= 20u32.into(), Error::<T>::ReletTooShort);
         ensure!(rent_info.renter == renter, Error::<T>::NotMachineRenter);
         ensure!(rent_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 
