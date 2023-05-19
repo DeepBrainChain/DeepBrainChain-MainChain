@@ -199,7 +199,8 @@ pub mod pallet {
             + Copy
             + MaybeSerializeDeserialize
             + MaxEncodedLen
-            + TypeInfo;
+            + TypeInfo
+            + From<u64>;
 
         /// Max number of items to destroy per `destroy_accounts` and `destroy_approvals` call.
         ///

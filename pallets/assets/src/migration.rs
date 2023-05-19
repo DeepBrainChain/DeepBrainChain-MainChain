@@ -8,18 +8,17 @@ pub mod v1 {
 
     #[derive(Decode)]
     pub struct OldAssetDetails<Balance, AccountId, DepositBalance> {
-        pub owner: AccountId,
-        pub issuer: AccountId,
-        pub admin: AccountId,
-        pub freezer: AccountId,
-        pub supply: Balance,
-        pub deposit: DepositBalance,
-        pub min_balance: Balance,
-        pub is_sufficient: bool,
-        pub accounts: u32,
-        pub sufficients: u32,
-        pub approvals: u32,
-        pub is_frozen: bool,
+        owner: AccountId,
+        issuer: AccountId,
+        admin: AccountId,
+        freezer: AccountId,
+        supply: Balance,
+        deposit: DepositBalance,
+        _max_zombies: u32,
+        min_balance: Balance,
+        _zombies: u32,
+        accounts: u32,
+        is_frozen: bool,
     }
 
     impl<Balance, AccountId, DepositBalance> OldAssetDetails<Balance, AccountId, DepositBalance> {
@@ -34,10 +33,10 @@ pub mod v1 {
                 supply: self.supply,
                 deposit: self.deposit,
                 min_balance: self.min_balance,
-                is_sufficient: self.is_sufficient,
                 accounts: self.accounts,
-                sufficients: self.sufficients,
-                approvals: self.approvals,
+                is_sufficient: false,
+                sufficients: 0,
+                approvals: 0,
                 status,
             }
         }
@@ -51,33 +50,39 @@ pub mod v1 {
         decimals: u8,
     }
 
-    impl<DepositBalance>OldAssetMetadata<DepositBalance> {
-        fn migrate_to_v1<BoundedString>(self, name: BoundedString, symbol: BoundedString) -> AssetMetadata<DepositBalance, BoundedString>{
+    impl<DepositBalance> OldAssetMetadata<DepositBalance> {
+        fn migrate_to_v1<BoundedString>(
+            self,
+            name: BoundedString,
+            symbol: BoundedString,
+        ) -> AssetMetadata<DepositBalance, BoundedString> {
             AssetMetadata {
                 deposit: self.deposit,
-                name: name,
-                symbol: symbol,
+                name,
+                symbol,
                 decimals: self.decimals,
-                is_frozen: false
+                is_frozen: false,
             }
         }
     }
 
     #[derive(Decode)]
-    pub struct OldAssetBalance<Balance> {
-        balance: Balance,
+    pub struct OldAssetBalance {
+        balance: u64,
         is_frozen: bool,
-        is_zombie: bool,
+        _is_zombie: bool,
     }
 
-    impl <Balance>OldAssetBalance<Balance> {
-        fn migrate_to_v1<DepositBalance, Extra> (self, reason:ExistenceReason<DepositBalance> ,extra: Extra) -> AssetAccount<Balance, DepositBalance, Extra> {
+    impl OldAssetBalance {
+        fn migrate_to_v1<Balance: From<u64>, DepositBalance, Extra>(
+            self,
+            extra: Extra,
+        ) -> AssetAccount<Balance, DepositBalance, Extra> {
             AssetAccount {
-                balance: self.balance,
+                balance: self.balance.into(),
                 is_frozen: self.is_frozen,
-                // TODO:
-                reason: reason,
-                extra: extra,
+                reason: ExistenceReason::Consumer,
+                extra,
             }
         }
     }
@@ -96,17 +101,21 @@ pub mod v1 {
                     translated.saturating_inc();
                     Some(old_value.migrate_to_v1())
                 });
-                Metadata::<T>::translate::<OldAssetMetadata<DepositBalanceOf<T>>,_>(|_key, old_value| {
-                    // FIXME
-                    let bounded_name: BoundedVec<u8, T::StringLimit> = old_value.name.clone().try_into().unwrap();
-                    let bounded_symbol: BoundedVec<u8, T::StringLimit> = old_value.symbol.clone().try_into().unwrap();
+                Metadata::<T>::translate::<OldAssetMetadata<DepositBalanceOf<T>>, _>(
+                    |_key, old_value| {
+                        // FIXME unwrap.
+                        let bounded_name: BoundedVec<u8, T::StringLimit> =
+                            old_value.name.clone().try_into().unwrap();
+                        let bounded_symbol: BoundedVec<u8, T::StringLimit> =
+                            old_value.symbol.clone().try_into().unwrap();
 
-                    translated.saturating_inc();
-                    Some(old_value.migrate_to_v1(bounded_name, bounded_symbol))
+                        translated.saturating_inc();
+                        Some(old_value.migrate_to_v1(bounded_name, bounded_symbol))
+                    },
+                );
+                Account::<T>::translate::<OldAssetBalance, _>(|_key1, _key2, old_value| {
+                    Some(old_value.migrate_to_v1(T::Extra::default()))
                 });
-                // Account::<T>::translate::<OldAssetBalance<T::Balance>, _> (|_key1, _key2, old_value| {
-                //     Some(old_value.migrate_to_v1( ))
-                // });
 
                 current_version.put::<Pallet<T>>();
                 log::info!(
