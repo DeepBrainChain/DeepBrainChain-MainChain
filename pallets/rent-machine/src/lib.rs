@@ -24,9 +24,7 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use sp_runtime::{
-    traits::{CheckedAdd, CheckedSub, SaturatedConversion, Saturating, Zero},
-};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Saturating, Zero};
 use sp_std::{prelude::*, str, vec::Vec};
 
 type BalanceOf<T> =
@@ -507,7 +505,8 @@ impl<T: Config> Pallet<T> {
         let rent_fee_to = if galaxy_is_on { rent_fee_pot } else { machine_stash };
 
         <T as pallet::Config>::Currency::transfer(renter, &rent_fee_to, fee_amount, KeepAlive)?;
-        T::RTOps::change_machine_rent_fee(fee_amount, machine_id, galaxy_is_on).map_err(|_| Error::<T>::Unknown)?;
+        T::RTOps::change_machine_rent_fee(fee_amount, machine_id, galaxy_is_on)
+            .map_err(|_| Error::<T>::Unknown)?;
 
         Ok(())
     }

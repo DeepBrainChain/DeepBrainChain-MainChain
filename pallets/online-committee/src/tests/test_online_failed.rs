@@ -144,8 +144,7 @@ fn test_machine_online_refused_after_some_online() {
 
         assert_eq!(
             Balances::free_balance(*committee1),
-            INIT_BALANCE - 20000 * ONE_DBC +
-                Perbill::from_rational(1u32, 3u32) * (5000 * ONE_DBC)
+            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational(1u32, 3u32) * (5000 * ONE_DBC)
         );
     })
 }
@@ -262,8 +261,7 @@ fn test_machine_online_refused_claim_reserved() {
 
         assert_eq!(
             Balances::free_balance(*committee1),
-            INIT_BALANCE - 20000 * ONE_DBC +
-                Perbill::from_rational(1u32, 3u32) * (5000 * ONE_DBC)
+            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational(1u32, 3u32) * (5000 * ONE_DBC)
         );
 
         assert_eq!(Balances::reserved_balance(*committee1), 20000 * ONE_DBC);
@@ -374,8 +372,7 @@ fn test_online_refused_apply_review_ignored_works() {
 
         assert_eq!(
             Balances::free_balance(*committee1),
-            INIT_BALANCE - 20000 * ONE_DBC +
-                Perbill::from_rational(1u32, 3u32) * (5000 * ONE_DBC)
+            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational(1u32, 3u32) * (5000 * ONE_DBC)
         );
         assert_eq!(
             Committee::committee_stake(*committee1),

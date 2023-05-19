@@ -849,7 +849,8 @@ pub mod pallet {
                     )
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
-            }.map_err(|_| Error::<T>::Unknown)?;
+            }
+            .map_err(|_| Error::<T>::Unknown)?;
 
             // NOTE: 如果机器上线超过一年，空闲超过10天，下线后上线不添加惩罚
             if now >= machine_info.online_height &&

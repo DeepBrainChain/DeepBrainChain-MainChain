@@ -31,13 +31,13 @@ impl<T: Config> OCOps for Pallet<T> {
         MachinesInfo::<T>::try_mutate(&id, |machine_info| {
             let machine_info = machine_info.as_mut().ok_or(())?;
             machine_info.machine_status = MachineStatus::CommitteeVerifying;
-            Ok::<(),()>(())
+            Ok::<(), ()>(())
         })?;
         LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.confirmed_machine, &id);
             ItemList::add_item(&mut live_machines.booked_machine, id.clone());
         });
-        Ok::<(),()>(())
+        Ok::<(), ()>(())
     }
 
     // 由于委员会没有达成一致，需要重新返回到bonding_machine
@@ -45,13 +45,13 @@ impl<T: Config> OCOps for Pallet<T> {
         MachinesInfo::<T>::mutate(&id, |machine_info| {
             let machine_info = machine_info.as_mut().ok_or(())?;
             machine_info.machine_status = MachineStatus::DistributingOrder;
-            Ok::<(),()>(())
+            Ok::<(), ()>(())
         })?;
         LiveMachines::<T>::mutate(|live_machines| {
             ItemList::rm_item(&mut live_machines.booked_machine, &id);
             ItemList::add_item(&mut live_machines.confirmed_machine, id.clone());
         });
-        Ok::<(),()>(())
+        Ok::<(), ()>(())
     }
 
     // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
@@ -388,7 +388,11 @@ impl<T: Config> RTOps for Pallet<T> {
         Ok(())
     }
 
-    fn change_machine_rent_fee(amount: BalanceOf<T>, machine_id: MachineId, is_burn: bool) -> Result<(), ()> {
+    fn change_machine_rent_fee(
+        amount: BalanceOf<T>,
+        machine_id: MachineId,
+        is_burn: bool,
+    ) -> Result<(), ()> {
         let mut machine_info = Self::machines_info(&machine_id).ok_or(())?;
         let mut staker_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
@@ -400,7 +404,7 @@ impl<T: Config> RTOps for Pallet<T> {
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_stash, staker_machine);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
-        Ok::<(),()>(())
+        Ok::<(), ()>(())
     }
 
     fn reset_machine_renters(machine_id: MachineId, renters: Vec<T::AccountId>) -> Result<(), ()> {
