@@ -249,6 +249,13 @@ pub mod v11 {
     }
 }
 
+pub struct StakingMigrationV11OldPallet;
+impl Get<&'static str> for StakingMigrationV11OldPallet {
+    fn get() -> &'static str {
+        "VoterList"
+    }
+}
+
 pub mod v10 {
     use super::*;
     use frame_support::storage_alias;
@@ -360,6 +367,25 @@ pub mod v9 {
     }
 }
 
+/// A migration which update `Staking` to `v8`
+pub struct MigrateStakingToV8<T>(sp_std::marker::PhantomData<T>);
+impl<T: super::Config> frame_support::traits::OnRuntimeUpgrade for MigrateStakingToV8<T> {
+    fn on_runtime_upgrade() -> Weight {
+        super::migrations::v8::migrate::<T>()
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        super::migrations::v8::pre_migrate::<T>()?;
+        Ok(Vec::new())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        pallet_staking::migrations::v8::post_migrate::<T>()
+    }
+}
+
 pub mod v8 {
     use super::*;
     use crate::{Config, Nominators, Pallet, Weight};
@@ -409,6 +435,24 @@ pub mod v8 {
     }
 }
 
+pub struct MigrateStakingToV7<T>(sp_std::marker::PhantomData<T>);
+impl<T: super::Config> frame_support::traits::OnRuntimeUpgrade for MigrateStakingToV7<T> {
+    fn on_runtime_upgrade() -> Weight {
+        super::migrations::v7::migrate::<T>()
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        super::migrations::v7::pre_migrate::<T>()?;
+        Ok(Vec::new())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        pallet_staking::migrations::v7::post_migrate::<T>()
+    }
+}
+
 pub mod v7 {
     use super::*;
     use frame_support::storage_alias;
@@ -445,6 +489,42 @@ pub mod v7 {
         log!(info, "Completed staking migration to ObsoleteReleases::V7_0_0");
 
         T::DbWeight::get().reads_writes(validator_count.saturating_add(nominator_count).into(), 2)
+    }
+}
+
+// A value placed in storage that represents the current version of the Staking storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// This should match directly with the semantic versions of the Rust crate.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+enum OldReleases {
+    V1_0_0Ancient,
+    V2_0_0,
+    V3_0_0,
+    V4_0_0,
+    V5_0_0,
+}
+
+impl Default for OldReleases {
+    fn default() -> Self {
+        OldReleases::V5_0_0
+    }
+}
+
+pub struct MigrateStakingToV6<T>(sp_std::marker::PhantomData<T>);
+impl<T: super::Config> frame_support::traits::OnRuntimeUpgrade for MigrateStakingToV6<T> {
+    fn on_runtime_upgrade() -> Weight {
+        super::migrations::v6::migrate::<T>()
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        super::migrations::v6::pre_migrate::<T>()?;
+        Ok(Vec::new())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        pallet_staking::migrations::v6::post_migrate::<T>()
     }
 }
 

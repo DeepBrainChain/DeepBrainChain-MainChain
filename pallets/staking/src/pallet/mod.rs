@@ -828,6 +828,10 @@ pub mod pallet {
         fn try_state(n: BlockNumberFor<T>) -> Result<(), &'static str> {
             Self::do_try_state(n)
         }
+
+        fn on_runtime_upgrade() -> Weight {
+            Weight::zero()
+        }
     }
 
     #[pallet::call]

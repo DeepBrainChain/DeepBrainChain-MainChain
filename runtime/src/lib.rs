@@ -1649,6 +1649,19 @@ pub type Executive = frame_executive::Executive<
 type Migrations = (
     pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
     pallet_contracts::Migration<Runtime>,
+    // TODO: Add pallet_staking migrations
+    pallet_staking::migrations::MigrateStakingToV6<Runtime>,
+    pallet_staking::migrations::MigrateStakingToV7<Runtime>,
+    pallet_staking::migrations::MigrateStakingToV8<Runtime>,
+    pallet_staking::migrations::v9::InjectValidatorsIntoVoterList<Runtime>,
+    pallet_staking::migrations::v10::MigrateToV10<Runtime>,
+    pallet_staking::migrations::v11::MigrateToV11<
+        Runtime,
+        VoterList,
+        pallet_staking::migrations::StakingMigrationV11OldPallet,
+    >,
+    pallet_staking::migrations::v12::MigrateToV12<Runtime>,
+    pallet_staking::migrations::v13::MigrateToV13<Runtime>,
 );
 
 /// MMR helper types.
