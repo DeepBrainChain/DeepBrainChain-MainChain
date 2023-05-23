@@ -4,6 +4,7 @@ use super::*;
 use frame_support::{
     pallet_prelude::*,
     traits::{fungible, tokens::BalanceConversion},
+    BoundedBTreeMap,
 };
 use sp_runtime::{traits::Convert, FixedPointNumber, FixedPointOperand, FixedU128};
 
@@ -11,6 +12,16 @@ pub(super) type DepositBalanceOf<T, I = ()> =
     <<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 pub(super) type AssetAccountOf<T, I> =
     AssetAccount<<T as Config<I>>::Balance, DepositBalanceOf<T, I>, <T as Config<I>>::Extra>;
+
+pub(super) type ApprovalsOf<T, I = ()> = BoundedBTreeMap<
+    u32,
+    AssetLock<
+        <T as SystemConfig>::AccountId,
+        <T as Config<I>>::Balance,
+        <T as SystemConfig>::BlockNumber,
+    >,
+    <T as Config<I>>::AssetLockLimit,
+>;
 
 /// AssetStatus holds the current state of the asset. It could either be Live and available for use,
 /// or in a Destroying state.
@@ -243,4 +254,15 @@ where
         Ok(FixedU128::saturating_from_rational(asset.min_balance, min_balance)
             .saturating_mul_int(balance))
     }
+}
+
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, MaxEncodedLen, TypeInfo)]
+pub struct AssetLock<
+    AccountId: Encode + Decode + Clone + Eq + PartialEq,
+    Balance: Encode + Decode + Clone + Eq + PartialEq,
+    BlockNumber: Encode + Decode + Clone + Eq + PartialEq,
+> {
+    pub from: AccountId,
+    pub balance: Balance,
+    pub unlock_time: BlockNumber,
 }

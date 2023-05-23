@@ -149,6 +149,7 @@ use frame_support::{
         BalanceStatus::Reserved,
         Currency, EnsureOriginWithArg, ReservableCurrency, StoredMap,
     },
+    BoundedBTreeMap,
 };
 use frame_system::Config as SystemConfig;
 
@@ -173,7 +174,7 @@ impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for () {}
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
+    use frame_support::pallet_prelude::{ValueQuery, *};
     use frame_system::pallet_prelude::*;
 
     /// The current storage version.
@@ -277,6 +278,10 @@ pub mod pallet {
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+
+        /// The maximum locks an item could have.
+        #[pallet::constant]
+        type AssetLockLimit: Get<u32>;
     }
 
     #[pallet::storage]
@@ -320,6 +325,29 @@ pub mod pallet {
         Blake2_128Concat,
         T::AssetId,
         AssetMetadata<DepositBalanceOf<T, I>, BoundedVec<u8, T::StringLimit>>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn asset_locks)]
+    pub(super) type AssetLocks<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AssetId,
+        Blake2_128Concat,
+        T::AccountId,
+        ApprovalsOf<T, I>, // BTreeMap<u32, AssetLock<T::AccountId, T::Balance, T::BlockNumber>>,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn locked)]
+    pub(super) type Locked<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AssetId,
+        Blake2_128Concat,
+        T::AccountId,
+        T::Balance,
         ValueQuery,
     >;
 
@@ -410,9 +438,17 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config<I>, I: 'static = ()> {
         /// Some asset class was created.
-        Created { asset_id: T::AssetId, creator: T::AccountId, owner: T::AccountId },
+        Created {
+            asset_id: T::AssetId,
+            creator: T::AccountId,
+            owner: T::AccountId,
+        },
         /// Some assets were issued.
-        Issued { asset_id: T::AssetId, owner: T::AccountId, total_supply: T::Balance },
+        Issued {
+            asset_id: T::AssetId,
+            owner: T::AccountId,
+            total_supply: T::Balance,
+        },
         /// Some assets were transferred.
         Transferred {
             asset_id: T::AssetId,
@@ -421,7 +457,11 @@ pub mod pallet {
             amount: T::Balance,
         },
         /// Some assets were destroyed.
-        Burned { asset_id: T::AssetId, owner: T::AccountId, balance: T::Balance },
+        Burned {
+            asset_id: T::AssetId,
+            owner: T::AccountId,
+            balance: T::Balance,
+        },
         /// The management team changed.
         TeamChanged {
             asset_id: T::AssetId,
@@ -430,17 +470,34 @@ pub mod pallet {
             freezer: T::AccountId,
         },
         /// The owner changed.
-        OwnerChanged { asset_id: T::AssetId, owner: T::AccountId },
+        OwnerChanged {
+            asset_id: T::AssetId,
+            owner: T::AccountId,
+        },
         /// Some account `who` was frozen.
-        Frozen { asset_id: T::AssetId, who: T::AccountId },
+        Frozen {
+            asset_id: T::AssetId,
+            who: T::AccountId,
+        },
         /// Some account `who` was thawed.
-        Thawed { asset_id: T::AssetId, who: T::AccountId },
+        Thawed {
+            asset_id: T::AssetId,
+            who: T::AccountId,
+        },
         /// Some asset `asset_id` was frozen.
-        AssetFrozen { asset_id: T::AssetId },
+        AssetFrozen {
+            asset_id: T::AssetId,
+        },
         /// Some asset `asset_id` was thawed.
-        AssetThawed { asset_id: T::AssetId },
+        AssetThawed {
+            asset_id: T::AssetId,
+        },
         /// Accounts were destroyed for given asset.
-        AccountsDestroyed { asset_id: T::AssetId, accounts_destroyed: u32, accounts_remaining: u32 },
+        AccountsDestroyed {
+            asset_id: T::AssetId,
+            accounts_destroyed: u32,
+            accounts_remaining: u32,
+        },
         /// Approvals were destroyed for given asset.
         ApprovalsDestroyed {
             asset_id: T::AssetId,
@@ -448,11 +505,18 @@ pub mod pallet {
             approvals_remaining: u32,
         },
         /// An asset class is in the process of being destroyed.
-        DestructionStarted { asset_id: T::AssetId },
+        DestructionStarted {
+            asset_id: T::AssetId,
+        },
         /// An asset class was destroyed.
-        Destroyed { asset_id: T::AssetId },
+        Destroyed {
+            asset_id: T::AssetId,
+        },
         /// Some asset class was force-created.
-        ForceCreated { asset_id: T::AssetId, owner: T::AccountId },
+        ForceCreated {
+            asset_id: T::AssetId,
+            owner: T::AccountId,
+        },
         /// New metadata has been set for an asset.
         MetadataSet {
             asset_id: T::AssetId,
@@ -462,7 +526,9 @@ pub mod pallet {
             is_frozen: bool,
         },
         /// Metadata has been cleared for an asset.
-        MetadataCleared { asset_id: T::AssetId },
+        MetadataCleared {
+            asset_id: T::AssetId,
+        },
         /// (Additional) funds have been approved for transfer to a destination account.
         ApprovedTransfer {
             asset_id: T::AssetId,
@@ -471,7 +537,11 @@ pub mod pallet {
             amount: T::Balance,
         },
         /// An approval for account `delegate` was cancelled by `owner`.
-        ApprovalCancelled { asset_id: T::AssetId, owner: T::AccountId, delegate: T::AccountId },
+        ApprovalCancelled {
+            asset_id: T::AssetId,
+            owner: T::AccountId,
+            delegate: T::AccountId,
+        },
         /// An `amount` was transferred in its entirety from `owner` to `destination` by
         /// the approved `delegate`.
         TransferredApproved {
@@ -482,7 +552,23 @@ pub mod pallet {
             amount: T::Balance,
         },
         /// An asset has had its attributes changed by the `Force` origin.
-        AssetStatusChanged { asset_id: T::AssetId },
+        AssetStatusChanged {
+            asset_id: T::AssetId,
+        },
+        // Transfer and lock: asset_id, from, to, amount, lock_duration
+        TransferLocked {
+            asset_id: T::AssetId,
+            from: T::AccountId,
+            to: T::AccountId,
+            amount: T::Balance,
+        },
+        // Unlock: asset_id, amount
+        Unlocked {
+            asset_id: T::AssetId,
+            from: T::AccountId,
+            to: T::AccountId,
+            amount: T::Balance,
+        },
     }
 
     #[pallet::error]
@@ -528,6 +614,9 @@ pub mod pallet {
         IncorrectStatus,
         /// The asset should be frozen before the given operation.
         NotFrozen,
+        AmountZero,
+        TooManyLocks,
+        TimeNowAllowed,
     }
 
     #[pallet::call]
@@ -1479,6 +1568,92 @@ pub mod pallet {
         ) -> DispatchResult {
             let id: T::AssetId = id.into();
             Self::do_refund(id, ensure_signed(origin)?, allow_burn)
+        }
+
+        #[pallet::call_index(28)]
+        #[pallet::weight(T::WeightInfo::transfer())]
+        pub fn transfer_and_lock(
+            origin: OriginFor<T>,
+            id: T::AssetId,
+            target: AccountIdLookupOf<T>,
+            amount: T::Balance,
+            lock_duration: <T as frame_system::Config>::BlockNumber,
+        ) -> DispatchResult {
+            let origin = ensure_signed(origin)?;
+            let dest = T::Lookup::lookup(target)?;
+            let id: T::AssetId = id.into();
+
+            let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+            Self::do_transfer2(id, &origin, &dest, amount, lock_duration, None, f).map(|_| ())
+        }
+
+        #[pallet::call_index(29)]
+        #[pallet::weight(T::WeightInfo::transfer())]
+        pub fn unlock(origin: OriginFor<T>, id: T::AssetId, lock_index: u32) -> DispatchResult {
+            let origin = ensure_signed(origin)?;
+            let now = <frame_system::Pallet<T>>::block_number();
+
+            let mut locks = match Self::asset_locks(id, &origin) {
+                None => BoundedBTreeMap::new(),
+                Some(locks) => locks,
+            };
+
+            let lock = locks.get(&lock_index).cloned().ok_or(Error::<T, I>::Unknown)?;
+
+            ensure!(now >= lock.unlock_time, Error::<T, I>::TimeNowAllowed);
+
+            Asset::<T, I>::try_mutate(id, |maybe_details| -> DispatchResult {
+                let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
+
+                Account::<T, I>::try_mutate(id, &origin, |maybe_account| -> DispatchResult {
+                    match maybe_account {
+                        Some(ref mut account) => {
+                            // Calculate new balance; this will not saturate since it's already checked
+                            // in prep.
+                            debug_assert!(
+                                account.balance.checked_add(&lock.balance).is_some(),
+                                "checked in prep; qed"
+                            );
+                            account.balance.saturating_accrue(lock.balance);
+                        },
+                        maybe_account @ None => {
+                            *maybe_account = Some(AssetAccountOf::<T, I> {
+                                balance: lock.balance,
+                                is_frozen: false,
+                                reason: Self::new_account(&origin, details, None)?,
+                                extra: T::Extra::default(),
+                            });
+                        },
+                    }
+                    Ok(())
+                })
+            })?;
+
+            // 如果长度为0，则移除该记录
+            locks.remove(&lock_index);
+            if locks.is_empty() {
+                AssetLocks::<T, I>::remove(id, &origin);
+                Locked::<T, I>::remove(id, &origin);
+            } else {
+                AssetLocks::<T, I>::insert(id, &origin, locks);
+                Locked::<T, I>::mutate(id, &origin, |locked| {
+                    *locked = locked.saturating_sub(lock.balance)
+                });
+            }
+
+            Self::deposit_event(Event::Unlocked {
+                asset_id: id,
+                from: lock.from.clone(),
+                to: origin.clone(),
+                amount: lock.balance,
+            });
+            Self::deposit_event(Event::Transferred {
+                asset_id: id,
+                from: lock.from,
+                to: origin,
+                amount: lock.balance,
+            });
+            Ok(().into())
         }
     }
 }

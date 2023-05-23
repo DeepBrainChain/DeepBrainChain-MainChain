@@ -2,6 +2,7 @@
 
 use super::*;
 use frame_support::{traits::Get, BoundedVec};
+use sp_std::collections::btree_set::BTreeSet;
 
 #[must_use]
 pub(super) enum DeadConsequence {
@@ -517,6 +518,126 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Ok(balance)
     }
 
+    pub(super) fn do_transfer2(
+        id: T::AssetId,
+        source: &T::AccountId,
+        dest: &T::AccountId,
+        amount: T::Balance,
+        lock_duration: T::BlockNumber,
+        maybe_need_admin: Option<T::AccountId>,
+        f: TransferFlags,
+    ) -> Result<T::Balance, DispatchError> {
+        let (balance, died) =
+            Self::transfer_and_die2(id, source, dest, amount, lock_duration, maybe_need_admin, f)?;
+        if let Some(Remove) = died {
+            T::Freezer::died(id, source);
+        }
+        Ok(balance)
+    }
+
+    // NOTE: used for transfer and lock:
+    /// Same as `do_transfer` but it does not execute the `FrozenBalance::died` hook and
+    /// instead returns whether and how the `source` account died in this operation.
+    fn transfer_and_die2(
+        id: T::AssetId,
+        source: &T::AccountId,
+        dest: &T::AccountId,
+        amount: T::Balance,
+        lock_duration: T::BlockNumber,
+        maybe_need_admin: Option<T::AccountId>,
+        f: TransferFlags,
+    ) -> Result<(T::Balance, Option<DeadConsequence>), DispatchError> {
+        // Early exit if no-op.
+        if amount.is_zero() {
+            return Ok((amount, None))
+        }
+        let details = Asset::<T, I>::get(id).ok_or(Error::<T, I>::Unknown)?;
+        ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+        // Figure out the debit and credit, together with side-effects.
+        let debit = Self::prep_debit(id, source, amount, f.into())?;
+        let (credit, maybe_burn) = Self::prep_credit(id, dest, amount, debit, f.burn_dust)?;
+
+        let mut source_account =
+            Account::<T, I>::get(id, &source).ok_or(Error::<T, I>::NoAccount)?;
+        let mut source_died: Option<DeadConsequence> = None;
+
+        Asset::<T, I>::try_mutate(id, |maybe_details| -> DispatchResult {
+            let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
+
+            // Check admin rights.
+            if let Some(need_admin) = maybe_need_admin {
+                ensure!(need_admin == details.admin, Error::<T, I>::NoPermission);
+            }
+
+            // Skip if source == dest
+            if source == dest {
+                return Ok(())
+            }
+
+            // Burn any dust if needed.
+            if let Some(burn) = maybe_burn {
+                // Debit dust from supply; this will not saturate since it's already checked in
+                // prep.
+                debug_assert!(details.supply >= burn, "checked in prep; qed");
+                details.supply = details.supply.saturating_sub(burn);
+            }
+
+            // Debit balance from source; this will not saturate since it's already checked in prep.
+            debug_assert!(source_account.balance >= debit, "checked in prep; qed");
+            source_account.balance = source_account.balance.saturating_sub(debit);
+
+            let now = <frame_system::Pallet<T>>::block_number();
+            let locks = Self::asset_locks(id, &dest);
+            let lock = AssetLock {
+                from: source.clone(),
+                balance: amount,
+                unlock_time: lock_duration.saturating_add(now),
+            };
+
+            if let Some(lock_id) = Self::get_new_lock_id(id, &dest) {
+                match locks {
+                    Some(mut locks) => {
+                        locks.try_insert(lock_id, lock).map_err(|_| Error::<T, I>::TooManyLocks)?;
+                        AssetLocks::<T, I>::insert(id, &dest, locks);
+                    },
+                    None => {
+                        let mut locks = BoundedBTreeMap::new();
+                        locks.try_insert(lock_id, lock).map_err(|_| Error::<T, I>::TooManyLocks)?;
+                        AssetLocks::<T, I>::insert(id, &dest, locks);
+                    },
+                };
+
+                Locked::<T, I>::mutate(id, &dest, |locked| {
+                    *locked = locked.saturating_add(amount);
+                });
+            } else {
+                return Err(Error::<T, I>::TooManyLocks.into())
+            }
+
+            // Remove source account if it's now dead.
+            if source_account.balance < details.min_balance {
+                debug_assert!(source_account.balance.is_zero(), "checked in prep; qed");
+                source_died =
+                    Some(Self::dead_account(source, details, &source_account.reason, false));
+                if let Some(Remove) = source_died {
+                    Account::<T, I>::remove(id, &source);
+                    return Ok(())
+                }
+            }
+            Account::<T, I>::insert(id, &source, &source_account);
+            Ok(())
+        })?;
+
+        Self::deposit_event(Event::TransferLocked {
+            asset_id: id,
+            from: source.clone(),
+            to: dest.clone(),
+            amount: credit,
+        });
+        Ok((credit, source_died))
+    }
+
     /// Same as `do_transfer` but it does not execute the `FrozenBalance::died` hook and
     /// instead returns whether and how the `source` account died in this operation.
     fn transfer_and_die(
@@ -909,5 +1030,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             });
             Ok(())
         })
+    }
+
+    pub(super) fn get_new_lock_id(asset_id: T::AssetId, who: &T::AccountId) -> Option<u32> {
+        let asset_lock = match Self::asset_locks(asset_id, who) {
+            None => return Some(0),
+            Some(asset_lock) => asset_lock,
+        };
+        let ids: BTreeSet<_> = asset_lock.keys().cloned().collect();
+
+        // 允许最多1000个locked_transfer
+        let lock_limit = <T as Config<I>>::AssetLockLimit::get();
+        for id in 0..lock_limit {
+            if !ids.contains(&id) {
+                return Some(id)
+            }
+        }
+        None
     }
 }
