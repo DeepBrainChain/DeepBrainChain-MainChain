@@ -31,13 +31,13 @@ pallet-staking = { package = "dbc-staking", path = "../staking" }
 default = ["std"]
 std = [
   "codec/std",
+  "dbc-support/std",
   "frame-support/std",
   "frame-system/std",
   "generic-func/std",
-  "dbc-support/std",
+  "serde",
   "sp-core/std",
   "sp-io/std",
   "sp-std/std",
   "sp-runtime/std",
-  "serde",
 ]

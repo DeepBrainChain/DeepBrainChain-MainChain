@@ -282,8 +282,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
+// #[cfg(feature = "runtime-benchmarks")]
+// pub mod benchmarking;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 pub mod testing_utils;
 
@@ -820,16 +820,16 @@ pub trait EraPayout<Balance> {
     /// Returns the amount to be paid to stakers in this era, as well as whatever else should be
     /// paid out ("the rest").
     fn era_payout(
-        total_staked: Balance,
-        total_issuance: Balance,
+        milliseconds_per_year: u64,
+        yearly_inflation_amount: Balance,
         era_duration_millis: u64,
     ) -> (Balance, Balance);
 }
 
 impl<Balance: Default> EraPayout<Balance> for () {
     fn era_payout(
-        _total_staked: Balance,
-        _total_issuance: Balance,
+        _milliseconds_per_year: u64,
+        _yearly_inflation_amount: Balance,
         _era_duration_millis: u64,
     ) -> (Balance, Balance) {
         (Default::default(), Default::default())
@@ -843,18 +843,19 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
     EraPayout<Balance> for ConvertCurve<T>
 {
     fn era_payout(
-        total_staked: Balance,
-        total_issuance: Balance,
+        milliseconds_per_year: u64,
+        yearly_inflation_amount: Balance,
         era_duration_millis: u64,
     ) -> (Balance, Balance) {
         let (validator_payout, max_payout) = inflation::compute_total_payout(
-            T::get(),
-            total_staked,
-            total_issuance,
             // Duration of era; more than u64::MAX is rewarded as u64::MAX.
+            milliseconds_per_year,
+            yearly_inflation_amount,
             era_duration_millis,
         );
-        let rest = max_payout.saturating_sub(validator_payout.clone());
+
+        let rest = (max_payout - validator_payout.clone()).into();
+
         (validator_payout, rest)
     }
 }
@@ -957,4 +958,24 @@ pub struct TestBenchmarkingConfig;
 impl BenchmarkingConfig for TestBenchmarkingConfig {
     type MaxValidators = frame_support::traits::ConstU32<100>;
     type MaxNominators = frame_support::traits::ConstU32<100>;
+}
+
+// foundation reward params
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
+pub struct FoundationIssueRewards<AccountId: Ord, Balance> {
+    pub who: Vec<AccountId>,
+    pub left_reward_times: u32,
+    pub first_reward_era: EraIndex,
+    pub reward_interval: EraIndex,
+    pub reward_amount: Balance,
+}
+
+// Treasury issue params
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub struct TreasuryIssueRewards<AccountId, Balance> {
+    pub treasury_account: AccountId,
+    pub left_reward_times: u32,
+    pub first_reward_era: EraIndex,
+    pub reward_interval: EraIndex,
+    pub reward_amount: Balance,
 }

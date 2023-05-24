@@ -22,11 +22,14 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sp-staking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false, features = ["historical"] }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false, features = ["historical"] }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 log = { version = "0.4.17", default-features = false }
+
+dbc-support = { path = "../support", default-features = false }
 
 # Optional imports for benchmarking
 
@@ -38,7 +41,6 @@ sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 sp-npos-elections = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 pallet-bags-list = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
 substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
@@ -49,21 +51,23 @@ rand_chacha = { version = "0.2" }
 [features]
 default = ["std"]
 std = [
-	"frame-benchmarking?/std",
-	"serde",
 	"codec/std",
-	"scale-info/std",
-	"sp-std/std",
-	"sp-io/std",
+	"dbc-support/std",
+	"log/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support/std",
 	"frame-support/std",
-	"sp-runtime/std",
-	"sp-staking/std",
-	"pallet-session/std",
 	"frame-system/std",
 	"pallet-authorship/std",
+	"pallet-session/std",
+	"pallet-timestamp/std",
+	"serde",
+	"scale-info/std",
 	"sp-application-crypto/std",
-	"log/std",
-	"frame-election-provider-support/std",
+	"sp-std/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-staking/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

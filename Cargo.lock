@@ -1853,6 +1853,7 @@ dependencies = [
 name = "dbc-staking"
 version = "4.0.0-dev"
 dependencies = [
+ "dbc-support",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",

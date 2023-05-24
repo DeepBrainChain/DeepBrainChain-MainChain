@@ -84,7 +84,7 @@ pub mod pallet {
     }
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + pallet_timestamp::Config {
         /// The staking balance.
         type Currency: LockableCurrency<
             Self::AccountId,
@@ -579,6 +579,52 @@ pub mod pallet {
     #[pallet::storage]
     pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn phase_0_reward_per_year)]
+    pub type Phase0RewardPerYear<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn phase_1_reward_per_year)]
+    pub type Phase1RewardPerYear<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn phase_2_reward_per_year)]
+    pub type Phase2RewardPerYear<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn reward_start_height)]
+    pub type RewardStartHeight<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn committee_team_reward_per_year)]
+    pub type CommitteeTeamRewardPerYear<T: Config> =
+        StorageValue<_, Vec<(T::AccountId, BalanceOf<T>)>>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn first_committee_team_release_era)]
+    pub type FirstCommitteeTeamReleaseEra<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
+
+    #[pallet::type_value]
+    pub fn RewardTimesDefault<T: Config>() -> u32 {
+        6
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn reward_times)]
+    pub type RewardTimes<T: Config> = StorageValue<_, u32, ValueQuery, RewardTimesDefault<T>>;
+
+    #[pallet::storage]
+    #[pallet::unbounded]
+    #[pallet::getter(fn foundation_reward)]
+    pub type FoundationReward<T: Config> =
+        StorageValue<_, crate::FoundationIssueRewards<T::AccountId, BalanceOf<T>>>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn treasury_reward)]
+    pub type TreasuryReward<T: Config> =
+        StorageValue<_, crate::TreasuryIssueRewards<T::AccountId, BalanceOf<T>>>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub validator_count: u32,
@@ -681,41 +727,82 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// The era payout has been set; the first balance is the validator-payout; the second is
         /// the remainder from the maximum amount of reward.
-        EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },
+        EraPaid {
+            era_index: EraIndex,
+            validator_payout: BalanceOf<T>,
+            remainder: BalanceOf<T>,
+        },
         /// The nominator has been rewarded by this amount.
-        Rewarded { stash: T::AccountId, amount: BalanceOf<T> },
+        Rewarded {
+            stash: T::AccountId,
+            amount: BalanceOf<T>,
+        },
         /// A staker (validator or nominator) has been slashed by the given amount.
-        Slashed { staker: T::AccountId, amount: BalanceOf<T> },
+        Slashed {
+            staker: T::AccountId,
+            amount: BalanceOf<T>,
+        },
         /// A slash for the given validator, for the given percentage of their stake, at the given
         /// era as been reported.
-        SlashReported { validator: T::AccountId, fraction: Perbill, slash_era: EraIndex },
+        SlashReported {
+            validator: T::AccountId,
+            fraction: Perbill,
+            slash_era: EraIndex,
+        },
         /// An old slashing report from a prior era was discarded because it could
         /// not be processed.
-        OldSlashingReportDiscarded { session_index: SessionIndex },
+        OldSlashingReportDiscarded {
+            session_index: SessionIndex,
+        },
         /// A new set of stakers was elected.
         StakersElected,
         /// An account has bonded this amount. \[stash, amount\]
         ///
         /// NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
         /// it will not be emitted for staking rewards when they are added to stake.
-        Bonded { stash: T::AccountId, amount: BalanceOf<T> },
+        Bonded {
+            stash: T::AccountId,
+            amount: BalanceOf<T>,
+        },
         /// An account has unbonded this amount.
-        Unbonded { stash: T::AccountId, amount: BalanceOf<T> },
+        Unbonded {
+            stash: T::AccountId,
+            amount: BalanceOf<T>,
+        },
         /// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
         /// from the unlocking queue.
-        Withdrawn { stash: T::AccountId, amount: BalanceOf<T> },
+        Withdrawn {
+            stash: T::AccountId,
+            amount: BalanceOf<T>,
+        },
         /// A nominator has been kicked from a validator.
-        Kicked { nominator: T::AccountId, stash: T::AccountId },
+        Kicked {
+            nominator: T::AccountId,
+            stash: T::AccountId,
+        },
         /// The election failed. No new era is planned.
         StakingElectionFailed,
         /// An account has stopped participating as either a validator or nominator.
-        Chilled { stash: T::AccountId },
+        Chilled {
+            stash: T::AccountId,
+        },
         /// The stakers' rewards are getting paid.
-        PayoutStarted { era_index: EraIndex, validator_stash: T::AccountId },
+        PayoutStarted {
+            era_index: EraIndex,
+            validator_stash: T::AccountId,
+        },
         /// A validator has set their preferences.
-        ValidatorPrefsSet { stash: T::AccountId, prefs: ValidatorPrefs },
+        ValidatorPrefsSet {
+            stash: T::AccountId,
+            prefs: ValidatorPrefs,
+        },
         /// A new force era mode was set.
-        ForceEra { mode: Forcing },
+        ForceEra {
+            mode: Forcing,
+        },
+        Phase0RewardPerYear(BalanceOf<T>),
+        Phase1RewardPerYear(BalanceOf<T>),
+        Phase2RewardPerYear(BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -774,6 +861,7 @@ pub mod pallet {
         CommissionTooLow,
         /// Some bound is not met.
         BoundNotMet,
+        Unknown,
     }
 
     #[pallet::hooks]
@@ -854,7 +942,7 @@ pub mod pallet {
         /// ------------------
         /// # </weight>
         #[pallet::call_index(0)]
-        #[pallet::weight(T::WeightInfo::bond())]
+        #[pallet::weight(<T as Config>::WeightInfo::bond())]
         pub fn bond(
             origin: OriginFor<T>,
             controller: AccountIdLookupOf<T>,
@@ -924,7 +1012,7 @@ pub mod pallet {
         /// - O(1).
         /// # </weight>
         #[pallet::call_index(1)]
-        #[pallet::weight(T::WeightInfo::bond_extra())]
+        #[pallet::weight(<T as Config>::WeightInfo::bond_extra())]
         pub fn bond_extra(
             origin: OriginFor<T>,
             #[pallet::compact] max_additional: BalanceOf<T>,
@@ -979,7 +1067,7 @@ pub mod pallet {
         /// See also [`Call::withdraw_unbonded`].
         #[pallet::call_index(2)]
         #[pallet::weight(
-            T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::unbond()))
+            <T as Config>::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(<T as Config>::WeightInfo::unbond()))
         ]
         pub fn unbond(
             origin: OriginFor<T>,
@@ -1061,9 +1149,9 @@ pub mod pallet {
             }
 
             let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
-                Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
+                Some(<T as Config>::WeightInfo::unbond().saturating_add(withdraw_weight))
             } else {
-                Some(T::WeightInfo::unbond())
+                Some(<T as Config>::WeightInfo::unbond())
             };
 
             Ok(actual_weight.into())
@@ -1085,7 +1173,7 @@ pub mod pallet {
         /// NOTE: Weight annotation is the kill scenario, we refund otherwise.
         /// # </weight>
         #[pallet::call_index(3)]
-        #[pallet::weight(T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
         pub fn withdraw_unbonded(
             origin: OriginFor<T>,
             num_slashing_spans: u32,
@@ -1102,7 +1190,7 @@ pub mod pallet {
         ///
         /// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
         #[pallet::call_index(4)]
-        #[pallet::weight(T::WeightInfo::validate())]
+        #[pallet::weight(<T as Config>::WeightInfo::validate())]
         pub fn validate(origin: OriginFor<T>, prefs: ValidatorPrefs) -> DispatchResult {
             let controller = ensure_signed(origin)?;
 
@@ -1146,7 +1234,7 @@ pub mod pallet {
         /// - Both the reads and writes follow a similar pattern.
         /// # </weight>
         #[pallet::call_index(5)]
-        #[pallet::weight(T::WeightInfo::nominate(targets.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::nominate(targets.len() as u32))]
         pub fn nominate(
             origin: OriginFor<T>,
             targets: Vec<AccountIdLookupOf<T>>,
@@ -1215,7 +1303,7 @@ pub mod pallet {
         /// - Writes are limited to the `origin` account key.
         /// # </weight>
         #[pallet::call_index(6)]
-        #[pallet::weight(T::WeightInfo::chill())]
+        #[pallet::weight(<T as Config>::WeightInfo::chill())]
         pub fn chill(origin: OriginFor<T>) -> DispatchResult {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1240,7 +1328,7 @@ pub mod pallet {
         ///     - Write: Payee
         /// # </weight>
         #[pallet::call_index(7)]
-        #[pallet::weight(T::WeightInfo::set_payee())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_payee())]
         pub fn set_payee(
             origin: OriginFor<T>,
             payee: RewardDestination<T::AccountId>,
@@ -1269,7 +1357,7 @@ pub mod pallet {
         /// - Write: Bonded, Ledger New Controller, Ledger Old Controller
         /// # </weight>
         #[pallet::call_index(8)]
-        #[pallet::weight(T::WeightInfo::set_controller())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_controller())]
         pub fn set_controller(
             origin: OriginFor<T>,
             controller: AccountIdLookupOf<T>,
@@ -1298,7 +1386,7 @@ pub mod pallet {
         /// Write: Validator Count
         /// # </weight>
         #[pallet::call_index(9)]
-        #[pallet::weight(T::WeightInfo::set_validator_count())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_validator_count())]
         pub fn set_validator_count(
             origin: OriginFor<T>,
             #[pallet::compact] new: u32,
@@ -1323,7 +1411,7 @@ pub mod pallet {
         /// Same as [`Self::set_validator_count`].
         /// # </weight>
         #[pallet::call_index(10)]
-        #[pallet::weight(T::WeightInfo::set_validator_count())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_validator_count())]
         pub fn increase_validator_count(
             origin: OriginFor<T>,
             #[pallet::compact] additional: u32,
@@ -1349,7 +1437,7 @@ pub mod pallet {
         /// Same as [`Self::set_validator_count`].
         /// # </weight>
         #[pallet::call_index(11)]
-        #[pallet::weight(T::WeightInfo::set_validator_count())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_validator_count())]
         pub fn scale_validator_count(origin: OriginFor<T>, factor: Percent) -> DispatchResult {
             ensure_root(origin)?;
             let old = ValidatorCount::<T>::get();
@@ -1380,7 +1468,7 @@ pub mod pallet {
         /// - Write: ForceEra
         /// # </weight>
         #[pallet::call_index(12)]
-        #[pallet::weight(T::WeightInfo::force_no_eras())]
+        #[pallet::weight(<T as Config>::WeightInfo::force_no_eras())]
         pub fn force_no_eras(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_force_era(Forcing::ForceNone);
@@ -1404,7 +1492,7 @@ pub mod pallet {
         /// - Write ForceEra
         /// # </weight>
         #[pallet::call_index(13)]
-        #[pallet::weight(T::WeightInfo::force_new_era())]
+        #[pallet::weight(<T as Config>::WeightInfo::force_new_era())]
         pub fn force_new_era(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_force_era(Forcing::ForceNew);
@@ -1415,7 +1503,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(14)]
-        #[pallet::weight(T::WeightInfo::set_invulnerables(invulnerables.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::set_invulnerables(invulnerables.len() as u32))]
         pub fn set_invulnerables(
             origin: OriginFor<T>,
             invulnerables: Vec<T::AccountId>,
@@ -1429,7 +1517,7 @@ pub mod pallet {
         ///
         /// The dispatch origin must be Root.
         #[pallet::call_index(15)]
-        #[pallet::weight(T::WeightInfo::force_unstake(*num_slashing_spans))]
+        #[pallet::weight(<T as Config>::WeightInfo::force_unstake(*num_slashing_spans))]
         pub fn force_unstake(
             origin: OriginFor<T>,
             stash: T::AccountId,
@@ -1455,7 +1543,7 @@ pub mod pallet {
         /// If this is called just before a new era is triggered, the election process may not
         /// have enough blocks to get a result.
         #[pallet::call_index(16)]
-        #[pallet::weight(T::WeightInfo::force_new_era_always())]
+        #[pallet::weight(<T as Config>::WeightInfo::force_new_era_always())]
         pub fn force_new_era_always(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_force_era(Forcing::ForceAlways);
@@ -1468,7 +1556,7 @@ pub mod pallet {
         ///
         /// Parameters: era and indices of the slashes for that era to kill.
         #[pallet::call_index(17)]
-        #[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
         pub fn cancel_deferred_slash(
             origin: OriginFor<T>,
             era: EraIndex,
@@ -1514,7 +1602,7 @@ pub mod pallet {
         ///   Paying even a dead controller is cheaper weight-wise. We don't do any refunds here.
         /// # </weight>
         #[pallet::call_index(18)]
-        #[pallet::weight(T::WeightInfo::payout_stakers_alive_staked(
+        #[pallet::weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(
             T::MaxNominatorRewardedPerValidator::get()
         ))]
         pub fn payout_stakers(
@@ -1536,7 +1624,7 @@ pub mod pallet {
         /// - Storage changes: Can't increase storage, only decrease it.
         /// # </weight>
         #[pallet::call_index(19)]
-        #[pallet::weight(T::WeightInfo::rebond(T::MaxUnlockingChunks::get() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::rebond(T::MaxUnlockingChunks::get() as u32))]
         pub fn rebond(
             origin: OriginFor<T>,
             #[pallet::compact] value: BalanceOf<T>,
@@ -1565,7 +1653,7 @@ pub mod pallet {
             let removed_chunks = 1u32 // for the case where the last iterated chunk is not removed
                 .saturating_add(initial_unlocking)
                 .saturating_sub(ledger.unlocking.len() as u32);
-            Ok(Some(T::WeightInfo::rebond(removed_chunks)).into())
+            Ok(Some(<T as Config>::WeightInfo::rebond(removed_chunks)).into())
         }
 
         /// Remove all data structures concerning a staker/stash once it is at a state where it can
@@ -1581,7 +1669,7 @@ pub mod pallet {
         ///
         /// Refunds the transaction fees upon successful execution.
         #[pallet::call_index(20)]
-        #[pallet::weight(T::WeightInfo::reap_stash(*num_slashing_spans))]
+        #[pallet::weight(<T as Config>::WeightInfo::reap_stash(*num_slashing_spans))]
         pub fn reap_stash(
             origin: OriginFor<T>,
             stash: T::AccountId,
@@ -1615,7 +1703,7 @@ pub mod pallet {
         /// Note: Making this call only makes sense if you first set the validator preferences to
         /// block any further nominations.
         #[pallet::call_index(21)]
-        #[pallet::weight(T::WeightInfo::kick(who.len() as u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::kick(who.len() as u32))]
         pub fn kick(origin: OriginFor<T>, who: Vec<AccountIdLookupOf<T>>) -> DispatchResult {
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
@@ -1664,9 +1752,9 @@ pub mod pallet {
         // removed.
         #[pallet::call_index(22)]
         #[pallet::weight(
-			T::WeightInfo::set_staking_configs_all_set()
-				.max(T::WeightInfo::set_staking_configs_all_remove())
-		)]
+        <T as Config>::WeightInfo::set_staking_configs_all_set()
+            .max(<T as Config>::WeightInfo::set_staking_configs_all_remove())
+        )]
         pub fn set_staking_configs(
             origin: OriginFor<T>,
             min_nominator_bond: ConfigOp<BalanceOf<T>>,
@@ -1723,7 +1811,7 @@ pub mod pallet {
         /// This can be helpful if bond requirements are updated, and we need to remove old users
         /// who do not satisfy these requirements.
         #[pallet::call_index(23)]
-        #[pallet::weight(T::WeightInfo::chill_other())]
+        #[pallet::weight(<T as Config>::WeightInfo::chill_other())]
         pub fn chill_other(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResult {
             // Anyone can call this function.
             let caller = ensure_signed(origin)?;
@@ -1786,7 +1874,7 @@ pub mod pallet {
         /// validator who already has a commission greater than or equal to the minimum. Any account
         /// can call this.
         #[pallet::call_index(24)]
-        #[pallet::weight(T::WeightInfo::force_apply_min_commission())]
+        #[pallet::weight(<T as Config>::WeightInfo::force_apply_min_commission())]
         pub fn force_apply_min_commission(
             origin: OriginFor<T>,
             validator_stash: T::AccountId,
@@ -1810,10 +1898,121 @@ pub mod pallet {
         /// This call has lower privilege requirements than `set_staking_config` and can be called
         /// by the `T::AdminOrigin`. Root can always call this.
         #[pallet::call_index(25)]
-        #[pallet::weight(T::WeightInfo::set_min_commission())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_min_commission())]
         pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
             MinCommission::<T>::put(new);
+            Ok(())
+        }
+
+        #[pallet::call_index(26)]
+        #[pallet::weight(0)]
+        pub fn set_reward_start_height(
+            origin: OriginFor<T>,
+            reward_start_height: T::BlockNumber,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            RewardStartHeight::<T>::put(reward_start_height);
+            Ok(())
+        }
+
+        #[pallet::call_index(27)]
+        #[pallet::weight(0)]
+        pub fn set_phase0_reward(
+            origin: OriginFor<T>,
+            reward_per_year: BalanceOf<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            <Phase0RewardPerYear<T>>::put(reward_per_year);
+            Self::deposit_event(Event::Phase0RewardPerYear(reward_per_year));
+            Ok(())
+        }
+
+        #[pallet::call_index(28)]
+        #[pallet::weight(0)]
+        pub fn set_phase1_reward(
+            origin: OriginFor<T>,
+            reward_per_year: BalanceOf<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            <Phase1RewardPerYear<T>>::put(reward_per_year);
+            Self::deposit_event(Event::Phase1RewardPerYear(reward_per_year));
+            Ok(())
+        }
+
+        #[pallet::call_index(29)]
+        #[pallet::weight(0)]
+        pub fn set_phase2_reward(
+            origin: OriginFor<T>,
+            reward_per_year: BalanceOf<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            <Phase2RewardPerYear<T>>::put(reward_per_year);
+            Self::deposit_event(Event::Phase2RewardPerYear(reward_per_year));
+            Ok(())
+        }
+
+        #[pallet::call_index(30)]
+        #[pallet::weight(0)]
+        pub fn set_first_committee_team_reward_date(
+            origin: OriginFor<T>,
+            reward_date: EraIndex,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            FirstCommitteeTeamReleaseEra::<T>::put(reward_date);
+            Ok(())
+        }
+
+        #[pallet::call_index(31)]
+        #[pallet::weight(0)]
+        pub fn add_committee_team_reward_per_year(
+            origin: OriginFor<T>,
+            reward_to: T::AccountId,
+            reward_per_year: BalanceOf<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            CommitteeTeamRewardPerYear::<T>::try_mutate(|committee_team_reward_per_year| {
+                let committee_team_reward_per_year =
+                    committee_team_reward_per_year.as_mut().ok_or(Error::<T>::Unknown)?;
+                committee_team_reward_per_year.push((reward_to, reward_per_year));
+                Ok(())
+            })
+        }
+
+        #[pallet::call_index(32)]
+        #[pallet::weight(0)]
+        pub fn rm_committee_team_reward_by_index(
+            origin: OriginFor<T>,
+            index: u32,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            CommitteeTeamRewardPerYear::<T>::try_mutate(|committee_team_reward_per_year| {
+                let committee_team_reward_per_year =
+                    committee_team_reward_per_year.as_mut().ok_or(Error::<T>::Unknown)?;
+                committee_team_reward_per_year.remove(index as usize);
+                Ok(())
+            })
+        }
+
+        #[pallet::call_index(33)]
+        #[pallet::weight(0)]
+        pub fn set_foundation_params(
+            origin: OriginFor<T>,
+            foundation_reward: crate::FoundationIssueRewards<T::AccountId, BalanceOf<T>>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            <FoundationReward<T>>::put(foundation_reward);
+            Ok(())
+        }
+
+        #[pallet::call_index(34)]
+        #[pallet::weight(0)]
+        pub fn set_treasury_params(
+            origin: OriginFor<T>,
+            treasury_reward: crate::TreasuryIssueRewards<T::AccountId, BalanceOf<T>>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            <TreasuryReward<T>>::put(treasury_reward);
             Ok(())
         }
     }

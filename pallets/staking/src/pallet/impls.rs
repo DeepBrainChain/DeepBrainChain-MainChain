@@ -17,6 +17,7 @@
 
 //! Implementations for the Staking FRAME Pallet.
 
+use dbc_support::traits::PhaseReward;
 use frame_election_provider_support::{
     data_provider, BoundedSupportsOf, ElectionDataProvider, ElectionProvider, ScoreProvider,
     SortedListProvider, VoteWeight, VoterOf,
@@ -111,13 +112,13 @@ impl<T: Config> Pallet<T> {
                 // Remove the lock.
                 T::Currency::remove_lock(STAKING_ID, &stash);
 
-                T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+                <T as Config>::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
             } else {
                 // This was the consequence of a partial unbond. just update the ledger and move on.
                 Self::update_ledger(&controller, &ledger);
 
                 // This is only an update, so we use less overall weight.
-                T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+                <T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
             };
 
         // `old_total` should never be less than the new total because
@@ -138,24 +139,25 @@ impl<T: Config> Pallet<T> {
         // Validate input data
         let current_era = CurrentEra::<T>::get().ok_or_else(|| {
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         })?;
         let history_depth = T::HistoryDepth::get();
         ensure!(
             era <= current_era && era >= current_era.saturating_sub(history_depth),
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         );
 
         // Note: if era has no reward to be claimed, era may be future. better not to update
         // `ledger.claimed_rewards` in this case.
         let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or_else(|| {
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         })?;
 
         let controller = Self::bonded(&validator_stash).ok_or_else(|| {
-            Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+            Error::<T>::NotStash
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         })?;
         let mut ledger = <Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController)?;
 
@@ -166,7 +168,7 @@ impl<T: Config> Pallet<T> {
         match ledger.claimed_rewards.binary_search(&era) {
             Ok(_) =>
                 return Err(Error::<T>::AlreadyClaimed
-                    .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))),
+                    .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))),
             Err(pos) => ledger
                 .claimed_rewards
                 .try_insert(pos, era)
@@ -199,7 +201,7 @@ impl<T: Config> Pallet<T> {
 
         // Nothing to do if they have no reward points.
         if validator_reward_points.is_zero() {
-            return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
+            return Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(0)).into())
         }
 
         // This is the fraction of the total reward that the validator and the
@@ -262,7 +264,8 @@ impl<T: Config> Pallet<T> {
 
         T::Reward::on_unbalanced(total_imbalance);
         debug_assert!(nominator_payout_count <= T::MaxNominatorRewardedPerValidator::get());
-        Ok(Some(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
+        Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(nominator_payout_count))
+            .into())
     }
 
     /// Update the ledger for a controller.
@@ -436,13 +439,49 @@ impl<T: Config> Pallet<T> {
     fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
         // Note: active_era_start can be None if end era is called during genesis config.
         if let Some(active_era_start) = active_era.start {
+            // release for committee and team
+            let first_release_date = Self::first_committee_team_release_era();
+            if active_era.index == first_release_date {
+                let _ = Self::reward_to_committee_team();
+            } else if active_era.index > first_release_date &&
+                (active_era.index - first_release_date) % 365 == 0
+            {
+                let _ = Self::reward_to_committee_team();
+            }
+
+            let _ = Self::issue_reward(active_era.index);
+
             let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
 
             let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
-            let staked = Self::eras_total_stake(&active_era.index);
-            let issuance = T::Currency::total_issuance();
-            let (validator_payout, remainder) =
-                T::EraPayout::era_payout(staked, issuance, era_duration);
+            let reward_start_height = RewardStartHeight::<T>::get().saturated_into::<u64>();
+
+            let current_block_height = <frame_system::Pallet<T>>::block_number();
+            let current_block_height = current_block_height.saturated_into::<u64>();
+
+            // Milliseconds per year for the Julian year (365.25 days).
+            let milliseconds_per_year: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
+            let milliseconds_per_block =
+                <T as pallet_timestamp::Config>::MinimumPeriod::get().saturating_mul(2u32.into());
+            let block_per_year: u64 =
+                milliseconds_per_year / milliseconds_per_block.saturated_into::<u64>();
+
+            let yearly_inflation_amount = if current_block_height < reward_start_height {
+                0u32.into()
+            } else if current_block_height < 3u64 * block_per_year + reward_start_height {
+                <Phase0RewardPerYear<T>>::get()
+            } else if current_block_height < 8u64 * block_per_year + reward_start_height {
+                <Phase1RewardPerYear<T>>::get()
+            } else {
+                <Phase2RewardPerYear<T>>::get()
+            };
+
+            let (validator_payout, remainder) = T::EraPayout::era_payout(
+                milliseconds_per_year,
+                yearly_inflation_amount,
+                era_duration,
+            );
 
             Self::deposit_event(Event::<T>::EraPaid {
                 era_index: active_era.index,
@@ -457,6 +496,55 @@ impl<T: Config> Pallet<T> {
             // Clear offending validators.
             <OffendingValidators<T>>::kill();
         }
+    }
+
+    fn reward_to_committee_team() -> Result<(), ()> {
+        let reward_times = Self::reward_times();
+        if reward_times < 1 {
+            return Ok(())
+        }
+        for (dest_account, amount) in Self::committee_team_reward_per_year().ok_or(())? {
+            T::Currency::deposit_creating(&dest_account, amount);
+        }
+        RewardTimes::<T>::put(reward_times - 1);
+        Ok(())
+    }
+
+    fn issue_reward(era_index: EraIndex) -> Result<(), ()> {
+        // release foundation reward && issue to treasury
+        let mut foundation_reward = Self::foundation_reward().ok_or(())?;
+        let mut treasury_reward = Self::treasury_reward().ok_or(())?;
+
+        if foundation_reward.reward_interval == 0 || treasury_reward.reward_interval == 0 {
+            return Ok(())
+        }
+
+        if foundation_reward.left_reward_times > 0 &&
+            era_index >= foundation_reward.first_reward_era &&
+            (era_index - foundation_reward.first_reward_era) % foundation_reward.reward_interval ==
+                0
+        {
+            for a_foundation in foundation_reward.who.clone() {
+                T::Currency::deposit_creating(&a_foundation, foundation_reward.reward_amount);
+            }
+
+            foundation_reward.left_reward_times -= 1;
+            <FoundationReward<T>>::put(foundation_reward);
+        }
+
+        if treasury_reward.left_reward_times > 0 &&
+            era_index >= treasury_reward.first_reward_era &&
+            (era_index - treasury_reward.first_reward_era) % treasury_reward.reward_interval == 0
+        {
+            T::Currency::deposit_creating(
+                &treasury_reward.treasury_account,
+                treasury_reward.reward_amount,
+            );
+
+            treasury_reward.left_reward_times -= 1;
+            <TreasuryReward<T>>::put(treasury_reward);
+        }
+        Ok(())
     }
 
     /// Plan a new era.
@@ -820,7 +908,10 @@ impl<T: Config> Pallet<T> {
         // all_voters should have not re-allocated.
         debug_assert!(all_voters.capacity() == max_allowed_len);
 
-        Self::register_weight(T::WeightInfo::get_npos_voters(validators_taken, nominators_taken));
+        Self::register_weight(<T as Config>::WeightInfo::get_npos_voters(
+            validators_taken,
+            nominators_taken,
+        ));
 
         let min_active_stake: T::CurrencyBalance =
             if all_voters.len() == 0 { 0u64.into() } else { min_active_stake.into() };
@@ -863,7 +954,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
+        Self::register_weight(
+            <T as Config>::WeightInfo::get_npos_targets(all_targets.len() as u32),
+        );
         log!(info, "generated {} npos targets", all_targets.len());
 
         all_targets
@@ -969,6 +1062,22 @@ impl<T: Config> Pallet<T> {
             weight,
             DispatchClass::Mandatory,
         );
+    }
+}
+
+impl<T: Config> PhaseReward for Pallet<T> {
+    type Balance = BalanceOf<T>;
+
+    fn set_phase0_reward(balance: Self::Balance) {
+        <Phase0RewardPerYear<T>>::put(balance);
+    }
+
+    fn set_phase1_reward(balance: Self::Balance) {
+        <Phase1RewardPerYear<T>>::put(balance);
+    }
+
+    fn set_phase2_reward(balance: Self::Balance) {
+        <Phase2RewardPerYear<T>>::put(balance);
     }
 }
 
