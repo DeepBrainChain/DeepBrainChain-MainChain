@@ -55,9 +55,6 @@ pallet-babe = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0",
 pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-bounties = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-collective = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
-pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
-pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-democracy = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
@@ -127,9 +124,6 @@ std = [
   "sp-block-builder/std",
   "codec/std",
   "pallet-collective/std",
-  "pallet-contracts/std",
-  "pallet-contracts-primitives/std",
-  "pallet-contracts-rpc-runtime-api/std",
   "pallet-democracy/std",
   "pallet-elections-phragmen/std",
   "frame-executive/std",

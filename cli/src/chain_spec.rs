@@ -22,9 +22,9 @@ use grandpa_primitives::AuthorityId as GrandpaId;
 use hex_literal::hex;
 use node_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
-    BalancesConfig, Block, ContractsConfig, CouncilConfig, DemocracyConfig, ElectionsConfig,
-    GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, SocietyConfig,
-    StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+    BalancesConfig, Block, CouncilConfig, DemocracyConfig, ElectionsConfig, GrandpaConfig,
+    ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus,
+    StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -325,12 +325,6 @@ pub fn testnet_genesis(
                 .cloned()
                 .collect(),
             phantom: Default::default(),
-        }),
-        pallet_contracts: Some(ContractsConfig {
-            current_schedule: pallet_contracts::Schedule {
-                enable_println, // this should only be enabled on development chains
-                ..Default::default()
-            },
         }),
         pallet_sudo: Some(SudoConfig { key: root_key }),
         pallet_babe: Some(BabeConfig { authorities: vec![] }),

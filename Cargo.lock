@@ -3980,7 +3980,6 @@ dependencies = [
  "node-runtime",
  "pallet-authority-discovery",
  "pallet-balances",
- "pallet-contracts",
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-indices",
@@ -4113,7 +4112,6 @@ dependencies = [
  "online-committee-runtime-api",
  "online-profile-rpc",
  "online-profile-runtime-api",
- "pallet-contracts-rpc",
  "pallet-transaction-payment-rpc",
  "rent-machine-rpc",
  "rent-machine-runtime-api",
@@ -4174,9 +4172,6 @@ dependencies = [
  "pallet-balances",
  "pallet-bounties",
  "pallet-collective",
- "pallet-contracts",
- "pallet-contracts-primitives",
- "pallet-contracts-rpc-runtime-api",
  "pallet-democracy",
  "pallet-elections-phragmen",
  "pallet-grandpa",
@@ -4678,37 +4673,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "pallet-contracts-rpc"
-version = "0.8.1"
-source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "pallet-contracts-primitives",
- "pallet-contracts-rpc-runtime-api",
- "parity-scale-codec",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-rpc",
- "sp-runtime",
-]
-
-[[package]]
-name = "pallet-contracts-rpc-runtime-api"
-version = "0.8.1"
-source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "pallet-contracts-primitives",
- "parity-scale-codec",
- "sp-api",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]

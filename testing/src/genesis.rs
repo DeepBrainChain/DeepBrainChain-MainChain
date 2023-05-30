@@ -20,9 +20,9 @@
 
 use crate::keyring::*;
 use node_runtime::{
-    constants::currency::*, wasm_binary_unwrap, AccountId, BalancesConfig, ContractsConfig,
-    GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig, SocietyConfig, StakerStatus,
-    StakingConfig, SystemConfig,
+    constants::currency::*, wasm_binary_unwrap, AccountId, BalancesConfig, GenesisConfig,
+    GrandpaConfig, IndicesConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig,
+    SystemConfig,
 };
 use sp_core::ChangesTrieConfiguration;
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
@@ -85,7 +85,6 @@ pub fn config_endowed(
             invulnerables: vec![alice(), bob(), charlie()],
             ..Default::default()
         }),
-        pallet_contracts: Some(ContractsConfig { current_schedule: Default::default() }),
         pallet_babe: Some(Default::default()),
         pallet_grandpa: Some(GrandpaConfig { authorities: vec![] }),
         pallet_im_online: Some(Default::default()),

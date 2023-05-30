@@ -46,7 +46,6 @@ grandpa = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", pac
 grandpa-primitives = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", package = "sp-finality-grandpa" }
 pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 pallet-im-online = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-indices = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }

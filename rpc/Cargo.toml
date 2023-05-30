@@ -26,7 +26,6 @@ terminating-rental-rpc = { path = "../pallets/terminating-rental/rpc" }
 terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/runtime-api" }
 node-primitives = { path = "../primitives", version = "2.0.0" }
 node-runtime = { path = "../runtime", version = "2.0.0" }
-pallet-contracts-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
