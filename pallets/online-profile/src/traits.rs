@@ -72,6 +72,7 @@ impl<T: Config> OCOps for Pallet<T> {
             // 将质押惩罚到国库
             let _ =
                 Self::slash_and_reward(machine_stash.clone(), reonline_stake.offline_slash, vec![]);
+            // 当补交失败时，记录下已经变更的质押
             reonline_stake.verify_fee = Zero::zero();
             reonline_stake.offline_slash = Zero::zero();
         } else {
@@ -91,6 +92,9 @@ impl<T: Config> OCOps for Pallet<T> {
             let extra_stake = stake_need.saturating_sub(machine_info.stake_amount);
             if Self::change_stake(&machine_stash, extra_stake, true).is_err() {
                 // 补交质押失败
+                reonline_stake.need_fulfilling = true;
+                UserMutHardwareStake::<T>::insert(&machine_stash, &machine_id, reonline_stake);
+
                 ItemList::add_item(&mut live_machines.fulfilling_machine, machine_id.clone());
                 machine_info.machine_status = MachineStatus::WaitingFulfill;
                 MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
