@@ -101,13 +101,9 @@ impl<T: Config> OCOps for Pallet<T> {
                 LiveMachines::<T>::put(live_machines);
                 return
             }
-        } else {
-            // 下线更改机器配置的时候，如果余额超过所需（比如从多卡变成单卡）则需要退还质押
-            let refund = machine_info.stake_amount.saturating_sub(stake_need);
-            if !refund.is_zero() {
-                let _ = Self::change_stake(&machine_stash, refund, false);
-            }
         }
+        // NOTE: 下线更改机器配置的时候，如果余额超过所需（比如从多卡变成单卡）则**不需要**退还质押
+        // 因为实际上机器更改硬件时不允许减少GPU
 
         ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
         machine_info.stake_amount = stake_need;
