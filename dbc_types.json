@@ -58,8 +58,10 @@
     "total_burn_fee": "Balance"
   },
   "UserMutHardwareStakeInfo": {
-    "stake_amount": "Balance",
-    "offline_time": "BlockNumber"
+    "verify_fee": "Balance",
+    "offline_slash": "Balance",
+    "offline_time": "BlockNumber",
+    "need_fulfilling": "bool"
   },
   "MachineRecentRewardInfo": {
     "machine_stash": "AccountId",

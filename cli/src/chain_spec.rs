@@ -247,7 +247,7 @@ pub fn testnet_genesis(
     )>,
     root_key: AccountId,
     endowed_accounts: Option<Vec<AccountId>>,
-    enable_println: bool,
+    _enable_println: bool,
 ) -> GenesisConfig {
     let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
         vec![
