@@ -18,8 +18,11 @@ pub trait OCOps {
     fn booked_machine(id: Self::MachineId);
     fn revert_booked_machine(id: Self::MachineId);
 
-    fn confirm_machine(who: Vec<Self::AccountId>, machine_info: Self::CommitteeUploadInfo);
-    fn refuse_machine(machien_id: Self::MachineId) -> Option<(Self::AccountId, Self::Balance)>;
+    fn confirm_machine(committees: Vec<Self::AccountId>, hardware: Self::CommitteeUploadInfo);
+    fn refuse_machine(
+        committees: Vec<Self::AccountId>,
+        machien_id: Self::MachineId,
+    ) -> Option<(Self::AccountId, Self::Balance)>;
     fn change_staked_balance(
         stash: Self::AccountId,
         amount: Self::Balance,

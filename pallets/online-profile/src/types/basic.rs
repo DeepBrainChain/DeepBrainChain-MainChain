@@ -31,8 +31,10 @@ impl<T: Config> From<OnlineErr> for Error<T> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct UserMutHardwareStakeInfo<Balance, BlockNumber> {
-    pub stake_amount: Balance,
+    pub verify_fee: Balance,    // 支付给审核人
+    pub offline_slash: Balance, // 下线惩罚
     pub offline_time: BlockNumber,
+    pub need_fulfilling: bool, // 记录是否需要补交质押
 }
 
 // 365 day per year

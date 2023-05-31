@@ -433,7 +433,7 @@ impl<T: Config> Pallet<T> {
         let summary = Self::summary_confirmation(machine_committee.clone(), submit_info);
 
         let stash_slash = if matches!(summary.verify_result, VerifyResult::Refused) {
-            T::OCOps::refuse_machine(machine_id.clone())
+            T::OCOps::refuse_machine(summary.valid_vote.clone(), machine_id.clone())
         } else {
             None
         };

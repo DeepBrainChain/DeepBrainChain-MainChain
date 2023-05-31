@@ -477,6 +477,8 @@ fn machine_online_works() {
             INIT_BALANCE - 20000 * ONE_DBC + committee_stake_info.claimed_reward;
         assert_eq!(Balances::free_balance(committee1), current_committee1_balance);
 
+        assert_eq!(OnlineProfile::stash_stake(&stash), 400000 * ONE_DBC);
+
         // NOTE: 测试 控制账户重新上线机器
         assert_ok!(OnlineProfile::offline_machine_change_hardware_info(
             Origin::signed(controller),
@@ -495,12 +497,15 @@ fn machine_online_works() {
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
             assert_eq!(&OnlineProfile::machines_info(&machine_id), &machine_info);
-            assert_eq!(OnlineProfile::stash_stake(&stash), 2000 * ONE_DBC + 400000 * ONE_DBC);
+            // 支付 4% * 400000 DBC
+            assert_eq!(OnlineProfile::stash_stake(&stash), (2000 + 400000 + 16000) * ONE_DBC);
             assert_eq!(
                 OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
                 online_profile::UserMutHardwareStakeInfo {
-                    stake_amount: 2000 * ONE_DBC,
-                    offline_time: 2880 * 3 + 3
+                    verify_fee: 2000 * ONE_DBC,
+                    offline_slash: 16000 * ONE_DBC,
+                    offline_time: 2880 * 3 + 3,
+                    need_fulfilling: false,
                 }
             );
             assert_eq!(
@@ -511,7 +516,7 @@ fn machine_online_works() {
             assert_eq!(
                 OnlineProfile::sys_info(),
                 online_profile::SysInfoDetail {
-                    total_stake: (400000 + 2000) * ONE_DBC,
+                    total_stake: (400000 + 2000 + 16000) * ONE_DBC,
                     ..Default::default()
                 }
             );
