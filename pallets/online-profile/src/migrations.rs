@@ -54,9 +54,16 @@ pub fn apply<T: Config>() -> Weight {
 }
 
 pub mod migrate_v4 {
-    use crate::{BalanceOf, Config, UserMutHardwareStake, UserMutHardwareStakeInfo};
+    use crate::{
+        BalanceOf, Config, LiveMachines, MachinesInfo, Pallet, StashMachines, StashStake, SysInfo,
+        UserMutHardwareStake, UserMutHardwareStakeInfo,
+    };
     use codec::{Decode, Encode};
-    use frame_support::{debug::info, traits::Get, weights::Weight, RuntimeDebug};
+    use frame_support::{
+        debug::info, traits::Get, weights::Weight, IterableStorageMap, RuntimeDebug,
+    };
+    use sp_runtime::traits::{Saturating, Zero};
+    use sp_std::vec::Vec;
 
     #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug)]
     pub struct OldUserMutHardwareStakeInfo<Balance, BlockNumber> {
@@ -95,6 +102,34 @@ pub mod migrate_v4 {
         );
         <T as frame_system::Config>::DbWeight::get()
             .reads_writes(count as Weight + 1, count as Weight + 1)
+    }
+
+    pub fn return_staked_balance<T: Config>() -> Weight {
+        let all_stash = <StashMachines<T> as IterableStorageMap<T::AccountId, _>>::iter()
+            .map(|(stash, _)| stash)
+            .collect::<Vec<_>>();
+        for stash in all_stash {
+            let stash_machines = Pallet::<T>::stash_machines(&stash);
+            // 只处理特定情况
+            if stash_machines.online_machine.is_empty() && stash_machines.total_machine.len() == 2 {
+                let stash_stake = Pallet::<T>::stash_stake(&stash);
+                if stash_stake.is_zero() {
+                    continue
+                }
+
+                for machine_id in stash_machines.total_machine {
+                    MachinesInfo::<T>::remove(&machine_id);
+                    LiveMachines::<T>::mutate(|live_machine| {
+                        live_machine.clean(&machine_id);
+                    });
+                }
+                StashStake::<T>::remove(&stash);
+                SysInfo::<T>::mutate(|sys_info| {
+                    sys_info.total_stake = sys_info.total_stake.saturating_sub(stash_stake);
+                });
+            }
+        }
+        0
     }
 }
 
