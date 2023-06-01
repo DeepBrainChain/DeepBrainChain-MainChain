@@ -84,18 +84,6 @@ pub mod pallet {
             }
             0
         }
-
-        fn on_runtime_upgrade() -> Weight {
-            // let rent_fee_pot: Vec<u8> =
-            //     b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
-            // let account_id32: [u8; 32] =
-            // Self::get_accountid32(&rent_fee_pot).unwrap_or_default();
-            // let account =T::AccountId::decode(&mut &account_id32[..]).ok().unwrap_or_default();
-            // let destroy_frequency: T::BlockNumber = (2880 * 7u32).into();
-            // DestroyHook::<T>::put((account, destroy_frequency));
-
-            0
-        }
     }
 
     #[pallet::call]

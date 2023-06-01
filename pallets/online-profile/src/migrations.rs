@@ -46,7 +46,8 @@ pub fn apply<T: Config>() -> Weight {
             migrate_v3::reset_params::<T>()
     } else if storage_version == 3 {
         StorageVersion::<T>::put(4);
-        migrate_v4::migrate_user_mut_hardware_stake_info::<T>()
+        migrate_v4::migrate_user_mut_hardware_stake_info::<T>();
+        migrate_v4::return_staked_balance::<T>()
     } else {
         frame_support::debug::info!(" >>> Unused migration!");
         0
