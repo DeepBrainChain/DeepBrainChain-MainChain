@@ -4047,7 +4047,6 @@ dependencies = [
  "node-runtime",
  "node-testing",
  "pallet-balances",
- "pallet-contracts",
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-indices",
@@ -4178,7 +4177,6 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
- "pallet-lottery",
  "pallet-membership",
  "pallet-mmr",
  "pallet-multisig",
@@ -4190,7 +4188,6 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
- "pallet-society",
  "pallet-staking-reward-curve 3.0.0 (git+https://github.com/paritytech/substrate?tag=v3.0.0)",
  "pallet-sudo",
  "pallet-timestamp",
@@ -4241,11 +4238,9 @@ dependencies = [
  "node-primitives",
  "node-runtime",
  "pallet-balances",
- "pallet-contracts",
  "pallet-grandpa",
  "pallet-indices",
  "pallet-session",
- "pallet-society",
  "pallet-staking",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -4634,48 +4629,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-contracts"
-version = "2.0.1"
-source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-contracts-primitives",
- "pallet-contracts-proc-macro",
- "parity-scale-codec",
- "parity-wasm 0.41.0",
- "pwasm-utils 0.16.0",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-sandbox",
- "sp-std",
- "wasmi-validation",
-]
-
-[[package]]
-name = "pallet-contracts-primitives"
-version = "2.0.1"
-source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "bitflags",
- "parity-scale-codec",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-contracts-proc-macro"
-version = "0.1.0"
-source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "pallet-democracy"
 version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
@@ -4771,18 +4724,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-keyring",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-lottery"
-version = "3.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
  "sp-runtime",
  "sp-std",
 ]
@@ -4976,20 +4917,6 @@ dependencies = [
  "rand 0.7.3",
  "sp-runtime",
  "sp-session",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-society"
-version = "3.0.0"
-source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "rand_chacha 0.2.2",
- "serde",
- "sp-runtime",
  "sp-std",
 ]
 
@@ -5838,17 +5765,6 @@ name = "pwasm-utils"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f53bc2558e8376358ebdc28301546471d67336584f6438ed4b7c7457a055fd7"
-dependencies = [
- "byteorder",
- "log",
- "parity-wasm 0.41.0",
-]
-
-[[package]]
-name = "pwasm-utils"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c8ac87af529432d3a4f0e2b3bbf08af49f28f09cc73ed7e551161bdaef5f78d"
 dependencies = [
  "byteorder",
  "log",
@@ -6821,7 +6737,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parity-wasm 0.41.0",
- "pwasm-utils 0.14.0",
+ "pwasm-utils",
  "sc-executor-common",
  "scoped-tls",
  "sp-allocator",
@@ -8291,19 +8207,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "sp-sandbox"
-version = "0.9.0"
-source = "git+https://github.com/paritytech/substrate?tag=v3.0.0#49a4103f4bfef55be20a5c6d26e18ff3003c3353"
-dependencies = [
- "parity-scale-codec",
- "sp-core",
- "sp-io",
- "sp-std",
- "sp-wasm-interface",
- "wasmi",
 ]
 
 [[package]]

@@ -61,7 +61,6 @@ pallet-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v3.0.
 pallet-identity = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-im-online = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-indices = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
-pallet-lottery = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-membership = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-mmr = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-multisig = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
@@ -73,7 +72,6 @@ pallet-recovery = { git = "https://github.com/paritytech/substrate", tag = "v3.0
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-session = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false, features = ["historical"] }
 pallet-session-benchmarking = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false, optional = true }
-pallet-society = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0", default-features = false }
@@ -131,7 +129,6 @@ std = [
   "pallet-im-online/std",
   "pallet-indices/std",
   "sp-inherents/std",
-  "pallet-lottery/std",
   "pallet-membership/std",
   "pallet-mmr/std",
   "pallet-multisig/std",
@@ -166,7 +163,6 @@ std = [
   "sp-transaction-pool/std",
   "pallet-utility/std",
   "sp-version/std",
-  "pallet-society/std",
   "pallet-recovery/std",
   "pallet-vesting/std",
   "generic-func/std",

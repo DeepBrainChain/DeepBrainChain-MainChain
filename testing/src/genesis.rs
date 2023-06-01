@@ -21,8 +21,7 @@
 use crate::keyring::*;
 use node_runtime::{
     constants::currency::*, wasm_binary_unwrap, AccountId, BalancesConfig, GenesisConfig,
-    GrandpaConfig, IndicesConfig, SessionConfig, SocietyConfig, StakerStatus, StakingConfig,
-    SystemConfig,
+    GrandpaConfig, IndicesConfig, SessionConfig, StakerStatus, StakingConfig, SystemConfig,
 };
 use sp_core::ChangesTrieConfiguration;
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
@@ -96,11 +95,6 @@ pub fn config_endowed(
         pallet_elections_phragmen: Some(Default::default()),
         pallet_sudo: Some(Default::default()),
         pallet_treasury: Some(Default::default()),
-        pallet_society: Some(SocietyConfig {
-            members: vec![alice(), bob()],
-            pot: 0,
-            max_members: 999,
-        }),
         pallet_vesting: Some(Default::default()),
     }
 }

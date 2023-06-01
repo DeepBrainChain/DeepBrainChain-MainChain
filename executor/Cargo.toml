@@ -31,7 +31,6 @@ node-testing = { version = "2.0.0", path = "../testing" }
 frame-support = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 frame-system = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
-pallet-contracts = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 pallet-im-online = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
 pallet-indices = { git = "https://github.com/paritytech/substrate", tag = "v3.0.0" }
