@@ -65,31 +65,17 @@ pub mod pallet {
                 Self::reward_council(prime, &mut members);
             }
         }
-
-        // 当升级时设置国库地址
-        fn on_runtime_upgrade() -> Weight {
-            Treasury::<T>::mutate(|treasury| {
-                let account: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
-                let account_id32: [u8; 32] =
-                    dbc_support::utils::get_accountid32(&account).unwrap_or_default();
-                // AccountId default bound is removed: https://github.com/paritytech/substrate/pull/10403
-                *treasury = T::AccountId::decode(&mut &account_id32[..]).ok()
-            });
-
-            Weight::zero()
-        }
     }
 
     #[pallet::storage]
     #[pallet::getter(fn treasury)]
-    pub(super) type Treasury<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+    pub(super) type Treasury<T: Config> = StorageValue<_, T::AccountId>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {}
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    // #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     pub enum Event<T: Config> {
         RewardCouncil(T::AccountId, BalanceOf<T>),
     }

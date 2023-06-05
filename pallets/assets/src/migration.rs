@@ -103,11 +103,10 @@ pub mod v1 {
                 });
                 Metadata::<T>::translate::<OldAssetMetadata<DepositBalanceOf<T>>, _>(
                     |_key, old_value| {
-                        // FIXME unwrap.
                         let bounded_name: BoundedVec<u8, T::StringLimit> =
-                            old_value.name.clone().try_into().unwrap();
+                            old_value.name.clone().try_into().unwrap_or_default();
                         let bounded_symbol: BoundedVec<u8, T::StringLimit> =
-                            old_value.symbol.clone().try_into().unwrap();
+                            old_value.symbol.clone().try_into().unwrap_or_default();
 
                         translated.saturating_inc();
                         Some(old_value.migrate_to_v1(bounded_name, bounded_symbol))

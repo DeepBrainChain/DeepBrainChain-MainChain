@@ -36,9 +36,9 @@ use frame_support::{
     pallet_prelude::Get,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Currency, EitherOfDiverse,
+        AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, Currency, EitherOfDiverse,
         EqualPrivilegeOnly, Everything, Imbalance, InstanceFilter, KeyOwnerProofSystem,
-        LockIdentifier, Nothing, OnUnbalanced, U128CurrencyToVote,
+        LockIdentifier, OnUnbalanced, U128CurrencyToVote,
     },
     weights::{
         constants::{
@@ -105,6 +105,8 @@ use sp_runtime::generic::Era;
 /// Generated voter bag information.
 mod voter_bags;
 
+mod migrations;
+
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -129,7 +131,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 268,
+    spec_version: 275,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -1140,48 +1142,6 @@ impl pallet_tips::Config for Runtime {
     type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-    pub const DepositPerItem: Balance = deposit(1, 0);
-    pub const DepositPerByte: Balance = deposit(0, 1);
-    pub const DeletionQueueDepth: u32 = 128;
-    // The lazy deletion runs inside on_initialize.
-    pub DeletionWeightLimit: Weight = RuntimeBlockWeights::get()
-        .per_class
-        .get(DispatchClass::Normal)
-        .max_total
-        .unwrap_or(RuntimeBlockWeights::get().max_block);
-    pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
-}
-
-impl pallet_contracts::Config for Runtime {
-    type Time = Timestamp;
-    type Randomness = RandomnessCollectiveFlip;
-    type Currency = Balances;
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-    /// The safest default is to allow no calls at all.
-    ///
-    /// Runtimes should whitelist dispatchables that are allowed to be called from contracts
-    /// and make sure they are stable. Dispatchables exposed to contracts are not allowed to
-    /// change because that would break already deployed contracts. The `Call` structure itself
-    /// is not allowed to change the indices of existing pallets, too.
-    type CallFilter = Nothing;
-    type DepositPerItem = DepositPerItem;
-    type DepositPerByte = DepositPerByte;
-    type CallStack = [pallet_contracts::Frame<Self>; 31];
-    type WeightPrice = pallet_transaction_payment::Pallet<Self>;
-    type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
-    type ChainExtension = ();
-    type DeletionQueueDepth = DeletionQueueDepth;
-    type DeletionWeightLimit = DeletionWeightLimit;
-    type Schedule = Schedule;
-    type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
-    type MaxCodeLen = ConstU32<{ 128 * 1024 }>;
-    type MaxStorageKeyLen = ConstU32<128>;
-    type UnsafeUnstableInterface = ConstBool<false>;
-    type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
-}
-
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -1425,6 +1385,27 @@ impl pallet_nfts::Config for Runtime {
 }
 
 parameter_types! {
+    pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
+    pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
+    pub const MigrationMaxKeyLen: u32 = 512;
+}
+
+impl pallet_state_trie_migration::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type ControlOrigin = EnsureRoot<AccountId>;
+    type Currency = Balances;
+    type MaxKeyLen = MigrationMaxKeyLen;
+    type SignedDepositPerItem = MigrationSignedDepositPerItem;
+    type SignedDepositBase = MigrationSignedDepositBase;
+    // Warning: this is not advised, as it might allow the chain to be temporarily DOS-ed.
+    // Preferably, if the chain's governance/maintenance team is planning on using a specific
+    // account for the migration, put it here to make sure only that account can trigger the signed
+    // migrations.
+    type SignedFilter = EnsureSigned<Self::AccountId>;
+    type WeightInfo = ();
+}
+
+parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
 }
 
@@ -1524,12 +1505,6 @@ impl simple_rpc::Config for Runtime {
     type OPRpcQuery = OnlineProfile;
 }
 
-parameter_types! {
-    pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
-    pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
-    pub const MigrationMaxKeyLen: u32 = 512;
-}
-
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
 parameter_types! {
@@ -1566,7 +1541,6 @@ construct_runtime!(
         TechnicalMembership: pallet_membership::<Instance1>,
         Grandpa: pallet_grandpa,
         Treasury: pallet_treasury,
-        Contracts: pallet_contracts,
         Sudo: pallet_sudo,
         ImOnline: pallet_im_online,
         AuthorityDiscovery: pallet_authority_discovery,
@@ -1585,6 +1559,7 @@ construct_runtime!(
         Mmr: pallet_mmr,
         Nfts: pallet_nfts,
         VoterList: pallet_bags_list::<Instance1>,
+        StateTrieMigration: pallet_state_trie_migration,
         ChildBounties: pallet_child_bounties,
         Referenda: pallet_referenda,
         ConvictionVoting: pallet_conviction_voting,
@@ -1651,7 +1626,7 @@ pub type Executive = frame_executive::Executive<
 // `OnRuntimeUpgrade`.
 type Migrations = (
     pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
-    pallet_contracts::Migration<Runtime>,
+    migrations::CustomOnRuntimeUpgrades,
     // TODO: Add pallet_staking migrations
     pallet_staking::migrations::MigrateStakingToV6<Runtime>,
     pallet_staking::migrations::MigrateStakingToV7<Runtime>,
@@ -1694,7 +1669,6 @@ mod benches {
         [pallet_child_bounties, ChildBounties]
         [pallet_collective, Council]
         [pallet_conviction_voting, ConvictionVoting]
-        [pallet_contracts, Contracts]
         [pallet_democracy, Democracy]
         [pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
         [pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
@@ -1705,7 +1679,6 @@ mod benches {
         [pallet_identity, Identity]
         [pallet_im_online, ImOnline]
         [pallet_indices, Indices]
-        // [pallet_lottery, Lottery]
         [pallet_membership, TechnicalMembership]
         [pallet_message_queue, MessageQueue]
         [pallet_mmr, Mmr]
@@ -1888,78 +1861,6 @@ impl_runtime_apis! {
     impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
         fn account_nonce(account: AccountId) -> Index {
             System::account_nonce(account)
-        }
-    }
-
-    impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash> for Runtime
-    {
-        fn call(
-            origin: AccountId,
-            dest: AccountId,
-            value: Balance,
-            gas_limit: Option<Weight>,
-            storage_deposit_limit: Option<Balance>,
-            input_data: Vec<u8>,
-        ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
-            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
-            Contracts::bare_call(
-                origin,
-                dest,
-                value,
-                gas_limit,
-                storage_deposit_limit,
-                input_data,
-                true,
-                pallet_contracts::Determinism::Deterministic,
-            )
-        }
-
-        fn instantiate(
-            origin: AccountId,
-            value: Balance,
-            gas_limit: Option<Weight>,
-            storage_deposit_limit: Option<Balance>,
-            code: pallet_contracts_primitives::Code<Hash>,
-            data: Vec<u8>,
-            salt: Vec<u8>,
-        ) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance>
-        {
-            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
-            Contracts::bare_instantiate(
-                origin,
-                value,
-                gas_limit,
-                storage_deposit_limit,
-                code,
-                data,
-                salt,
-                true
-            )
-        }
-
-        fn upload_code(
-            origin: AccountId,
-            code: Vec<u8>,
-            storage_deposit_limit: Option<Balance>,
-            determinism: pallet_contracts::Determinism,
-        ) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
-        {
-            Contracts::bare_upload_code(
-                origin,
-                code,
-                storage_deposit_limit,
-                determinism,
-            )
-        }
-
-        fn get_storage(
-            address: AccountId,
-            key: Vec<u8>,
-        ) -> pallet_contracts_primitives::GetStorageResult {
-            Contracts::get_storage(
-                address,
-                key
-            )
         }
     }
 

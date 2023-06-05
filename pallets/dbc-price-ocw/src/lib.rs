@@ -40,7 +40,6 @@ pub mod pallet {
         type Currency: ReservableCurrency<Self::AccountId>;
     }
 
-    // NOTE: We need #[pallet::without_storage_info] to solve trait `MaxEncodedLen` is not implemented for `VecDeque`
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
@@ -72,7 +71,6 @@ pub mod pallet {
     pub(super) type AvgPrice<T> = StorageValue<_, u64>;
 
     #[pallet::event]
-    // #[pallet::metadata(T::AccountId = "AccountId")]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         AddNewPrice(u64),
