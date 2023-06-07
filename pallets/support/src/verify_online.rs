@@ -230,6 +230,23 @@ pub struct OCMachineCommitteeList<AccountId, BlockNumber> {
     pub status: OCVerifyStatus,
 }
 
+impl<AccountId, BlockNumber> Default for OCMachineCommitteeList<AccountId, BlockNumber>
+where
+    BlockNumber: Default,
+{
+    fn default() -> Self {
+        Self {
+            book_time: Default::default(),
+            booked_committee: Default::default(),
+            hashed_committee: Default::default(),
+            confirm_start_time: Default::default(),
+            confirmed_committee: Default::default(),
+            onlined_committee: Default::default(),
+            status: Default::default(),
+        }
+    }
+}
+
 impl<AccountId, BlockNumber> OCMachineCommitteeList<AccountId, BlockNumber>
 where
     AccountId: Clone + Ord,

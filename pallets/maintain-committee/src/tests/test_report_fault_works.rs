@@ -1141,9 +1141,9 @@ fn report_machine_fault_works_case4() {
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
-                    reward_committee: todo!(),
-                    machine_stash: todo!(),
-                    machine_id: todo!()
+                    reward_committee: vec![],
+                    machine_stash: None,
+                    machine_id: vec![]
                 })
             );
         }

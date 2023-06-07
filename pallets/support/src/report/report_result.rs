@@ -27,7 +27,7 @@ pub struct MTReportResultInfo<AccountId, BlockNumber, Balance> {
     pub reward_committee: Vec<AccountId>,
     pub committee_stake: Balance,
 
-    pub machine_stash: AccountId,
+    pub machine_stash: Option<AccountId>,
     pub machine_id: MachineId,
 
     pub slash_time: BlockNumber,
@@ -81,7 +81,7 @@ where
             slash_time: now,
             slash_exec_time: now + TWO_DAY.into(),
             slash_result: MCSlashResult::Pending,
-            machine_stash,
+            machine_stash: Some(machine_stash),
             machine_id: report_info.machine_id.clone(),
             reporter_stake: report_info.reporter_stake,
             inconsistent_committee: vec![],
@@ -114,8 +114,9 @@ where
             self.unruly_committee.binary_search(who).is_ok()
     }
 
-    pub fn is_slashed_stash(&self, who: &Account) -> bool {
-        matches!(self.report_result, ReportResultType::ReportSucceed) && &self.machine_stash == who
+    pub fn is_slashed_stash(&self, who: Account) -> bool {
+        matches!(self.report_result, ReportResultType::ReportSucceed) &&
+            self.machine_stash.clone() == Some(who)
     }
 
     pub fn i_exten_sorted(&mut self, a_list: Vec<Account>) {

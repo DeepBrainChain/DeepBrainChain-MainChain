@@ -40,7 +40,7 @@ where
         &self,
         machine_id: String,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<OCMachineCommitteeList<AccountId, BlockNumber>>>;
+    ) -> RpcResult<OCMachineCommitteeList<AccountId, BlockNumber>>;
 }
 
 pub struct OcStorage<C, M> {
@@ -123,7 +123,7 @@ where
         &self,
         machine_id: String,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<OCMachineCommitteeList<AccountId, BlockNumber>>> {
+    ) -> RpcResult<OCMachineCommitteeList<AccountId, BlockNumber>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();

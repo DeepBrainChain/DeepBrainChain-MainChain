@@ -10,16 +10,16 @@ use sp_std::{cmp, vec::Vec};
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct OCPendingSlashInfo<AccountId, BlockNumber, Balance> {
     pub machine_id: MachineId,
-    pub machine_stash: AccountId,
+    pub machine_stash: Option<AccountId>,
     pub stash_slash_amount: Balance,
 
-    // TODO: maybe should record slash_reason: refuse online refused or change hardware
     // info refused, maybe slash amount is different
     pub inconsistent_committee: Vec<AccountId>,
     pub unruly_committee: Vec<AccountId>,
     pub reward_committee: Vec<AccountId>,
     pub committee_stake: Balance,
 
+    // TODO: maybe should record slash_reason: refuse online refused or change hardware
     pub slash_time: BlockNumber,
     pub slash_exec_time: BlockNumber,
 
@@ -31,7 +31,9 @@ impl<AccountId: PartialEq + cmp::Ord, BlockNumber, Balance>
     OCPendingSlashInfo<AccountId, BlockNumber, Balance>
 {
     pub fn applicant_is_stash(&self, stash: AccountId) -> bool {
-        self.book_result == OCBookResultType::OnlineRefused && self.machine_stash == stash
+        self.machine_stash.is_some() &&
+            self.book_result == OCBookResultType::OnlineRefused &&
+            self.machine_stash == Some(stash)
     }
 
     pub fn applicant_is_committee(&self, applicant: &AccountId) -> bool {

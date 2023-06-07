@@ -99,7 +99,8 @@ impl<T: Config> Pallet<T> {
                 report_result_info.is_slashed_reporter(&review_info.applicant);
             let is_slashed_committee =
                 report_result_info.is_slashed_committee(&review_info.applicant);
-            let is_slashed_stash = report_result_info.is_slashed_stash(&review_info.applicant);
+            let is_slashed_stash =
+                report_result_info.is_slashed_stash(review_info.applicant.clone());
 
             if is_slashed_reporter {
                 ReporterStake::<T>::mutate(&review_info.applicant, |reporter_stake| {

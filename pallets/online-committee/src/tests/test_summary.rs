@@ -530,7 +530,7 @@ fn test_machine_online_succeed_slash_execed() {
         let machine_info_hash2: [u8; 16] =
             hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            RuntimeOrigin::signed(*committee2),
+            RuntimeOrigin::signed(*committee3),
             machine_id.clone(),
             machine_info_hash2
         ));
@@ -550,7 +550,7 @@ fn test_machine_online_succeed_slash_execed() {
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            RuntimeOrigin::signed(*committee2),
+            RuntimeOrigin::signed(*committee3),
             committee_upload_info.clone()
         ));
 
@@ -568,7 +568,7 @@ fn test_machine_online_succeed_slash_execed() {
             OnlineProfile::live_machines(),
             LiveMachine { online_machine: vec![machine_id.clone()], ..Default::default() }
         );
-        assert_eq!(current_machine_info.reward_committee, vec![*committee2, *committee1]);
+        assert_eq!(current_machine_info.reward_committee, vec![*committee3, *committee1]);
 
         assert_eq!(
             OnlineCommittee::pending_slash(0),
@@ -576,13 +576,13 @@ fn test_machine_online_succeed_slash_execed() {
                 machine_id,
                 stash_slash_amount: 0,
                 inconsistent_committee: vec![*committee4],
-                reward_committee: vec![*committee2, *committee1],
+                reward_committee: vec![*committee3, *committee1],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 11,
                 slash_exec_time: 11 + 2880 * 2,
                 book_result: crate::OCBookResultType::OnlineSucceed,
                 slash_result: crate::OCSlashResult::Pending,
-                machine_stash: todo!(),
+                machine_stash: None,
                 unruly_committee: vec![]
             })
         );
@@ -604,7 +604,7 @@ fn test_machine_online_succeed_slash_execed() {
             committee::CommitteeStakeInfo {
                 box_pubkey: committee2_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
-                used_stake: 1000 * ONE_DBC,
+                used_stake: 0,
                 can_claim_reward: 0,
                 claimed_reward: 0,
             }
@@ -614,7 +614,7 @@ fn test_machine_online_succeed_slash_execed() {
             committee::CommitteeStakeInfo {
                 box_pubkey: committee3_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
-                used_stake: 0,
+                used_stake: 1000 * ONE_DBC,
                 can_claim_reward: 0,
                 claimed_reward: 0,
             }
@@ -655,7 +655,7 @@ fn test_machine_online_succeed_slash_execed() {
                 box_pubkey: committee2_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
                 used_stake: 0,
-                can_claim_reward: 1375 * ONE_DBC,
+                can_claim_reward: 0,
                 claimed_reward: 0,
             }
         );
@@ -665,7 +665,7 @@ fn test_machine_online_succeed_slash_execed() {
                 box_pubkey: committee3_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
                 used_stake: 0,
-                can_claim_reward: 0,
+                can_claim_reward: 1375 * ONE_DBC,
                 claimed_reward: 0,
             }
         );
@@ -695,9 +695,11 @@ fn test_machine_online_failed_slash_execed() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let committee1_box_pubkey =
             decode_box_pubkey("ff3033c763f71bc51f372c1dc5095accc26880e138df84cac13c46bfd7dbd74f");
-        let committee2_box_pubkey =
+        let _committee2_box_pubkey =
             decode_box_pubkey("336404f7d316565cc3c3350e70561f4177803e0bb02a7f2e4e02a4f0e361157e");
         let committee3_box_pubkey =
+            decode_box_pubkey("a7804e30caa5645e97489b2d4711e3d8f4e17a683338cba97a53b960648f0438");
+        let committee4_box_pubkey =
             decode_box_pubkey("5eec53877f4b18c8b003fa983d27ef2e5518b7e4d08d482922a7787f2ea75529");
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
@@ -726,7 +728,7 @@ fn test_machine_online_failed_slash_execed() {
         let machine_info_hash2: [u8; 16] =
             hex::decode("8c7e7ca563169689f1c789f8d4f510f8").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            RuntimeOrigin::signed(*committee2),
+            RuntimeOrigin::signed(*committee3),
             machine_id.clone(),
             machine_info_hash2
         ));
@@ -746,7 +748,7 @@ fn test_machine_online_failed_slash_execed() {
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            RuntimeOrigin::signed(*committee2),
+            RuntimeOrigin::signed(*committee3),
             committee_upload_info.clone()
         ));
 
@@ -764,12 +766,12 @@ fn test_machine_online_failed_slash_execed() {
             OnlineCommittee::pending_slash(0),
             Some(crate::OCPendingSlashInfo {
                 machine_id: machine_id.clone(),
-                machine_stash: *stash,
+                machine_stash: Some(*stash),
                 stash_slash_amount: 5000 * ONE_DBC, // 10,0000 * 5 / 100
 
                 inconsistent_committee: vec![*committee4],
                 unruly_committee: vec![],
-                reward_committee: vec![*committee2, *committee1],
+                reward_committee: vec![*committee3, *committee1],
                 committee_stake: 1000 * ONE_DBC,
 
                 slash_time: 11,
@@ -798,9 +800,9 @@ fn test_machine_online_failed_slash_execed() {
             }
         );
         assert_eq!(
-            Committee::committee_stake(&*committee2),
+            Committee::committee_stake(&*committee3),
             committee::CommitteeStakeInfo {
-                box_pubkey: committee2_box_pubkey,
+                box_pubkey: committee3_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
                 used_stake: 1000 * ONE_DBC,
                 can_claim_reward: 0,
@@ -810,7 +812,7 @@ fn test_machine_online_failed_slash_execed() {
         assert_eq!(
             Committee::committee_stake(&*committee4),
             committee::CommitteeStakeInfo {
-                box_pubkey: committee3_box_pubkey,
+                box_pubkey: committee4_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
                 used_stake: 1000 * ONE_DBC,
                 can_claim_reward: 0,
@@ -819,7 +821,7 @@ fn test_machine_online_failed_slash_execed() {
         );
 
         assert_eq!(Balances::reserved_balance(&*committee1), 20000 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&*committee2), 20000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*committee3), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*committee4), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 5000 * ONE_DBC);
         assert_eq!(Balances::free_balance(&*stash), (10000000 - 5000) * ONE_DBC);
@@ -837,9 +839,9 @@ fn test_machine_online_failed_slash_execed() {
             }
         );
         assert_eq!(
-            Committee::committee_stake(&*committee2),
+            Committee::committee_stake(&*committee3),
             committee::CommitteeStakeInfo {
-                box_pubkey: committee2_box_pubkey,
+                box_pubkey: committee3_box_pubkey,
                 staked_amount: 20000 * ONE_DBC,
                 used_stake: 0,
                 can_claim_reward: 0,
@@ -849,7 +851,7 @@ fn test_machine_online_failed_slash_execed() {
         assert_eq!(
             Committee::committee_stake(&*committee4),
             committee::CommitteeStakeInfo {
-                box_pubkey: committee3_box_pubkey,
+                box_pubkey: committee4_box_pubkey,
                 staked_amount: 19000 * ONE_DBC,
                 used_stake: 0,
                 can_claim_reward: 0,
@@ -858,7 +860,7 @@ fn test_machine_online_failed_slash_execed() {
         );
 
         assert_eq!(Balances::reserved_balance(&*committee1), 20000 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&*committee2), 20000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*committee3), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*committee4), 19000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 0);
         assert_eq!(Balances::free_balance(&*stash), (10000000 - 5000) * ONE_DBC);
@@ -926,7 +928,7 @@ fn test_machine_online_succeed_against_committee_apply_review() {
         let machine_info_hash2: [u8; 16] =
             hex::decode("c016090e0943c17f5d4999dc6eb52683").unwrap().try_into().unwrap();
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            RuntimeOrigin::signed(*committee2),
+            RuntimeOrigin::signed(*committee3),
             machine_id.clone(),
             machine_info_hash2
         ));
@@ -946,7 +948,7 @@ fn test_machine_online_succeed_against_committee_apply_review() {
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            RuntimeOrigin::signed(*committee2),
+            RuntimeOrigin::signed(*committee3),
             committee_upload_info.clone()
         ));
 
@@ -1015,7 +1017,7 @@ fn test_machine_noconsensus_works() {
             hash1
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            RuntimeOrigin::signed(*committee2),
+            RuntimeOrigin::signed(*committee3),
             machine_id.clone(),
             hash2
         ));
@@ -1029,7 +1031,7 @@ fn test_machine_noconsensus_works() {
             upload_info1
         ));
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            RuntimeOrigin::signed(*committee2),
+            RuntimeOrigin::signed(*committee3),
             upload_info2
         ));
 
@@ -1039,7 +1041,7 @@ fn test_machine_noconsensus_works() {
             OnlineCommittee::pending_slash(0),
             Some(crate::OCPendingSlashInfo {
                 machine_id: machine_id.clone(),
-                inconsistent_committee: vec![*committee2, *committee1],
+                inconsistent_committee: vec![*committee3, *committee1],
                 unruly_committee: vec![*committee4],
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
@@ -1047,8 +1049,8 @@ fn test_machine_noconsensus_works() {
                 slash_exec_time: 4332 + 2880 * 2,
                 book_result: crate::OCBookResultType::NoConsensus,
                 slash_result: crate::OCSlashResult::Pending,
-                machine_stash: todo!(),
-                stash_slash_amount: todo!()
+                machine_stash: None,
+                stash_slash_amount: 0
             })
         );
 
@@ -1061,6 +1063,7 @@ fn test_machine_noconsensus_works() {
             claimed_reward: 0,
             ..Default::default()
         };
+
         assert_eq!(
             &CommitteeStakeInfo {
                 box_pubkey: Default::default(),

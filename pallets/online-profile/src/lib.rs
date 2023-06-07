@@ -511,6 +511,7 @@ pub mod pallet {
                 UserMutHardwareStakeInfo { stake_amount, offline_time: now },
             );
             Self::update_region_on_online_changed(&machine_info, false);
+            // Will not fail, because machine_id check already
             Self::update_snap_on_online_changed(machine_id.clone(), false)
                 .map_err(|_| Error::<T>::Unknown)?;
 

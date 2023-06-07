@@ -2099,7 +2099,7 @@ impl_runtime_apis! {
             OnlineCommittee::get_committee_ops(committee, machine_id)
         }
 
-        fn get_machine_committee_list(machine_id: MachineId) -> Option<dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber>> {
+        fn get_machine_committee_list(machine_id: MachineId) -> dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber> {
             OnlineCommittee::get_machine_committee_list(machine_id)
         }
     }

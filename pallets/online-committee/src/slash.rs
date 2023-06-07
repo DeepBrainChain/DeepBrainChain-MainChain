@@ -32,20 +32,23 @@ impl<T: Config> Pallet<T> {
             return Ok(())
         }
 
-        let is_slashed_stash = matches!(slash_info.book_result, OCBookResultType::OnlineRefused) &&
-            slash_info.machine_stash == review_info.applicant;
+        if let Some(machine_stash) = slash_info.machine_stash {
+            let is_slashed_stash =
+                matches!(slash_info.book_result, OCBookResultType::OnlineRefused) &&
+                    machine_stash == review_info.applicant;
 
-        if is_slashed_stash {
-            // Change stake amount
-            // NOTE: should not change slash_info.slash_amount, because it will be done in
-            // check_and_exec_pending_slash
-            T::OCOps::exec_slash(slash_info.machine_stash.clone(), review_info.staked_amount)?;
+            if is_slashed_stash {
+                // Change stake amount
+                // NOTE: should not change slash_info.slash_amount, because it will be done in
+                // check_and_exec_pending_slash
+                T::OCOps::exec_slash(machine_stash.clone(), review_info.staked_amount)?;
 
-            <T as Config>::SlashAndReward::slash_and_reward(
-                vec![slash_info.machine_stash],
-                slash_info.stash_slash_amount,
-                slash_info.reward_committee,
-            )?;
+                <T as Config>::SlashAndReward::slash_and_reward(
+                    vec![machine_stash],
+                    slash_info.stash_slash_amount,
+                    slash_info.reward_committee,
+                )?;
+            }
         } else {
             // applicant is slashed_committee
             Self::change_committee_stake(
@@ -100,13 +103,14 @@ impl<T: Config> Pallet<T> {
             slashed_committee.extend_from_slice(&slash_info.inconsistent_committee);
             release_committee.extend_from_slice(&slash_info.reward_committee);
 
-            T::OCOps::exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount)?;
-
-            <T as Config>::SlashAndReward::slash_and_reward(
-                vec![slash_info.machine_stash.clone()],
-                slash_info.stash_slash_amount,
-                slash_info.reward_committee.clone(),
-            )?;
+            if let Some(machine_stash) = slash_info.machine_stash.clone() {
+                T::OCOps::exec_slash(machine_stash.clone(), slash_info.stash_slash_amount)?;
+                <T as Config>::SlashAndReward::slash_and_reward(
+                    vec![machine_stash],
+                    slash_info.stash_slash_amount,
+                    slash_info.reward_committee.clone(),
+                )?;
+            }
         } else {
             if slash_info.reward_committee.is_empty() {
                 // 机器无共识，只惩罚unruly；invalid_committee的质押被释放

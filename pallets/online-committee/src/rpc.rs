@@ -28,7 +28,7 @@ pub struct RpcOCCommitteeOps<BlockNumber, Balance> {
 impl<T: Config> Pallet<T> {
     pub fn get_machine_committee_list(
         machine_id: MachineId,
-    ) -> Option<OCMachineCommitteeList<T::AccountId, T::BlockNumber>> {
+    ) -> OCMachineCommitteeList<T::AccountId, T::BlockNumber> {
         Self::machine_committee(machine_id)
     }
 
@@ -42,10 +42,7 @@ impl<T: Config> Pallet<T> {
     ) -> Option<RpcOCCommitteeOps<T::BlockNumber, BalanceOf<T>>> {
         let oc_committee_ops = Self::committee_ops(&committee, &machine_id);
 
-        let committee_info = match Self::machine_committee(&machine_id) {
-            Some(committee_info) => committee_info,
-            None => return None,
-        };
+        let committee_info = Self::machine_committee(&machine_id);
 
         Some(RpcOCCommitteeOps {
             booked_time: committee_info.book_time,

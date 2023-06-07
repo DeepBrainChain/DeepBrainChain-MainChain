@@ -468,7 +468,8 @@ pub fn new_test_with_machine_online() -> sp_io::TestExternalities {
     let mut ext = new_test_with_online_machine_distribution();
 
     let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
-    let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+    let _committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+    let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
     let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
     let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
@@ -489,7 +490,7 @@ pub fn new_test_with_machine_online() -> sp_io::TestExternalities {
             machine_info_hash1
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            RuntimeOrigin::signed(committee2),
+            RuntimeOrigin::signed(committee3),
             machine_id.clone(),
             machine_info_hash2
         ));
@@ -524,7 +525,7 @@ pub fn new_test_with_machine_online() -> sp_io::TestExternalities {
         ));
         committee_upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            RuntimeOrigin::signed(committee2),
+            RuntimeOrigin::signed(committee3),
             committee_upload_info.clone()
         ));
         committee_upload_info.rand_str = "abcdefg3".as_bytes().to_vec();

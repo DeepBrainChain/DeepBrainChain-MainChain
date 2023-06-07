@@ -2,6 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(unused_crate_dependencies)]
 
+// mod migrations;
 mod slash;
 mod types;
 mod utils;
@@ -306,8 +307,7 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::StakeFailed)?;
             }
 
-            Self::book_report(committee.clone(), report_id, &mut report_info, order_stake)
-                .map_err(|_| Error::<T>::Unknown)?;
+            Self::book_report(committee.clone(), report_id, &mut report_info, order_stake);
             Self::deposit_event(Event::CommitteeBookReport(committee, report_id));
             Ok(().into())
         }
@@ -519,7 +519,7 @@ pub mod pallet {
             let stake_per_report = reporter_stake_params.stake_per_report;
             let is_slashed_reporter = report_result_info.is_slashed_reporter(&applicant);
             let is_slashed_committee = report_result_info.is_slashed_committee(&applicant);
-            let is_slashed_stash = report_result_info.is_slashed_stash(&applicant);
+            let is_slashed_stash = report_result_info.is_slashed_stash(applicant.clone());
 
             ensure!(
                 !PendingSlashReview::<T>::contains_key(report_result_id),
@@ -603,7 +603,7 @@ pub mod pallet {
             ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
             let is_slashed_reporter = report_result.is_slashed_reporter(&applicant);
-            let is_slashed_stash = report_result.is_slashed_stash(&applicant);
+            let is_slashed_stash = report_result.is_slashed_stash(applicant.clone());
 
             // 退还申述时的质押
             if is_slashed_reporter {
@@ -795,7 +795,7 @@ impl<T: Config> Pallet<T> {
         report_id: ReportId,
         report_info: &mut MTReportInfoDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
         order_stake: BalanceOf<T>,
-    ) -> Result<(), ()> {
+    ) {
         let now = <frame_system::Pallet<T>>::block_number();
         let mft = report_info.machine_fault_type.clone();
 
@@ -811,7 +811,6 @@ impl<T: Config> Pallet<T> {
         });
 
         ReportInfo::<T>::insert(&report_id, report_info);
-        Ok(())
     }
 }
 
@@ -921,6 +920,7 @@ impl<T: Config> Pallet<T> {
         if report_info.support_committee.len() >= report_info.against_committee.len() {
             // 此时，应该支持报告人，惩罚反对的委员会
 
+            // 这里不会报错，因为machine_info已经被检查过了
             T::MTOps::mt_machine_offline(
                 report_info.reporter.clone(),
                 report_info.support_committee.clone(),
@@ -1004,6 +1004,7 @@ impl<T: Config> Pallet<T> {
         report_info.can_summary_fault()?;
 
         let mut reporter_report = Self::reporter_report(&report_info.reporter);
+        // FIXME: 这里不应该返回错误，因为还没有值
         let mut report_result = Self::report_result(report_id).ok_or(())?;
 
         // 初始化report_result
@@ -1160,6 +1161,7 @@ impl<T: Config> Pallet<T> {
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
         let mut report_info = Self::report_info(&report_id).ok_or(())?;
+        // FIXME: 这里不应该直接返回错误，因为还没有值
         let mut report_result = Self::report_result(report_id).ok_or(())?;
 
         if !report_info.can_summary(now) {

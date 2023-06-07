@@ -1667,10 +1667,10 @@ impl<T: Config> Pallet<T> {
 
         // NOTE: 添加惩罚
         if stash_slash.is_some() || summary.should_slash_committee() {
-            let (machine_stash, stash_slash_amount) = stash_slash.ok_or(())?;
+            let (machine_stash, stash_slash_amount) = stash_slash.unwrap();
             Self::add_summary_slash(
                 machine_id.clone(),
-                machine_stash,
+                Some(machine_stash),
                 stash_slash_amount,
                 summary.clone(),
                 stake_per_order,
@@ -1707,7 +1707,7 @@ impl<T: Config> Pallet<T> {
 
     fn add_summary_slash(
         machine_id: MachineId,
-        machine_stash: T::AccountId,
+        machine_stash: Option<T::AccountId>,
         slash_amount: BalanceOf<T>,
         summary: Summary<T::AccountId>,
         stake_per_order: BalanceOf<T>,

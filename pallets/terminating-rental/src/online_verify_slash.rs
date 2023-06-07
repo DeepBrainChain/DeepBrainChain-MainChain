@@ -70,15 +70,16 @@ impl<T: Config> Pallet<T> {
         }
 
         if !slash_info.stash_slash_amount.is_zero() {
-            // stash is slashed
-            Self::exec_slash(slash_info.machine_stash.clone(), slash_info.stash_slash_amount)?;
-
-            <T as Config>::SlashAndReward::slash_and_reward(
-                vec![slash_info.machine_stash.clone()],
-                slash_info.stash_slash_amount,
-                // 拒绝上线，将stash质押的金额惩罚到国库，而不用来奖励委员会
-                vec![],
-            )?;
+            if let Some(stash) = slash_info.machine_stash.clone() {
+                // stash is slashed
+                Self::exec_slash(stash.clone(), slash_info.stash_slash_amount)?;
+                <T as Config>::SlashAndReward::slash_and_reward(
+                    vec![stash],
+                    slash_info.stash_slash_amount,
+                    // 拒绝上线，将stash质押的金额惩罚到国库，而不用来奖励委员会
+                    vec![],
+                )?;
+            }
         }
 
         // 将资金退还给已经完成了任务的委员会（降低已使用的质押）

@@ -31,6 +31,7 @@ use frame_support::{
     traits::{Currency, ReservableCurrency},
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
+use sp_runtime::traits::Zero;
 use sp_std::{prelude::*, str, vec::Vec};
 
 pub use pallet::*;
@@ -95,6 +96,7 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         OCMachineCommitteeList<T::AccountId, T::BlockNumber>,
+        ValueQuery,
     >;
 
     #[pallet::storage]
@@ -156,8 +158,7 @@ pub mod pallet {
             ensure!(machine_submited_hash.binary_search(&hash).is_err(), Error::<T>::DuplicateHash);
             ItemList::add_item(&mut machine_submited_hash, hash);
 
-            let mut machine_committee =
-                Self::machine_committee(&machine_id).ok_or(Error::<T>::Unknown)?;
+            let mut machine_committee = Self::machine_committee(&machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &machine_id);
 
@@ -187,8 +188,7 @@ pub mod pallet {
             let now = <frame_system::Pallet<T>>::block_number();
             let machine_id = machine_info_detail.machine_id.clone();
 
-            let mut machine_committee =
-                Self::machine_committee(&machine_id).ok_or(Error::<T>::Unknown)?;
+            let mut machine_committee = Self::machine_committee(&machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
             let mut committee_ops = Self::committee_ops(&committee, &machine_id);
 
@@ -377,13 +377,12 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| ())?;
 
         // 修改machine对应的委员会
-        MachineCommittee::<T>::try_mutate(&machine_id, |machine_committee| {
-            let machine_committee = machine_committee.as_mut().ok_or(())?;
+        MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
+            // let machine_committee = machine_committee.as_mut().ok_or(())?;
             ItemList::add_item(&mut machine_committee.booked_committee, work_index.who.clone());
             machine_committee.book_time = now;
             machine_committee.confirm_start_time = confirm_start;
-            Ok::<(), ()>(())
-        })?;
+        });
 
         // 修改委员会对应的machine
         CommitteeMachine::<T>::mutate(&work_index.who, |committee_machine| {
@@ -425,7 +424,7 @@ impl<T: Config> Pallet<T> {
         now: T::BlockNumber,
         stake_per_order: BalanceOf<T>,
     ) -> Result<(), ()> {
-        let mut machine_committee = Self::machine_committee(&machine_id).ok_or(())?;
+        let mut machine_committee = Self::machine_committee(&machine_id);
 
         // 如果是在提交Hash的状态，且已经到提交原始值的时间，则改变状态并返回
         if machine_committee.can_submit_raw(now) {
@@ -475,7 +474,10 @@ impl<T: Config> Pallet<T> {
 
         // NOTE: 添加惩罚
         if stash_slash.is_some() || summary.should_slash_committee() {
-            let (machine_stash, stash_slash_amount) = stash_slash.ok_or(())?;
+            let (machine_stash, stash_slash_amount) =
+                if let Some(tmp) = stash_slash { (Some(tmp.0), tmp.1) } else { (None, Zero::zero()) };
+
+            // let (machine_stash, stash_slash_amount) = stash_slash;
             Self::add_summary_slash(
                 machine_id.clone(),
                 machine_stash,
@@ -492,11 +494,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        MachineCommittee::<T>::try_mutate(&machine_id, |machine_committee| {
-            let machine_committee = machine_committee.as_mut().ok_or(())?;
+        MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
+            // let machine_committee = machine_committee.as_mut().ok_or(())?;
             machine_committee.after_summary(summary.clone());
-            Ok::<(), ()>(())
-        })?;
+        });
 
         // Do cleaning
         for a_committee in machine_committee.booked_committee {
@@ -511,7 +512,7 @@ impl<T: Config> Pallet<T> {
 
     fn add_summary_slash(
         machine_id: MachineId,
-        machine_stash: T::AccountId,
+        machine_stash: Option<T::AccountId>,
         slash_amount: BalanceOf<T>,
         summary: Summary<T::AccountId>,
         stake_per_order: BalanceOf<T>,
@@ -546,7 +547,7 @@ impl<T: Config> Pallet<T> {
     // 该函数将清除本模块信息，并将online_profile机器状态改为ocw_confirmed_machine
     // 清除信息： OCCommitteeMachineList, OCMachineCommitteeList, OCCommitteeOps
     fn revert_book(machine_id: MachineId) -> Result<(), ()> {
-        let machine_committee = Self::machine_committee(&machine_id).ok_or(())?;
+        let machine_committee = Self::machine_committee(&machine_id);
 
         // 清除预订了机器的委员会
         for booked_committee in machine_committee.booked_committee {
@@ -571,7 +572,7 @@ impl<T: Config> Pallet<T> {
 
         let is_applicant_slashed_stash =
             matches!(slash_info.book_result, OCBookResultType::OnlineRefused) &&
-                slash_info.machine_stash == slash_review_info.applicant;
+                slash_info.machine_stash == Some(slash_review_info.applicant.clone());
 
         // Return reserved balance when apply for review
         if is_applicant_slashed_stash {
@@ -604,7 +605,9 @@ impl<T: Config> Pallet<T> {
 
         let mut should_reward = slash_info.inconsistent_committee.clone();
         if matches!(slash_info.book_result, OCBookResultType::OnlineRefused) {
-            ItemList::add_item(&mut should_reward, slash_info.machine_stash.clone());
+            if let Some(machine_stash) = slash_info.machine_stash.clone() {
+                ItemList::add_item(&mut should_reward, machine_stash);
+            }
         }
 
         let _ = <T as Config>::SlashAndReward::slash_and_reward(

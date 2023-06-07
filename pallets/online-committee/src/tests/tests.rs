@@ -60,17 +60,17 @@ fn machine_online_works() {
             stake_amount: 100000 * ONE_DBC,
             init_stake_per_gpu: 100000 * ONE_DBC,
             machine_status: MachineStatus::AddingCustomizeInfo,
-            renters: todo!(),
-            last_machine_restake: todo!(),
-            online_height: todo!(),
-            last_online_height: todo!(),
-            total_rented_duration: todo!(),
-            total_rented_times: todo!(),
-            total_rent_fee: todo!(),
-            total_burn_fee: todo!(),
-            machine_info_detail: todo!(),
-            reward_committee: todo!(),
-            reward_deadline: todo!(),
+            renters: vec![],
+            last_machine_restake: 0,
+            online_height: 0,
+            last_online_height: 0,
+            total_rented_duration: 0,
+            total_rented_times: 0,
+            total_rent_fee: 0,
+            total_burn_fee: 0,
+            machine_info_detail: Default::default(),
+            reward_committee: vec![],
+            reward_deadline: 0,
         };
 
         // bond_machine:
@@ -85,7 +85,7 @@ fn machine_online_works() {
             OnlineProfile::live_machines(),
             LiveMachine { bonding_machine: vec!(machine_id.clone()), ..Default::default() }
         );
-        assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info));
+        assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
@@ -122,7 +122,7 @@ fn machine_online_works() {
             // 添加了信息之后，将会在OnlineCommittee中被派单
             // add_machine_info
             // - Writes: MachinesInfo, LiveMachines, committee::CommitteeStake
-            assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info));
+            assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
             assert_eq!(
                 OnlineProfile::live_machines(),
                 LiveMachine { confirmed_machine: vec!(machine_id.clone()), ..Default::default() }
@@ -182,19 +182,19 @@ fn machine_online_works() {
             OnlineProfile::live_machines(),
             LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
-        assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info));
+        assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
 
         assert_eq!(
             OnlineCommittee::machine_committee(machine_id.clone()),
-            Some(OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 4,
                 confirm_start_time: 4324,
                 booked_committee: vec![committee2, committee3, committee1],
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
-                onlined_committee: todo!(),
-                status: todo!()
-            })
+                onlined_committee: vec![],
+                status: Default::default()
+            }
         );
         assert_eq!(
             OnlineCommittee::committee_machine(&committee1),
@@ -204,7 +204,7 @@ fn machine_online_works() {
             }
         );
         assert_eq!(
-            OnlineCommittee::committee_ops(&committee1, &machine_id),
+            OnlineCommittee::committee_ops(&committee3, &machine_id),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
                 verify_time: vec![4, 1444, 2884],
@@ -277,15 +277,15 @@ fn machine_online_works() {
         );
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            Some(crate::OCMachineCommitteeList {
+            crate::OCMachineCommitteeList {
                 book_time: 4,
                 confirm_start_time: 4324,
                 booked_committee: vec![committee2, committee3, committee1],
                 hashed_committee: vec![committee2, committee3, committee1],
                 confirmed_committee: vec![committee2, committee3, committee1],
                 status: crate::OCVerifyStatus::Summarizing,
-                onlined_committee: todo!()
-            })
+                onlined_committee: Default::default()
+            }
         );
         assert_eq!(
             OnlineCommittee::committee_machine(&committee1),
@@ -299,7 +299,7 @@ fn machine_online_works() {
             OnlineCommittee::committee_ops(&committee1, machine_id.clone()),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![4, 1444, 2884],
+                verify_time: vec![484, 1924, 3364],
                 confirm_hash: machine_info_hash1,
                 hash_time: 6,
                 confirm_time: 6,
@@ -344,7 +344,7 @@ fn machine_online_works() {
             ..Default::default()
         };
 
-        assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info));
+        assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
         assert_eq!(
             OnlineProfile::pos_gpu_info(Longitude::East(1157894), Latitude::North(235678)),
             online_profile::PosInfo {
@@ -516,7 +516,7 @@ fn machine_online_works() {
             );
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
-            assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info));
+            assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
             assert_eq!(OnlineProfile::stash_stake(&stash), 2000 * ONE_DBC + 400000 * ONE_DBC);
             assert_eq!(
                 OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
@@ -592,19 +592,19 @@ fn machine_online_works() {
             LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
         machine_info.machine_status = MachineStatus::CommitteeVerifying;
-        assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info));
+        assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
 
         assert_eq!(
             OnlineCommittee::machine_committee(machine_id.clone()),
-            Some(OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 2880 * 3 + 3,
                 confirm_start_time: 2880 * 3 + 3 + 4320,
                 booked_committee: vec![committee2, committee3, committee1],
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
-                onlined_committee: todo!(),
-                status: todo!()
-            })
+                onlined_committee: vec![],
+                status: Default::default()
+            }
         );
         assert_eq!(
             OnlineCommittee::committee_machine(&committee1),
@@ -618,7 +618,7 @@ fn machine_online_works() {
             OnlineCommittee::committee_ops(&committee1, &machine_id),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![8643, 10083, 11523],
+                verify_time: vec![9603, 11043, 12483],
                 ..Default::default()
             }
         );
@@ -693,15 +693,15 @@ fn machine_online_works() {
         );
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            Some(crate::OCMachineCommitteeList {
+            crate::OCMachineCommitteeList {
                 book_time: 8643,
                 confirm_start_time: 12963,
                 booked_committee: vec![committee2, committee3, committee1],
                 hashed_committee: vec![committee2, committee3, committee1],
                 confirmed_committee: vec![committee2, committee3, committee1],
                 status: crate::OCVerifyStatus::Summarizing,
-                onlined_committee: todo!()
-            })
+                onlined_committee: vec![]
+            }
         );
         assert_eq!(
             OnlineCommittee::committee_machine(&committee1),
@@ -716,7 +716,7 @@ fn machine_online_works() {
             OnlineCommittee::committee_ops(&committee1, machine_id.clone()),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![8643, 10083, 11523],
+                verify_time: vec![9603, 11043, 12483],
                 confirm_hash: machine_info_hash1,
                 hash_time: 8644,
                 confirm_time: 8644,
@@ -804,6 +804,7 @@ fn committee_not_submit_hash_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
         let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
@@ -844,22 +845,22 @@ fn committee_not_submit_hash_slash_works() {
             machine_info_hash1,
         ));
         assert_ok!(OnlineCommittee::submit_confirm_hash(
-            RuntimeOrigin::signed(committee2),
+            RuntimeOrigin::signed(committee3),
             machine_id.clone(),
             machine_info_hash2,
         ));
 
         let machine_committee = crate::OCMachineCommitteeList {
             book_time: 6,
-            booked_committee: vec![committee2, committee1, committee4],
-            hashed_committee: vec![committee2, committee1],
+            booked_committee: vec![committee3, committee1, committee4],
+            hashed_committee: vec![committee3, committee1],
             confirm_start_time: 4326,
             confirmed_committee: vec![],
             onlined_committee: vec![],
             status: crate::OCVerifyStatus::default(),
         };
 
-        assert_eq!(OnlineCommittee::machine_committee(&machine_id), Some(machine_committee));
+        assert_eq!(OnlineCommittee::machine_committee(&machine_id), machine_committee);
 
         // 等到36个小时之后，提交确认信息
         run_to_block(4326); // 6 + 36 * 120 = 4326
@@ -1033,18 +1034,18 @@ fn committee_not_equal_then_redistribute_works() {
             bonding_height: 3,
             stake_amount: 100000 * ONE_DBC,
             machine_status: MachineStatus::AddingCustomizeInfo,
-            renters: todo!(),
-            last_machine_restake: todo!(),
-            online_height: todo!(),
-            last_online_height: todo!(),
-            init_stake_per_gpu: todo!(),
-            total_rented_duration: todo!(),
-            total_rented_times: todo!(),
-            total_rent_fee: todo!(),
-            total_burn_fee: todo!(),
-            machine_info_detail: todo!(),
-            reward_committee: todo!(),
-            reward_deadline: todo!(),
+            renters: vec![],
+            last_machine_restake: 0,
+            online_height: 0,
+            last_online_height: 0,
+            init_stake_per_gpu: 0,
+            total_rented_duration: 0,
+            total_rented_times: 0,
+            total_rent_fee: 0,
+            total_burn_fee: 0,
+            machine_info_detail: Default::default(),
+            reward_committee: vec![],
+            reward_deadline: 0,
         };
 
         let customize_info = StakerCustomizeInfo {
@@ -1131,15 +1132,15 @@ fn committee_not_equal_then_redistribute_works() {
 
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            Some(OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 16,
                 booked_committee: vec![committee3, committee1, committee2],
                 hashed_committee: vec![committee3, committee1, committee2],
                 confirmed_committee: vec![committee3, committee1, committee2],
                 confirm_start_time: 4336,
                 status: OCVerifyStatus::Summarizing,
-                onlined_committee: todo!()
-            })
+                onlined_committee: vec![]
+            }
         );
 
         assert_eq!(
@@ -1187,15 +1188,15 @@ fn committee_not_equal_then_redistribute_works() {
         // NOTE: 如果on_finalize先执行lease_committee 再z执行online_profile则没有内容，否则被重新分配了
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            Some(OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 17,
                 booked_committee: vec![committee3, committee1, committee2],
                 confirm_start_time: 4337,
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
-                onlined_committee: todo!(),
-                status: todo!()
-            })
+                onlined_committee: vec![],
+                status: Default::default()
+            }
         );
 
         let machine_submit_hash: Vec<[u8; 16]> = vec![];
@@ -1304,18 +1305,18 @@ fn two_submit_hash_reach_submit_raw_works() {
             bonding_height: 3,
             stake_amount: 100000 * ONE_DBC,
             machine_status: MachineStatus::AddingCustomizeInfo,
-            renters: todo!(),
-            last_machine_restake: todo!(),
-            online_height: todo!(),
-            last_online_height: todo!(),
-            init_stake_per_gpu: todo!(),
-            total_rented_duration: todo!(),
-            total_rented_times: todo!(),
-            total_rent_fee: todo!(),
-            total_burn_fee: todo!(),
-            machine_info_detail: todo!(),
-            reward_committee: todo!(),
-            reward_deadline: todo!(),
+            renters: vec![],
+            last_machine_restake: 0,
+            online_height: 0,
+            last_online_height: 0,
+            init_stake_per_gpu: 0,
+            total_rented_duration: 0,
+            total_rented_times: 0,
+            total_rent_fee: 0,
+            total_burn_fee: 0,
+            machine_info_detail: Default::default(),
+            reward_committee: vec![],
+            reward_deadline: 0,
         };
 
         let customize_info = StakerCustomizeInfo {
@@ -1369,15 +1370,15 @@ fn two_submit_hash_reach_submit_raw_works() {
 
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            Some(OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 16,
                 booked_committee: vec![committee3, committee1, committee2],
                 confirm_start_time: 4336,
                 status: OCVerifyStatus::SubmittingHash,
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
-                onlined_committee: todo!()
-            })
+                onlined_committee: vec![]
+            }
         );
 
         // 两个委员会分别提交机器Hash
@@ -1394,30 +1395,30 @@ fn two_submit_hash_reach_submit_raw_works() {
 
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            Some(OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 16,
                 booked_committee: vec![committee3, committee1, committee2],
                 hashed_committee: vec![committee1, committee2],
                 confirm_start_time: 4336,
                 status: OCVerifyStatus::SubmittingHash,
                 confirmed_committee: vec![],
-                onlined_committee: todo!()
-            })
+                onlined_committee: vec![]
+            }
         );
 
         run_to_block(4336);
 
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
-            Some(OCMachineCommitteeList {
+            OCMachineCommitteeList {
                 book_time: 16,
                 booked_committee: vec![committee3, committee1, committee2],
                 hashed_committee: vec![committee1, committee2],
                 confirm_start_time: 4336,
                 status: OCVerifyStatus::SubmittingRaw,
                 confirmed_committee: vec![],
-                onlined_committee: todo!()
-            })
+                onlined_committee: vec![]
+            }
         );
 
         // 委员会提交原始信息
