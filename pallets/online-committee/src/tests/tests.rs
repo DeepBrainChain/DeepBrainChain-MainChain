@@ -803,7 +803,7 @@ fn machine_online_works() {
 fn committee_not_submit_hash_slash_works() {
     new_test_with_online_machine_distribution().execute_with(|| {
         let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
-        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let _committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
         let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
         let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
@@ -871,7 +871,7 @@ fn committee_not_submit_hash_slash_works() {
             CommitteeUploadInfo { rand_str: rand_str1, ..machine_base_info.clone() }
         ));
         assert_ok!(OnlineCommittee::submit_confirm_raw(
-            RuntimeOrigin::signed(committee2),
+            RuntimeOrigin::signed(committee3),
             CommitteeUploadInfo { rand_str: rand_str2, ..machine_base_info }
         ));
 
@@ -888,14 +888,14 @@ fn committee_not_submit_hash_slash_works() {
                 machine_id,
                 inconsistent_committee: vec![],
                 unruly_committee: vec![committee4],
-                reward_committee: vec![committee2, committee1],
+                reward_committee: vec![committee3, committee1],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 4327,
                 slash_exec_time: 4327 + 2880 * 2,
                 book_result: OCBookResultType::OnlineSucceed,
                 slash_result: OCSlashResult::Pending,
-                machine_stash: todo!(),
-                stash_slash_amount: todo!()
+                machine_stash: None,
+                stash_slash_amount: 0
             })
         );
 

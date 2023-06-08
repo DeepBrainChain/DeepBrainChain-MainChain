@@ -1023,7 +1023,7 @@ fn test_machine_noconsensus_works() {
         ));
 
         // 无共识，机器将重新分派，并惩罚未完成工作的委员会
-        run_to_block(11 + 2880 + 1440);
+        run_to_block(11 + 2880 + 1440); // 4331
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
@@ -1035,6 +1035,7 @@ fn test_machine_noconsensus_works() {
             upload_info2
         ));
 
+        // 这个块高时，既发放奖励，又重新分派
         run_to_block(11 + 2880 + 1440 + 1);
 
         assert_eq!(
@@ -1054,47 +1055,67 @@ fn test_machine_noconsensus_works() {
             })
         );
 
-        run_to_block(4332 + 2880 * 2 + 1);
-
-        let committee_stake_info = committee::CommitteeStakeInfo {
-            staked_amount: 20000 * ONE_DBC,
-            used_stake: 1000 * ONE_DBC, // Because of reassignment
-            can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
-            claimed_reward: 0,
-            ..Default::default()
-        };
+        assert_eq!(OnlineCommittee::machine_committee(&machine_id), OCMachineCommitteeList {
+            book_time: 4332,
+            booked_committee: vec![*committee3,*committee2, *committee4],
+            hashed_committee: vec![],
+            confirm_start_time:8652,
+            confirmed_committee: vec![],
+            onlined_committee: vec![],
+            status: OCVerifyStatus::default(),
+        });
 
         assert_eq!(
             &CommitteeStakeInfo {
                 box_pubkey: Default::default(),
                 ..Committee::committee_stake(&*committee1)
             },
-            &committee_stake_info
+            &committee::CommitteeStakeInfo {
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 0 * ONE_DBC ,             // 没有重新分派给committee1
+                can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
+                claimed_reward: 0,
+                ..Default::default()
+            }
         );
+
         assert_eq!(
             &CommitteeStakeInfo {
                 box_pubkey: Default::default(),
                 ..Committee::committee_stake(&*committee2)
             },
-            &committee_stake_info
+            &committee::CommitteeStakeInfo {
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 1000 * ONE_DBC ,             // 重新分派给committee2
+                can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
+                claimed_reward: 0,
+                ..Default::default()
+            }
         );
+
         assert_eq!(
             &CommitteeStakeInfo {
                 box_pubkey: Default::default(),
                 ..Committee::committee_stake(&*committee3)
             },
-            &committee_stake_info
+            &committee::CommitteeStakeInfo {
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 1000 * ONE_DBC ,             // 重新分派给committee3
+                can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
+                claimed_reward: 0,
+                ..Default::default()
+            }
         );
 
         assert_eq!(
-            CommitteeStakeInfo {
+            &CommitteeStakeInfo {
                 box_pubkey: Default::default(),
                 ..Committee::committee_stake(&*committee4)
             },
-            committee::CommitteeStakeInfo {
-                staked_amount: 19000 * ONE_DBC,
-                used_stake: 1000 * ONE_DBC,
-                can_claim_reward: 0, // 1100000 * 0.25 * 0.01 / 2
+            &committee::CommitteeStakeInfo {
+                staked_amount: 20000 * ONE_DBC,
+                used_stake: 2000 * ONE_DBC ,             // 重新分派给committee4
+                can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
                 claimed_reward: 0,
                 ..Default::default()
             }
@@ -1103,6 +1124,6 @@ fn test_machine_noconsensus_works() {
         assert_eq!(Balances::reserved_balance(&*committee1), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*committee2), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*committee3), 20000 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&*committee4), 19000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*committee4), 20000 * ONE_DBC); // 惩罚还未执行
     })
 }
