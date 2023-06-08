@@ -159,7 +159,6 @@ fn controller_report_offline_when_online_should_work() {
 fn rent_machine_confirm_expired_should_work() {
     new_test_ext_after_machine_online().execute_with(|| {
         let mut machine_info1 = OnlineProfile::machines_info(&*machine_id).unwrap();
-        let init_rent_order = RentMachine::rent_info(0).unwrap();
 
         // Dave rent machine for 10 days
         assert_ok!(RentMachine::rent_machine(
@@ -168,6 +167,7 @@ fn rent_machine_confirm_expired_should_work() {
             4,
             10 * 2880
         ));
+        let init_rent_order = RentMachine::rent_info(0).unwrap();
 
         let user_stake = RentMachine::user_total_stake(&*renter_dave);
         assert_eq!(user_stake, 249541666666666666666);

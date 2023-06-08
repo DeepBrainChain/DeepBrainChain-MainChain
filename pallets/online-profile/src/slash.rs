@@ -153,10 +153,6 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
         let machine_info = Self::machines_info(&machine_id).ok_or(())?;
 
-        if slash_percent == 0 {
-            return Err(())
-        }
-
         let slash_amount = Perbill::from_rational(slash_percent, 100) * machine_info.stake_amount;
 
         Ok(OPPendingSlashInfo {
