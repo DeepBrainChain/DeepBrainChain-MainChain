@@ -123,7 +123,7 @@ fn apply_slash_review_case1() {
                     staked_amount: 1000 * ONE_DBC,
                     apply_time: 24,
                     expire_time: 24 + 2880 * 2,
-                    reason: todo!()
+                    reason: Default::default()
                 })
             );
             assert_eq!(

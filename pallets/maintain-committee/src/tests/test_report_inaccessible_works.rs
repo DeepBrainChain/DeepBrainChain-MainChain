@@ -601,7 +601,7 @@ fn report_machine_inaccessible_works3() {
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
-                    reward_committee: todo!(),
+                    reward_committee: vec![],
                     committee_stake: 0
                 })
             );
@@ -748,7 +748,7 @@ fn report_machine_inaccessible_works4() {
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
-                    reward_committee: todo!(),
+                    reward_committee: vec![],
                     committee_stake: 0
                 })
             );

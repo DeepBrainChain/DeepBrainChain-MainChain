@@ -95,8 +95,8 @@ fn test_heart_beat1() {
                 slash_exec_time: 11 + 60 + 2880 * 2,
                 report_result: crate::ReportResultType::ReporterNotSubmitEncryptedInfo,
                 slash_result: crate::MCSlashResult::Pending,
-                machine_stash: todo!(),
-                machine_id: todo!()
+                machine_stash: None,
+                machine_id: vec![]
             })
         );
 
@@ -212,8 +212,8 @@ fn test_heart_beat2() {
                 slash_exec_time: 5891,
                 report_result: crate::ReportResultType::ReportRefused,
                 slash_result: crate::MCSlashResult::Pending,
-                machine_stash: todo!(),
-                machine_id: todo!()
+                machine_stash: None,
+                machine_id: vec![],
             })
         );
 
@@ -507,7 +507,7 @@ fn test_apply_slash_review() {
                 slash_exec_time: 374 + 2880 * 2,
                 report_result: crate::ReportResultType::ReportSucceed,
                 slash_result: crate::MCSlashResult::Pending,
-                machine_stash: todo!(),
+                machine_stash: None,
                 machine_id: vec![]
             })
         );

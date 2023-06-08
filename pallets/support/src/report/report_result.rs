@@ -134,12 +134,13 @@ where
     // 接收report_info.summary结果，修改自身
     // 仅仅在summary_waiting_raw中使用
     pub fn get_verify_result(
-        &mut self,
+        current_result: Option<Self>,
         now: Block,
         report_id: ReportId,
         committee_order_stake: Balance,
         report_info: &MTReportInfoDetail<Account, Block, Balance>,
-    ) where
+    ) -> Self
+    where
         Account: Clone + Ord,
         Block: Default
             + PartialEq
@@ -151,50 +152,74 @@ where
             + Saturating,
         Balance: Default + Copy,
     {
-        self.report_id = report_id;
-        self.slash_result = MCSlashResult::Pending;
-        self.slash_time = now;
-        self.slash_exec_time = now + TWO_DAY.into();
-        self.reporter = report_info.reporter.clone();
-        self.committee_stake = committee_order_stake;
+        let mut out = match current_result {
+            Some(current_result) => Self {
+                report_id,
+                slash_result: MCSlashResult::Pending,
+                slash_time: now,
+                slash_exec_time: now + TWO_DAY.into(),
+                reporter: report_info.reporter.clone(),
+                committee_stake: committee_order_stake,
+                ..current_result
+            },
+            None => Self {
+                report_id,
+                slash_result: MCSlashResult::Pending,
+                slash_time: now,
+                slash_exec_time: now + TWO_DAY.into(),
+                reporter: report_info.reporter.clone(),
+                committee_stake: committee_order_stake,
 
+                reporter_stake: Default::default(),
+
+                inconsistent_committee: vec![],
+                unruly_committee: vec![],
+                reward_committee: vec![],
+
+                machine_stash: None,
+                machine_id: vec![],
+
+                report_result: ReportResultType::default(),
+            },
+        };
         let verify_summary = report_info.summary();
         match verify_summary {
             // 报告成功
             ReportConfirmStatus::Confirmed(support, against, _) => {
-                self.report_result = ReportResultType::ReportSucceed;
-                self.reporter_stake = report_info.reporter_stake;
+                out.report_result = ReportResultType::ReportSucceed;
+                out.reporter_stake = report_info.reporter_stake;
 
                 for a_committee in against {
-                    ItemList::add_item(&mut self.inconsistent_committee, a_committee.clone());
+                    ItemList::add_item(&mut out.inconsistent_committee, a_committee.clone());
                 }
 
                 for a_committee in support.clone() {
-                    ItemList::add_item(&mut self.reward_committee, a_committee.clone());
+                    ItemList::add_item(&mut out.reward_committee, a_committee.clone());
                 }
             },
             // 报告失败
             ReportConfirmStatus::Refuse(support_committee, against_committee) => {
-                self.report_result = ReportResultType::ReportRefused;
-                self.reporter_stake = report_info.reporter_stake;
+                out.report_result = ReportResultType::ReportRefused;
+                out.reporter_stake = report_info.reporter_stake;
 
                 // Slash support committee and release against committee stake
-                self.i_exten_sorted(support_committee);
-                self.r_exten_sorted(against_committee);
+                out.i_exten_sorted(support_committee);
+                out.r_exten_sorted(against_committee);
             },
             // 如果没有人提交，会出现NoConsensus的情况，并重新派单
             ReportConfirmStatus::NoConsensus => {
-                self.report_result = ReportResultType::NoConsensus;
+                out.report_result = ReportResultType::NoConsensus;
 
                 // 记录unruly的委员会，两天后进行惩罚
                 ItemList::expand_to_order(
-                    &mut self.unruly_committee,
+                    &mut out.unruly_committee,
                     report_info.booked_committee.clone(),
                 );
 
                 // 重新举报时，记录报告人的质押将被重新使用，因此不再退还。
-                self.reporter_stake = Zero::zero();
+                out.reporter_stake = Zero::zero();
             },
         }
+        return out
     }
 }

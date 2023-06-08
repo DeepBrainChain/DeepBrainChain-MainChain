@@ -311,10 +311,9 @@ impl<T: Config> Pallet<T> {
         report_info.can_summary_fault()?;
 
         let mut reporter_report = Self::reporter_report(&report_info.reporter);
-        let mut report_result = Self::report_result(report_id).ok_or(())?;
 
         // 初始化report_result
-        report_result = MTReportResultInfo {
+        let mut report_result = MTReportResultInfo {
             report_id,
             reporter: report_info.reporter.clone(),
             reporter_stake: report_info.reporter_stake,
@@ -323,7 +322,12 @@ impl<T: Config> Pallet<T> {
             slash_exec_time: now + TWO_DAY.into(),
             slash_result: MCSlashResult::Pending,
 
-            ..report_result
+            inconsistent_committee: vec![],
+            unruly_committee: vec![],
+            reward_committee: vec![],
+            machine_stash: None,
+            machine_id: vec![],
+            report_result: ReportResultType::default(),
         };
 
         if now.saturating_sub(report_info.first_book_time) < THREE_HOUR.into() {
@@ -421,15 +425,20 @@ impl<T: Config> Pallet<T> {
         let committee_order_stake = Self::get_stake_per_order().unwrap_or_default();
 
         let mut report_info = Self::report_info(&report_id).ok_or(())?;
-        let mut report_result = Self::report_result(report_id).ok_or(())?;
-
         if !report_info.can_summary(now) {
             return Ok(())
         }
 
         let fault_report_result = report_info.summary();
         live_report.get_verify_result(report_id, fault_report_result.clone());
-        report_result.get_verify_result(now, report_id, committee_order_stake, &report_info);
+
+        let report_result = MTReportResultInfo::get_verify_result(
+            Self::report_result(report_id), // 这里可能在summary_verifying_report时已经有数据了
+            now,
+            report_id,
+            committee_order_stake,
+            &report_info,
+        );
 
         match fault_report_result.clone() {
             // 报告成功
