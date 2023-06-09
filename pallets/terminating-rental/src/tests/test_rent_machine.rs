@@ -26,8 +26,8 @@ pub fn new_test_with_machine_online_ext() -> sp_io::TestExternalities {
             .to_vec();
 
         let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
-        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
-        let _committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
+        let _committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
         let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
         // 委员会添加机器Hash
@@ -46,7 +46,7 @@ pub fn new_test_with_machine_online_ext() -> sp_io::TestExternalities {
             hash1
         ));
         assert_ok!(IRMachine::submit_confirm_hash(
-            RuntimeOrigin::signed(committee2),
+            RuntimeOrigin::signed(committee3),
             machine_id.clone(),
             hash2
         ));
@@ -83,7 +83,7 @@ pub fn new_test_with_machine_online_ext() -> sp_io::TestExternalities {
 
         upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(IRMachine::submit_confirm_raw(
-            RuntimeOrigin::signed(committee2),
+            RuntimeOrigin::signed(committee3),
             upload_info.clone()
         ));
         upload_info.rand_str = "abcdefg3".as_bytes().to_vec();

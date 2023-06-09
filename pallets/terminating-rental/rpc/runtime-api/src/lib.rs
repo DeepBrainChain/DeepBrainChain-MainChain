@@ -29,7 +29,7 @@ sp_api::decl_runtime_apis! {
         fn get_machine_list() -> LiveMachine;
         fn get_machine_info(machine_id: MachineId) -> Option<MachineInfo<AccountId, BlockNumber, Balance>>;
 
-        fn get_machine_committee_list(machine_id: MachineId) -> Option<OCMachineCommitteeList<AccountId, BlockNumber>>;
+        fn get_machine_committee_list(machine_id: MachineId) -> OCMachineCommitteeList<AccountId, BlockNumber>;
         fn get_committee_machine_list(committee: AccountId) -> OCCommitteeMachineList;
         fn get_committee_ops(committee: AccountId, machine_id: MachineId) -> Option<RpcIRCommitteeOps<BlockNumber, Balance>>;
 

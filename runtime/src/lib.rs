@@ -2153,7 +2153,7 @@ impl_runtime_apis! {
             TerminatingRental::get_committee_ops(committee, machine_id)
         }
 
-        fn get_machine_committee_list(machine_id: MachineId) -> Option<dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber>> {
+        fn get_machine_committee_list(machine_id: MachineId) -> dbc_support::verify_online::OCMachineCommitteeList<AccountId, BlockNumber> {
             TerminatingRental::get_machine_committee_list(machine_id)
         }
 

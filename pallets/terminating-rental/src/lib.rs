@@ -13,6 +13,7 @@ mod report_machine_fault;
 mod rpc;
 pub mod rpc_types;
 mod types;
+use frame_support::log;
 
 use codec::alloc::string::ToString;
 use dbc_support::{
@@ -168,6 +169,7 @@ pub mod pallet {
         Blake2_128Concat,
         MachineId,
         OCMachineCommitteeList<T::AccountId, T::BlockNumber>,
+        ValueQuery,
     >;
 
     #[pallet::storage]
@@ -564,8 +566,7 @@ pub mod pallet {
             ensure!(machine_submited_hash.binary_search(&hash).is_err(), Error::<T>::DuplicateHash);
             ItemList::add_item(&mut machine_submited_hash, hash);
 
-            let mut machine_committee =
-                Self::machine_committee(&machine_id).ok_or(Error::<T>::Unknown)?;
+            let mut machine_committee = Self::machine_committee(&machine_id);
             machine_committee
                 .submit_hash(committee.clone())
                 .map_err::<Error<T>, _>(Into::into)?;
@@ -594,8 +595,7 @@ pub mod pallet {
             let now = <frame_system::Pallet<T>>::block_number();
             let machine_id = machine_info_detail.machine_id.clone();
 
-            let mut machine_committee =
-                Self::machine_committee(&machine_id).ok_or(Error::<T>::Unknown)?;
+            let mut machine_committee = Self::machine_committee(&machine_id);
             let mut committee_machine = Self::committee_machine(&committee);
             let mut committee_ops = Self::committee_online_ops(&committee, &machine_id);
 
@@ -1509,10 +1509,16 @@ impl<T: Config> Pallet<T> {
 
             if let Some(committee_work_index) = Self::get_work_index() {
                 for work_index in committee_work_index {
-                    let _ = Self::book_one(machine_id.to_vec(), confirm_start, now, work_index);
+                    if let Err(e) =
+                        Self::book_one(machine_id.to_vec(), confirm_start, now, work_index)
+                    {
+                        log::error!("TerminatingRental.distributeMachine.bookOne failed: {:?}", e)
+                    };
                 }
                 // 将机器状态从ocw_confirmed_machine改为booked_machine
-                let _ = Self::book_machine(machine_id.clone());
+                if let Err(e) = Self::book_machine(machine_id.clone()) {
+                    log::error!("TerminatingRental.distributeMachine.bookMachine failed: {:?}", e)
+                };
             };
         }
     }
@@ -1556,12 +1562,10 @@ impl<T: Config> Pallet<T> {
 
         // 修改machine对应的委员会
         MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
-            let machine_committee = machine_committee.as_mut().ok_or(())?;
             ItemList::add_item(&mut machine_committee.booked_committee, work_index.who.clone());
             machine_committee.book_time = now;
             machine_committee.confirm_start_time = confirm_start;
-            Ok::<(), ()>(())
-        })?;
+        });
         CommitteeMachine::<T>::mutate(&work_index.who, |committee_machine| {
             ItemList::add_item(&mut committee_machine.booked_machine, machine_id.clone());
         });
@@ -1613,7 +1617,7 @@ impl<T: Config> Pallet<T> {
         now: T::BlockNumber,
         stake_per_order: BalanceOf<T>,
     ) -> Result<(), ()> {
-        let mut machine_committee = Self::machine_committee(&machine_id).ok_or(())?;
+        let mut machine_committee = Self::machine_committee(&machine_id);
 
         // 如果是在提交Hash的状态，且已经到提交原始值的时间，则改变状态并返回
         if machine_committee.can_submit_raw(now) {
@@ -1667,10 +1671,15 @@ impl<T: Config> Pallet<T> {
 
         // NOTE: 添加惩罚
         if stash_slash.is_some() || summary.should_slash_committee() {
-            let (machine_stash, stash_slash_amount) = stash_slash.unwrap();
+            let (machine_stash, stash_slash_amount) = if let Some(tmp) = stash_slash {
+                (Some(tmp.0), tmp.1)
+            } else {
+                (None, Zero::zero())
+            };
+
             Self::add_summary_slash(
                 machine_id.clone(),
-                Some(machine_stash),
+                machine_stash,
                 stash_slash_amount,
                 summary.clone(),
                 stake_per_order,
@@ -1689,10 +1698,8 @@ impl<T: Config> Pallet<T> {
         }
 
         MachineCommittee::<T>::mutate(&machine_id, |machine_committee| {
-            let machine_committee = machine_committee.as_mut().ok_or(())?;
             machine_committee.after_summary(summary.clone());
-            Ok::<(), ()>(())
-        })?;
+        });
 
         // Do cleaning
         for a_committee in machine_committee.booked_committee {
@@ -1795,7 +1802,7 @@ impl<T: Config> Pallet<T> {
     // 该函数将清除本模块信息，并将online_profile机器状态改为ocw_confirmed_machine
     // 清除信息： OCCommitteeMachineList, OCMachineCommitteeList, IRCommitteeOps
     fn revert_book(machine_id: MachineId) -> Result<(), ()> {
-        let machine_committee = Self::machine_committee(&machine_id).ok_or(())?;
+        let machine_committee = Self::machine_committee(&machine_id);
 
         // 清除预订了机器的委员会
         for booked_committee in machine_committee.booked_committee {

@@ -74,19 +74,19 @@ fn bond_machine_works() {
                     bonding_height: 2,
                     stake_amount: 10000 * ONE_DBC,
                     controller,
-                    renters: todo!(),
-                    last_machine_restake: todo!(),
-                    online_height: todo!(),
-                    last_online_height: todo!(),
-                    init_stake_per_gpu: todo!(),
-                    machine_status: todo!(),
-                    total_rented_duration: todo!(),
-                    total_rented_times: todo!(),
-                    total_rent_fee: todo!(),
-                    total_burn_fee: todo!(),
-                    machine_info_detail: todo!(),
-                    reward_committee: todo!(),
-                    reward_deadline: todo!()
+                    renters: vec![],
+                    last_machine_restake: 0,
+                    online_height: 0,
+                    last_online_height: 0,
+                    init_stake_per_gpu: 0,
+                    machine_status: Default::default(),
+                    total_rented_duration: 0,
+                    total_rented_times: 0,
+                    total_rent_fee: 0,
+                    total_burn_fee: 0,
+                    machine_info_detail: Default::default(),
+                    reward_committee: vec![],
+                    reward_deadline: 0
                 })
             );
 

@@ -66,8 +66,8 @@ fn verify_machine_works() {
             .to_vec();
 
         let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
-        let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
-        let _committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
+        let _committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
+        let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
         let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
         let committee1_box_pubkey =
@@ -92,15 +92,15 @@ fn verify_machine_works() {
             );
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                Some(OCMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
-                    booked_committee: vec![committee2, committee1, committee4],
+                    booked_committee: vec![committee3, committee1, committee4],
                     confirm_start_time: 2 + 4320,
                     status: OCVerifyStatus::SubmittingHash,
                     hashed_committee: vec![],
                     confirmed_committee: vec![],
-                    onlined_committee: todo!()
-                })
+                    onlined_committee: vec![]
+                }
             );
             assert_eq!(
                 IRMachine::committee_machine(&committee1),
@@ -113,7 +113,7 @@ fn verify_machine_works() {
                 IRMachine::committee_online_ops(&committee1, &machine_id),
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
-                    verify_time: vec![962, 2402, 3842], // 2 + 320 * 3
+                    verify_time: vec![2, 1442, 2882], // 2 + 320 * 3
                     machine_status: VerifyMachineStatus::Booked,
                     ..Default::default()
                 }
@@ -143,15 +143,15 @@ fn verify_machine_works() {
             assert_eq!(IRMachine::machine_submited_hash(&machine_id), vec![hash1]);
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                Some(OCMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
-                    booked_committee: vec![committee2, committee1, committee4],
-                    hashed_committee: vec![committee1,],
+                    booked_committee: vec![committee3, committee1, committee4],
+                    hashed_committee: vec![committee1],
                     confirm_start_time: 2 + 2880 + 1440,
                     status: OCVerifyStatus::SubmittingHash,
                     confirmed_committee: vec![],
-                    onlined_committee: todo!()
-                })
+                    onlined_committee: vec![]
+                }
             );
             assert_eq!(
                 IRMachine::committee_machine(&committee1),
@@ -164,7 +164,7 @@ fn verify_machine_works() {
                 IRMachine::committee_online_ops(&committee1, &machine_id),
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
-                    verify_time: vec![962, 2402, 3842],
+                    verify_time: vec![2, 1442, 2882],
                     confirm_hash: hash1,
                     hash_time: 4,
                     machine_status: VerifyMachineStatus::Hashed,
@@ -173,7 +173,7 @@ fn verify_machine_works() {
             )
         }
         assert_ok!(IRMachine::submit_confirm_hash(
-            RuntimeOrigin::signed(committee2),
+            RuntimeOrigin::signed(committee3),
             machine_id.clone(),
             hash2
         ));
@@ -190,15 +190,15 @@ fn verify_machine_works() {
             assert_eq!(IRMachine::machine_submited_hash(&machine_id), vec![hash2, hash3, hash1]);
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                Some(OCMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
-                    booked_committee: vec![committee2, committee1, committee4],
-                    hashed_committee: vec![committee2, committee1, committee4],
+                    booked_committee: vec![committee3, committee1, committee4],
+                    hashed_committee: vec![committee3, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
                     status: OCVerifyStatus::SubmittingRaw,
                     confirmed_committee: vec![],
-                    onlined_committee: todo!()
-                })
+                    onlined_committee: vec![]
+                }
             );
         }
 
@@ -229,15 +229,15 @@ fn verify_machine_works() {
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                Some(OCMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
-                    booked_committee: vec![committee2, committee1, committee4],
-                    hashed_committee: vec![committee2, committee1, committee4],
+                    booked_committee: vec![committee3, committee1, committee4],
+                    hashed_committee: vec![committee3, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
                     confirmed_committee: vec![committee1],
                     status: OCVerifyStatus::SubmittingRaw,
-                    onlined_committee: todo!()
-                })
+                    onlined_committee: vec![]
+                }
             );
             assert_eq!(
                 IRMachine::committee_machine(&committee1),
@@ -250,7 +250,7 @@ fn verify_machine_works() {
                 IRMachine::committee_online_ops(&committee1, &machine_id),
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
-                    verify_time: vec![962, 2402, 3842],
+                    verify_time: vec![2, 1442, 2882],
                     confirm_hash: hash1,
                     hash_time: 4,
                     confirm_time: 4,
@@ -261,7 +261,7 @@ fn verify_machine_works() {
         }
         upload_info.rand_str = "abcdefg2".as_bytes().to_vec();
         assert_ok!(IRMachine::submit_confirm_raw(
-            RuntimeOrigin::signed(committee2),
+            RuntimeOrigin::signed(committee3),
             upload_info.clone()
         ));
         upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
@@ -270,15 +270,15 @@ fn verify_machine_works() {
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                Some(OCMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
-                    booked_committee: vec![committee2, committee1, committee4],
-                    hashed_committee: vec![committee2, committee1, committee4],
+                    booked_committee: vec![committee3, committee1, committee4],
+                    hashed_committee: vec![committee3, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
-                    confirmed_committee: vec![committee2, committee1, committee4],
+                    confirmed_committee: vec![committee3, committee1, committee4],
                     status: OCVerifyStatus::Summarizing,
-                    onlined_committee: todo!()
-                })
+                    onlined_committee: vec![]
+                }
             );
         }
 
@@ -297,7 +297,7 @@ fn verify_machine_works() {
 
             let machine_info = IRMachine::machines_info(&machine_id).unwrap();
             assert_eq!(machine_info.machine_status, MachineStatus::Online);
-            assert_eq!(machine_info.reward_committee, vec![committee2, committee1, committee4]);
+            assert_eq!(machine_info.reward_committee, vec![committee3, committee1, committee4]);
 
             assert_eq!(
                 IRMachine::stash_machines(&stash),
@@ -319,15 +319,15 @@ fn verify_machine_works() {
             // - Writes: CommitteeStake
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                Some(OCMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
-                    booked_committee: vec![committee2, committee1, committee4],
-                    hashed_committee: vec![committee2, committee1, committee4],
+                    booked_committee: vec![committee3, committee1, committee4],
+                    hashed_committee: vec![committee3, committee1, committee4],
                     confirm_start_time: 2 + 2880 + 1440,
-                    confirmed_committee: vec![committee2, committee1, committee4],
+                    confirmed_committee: vec![committee3, committee1, committee4],
                     status: OCVerifyStatus::Finished,
-                    onlined_committee: vec![committee2, committee1, committee4],
-                })
+                    onlined_committee: vec![committee3, committee1, committee4],
+                }
             );
 
             assert_eq!(

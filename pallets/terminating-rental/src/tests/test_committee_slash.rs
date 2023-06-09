@@ -1,7 +1,7 @@
 use crate::OCCommitteeMachineList;
 use dbc_support::{
     live_machine::LiveMachine,
-    machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
     verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
     verify_online::{OCBookResultType, OCMachineCommitteeList, OCVerifyStatus, StashMachine},
 };
@@ -30,10 +30,10 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
         let sig = "b4084f70730b183127e9db78c6d8dcf79039f23466cd1ee8b536c40c3027a83d\
                    ab040be4ed2db57b67eaac406817a69ce72a13f8ac11ba460e15d318b1504481";
 
-        let _committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
         let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
-        let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
+        let _committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
 
         assert_ok!(IRMachine::bond_machine(
             RuntimeOrigin::signed(controller),
@@ -60,15 +60,15 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                Some(OCMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
-                    booked_committee: vec![committee3, committee2, committee4],
+                    booked_committee: vec![committee3, committee2, committee1],
                     confirm_start_time: 4320 + 2,
                     hashed_committee: vec![],
                     confirmed_committee: vec![],
-                    onlined_committee: todo!(),
-                    status: todo!()
-                })
+                    onlined_committee: vec![],
+                    status: Default::default()
+                }
             );
         }
     });
@@ -84,6 +84,7 @@ fn committee_not_submit_slash_works() {
             .as_bytes()
             .to_vec();
 
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
         let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
         let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
@@ -113,15 +114,15 @@ fn committee_not_submit_slash_works() {
         {
             assert_eq!(
                 IRMachine::machine_committee(&machine_id),
-                Some(OCMachineCommitteeList {
+                OCMachineCommitteeList {
                     book_time: 2,
-                    booked_committee: vec![committee3, committee2, committee4],
+                    booked_committee: vec![committee3, committee2, committee1],
                     hashed_committee: vec![committee3, committee2],
                     confirm_start_time: 4320 + 2,
                     status: OCVerifyStatus::SubmittingRaw,
                     confirmed_committee: vec![],
-                    onlined_committee: todo!()
-                })
+                    onlined_committee: vec![]
+                }
             );
         }
 
@@ -167,20 +168,20 @@ fn committee_not_submit_slash_works() {
                 Some(OCPendingSlashInfo {
                     machine_id: machine_id.clone(),
                     inconsistent_committee: vec![],
-                    unruly_committee: vec![committee4],
+                    unruly_committee: vec![committee1],
                     reward_committee: vec![committee3, committee2],
                     committee_stake: 1000 * ONE_DBC,
                     slash_time: 4 + 4320,
                     slash_exec_time: 4 + 4320 + 2880 * 2,
                     book_result: OCBookResultType::OnlineSucceed,
                     slash_result: OCSlashResult::Pending,
-                    machine_stash: todo!(),
-                    stash_slash_amount: todo!()
+                    machine_stash: None,
+                    stash_slash_amount: 0
                 })
             );
             assert_eq!(IRMachine::unhandled_online_slash(), vec![0]);
             assert_eq!(
-                IRMachine::committee_machine(&committee4),
+                IRMachine::committee_machine(&committee1),
                 OCCommitteeMachineList::default()
             );
         }
@@ -188,15 +189,16 @@ fn committee_not_submit_slash_works() {
         // 自动执行惩罚: committee4 被惩罚，惩罚到国库
         run_to_block(4 + 4320 + 2880 * 2 + 1);
         {
+            assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC);
+            assert_eq!(Balances::free_balance(committee2), INIT_BALANCE - 20000 * ONE_DBC);
+            assert_eq!(Balances::free_balance(committee3), INIT_BALANCE - 20000 * ONE_DBC);
             // committee4 is also machien controller
             assert_eq!(
                 Balances::free_balance(committee4),
                 INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC
             );
-            assert_eq!(Balances::free_balance(committee2), INIT_BALANCE - 20000 * ONE_DBC);
-            assert_eq!(Balances::free_balance(committee3), INIT_BALANCE - 20000 * ONE_DBC);
 
-            assert_eq!(Balances::reserved_balance(committee4), 20000 * ONE_DBC - 1000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(committee1), 20000 * ONE_DBC - 1000 * ONE_DBC);
             assert_eq!(Balances::reserved_balance(committee2), 20000 * ONE_DBC);
             assert_eq!(Balances::reserved_balance(committee3), 20000 * ONE_DBC);
         }
@@ -222,6 +224,7 @@ fn machine_refused_slash_works() {
             .as_bytes()
             .to_vec();
 
+        let committee1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let committee2 = sr25519::Public::from(Sr25519Keyring::Charlie);
         let committee3 = sr25519::Public::from(Sr25519Keyring::Dave);
         let committee4 = sr25519::Public::from(Sr25519Keyring::Eve);
@@ -246,7 +249,7 @@ fn machine_refused_slash_works() {
             hash2
         ));
         assert_ok!(IRMachine::submit_confirm_hash(
-            RuntimeOrigin::signed(committee4),
+            RuntimeOrigin::signed(committee1),
             machine_id.clone(),
             hash3
         ));
@@ -282,7 +285,7 @@ fn machine_refused_slash_works() {
         ));
         upload_info.rand_str = "abcdefg3".as_bytes().to_vec();
         assert_ok!(IRMachine::submit_confirm_raw(
-            RuntimeOrigin::signed(committee4),
+            RuntimeOrigin::signed(committee1),
             upload_info.clone()
         ));
 
@@ -292,9 +295,8 @@ fn machine_refused_slash_works() {
                 IRMachine::live_machines(),
                 LiveMachine { refused_machine: vec![machine_id.clone()], ..Default::default() }
             );
-            let machine_info = IRMachine::machines_info(&machine_id).unwrap();
             // MachineInfo 被删除
-            assert_eq!(machine_info.machine_status, MachineStatus::AddingCustomizeInfo);
+            assert_eq!(IRMachine::machines_info(&machine_id), None);
             assert_eq!(IRMachine::stash_machines(&stash), StashMachine::default());
 
             // 当机器审核通过，应该解锁保证金
@@ -306,10 +308,10 @@ fn machine_refused_slash_works() {
                 IRMachine::pending_online_slash(0),
                 Some(OCPendingSlashInfo {
                     machine_id: machine_id.clone(),
-                    machine_stash: stash,
+                    machine_stash: Some(stash),
                     stash_slash_amount: 10000 * ONE_DBC,
                     committee_stake: 1000 * ONE_DBC,
-                    reward_committee: vec![committee3, committee2, committee4],
+                    reward_committee: vec![committee3, committee2, committee1],
                     slash_time: 4,
                     slash_exec_time: 4 + 2880 * 2,
                     book_result: OCBookResultType::OnlineRefused,
@@ -327,6 +329,7 @@ fn machine_refused_slash_works() {
 
             assert_eq!(Balances::free_balance(committee2), INIT_BALANCE - 20000 * ONE_DBC);
             assert_eq!(Balances::free_balance(committee3), INIT_BALANCE - 20000 * ONE_DBC);
+            assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC);
             // 为controller，多支付10 DBC
             assert_eq!(
                 Balances::free_balance(committee4),
@@ -335,7 +338,7 @@ fn machine_refused_slash_works() {
 
             assert_eq!(Balances::reserved_balance(committee2), 20000 * ONE_DBC);
             assert_eq!(Balances::reserved_balance(committee3), 20000 * ONE_DBC);
-            assert_eq!(Balances::reserved_balance(committee4), 20000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(committee1), 20000 * ONE_DBC);
         }
     })
 }
