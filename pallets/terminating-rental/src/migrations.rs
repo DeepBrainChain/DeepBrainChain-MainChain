@@ -1,43 +1,57 @@
-use crate::{
-    BalanceOf, Config, OnlineDeposit, ReporterStakeParams, StakePerGPU, StandardGPUPointPrice,
-    StorageVersion,
+use crate::{BalanceOf, Config, PendingOnlineSlash};
+use codec::{Decode, Encode};
+use dbc_support::{
+    verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
+    verify_online::OCBookResultType,
+    MachineId,
 };
-use dbc_support::report::ReporterStakeParamsInfo;
-use frame_support::{debug::info, weights::Weight};
-use sp_runtime::{
-    traits::{SaturatedConversion, Saturating},
-    Perbill,
-};
+use scale_info::TypeInfo;
+use sp_runtime::RuntimeDebug;
+use sp_std::vec::Vec;
 
-pub fn apply<T: Config>() -> Weight {
-    frame_support::debug::RuntimeLogger::init();
-    info!(
-        target: "runtime::rent_machine",
-        "Running migration for rentMachine pallet"
-    );
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+struct OldOCPendingSlashInfo<AccountId, BlockNumber, Balance> {
+    pub machine_id: MachineId,
+    pub machine_stash: AccountId, // Changed to Option<AccountId>
+    pub stash_slash_amount: Balance,
 
-    let storage_version = StorageVersion::<T>::get();
-    if storage_version <= 1 {
-        StorageVersion::<T>::put(2);
-        migrate_to_v2::<T>();
+    // info refused, maybe slash amount is different
+    pub inconsistent_committee: Vec<AccountId>,
+    pub unruly_committee: Vec<AccountId>,
+    pub reward_committee: Vec<AccountId>,
+    pub committee_stake: Balance,
+
+    // TODO: maybe should record slash_reason: refuse online refused or change hardware
+    pub slash_time: BlockNumber,
+    pub slash_exec_time: BlockNumber,
+
+    pub book_result: OCBookResultType,
+    pub slash_result: OCSlashResult,
+}
+// A: AccountId, B: BlockNumber, C: Balance
+impl<A, B, C> From<OldOCPendingSlashInfo<A, B, C>> for OCPendingSlashInfo<A, B, C> {
+    fn from(info: OldOCPendingSlashInfo<A, B, C>) -> OCPendingSlashInfo<A, B, C> {
+        OCPendingSlashInfo {
+            machine_id: info.machine_id,
+            machine_stash: None,
+            stash_slash_amount: info.stash_slash_amount,
+            inconsistent_committee: info.inconsistent_committee,
+            unruly_committee: info.unruly_committee,
+            reward_committee: info.reward_committee,
+            committee_stake: info.committee_stake,
+            slash_time: info.slash_time,
+            slash_exec_time: info.slash_exec_time,
+            book_result: info.book_result,
+            slash_result: info.slash_result,
+        }
     }
-    0
 }
 
-fn migrate_to_v2<T: Config>() -> Weight {
-    StandardGPUPointPrice::<T>::put(dbc_support::machine_type::StandardGpuPointPrice {
-        gpu_point: 100,
-        gpu_price: 13_550, // 28229 * 0.6 * 0.8
-    });
-
-    let one_dbc: BalanceOf<T> = 1_000_000_000_000_000_u64.saturated_into();
-    StakePerGPU::<T>::put(Into::<BalanceOf<T>>::into(100_000u32).saturating_mul(one_dbc));
-    ReporterStakeParams::<T>::put(ReporterStakeParamsInfo {
-        stake_baseline: Into::<BalanceOf<T>>::into(20_000u32).saturating_mul(one_dbc),
-        stake_per_report: Into::<BalanceOf<T>>::into(1_000u32).saturating_mul(one_dbc),
-        min_free_stake_percent: Perbill::from_percent(40),
-    });
-    OnlineDeposit::<T>::put(Into::<BalanceOf<T>>::into(10_000u32).saturating_mul(one_dbc));
-
-    0
+pub fn migrate<T: Config>() {
+    <PendingOnlineSlash<T>>::translate(
+        |_key, old: OldOCPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>| {
+            // weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            Some(old.into())
+        },
+    );
 }

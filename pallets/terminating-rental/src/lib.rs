@@ -7,7 +7,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-// mod migrations;
+mod migrations;
 mod online_verify_slash;
 mod report_machine_fault;
 mod rpc;

@@ -7,6 +7,7 @@ pub mod rpc_types;
 mod slash;
 mod types;
 
+mod migrations;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -474,8 +475,11 @@ impl<T: Config> Pallet<T> {
 
         // NOTE: 添加惩罚
         if stash_slash.is_some() || summary.should_slash_committee() {
-            let (machine_stash, stash_slash_amount) =
-                if let Some(tmp) = stash_slash { (Some(tmp.0), tmp.1) } else { (None, Zero::zero()) };
+            let (machine_stash, stash_slash_amount) = if let Some(tmp) = stash_slash {
+                (Some(tmp.0), tmp.1)
+            } else {
+                (None, Zero::zero())
+            };
 
             // let (machine_stash, stash_slash_amount) = stash_slash;
             Self::add_summary_slash(
