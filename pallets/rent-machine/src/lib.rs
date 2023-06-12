@@ -288,6 +288,7 @@ pub mod pallet {
         GPUNotEnough,
         NotMachineRenter,
         Unknown,
+        ReletTooShort,
     }
 }
 
@@ -357,6 +358,10 @@ impl<T: Config> Pallet<T> {
         let rentable_gpu_index = machine_rent_order.gen_rentable_gpu(rent_gpu_num, gpu_num);
         ItemList::add_item(&mut machine_rent_order.rent_order, rent_id);
 
+        // 改变online_profile状态，影响机器佣金
+        T::RTOps::change_machine_status_on_rent_start(&machine_id, rent_gpu_num)
+            .map_err(|_| Error::<T>::Unknown)?;
+
         RentInfo::<T>::insert(
             &rent_id,
             RentOrderDetail::new(
@@ -377,10 +382,6 @@ impl<T: Config> Pallet<T> {
         RentEnding::<T>::mutate(rent_end, |rent_ending| {
             ItemList::add_item(rent_ending, rent_id);
         });
-
-        // 改变online_profile状态，影响机器佣金
-        T::RTOps::change_machine_status_on_rent_start(&machine_id, rent_gpu_num)
-            .map_err(|_| Error::<T>::Unknown)?;
 
         ConfirmingOrder::<T>::mutate(now + WAITING_CONFIRMING_DELAY.into(), |pending_confirming| {
             ItemList::add_item(pending_confirming, rent_id);
@@ -409,7 +410,9 @@ impl<T: Config> Pallet<T> {
         let machine_id = rent_info.machine_id.clone();
         let gpu_num = rent_info.gpu_num;
 
-        ensure!(duration % 60u32.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
+
+        // 续租允许10分钟及以上
+        ensure!(duration >= 20u32.into(), Error::<T>::ReletTooShort);
         ensure!(rent_info.renter == renter, Error::<T>::NotMachineRenter);
         ensure!(rent_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 

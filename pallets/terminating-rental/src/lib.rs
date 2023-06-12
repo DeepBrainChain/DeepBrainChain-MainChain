@@ -801,10 +801,8 @@ pub mod pallet {
             let machine_id = order_info.machine_id.clone();
             let gpu_num = order_info.gpu_num;
 
-            ensure!(
-                duration % 60u32.into() == Zero::zero(),
-                Error::<T>::OnlyAllowIntegerMultipleOfHour
-            );
+            // 续租允许10分钟及以上
+            ensure!(duration >= 20u32.into(), Error::<T>::ReletTooShort);
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
             ensure!(order_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 
@@ -1410,6 +1408,7 @@ pub mod pallet {
         NotEqualCommitteeSubmit,
 
         Unknown,
+        ReletTooShort,
     }
 }
 
