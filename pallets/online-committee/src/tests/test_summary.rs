@@ -1055,15 +1055,18 @@ fn test_machine_noconsensus_works() {
             })
         );
 
-        assert_eq!(OnlineCommittee::machine_committee(&machine_id), OCMachineCommitteeList {
-            book_time: 4332,
-            booked_committee: vec![*committee3,*committee2, *committee4],
-            hashed_committee: vec![],
-            confirm_start_time:8652,
-            confirmed_committee: vec![],
-            onlined_committee: vec![],
-            status: OCVerifyStatus::default(),
-        });
+        assert_eq!(
+            OnlineCommittee::machine_committee(&machine_id),
+            OCMachineCommitteeList {
+                book_time: 4332,
+                booked_committee: vec![*committee3, *committee2, *committee4],
+                hashed_committee: vec![],
+                confirm_start_time: 8652,
+                confirmed_committee: vec![],
+                onlined_committee: vec![],
+                status: OCVerifyStatus::default(),
+            }
+        );
 
         assert_eq!(
             &CommitteeStakeInfo {
@@ -1072,8 +1075,8 @@ fn test_machine_noconsensus_works() {
             },
             &committee::CommitteeStakeInfo {
                 staked_amount: 20000 * ONE_DBC,
-                used_stake: 0 * ONE_DBC ,             // 没有重新分派给committee1
-                can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
+                used_stake: 0 * ONE_DBC, // 没有重新分派给committee1
+                can_claim_reward: 0,     // 1100000 * 0.25 * 0.01 / 2
                 claimed_reward: 0,
                 ..Default::default()
             }
@@ -1086,7 +1089,7 @@ fn test_machine_noconsensus_works() {
             },
             &committee::CommitteeStakeInfo {
                 staked_amount: 20000 * ONE_DBC,
-                used_stake: 1000 * ONE_DBC ,             // 重新分派给committee2
+                used_stake: 1000 * ONE_DBC, // 重新分派给committee2
                 can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
                 claimed_reward: 0,
                 ..Default::default()
@@ -1100,7 +1103,7 @@ fn test_machine_noconsensus_works() {
             },
             &committee::CommitteeStakeInfo {
                 staked_amount: 20000 * ONE_DBC,
-                used_stake: 1000 * ONE_DBC ,             // 重新分派给committee3
+                used_stake: 1000 * ONE_DBC, // 重新分派给committee3
                 can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
                 claimed_reward: 0,
                 ..Default::default()
@@ -1114,7 +1117,7 @@ fn test_machine_noconsensus_works() {
             },
             &committee::CommitteeStakeInfo {
                 staked_amount: 20000 * ONE_DBC,
-                used_stake: 2000 * ONE_DBC ,             // 重新分派给committee4
+                used_stake: 2000 * ONE_DBC, // 重新分派给committee4
                 can_claim_reward: 0,        // 1100000 * 0.25 * 0.01 / 2
                 claimed_reward: 0,
                 ..Default::default()

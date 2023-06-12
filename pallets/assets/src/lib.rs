@@ -116,10 +116,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod migration;
-#[cfg(test)]
-pub mod mock;
-#[cfg(test)]
-mod tests;
 pub mod weights;
 
 mod extra_mutator;

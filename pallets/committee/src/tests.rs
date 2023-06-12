@@ -1,3 +1,5 @@
+#![cfg_attr(rustfmt, rustfmt_skip)]
+
 use super::Error;
 use crate::{mock::*, CommitteeList};
 use frame_support::{assert_noop, assert_ok};
@@ -64,15 +66,9 @@ fn committee_set_box_pubkey_works() {
         let stake_params = Committee::committee_stake_params().unwrap();
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        assert_ok!(Committee::committee_set_box_pubkey(
-            RuntimeOrigin::signed(committee1),
-            committee1_box_pubkey
-        ));
+        assert_ok!(Committee::committee_set_box_pubkey(RuntimeOrigin::signed(committee1), committee1_box_pubkey));
 
-        assert_eq!(
-            Committee::committee(),
-            super::CommitteeList { normal: vec![committee1], ..Default::default() }
-        );
+        assert_eq!(Committee::committee(), super::CommitteeList { normal: vec![committee1], ..Default::default() });
         assert_eq!(
             Committee::committee_stake(&committee1),
             super::CommitteeStakeInfo {
@@ -92,10 +88,7 @@ fn committee_set_box_pubkey_works() {
                 .try_into()
                 .unwrap();
 
-        assert_ok!(Committee::committee_set_box_pubkey(
-            RuntimeOrigin::signed(committee1),
-            committee1_box_pubkey2
-        ));
+        assert_ok!(Committee::committee_set_box_pubkey(RuntimeOrigin::signed(committee1), committee1_box_pubkey2));
     })
 }
 
@@ -111,15 +104,9 @@ fn committee_add_stake_works() {
         let stake_params = Committee::committee_stake_params().unwrap();
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        assert_ok!(Committee::committee_set_box_pubkey(
-            RuntimeOrigin::signed(committee1),
-            committee1_box_pubkey
-        ));
+        assert_ok!(Committee::committee_set_box_pubkey(RuntimeOrigin::signed(committee1), committee1_box_pubkey));
 
-        assert_ok!(Committee::committee_add_stake(
-            RuntimeOrigin::signed(committee1),
-            5000 * ONE_DBC
-        ));
+        assert_ok!(Committee::committee_add_stake(RuntimeOrigin::signed(committee1), 5000 * ONE_DBC));
 
         assert_eq!(
             Committee::committee_stake(&committee1),
@@ -147,20 +134,11 @@ fn committee_reduce_stake_works() {
         let stake_params = Committee::committee_stake_params().unwrap();
 
         assert_ok!(Committee::add_committee(RawOrigin::Root.into(), committee1));
-        assert_ok!(Committee::committee_set_box_pubkey(
-            RuntimeOrigin::signed(committee1),
-            committee1_box_pubkey
-        ));
+        assert_ok!(Committee::committee_set_box_pubkey(RuntimeOrigin::signed(committee1), committee1_box_pubkey));
 
-        assert_ok!(Committee::committee_add_stake(
-            RuntimeOrigin::signed(committee1),
-            5000 * ONE_DBC
-        ));
+        assert_ok!(Committee::committee_add_stake(RuntimeOrigin::signed(committee1), 5000 * ONE_DBC));
 
-        assert_ok!(Committee::committee_reduce_stake(
-            RuntimeOrigin::signed(committee1),
-            4000 * ONE_DBC
-        ));
+        assert_ok!(Committee::committee_reduce_stake(RuntimeOrigin::signed(committee1), 4000 * ONE_DBC));
 
         assert_eq!(
             Committee::committee_stake(&committee1),
@@ -216,10 +194,7 @@ fn committee_chill_works() {
         });
         assert_ok!(Committee::chill(RuntimeOrigin::signed(committee1)));
         assert_ok!(Committee::chill(RuntimeOrigin::signed(committee2)));
-        assert_noop!(
-            Committee::chill(RuntimeOrigin::signed(committee3)),
-            Error::<TestRuntime>::PubkeyNotSet
-        );
+        assert_noop!(Committee::chill(RuntimeOrigin::signed(committee3)), Error::<TestRuntime>::PubkeyNotSet);
         assert_ok!(Committee::chill(RuntimeOrigin::signed(committee4)));
 
         assert_eq!(
@@ -311,10 +286,7 @@ fn committee_exit_works() {
 
         assert_ok!(Committee::exit_committee(RuntimeOrigin::signed(committee2)));
 
-        assert_eq!(
-            Committee::committee(),
-            super::CommitteeList { normal: vec![committee1], ..Default::default() }
-        );
+        assert_eq!(Committee::committee(), super::CommitteeList { normal: vec![committee1], ..Default::default() });
     })
 }
 
