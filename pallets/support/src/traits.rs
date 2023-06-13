@@ -22,7 +22,7 @@ pub trait OCOps {
         who: Vec<Self::AccountId>,
         machine_info: Self::CommitteeUploadInfo,
     ) -> Result<(), ()>;
-    fn refuse_machine(machien_id: Self::MachineId) -> Option<(Self::AccountId, Self::Balance)>;
+    fn refuse_machine(machine_id: Self::MachineId) -> Option<(Self::AccountId, Self::Balance)>;
     fn change_staked_balance(
         stash: Self::AccountId,
         amount: Self::Balance,
@@ -60,13 +60,11 @@ pub trait RTOps {
         machine_id: &Self::MachineId,
         gpu_num: u32,
     ) -> Result<(), ()>;
-
     fn change_machine_rent_fee(
         amount: Self::Balance,
         machine_id: Self::MachineId,
         is_burn: bool,
     ) -> Result<(), ()>;
-
     fn reset_machine_renters(
         machine_id: Self::MachineId,
         renters: Vec<Self::AccountId>,
@@ -128,7 +126,6 @@ pub trait MTOps {
         amount: Self::Balance,
         is_add: bool,
     ) -> Result<(), ()>;
-
     fn mt_rm_stash_total_stake(stash: Self::AccountId, amount: Self::Balance) -> Result<(), ()>;
 }
 

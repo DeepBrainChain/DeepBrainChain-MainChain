@@ -212,6 +212,7 @@ pub mod pallet {
             }
             Self::pay_stake_when_report(reporter.clone())?;
 
+            // Only be error when params not be set
             Self::do_report_machine_fault(
                 reporter.clone(),
                 report_reason,

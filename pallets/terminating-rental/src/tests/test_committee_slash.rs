@@ -192,7 +192,7 @@ fn committee_not_submit_slash_works() {
             assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC);
             assert_eq!(Balances::free_balance(committee2), INIT_BALANCE - 20000 * ONE_DBC);
             assert_eq!(Balances::free_balance(committee3), INIT_BALANCE - 20000 * ONE_DBC);
-            // committee4 is also machien controller
+            // committee4 is also machine controller
             assert_eq!(
                 Balances::free_balance(committee4),
                 INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC
