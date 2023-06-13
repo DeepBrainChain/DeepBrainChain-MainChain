@@ -638,8 +638,7 @@ pub mod pallet {
 
             // 当是第一次上线添加机房信息时
             LiveMachines::<T>::mutate(|live_machines| {
-                live_machines
-                    .on_add_server_room(machine_id.clone(), machine_info.machine_status.clone())
+                live_machines.on_add_server_room(machine_id.clone())
             });
             MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
                 let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
@@ -1038,7 +1037,6 @@ pub mod pallet {
         ControllerStashBonded(T::AccountId, T::AccountId),
         // 弃用
         MachineControllerChanged(MachineId, T::AccountId, T::AccountId),
-
         // (MachineId, reward to verify committee, offline slash)
         MachineOfflineToMutHardware(MachineId, BalanceOf<T>, BalanceOf<T>),
         StakeAdded(T::AccountId, BalanceOf<T>),

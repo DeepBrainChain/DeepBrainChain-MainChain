@@ -1,7 +1,7 @@
 use crate::{
     types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward,
-    MachineRentedGPU, MachinesInfo, Pallet, PendingExecSlash, PendingSlash, RentedFinished,
-    StashMachines, StashStake, SysInfo, UserMutHardwareStake,
+    MachineRentedGPU, MachinesInfo, Pallet, RentedFinished, StashMachines, StashStake, SysInfo,
+    UserMutHardwareStake,
 };
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus},
@@ -15,7 +15,7 @@ use sp_runtime::{
     traits::{CheckedSub, Saturating, Zero},
     Perbill, SaturatedConversion,
 };
-use sp_std::{collections::vec_deque::VecDeque, prelude::Box, vec, vec::Vec};
+use sp_std::{prelude::Box, vec, vec::Vec};
 
 /// 审查委员会可以执行的操作
 impl<T: Config> OCOps for Pallet<T> {
@@ -69,8 +69,7 @@ impl<T: Config> OCOps for Pallet<T> {
 
         let machine_stash = machine_info.machine_stash.clone();
 
-        let is_reonline =
-            UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
+        let is_reonline = UserMutHardwareStake::<T>::contains_key(&machine_stash, &machine_id);
         let mut reonline_stake = Self::user_mut_hardware_stake(&machine_stash, &machine_id);
 
         if is_reonline {

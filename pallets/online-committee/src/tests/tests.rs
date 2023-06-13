@@ -517,6 +517,7 @@ fn machine_online_works() {
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
             assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
+            // 支付 4% * 400000 DBC
             assert_eq!(OnlineProfile::stash_stake(&stash), (2000 + 400000 + 16000) * ONE_DBC);
             assert_eq!(
                 OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),

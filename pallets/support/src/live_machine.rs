@@ -42,16 +42,10 @@ impl LiveMachine {
         ItemList::add_item(&mut self.bonding_machine, machine_id);
     }
 
-    pub fn on_add_server_room<BlockNumber, AccountId>(
-        &mut self,
-        machine_id: MachineId,
-        machine_status: MachineStatus<BlockNumber, AccountId>,
-    ) {
-        // 当是第一次上线时添加机房信息
-        if matches!(
-            machine_status,
-            MachineStatus::AddingCustomizeInfo | MachineStatus::StakerReportOffline(..)
-        ) {
+    pub fn on_add_server_room(&mut self, machine_id: MachineId) {
+        // 当是第一次上线时添加机房信息，或者主动下线更改硬件配置时
+        // 机器ID都会在live_machine.bonding_machine中
+        if self.bonding_machine.binary_search(&machine_id).is_ok() {
             ItemList::rm_item(&mut self.bonding_machine, &machine_id);
             ItemList::add_item(&mut self.confirmed_machine, machine_id);
         }
