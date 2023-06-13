@@ -22,7 +22,10 @@ pub trait OCOps {
         who: Vec<Self::AccountId>,
         machine_info: Self::CommitteeUploadInfo,
     ) -> Result<(), ()>;
-    fn refuse_machine(machine_id: Self::MachineId) -> Option<(Self::AccountId, Self::Balance)>;
+    fn refuse_machine(
+        committees: Vec<Self::AccountId>,
+        machine_id: Self::MachineId,
+    ) -> Option<(Self::AccountId, Self::Balance)>;
     fn change_staked_balance(
         stash: Self::AccountId,
         amount: Self::Balance,

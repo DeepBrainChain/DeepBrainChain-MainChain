@@ -29,7 +29,7 @@ use frame_system::pallet_prelude::*;
 use sp_core::H256;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, Saturating, Zero},
-    SaturatedConversion,
+    Perbill, SaturatedConversion,
 };
 use sp_std::{
     collections::{btree_map::BTreeMap, vec_deque::VecDeque},
@@ -486,30 +486,35 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
-
             let mut machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
 
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
             // 只允许在线状态的机器修改信息
             ensure!(machine_info.is_online(), Error::<T>::MachineStatusNotAllowed);
-
-            // 重新上链需要质押一定的手续费
-            let online_stake_params =
-                Self::online_stake_params().ok_or(Error::<T>::GetReonlineStakeFailed)?;
-            let stake_amount =
-                T::DbcPrice::get_dbc_amount_by_value(online_stake_params.reonline_stake)
-                    .ok_or(Error::<T>::GetReonlineStakeFailed)?;
-
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
-            Self::change_stake(&machine_info.machine_stash, stake_amount, true)
+            // 计算重新审核需要质押的支付给审核委员会的手续费
+            let verify_fee =
+                Self::cal_mut_hardware_stake().ok_or(Error::<T>::GetReonlineStakeFailed)?;
+            // 计算下线的惩罚金额
+            let offline_slash = Perbill::from_rational(4u32, 100u32) * machine_info.stake_amount;
+
+            let total_stake = verify_fee.saturating_add(offline_slash);
+            Self::change_stake(&machine_info.machine_stash, total_stake, true)
                 .map_err(|_| Error::<T>::BalanceNotEnough)?;
+
             UserMutHardwareStake::<T>::insert(
                 &machine_info.machine_stash,
                 &machine_id,
-                UserMutHardwareStakeInfo { stake_amount, offline_time: now },
+                UserMutHardwareStakeInfo {
+                    verify_fee,
+                    offline_slash,
+                    offline_time: now,
+                    need_fulfilling: false,
+                },
             );
+
             Self::update_region_on_online_changed(&machine_info, false);
             // Will not fail, because machine_id check already
             Self::update_snap_on_online_changed(machine_id.clone(), false)
@@ -520,7 +525,11 @@ pub mod pallet {
             });
             MachinesInfo::<T>::insert(&machine_id, machine_info);
 
-            Self::deposit_event(Event::MachineOfflineToMutHardware(machine_id, stake_amount));
+            Self::deposit_event(Event::MachineOfflineToMutHardware(
+                machine_id,
+                verify_fee,
+                offline_slash,
+            ));
             Ok(().into())
         }
 
@@ -602,6 +611,7 @@ pub mod pallet {
             let controller = ensure_signed(origin)?;
             // 查询机器Id是否在该账户的控制下
             let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            let stash = machine_info.machine_stash.clone();
             machine_info
                 .can_add_server_room(&controller)
                 .map_err::<Error<T>, _>(Into::into)?;
@@ -613,16 +623,29 @@ pub mod pallet {
                 Error::<T>::ServerRoomNotFound
             );
 
-            MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
-                let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
-                machine_info.add_server_room_info(server_room_info);
-                Ok::<(), sp_runtime::DispatchError>(())
-            })?;
+            let is_reonline = UserMutHardwareStake::<T>::contains_key(&stash, &machine_id);
+            if is_reonline {
+                let mut reonline_stake = Self::user_mut_hardware_stake(&stash, &machine_id);
+                if reonline_stake.verify_fee.is_zero() {
+                    let verify_fee =
+                        Self::cal_mut_hardware_stake().ok_or(Error::<T>::GetReonlineStakeFailed)?;
+                    Self::change_stake(&stash, verify_fee, true)
+                        .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                    reonline_stake.verify_fee = verify_fee;
+                    UserMutHardwareStake::<T>::insert(&stash, &machine_id, reonline_stake);
+                }
+            }
+
             // 当是第一次上线添加机房信息时
             LiveMachines::<T>::mutate(|live_machines| {
                 live_machines
                     .on_add_server_room(machine_id.clone(), machine_info.machine_status.clone())
             });
+            MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
+                let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
+                machine_info.add_server_room_info(server_room_info);
+                Ok::<(), sp_runtime::DispatchError>(())
+            })?;
 
             Self::deposit_event(Event::MachineInfoAdded(machine_id));
             Ok(().into())
@@ -665,40 +688,12 @@ pub mod pallet {
             }
             machine_info.machine_status = MachineStatus::Online;
 
-            if <UserMutHardwareStake<T>>::contains_key(&machine_info.machine_stash, &machine_id) {
-                // 根据质押，奖励给这些委员会
-                let reonline_stake =
-                    Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
-
-                // 根据下线时间，惩罚stash
-                let offline_duration = now.saturating_sub(reonline_stake.offline_time);
-                // 如果下线的时候空闲超过10天，则不进行惩罚
-                if reonline_stake.offline_time < machine_info.last_online_height + 28800u32.into() {
-                    // 记录该惩罚数据
-                    let slash_info = Self::new_slash_when_offline(
-                        machine_id.clone(),
-                        OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
-                        None,
-                        vec![],
-                        None,
-                        offline_duration,
-                    )
-                    .map_err(|_| Error::<T>::Unknown)?;
-                    let slash_id = Self::get_new_slash_id();
-
-                    PendingExecSlash::<T>::mutate(
-                        slash_info.slash_exec_time,
-                        |pending_exec_slash| {
-                            ItemList::add_item(pending_exec_slash, slash_id);
-                        },
-                    );
-                    PendingSlash::<T>::insert(slash_id, slash_info);
-                }
-                // 退还reonline_stake
-                Self::change_stake(&machine_info.machine_stash, reonline_stake.stake_amount, false)
-                    .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+            let is_reonline =
+                UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
+            if is_reonline {
                 UserMutHardwareStake::<T>::remove(&machine_info.machine_stash, &machine_id);
             } else {
+                // 当机器因为补交质押而上线时，不应该记录上线时间为Now
                 machine_info.online_height = now;
                 machine_info.reward_deadline = current_era + REWARD_DURATION;
 
@@ -1043,7 +1038,9 @@ pub mod pallet {
         ControllerStashBonded(T::AccountId, T::AccountId),
         // 弃用
         MachineControllerChanged(MachineId, T::AccountId, T::AccountId),
-        MachineOfflineToMutHardware(MachineId, BalanceOf<T>),
+
+        // (MachineId, reward to verify committee, offline slash)
+        MachineOfflineToMutHardware(MachineId, BalanceOf<T>, BalanceOf<T>),
         StakeAdded(T::AccountId, BalanceOf<T>),
         StakeReduced(T::AccountId, BalanceOf<T>),
         ServerRoomGenerated(T::AccountId, H256),
@@ -1100,6 +1097,12 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    // 计算重新审核需要质押的支付给审核委员会的手续费
+    pub fn cal_mut_hardware_stake() -> Option<BalanceOf<T>> {
+        let online_stake_params = Self::online_stake_params()?;
+        T::DbcPrice::get_dbc_amount_by_value(online_stake_params.reonline_stake)
+    }
+
     // NOTE: StashMachine.total_machine cannot be removed. Because Machine will be rewarded in 150 eras.
     pub fn do_machine_exit(
         machine_id: MachineId,

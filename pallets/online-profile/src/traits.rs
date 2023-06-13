@@ -12,7 +12,7 @@ use dbc_support::{
 };
 use frame_support::IterableStorageMap;
 use sp_runtime::{
-    traits::{CheckedSub, Saturating},
+    traits::{CheckedSub, Saturating, Zero},
     Perbill, SaturatedConversion,
 };
 use sp_std::{collections::vec_deque::VecDeque, prelude::Box, vec, vec::Vec};
@@ -57,123 +57,107 @@ impl<T: Config> OCOps for Pallet<T> {
     // 当多个委员会都对机器进行了确认之后，添加机器信息，并更新机器得分
     // 机器被成功添加, 则添加上可以获取收益的委员会
     fn confirm_machine(
-        reported_committee: Vec<T::AccountId>,
-        committee_upload_info: CommitteeUploadInfo,
+        verify_committee: Vec<T::AccountId>,
+        hardware_info: CommitteeUploadInfo,
     ) -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         let current_era = Self::current_era();
-        let machine_id = committee_upload_info.machine_id.clone();
+        let machine_id = hardware_info.machine_id.clone();
 
         let mut machine_info = Self::machines_info(&machine_id).ok_or(())?;
         let mut live_machines = Self::live_machines();
 
+        let machine_stash = machine_info.machine_stash.clone();
+
         let is_reonline =
             UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
+        let mut reonline_stake = Self::user_mut_hardware_stake(&machine_stash, &machine_id);
 
-        ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
-
-        machine_info.machine_info_detail.committee_upload_info = committee_upload_info.clone();
-        if !is_reonline {
-            machine_info.reward_committee = reported_committee.clone();
+        if is_reonline {
+            // 奖励委员会
+            let _ = Self::slash_and_reward(
+                machine_stash.clone(),
+                reonline_stake.verify_fee,
+                verify_committee.clone(),
+            );
+            // 将质押惩罚到国库
+            let _ =
+                Self::slash_and_reward(machine_stash.clone(), reonline_stake.offline_slash, vec![]);
+            // 当补交失败时，记录下已经变更的质押
+            reonline_stake.verify_fee = Zero::zero();
+            reonline_stake.offline_slash = Zero::zero();
+        } else {
+            machine_info.reward_committee = verify_committee.clone();
         }
+
+        machine_info.machine_info_detail.committee_upload_info = hardware_info.clone();
+        ItemList::rm_item(&mut live_machines.booked_machine, &machine_id);
 
         // 改变用户的绑定数量。如果用户余额足够，则直接质押。否则将机器状态改为补充质押
         let stake_need = machine_info
             .init_stake_per_gpu
-            .saturating_mul(committee_upload_info.gpu_num.saturated_into::<BalanceOf<T>>());
-        if let Some(extra_stake) = stake_need.checked_sub(&machine_info.stake_amount) {
-            if Self::change_stake(&machine_info.machine_stash, extra_stake, true).is_ok() {
-                ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
-                machine_info.stake_amount = stake_need;
-                machine_info.machine_status = MachineStatus::Online;
-                machine_info.last_online_height = now;
-                machine_info.last_machine_restake = now;
+            .saturating_mul(hardware_info.gpu_num.saturated_into::<BalanceOf<T>>());
 
-                if !is_reonline {
-                    machine_info.online_height = now;
-                    machine_info.reward_deadline = current_era + REWARD_DURATION;
-                }
-            } else {
+        // 需要补交质押，并且补交质押失败
+        if stake_need > machine_info.stake_amount {
+            let extra_stake = stake_need.saturating_sub(machine_info.stake_amount);
+            if Self::change_stake(&machine_stash, extra_stake, true).is_err() {
+                // 补交质押失败
+                reonline_stake.need_fulfilling = true;
+                UserMutHardwareStake::<T>::insert(&machine_stash, &machine_id, reonline_stake);
+
                 ItemList::add_item(&mut live_machines.fulfilling_machine, machine_id.clone());
                 machine_info.machine_status = MachineStatus::WaitingFulfill;
+                MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
+                LiveMachines::<T>::put(live_machines);
+                return Ok(())
             }
+        }
+        // NOTE: 下线更改机器配置的时候，如果余额超过所需（比如从多卡变成单卡）则**不需要**退还质押
+        // 因为实际上机器更改硬件时不允许减少GPU
+
+        ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
+        machine_info.stake_amount = stake_need;
+        machine_info.machine_status = MachineStatus::Online;
+        machine_info.last_online_height = now;
+        machine_info.last_machine_restake = now;
+
+        if is_reonline {
+            // 机器正常上线(非fulfilling)，移除质押信息
+            UserMutHardwareStake::<T>::remove(&machine_stash, &machine_id);
         } else {
-            ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
-            machine_info.machine_status = MachineStatus::Online;
-            if !is_reonline {
-                machine_info.reward_deadline = current_era + REWARD_DURATION;
-            }
+            // 如果是reonline, 则不需要更改下面信息
+            machine_info.online_height = now;
+            machine_info.reward_deadline = current_era + REWARD_DURATION;
+
+            MachineRecentReward::<T>::insert(
+                &machine_id,
+                MachineRecentRewardInfo {
+                    machine_stash,
+                    reward_committee_deadline: machine_info.reward_deadline,
+                    reward_committee: machine_info.reward_committee.clone(),
+                    recent_machine_reward: Default::default(),
+                    recent_reward_sum: Default::default(),
+                },
+            );
         }
 
         MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
         LiveMachines::<T>::put(live_machines);
 
-        if is_reonline {
-            // 根据质押，奖励给这些委员会
-            let reonline_stake =
-                Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
-
-            let _ = Self::slash_and_reward(
-                machine_info.machine_stash.clone(),
-                reonline_stake.stake_amount,
-                reported_committee,
-            );
-        }
-
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
-        if matches!(machine_info.machine_status, MachineStatus::Online) {
-            Self::update_region_on_online_changed(&machine_info, true);
-            Self::update_snap_on_online_changed(machine_id.clone(), true)?;
-
-            if is_reonline {
-                // 仅在Oline成功时删掉reonline_stake记录，以便补充质押时惩罚时检查状态
-                let reonline_stake = Self::user_mut_hardware_stake(
-                    &machine_info.machine_stash,
-                    &committee_upload_info.machine_id,
-                );
-
-                UserMutHardwareStake::<T>::remove(
-                    &machine_info.machine_stash,
-                    &committee_upload_info.machine_id,
-                );
-
-                // 惩罚该机器，如果机器是Fulfill，则等待Fulfill之后，再进行惩罚
-                let offline_duration = now.saturating_sub(reonline_stake.offline_time);
-                // 记录该惩罚数据
-                let slash_info = Self::new_slash_when_offline(
-                    committee_upload_info.machine_id,
-                    OPSlashReason::OnlineReportOffline(reonline_stake.offline_time),
-                    None,
-                    vec![],
-                    None,
-                    offline_duration,
-                )?;
-                let slash_id = Self::get_new_slash_id();
-
-                PendingExecSlash::<T>::mutate(slash_info.slash_exec_time, |pending_exec_slash| {
-                    ItemList::add_item(pending_exec_slash, slash_id);
-                });
-                PendingSlash::<T>::insert(slash_id, slash_info);
-            } else {
-                MachineRecentReward::<T>::insert(
-                    &machine_id,
-                    MachineRecentRewardInfo {
-                        machine_stash: machine_info.machine_stash.clone(),
-                        reward_committee_deadline: machine_info.reward_deadline,
-                        reward_committee: machine_info.reward_committee,
-
-                        recent_machine_reward: VecDeque::new(),
-                        recent_reward_sum: 0u32.into(),
-                    },
-                );
-            }
-        }
-        Ok(())
+        // if matches!(machine_info.machine_status, MachineStatus::Online) {
+        Self::update_region_on_online_changed(&machine_info, true);
+        let _ = Self::update_snap_on_online_changed(machine_id.clone(), true);
+        return Ok(())
     }
 
     // When committees reach an agreement to refuse machine, change machine status and record refuse
     // time
-    fn refuse_machine(machine_id: MachineId) -> Option<(T::AccountId, BalanceOf<T>)> {
+    fn refuse_machine(
+        verify_committee: Vec<T::AccountId>,
+        machine_id: MachineId,
+    ) -> Option<(T::AccountId, BalanceOf<T>)> {
         // Refuse controller bond machine, and clean storage
         let machine_info = Self::machines_info(&machine_id)?;
 
@@ -182,7 +166,7 @@ impl<T: Config> OCOps for Pallet<T> {
         let is_mut_hardware =
             UserMutHardwareStake::<T>::contains_key(&machine_info.machine_stash, &machine_id);
         if is_mut_hardware {
-            let reonline_stake =
+            let mut reonline_stake =
                 Self::user_mut_hardware_stake(&machine_info.machine_stash, &machine_id);
 
             LiveMachines::<T>::mutate(|live_machines| {
@@ -190,7 +174,20 @@ impl<T: Config> OCOps for Pallet<T> {
                 ItemList::add_item(&mut live_machines.bonding_machine, machine_id.clone());
             });
 
-            return Some((machine_info.machine_stash, reonline_stake.stake_amount))
+            // 拒绝时直接将惩罚分发给验证人即可
+            let _ = Self::slash_and_reward(
+                machine_info.machine_stash.clone(),
+                reonline_stake.verify_fee,
+                verify_committee.clone(),
+            );
+            reonline_stake.verify_fee = Zero::zero();
+            UserMutHardwareStake::<T>::insert(
+                &machine_info.machine_stash,
+                &machine_id,
+                reonline_stake,
+            );
+
+            return None
         }
 
         // let mut sys_info = Self::sys_info();
