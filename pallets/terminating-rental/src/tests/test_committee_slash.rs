@@ -179,7 +179,7 @@ fn committee_not_submit_slash_works() {
         // 自动执行惩罚: committee4 被惩罚，惩罚到国库
         run_to_block(4 + 4320 + 2880 * 2 + 1);
         {
-            // committee4 is also machien controller
+            // committee4 is also machine controller
             assert_eq!(
                 Balances::free_balance(committee4),
                 INIT_BALANCE - 20000 * ONE_DBC - 10 * ONE_DBC

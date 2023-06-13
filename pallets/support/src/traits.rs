@@ -21,7 +21,7 @@ pub trait OCOps {
     fn confirm_machine(committees: Vec<Self::AccountId>, hardware: Self::CommitteeUploadInfo);
     fn refuse_machine(
         committees: Vec<Self::AccountId>,
-        machien_id: Self::MachineId,
+        machine_id: Self::MachineId,
     ) -> Option<(Self::AccountId, Self::Balance)>;
     fn change_staked_balance(
         stash: Self::AccountId,
