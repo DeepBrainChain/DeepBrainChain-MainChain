@@ -379,6 +379,13 @@ pub mod pallet {
             let _ = Self::exec_report_slash();
         }
 
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            frame_support::log::info!("🔍️ OnlineCommittee Storage Migration start");
+            frame_support::log::info!("🚀 TerminatingRental Storage Migration end");
+            migrations::migrate::<T>();
+            Weight::zero()
+        }
+
         // fn on_runtime_upgrade() -> frame_support::weights::Weight {
         //     frame_support::debug::RuntimeLogger::init();
         //     frame_support::debug::info!("🔍️ TerminatingRental Storage Migration start");

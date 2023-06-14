@@ -82,6 +82,13 @@ pub mod pallet {
             Self::statistic_result();
             Self::distribute_machines();
         }
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            frame_support::log::info!("🔍️ OnlineCommittee Storage Migration start");
+            frame_support::log::info!("🚀 TerminatingRental Storage Migration end");
+            migrations::migrate::<T>();
+            Weight::zero()
+        }
     }
 
     // 存储用户订阅的不同确认阶段的机器
