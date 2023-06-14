@@ -87,31 +87,25 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api
-            .get_rent_order(&at, rent_id)
-            .map(|order_detail| {
-                // TODO: handle unwrap
-                let order_detail = order_detail.unwrap();
-                RentOrderDetail {
-                    machine_id: order_detail.machine_id,
-                    renter: order_detail.renter,
-                    rent_start: order_detail.rent_start,
-                    confirm_rent: order_detail.confirm_rent,
-                    rent_end: order_detail.rent_end,
-                    stake_amount: order_detail.stake_amount.into(),
-                    rent_status: order_detail.rent_status,
-                    gpu_num: order_detail.gpu_num,
-                    gpu_index: order_detail.gpu_index,
-                }
+        let runtime_api_result = api.get_rent_order(&at, rent_id);
+        if let Ok(Some(order_detail)) = runtime_api_result {
+            return Ok(RentOrderDetail {
+                machine_id: order_detail.machine_id,
+                renter: order_detail.renter,
+                rent_start: order_detail.rent_start,
+                confirm_rent: order_detail.confirm_rent,
+                rent_end: order_detail.rent_end,
+                stake_amount: order_detail.stake_amount.into(),
+                rent_status: order_detail.rent_status,
+                gpu_num: order_detail.gpu_num,
+                gpu_index: order_detail.gpu_index,
             })
-            .map_err(|e| {
-                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-                    ErrorCode::InternalError.code(),
-                    "Something wrong",
-                    Some(e.to_string()),
-                )))
-            })?;
-        Ok(runtime_api_result)
+        }
+        return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+            ErrorCode::InternalError.code(),
+            "Something wrong",
+            Some("NotFound"),
+        ))))
     }
 
     fn get_rent_list(

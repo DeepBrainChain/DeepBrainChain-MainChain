@@ -94,29 +94,24 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api
-            .get_committee_ops(&at, committee, machine_id)
-            .map(|ops| {
-                let ops = ops.unwrap();
-                RpcOCCommitteeOps {
-                    booked_time: ops.booked_time,
-                    staked_dbc: ops.staked_dbc.into(),
-                    verify_time: ops.verify_time,
-                    confirm_hash: ops.confirm_hash,
-                    hash_time: ops.hash_time,
-                    confirm_time: ops.confirm_time,
-                    machine_status: ops.machine_status,
-                    machine_info: ops.machine_info,
-                }
+        let runtime_api_result = api.get_committee_ops(&at, committee, machine_id);
+        if let Ok(Some(ops)) = runtime_api_result {
+            return Ok(RpcOCCommitteeOps {
+                booked_time: ops.booked_time,
+                staked_dbc: ops.staked_dbc.into(),
+                verify_time: ops.verify_time,
+                confirm_hash: ops.confirm_hash,
+                hash_time: ops.hash_time,
+                confirm_time: ops.confirm_time,
+                machine_status: ops.machine_status,
+                machine_info: ops.machine_info,
             })
-            .map_err(|e| {
-                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-                    ErrorCode::InternalError.code(),
-                    "Something wrong",
-                    Some(e.to_string()),
-                )))
-            })?;
-        Ok(runtime_api_result)
+        }
+        return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+            ErrorCode::InternalError.code(),
+            "Something wrong",
+            Some("NotFound"),
+        ))))
     }
 
     fn get_machine_committee_list(

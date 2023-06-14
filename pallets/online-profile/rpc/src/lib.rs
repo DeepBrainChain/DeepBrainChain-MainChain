@@ -226,40 +226,33 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api
-            .get_machine_info(&at, machine_id)
-            .map(|machine_info| {
-                // TODO: handle unwarp
-                let machine_info = machine_info.unwrap();
-                RpcMachineInfo {
-                    controller: machine_info.controller,
-                    machine_stash: machine_info.machine_stash,
-                    renters: machine_info.renters,
-                    last_machine_restake: machine_info.last_machine_restake,
-                    bonding_height: machine_info.bonding_height,
-                    online_height: machine_info.online_height,
-                    last_online_height: machine_info.last_online_height,
-                    init_stake_per_gpu: machine_info.init_stake_per_gpu.into(),
-                    stake_amount: machine_info.stake_amount.into(),
-                    machine_status: machine_info.machine_status,
-                    total_rented_duration: machine_info.total_rented_duration,
-                    total_rented_times: machine_info.total_rented_times,
-                    total_rent_fee: machine_info.total_rent_fee.into(),
-                    total_burn_fee: machine_info.total_burn_fee.into(),
-                    machine_info_detail: machine_info.machine_info_detail.into(),
-                    reward_committee: machine_info.reward_committee,
-                    reward_deadline: machine_info.reward_deadline,
-                }
+        let runtime_api_result = api.get_machine_info(&at, machine_id);
+        if let Ok(Some(machine_info)) = runtime_api_result {
+            return Ok(RpcMachineInfo {
+                controller: machine_info.controller,
+                machine_stash: machine_info.machine_stash,
+                renters: machine_info.renters,
+                last_machine_restake: machine_info.last_machine_restake,
+                bonding_height: machine_info.bonding_height,
+                online_height: machine_info.online_height,
+                last_online_height: machine_info.last_online_height,
+                init_stake_per_gpu: machine_info.init_stake_per_gpu.into(),
+                stake_amount: machine_info.stake_amount.into(),
+                machine_status: machine_info.machine_status,
+                total_rented_duration: machine_info.total_rented_duration,
+                total_rented_times: machine_info.total_rented_times,
+                total_rent_fee: machine_info.total_rent_fee.into(),
+                total_burn_fee: machine_info.total_burn_fee.into(),
+                machine_info_detail: machine_info.machine_info_detail.into(),
+                reward_committee: machine_info.reward_committee,
+                reward_deadline: machine_info.reward_deadline,
             })
-            .map_err(|e| {
-                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-                    ErrorCode::InternalError.code(),
-                    "Something wrong",
-                    Some(e.to_string()),
-                )))
-            })?;
-
-        Ok(runtime_api_result)
+        };
+        return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+            ErrorCode::InternalError.code(),
+            "Something wrong",
+            Some("NotFound"),
+        ))))
     }
 
     fn get_pos_gpu_info(

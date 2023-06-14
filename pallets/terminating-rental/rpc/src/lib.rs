@@ -202,34 +202,28 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api
-            .get_machine_info(&at, machine_id)
-            .map(|machine_info| {
-                // TODO: handle unwrap
-                let machine_info = machine_info.unwrap();
-                RpcMachineInfo {
-                    machine_stash: machine_info.machine_stash,
-                    renters: machine_info.renters,
-                    bonding_height: machine_info.bonding_height,
-                    online_height: machine_info.online_height,
-                    last_online_height: machine_info.last_online_height,
-                    stake_amount: machine_info.stake_amount.into(),
-                    machine_status: machine_info.machine_status,
-                    total_rented_duration: machine_info.total_rented_duration,
-                    total_rented_times: machine_info.total_rented_times,
-                    total_rent_fee: machine_info.total_rent_fee.into(),
-                    machine_info_detail: machine_info.machine_info_detail.into(),
-                    reward_committee: machine_info.reward_committee,
-                }
+        let runtime_api_result = api.get_machine_info(&at, machine_id);
+        if let Ok(Some(machine_info)) = runtime_api_result {
+            return Ok(RpcMachineInfo {
+                machine_stash: machine_info.machine_stash,
+                renters: machine_info.renters,
+                bonding_height: machine_info.bonding_height,
+                online_height: machine_info.online_height,
+                last_online_height: machine_info.last_online_height,
+                stake_amount: machine_info.stake_amount.into(),
+                machine_status: machine_info.machine_status,
+                total_rented_duration: machine_info.total_rented_duration,
+                total_rented_times: machine_info.total_rented_times,
+                total_rent_fee: machine_info.total_rent_fee.into(),
+                machine_info_detail: machine_info.machine_info_detail.into(),
+                reward_committee: machine_info.reward_committee,
             })
-            .map_err(|e| {
-                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-                    ErrorCode::InternalError.code(),
-                    "Something wrong",
-                    Some(e.to_string()),
-                )))
-            })?;
-        Ok(runtime_api_result)
+        };
+        return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+            ErrorCode::InternalError.code(),
+            "Something wrong",
+            Some("NotFound"),
+        ))))
     }
 
     fn get_committee_machine_list(
@@ -261,30 +255,24 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api
-            .get_committee_ops(&at, committee, machine_id)
-            .map(|ops| {
-                // TODO: handle unwrap
-                let ops = ops.unwrap();
-                RpcIRCommitteeOps {
-                    booked_time: ops.booked_time,
-                    staked_dbc: ops.staked_dbc.into(),
-                    verify_time: ops.verify_time,
-                    confirm_hash: ops.confirm_hash,
-                    hash_time: ops.hash_time,
-                    confirm_time: ops.confirm_time,
-                    machine_status: ops.machine_status,
-                    machine_info: ops.machine_info,
-                }
+        let runtime_api_result = api.get_committee_ops(&at, committee, machine_id);
+        if let Ok(Some(ops)) = runtime_api_result {
+            return Ok(RpcIRCommitteeOps {
+                booked_time: ops.booked_time,
+                staked_dbc: ops.staked_dbc.into(),
+                verify_time: ops.verify_time,
+                confirm_hash: ops.confirm_hash,
+                hash_time: ops.hash_time,
+                confirm_time: ops.confirm_time,
+                machine_status: ops.machine_status,
+                machine_info: ops.machine_info,
             })
-            .map_err(|e| {
-                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-                    ErrorCode::InternalError.code(),
-                    "Something wrong",
-                    Some(e.to_string()),
-                )))
-            })?;
-        Ok(runtime_api_result)
+        }
+        return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+            ErrorCode::InternalError.code(),
+            "Something wrong",
+            Some("NotFound"),
+        ))))
     }
 
     fn get_machine_committee_list(
@@ -314,30 +302,25 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api
-            .get_rent_order(&at, rent_id)
-            .map(|order_detail| {
-                let order_detail = order_detail.unwrap();
-                RentOrderDetail {
-                    machine_id: order_detail.machine_id,
-                    renter: order_detail.renter,
-                    rent_start: order_detail.rent_start,
-                    confirm_rent: order_detail.confirm_rent,
-                    rent_end: order_detail.rent_end,
-                    stake_amount: order_detail.stake_amount.into(),
-                    rent_status: order_detail.rent_status,
-                    gpu_num: order_detail.gpu_num,
-                    gpu_index: order_detail.gpu_index,
-                }
+        let runtime_api_result = api.get_rent_order(&at, rent_id);
+        if let Ok(Some(order_detail)) = runtime_api_result {
+            return Ok(RentOrderDetail {
+                machine_id: order_detail.machine_id,
+                renter: order_detail.renter,
+                rent_start: order_detail.rent_start,
+                confirm_rent: order_detail.confirm_rent,
+                rent_end: order_detail.rent_end,
+                stake_amount: order_detail.stake_amount.into(),
+                rent_status: order_detail.rent_status,
+                gpu_num: order_detail.gpu_num,
+                gpu_index: order_detail.gpu_index,
             })
-            .map_err(|e| {
-                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-                    ErrorCode::InternalError.code(),
-                    "Something wrong",
-                    Some(e.to_string()),
-                )))
-            })?;
-        Ok(runtime_api_result)
+        }
+        return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+            ErrorCode::InternalError.code(),
+            "Something wrong",
+            Some("NotFound"),
+        ))))
     }
 
     fn get_rent_list(

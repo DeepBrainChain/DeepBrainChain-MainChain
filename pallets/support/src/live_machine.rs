@@ -1,4 +1,4 @@
-use crate::{machine_type::MachineStatus, ItemList, MachineId};
+use crate::{ItemList, MachineId};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
