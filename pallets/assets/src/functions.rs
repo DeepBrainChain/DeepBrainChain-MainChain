@@ -591,7 +591,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             let locks = Self::asset_locks(id, &dest);
             let lock = AssetLock {
                 from: source.clone(),
-                balance: amount,
+                balance: credit,
                 unlock_time: lock_duration.saturating_add(now),
             };
 
@@ -609,7 +609,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 };
 
                 Locked::<T, I>::mutate(id, &dest, |locked| {
-                    *locked = locked.saturating_add(amount);
+                    *locked = locked.saturating_add(credit);
                 });
             } else {
                 return Err(Error::<T, I>::TooManyLocks.into())
