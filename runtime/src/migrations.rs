@@ -71,44 +71,44 @@ impl frame_support::traits::OnRuntimeUpgrade for CouncilStoragePrefixMigration {
     }
 }
 
-// const COUNCIL_MEMBERSHIP_OLD_PREFIX: &str = "Instance1Membership";
-// /// Migrate from `Instance1Membership` to the new pallet prefix `TechnicalMembership`
-// pub struct CouncilMembershipStoragePrefixMigration;
-// impl frame_support::traits::OnRuntimeUpgrade for CouncilMembershipStoragePrefixMigration {
-//     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-//         use frame_support::traits::PalletInfo;
-//         let name = <Runtime as frame_system::Config>::PalletInfo::name::<CouncilMembership>()
-//             .expect("CouncilMembership is part of runtime, so it has a name; qed");
-//         pallet_membership::migrations::v4::migrate::<Runtime, CouncilMembership, _>(
-//             COUNCIL_MEMBERSHIP_OLD_PREFIX,
-//             name,
-//         )
-//     }
+const COUNCIL_MEMBERSHIP_OLD_PREFIX: &str = "Instance1Membership";
+/// Migrate from `Instance1Membership` to the new pallet prefix `TechnicalMembership`
+pub struct CouncilMembershipStoragePrefixMigration;
+impl frame_support::traits::OnRuntimeUpgrade for CouncilMembershipStoragePrefixMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        use frame_support::traits::PalletInfo;
+        let name = <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalMembership>()
+            .expect("CouncilMembership is part of runtime, so it has a name; qed");
+        pallet_membership::migrations::v4::migrate::<Runtime, TechnicalMembership, _>(
+            COUNCIL_MEMBERSHIP_OLD_PREFIX,
+            name,
+        )
+    }
 
-//     #[cfg(feature = "try-runtime")]
-//     fn pre_upgrade() -> Result<(), &'static str> {
-//         use frame_support::traits::PalletInfo;
-//         let name = <Runtime as frame_system::Config>::PalletInfo::name::<CouncilMembership>()
-//             .expect("CouncilMembership is part of runtime, so it has a name; qed");
-//         pallet_membership::migrations::v4::pre_migrate::<CouncilMembership, _>(
-//             COUNCIL_MEMBERSHIP_OLD_PREFIX,
-//             name,
-//         );
-//         Ok(())
-//     }
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<(), &'static str> {
+        use frame_support::traits::PalletInfo;
+        let name = <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalMembership>()
+            .expect("CouncilMembership is part of runtime, so it has a name; qed");
+        pallet_membership::migrations::v4::pre_migrate::<TechnicalMembership, _>(
+            COUNCIL_MEMBERSHIP_OLD_PREFIX,
+            name,
+        );
+        Ok(())
+    }
 
-//     #[cfg(feature = "try-runtime")]
-//     fn post_upgrade() -> Result<(), &'static str> {
-//         use frame_support::traits::PalletInfo;
-//         let name = <Runtime as frame_system::Config>::PalletInfo::name::<CouncilMembership>()
-//             .expect("CouncilMembership is part of runtime, so it has a name; qed");
-//         pallet_membership::migrations::v4::post_migrate::<CouncilMembership, _>(
-//             COUNCIL_MEMBERSHIP_OLD_PREFIX,
-//             name,
-//         );
-//         Ok(())
-//     }
-// }
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade() -> Result<(), &'static str> {
+        use frame_support::traits::PalletInfo;
+        let name = <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalMembership>()
+            .expect("CouncilMembership is part of runtime, so it has a name; qed");
+        pallet_membership::migrations::v4::post_migrate::<TechnicalMembership, _>(
+            COUNCIL_MEMBERSHIP_OLD_PREFIX,
+            name,
+        );
+        Ok(())
+    }
+}
 
 use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
 pub struct CustomOnRuntimeUpgrades;
@@ -151,12 +151,12 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrades {
         );
         frame_support::log::info!("🚀 CouncilStoragePrefixMigration end");
 
-        // // 6. CouncilMembershipStoragePrefixMigration
-        // frame_support::log::info!("🔍️ CouncilMembershipStoragePrefixMigration start");
-        // frame_support::traits::StorageVersion::new(0).put::<CouncilMembership>();
-        // weight +=
-        //     <CouncilMembershipStoragePrefixMigration as OnRuntimeUpgrade>::on_runtime_upgrade();
-        // frame_support::log::info!("🚀 CouncilMembershipStoragePrefixMigration end");
+        // 6. CouncilMembershipStoragePrefixMigration
+        frame_support::log::info!("🔍️ CouncilMembershipStoragePrefixMigration start");
+        frame_support::traits::StorageVersion::new(0).put::<TechnicalMembership>();
+        weight +=
+            <CouncilMembershipStoragePrefixMigration as OnRuntimeUpgrade>::on_runtime_upgrade();
+        frame_support::log::info!("🚀 CouncilMembershipStoragePrefixMigration end");
 
         weight
     }
