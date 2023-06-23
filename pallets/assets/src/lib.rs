@@ -1639,12 +1639,6 @@ pub mod pallet {
 
             Self::deposit_event(Event::Unlocked {
                 asset_id: id,
-                from: lock.from.clone(),
-                to: origin.clone(),
-                amount: lock.balance,
-            });
-            Self::deposit_event(Event::Transferred {
-                asset_id: id,
                 from: lock.from,
                 to: origin,
                 amount: lock.balance,
