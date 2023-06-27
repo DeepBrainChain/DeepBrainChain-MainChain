@@ -74,7 +74,6 @@ pallet-membership = { git = "https://github.com/paritytech/substrate", branch = 
 # pallet-message-queue = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-mmr = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-multisig = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-pallet-nfts = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-nomination-pools = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
 pallet-nomination-pools-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false, optional = true }
 pallet-nomination-pools-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
@@ -107,6 +106,7 @@ pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", bra
 pallet-assets = { path = "../pallets/assets", default-features = false }
 pallet-staking = { package = "dbc-staking", path = "../pallets/staking", default-features = false }
 pallet-staking-reward-curve = { package = "pallet-staking-reward-curve", path = "../pallets/staking/reward-curve", default-features = false }
+pallet-nfts = { path = "../pallets/nfts", default-features = false }
 
 committee = { path = "../pallets/committee", default-features = false }
 council-reward = { path = "../pallets/council-reward", default-features = false }
@@ -279,7 +279,7 @@ runtime-benchmarks = [
 	# "pallet-transaction-storage/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"pallet-nfts/runtime-benchmarks",
+	# "pallet-nfts/runtime-benchmarks",
 	# "pallet-whitelist/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 ]

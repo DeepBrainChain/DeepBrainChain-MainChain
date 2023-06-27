@@ -52,6 +52,7 @@ members = [
   "pallets/terminating-rental/rpc",
   "pallets/terminating-rental/rpc/runtime-api",
   "pallets/council-reward",
+  "pallets/nfts",
 ]
 
 [features]
