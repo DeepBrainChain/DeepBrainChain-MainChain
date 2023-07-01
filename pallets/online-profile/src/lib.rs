@@ -343,6 +343,16 @@ pub mod pallet {
             let _ = Self::check_pending_slash();
             Weight::zero()
         }
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            frame_support::log::info!("🔍️ OnlineProfile storage upgrade start");
+            if let Some(mut stake_params) = Self::online_stake_params() {
+                stake_params.online_stake_usd_limit = 800000000;
+                OnlineStakeParams::<T>::put(stake_params);
+            }
+            frame_support::log::info!("🚀 OnlineProfile storage upgrade end");
+            Weight::zero()
+        }
     }
 
     #[pallet::call]

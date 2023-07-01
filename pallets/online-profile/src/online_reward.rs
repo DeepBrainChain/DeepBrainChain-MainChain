@@ -59,8 +59,7 @@ impl<T: Config> Pallet<T> {
 
         let stake_limit =
             T::DbcPrice::get_dbc_amount_by_value(online_stake_params.online_stake_usd_limit)?;
-        Some(stake_per_gpu.min(stake_limit)) // .checked_mul(&gpu_num.saturated_into::
-                                             // <BalanceOf<T>>())
+        Some(stake_per_gpu.min(stake_limit))
     }
 
     /// 计算当前Era在线奖励数量
