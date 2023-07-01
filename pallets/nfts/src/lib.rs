@@ -43,7 +43,7 @@ mod types;
 pub mod macros;
 pub mod weights;
 
-use codec::{Decode, Encode};
+use codec::{alloc::string::ToString, Decode, Encode};
 use frame_support::traits::{
     tokens::{AttributeNamespace, Locker},
     BalanceStatus::Reserved,
@@ -52,7 +52,7 @@ use frame_support::traits::{
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
     traits::{Saturating, StaticLookup, Zero},
-    RuntimeDebug,
+    RuntimeDebug, SaturatedConversion,
 };
 use sp_std::prelude::*;
 
@@ -64,6 +64,8 @@ type AccountIdLookupOf<T> = <<T as SystemConfig>::Lookup as StaticLookup>::Sourc
 
 #[frame_support::pallet]
 pub mod pallet {
+    use core::str::from_utf8;
+
     use super::*;
     use frame_support::{pallet_prelude::*, traits::ExistenceRequirement};
     use frame_system::pallet_prelude::*;
@@ -1766,6 +1768,51 @@ pub mod pallet {
                 receive_item,
                 witness_price,
             )
+        }
+
+        // Make sure: origin == item.owner
+        // Make sure: attribute[collectionOwner][itemId][b"validPeriod"] not exist
+        #[pallet::call_index(37)]
+        #[pallet::weight(10000)]
+        pub fn active(
+            origin: OriginFor<T>,
+            collection: T::CollectionId,
+            item: T::ItemId,
+        ) -> DispatchResult {
+            let origin = ensure_signed(origin)?;
+            let item_details = match Item::<T, I>::get(&collection, &item) {
+                Some(x) => x,
+                None => return Err(Error::<T, I>::UnknownItem.into()),
+            };
+            ensure!(item_details.owner == origin, Error::<T, I>::WrongOwner);
+
+            let now: u64 = <frame_system::Pallet<T>>::block_number().saturated_into();
+            let namespace = AttributeNamespace::CollectionOwner;
+            // `validPeriod`: `0x76616c6964506572696f64`
+            let key: BoundedVec<_, _> = b"validPeriod".to_vec().try_into().unwrap();
+
+            let collection_valid_period =
+                match Attribute::<T, I>::get((collection, None::<T::ItemId>, &namespace, &key)) {
+                    Some(collection_valid_period) => collection_valid_period,
+                    None => return Err(Error::<T, I>::LockedCollectionAttributes.into()),
+                };
+
+            let period: u64 =
+                from_utf8(collection_valid_period.0.as_slice()).unwrap().parse().unwrap();
+            let expire: Vec<_> = now.saturating_add(period.into()).to_string().as_bytes().to_vec();
+            let expire: BoundedVec<_, _> = expire.try_into().unwrap();
+
+            match Attribute::<T, I>::get((collection, Some(item), &namespace, &key)) {
+                Some(_) => Err(Error::<T, I>::AlreadyExists.into()),
+                None => Self::do_force_set_attribute(
+                    None,
+                    collection,
+                    Some(item),
+                    namespace,
+                    key,
+                    expire,
+                ),
+            }
         }
     }
 }
