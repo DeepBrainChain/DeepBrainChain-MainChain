@@ -1509,6 +1509,15 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+    // DBC单卡质押数量计算：
+    // dbc单卡质押数量 = min(100000, 800 $ 等值数量)
+    pub fn stake_per_gpu_limit() -> BalanceOf<T> {
+        let stake_per_gpu_limit_by_num = Self::stake_per_gpu();
+        let stake_limit_by_value =
+            T::DbcPrice::get_dbc_amount_by_value(800_000_000).unwrap_or(stake_per_gpu_limit_by_num);
+        stake_per_gpu_limit_by_num.min(stake_limit_by_value)
+    }
+
     // 获取所有新加入的机器，并进行分派给委员会
     pub fn distribute_machines() {
         let live_machines = Self::live_machines();
@@ -1972,7 +1981,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 根据机器GPU计算需要多少质押
-        let max_stake = Self::stake_per_gpu()
+        let max_stake = Self::stake_per_gpu_limit()
             .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
             .ok_or(Error::<T>::Overflow)?;
         if max_stake > machine_info.stake_amount {
