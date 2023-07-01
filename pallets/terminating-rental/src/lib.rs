@@ -937,7 +937,7 @@ pub mod pallet {
 
             let now = <frame_system::Pallet<T>>::block_number();
             ensure!(
-                machine_info.last_online_height.saturating_add(2880u32.into()) <= now ,
+                machine_info.last_online_height.saturating_add(2880u32.into()) <= now,
                 Error::<T>::OfflineNotYetAllowed
             );
 

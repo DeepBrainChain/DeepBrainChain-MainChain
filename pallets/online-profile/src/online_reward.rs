@@ -44,22 +44,15 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // 质押DBC机制：[0, 10000] GPU: 100000 DBC per GPU
-    // (10000, +) -> min( 100000 * 10000 / (10000 + n), 5w RMB DBC
+    // DBC单卡质押数量计算：
+    // dbc单卡质押数量 = min(100000, 800 $ 等值数量)
     pub fn stake_per_gpu() -> Option<BalanceOf<T>> {
-        let sys_info = Self::sys_info();
         let online_stake_params = Self::online_stake_params()?;
 
-        let stake_per_gpu = if sys_info.total_gpu_num > 10_000 {
-            Perbill::from_rational(10_000u64, sys_info.total_gpu_num) *
-                online_stake_params.online_stake_per_gpu
-        } else {
-            online_stake_params.online_stake_per_gpu
-        };
-
-        let stake_limit =
+        let stake_per_gpu_limit_by_num = online_stake_params.online_stake_per_gpu;
+        let stake_limit_by_value =
             T::DbcPrice::get_dbc_amount_by_value(online_stake_params.online_stake_usd_limit)?;
-        Some(stake_per_gpu.min(stake_limit))
+        Some(stake_per_gpu_limit_by_num.min(stake_limit_by_value))
     }
 
     /// 计算当前Era在线奖励数量

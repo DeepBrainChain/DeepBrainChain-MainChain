@@ -1,6 +1,7 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
-    tests::test_verify_online::new_test_with_machine_bonding_ext, RentOrderDetail, RentStatus, Error,
+    tests::test_verify_online::new_test_with_machine_bonding_ext, Error, RentOrderDetail,
+    RentStatus,
 };
 // use committee::CommitteeStakeInfo;
 use dbc_support::{
@@ -14,7 +15,7 @@ use dbc_support::{
     verify_online::StashMachine,
     BoxPubkey, ReportHash,
 };
-use frame_support::{assert_ok, assert_noop};
+use frame_support::{assert_noop, assert_ok};
 use sp_runtime::Perbill;
 use std::convert::TryInto;
 
@@ -294,7 +295,7 @@ fn machine_offline_works() {
             IRMachine::machine_offline(RuntimeOrigin::signed(controller), machine_id.clone()),
             Error::<TestRuntime>::OfflineNotYetAllowed,
         );
-        run_to_block(4+2880);
+        run_to_block(4 + 2880);
         assert_ok!(IRMachine::machine_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
@@ -337,7 +338,7 @@ fn machine_offline_10more_days_slash_works() {
             .to_vec();
 
         assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800));
-        run_to_block(4+2880);
+        run_to_block(4 + 2880);
         assert_ok!(IRMachine::machine_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
