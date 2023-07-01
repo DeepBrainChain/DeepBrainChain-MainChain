@@ -1,6 +1,6 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
-    tests::test_verify_online::new_test_with_machine_bonding_ext, RentOrderDetail, RentStatus,
+    tests::test_verify_online::new_test_with_machine_bonding_ext, RentOrderDetail, RentStatus, Error,
 };
 // use committee::CommitteeStakeInfo;
 use dbc_support::{
@@ -14,7 +14,7 @@ use dbc_support::{
     verify_online::StashMachine,
     BoxPubkey, ReportHash,
 };
-use frame_support::assert_ok;
+use frame_support::{assert_ok, assert_noop};
 use sp_runtime::Perbill;
 use std::convert::TryInto;
 
@@ -290,6 +290,11 @@ fn machine_offline_works() {
                 })
             );
         }
+        assert_noop!(
+            IRMachine::machine_offline(RuntimeOrigin::signed(controller), machine_id.clone()),
+            Error::<TestRuntime>::OfflineNotYetAllowed,
+        );
+        run_to_block(4+2880);
         assert_ok!(IRMachine::machine_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
@@ -302,19 +307,19 @@ fn machine_offline_works() {
             assert_eq!(
                 machine_info.machine_status,
                 MachineStatus::StakerReportOffline(
-                    135,
+                    2885,
                     Box::new(MachineStatus::AddingCustomizeInfo)
                 )
             );
-            assert_eq!(IRMachine::offline_machines(135 + 28800), vec![machine_id.clone()]);
+            assert_eq!(IRMachine::offline_machines(2885 + 28800), vec![machine_id.clone()]);
             assert!(!<crate::RentOrder<TestRuntime>>::contains_key(0));
             assert!(!<crate::MachineRentOrder<TestRuntime>>::contains_key(&machine_id));
             // 租金： 6238541666666666666 / 3 = 2079513888888888888
 
-            assert_eq!(Balances::free_balance(renter1), 9997910486113190625000);
+            assert_eq!(Balances::free_balance(renter1), 9993751458333333333334);
             assert_eq!(Balances::reserved_balance(renter1), 0);
-            assert_eq!(machine_info.stake_amount, 2058718747962076389);
-            assert_eq!(Balances::reserved_balance(stash), 2058718747962076389);
+            assert_eq!(machine_info.stake_amount, 6176156250062385416);
+            assert_eq!(Balances::reserved_balance(stash), 6176156250062385416);
         }
     })
 }
@@ -332,17 +337,16 @@ fn machine_offline_10more_days_slash_works() {
             .to_vec();
 
         assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800));
+        run_to_block(4+2880);
         assert_ok!(IRMachine::machine_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
-        {
-            assert_eq!(IRMachine::offline_machines(5 + 28800), vec![machine_id.clone()])
-        };
+        assert_eq!(IRMachine::offline_machines(5 + 2880 + 28800), vec![machine_id.clone()]);
 
-        run_to_block(6 + 28800);
+        run_to_block(6 + 28800 + 2880);
         {
-            assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800));
+            assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800 + 2880));
             let machine_info = IRMachine::machines_info(&machine_id).unwrap();
             assert_eq!(machine_info.stake_amount, 0);
         }
