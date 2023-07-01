@@ -936,6 +936,11 @@ pub mod pallet {
             );
 
             let now = <frame_system::Pallet<T>>::block_number();
+            ensure!(
+                machine_info.last_online_height.saturating_add(2880u32.into()) <= now ,
+                Error::<T>::OfflineNotYetAllowed
+            );
+
             let machine_rent_order = Self::machine_rent_order(&machine_id);
 
             machine_info.machine_offline(now);
@@ -986,13 +991,14 @@ pub mod pallet {
             {
                 let mut offline_machines = Self::offline_machines(offline_expire_time);
                 ItemList::rm_item(&mut offline_machines, &machine_id);
-                if !offline_machines.is_empty() {
-                    OfflineMachines::<T>::insert(offline_expire_time, offline_machines);
-                } else {
+                if offline_machines.is_empty() {
                     OfflineMachines::<T>::remove(offline_expire_time);
+                } else {
+                    OfflineMachines::<T>::insert(offline_expire_time, offline_machines);
                 }
 
                 machine_info.machine_status = MachineStatus::Online;
+                machine_info.last_online_height = <frame_system::Pallet<T>>::block_number();
                 MachinesInfo::<T>::insert(machine_id, machine_info);
                 Ok(().into())
             } else {
@@ -1416,6 +1422,8 @@ pub mod pallet {
 
         Unknown,
         ReletTooShort,
+
+        OfflineNotYetAllowed,
     }
 }
 
@@ -2045,7 +2053,9 @@ impl<T: Config> Pallet<T> {
                     ItemList::rm_item(&mut live_machines.rented_machine, machine_id);
                     ItemList::add_item(&mut live_machines.online_machine, machine_id.clone());
 
-                    machine_info.last_online_height = <frame_system::Pallet<T>>::block_number();
+                    // Donot change last_online_height here
+                    // We only record last_online_height when machine from offline to online,
+                    // so that we can limit machine stake offline frequency.
                     machine_info.machine_status = MachineStatus::Online;
 
                     // 租用结束
