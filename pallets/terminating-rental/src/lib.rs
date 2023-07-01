@@ -228,6 +228,11 @@ pub mod pallet {
     pub(super) type PendingRentEnding<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<RentOrderId>, ValueQuery>;
 
+    // 租金支付目标地址
+    #[pallet::storage]
+    #[pallet::getter(fn rent_fee_pot)]
+    pub(super) type RentFeePot<T: Config> = StorageValue<_, T::AccountId>;
+
     #[pallet::type_value]
     pub(super) fn MaximumRentalDurationDefault<T: Config>() -> EraIndex {
         60
@@ -380,20 +385,20 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            frame_support::log::info!("🔍️ OnlineCommittee Storage Migration start");
-            frame_support::log::info!("🚀 TerminatingRental Storage Migration end");
+            frame_support::log::info!("🔍 TerminatingRental Storage Migration start");
             migrations::migrate::<T>();
+
+            // TODO: change this account
+            let account: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
+            let account_id32: [u8; 32] =
+                dbc_support::utils::get_accountid32(&account).unwrap_or_default();
+            if let Some(account) = T::AccountId::decode(&mut &account_id32[..]).ok() {
+                RentFeePot::<T>::put(account);
+            }
+
+            frame_support::log::info!("🚀 TerminatingRental Storage Migration end");
             Weight::zero()
         }
-
-        // fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        //     frame_support::debug::RuntimeLogger::init();
-        //     frame_support::debug::info!("🔍️ TerminatingRental Storage Migration start");
-        //     let weight1 = migrations::apply::<T>();
-        //     frame_support::debug::info!("🚀 TerminatingRental Storage Migration end");
-
-        //     weight1
-        // }
     }
 
     #[pallet::call]
@@ -1961,6 +1966,17 @@ impl<T: Config> Pallet<T> {
         // 可能足用人质押数量大于需要支付的租金，因此需要解绑质押，再转对应的租金
         let reward_to_stash = Perbill::from_rational(99u32, 100u32) * rent_fee;
         let reward_to_committee = rent_fee.saturating_sub(reward_to_stash);
+        // 将5%转到销毁账户
+        if let Some(burn_pot) = Self::rent_fee_pot() {
+            let burn_amount = Perbill::from_rational(5u32, 100u32) * rent_fee;
+            let _ = <T as Config>::Currency::transfer(
+                &rent_order.renter,
+                &burn_pot,
+                burn_amount,
+                KeepAlive,
+            );
+            rent_fee = rent_fee.saturating_sub(burn_amount);
+        }
         let committee_each_get =
             Perbill::from_rational(1u32, machine_info.reward_committee.len() as u32) *
                 reward_to_committee;

@@ -84,9 +84,9 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            frame_support::log::info!("🔍️ OnlineCommittee Storage Migration start");
-            frame_support::log::info!("🚀 TerminatingRental Storage Migration end");
+            frame_support::log::info!("🔍 OnlineCommittee Storage Migration start");
             migrations::migrate::<T>();
+            frame_support::log::info!("🚀 OnlineCommittee Storage Migration end");
             Weight::zero()
         }
     }
