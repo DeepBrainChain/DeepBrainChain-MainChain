@@ -388,8 +388,7 @@ pub mod pallet {
             frame_support::log::info!("🔍 TerminatingRental Storage Migration start");
             migrations::migrate::<T>();
 
-            // TODO: change this account
-            let account: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
+            let account: Vec<u8> = b"5Cyvgbv7yHKPjGr8fHPhHYinrMwV3jbNwZfCW3PfGqxWWbhF".to_vec();
             let account_id32: [u8; 32] =
                 dbc_support::utils::get_accountid32(&account).unwrap_or_default();
             if let Some(account) = T::AccountId::decode(&mut &account_id32[..]).ok() {
