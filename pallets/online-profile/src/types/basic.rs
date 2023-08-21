@@ -94,12 +94,9 @@ impl<Balance: Saturating + Copy> SysInfoDetail<Balance> {
         }
     }
 
-    pub fn change_rent_fee(&mut self, amount: Balance, is_burn: bool) {
-        if is_burn {
-            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
-        } else {
-            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
-        }
+    pub fn change_rent_fee(&mut self, fee_to_destroy: Balance, fee_to_stash: Balance) {
+        self.total_burn_fee = self.total_burn_fee.saturating_add(fee_to_destroy);
+        self.total_rent_fee = self.total_rent_fee.saturating_add(fee_to_stash);
     }
 
     pub fn on_rent_fee_changed(&mut self, rent_fee: Balance, burn_fee: Balance) {

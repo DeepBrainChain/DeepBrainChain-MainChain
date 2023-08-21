@@ -73,7 +73,7 @@ impl<T: Config> Pallet<T> {
             phase_reward_info.phase_2_reward_per_era
         };
 
-        if Self::galaxy_is_on() && current_era < phase_reward_info.galaxy_on_era as u64 + 60 {
+        if current_era < phase_reward_info.galaxy_on_era as u64 + 60 {
             Some(era_reward.checked_mul(&2u32.saturated_into::<BalanceOf<T>>())?)
         } else {
             Some(era_reward)

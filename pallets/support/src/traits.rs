@@ -64,10 +64,10 @@ pub trait RTOps {
         gpu_num: u32,
     ) -> Result<(), ()>;
     fn change_machine_rent_fee(
-        amount: Self::Balance,
         machine_id: Self::MachineId,
-        is_burn: bool,
-    ) -> Result<(), ()>;
+        fee_to_destroy: Self::Balance,
+        fee_to_stash: Self::Balance,
+    );
     fn reset_machine_renters(
         machine_id: Self::MachineId,
         renters: Vec<Self::AccountId>,

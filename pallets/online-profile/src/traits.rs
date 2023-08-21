@@ -385,17 +385,17 @@ impl<T: Config> RTOps for Pallet<T> {
     }
 
     fn change_machine_rent_fee(
-        amount: BalanceOf<T>,
         machine_id: MachineId,
-        is_burn: bool,
+        fee_to_destroy: BalanceOf<T>,
+        fee_to_stash: BalanceOf<T>,
     ) -> Result<(), ()> {
         let mut machine_info = Self::machines_info(&machine_id).ok_or(())?;
         let mut staker_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
 
-        sys_info.change_rent_fee(amount, is_burn);
-        staker_machine.change_rent_fee(amount, is_burn);
-        machine_info.change_rent_fee(amount, is_burn);
+        sys_info.change_rent_fee(fee_to_destroy, fee_to_stash);
+        staker_machine.change_rent_fee(fee_to_destroy, fee_to_stash);
+        machine_info.change_rent_fee(fee_to_destroy, fee_to_stash);
 
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_stash, staker_machine);
