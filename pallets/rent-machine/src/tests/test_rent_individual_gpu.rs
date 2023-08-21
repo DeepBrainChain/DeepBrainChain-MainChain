@@ -155,7 +155,8 @@ fn report_individual_gpu() {
                     total_staker: 1,
                     total_calc_points: 77881,
                     total_stake: 400000 * ONE_DBC,
-                    total_rent_fee: 12477083333333333333,
+                    total_rent_fee: 8733958333333333333,
+                    total_burn_fee: 3743125000000000000,
                     ..Default::default()
                 }
             );
@@ -167,7 +168,8 @@ fn report_individual_gpu() {
                     total_calc_points: 77881,
                     total_gpu_num: 4,
                     total_rented_gpu: 4,
-                    total_rent_fee: 12477083333333333333,
+                    total_rent_fee: 8733958333333333333,
+                    total_burn_fee: 3743125000000000000,
                     ..Default::default()
                 }
             );
@@ -219,7 +221,8 @@ fn report_individual_gpu() {
                     total_staker: 1,
                     total_calc_points: 77881,
                     total_stake: 400000 * ONE_DBC,
-                    total_rent_fee: 12477083333333333333 * 2,
+                    total_rent_fee: 17467916666666666666,
+                    total_burn_fee: 7486250000000000000,
                     ..Default::default()
                 }
             );
@@ -232,7 +235,8 @@ fn report_individual_gpu() {
                     total_gpu_num: 4,
                     // NOTE: 这里应该记录为4
                     total_rented_gpu: 4,
-                    total_rent_fee: 12477083333333333333 * 2,
+                    total_rent_fee: 17467916666666666666,
+                    total_burn_fee: 7486250000000000000,
                     ..Default::default()
                 }
             );
@@ -272,7 +276,8 @@ fn report_individual_gpu() {
                     total_staker: 1,
                     total_calc_points: 77881,
                     total_stake: 400000 * ONE_DBC,
-                    total_rent_fee: 12477083333333333333 * 3,
+                    total_rent_fee: 26201874999999999999,
+                    total_burn_fee: 11229375000000000000,
                     ..Default::default()
                 }
             );
@@ -286,7 +291,8 @@ fn report_individual_gpu() {
                     total_gpu_num: 4,
                     // NOTE: 这里应该记录为4
                     total_rented_gpu: 4,
-                    total_rent_fee: 12477083333333333333 * 3,
+                    total_rent_fee: 26201874999999999999,
+                    total_burn_fee: 11229375000000000000,
                     ..Default::default()
                 }
             );
