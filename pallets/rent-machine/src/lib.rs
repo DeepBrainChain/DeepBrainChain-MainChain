@@ -491,11 +491,20 @@ impl<T: Config> Pallet<T> {
         fee_amount: BalanceOf<T>,
     ) -> DispatchResult {
         let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
-        let galaxy_is_on = <online_profile::Module<T>>::galaxy_is_on();
-        let rent_fee_to = if galaxy_is_on { rent_fee_pot } else { machine_stash };
 
-        <T as pallet::Config>::Currency::transfer(renter, &rent_fee_to, fee_amount, KeepAlive)?;
-        T::RTOps::change_machine_rent_fee(fee_amount, machine_id, galaxy_is_on);
+        let destroy_percent = <online_profile::Module<T>>::rent_fee_destroy_percent();
+
+        let fee_to_destroy = destroy_percent * fee_amount;
+        let fee_to_stash = fee_amount.checked_sub(&fee_to_destroy).ok_or(Error::<T>::Overflow)?;
+
+        <T as pallet::Config>::Currency::transfer(renter, &machine_stash, fee_to_stash, KeepAlive)?;
+        <T as pallet::Config>::Currency::transfer(
+            renter,
+            &rent_fee_pot,
+            fee_to_destroy,
+            KeepAlive,
+        )?;
+        T::RTOps::change_machine_rent_fee(machine_id, fee_to_destroy, fee_to_stash);
         Ok(())
     }
 

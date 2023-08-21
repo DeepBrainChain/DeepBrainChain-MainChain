@@ -89,20 +89,15 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// If galaxy competition is begin: switch 5000 gpu
     #[pallet::storage]
-    #[pallet::getter(fn galaxy_is_on)]
-    pub(super) type GalaxyIsOn<T: Config> = StorageValue<_, bool, ValueQuery>;
+    #[pallet::getter(fn rent_fee_destroy_percent)]
+    pub(super) type RentFeeDestroyPercent<T: Config> =
+        StorageValue<_, Perbill, ValueQuery, RentFeeDestroyPercentDefault<T>>;
 
     #[pallet::type_value]
-    pub(super) fn GalaxyOnGPUThresholdDefault<T: Config>() -> u32 {
-        5000
+    pub(super) fn RentFeeDestroyPercentDefault<T: Config>() -> Perbill {
+        Perbill::from_percent(30)
     }
-
-    #[pallet::storage]
-    #[pallet::getter(fn galaxy_on_gpu_threshold)]
-    pub(super) type GalaxyOnGPUThreshold<T: Config> =
-        StorageValue<_, u32, ValueQuery, GalaxyOnGPUThresholdDefault<T>>;
 
     /// Statistics of gpu and stake
     #[pallet::storage]
@@ -376,31 +371,12 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        pub fn set_galaxy_on(origin: OriginFor<T>, is_on: bool) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            GalaxyIsOn::<T>::put(is_on);
-            Ok(().into())
-        }
-
-        #[pallet::weight(0)]
-        pub fn set_galaxy_on_gpu_threshold(
+        pub fn set_rentfee_destroy_percent(
             origin: OriginFor<T>,
-            gpu_threshold: u32,
+            percent: Perbill,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            GalaxyOnGPUThreshold::<T>::put(gpu_threshold);
-
-            let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
-            let current_era = Self::current_era();
-            let sys_info = Self::sys_info();
-
-            // NOTE: 5000张卡开启银河竞赛
-            if !Self::galaxy_is_on() && sys_info.total_gpu_num >= gpu_threshold as u64 {
-                phase_reward_info.galaxy_on_era = current_era;
-                PhaseRewardInfo::<T>::put(phase_reward_info);
-                GalaxyIsOn::<T>::put(true);
-            }
-
+            RentFeeDestroyPercent::<T>::put(percent);
             Ok(().into())
         }
 
@@ -1272,14 +1248,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(new_stash_grade)
             .saturating_sub(pre_stash_grade);
 
-        // NOTE: 5000张卡开启银河竞赛
-        if !Self::galaxy_is_on() && sys_info.total_gpu_num >= Self::galaxy_on_gpu_threshold() as u64
-        {
-            let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
-            phase_reward_info.galaxy_on_era = current_era;
-            PhaseRewardInfo::<T>::put(phase_reward_info);
-            GalaxyIsOn::<T>::put(true);
-        }
+        Self::adjust_rent_fee_destroy_percent(sys_info.total_gpu_num, current_era);
 
         if is_online && stash_machine.online_machine.len() == 1 {
             sys_info.total_staker = sys_info.total_staker.saturating_add(1);
@@ -1374,5 +1343,28 @@ impl<T: Config> Pallet<T> {
 
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+    }
+
+    fn adjust_rent_fee_destroy_percent(gpu_num: u64, current_era: u32) {
+        // NOTE: 5000张卡开启银河竞赛: 奖励增加
+        if gpu_num == 5000 {
+            let mut phase_reward_info = Self::phase_reward_info().unwrap_or_default();
+            if phase_reward_info.galaxy_on_era == 0 {
+                phase_reward_info.galaxy_on_era = current_era;
+                PhaseRewardInfo::<T>::put(phase_reward_info);
+            }
+        }
+
+        RentFeeDestroyPercent::<T>::mutate(|percent| {
+            let destroy_percent = match gpu_num {
+                0..=4999 => Perbill::from_percent(30),
+                5000..=9999 => Perbill::from_percent(70),
+                _ => Perbill::from_percent(100),
+            };
+
+            if destroy_percent > *percent {
+                *percent = destroy_percent;
+            }
+        });
     }
 }

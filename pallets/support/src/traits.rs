@@ -52,7 +52,11 @@ pub trait RTOps {
     );
     fn change_machine_status_on_confirm_expired(machine_id: &Self::MachineId, gpu_num: u32);
 
-    fn change_machine_rent_fee(amount: Self::Balance, machine_id: Self::MachineId, is_burn: bool);
+    fn change_machine_rent_fee(
+        machine_id: Self::MachineId,
+        fee_to_destroy: Self::Balance,
+        fee_to_stash: Self::Balance,
+    );
 
     fn reset_machine_renters(machine_id: Self::MachineId, renters: Vec<Self::AccountId>);
 }

@@ -352,12 +352,9 @@ impl<B: Saturating + Copy + CheckedAdd + Zero> StashMachine<B> {
         Ok(can_claim)
     }
 
-    pub fn change_rent_fee(&mut self, amount: B, is_burn: bool) {
-        if is_burn {
-            self.total_burn_fee = self.total_burn_fee.saturating_add(amount);
-        } else {
-            self.total_rent_fee = self.total_rent_fee.saturating_add(amount);
-        }
+    pub fn change_rent_fee(&mut self, fee_to_destroy: B, fee_to_stash: B) {
+        self.total_burn_fee = self.total_burn_fee.saturating_add(fee_to_destroy);
+        self.total_rent_fee = self.total_rent_fee.saturating_add(fee_to_stash);
     }
 }
 
