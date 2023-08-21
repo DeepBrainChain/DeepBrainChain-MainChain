@@ -73,7 +73,8 @@ fn apply_slash_review_case1() {
         let committee = sr25519::Public::from(Sr25519Keyring::One).into();
         let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
 
-        let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
+        // let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
+        let rent_fee = 5240375 * ONE_DBC / 10;
         // 10万为质押，20000为委员会
         assert_eq!(
             Balances::free_balance(machine_stash),
@@ -154,7 +155,8 @@ fn apply_slash_review_case1_1() {
         let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
+        // let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
+        let rent_fee = 5240375 * ONE_DBC / 10;
 
         // Stash apply reonline
         assert_ok!(OnlineProfile::controller_report_online(

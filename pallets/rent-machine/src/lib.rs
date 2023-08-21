@@ -504,7 +504,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
 
-        let destroy_percent = <online_profile::Module<T>>::rent_fee_destroy_percent();
+        let destroy_percent = <online_profile::Pallet<T>>::rent_fee_destroy_percent();
 
         let fee_to_destroy = destroy_percent * fee_amount;
         let fee_to_stash = fee_amount.checked_sub(&fee_to_destroy).ok_or(Error::<T>::Overflow)?;
@@ -516,7 +516,7 @@ impl<T: Config> Pallet<T> {
             fee_to_destroy,
             KeepAlive,
         )?;
-        T::RTOps::change_machine_rent_fee(machine_id, fee_to_destroy, fee_to_stash);
+        let _ = T::RTOps::change_machine_rent_fee(machine_id, fee_to_destroy, fee_to_stash);
         Ok(())
     }
 

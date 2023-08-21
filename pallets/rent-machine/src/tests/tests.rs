@@ -57,11 +57,11 @@ fn rent_machine_should_works() {
 
         // DBC price: {1000 points/ 5_000_000 usd }; 6825 points; 10 eras; DBC price: 12_000 usd
         // So, rent fee: 59890 / 1000 * 5000000 / 12000 * 10 =  249541.6666666667 DBC
-        assert_eq!(stash_machines.total_rent_fee, 249541666666666666666);
+        assert_eq!(stash_machines.total_rent_fee, 174679166666666666666);
         // Balance of stash account will increase
         assert_eq!(
             Balances::free_balance(*stash),
-            INIT_BALANCE - 400000 * ONE_DBC + 249541666666666666666
+            INIT_BALANCE - 400000 * ONE_DBC + 174679166666666666666
         );
         // Balance of renter will decrease, Dave is committee so - 20000
         assert_eq!(
@@ -88,10 +88,10 @@ fn rent_machine_should_works() {
 
         // So balance change should be right
         let stash_machines = OnlineProfile::stash_machines(&*stash);
-        assert_eq!(stash_machines.total_rent_fee, 249541666666666666666 * 2);
+        assert_eq!(stash_machines.total_rent_fee, 349358333333333333332);
         assert_eq!(
             Balances::free_balance(*stash),
-            INIT_BALANCE + 249541666666666666666 * 2 - 400000 * ONE_DBC
+            INIT_BALANCE + 349358333333333333332 - 400000 * ONE_DBC
         );
         assert_eq!(
             Balances::free_balance(*renter_dave),

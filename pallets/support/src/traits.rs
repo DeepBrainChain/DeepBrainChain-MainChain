@@ -67,7 +67,7 @@ pub trait RTOps {
         machine_id: Self::MachineId,
         fee_to_destroy: Self::Balance,
         fee_to_stash: Self::Balance,
-    );
+    ) -> Result<(), ()>;
     fn reset_machine_renters(
         machine_id: Self::MachineId,
         renters: Vec<Self::AccountId>,
