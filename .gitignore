@@ -5,5 +5,4 @@
 .idea/
 nohup.out
 .local
-.cargo/
 *.log
