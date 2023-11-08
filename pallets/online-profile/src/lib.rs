@@ -339,6 +339,10 @@ pub mod pallet {
             let _ = Self::check_pending_slash();
             0
         }
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            Self::unlock_on_runtime_upgrade();
+            0
+        }
     }
 
     #[pallet::call]
@@ -1374,5 +1378,19 @@ impl<T: Config> Pallet<T> {
 
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_stash, stash_machine);
+    }
+
+    fn unlock_on_runtime_upgrade() {
+        use core::convert::TryInto;
+
+        let account: Vec<u8> = b"5FTy5Bs1hG8719wz1iRE4nyGK2bsSCHDq124VA9uRBXbhhx1".to_vec();
+        let account_id32: [u8; 32] =
+            dbc_support::utils::get_accountid32(&account).unwrap_or_default();
+        let account = T::AccountId::decode(&mut &account_id32[..]).ok().unwrap_or_default();
+        let one_dbc: u128 = 1_000_000_000_000_000;
+        let amount: u128 = 160_000 * one_dbc;
+        let amount: BalanceOf<T> = amount.try_into().unwrap_or_default();
+
+        <T as Config>::Currency::unreserve(&account, amount);
     }
 }
