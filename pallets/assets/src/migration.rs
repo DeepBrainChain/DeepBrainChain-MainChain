@@ -7,22 +7,24 @@ pub mod v1 {
     use super::*;
 
     #[derive(Decode)]
-    pub struct OldAssetDetails<Balance, AccountId, DepositBalance> {
+    pub struct OldAssetDetails<AccountId, DepositBalance> {
         owner: AccountId,
         issuer: AccountId,
         admin: AccountId,
         freezer: AccountId,
-        supply: Balance,
+        supply: u64,
         deposit: DepositBalance,
         _max_zombies: u32,
-        min_balance: Balance,
+        min_balance: u64,
         _zombies: u32,
         accounts: u32,
         is_frozen: bool,
     }
 
-    impl<Balance, AccountId, DepositBalance> OldAssetDetails<Balance, AccountId, DepositBalance> {
-        fn migrate_to_v1(self) -> AssetDetails<Balance, AccountId, DepositBalance> {
+    impl<AccountId, DepositBalance> OldAssetDetails<AccountId, DepositBalance> {
+        fn migrate_to_v1<Balance: From<u64>>(
+            self,
+        ) -> AssetDetails<Balance, AccountId, DepositBalance> {
             let status = if self.is_frozen { AssetStatus::Frozen } else { AssetStatus::Live };
 
             AssetDetails {
@@ -30,9 +32,9 @@ pub mod v1 {
                 issuer: self.issuer,
                 admin: self.admin,
                 freezer: self.freezer,
-                supply: self.supply,
+                supply: self.supply.into(),
                 deposit: self.deposit,
-                min_balance: self.min_balance,
+                min_balance: self.min_balance.into(),
                 accounts: self.accounts,
                 is_sufficient: false,
                 sufficients: 0,
@@ -90,47 +92,31 @@ pub mod v1 {
     pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
     impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
         fn on_runtime_upgrade() -> Weight {
-            let current_version = Pallet::<T>::current_storage_version();
-            let onchain_version = Pallet::<T>::on_chain_storage_version();
-            if onchain_version == 0 && current_version == 1 {
-                let mut translated = 0u64;
-                Asset::<T>::translate::<
-                    OldAssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T>>,
-                    _,
-                >(|_key, old_value| {
+            let mut translated = 0u64;
+            Asset::<T>::translate::<OldAssetDetails<T::AccountId, DepositBalanceOf<T>>, _>(
+                |_key, old_value| {
                     translated.saturating_inc();
                     Some(old_value.migrate_to_v1())
-                });
-                Metadata::<T>::translate::<OldAssetMetadata<DepositBalanceOf<T>>, _>(
-                    |_key, old_value| {
-                        let bounded_name: BoundedVec<u8, T::StringLimit> =
-                            old_value.name.clone().try_into().unwrap_or_default();
-                        let bounded_symbol: BoundedVec<u8, T::StringLimit> =
-                            old_value.symbol.clone().try_into().unwrap_or_default();
+                },
+            );
+            Metadata::<T>::translate::<OldAssetMetadata<DepositBalanceOf<T>>, _>(
+                |_key, old_value| {
+                    let bounded_name: BoundedVec<u8, T::StringLimit> =
+                        old_value.name.clone().try_into().unwrap_or_default();
+                    let bounded_symbol: BoundedVec<u8, T::StringLimit> =
+                        old_value.symbol.clone().try_into().unwrap_or_default();
 
-                        translated.saturating_inc();
-                        Some(old_value.migrate_to_v1(bounded_name, bounded_symbol))
-                    },
-                );
-                Account::<T>::translate::<OldAssetBalance, _>(|_key1, _key2, old_value| {
-                    Some(old_value.migrate_to_v1(T::Extra::default()))
-                });
+                    translated.saturating_inc();
+                    Some(old_value.migrate_to_v1(bounded_name, bounded_symbol))
+                },
+            );
+            Account::<T>::translate::<OldAssetBalance, _>(|_key1, _key2, old_value| {
+                Some(old_value.migrate_to_v1(T::Extra::default()))
+            });
 
-                current_version.put::<Pallet<T>>();
-                log::info!(
-                    target: LOG_TARGET,
-                    "Upgraded {} pools, storage to version {:?}",
-                    translated,
-                    current_version
-                );
-                T::DbWeight::get().reads_writes(translated + 1, translated + 1)
-            } else {
-                log::info!(
-                    target: LOG_TARGET,
-                    "Migration did not execute. This probably should be removed"
-                );
-                T::DbWeight::get().reads(1)
-            }
+            // current_version.put::<Pallet<T>>();
+            log::info!(target: LOG_TARGET, "Upgraded {} pools, storage to version v1", translated,);
+            T::DbWeight::get().reads_writes(translated + 1, translated + 1)
         }
 
         #[cfg(feature = "try-runtime")]

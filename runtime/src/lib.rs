@@ -986,8 +986,8 @@ parameter_types! {
     pub const VotingBondBase: Balance = deposit(1, 64);
     // additional data per vote is 32 bytes (account id).
     pub const VotingBondFactor: Balance = deposit(0, 32);
-    pub const TermDuration: BlockNumber = 7 * DAYS;
-    pub const DesiredMembers: u32 = 13;
+    pub const TermDuration: BlockNumber = 120 * DAYS;
+    pub const DesiredMembers: u32 = 21;
     pub const DesiredRunnersUp: u32 = 7;
     pub const MaxVoters: u32 = 10 * 1000;
     pub const MaxCandidates: u32 = 1000;
@@ -1640,6 +1640,7 @@ type Migrations = (
     >,
     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
+    pallet_assets::migration::v1::MigrateToV1<Runtime>,
 );
 
 /// MMR helper types.

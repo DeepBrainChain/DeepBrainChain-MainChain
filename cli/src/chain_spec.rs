@@ -44,6 +44,12 @@ pub use dbc_runtime::GenesisConfig;
 type AccountPublic = <Signature as Verify>::Signer;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const DEFAULT_PROPS: &str = r#"
+    {
+        "tokenDecimals": 15,
+        "tokenSymbol": "DBC"
+    }
+"#;
 
 /// Node `ChainSpec` extensions.
 ///
@@ -389,7 +395,7 @@ pub fn development_config() -> ChainSpec {
         None,
         None,
         None,
-        None,
+        Some(serde_json::from_str(DEFAULT_PROPS).unwrap()),
         Default::default(),
     )
 }
@@ -414,7 +420,7 @@ pub fn local_testnet_config() -> ChainSpec {
         None,
         None,
         None,
-        None,
+        Some(serde_json::from_str(DEFAULT_PROPS).unwrap()),
         Default::default(),
     )
 }
