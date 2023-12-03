@@ -110,6 +110,30 @@ impl frame_support::traits::OnRuntimeUpgrade for CouncilMembershipStoragePrefixM
     }
 }
 
+const ELECTIONS_NEW_PREFIX: &str = "Elections";
+pub struct ElectionStoragePrefixMigration;
+impl frame_support::traits::OnRuntimeUpgrade for ElectionStoragePrefixMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        pallet_elections_phragmen::migrations::v4::migrate::<Runtime, &str>(ELECTIONS_NEW_PREFIX)
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<(), &'static str> {
+        pallet_elections_phragmen::migrations::v4::pre_migrate::<Runtime, &str>(
+            ELECTIONS_NEW_PREFIX,
+        );
+        Ok(())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade() -> Result<(), &'static str> {
+        pallet_elections_phragmen::migrations::v4::post_migrate::<Runtime, &str>(
+            ELECTIONS_NEW_PREFIX,
+        );
+        Ok(())
+    }
+}
+
 use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
 pub struct CustomOnRuntimeUpgrades;
 impl OnRuntimeUpgrade for CustomOnRuntimeUpgrades {
@@ -157,6 +181,12 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrades {
         weight +=
             <CouncilMembershipStoragePrefixMigration as OnRuntimeUpgrade>::on_runtime_upgrade();
         frame_support::log::info!("🚀 CouncilMembershipStoragePrefixMigration end");
+
+        // 7. Elections
+        frame_support::log::info!("🔍️ ElectionsStoragePrefixMigration start");
+        frame_support::traits::StorageVersion::new(0).put::<Elections>();
+        weight += <ElectionStoragePrefixMigration as OnRuntimeUpgrade>::on_runtime_upgrade();
+        frame_support::log::info!("🚀 ElectionsStoragePrefixMigration end");
 
         weight
     }
