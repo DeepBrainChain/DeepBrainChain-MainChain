@@ -163,3 +163,26 @@ pub fn slash_percent<BlockNumber>(slash_reason: &OPSlashReason<BlockNumber>, dur
         _ => 0,
     }
 }
+
+pub fn reach_max_slash<BlockNumber>(
+    slash_reason: &OPSlashReason<BlockNumber>,
+    duration: u64,
+) -> bool {
+    let max_slash = |threshold| {
+        if duration > threshold {
+            true
+        } else {
+            false
+        }
+    };
+
+    match slash_reason {
+        OPSlashReason::RentedReportOffline(_) => max_slash(14400),
+        OPSlashReason::OnlineReportOffline(_) => max_slash(28800),
+        OPSlashReason::RentedInaccessible(_) => max_slash(14400),
+        OPSlashReason::RentedHardwareMalfunction(_) => max_slash(14400),
+        OPSlashReason::RentedHardwareCounterfeit(_) => max_slash(14400),
+        OPSlashReason::OnlineRentFailed(_) => max_slash(14400),
+        _ => false,
+    }
+}

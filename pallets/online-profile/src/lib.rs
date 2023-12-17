@@ -319,6 +319,11 @@ pub mod pallet {
     pub(super) type PendingExecSlash<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<SlashId>, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn max_slash_execed)]
+    pub(super) type MaxSlashExeced<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, T::BlockNumber, ValueQuery>;
+
     // The current storage version.
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
@@ -832,6 +837,20 @@ pub mod pallet {
             }
             .map_err(|_| Error::<T>::Unknown)?;
 
+            if let MachineStatus::ReporterReportOffline(slash_reason, ..) =
+                machine_info.machine_status.clone()
+            {
+                if crate::utils::reach_max_slash(
+                    &slash_reason,
+                    offline_duration.saturated_into::<u64>(),
+                ) {
+                    let ever_slashed = Self::max_slash_execed(&machine_id);
+                    if ever_slashed > offline_time && ever_slashed < now {
+                        slash_info.slash_amount = Zero::zero();
+                    }
+                }
+            }
+
             // NOTE: 如果机器上线超过一年，空闲超过10天，下线后上线不添加惩罚
             if now >= machine_info.online_height &&
                 now.saturating_sub(machine_info.online_height) > (365 * 2880u32).into() &&
@@ -1010,6 +1029,85 @@ pub mod pallet {
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResultWithPostInfo {
             T::CancelSlashOrigin::ensure_origin(origin)?;
             Self::do_cancel_slash(slash_id)
+        }
+
+        #[pallet::call_index(18)]
+        #[pallet::weight(10000)]
+        pub fn exec_slash(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            let _ = ensure_signed(origin)?;
+            let now = <frame_system::Pallet<T>>::block_number();
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+
+            let offline_time = match machine_info.machine_status.clone() {
+                MachineStatus::StakerReportOffline(_offline_time, _) =>
+                    return Err(Error::<T>::MachineStatusNotAllowed.into()),
+                MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
+                    OPSlashReason::RentedInaccessible(report_time) |
+                    OPSlashReason::RentedHardwareMalfunction(report_time) |
+                    OPSlashReason::RentedHardwareCounterfeit(report_time) |
+                    OPSlashReason::OnlineRentFailed(report_time) => {
+                        // 确保机器达到最大惩罚量时，才允许调用
+                        let offline_duration = now.saturating_sub(report_time);
+                        if !crate::utils::reach_max_slash(
+                            &slash_reason,
+                            offline_duration.saturated_into::<u64>(),
+                        ) {
+                            return Err(Error::<T>::MachineStatusNotAllowed.into())
+                        }
+
+                        let ever_slashed = Self::max_slash_execed(&machine_id);
+                        if ever_slashed > report_time && ever_slashed < now {
+                            return Err(Error::<T>::MachineStatusNotAllowed.into())
+                        }
+                        report_time
+                    },
+                    _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
+                },
+                _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
+            };
+            let offline_duration = now.saturating_sub(offline_time);
+
+            // MachineStatus改为之前的状态
+            let slash_info = match machine_info.machine_status.clone() {
+                MachineStatus::ReporterReportOffline(
+                    slash_reason,
+                    _status,
+                    reporter,
+                    committee,
+                ) => {
+                    // let status_before_offline = *status;
+                    Self::new_slash_when_offline(
+                        machine_id.clone(),
+                        slash_reason,
+                        Some(reporter),
+                        machine_info.renters.clone(),
+                        Some(committee),
+                        offline_duration,
+                    )
+                },
+                _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
+            }
+            .map_err(|_| Error::<T>::Unknown)?;
+
+            // 添加下线惩罚
+            if slash_info.slash_amount != Zero::zero() {
+                // 任何情况重新上链都需要补交质押
+                Self::change_stake(&machine_info.machine_stash, slash_info.slash_amount, true)
+                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+
+                // NOTE: Only after pay slash amount succeed, then make machine online.
+                let slash_id = Self::get_new_slash_id();
+                PendingExecSlash::<T>::mutate(slash_info.slash_exec_time, |pending_exec_slash| {
+                    ItemList::add_item(pending_exec_slash, slash_id);
+                });
+                PendingSlash::<T>::insert(slash_id, slash_info);
+            }
+
+            MaxSlashExeced::<T>::insert(machine_id, now);
+            Ok(().into())
         }
     }
 
