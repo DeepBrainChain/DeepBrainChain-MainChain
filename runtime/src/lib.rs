@@ -131,7 +131,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 275,
+    spec_version: 274,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -986,8 +986,8 @@ parameter_types! {
     pub const VotingBondBase: Balance = deposit(1, 64);
     // additional data per vote is 32 bytes (account id).
     pub const VotingBondFactor: Balance = deposit(0, 32);
-    pub const TermDuration: BlockNumber = 7 * DAYS;
-    pub const DesiredMembers: u32 = 13;
+    pub const TermDuration: BlockNumber = 120 * DAYS;
+    pub const DesiredMembers: u32 = 21;
     pub const DesiredRunnersUp: u32 = 7;
     pub const MaxVoters: u32 = 10 * 1000;
     pub const MaxCandidates: u32 = 1000;
@@ -1057,8 +1057,8 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub const ProposalBondMinimum: Balance = 1 * DOLLARS;
-    pub const SpendPeriod: BlockNumber = 1 * DAYS;
-    pub const Burn: Permill = Permill::from_percent(50);
+    pub const SpendPeriod: BlockNumber = 12 * DAYS;
+    pub Burn: Permill = Permill::from_rational_approximation(5u32, 1000u32);
     pub const TipCountdown: BlockNumber = 1 * DAYS;
     pub const TipFindersFee: Percent = Percent::from_percent(20);
     pub const TipReportDepositBase: Balance = 1 * DOLLARS;
@@ -1640,6 +1640,7 @@ type Migrations = (
     >,
     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
+    pallet_assets::migration::v1::MigrateToV1<Runtime>,
 );
 
 /// MMR helper types.

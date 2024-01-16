@@ -44,6 +44,12 @@ pub use dbc_runtime::GenesisConfig;
 type AccountPublic = <Signature as Verify>::Signer;
 
 const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const DEFAULT_PROPS: &str = r#"
+    {
+        "tokenDecimals": 15,
+        "tokenSymbol": "DBC"
+    }
+"#;
 
 /// Node `ChainSpec` extensions.
 ///
@@ -65,6 +71,10 @@ pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 /// Flaming Fir testnet generator
 pub fn flaming_fir_config() -> Result<ChainSpec, String> {
     ChainSpec::from_json_bytes(&include_bytes!("../res/flaming-fir.json")[..])
+}
+/// DBC Mainnet spec config
+pub fn mainnet_config() -> Result<ChainSpec, String> {
+    ChainSpec::from_json_bytes(&include_bytes!("../res/dbcSpecRaw.json")[..])
 }
 
 fn session_keys(
@@ -385,7 +395,7 @@ pub fn development_config() -> ChainSpec {
         None,
         None,
         None,
-        None,
+        Some(serde_json::from_str(DEFAULT_PROPS).unwrap()),
         Default::default(),
     )
 }
@@ -410,7 +420,7 @@ pub fn local_testnet_config() -> ChainSpec {
         None,
         None,
         None,
-        None,
+        Some(serde_json::from_str(DEFAULT_PROPS).unwrap()),
         Default::default(),
     )
 }
