@@ -905,7 +905,7 @@ parameter_types! {
     pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES;
-    pub const MinimumDeposit: Balance = 100 * DOLLARS;
+    pub const MinimumDeposit: Balance = 10000 * DBCS;
     pub const EnactmentPeriod: BlockNumber = 30 * 24 * 60 * MINUTES;
     pub const CooloffPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const MaxProposals: u32 = 100;
@@ -981,7 +981,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 }
 
 parameter_types! {
-    pub const CandidacyBond: Balance = 10 * DOLLARS;
+    pub const CandidacyBond: Balance = 10000 * DBCS;
     // 1 storage item created, key size is 32 bytes, value size is 16+16.
     pub const VotingBondBase: Balance = deposit(1, 64);
     // additional data per vote is 32 bytes (account id).
@@ -1020,7 +1020,7 @@ impl pallet_elections_phragmen::Config for Runtime {
 }
 
 parameter_types! {
-    pub const TechnicalMotionDuration: BlockNumber = 5 * DAYS;
+    pub const TechnicalMotionDuration: BlockNumber = 10 * MINUTES;
     pub const TechnicalMaxProposals: u32 = 100;
     pub const TechnicalMaxMembers: u32 = 100;
 }
