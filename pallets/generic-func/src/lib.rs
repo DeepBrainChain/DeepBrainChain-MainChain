@@ -149,8 +149,7 @@ pub mod pallet {
             amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            Self::do_destroy_dbc(who, amount);
-            Ok(().into())
+            Self::do_destroy_dbc(who, amount)
         }
 
         // 强制销毁DBC
@@ -162,8 +161,7 @@ pub mod pallet {
             amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::do_destroy_dbc(who, amount);
-            Ok(().into())
+            Self::do_destroy_dbc(who, amount)
         }
     }
 
@@ -179,6 +177,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         FreeBalanceNotEnough,
+        UnknownFixedTxFee,
     }
 }
 
@@ -226,12 +225,21 @@ impl<T: Config> Pallet<T> {
 
     pub fn auto_destroy(who: T::AccountId) {
         let free_balance = T::Currency::free_balance(&who);
-        Self::do_destroy_dbc(who, free_balance);
+        let _ = Self::do_destroy_dbc(who, free_balance);
     }
 
-    pub fn do_destroy_dbc(who: T::AccountId, burn_amount: BalanceOf<T>) {
+    pub fn do_destroy_dbc(
+        who: T::AccountId,
+        burn_amount: BalanceOf<T>,
+    ) -> DispatchResultWithPostInfo {
         let free_balance = T::Currency::free_balance(&who);
-        let burn_amount = if free_balance >= burn_amount { burn_amount } else { free_balance };
+        let mut burn_amount = if free_balance >= burn_amount { burn_amount } else { free_balance };
+
+        let fixed_tx_fee = Self::fixed_tx_fee().ok_or(Error::<T>::UnknownFixedTxFee)?;
+        if burn_amount < fixed_tx_fee {
+            return Ok(().into())
+        }
+        burn_amount = burn_amount.saturating_sub(fixed_tx_fee);
 
         T::Currency::make_free_balance_be(&who, free_balance.saturating_sub(burn_amount));
         // ensure T::CurrencyToVote will work correctly.
@@ -242,5 +250,6 @@ impl<T: Config> Pallet<T> {
             *total_destroy = total_destroy.saturating_add(burn_amount);
         });
         Self::deposit_event(Event::DestroyDBC(who, burn_amount));
+        Ok(().into())
     }
 }
