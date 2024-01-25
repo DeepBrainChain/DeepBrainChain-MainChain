@@ -16,7 +16,7 @@ use rand_chacha::{
     ChaChaRng,
 };
 use sp_core::H256;
-use sp_runtime::traits::Saturating;
+use sp_runtime::{traits::Saturating, SaturatedConversion};
 use sp_std::prelude::*;
 
 pub use pallet::*;
@@ -89,6 +89,23 @@ pub mod pallet {
                 None => return weight,
             }
             weight
+        }
+
+        // NOTE: only be used when upgrade from runtime 273.
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            frame_support::log::info!("🔍 GenericFunc Storage Migration start");
+
+            let account: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
+            let account_id32: [u8; 32] =
+                dbc_support::utils::get_accountid32(&account).unwrap_or_default();
+            if let Some(account) = T::AccountId::decode(&mut &account_id32[..]).ok() {
+                TotalDestroy::<T>::mutate(&account, |total_destroy| {
+                    *total_destroy = 13247230286575760612585u128.saturated_into();
+                });
+            }
+
+            frame_support::log::info!("🚀 GenericFunc Storage Migration end");
+            Weight::zero()
         }
     }
 
@@ -233,13 +250,13 @@ impl<T: Config> Pallet<T> {
         burn_amount: BalanceOf<T>,
     ) -> DispatchResultWithPostInfo {
         let free_balance = T::Currency::free_balance(&who);
-        let mut burn_amount = if free_balance >= burn_amount { burn_amount } else { free_balance };
-
         let fixed_tx_fee = Self::fixed_tx_fee().ok_or(Error::<T>::UnknownFixedTxFee)?;
-        if burn_amount < fixed_tx_fee {
+        if free_balance <= fixed_tx_fee {
             return Ok(().into())
         }
-        burn_amount = burn_amount.saturating_sub(fixed_tx_fee);
+
+        let max_burn_amount = free_balance.saturating_sub(fixed_tx_fee);
+        let burn_amount = if max_burn_amount > burn_amount { burn_amount } else { max_burn_amount };
 
         T::Currency::make_free_balance_be(&who, free_balance.saturating_sub(burn_amount));
         // ensure T::CurrencyToVote will work correctly.
