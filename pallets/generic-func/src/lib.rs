@@ -16,7 +16,7 @@ use rand_chacha::{
     ChaChaRng,
 };
 use sp_core::H256;
-use sp_runtime::traits::Saturating;
+use sp_runtime::{traits::Saturating, SaturatedConversion};
 use sp_std::prelude::*;
 
 pub use pallet::*;
@@ -90,6 +90,23 @@ pub mod pallet {
             }
             weight
         }
+
+        // NOTE: only be used when upgrade from runtime 273.
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            frame_support::log::info!("🔍 GenericFunc Storage Migration start");
+
+            let account: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
+            let account_id32: [u8; 32] =
+                dbc_support::utils::get_accountid32(&account).unwrap_or_default();
+            if let Some(account) = T::AccountId::decode(&mut &account_id32[..]).ok() {
+                TotalDestroy::<T>::mutate(&account, |total_destroy| {
+                    *total_destroy = 13247230286575760612585u128.saturated_into();
+                });
+            }
+
+            frame_support::log::info!("🚀 GenericFunc Storage Migration end");
+            Weight::zero()
+        }
     }
 
     #[pallet::call]
@@ -149,8 +166,7 @@ pub mod pallet {
             amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            Self::do_destroy_dbc(who, amount);
-            Ok(().into())
+            Self::do_destroy_dbc(who, amount)
         }
 
         // 强制销毁DBC
@@ -162,8 +178,7 @@ pub mod pallet {
             amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::do_destroy_dbc(who, amount);
-            Ok(().into())
+            Self::do_destroy_dbc(who, amount)
         }
     }
 
@@ -179,6 +194,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         FreeBalanceNotEnough,
+        UnknownFixedTxFee,
     }
 }
 
@@ -226,12 +242,21 @@ impl<T: Config> Pallet<T> {
 
     pub fn auto_destroy(who: T::AccountId) {
         let free_balance = T::Currency::free_balance(&who);
-        Self::do_destroy_dbc(who, free_balance);
+        let _ = Self::do_destroy_dbc(who, free_balance);
     }
 
-    pub fn do_destroy_dbc(who: T::AccountId, burn_amount: BalanceOf<T>) {
+    pub fn do_destroy_dbc(
+        who: T::AccountId,
+        burn_amount: BalanceOf<T>,
+    ) -> DispatchResultWithPostInfo {
         let free_balance = T::Currency::free_balance(&who);
-        let burn_amount = if free_balance >= burn_amount { burn_amount } else { free_balance };
+        let fixed_tx_fee = Self::fixed_tx_fee().ok_or(Error::<T>::UnknownFixedTxFee)?;
+        if free_balance <= fixed_tx_fee {
+            return Ok(().into())
+        }
+
+        let max_burn_amount = free_balance.saturating_sub(fixed_tx_fee);
+        let burn_amount = if max_burn_amount > burn_amount { burn_amount } else { max_burn_amount };
 
         T::Currency::make_free_balance_be(&who, free_balance.saturating_sub(burn_amount));
         // ensure T::CurrencyToVote will work correctly.
@@ -242,5 +267,6 @@ impl<T: Config> Pallet<T> {
             *total_destroy = total_destroy.saturating_add(burn_amount);
         });
         Self::deposit_event(Event::DestroyDBC(who, burn_amount));
+        Ok(().into())
     }
 }
