@@ -1,4 +1,4 @@
-# compare types of assets pallet from v3.0.0 & polkadot-v0.9.37
+# compare types of assets pallet from v3.0.0 & polkadot-v0.9.39
 
 Storage(v0.9.37):
 

@@ -11,6 +11,6 @@ dbc-support = { version = "0.1.0", path = "../../support" }
 online-profile = { version = "0.1.0", path = "../../online-profile" }
 online-profile-runtime-api = { version = "0.1.0", path = "./runtime-api" }
 
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
