@@ -8,8 +8,8 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 online-committee = { version = "0.1.0", path = "../../../online-committee", default-features = false }
 dbc-support = { default-features = false, path = "../../../support" }
 
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 
 [features]
 default = ["std"]

@@ -21,4 +21,4 @@ quote = "1.0.10"
 syn = { version = "1.0.98", features = ["full", "visit"] }
 
 [dev-dependencies]
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
