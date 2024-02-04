@@ -50,13 +50,13 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
     fn attribute(
         collection: &Self::CollectionId,
         item: &Self::ItemId,
-        namespace: &AttributeNamespace<<T as SystemConfig>::AccountId>,
         key: &[u8],
     ) -> Option<Vec<u8>> {
         if key.is_empty() {
             // We make the empty key map to the item metadata value.
             ItemMetadataOf::<T, I>::get(collection, item).map(|m| m.data.into())
         } else {
+            let namespace = AttributeNamespace::CollectionOwner;
             let key = BoundedSlice::<_, _>::try_from(key).ok()?;
             Attribute::<T, I>::get((collection, Some(item), namespace, key)).map(|a| a.0.into())
         }
@@ -92,9 +92,11 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
             ItemConfigOf::<T, I>::get(collection, item),
         ) {
             (Some(cc), Some(ic))
-                if cc.is_setting_enabled(CollectionSetting::TransferableItems) &&
-                    ic.is_setting_enabled(ItemSetting::Transferable) =>
-                true,
+                if cc.is_setting_enabled(CollectionSetting::TransferableItems)
+                    && ic.is_setting_enabled(ItemSetting::Transferable) =>
+            {
+                true
+            },
             _ => false,
         }
     }
@@ -173,7 +175,7 @@ impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId, ItemConfig
         Self::do_burn(*collection, *item, |d| {
             if let Some(check_owner) = maybe_check_owner {
                 if &d.owner != check_owner {
-                    return Err(Error::<T, I>::NoPermission.into())
+                    return Err(Error::<T, I>::NoPermission.into());
                 }
             }
             Ok(())

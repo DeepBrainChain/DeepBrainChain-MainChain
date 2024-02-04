@@ -69,18 +69,19 @@ where
     fn get_committee_machine_list(
         &self,
         committee: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
+        at: Option<Block::Hash>,
     ) -> RpcResult<RpcOCCommitteeMachineList> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        let runtime_api_result = api.get_committee_machine_list(&at, committee).map_err(|e| {
-            JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-                ErrorCode::InternalError.code(),
-                "Something wrong",
-                Some(e.to_string()),
-            )))
-        })?;
+        let runtime_api_result =
+            api.get_committee_machine_list(at_hash, committee).map_err(|e| {
+                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+                    ErrorCode::InternalError.code(),
+                    "Something wrong",
+                    Some(e.to_string()),
+                )))
+            })?;
         Ok(runtime_api_result.into())
     }
 
@@ -88,13 +89,13 @@ where
         &self,
         committee: AccountId,
         machine_id: String,
-        at: Option<<Block as BlockT>::Hash>,
+        at: Option<Block::Hash>,
     ) -> RpcResult<RpcOCCommitteeOps<BlockNumber, RpcBalance<Balance>>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api.get_committee_ops(&at, committee, machine_id);
+        let runtime_api_result = api.get_committee_ops(at_hash, committee, machine_id);
         if let Ok(Some(ops)) = runtime_api_result {
             return Ok(RpcOCCommitteeOps {
                 booked_time: ops.booked_time,
@@ -105,31 +106,32 @@ where
                 confirm_time: ops.confirm_time,
                 machine_status: ops.machine_status,
                 machine_info: ops.machine_info,
-            })
+            });
         }
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))))
+        ))));
     }
 
     fn get_machine_committee_list(
         &self,
         machine_id: String,
-        at: Option<<Block as BlockT>::Hash>,
+        at: Option<Block::Hash>,
     ) -> RpcResult<OCMachineCommitteeList<AccountId, BlockNumber>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
         let machine_id = machine_id.as_bytes().to_vec();
 
-        let runtime_api_result = api.get_machine_committee_list(&at, machine_id).map_err(|e| {
-            JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-                ErrorCode::InternalError.code(),
-                "Something wrong",
-                Some(e.to_string()),
-            )))
-        })?;
+        let runtime_api_result =
+            api.get_machine_committee_list(at_hash, machine_id).map_err(|e| {
+                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+                    ErrorCode::InternalError.code(),
+                    "Something wrong",
+                    Some(e.to_string()),
+                )))
+            })?;
         Ok(runtime_api_result)
     }
 }

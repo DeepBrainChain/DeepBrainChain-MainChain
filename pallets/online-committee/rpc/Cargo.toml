@@ -4,7 +4,7 @@ name = "online-committee-rpc"
 version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.2.2", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
