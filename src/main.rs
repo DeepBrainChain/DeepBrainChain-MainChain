@@ -20,6 +20,6 @@
 
 #![warn(missing_docs)]
 
-fn main() -> dbc_cli::Result<()> {
+fn main() -> sc_cli::Result<()> {
     dbc_cli::run()
 }

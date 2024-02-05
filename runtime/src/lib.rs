@@ -487,14 +487,8 @@ impl pallet_timestamp::Config for Runtime {
     type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-    pub const UncleGenerations: BlockNumber = 5;
-}
-
 impl pallet_authorship::Config for Runtime {
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-    type UncleGenerations = UncleGenerations;
-    type FilterUncle = ();
     type EventHandler = (Staking, ImOnline);
 }
 
@@ -930,6 +924,7 @@ impl pallet_democracy::Config for Runtime {
     /// (NTB) vote.
     type ExternalDefaultOrigin =
         pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>;
+    type SubmitOrigin = EnsureSigned<AccountId>;
     /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
     type FastTrackOrigin =
@@ -979,6 +974,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
     type MaxMembers = CouncilMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+    type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
@@ -990,6 +986,7 @@ parameter_types! {
     pub const TermDuration: BlockNumber = 120 * DAYS;
     pub const DesiredMembers: u32 = 21;
     pub const DesiredRunnersUp: u32 = 7;
+    pub const MaxVotesPerVoter: u32 = 16;
     pub const MaxVoters: u32 = 10 * 1000;
     pub const MaxCandidates: u32 = 1000;
     pub const ElectionsPhragmenPalletId: LockIdentifier = *b"phrelect";
@@ -1016,6 +1013,7 @@ impl pallet_elections_phragmen::Config for Runtime {
     type DesiredRunnersUp = DesiredRunnersUp;
     type TermDuration = TermDuration;
     type MaxVoters = MaxVoters;
+    type MaxVotesPerVoter = MaxVotesPerVoter;
     type MaxCandidates = MaxCandidates;
     type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<Runtime>;
 }
@@ -1036,6 +1034,7 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
     type MaxMembers = TechnicalMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+    type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 }
 
 type EnsureRootOrHalfCouncil = EitherOfDiverse<
@@ -1236,6 +1235,10 @@ impl pallet_authority_discovery::Config for Runtime {
     type MaxAuthorities = MaxAuthorities;
 }
 
+parameter_types! {
+    pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+}
+
 impl pallet_grandpa::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 
@@ -1257,6 +1260,7 @@ impl pallet_grandpa::Config for Runtime {
 
     type WeightInfo = ();
     type MaxAuthorities = MaxAuthorities;
+    type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 }
 
 parameter_types! {
@@ -1890,6 +1894,12 @@ impl_runtime_apis! {
         fn query_fee_details(uxt: <Block as BlockT>::Extrinsic, len: u32) -> FeeDetails<Balance> {
             TransactionPayment::query_fee_details(uxt, len)
         }
+        fn query_weight_to_fee(weight: Weight) -> Balance {
+            TransactionPayment::weight_to_fee(weight)
+        }
+        fn query_length_to_fee(length: u32) -> Balance {
+            TransactionPayment::length_to_fee(length)
+        }
     }
 
     impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
@@ -1900,6 +1910,12 @@ impl_runtime_apis! {
         }
         fn query_call_fee_details(call: RuntimeCall, len: u32) -> FeeDetails<Balance> {
             TransactionPayment::query_call_fee_details(call, len)
+        }
+        fn query_weight_to_fee(weight: Weight) -> Balance {
+            TransactionPayment::weight_to_fee(weight)
+        }
+        fn query_length_to_fee(length: u32) -> Balance {
+            TransactionPayment::length_to_fee(length)
         }
     }
 

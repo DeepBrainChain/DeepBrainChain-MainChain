@@ -18,8 +18,13 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 
 [dependencies]
 # third-party dependencies
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = [
+  "derive",
+  "max-encoded-len",
+] }
+scale-info = { version = "2.1.1", default-features = false, features = [
+  "derive",
+] }
 static_assertions = "1.1.0"
 log = { version = "0.4.17", default-features = false }
 
@@ -87,7 +92,9 @@ pallet-recovery = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-referenda = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 # pallet-remark = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 pallet-root-testing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", features = [ "historical" ], default-features = false }
+pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", features = [
+  "historical",
+], default-features = false }
 pallet-session-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false, optional = true }
 pallet-state-trie-migration = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
@@ -106,6 +113,7 @@ pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", bra
 pallet-assets = { path = "../pallets/assets", default-features = false }
 pallet-staking = { package = "dbc-staking", path = "../pallets/staking", default-features = false }
 pallet-staking-reward-curve = { package = "pallet-staking-reward-curve", path = "../pallets/staking/reward-curve", default-features = false }
+pallet-staking-runtime-api = { package = "pallet-staking-runtime-api", path = "../pallets/staking/runtime-api", default-features = false }
 pallet-nfts = { path = "../pallets/nfts", default-features = false }
 
 committee = { path = "../pallets/committee", default-features = false }
@@ -184,6 +192,7 @@ std = [
   "sp-runtime/std",
   "sp-staking/std",
   "pallet-staking/std",
+  "pallet-staking-runtime-api/std",
   "pallet-state-trie-migration/std",
   "sp-session/std",
   "pallet-sudo/std",

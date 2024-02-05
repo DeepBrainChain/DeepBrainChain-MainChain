@@ -8,7 +8,7 @@ use jsonrpsee::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
 use dbc_support::{rpc_types::RpcBalance, verify_online::OCMachineCommitteeList};
@@ -106,13 +106,13 @@ where
                 confirm_time: ops.confirm_time,
                 machine_status: ops.machine_status,
                 machine_info: ops.machine_info,
-            });
+            })
         }
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))));
+        ))))
     }
 
     fn get_machine_committee_list(
