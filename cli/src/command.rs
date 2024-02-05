@@ -83,8 +83,7 @@ pub fn run() -> Result<()> {
         None => {
             let runner = cli.create_runner(&cli.run)?;
             runner.run_node_until_exit(|config| async move {
-                service::new_full(config, cli.no_hardware_benchmarks)
-                    .map_err(sc_cli::Error::Service)
+                service::new_full(config, cli).map_err(sc_cli::Error::Service)
             })
         },
         Some(Subcommand::Inspect(cmd)) => {
@@ -233,11 +232,13 @@ pub fn run() -> Result<()> {
                     sc_service::TaskManager::new(config.tokio_handle.clone(), registry)
                         .map_err(|e| sc_cli::Error::Service(sc_service::Error::Prometheus(e)))?;
 
+                let info_provider = substrate_info(SLOT_DURATION);
+
                 Ok((
                     cmd.run::<Block, ExtendedHostFunctions<
                         sp_io::SubstrateHostFunctions,
                         <DBCExecutorDispatch as NativeExecutionDispatch>::ExtendHostFunctions,
-                    >>(),
+                    >, _>(Some(info_provider)),
                     task_manager,
                 ))
             })

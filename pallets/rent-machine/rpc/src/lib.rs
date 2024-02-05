@@ -8,10 +8,7 @@ use jsonrpsee::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{
-    generic::BlockId,
-    traits::{Block as BlockT, MaybeDisplay},
-};
+use sp_runtime::traits::{Block as BlockT, MaybeDisplay};
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
 use dbc_support::{
@@ -82,12 +79,12 @@ where
     fn get_rent_order(
         &self,
         rent_id: RentOrderId,
-        at: Option<<Block as BlockT>::Hash>,
+        at: Option<Block::Hash>,
     ) -> RpcResult<RentOrderDetail<AccountId, BlockNumber, RpcBalance<Balance>>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        let runtime_api_result = api.get_rent_order(&at, rent_id);
+        let runtime_api_result = api.get_rent_order(at_hash, rent_id);
         if let Ok(Some(order_detail)) = runtime_api_result {
             return Ok(RentOrderDetail {
                 machine_id: order_detail.machine_id,
@@ -99,24 +96,24 @@ where
                 rent_status: order_detail.rent_status,
                 gpu_num: order_detail.gpu_num,
                 gpu_index: order_detail.gpu_index,
-            })
+            });
         }
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))))
+        ))));
     }
 
     fn get_rent_list(
         &self,
         renter: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
+        at: Option<Block::Hash>,
     ) -> RpcResult<Vec<RentOrderId>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        let runtime_api_result = api.get_rent_list(&at, renter).map_err(|e| {
+        let runtime_api_result = api.get_rent_list(at_hash, renter).map_err(|e| {
             JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
                 ErrorCode::InternalError.code(),
                 "Something wrong",
@@ -131,32 +128,33 @@ where
         &self,
         machine_id: String,
         renter: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
+        at: Option<Block::Hash>,
     ) -> RpcResult<bool> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
         let machine_id = machine_id.as_bytes().to_vec();
-        let runtime_api_result = api.is_machine_renter(&at, machine_id, renter).map_err(|e| {
-            JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-                ErrorCode::InternalError.code(),
-                "Something wrong",
-                Some(e.to_string()),
-            )))
-        })?;
+        let runtime_api_result =
+            api.is_machine_renter(at_hash, machine_id, renter).map_err(|e| {
+                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+                    ErrorCode::InternalError.code(),
+                    "Something wrong",
+                    Some(e.to_string()),
+                )))
+            })?;
         Ok(runtime_api_result)
     }
 
     fn get_machine_rent_id(
         &self,
         machine_id: String,
-        at: Option<<Block as BlockT>::Hash>,
+        at: Option<Block::Hash>,
     ) -> RpcResult<MachineGPUOrder> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
         let machine_id = machine_id.as_bytes().to_vec();
-        let runtime_api_result = api.get_machine_rent_id(&at, machine_id).map_err(|e| {
+        let runtime_api_result = api.get_machine_rent_id(at_hash, machine_id).map_err(|e| {
             JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
                 ErrorCode::InternalError.code(),
                 "Something wrong",

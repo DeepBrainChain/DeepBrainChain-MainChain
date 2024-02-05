@@ -5,7 +5,7 @@ name = "maintain-committee"
 version = "0.1.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
@@ -25,7 +25,7 @@ hex = "0.4"
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+pallet-insecure-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 pallet-treasury = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }

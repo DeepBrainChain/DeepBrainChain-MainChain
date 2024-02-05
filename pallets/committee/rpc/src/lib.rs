@@ -10,7 +10,7 @@ use jsonrpsee::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
 #[rpc(client, server)]
@@ -42,14 +42,11 @@ where
     C: HeaderBackend<Block>,
     C::Api: CmStorageRuntimeApi<Block, AccountId>,
 {
-    fn get_committee_list(
-        &self,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<CommitteeList<AccountId>> {
+    fn get_committee_list(&self, at: Option<Block::Hash>) -> RpcResult<CommitteeList<AccountId>> {
         let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        let runtime_api_result = api.get_committee_list(&at).map_err(|e| {
+        let runtime_api_result = api.get_committee_list(at_hash).map_err(|e| {
             JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
                 ErrorCode::InternalError.code(),
                 "Something wrong",
