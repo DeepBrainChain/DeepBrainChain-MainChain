@@ -32,7 +32,7 @@ crate-type = ["cdylib", "rlib"]
 # third-party dependencies
 array-bytes = "4.1"
 clap = { version = "4.0.9", features = ["derive"], optional = true }
-codec = { package = "parity-scale-codec", version = "3.2.2" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.136", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 futures = "0.3.21"
@@ -47,6 +47,7 @@ sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+sp-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
@@ -65,6 +66,7 @@ sc-network = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sc-network-common = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-consensus-slots = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+sc-consensus-uncles = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", package = "sc-finality-grandpa" }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
@@ -74,7 +76,6 @@ sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polka
 sc-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-sync-state-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-sysinfo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sc-storage-monitor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 
 # frame dependencies
 pallet-assets = { path = "../pallets/assets" }
@@ -111,12 +112,12 @@ sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "pol
 futures = "0.3.21"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
-nix = { version = "0.26.1", features = ["signal"] }
+nix = "0.23"
 serde_json = "1.0"
 regex = "1.6.0"
 platforms = "2.0"
 soketto = "0.7.1"
-criterion = { version = "0.4.0", features = ["async_tokio"] }
+criterion = { version = "0.3.5", features = ["async_tokio"] }
 tokio = { version = "1.22.0", features = ["macros", "time", "parking_lot"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 wait-timeout = "0.2"
@@ -133,7 +134,6 @@ substrate-frame-cli = { git = "https://github.com/paritytech/substrate", branch 
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", optional = true }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", optional = true }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sc-storage-monitor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 
 [features]
 default = ["cli"]
@@ -154,7 +154,10 @@ runtime-benchmarks = [
 ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
-try-runtime = ["dbc-runtime/try-runtime", "try-runtime-cli/try-runtime"]
+try-runtime = [
+	"dbc-runtime/try-runtime",
+	"try-runtime-cli/try-runtime"
+]
 
 [[bench]]
 name = "transaction_pool"

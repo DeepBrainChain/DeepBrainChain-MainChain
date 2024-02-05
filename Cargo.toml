@@ -14,7 +14,6 @@ opt-level = 3
 
 [dependencies]
 dbc-cli = { package = "dbc-cli", path = "cli" }
-sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 
 [workspace]
 members = [

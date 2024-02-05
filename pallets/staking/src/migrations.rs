@@ -205,7 +205,7 @@ pub mod v11 {
                         warn,
                         "new bags-list name is equal to the old one, only bumping the version"
                     );
-                    return T::DbWeight::get().reads(1).saturating_add(T::DbWeight::get().writes(1));
+                    return T::DbWeight::get().reads(1).saturating_add(T::DbWeight::get().writes(1))
                 }
 
                 move_pallet(old_pallet_name.as_bytes(), new_pallet_name.as_bytes());
@@ -228,7 +228,7 @@ pub mod v11 {
 
             // skip storage prefix checks for the same pallet names
             if new_pallet_name == old_pallet_name {
-                return Ok(());
+                return Ok(())
             }
 
             let old_pallet_prefix = twox_128(N::get().as_bytes());
@@ -412,7 +412,7 @@ pub mod v8 {
                 Nominators::<T>::iter().map(|(id, _)| id),
                 Pallet::<T>::weight_of_fn(),
             );
-            // debug_assert_eq!(T::VoterList::try_state(), Ok(()));
+            debug_assert_eq!(T::VoterList::try_state(), Ok(()));
 
             StorageVersion::<T>::put(ObsoleteReleases::V8_0_0);
             crate::log!(

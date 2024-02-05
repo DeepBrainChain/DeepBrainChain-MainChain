@@ -11,7 +11,10 @@ use simple_rpc::StakerListInfo;
 pub use simple_rpc_runtime_api::SimpleRpcApi as SrStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::{Block as BlockT, MaybeDisplay};
+use sp_runtime::{
+    generic::BlockId,
+    traits::{Block as BlockT, MaybeDisplay},
+};
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
 #[rpc(client, server)]
@@ -56,12 +59,12 @@ where
     fn get_staker_identity(
         &self,
         account: AccountId,
-        at: Option<Block::Hash>,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<String> {
         let api = self.client.runtime_api();
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let runtime_api_result = api.get_staker_identity(at_hash, account).map_err(|e| {
+        let runtime_api_result = api.get_staker_identity(&at, account).map_err(|e| {
             CallError::Custom(ErrorObject::owned(1, "Something wrong", Some(e.to_string())))
         })?;
         Ok(String::from_utf8_lossy(&runtime_api_result).to_string())
@@ -71,13 +74,13 @@ where
         &self,
         cur_page: u64,
         per_page: u64,
-        at: Option<Block::Hash>,
+        at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<StakerListInfo<RpcBalance<Balance>, AccountId>>> {
         let api = self.client.runtime_api();
-        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         let runtime_api_result = api
-            .get_staker_list_info(at_hash, cur_page, per_page)
+            .get_staker_list_info(&at, cur_page, per_page)
             .map(|staker_info_list| {
                 {
                     staker_info_list.into_iter().map(|staker_info| StakerListInfo {
