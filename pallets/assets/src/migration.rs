@@ -1,8 +1,9 @@
 use super::*;
-use frame_support::{log, traits::OnRuntimeUpgrade};
+use frame_support::traits::OnRuntimeUpgrade;
 
+#[allow(dead_code)]
 pub mod v1 {
-    use frame_support::{pallet_prelude::*, weights::Weight};
+    use frame_support::pallet_prelude::*;
 
     use super::*;
 

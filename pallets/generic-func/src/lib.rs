@@ -16,7 +16,7 @@ use rand_chacha::{
     ChaChaRng,
 };
 use sp_core::H256;
-use sp_runtime::{traits::Saturating, SaturatedConversion};
+use sp_runtime::traits::Saturating;
 use sp_std::prelude::*;
 
 pub use pallet::*;

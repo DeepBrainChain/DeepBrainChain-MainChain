@@ -15,7 +15,6 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_collective::Instance1;
 use pallet_elections_phragmen::SeatHolder;
-use sp_runtime::traits::Zero;
 use sp_std::{vec, vec::Vec};
 
 pub use pallet::*;
