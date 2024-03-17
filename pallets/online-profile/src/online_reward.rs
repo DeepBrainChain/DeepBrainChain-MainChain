@@ -55,6 +55,15 @@ impl<T: Config> Pallet<T> {
         Some(stake_per_gpu_limit_by_num.min(stake_limit_by_value))
     }
 
+    // 起始质押1000 DBC，租金和奖励收益最多质押到300美金/10万个DBC
+    pub fn stake_per_gpu_v2() -> Option<BalanceOf<T>> {
+        let online_stake_params = Self::online_stake_params()?;
+        let stake_per_gpu_limit_by_num =
+            Perbill::from_rational(1_000u32, 100_000u32) * online_stake_params.online_stake_per_gpu;
+
+        Some(stake_per_gpu_limit_by_num)
+    }
+
     /// 计算当前Era在线奖励数量
     pub fn current_era_reward() -> Option<BalanceOf<T>> {
         let current_era = Self::current_era() as u64;
