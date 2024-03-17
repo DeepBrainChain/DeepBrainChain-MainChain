@@ -91,22 +91,22 @@ pub mod pallet {
             weight
         }
 
-        // NOTE: only be used when upgrade from runtime 273.
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            frame_support::log::info!("🔍 GenericFunc Storage Migration start");
+        // // NOTE: only be used when upgrade from runtime 273.
+        // fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        //     frame_support::log::info!("🔍 GenericFunc Storage Migration start");
 
-            let account: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
-            let account_id32: [u8; 32] =
-                dbc_support::utils::get_accountid32(&account).unwrap_or_default();
-            if let Some(account) = T::AccountId::decode(&mut &account_id32[..]).ok() {
-                TotalDestroy::<T>::mutate(&account, |total_destroy| {
-                    *total_destroy = 13247230286575760612585u128.saturated_into();
-                });
-            }
+        //     let account: Vec<u8> = b"5GR31fgcHdrJ14eFW1xJmHhZJ56eQS7KynLKeXmDtERZTiw2".to_vec();
+        //     let account_id32: [u8; 32] =
+        //         dbc_support::utils::get_accountid32(&account).unwrap_or_default();
+        //     if let Some(account) = T::AccountId::decode(&mut &account_id32[..]).ok() {
+        //         TotalDestroy::<T>::mutate(&account, |total_destroy| {
+        //             *total_destroy = 13247230286575760612585u128.saturated_into();
+        //         });
+        //     }
 
-            frame_support::log::info!("🚀 GenericFunc Storage Migration end");
-            Weight::zero()
-        }
+        //     frame_support::log::info!("🚀 GenericFunc Storage Migration end");
+        //     Weight::zero()
+        // }
     }
 
     #[pallet::call]
