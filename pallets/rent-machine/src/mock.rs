@@ -85,7 +85,7 @@ impl pallet_balances::Config for TestRuntime {
     type WeightInfo = ();
 }
 
-impl pallet_randomness_collective_flip::Config for TestRuntime {}
+impl pallet_insecure_randomness_collective_flip::Config for TestRuntime {}
 
 parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
@@ -148,6 +148,7 @@ impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
     type MaxMembers = CouncilMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
+    type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
@@ -247,7 +248,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp,
         OnlineCommittee: online_committee,
         OnlineProfile: online_profile,
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip,
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
         Balances: pallet_balances,
         Committee: committee,
         DBCPriceOCW: dbc_price_ocw,

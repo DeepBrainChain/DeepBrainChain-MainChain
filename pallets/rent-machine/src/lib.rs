@@ -496,6 +496,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // NOTE: 银河竞赛开启前，租金付给stash账户；开启后租金转到销毁账户
+    // NOTE: 租金付给stash账户时，检查是否满足单卡10w/$300的质押条件，不满足，先质押.
     fn pay_rent_fee(
         renter: &T::AccountId,
         machine_id: MachineId,
@@ -516,7 +517,12 @@ impl<T: Config> Pallet<T> {
             fee_to_destroy,
             KeepAlive,
         )?;
-        let _ = T::RTOps::change_machine_rent_fee(machine_id, fee_to_destroy, fee_to_stash);
+        let _ = T::RTOps::change_machine_rent_fee(
+            machine_stash,
+            machine_id,
+            fee_to_destroy,
+            fee_to_stash,
+        );
         Ok(())
     }
 

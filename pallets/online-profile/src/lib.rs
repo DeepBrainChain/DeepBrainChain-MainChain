@@ -344,13 +344,23 @@ pub mod pallet {
             Weight::zero()
         }
 
+        // fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        //     frame_support::log::info!("🔍 OnlineProfile storage upgrade start");
+        //     if let Some(mut stake_params) = Self::online_stake_params() {
+        //         stake_params.online_stake_usd_limit = 800000000;
+        //         OnlineStakeParams::<T>::put(stake_params);
+        //     }
+        //     frame_support::log::info!("🚀 OnlineProfile storage upgrade end");
+        //     Weight::zero()
+        // }
+
+        // From 800 USD -> 300 USD
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            frame_support::log::info!("🔍 OnlineProfile storage upgrade start");
-            if let Some(mut stake_params) = Self::online_stake_params() {
-                stake_params.online_stake_usd_limit = 800000000;
-                OnlineStakeParams::<T>::put(stake_params);
-            }
-            frame_support::log::info!("🚀 OnlineProfile storage upgrade end");
+            let mut online_stake_params = Self::online_stake_params().unwrap();
+            let online_stake_usd_limit =
+                Perbill::from_rational(3u32, 8u32) * online_stake_params.online_stake_usd_limit;
+            online_stake_params.online_stake_usd_limit = online_stake_usd_limit;
+            OnlineStakeParams::<T>::put(online_stake_params);
             Weight::zero()
         }
     }
@@ -548,7 +558,7 @@ pub mod pallet {
             Self::check_bonding_msg(stash.clone(), machine_id.clone(), msg, sig)?;
 
             // 用户绑定机器需要质押一张显卡的DBC
-            let stake_amount = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
+            let stake_amount = Self::stake_per_gpu_v2().ok_or(Error::<T>::CalcStakeAmountFailed)?;
             // 扣除10个Dbc作为交易手续费; 并质押
             Self::pay_fixed_tx_fee(controller.clone())?;
             Self::change_stake(&stash, stake_amount, true)
@@ -729,6 +739,9 @@ pub mod pallet {
 
                 <T as Config>::Currency::deposit_into_existing(&stash, can_claim)
                     .map_err(|_| Error::<T>::ClaimRewardFailed)?;
+
+                Self::fulfill_machine_stake(stash.clone(), can_claim)
+                    .map_err(|_| Error::<T>::ClaimThenFulfillFailed)?;
                 Self::deposit_event(Event::ClaimReward(stash.clone(), can_claim));
                 Ok(().into())
             })
@@ -1141,6 +1154,8 @@ pub mod pallet {
         SetTmpVal(u64),
         // stash, pre_controller, post_controller
         StashResetController(T::AccountId, T::AccountId, T::AccountId),
+        // machine_id, pre_stake, delta_stake
+        MachineAddStake(MachineId, BalanceOf<T>, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -1174,6 +1189,7 @@ pub mod pallet {
         TimeNotAllowed,
         ExpiredSlash,
         Unknown,
+        ClaimThenFulfillFailed,
     }
 }
 
@@ -1517,5 +1533,59 @@ impl<T: Config> Pallet<T> {
                 *percent = destroy_percent;
             }
         });
+    }
+
+    // 当租金转给该stash账户，或者领取在线奖励后，会检查机器奖励是否足够
+    // 如果不够，则会按顺序补充机器质押
+    fn fulfill_machine_stake(stash: T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+        let mut amount_left = amount;
+
+        let stash_machines = Self::stash_machines(&stash);
+        for machine_id in stash_machines.online_machine.iter() {
+            let mut machine_info = match Self::machines_info(&machine_id) {
+                Some(machine_info) => machine_info,
+                None => continue,
+            };
+
+            let online_stake_params = Self::online_stake_params().ok_or(())?;
+            let stake_need = online_stake_params
+                .online_stake_per_gpu
+                .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
+                .ok_or(())?;
+
+            if stake_need <= machine_info.stake_amount {
+                continue
+            }
+            // 现在需要的stake 比 已经stake的多了。
+            let extra_need = stake_need - machine_info.stake_amount; // 这个机器还需要这么多质押。
+            let pre_stake = machine_info.stake_amount;
+
+            if extra_need <= amount_left {
+                amount_left = amount_left.saturating_sub(extra_need);
+
+                Self::change_stake(&machine_info.machine_stash, extra_need, true)
+                    .map_err(|_| ())?;
+                machine_info.stake_amount = stake_need;
+
+                MachinesInfo::<T>::insert(&machine_id, machine_info);
+                Self::deposit_event(Event::MachineAddStake(
+                    machine_id.clone(),
+                    pre_stake,
+                    extra_need,
+                ));
+            } else {
+                Self::change_stake(&machine_info.machine_stash, amount_left, true)
+                    .map_err(|_| ())?;
+                machine_info.stake_amount = machine_info.stake_amount.saturating_add(amount_left);
+                MachinesInfo::<T>::insert(&machine_id, machine_info);
+                Self::deposit_event(Event::MachineAddStake(
+                    machine_id.clone(),
+                    pre_stake,
+                    amount_left,
+                ));
+                return Ok(())
+            }
+        }
+        Ok(())
     }
 }

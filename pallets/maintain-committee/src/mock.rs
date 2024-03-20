@@ -92,7 +92,7 @@ impl dbc_price_ocw::Config for TestRuntime {
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 
-impl pallet_randomness_collective_flip::Config for TestRuntime {}
+impl pallet_insecure_randomness_collective_flip::Config for TestRuntime {}
 
 type TestExtrinsic = TestXt<RuntimeCall, ()>;
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
@@ -182,6 +182,7 @@ impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
     type MaxMembers = CouncilMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
+    type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
@@ -255,7 +256,7 @@ frame_support::construct_runtime!(
         System: frame_system,
         OnlineCommittee: online_committee,
         OnlineProfile: online_profile,
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip,
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
         Balances: pallet_balances,
         Committee: committee,
         DBCPriceOCW: dbc_price_ocw,

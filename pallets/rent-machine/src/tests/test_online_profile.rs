@@ -32,15 +32,15 @@ fn fulfill_machine_works() {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let server_room = OnlineProfile::stash_server_rooms(&stash);
 
-        // NOTE: stash把币转走，只剩下 200_000 DBC
-        assert_ok!(Balances::transfer(RuntimeOrigin::signed(stash), controller, 9_400_000 * ONE_DBC));
+        // NOTE: stash把币转走，只剩下 2_000 DBC
+        assert_ok!(Balances::transfer(RuntimeOrigin::signed(stash), controller, 9_994_000 * ONE_DBC));
         {
             assert_eq!(System::account(stash), AccountInfo{
                 nonce: 0,
                 providers: 1,
                 data: AccountData {
-                    free: 200_000 * ONE_DBC,
-                    reserved: 400_000 * ONE_DBC,
+                    free: 2_000 * ONE_DBC,
+                    reserved: 4_000 * ONE_DBC,
                     misc_frozen: 0,
                     fee_frozen: 0,
                 },
@@ -121,13 +121,13 @@ fn fulfill_machine_works() {
         run_to_block(13);
 
         {
-            // NOTE: stash把币转走，只剩下 200_000 DBC
+            // NOTE: stash把币转走，只剩下 2_000 DBC
             assert_eq!(System::account(stash), AccountInfo{
                 nonce: 0,
                 providers: 1,
                 data: AccountData {
-                    free: 100_000 * ONE_DBC,
-                    reserved: 500_000 * ONE_DBC,
+                    free: 1_000 * ONE_DBC,
+                    reserved: 5_000 * ONE_DBC,
                     misc_frozen: 0,
                     fee_frozen: 0,
                 },
@@ -140,10 +140,10 @@ fn fulfill_machine_works() {
             );
         }
 
-        assert_ok!(Balances::transfer(RuntimeOrigin::signed(controller), stash, 400_000 * ONE_DBC));
+        assert_ok!(Balances::transfer(RuntimeOrigin::signed(controller), stash, 4_000 * ONE_DBC));
 
         let machine_info = OnlineProfile::machines_info(&machine_id2).unwrap();
-        assert_eq!(machine_info.init_stake_per_gpu, 100_000 * ONE_DBC);
+        assert_eq!(machine_info.init_stake_per_gpu, 1_000 * ONE_DBC);
         assert_eq!(machine_info.gpu_num(), 4);
 
         // 调用fulfill_machine
@@ -154,8 +154,8 @@ fn fulfill_machine_works() {
                 nonce: 0,
                 providers: 1,
                 data: AccountData {
-                    free: 200_000 * ONE_DBC,
-                    reserved: 800_000 * ONE_DBC,
+                    free: 2_000 * ONE_DBC,
+                    reserved: 8_000 * ONE_DBC,
                     misc_frozen: 0,
                     fee_frozen: 0,
                 },

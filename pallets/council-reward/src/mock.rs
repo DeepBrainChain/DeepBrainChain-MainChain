@@ -136,6 +136,7 @@ impl pallet_collective::Config<CouncilCollective> for TestRuntime {
     type MaxMembers = CouncilMaxMembers;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
+    type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
@@ -148,6 +149,7 @@ parameter_types! {
     pub const DesiredMembers: u32 = 21;
     pub const DesiredRunnersUp: u32 = 7;
     pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
+    pub const MaxVotesPerVoter: u32 = 16;
 }
 
 impl pallet_elections_phragmen::Config for TestRuntime {
@@ -168,6 +170,7 @@ impl pallet_elections_phragmen::Config for TestRuntime {
     type DesiredRunnersUp = DesiredRunnersUp;
     type TermDuration = TermDuration;
     type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<TestRuntime>;
+    type MaxVotesPerVoter = MaxVotesPerVoter;
     type MaxCandidates = ();
     type MaxVoters = ();
 }
@@ -242,7 +245,7 @@ impl council_reward::Config for TestRuntime {
     type ThirdReward = ThirdReward;
 }
 
-impl pallet_randomness_collective_flip::Config for TestRuntime {}
+impl pallet_insecure_randomness_collective_flip::Config for TestRuntime {}
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -252,7 +255,7 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic, {
             System: frame_system,
-            RandomnessCollectiveFlip: pallet_randomness_collective_flip,
+            RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
             Balances: pallet_balances,
             DBCPriceOCW: dbc_price_ocw,
             Treasury: pallet_treasury,

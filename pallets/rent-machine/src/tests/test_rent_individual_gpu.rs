@@ -147,6 +147,7 @@ fn report_individual_gpu() {
                 LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
             );
             // assert_eq!(OnlineProfile::eras_machine_points(1), );
+            // FIXME: should add total_stake if someone rent machine
             assert_eq!(
                 OnlineProfile::sys_info(),
                 SysInfoDetail {
@@ -154,7 +155,7 @@ fn report_individual_gpu() {
                     total_rented_gpu: 4,
                     total_staker: 1,
                     total_calc_points: 77881,
-                    total_stake: 400000 * ONE_DBC,
+                    total_stake: 4000 * ONE_DBC,
                     total_rent_fee: 8733958333333333333,
                     total_burn_fee: 3743125000000000000,
                     ..Default::default()

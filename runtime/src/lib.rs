@@ -1627,26 +1627,28 @@ pub type Executive = frame_executive::Executive<
     Migrations,
 >;
 
-// All migrations executed on runtime upgrade as a nested tuple of types implementing
-// `OnRuntimeUpgrade`.
-type Migrations = (
-    pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
-    migrations::CustomOnRuntimeUpgrades,
-    // TODO: Add pallet_staking migrations
-    pallet_staking::migrations::MigrateStakingToV6<Runtime>,
-    pallet_staking::migrations::MigrateStakingToV7<Runtime>,
-    pallet_staking::migrations::MigrateStakingToV8<Runtime>,
-    pallet_staking::migrations::v9::InjectValidatorsIntoVoterList<Runtime>,
-    pallet_staking::migrations::v10::MigrateToV10<Runtime>,
-    pallet_staking::migrations::v11::MigrateToV11<
-        Runtime,
-        VoterList,
-        pallet_staking::migrations::StakingMigrationV11OldPallet,
-    >,
-    pallet_staking::migrations::v12::MigrateToV12<Runtime>,
-    pallet_staking::migrations::v13::MigrateToV13<Runtime>,
-    pallet_assets::migration::v1::MigrateToV1<Runtime>,
-);
+type Migrations = ();
+
+// // All migrations executed on runtime upgrade as a nested tuple of types implementing
+// // `OnRuntimeUpgrade`.
+// type Migrations = (
+//     pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
+//     migrations::CustomOnRuntimeUpgrades,
+//     // TODO: Add pallet_staking migrations
+//     pallet_staking::migrations::MigrateStakingToV6<Runtime>,
+//     pallet_staking::migrations::MigrateStakingToV7<Runtime>,
+//     pallet_staking::migrations::MigrateStakingToV8<Runtime>,
+//     pallet_staking::migrations::v9::InjectValidatorsIntoVoterList<Runtime>,
+//     pallet_staking::migrations::v10::MigrateToV10<Runtime>,
+//     pallet_staking::migrations::v11::MigrateToV11<
+//         Runtime,
+//         VoterList,
+//         pallet_staking::migrations::StakingMigrationV11OldPallet,
+//     >,
+//     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
+//     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
+//     pallet_assets::migration::v1::MigrateToV1<Runtime>,
+// );
 
 /// MMR helper types.
 mod mmr {

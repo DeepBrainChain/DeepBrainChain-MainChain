@@ -384,11 +384,16 @@ impl<T: Config> RTOps for Pallet<T> {
         Ok(())
     }
 
+    // NOTE: 银河竞赛开启前，租金付给stash账户；开启后租金转到销毁账户
+    // NOTE: 租金付给stash账户时，检查是否满足单卡10w/$300的质押条件，不满足，先质押.
     fn change_machine_rent_fee(
+        machine_stash: T::AccountId,
         machine_id: MachineId,
         fee_to_destroy: BalanceOf<T>,
         fee_to_stash: BalanceOf<T>,
     ) -> Result<(), ()> {
+        Self::fulfill_machine_stake(machine_stash, fee_to_stash).map_err(|_| ())?;
+
         let mut machine_info = Self::machines_info(&machine_id).ok_or(())?;
         let mut staker_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
