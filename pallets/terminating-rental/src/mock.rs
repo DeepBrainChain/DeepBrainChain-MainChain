@@ -83,7 +83,7 @@ parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
 }
 
-impl pallet_randomness_collective_flip::Config for TestRuntime {}
+impl pallet_insecure_randomness_collective_flip::Config for TestRuntime {}
 
 impl generic_func::Config for TestRuntime {
     type BlockPerEra = BlockPerEra;
@@ -186,7 +186,7 @@ frame_support::construct_runtime!(
         // Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         // OnlineCommittee: online_committee::{Module, Call, Storage, Event<T>},
         // OnlineProfile: online_profile::{Module, Call, Storage, Event<T>},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip,
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
         Balances: pallet_balances,
         Committee: committee,
         DBCPriceOCW: dbc_price_ocw,

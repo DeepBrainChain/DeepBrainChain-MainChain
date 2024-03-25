@@ -384,20 +384,20 @@ pub mod pallet {
             let _ = Self::exec_report_slash();
         }
 
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            frame_support::log::info!("🔍 TerminatingRental Storage Migration start");
-            migrations::migrate::<T>();
+        // fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        //     frame_support::log::info!("🔍 TerminatingRental Storage Migration start");
+        //     migrations::migrate::<T>();
 
-            let account: Vec<u8> = b"5Cyvgbv7yHKPjGr8fHPhHYinrMwV3jbNwZfCW3PfGqxWWbhF".to_vec();
-            let account_id32: [u8; 32] =
-                dbc_support::utils::get_accountid32(&account).unwrap_or_default();
-            if let Some(account) = T::AccountId::decode(&mut &account_id32[..]).ok() {
-                RentFeePot::<T>::put(account);
-            }
+        //     let account: Vec<u8> = b"5Cyvgbv7yHKPjGr8fHPhHYinrMwV3jbNwZfCW3PfGqxWWbhF".to_vec();
+        //     let account_id32: [u8; 32] =
+        //         dbc_support::utils::get_accountid32(&account).unwrap_or_default();
+        //     if let Some(account) = T::AccountId::decode(&mut &account_id32[..]).ok() {
+        //         RentFeePot::<T>::put(account);
+        //     }
 
-            frame_support::log::info!("🚀 TerminatingRental Storage Migration end");
-            Weight::zero()
-        }
+        //     frame_support::log::info!("🚀 TerminatingRental Storage Migration end");
+        //     Weight::zero()
+        // }
     }
 
     #[pallet::call]

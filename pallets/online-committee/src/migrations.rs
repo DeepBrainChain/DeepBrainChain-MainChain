@@ -1,4 +1,3 @@
-use crate::{BalanceOf, Config, PendingSlash};
 use codec::{Decode, Encode};
 use dbc_support::{
     verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
@@ -45,10 +44,10 @@ impl<A, B, C> From<OldOCPendingSlashInfo<A, B, C>> for OCPendingSlashInfo<A, B, 
     }
 }
 
-pub fn migrate<T: Config>() {
-    <PendingSlash<T>>::translate(
-        |_key, old: OldOCPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>| {
-            Some(old.into())
-        },
-    );
-}
+// pub fn migrate<T: Config>() {
+//     <PendingSlash<T>>::translate(
+//         |_key, old: OldOCPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>| {
+//             Some(old.into())
+//         },
+//     );
+// }
