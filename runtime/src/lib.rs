@@ -531,8 +531,8 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-    pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
-    pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+    pub const BondingDuration: sp_staking::EraIndex = 14;
+    pub const SlashDeferDuration: sp_staking::EraIndex = 14; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 256;
     pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -1630,21 +1630,21 @@ pub type Executive = frame_executive::Executive<
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
 // `OnRuntimeUpgrade`.
 type Migrations = (
-    pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
-    migrations::CustomOnRuntimeUpgrades,
-    // TODO: Add pallet_staking migrations
-    pallet_staking::migrations::MigrateStakingToV6<Runtime>,
-    pallet_staking::migrations::MigrateStakingToV7<Runtime>,
-    pallet_staking::migrations::MigrateStakingToV8<Runtime>,
-    pallet_staking::migrations::v9::InjectValidatorsIntoVoterList<Runtime>,
-    pallet_staking::migrations::v10::MigrateToV10<Runtime>,
-    pallet_staking::migrations::v11::MigrateToV11<
-        Runtime,
-        VoterList,
-        pallet_staking::migrations::StakingMigrationV11OldPallet,
-    >,
-    pallet_staking::migrations::v12::MigrateToV12<Runtime>,
-    pallet_staking::migrations::v13::MigrateToV13<Runtime>,
+    //     pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
+    //     migrations::CustomOnRuntimeUpgrades,
+    //     // TODO: Add pallet_staking migrations
+    //     pallet_staking::migrations::MigrateStakingToV6<Runtime>,
+    //     pallet_staking::migrations::MigrateStakingToV7<Runtime>,
+    //     pallet_staking::migrations::MigrateStakingToV8<Runtime>,
+    //     pallet_staking::migrations::v9::InjectValidatorsIntoVoterList<Runtime>,
+    //     pallet_staking::migrations::v10::MigrateToV10<Runtime>,
+    //     pallet_staking::migrations::v11::MigrateToV11<
+    //         Runtime,
+    //         VoterList,
+    //         pallet_staking::migrations::StakingMigrationV11OldPallet,
+    //     >,
+    //     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
+    //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
     pallet_assets::migration::v1::MigrateToV1<Runtime>,
 );
 
