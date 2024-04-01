@@ -64,6 +64,7 @@ pub trait RTOps {
         gpu_num: u32,
     ) -> Result<(), ()>;
     fn change_machine_rent_fee(
+        machine_stash: Self::AccountId,
         machine_id: Self::MachineId,
         fee_to_destroy: Self::Balance,
         fee_to_stash: Self::Balance,
