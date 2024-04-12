@@ -1110,11 +1110,12 @@ pub mod pallet {
 
             // 添加下线惩罚
             if slash_info.slash_amount != Zero::zero() {
-                // 任何情况重新上链都需要补交质押
-                Self::change_stake(&machine_info.machine_stash, slash_info.slash_amount, true)
-                    .map_err(|_| Error::<T>::BalanceNotEnough)?;
+                Self::change_stake(&machine_info.machine_stash, slash_info.slash_amount, true);
 
-                // NOTE: Only after pay slash amount succeed, then make machine online.
+                if !Self::can_slash_from_reserved(&machine_info.machine_stash, slash_info.slash_amount){
+                   return  Err(Error::<T>::ReservedBalanceNotEnough.into())
+                };
+
                 let slash_id = Self::get_new_slash_id();
                 PendingExecSlash::<T>::mutate(slash_info.slash_exec_time, |pending_exec_slash| {
                     ItemList::add_item(pending_exec_slash, slash_id);
@@ -1193,6 +1194,7 @@ pub mod pallet {
         ExpiredSlash,
         Unknown,
         ClaimThenFulfillFailed,
+        ReservedBalanceNotEnough,
     }
 }
 
@@ -1321,6 +1323,10 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    fn can_slash_from_reserved(machine_stash_account :&T::AccountId,slash_amount: BalanceOf<T>)->bool{
+        <T as Config>::Currency::reserved_balance(machine_stash_account) >= slash_amount
     }
 
     // 获取下一Era stash grade即为当前Era stash grade
