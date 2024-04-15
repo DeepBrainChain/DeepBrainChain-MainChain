@@ -14,6 +14,7 @@ use sp_runtime::{
     traits::{Saturating, Zero},
     Perbill, SaturatedConversion,
 };
+use sp_runtime::traits::CheckedMul;
 use sp_std::{vec, vec::Vec};
 use dbc_support::machine_info::MachineInfo;
 
@@ -224,8 +225,13 @@ impl<T: Config> Pallet<T> {
     pub fn try_to_change_machine_status_to_fulfill(slash_account:&T::AccountId,mut machine_info: MachineInfo<T::AccountId,T::BlockNumber,BalanceOf<T>>)->Result<(),()>{
         let staked_amount = Self::stash_stake(&slash_account);
         let online_stake_params = Self::online_stake_params().ok_or(())?;
-        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num;
-        if staked_amount < online_stake_params.online_stake_per_gpu * gpu_num.into() {
+
+        let stake_need = online_stake_params
+            .online_stake_per_gpu
+            .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
+            .ok_or(())?;
+
+        if staked_amount < stake_need {
             machine_info.machine_status = MachineStatus::WaitingFulfill;
         };
         Ok(())
