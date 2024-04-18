@@ -14,7 +14,7 @@ pub struct MachineRecentRewardInfo<AccountId, Balance> {
     pub machine_stash: AccountId,
     pub recent_machine_reward: VecDeque<Balance>,
     pub recent_reward_sum: Balance,
-
+    // the days which committee can get reward
     pub reward_committee_deadline: EraIndex,
     pub reward_committee: Vec<AccountId>,
 }

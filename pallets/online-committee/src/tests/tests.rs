@@ -57,8 +57,8 @@ fn machine_online_works() {
             controller,
             machine_stash: stash,
             bonding_height: 3,
-            stake_amount: 100000 * ONE_DBC,
-            init_stake_per_gpu: 100000 * ONE_DBC,
+            stake_amount: 1000 * ONE_DBC,
+            init_stake_per_gpu: 1000 * ONE_DBC,
             machine_status: MachineStatus::AddingCustomizeInfo,
             renters: vec![],
             last_machine_restake: 0,
@@ -90,11 +90,11 @@ fn machine_online_works() {
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_staker: 0,
-                total_stake: 100000 * ONE_DBC,
+                total_stake: 1000 * ONE_DBC,
                 ..Default::default()
             }
         );
-        assert_eq!(OnlineProfile::stash_stake(&stash), 100000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(&stash), 1000 * ONE_DBC);
         // 查询Controller支付30 DBC手续费: 绑定机器/添加机房信息各花费10DBC
         assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 30 * ONE_DBC);
 
@@ -326,7 +326,7 @@ fn machine_online_works() {
             last_machine_restake: 6,
             online_height: 6,
             last_online_height: 6,
-            stake_amount: 400000 * ONE_DBC,
+            stake_amount: 4000 * ONE_DBC,
             reward_deadline: 365 * 2 + 1,
             reward_committee: vec![committee2, committee3, committee1],
             machine_info_detail: MachineInfoDetail {
@@ -340,7 +340,7 @@ fn machine_online_works() {
             total_gpu_num: 4,
             total_staker: 1,
             total_calc_points: 59914, // 59890 + 59890 * 4/10000) = +24
-            total_stake: 400000 * ONE_DBC,
+            total_stake: 4000 * ONE_DBC,
             ..Default::default()
         };
 
@@ -485,7 +485,7 @@ fn machine_online_works() {
         // 领取奖励后，查询账户余额
         assert_eq!(
             Balances::free_balance(stash),
-            INIT_BALANCE - 400000 * ONE_DBC + 549945 * ONE_DBC
+            INIT_BALANCE - 4000 * ONE_DBC + 549945 * ONE_DBC
         );
 
         // 委员会领取奖励
@@ -517,13 +517,13 @@ fn machine_online_works() {
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
             assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
-            // 支付 4% * 400000 DBC
-            assert_eq!(OnlineProfile::stash_stake(&stash), (2000 + 400000 + 16000) * ONE_DBC);
+            // 支付 4% * 4000 DBC = 160DBC
+            assert_eq!(OnlineProfile::stash_stake(&stash), (2000 + 4000 + 160) * ONE_DBC);
             assert_eq!(
                 OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
                 online_profile::UserMutHardwareStakeInfo {
                     verify_fee: 2000 * ONE_DBC,
-                    offline_slash: 16000 * ONE_DBC,
+                    offline_slash: 160 * ONE_DBC,
                     offline_time: 2880 * 3 + 3,
                     need_fulfilling: false,
                 }
@@ -536,7 +536,7 @@ fn machine_online_works() {
             assert_eq!(
                 OnlineProfile::sys_info(),
                 online_profile::SysInfoDetail {
-                    total_stake: (400000 + 2000 + 16000) * ONE_DBC,
+                    total_stake: (4000 + 2000 + 160) * ONE_DBC,
                     ..Default::default()
                 }
             );
@@ -741,7 +741,7 @@ fn machine_online_works() {
         let machine_info = MachineInfo {
             last_machine_restake: 8644,
             last_online_height: 8644,
-            stake_amount: 800000 * ONE_DBC,
+            stake_amount: 8000 * ONE_DBC,
             machine_status: MachineStatus::Online,
             ..machine_info
         };
@@ -757,7 +757,7 @@ fn machine_online_works() {
                 total_gpu_num: 8,
                 total_staker: 1,
                 total_calc_points: 119876, // 119780 + 119780 * 8 /10000 = 119875.824
-                total_stake: 800000 * ONE_DBC,
+                total_stake: 8000 * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -765,7 +765,7 @@ fn machine_online_works() {
             OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
             UserMutHardwareStakeInfo { ..Default::default() }
         );
-        assert_eq!(OnlineProfile::stash_stake(&stash), 800000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(&stash), 8000 * ONE_DBC);
         // 检查分数
 
         let mut staker_statistic = BTreeMap::new();

@@ -221,7 +221,7 @@ fn report_individual_gpu() {
                     total_rented_gpu: 4,
                     total_staker: 1,
                     total_calc_points: 77881,
-                    total_stake: 400000 * ONE_DBC,
+                    total_stake: 4000 * ONE_DBC,
                     total_rent_fee: 17467916666666666666,
                     total_burn_fee: 7486250000000000000,
                     ..Default::default()
@@ -276,7 +276,7 @@ fn report_individual_gpu() {
                     total_rented_gpu: 4,
                     total_staker: 1,
                     total_calc_points: 77881,
-                    total_stake: 400000 * ONE_DBC,
+                    total_stake: 4000 * ONE_DBC,
                     total_rent_fee: 26201874999999999999,
                     total_burn_fee: 11229375000000000000,
                     ..Default::default()

@@ -61,7 +61,7 @@ fn rent_machine_should_works() {
         // Balance of stash account will increase
         assert_eq!(
             Balances::free_balance(*stash),
-            INIT_BALANCE - 400000 * ONE_DBC + 174679166666666666666
+            INIT_BALANCE - 4000 * ONE_DBC + 174679166666666666666
         );
         // Balance of renter will decrease, Dave is committee so - 20000
         assert_eq!(
@@ -91,7 +91,7 @@ fn rent_machine_should_works() {
         assert_eq!(stash_machines.total_rent_fee, 349358333333333333332);
         assert_eq!(
             Balances::free_balance(*stash),
-            INIT_BALANCE + 349358333333333333332 - 400000 * ONE_DBC
+            INIT_BALANCE + 349358333333333333332 - 4000 * ONE_DBC
         );
         assert_eq!(
             Balances::free_balance(*renter_dave),
@@ -134,7 +134,7 @@ fn controller_report_offline_when_online_should_work() {
                 slash_who: *stash,
                 machine_id: machine_id.clone(),
                 slash_time: 21,
-                slash_amount: 8000 * ONE_DBC,
+                slash_amount: 80 * ONE_DBC,
                 slash_exec_time: 21 + 2880 * 2,
                 reporter: None,
                 renters: vec![],
@@ -147,11 +147,11 @@ fn controller_report_offline_when_online_should_work() {
         assert_eq!(machine_info.machine_status, MachineStatus::Online);
 
         // check reserve balance
-        assert_eq!(Balances::reserved_balance(*stash), 408000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 4080 * ONE_DBC);
 
         run_to_block(22 + 2880 * 2);
         assert_eq!(OnlineProfile::pending_slash(0), None);
-        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
     })
 }
 
@@ -231,7 +231,7 @@ fn controller_report_offline_when_rented_should_work() {
                 slash_who: *stash,
                 machine_id: machine_id.clone(),
                 slash_time: 21,
-                slash_amount: 8000 * ONE_DBC,
+                slash_amount: 80 * ONE_DBC,
                 slash_exec_time: 21 + 2880 * 2,
                 reporter: None,
                 renters: vec![*renter_dave],
@@ -243,11 +243,11 @@ fn controller_report_offline_when_rented_should_work() {
         let machine_info = OnlineProfile::machines_info(&*machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Rented);
 
-        assert_eq!(Balances::reserved_balance(*stash), 408000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), (4000+80) * ONE_DBC);
 
         run_to_block(22 + 2880 * 2);
         assert_eq!(OnlineProfile::pending_slash(0), None);
-        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
     })
 }
 
@@ -288,7 +288,7 @@ fn rented_report_offline_rented_end_report_online() {
                 slash_who: *stash,
                 machine_id: machine_id.clone(),
                 slash_time: 3001,
-                slash_amount: 16000 * ONE_DBC,
+                slash_amount: 160 * ONE_DBC,
                 slash_exec_time: 3001 + 2880 * 2,
                 reporter: None,
                 renters: vec![],

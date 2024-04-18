@@ -968,7 +968,7 @@ pub mod pallet {
                 Error::<T>::TooFastToReStake
             );
 
-            let stake_per_gpu = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
+            let stake_per_gpu = Self::stake_per_gpu_v2().ok_or(Error::<T>::CalcStakeAmountFailed)?;
             let stake_need = stake_per_gpu
                 .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
@@ -1545,9 +1545,8 @@ impl<T: Config> Pallet<T> {
                 None => continue,
             };
 
-            let online_stake_params = Self::online_stake_params().ok_or(())?;
-            let stake_need = online_stake_params
-                .online_stake_per_gpu
+            let stake_amount_per_gpu = Self::stake_per_gpu_v2().ok_or(())?;
+            let stake_need = stake_amount_per_gpu
                 .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
                 .ok_or(())?;
 

@@ -767,7 +767,7 @@ fn test_machine_online_failed_slash_execed() {
             Some(crate::OCPendingSlashInfo {
                 machine_id: machine_id.clone(),
                 machine_stash: Some(*stash),
-                stash_slash_amount: 5000 * ONE_DBC, // 10,0000 * 5 / 100
+                stash_slash_amount: 50 * ONE_DBC, // 10,0000 * 5 / 100
 
                 inconsistent_committee: vec![*committee4],
                 unruly_committee: vec![],
@@ -823,8 +823,8 @@ fn test_machine_online_failed_slash_execed() {
         assert_eq!(Balances::reserved_balance(&*committee1), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*committee3), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*committee4), 20000 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&*stash), 5000 * ONE_DBC);
-        assert_eq!(Balances::free_balance(&*stash), (10000000 - 5000) * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*stash), 50 * ONE_DBC);
+        assert_eq!(Balances::free_balance(&*stash), (10000000 - 50) * ONE_DBC);
 
         // 测试执行惩罚
         run_to_block(12 + 2880 * 2);
@@ -863,7 +863,7 @@ fn test_machine_online_failed_slash_execed() {
         assert_eq!(Balances::reserved_balance(&*committee3), 20000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*committee4), 19000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 0);
-        assert_eq!(Balances::free_balance(&*stash), (10000000 - 5000) * ONE_DBC);
+        assert_eq!(Balances::free_balance(&*stash), (10000000 - 50) * ONE_DBC);
 
         assert!(OnlineCommittee::unhandled_slash().binary_search(&0).is_err());
     })

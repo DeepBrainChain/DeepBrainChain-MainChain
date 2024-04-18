@@ -43,7 +43,7 @@ fn test_staker_report_offline() {
                 slash_who: *stash,
                 machine_id,
                 slash_time: 21,
-                slash_amount: 8000 * ONE_DBC,
+                slash_amount: 80 * ONE_DBC,
                 slash_exec_time: 21 + 2880 * 2,
                 reporter: None,
                 renters: vec![],
@@ -52,15 +52,16 @@ fn test_staker_report_offline() {
             })
         );
 
-        assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000) * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), (400000 + 8000) * ONE_DBC);
+        // 4000*2%=80
+        assert_eq!(Balances::reserved_balance(*stash), (4000 + 80) * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), (4000 + 80) * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_gpu_num: 4,
                 total_calc_points: 59914,
                 total_staker: 1,
-                total_stake: (400000 + 8000) * ONE_DBC,
+                total_stake: (4000 + 80) * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -68,15 +69,16 @@ fn test_staker_report_offline() {
         // 两天之后，惩罚被执行
         run_to_block(21 + 2880 * 2);
 
-        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
+        // 罚金4000*2%已经进入国库
+        assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 4000 * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_gpu_num: 4,
                 total_calc_points: 59914,
                 total_staker: 1,
-                total_stake: 400000 * ONE_DBC,
+                total_stake: 4000 * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -108,7 +110,7 @@ fn test_staker_report_offline2() {
                 slash_who: *stash,
                 machine_id,
                 slash_time: 51,
-                slash_amount: 8000 * 2 * ONE_DBC,
+                slash_amount: 80 * 2 * ONE_DBC,
                 slash_exec_time: 51 + 2880 * 2,
                 reporter: None,
                 renters: vec![],
@@ -117,15 +119,15 @@ fn test_staker_report_offline2() {
             })
         );
 
-        assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000 * 2) * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), (400000 + 8000 * 2) * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), (4000 + 80 * 2) * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), (4000 + 80 * 2) * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_gpu_num: 4,
                 total_calc_points: 59914,
                 total_staker: 1,
-                total_stake: (400000 + 8000 * 2) * ONE_DBC,
+                total_stake: (4000 + 80 * 2) * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -133,15 +135,15 @@ fn test_staker_report_offline2() {
         // 两天之后，惩罚被执行
         run_to_block(51 + 2880 * 2);
 
-        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 4000 * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_gpu_num: 4,
                 total_calc_points: 59914,
                 total_staker: 1,
-                total_stake: 400000 * ONE_DBC,
+                total_stake: 4000 * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -173,7 +175,7 @@ fn test_staker_report_offline3() {
                 slash_who: *stash,
                 machine_id,
                 slash_time: 51 + 2880 * 2,
-                slash_amount: 8000 * 15 * ONE_DBC,
+                slash_amount: 80 * 15 * ONE_DBC,
                 slash_exec_time: 51 + 2880 * 2 + 2880 * 2,
                 reporter: None,
                 renters: vec![],
@@ -182,15 +184,15 @@ fn test_staker_report_offline3() {
             })
         );
 
-        assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000 * 15) * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), (400000 + 8000 * 15) * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), (4000 + 80 * 15) * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), (4000 + 80 * 15) * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_gpu_num: 4,
                 total_calc_points: 59914,
                 total_staker: 1,
-                total_stake: (400000 + 8000 * 15) * ONE_DBC,
+                total_stake: (4000 + 80 * 15) * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -198,15 +200,15 @@ fn test_staker_report_offline3() {
         // 两天之后，惩罚被执行
         run_to_block(51 + 2880 * 2 + 2880 * 2);
 
-        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 4000 * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_gpu_num: 4,
                 total_calc_points: 59914,
                 total_staker: 1,
-                total_stake: 400000 * ONE_DBC,
+                total_stake: 4000 * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -247,7 +249,7 @@ fn test_staker_report_offline4() {
                 slash_who: *stash,
                 machine_id,
                 slash_time: 51 + 2880 * 10,
-                slash_amount: 8000 * 40 * ONE_DBC,
+                slash_amount: 80 * 40 * ONE_DBC,
                 slash_exec_time: 51 + 2880 * 10 + 2880 * 2,
                 reporter: None,
                 renters: vec![],
@@ -259,15 +261,15 @@ fn test_staker_report_offline4() {
         // 不存在其他的slash：
         assert_eq!(OnlineProfile::pending_slash(1), None);
 
-        assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000 * 40) * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), (400000 + 8000 * 40) * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), (4000 + 80 * 40) * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), (4000 + 80 * 40) * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_gpu_num: 4,
                 total_calc_points: 59914,
                 total_staker: 1,
-                total_stake: (400000 + 8000 * 40) * ONE_DBC,
+                total_stake: (4000 + 80 * 40) * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -275,15 +277,15 @@ fn test_staker_report_offline4() {
         // 两天之后，惩罚被执行
         run_to_block(51 + 2880 * 10 + 2880 * 2);
 
-        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 4000 * ONE_DBC);
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_gpu_num: 4,
                 total_calc_points: 59914,
                 total_staker: 1,
-                total_stake: 400000 * ONE_DBC,
+                total_stake: 4000 * ONE_DBC,
                 ..Default::default()
             }
         );
