@@ -354,7 +354,6 @@ fn machine_online_works() {
             }
         );
         assert_eq!(&OnlineProfile::sys_info(), &sys_info);
-
         let mut staker_statistic = BTreeMap::new();
         staker_statistic.insert(
             stash,
@@ -472,20 +471,21 @@ fn machine_online_works() {
 
         stash_machine_info.total_earned_reward = 2178000 * ONE_DBC; // 1100000 * 0.99 * 2
         assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
-
         // 矿工领取奖励
         // - Writes:
         // StashMachines, User Balances
+        // 领取奖励前质押4000 领取奖励后部分奖励进入质押 质押金额为40w
         assert_ok!(OnlineProfile::claim_rewards(RuntimeOrigin::signed(controller)));
         // 领取奖励后，查询剩余奖励
         stash_machine_info.total_claimed_reward = stash_machine_info.can_claim_reward;
         stash_machine_info.can_claim_reward = 0;
+        machine_info.stake_amount = 400000*ONE_DBC;
         assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
 
         // 领取奖励后，查询账户余额
         assert_eq!(
             Balances::free_balance(stash),
-            INIT_BALANCE - 4000 * ONE_DBC + 549945 * ONE_DBC
+            INIT_BALANCE - 400000 * ONE_DBC + 549945 * ONE_DBC
         );
 
         // 委员会领取奖励
@@ -498,7 +498,6 @@ fn machine_online_works() {
         let current_committee1_balance =
             INIT_BALANCE - 20000 * ONE_DBC + committee_stake_info.claimed_reward;
         assert_eq!(Balances::free_balance(committee1), current_committee1_balance);
-
         // NOTE: 测试 控制账户重新上线机器
         assert_ok!(OnlineProfile::offline_machine_change_hardware_info(
             RuntimeOrigin::signed(controller),
@@ -517,13 +516,13 @@ fn machine_online_works() {
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
             assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
-            // 支付 4% * 4000 DBC = 160DBC
-            assert_eq!(OnlineProfile::stash_stake(&stash), (2000 + 4000 + 160) * ONE_DBC);
+            // 支付 4% * 400000 DBC = 16000DBC
+            assert_eq!(OnlineProfile::stash_stake(&stash), (2000 + 400000 + 16000) * ONE_DBC);
             assert_eq!(
                 OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
                 online_profile::UserMutHardwareStakeInfo {
                     verify_fee: 2000 * ONE_DBC,
-                    offline_slash: 160 * ONE_DBC,
+                    offline_slash: 16000 * ONE_DBC,
                     offline_time: 2880 * 3 + 3,
                     need_fulfilling: false,
                 }
@@ -536,7 +535,7 @@ fn machine_online_works() {
             assert_eq!(
                 OnlineProfile::sys_info(),
                 online_profile::SysInfoDetail {
-                    total_stake: (4000 + 2000 + 160) * ONE_DBC,
+                    total_stake: (400000 + 2000 + 16000) * ONE_DBC,
                     ..Default::default()
                 }
             );
@@ -581,7 +580,6 @@ fn machine_online_works() {
         // Do distribute_machines:
         // - Writes: op::MachinesInfo, op::LiveMachines, committee::CommitteeStake,
         // lc::MachineCommittee, lc::CommitteeMachine, lc::CommitteeOps
-
         // 查询机器中有订阅的委员会
         let committee_stake_info = committee::CommitteeStakeInfo {
             box_pubkey: one_box_pubkey,
@@ -594,9 +592,9 @@ fn machine_online_works() {
             OnlineProfile::live_machines(),
             LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
+        let x =  OnlineProfile::machines_info(&machine_id);
         machine_info.machine_status = MachineStatus::CommitteeVerifying;
         assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
-
         assert_eq!(
             OnlineCommittee::machine_committee(machine_id.clone()),
             OCMachineCommitteeList {
@@ -751,13 +749,14 @@ fn machine_online_works() {
             OnlineProfile::live_machines(),
             LiveMachine { online_machine: vec!(machine_id.clone()), ..Default::default() }
         );
+        // 之前质押40w 重新上线需要质押8000 不需要补充质押 所有total_stake=40w
         assert_eq!(
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_gpu_num: 8,
                 total_staker: 1,
                 total_calc_points: 119876, // 119780 + 119780 * 8 /10000 = 119875.824
-                total_stake: 8000 * ONE_DBC,
+                total_stake: 400000 * ONE_DBC,
                 ..Default::default()
             }
         );
@@ -765,7 +764,7 @@ fn machine_online_works() {
             OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
             UserMutHardwareStakeInfo { ..Default::default() }
         );
-        assert_eq!(OnlineProfile::stash_stake(&stash), 8000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(&stash),400000 * ONE_DBC);
         // 检查分数
 
         let mut staker_statistic = BTreeMap::new();

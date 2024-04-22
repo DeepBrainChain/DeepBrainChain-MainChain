@@ -78,7 +78,7 @@ fn apply_slash_review_case1() {
         // 10万为质押，20000为委员会
         assert_eq!(
             Balances::free_balance(machine_stash),
-            INIT_BALANCE + rent_fee - 4000 * ONE_DBC - 20000 * ONE_DBC
+            INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC
         );
 
         assert_eq!(
@@ -105,7 +105,7 @@ fn apply_slash_review_case1() {
                     slash_who: machine_stash.clone(),
                     machine_id: machine_id.clone(),
                     slash_time: 24,
-                    slash_amount: 160 * ONE_DBC, // 掉线13个块，惩罚4%: 400000 * 4% = 16000
+                    slash_amount: 16000 * ONE_DBC, // 掉线13个块，惩罚4%: 4000000 * 4% = 16000
                     slash_exec_time: 24 + 2880 * 2,
                     reporter: None, // 这种不奖励验证人
                     renters: vec![reporter],
@@ -129,7 +129,7 @@ fn apply_slash_review_case1() {
             );
             assert_eq!(
                 Balances::free_balance(machine_stash),
-                INIT_BALANCE + rent_fee - (4000 + 20000 + 160 + 1000) * ONE_DBC
+                INIT_BALANCE + rent_fee - (400000 + 20000 + 16000 + 1000) * ONE_DBC
             );
         }
 
@@ -139,7 +139,7 @@ fn apply_slash_review_case1() {
             assert_eq!(OnlineProfile::pending_slash_review(0), None);
             assert_eq!(
                 Balances::free_balance(machine_stash),
-                INIT_BALANCE + rent_fee - 4000 * ONE_DBC - 20000 * ONE_DBC
+                INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC
             );
         }
     })
@@ -175,12 +175,12 @@ fn apply_slash_review_case1_1() {
         assert_eq!(
             Balances::free_balance(machine_stash),
             INIT_BALANCE + rent_fee -
-                4000 * ONE_DBC -
+                400000 * ONE_DBC -
                 20000 * ONE_DBC -
                 1000 * ONE_DBC -
-                160 * ONE_DBC
+                16000 * ONE_DBC
         );
-        assert_eq!(OnlineProfile::stash_stake(&machine_stash), 4000 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&machine_stash), 4000 * ONE_DBC + 20000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(&machine_stash), 400000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&machine_stash), 400000 * ONE_DBC + 20000 * ONE_DBC);
     })
 }

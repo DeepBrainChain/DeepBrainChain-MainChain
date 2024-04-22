@@ -1,9 +1,8 @@
 use crate::{
-    BalanceOf, Config, Error, Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview,
+    BalanceOf, Config,  Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview,
     PendingSlashReviewChecking, StashStake, SysInfo,
 };
 use dbc_support::{
-    machine_info,
     machine_type::MachineStatus,
     traits::GNOps,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
@@ -177,7 +176,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_slash_deposit(
         slash_info: &OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> Result<(), ()> {
-        let mut machine_info = Self::machines_info(&slash_info.machine_id).ok_or(())?;
+        let machine_info = Self::machines_info(&slash_info.machine_id).ok_or(())?;
         if <T as Config>::Currency::reserved_balance(&machine_info.machine_stash) <
             slash_info.slash_amount
         {

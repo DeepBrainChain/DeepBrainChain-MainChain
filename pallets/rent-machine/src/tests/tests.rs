@@ -6,9 +6,10 @@ use dbc_support::{
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
     ONE_DAY,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok,traits::ReservableCurrency};
 use once_cell::sync::Lazy;
 use sp_runtime::Perbill;
+use online_profile::{ MachinesInfo};
 
 const renter_dave: Lazy<sp_core::sr25519::Public> =
     Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Dave));
@@ -58,11 +59,17 @@ fn rent_machine_should_works() {
         // DBC price: {1000 points/ 5_000_000 usd }; 6825 points; 10 eras; DBC price: 12_000 usd
         // So, rent fee: 59890 / 1000 * 5000000 / 12000 * 10 =  249541.6666666667 DBC
         assert_eq!(stash_machines.total_rent_fee, 174679166666666666666);
-        // Balance of stash account will increase
+        // 初始质押每张cpu 质押了1000dbc 总共质押4000dbc 不满足10w/300$ -》租金进入质押
         assert_eq!(
             Balances::free_balance(*stash),
-            INIT_BALANCE - 4000 * ONE_DBC + 174679166666666666666
+            INIT_BALANCE - 4000 * ONE_DBC
         );
+
+        assert_eq!(
+            Balances::reserved_balance(*stash),
+            4000* ONE_DBC+174679166666666666666
+        );
+
         // Balance of renter will decrease, Dave is committee so - 20000
         assert_eq!(
             Balances::free_balance(*renter_dave),
@@ -91,8 +98,14 @@ fn rent_machine_should_works() {
         assert_eq!(stash_machines.total_rent_fee, 349358333333333333332);
         assert_eq!(
             Balances::free_balance(*stash),
-            INIT_BALANCE + 349358333333333333332 - 4000 * ONE_DBC
+            INIT_BALANCE - 4000 * ONE_DBC
         );
+
+        assert_eq!(
+            Balances::reserved_balance(*stash),
+            4000*ONE_DBC+ 349358333333333333332,
+        );
+
         assert_eq!(
             Balances::free_balance(*renter_dave),
             2 * INIT_BALANCE - 249541666666666666666 * 2 - 10 * ONE_DBC - 20000 * ONE_DBC
@@ -204,6 +217,13 @@ fn rent_machine_confirm_expired_should_work() {
 #[test]
 fn controller_report_offline_when_rented_should_work() {
     new_test_ext_after_machine_online().execute_with(|| {
+
+        // 补充质押
+        let mut machine_info = OnlineProfile::machines_info(machine_id.clone()).unwrap();
+        Balances::reserve(&stash,396000*ONE_DBC);
+        machine_info.stake_amount +=396000*ONE_DBC;
+        MachinesInfo::<TestRuntime>::insert(machine_id.clone(),&machine_info);
+
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
         assert_ok!(RentMachine::rent_machine(
@@ -231,7 +251,7 @@ fn controller_report_offline_when_rented_should_work() {
                 slash_who: *stash,
                 machine_id: machine_id.clone(),
                 slash_time: 21,
-                slash_amount: 80 * ONE_DBC,
+                slash_amount: 8000 * ONE_DBC,
                 slash_exec_time: 21 + 2880 * 2,
                 reporter: None,
                 renters: vec![*renter_dave],
@@ -243,11 +263,11 @@ fn controller_report_offline_when_rented_should_work() {
         let machine_info = OnlineProfile::machines_info(&*machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Rented);
 
-        assert_eq!(Balances::reserved_balance(*stash), (4000+80) * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), (400000+8000) * ONE_DBC);
 
         run_to_block(22 + 2880 * 2);
         assert_eq!(OnlineProfile::pending_slash(0), None);
-        assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
     })
 }
 
@@ -257,6 +277,12 @@ fn controller_report_offline_when_rented_should_work() {
 fn rented_report_offline_rented_end_report_online() {
     new_test_ext_after_machine_online().execute_with(|| {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
+
+        // 补充质押 让租金进入算工的余额而不是质押
+        let mut machine_info = OnlineProfile::machines_info(machine_id.clone()).unwrap();
+        Balances::reserve(&stash,396000*ONE_DBC);
+        machine_info.stake_amount +=396000*ONE_DBC;
+        MachinesInfo::<TestRuntime>::insert(machine_id.clone(),&machine_info);
 
         assert_ok!(RentMachine::rent_machine(
             RuntimeOrigin::signed(*renter_dave),
@@ -288,7 +314,7 @@ fn rented_report_offline_rented_end_report_online() {
                 slash_who: *stash,
                 machine_id: machine_id.clone(),
                 slash_time: 3001,
-                slash_amount: 160 * ONE_DBC,
+                slash_amount: 16000 * ONE_DBC,
                 slash_exec_time: 3001 + 2880 * 2,
                 reporter: None,
                 renters: vec![],

@@ -3,19 +3,29 @@ use crate::{ConfirmingOrder, MachineGPUOrder, RentInfo, RentOrderDetail, RentOrd
 use dbc_support::{
     live_machine::LiveMachine, machine_type::MachineStatus, verify_online::StashMachine,
 };
-use frame_support::assert_ok;
-use online_profile::{EraStashPoints, SysInfoDetail};
+use frame_support::{assert_ok,traits::ReservableCurrency};
+use online_profile::{EraStashPoints, MachinesInfo, SysInfoDetail};
 
 #[test]
 fn report_individual_gpu() {
     // 一个机器被两个人进行租用，其中一个进行举报，举报成功，将另一个进行下架。
     new_test_ext_after_machine_online().execute_with(|| {
+
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+
         let renter1 = sr25519::Public::from(Sr25519Keyring::Alice);
         let renter2 = sr25519::Public::from(Sr25519Keyring::Bob);
 
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
+
+        // 补充质押 让租金进入算工的余额而不是质押
+        let mut machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
+        Balances::reserve(&stash,396000*ONE_DBC);
+        machine_info.stake_amount +=396000*ONE_DBC;
+        MachinesInfo::<TestRuntime>::insert(&machine_id,&machine_info);
+
 
         // 两人各租用1台机器
         assert_ok!(RentMachine::rent_machine(
@@ -137,7 +147,6 @@ fn report_individual_gpu() {
             // MachinesInfo(total_rent_times, machine_status); LiveMachines, PosGPUInfo,
             // EraStashPoints, ErasMachinePoints, SysInfo, StashMachines
 
-            let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
             assert_eq!(
                 OnlineProfile::eras_stash_points(1),
                 EraStashPoints { ..Default::default() }

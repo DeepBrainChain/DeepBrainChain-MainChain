@@ -10,7 +10,6 @@ mod tests;
 use dbc_support::traits::DbcPrice;
 use frame_support::{
     pallet_prelude::*,
-    sp_runtime::traits::Zero,
     traits::{Currency, ExistenceRequirement::KeepAlive},
 };
 use frame_system::pallet_prelude::*;
