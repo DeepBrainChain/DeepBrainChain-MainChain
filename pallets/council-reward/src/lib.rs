@@ -55,16 +55,16 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_finalize(n: T::BlockNumber) {
-            let reward_frequency = <T as pallet::Config>::RewardFrequency::get();
-            // NOTE: 议会当选后顺延15天(43200 blocks)发放奖励
-            if !reward_frequency.is_zero() && n % reward_frequency == 43200u32.into() {
-                let prime = pallet_collective::Pallet::<T, Instance1>::prime();
-                let mut members = pallet_elections_phragmen::Pallet::<T>::members();
-
-                Self::reward_council(prime, &mut members);
-            }
-        }
+        // fn on_finalize(n: T::BlockNumber) {
+        //     let reward_frequency = <T as pallet::Config>::RewardFrequency::get();
+        //     // NOTE: 议会当选后顺延15天(43200 blocks)发放奖励
+        //     if !reward_frequency.is_zero() && n % reward_frequency == 43200u32.into() {
+        //         let prime = pallet_collective::Pallet::<T, Instance1>::prime();
+        //         let mut members = pallet_elections_phragmen::Pallet::<T>::members();
+        //
+        //         Self::reward_council(prime, &mut members);
+        //     }
+        // }
     }
 
     #[pallet::storage]
