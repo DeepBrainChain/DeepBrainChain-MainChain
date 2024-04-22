@@ -225,7 +225,7 @@ impl<T: Config> Pallet<T> {
     pub fn try_to_change_machine_status_to_fulfill(slash_account:&T::AccountId,mut machine_info: MachineInfo<T::AccountId,T::BlockNumber,BalanceOf<T>>)->Result<(),()>{
         let staked_amount = Self::stash_stake(&slash_account);
 
-        let stake_amount_per_gpu = Self::stake_per_gpu_v2().ok_or(())?;
+        let stake_amount_per_gpu = Self::stake_per_gpu().ok_or(())?;
         let stake_need = stake_amount_per_gpu
             .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
             .ok_or(())?;

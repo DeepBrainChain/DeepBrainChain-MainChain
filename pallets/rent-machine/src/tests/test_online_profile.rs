@@ -412,20 +412,20 @@ fn restake_online_machine_works() {
         // skip more than 365 days
         System::set_block_number((60*60*24*365/30)+100);
 
-        // stake_amount == need_stake
+        // stake_amount(4000dbc) == need_stake(40Wdbc)
         assert_err!(
             OnlineProfile::restake_online_machine(RuntimeOrigin::signed(controller),machine_id2.clone()),
             OnlineProfileErr::<TestRuntime>::NoStakeToReduce);
         // 额外质押1000DBC模拟stake_amount > need_stake的情况
-        assert_ok!(Balances::reserve(&stash,1000*ONE_DBC));
-        machine_info.stake_amount+=1000*ONE_DBC;
+        assert_ok!(Balances::reserve(&stash,400000*ONE_DBC));
+        machine_info.stake_amount+=400000*ONE_DBC;
         MachinesInfo::<TestRuntime>::insert(&machine_id2,machine_info);
         assert_eq!(System::account(stash), AccountInfo{
             nonce: 0,
             providers: 1,
             data: AccountData {
-                free: 9_991_000 * ONE_DBC,
-                reserved: 9_000 * ONE_DBC,
+                free: 9_992_000 * ONE_DBC - 400000*ONE_DBC,
+                reserved: 8_000 * ONE_DBC + 400000*ONE_DBC,
                 misc_frozen: 0,
                 fee_frozen: 0,
             },
@@ -438,8 +438,8 @@ fn restake_online_machine_works() {
             nonce: 0,
             providers: 1,
             data: AccountData {
-                free: 9_992_000 * ONE_DBC,
-                reserved: 8_000 * ONE_DBC,
+                free: 9_992_000 * ONE_DBC - 400000*ONE_DBC +4000*ONE_DBC,
+                reserved: 8_000 * ONE_DBC + 400000*ONE_DBC-4000*ONE_DBC,
                 misc_frozen: 0,
                 fee_frozen: 0,
             },

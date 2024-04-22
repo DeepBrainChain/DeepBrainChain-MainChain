@@ -967,8 +967,7 @@ pub mod pallet {
                 now.saturating_sub(machine_info.last_machine_restake) >= REBOND_FREQUENCY.into(),
                 Error::<T>::TooFastToReStake
             );
-
-            let stake_per_gpu = Self::stake_per_gpu_v2().ok_or(Error::<T>::CalcStakeAmountFailed)?;
+            let stake_per_gpu = Self::stake_per_gpu().ok_or(Error::<T>::CalcStakeAmountFailed)?;
             let stake_need = stake_per_gpu
                 .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
@@ -1545,7 +1544,7 @@ impl<T: Config> Pallet<T> {
                 None => continue,
             };
 
-            let stake_amount_per_gpu = Self::stake_per_gpu_v2().ok_or(())?;
+            let stake_amount_per_gpu = Self::stake_per_gpu().ok_or(())?;
             let stake_need = stake_amount_per_gpu
                 .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
                 .ok_or(())?;
