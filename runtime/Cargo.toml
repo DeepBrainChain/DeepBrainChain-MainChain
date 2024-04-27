@@ -136,6 +136,15 @@ terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/run
 
 pallet-scheduler = { path = "../pallets/scheduler", default-features = false }
 
+pallet-contracts = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
+pallet-contracts-primitives = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39"}
+# Chain extension
+#pallet-assets-chain-extension = { git = "https://github.com/727-Ventures/pallet-assets-chain-extension", default-features = false, features = ["substrate"], branch = "polkadot-v0.9.37"  }
+
+#pallet-contracts-rpc-runtime-api = { version = "3.0.0" }
+#pallet-contracts-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+
+
 [features]
 default = ["std"]
 with-tracing = ["frame-executive/with-tracing"]
@@ -242,6 +251,9 @@ std = [
   "rent-machine-runtime-api/std",
   "simple-rpc-runtime-api/std",
   "terminating-rental-runtime-api/std",
+
+  'pallet-contracts/std',
+  'pallet-contracts-primitives/std'
 ]
 runtime-benchmarks = [
   "frame-benchmarking/runtime-benchmarks",
