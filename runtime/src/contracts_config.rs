@@ -11,23 +11,19 @@ use frame_support::{
 };
 
 // Unit = the base number of indivisible units for balances
-const UNIT: Balance = 1_000_000_000_000;
-const MILLIUNIT: Balance = 1_000_000_000;
+pub const DBC: Balance = 1_000_000_000_000_000;
 
 const fn deposit(items: u32, bytes: u32) -> Balance {
-    (items as Balance * UNIT + (bytes as Balance) * (5 * MILLIUNIT / 100)) / 10
+    (items as Balance + bytes as Balance) * DBC / 1_000_000
+
 }
 
 parameter_types! {
 	pub const DepositPerItem: Balance = deposit(1, 0);
 	pub const DepositPerByte: Balance = deposit(0, 1);
 	pub const DeletionQueueDepth: u32 = 128;
-	// The lazy deletion runs inside on_initialize.
-	pub DeletionWeightLimit: Weight = RuntimeBlockWeights::get()
-		.per_class
-		.get(DispatchClass::Normal)
-		.max_total
-		.unwrap_or(RuntimeBlockWeights::get().max_block);
+	pub DeletionWeightLimit: Weight =
+        RuntimeBlockWeights::get().max_block;
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 }
 
@@ -62,7 +58,7 @@ impl pallet_contracts::Config for Runtime {
     // if a too-large contract is uploaded. We noticed that it poses
     // less friction during development when the requirement here is
     // just more lax.
-    type MaxCodeLen = ConstU32<{ 256 * 1024 }>;
+    type MaxCodeLen = ConstU32<{ 128 * 1024 }>;
     type MaxStorageKeyLen = ConstU32<128>;
     type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
     type UnsafeUnstableInterface = ConstBool<true>;
