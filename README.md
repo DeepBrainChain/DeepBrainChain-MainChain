@@ -1,5 +1,5 @@
 # How to join DBC network
-If you want to read the Chines version, click [here](README_CN.md)
+If you want to read the Chinese version, click [here](README_CN.md)
 
 If you have some DBC and want to get more, you can choose to **become a `validator`**, which requires 7\*24 hours to run a node. If you don't want to run a node, but still want to get profit, you can choose to be a **nominator by nominate `validators`**.
 
