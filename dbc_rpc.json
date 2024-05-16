@@ -1,0 +1,321 @@
+{
+  "committee": {
+    "getCommitteeList": {
+      "description": "Get committee list",
+      "params": [],
+      "type": "CommitteeList<AccountId>"
+    }
+  },
+  "onlineProfile": {
+    "getOpInfo": {
+      "description": "Get system info of onlineProfile pallet",
+      "params": [
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "SysInfo<Balance>"
+    },
+    "getStakerNum": {
+      "description": "Get how many stash account",
+      "params": [
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "u64"
+    },
+    "getStakerListInfo": {
+      "description": "Get current stash account info",
+      "params": [
+        {
+          "name": "cur_page",
+          "type": "u64"
+        },
+        {
+          "name": "per_page",
+          "type": "u64"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Vec<StakerListInfo<Balance, AccountId>>"
+    },
+    "getMachineInfo": {
+      "description": "Get MachineInfo",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "MachineInfo<AccountId, BlockNumber, Balance>"
+    },
+    "getMachineList": {
+      "description": "Get all machine in online profile pallet",
+      "params": [
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "LiveMachine"
+    },
+    "getStakerIdentity": {
+      "description": "Get identity of one account",
+      "params": [
+        {
+          "name": "account",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Vec<u8>"
+    },
+    "getStakerInfo": {
+      "description": "Get info of stash account",
+      "params": [
+        {
+          "name": "account",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "StakerInfo<Balance>"
+    },
+    "getMachineEraReleasedReward": {
+      "description": "Get machine released reward of one Era",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "era_index",
+          "type": "EraIndex"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Balance"
+    },
+    "getMachineEraReward": {
+      "description": "Get machine reward of one Era",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "era_index",
+          "type": "EraIndex"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Balance"
+    },
+    "getPosGpuInfo": {
+      "description": "Get machine reward of one Era",
+      "params": [],
+      "type": "Vec<(Longitude, Latitude, PosInfo)>"
+    },
+    "getStashEraReleasedReward": {
+      "description": "Get stash account released reward of one Era",
+      "params": [
+        {
+          "name": "stash",
+          "type": "AccountId"
+        },
+        {
+          "name": "era_index",
+          "type": "EraIndex"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Balance"
+    },
+    "getStashEraReward": {
+      "description": "Get stash account reward of one Era",
+      "params": [
+        {
+          "name": "stash",
+          "type": "AccountId"
+        },
+        {
+          "name": "era_index",
+          "type": "EraIndex"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Balance"
+    }
+  },
+  "onlineCommittee": {
+    "getCommitteeMachineList": {
+      "description": "Get machine list of one committee",
+      "params": [
+        {
+          "name": "committee",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "OCMachineCommitteeList"
+    },
+    "getCommitteeOps": {
+      "description": "Get ops committee can do",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "RpcOCCommitteeOps<BlockNumber, Balance>"
+    },
+    "getMachineCommitteeList": {
+      "description": "Get machine info when is onlining",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "OCMachineCommitteeList<AccountId, BlockNumber>"
+    }
+  },
+  "rentMachine": {
+    "getRentList": {
+      "description": "Get rented machine of renter",
+      "params": [
+        {
+          "name": "renter",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Vec<MachineId>"
+    },
+    "getRentOrder": {
+      "description": "Get rent order detail",
+      "params": [
+        {
+          "name": "renter",
+          "type": "AccountId"
+        },
+        {
+          "name": "machine_id",
+          "type": "MachineId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "RpcRentOrderDetail<AccountId, BlockNumber, Balance>"
+    },
+    "getMachineRenter": {
+      "description": "get current machine renter",
+      "params": [
+        {
+          "name": "renter",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "Option<AccountId>"
+    },
+    "getMachineRentId": {
+      "description": "Get Machine Rent Id",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "String"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "MachineGPUOrder"
+    },
+    "isMachineRenter": {
+      "description": "Return if account is renter of machine",
+      "params": [
+        {
+          "name": "machine_id",
+          "type": "String"
+        },
+        {
+          "name": "renter",
+          "type": "AccountId"
+        },
+        {
+          "name": "at",
+          "type": "Hash",
+          "isOptional": true
+        }
+      ],
+      "type": "bool"
+    }
+  }
+}
