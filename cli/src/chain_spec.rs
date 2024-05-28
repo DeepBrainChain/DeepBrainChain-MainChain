@@ -372,6 +372,7 @@ pub fn testnet_genesis(
             min_join_bond: 1 * DOLLARS,
             ..Default::default()
         },
+        ethereum_chain_id: Default::default(),
     }
 }
 

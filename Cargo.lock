@@ -1832,6 +1832,7 @@ dependencies = [
  "dbc-primitives",
  "dbc-staking",
  "dbc-support",
+ "ethereum-chain-id",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",
@@ -2421,6 +2422,21 @@ checksum = "a258e46cdc063eb8519c00b9fc845fc47bcfca4130e2f08e88665ceda8474245"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "ethereum-chain-id"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

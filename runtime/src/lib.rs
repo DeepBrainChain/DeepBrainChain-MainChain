@@ -132,8 +132,8 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 /// Runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("node"),
-    impl_name: create_runtime_str!("substrate-node"),
+    spec_name: create_runtime_str!("DeepBrainChain"),
+    impl_name: create_runtime_str!("DeepBrainChain"),
     authoring_version: 10,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
@@ -1518,6 +1518,10 @@ impl simple_rpc::Config for Runtime {
     type OPRpcQuery = OnlineProfile;
 }
 
+impl ethereum_chain_id::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+}
+
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
 parameter_types! {
@@ -1589,7 +1593,8 @@ construct_runtime!(
         RentMachine: rent_machine,
         MaintainCommittee: maintain_committee,
         TerminatingRental: terminating_rental,
-        Contracts: pallet_contracts
+        Contracts: pallet_contracts,
+        EthereumChainId: ethereum_chain_id
     }
 );
 

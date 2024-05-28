@@ -126,6 +126,7 @@ online-profile = { path = "../pallets/online-profile", default-features = false 
 rent-machine = { path = "../pallets/rent-machine", default-features = false }
 simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-features = false }
 terminating-rental = { path = "../pallets/terminating-rental", default-features = false }
+ethereum-chain-id = { path = "../pallets/ethereum-chain-id", default-features = false }
 
 committee-runtime-api = { path = "../pallets/committee/rpc/runtime-api", default-features = false }
 online-committee-runtime-api = { path = "../pallets/online-committee/rpc/runtime-api", default-features = false }
@@ -244,6 +245,7 @@ std = [
   "rent-machine/std",
   "simple-rpc/std",
   "terminating-rental/std",
+  "ethereum-chain-id/std",
 
   "committee-runtime-api/std",
   "online-committee-runtime-api/std",

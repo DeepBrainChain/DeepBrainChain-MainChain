@@ -38,6 +38,7 @@ members = [
   "pallets/committee",
   "pallets/committee/rpc",
   "pallets/committee/rpc/runtime-api",
+  "pallets/ethereum-chain-id",
   "pallets/online-committee",
   "pallets/online-committee/rpc",
   "pallets/online-committee/rpc/runtime-api",
