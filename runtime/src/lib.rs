@@ -78,11 +78,6 @@ use sp_runtime::{
     Perquintill,
 };
 
-use pallet_contracts_primitives::{
-    Code, CodeUploadResult, ContractExecResult,
-    ContractInstantiateResult, GetStorageResult,
-};
-
 use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
@@ -762,6 +757,8 @@ parameter_types! {
 }
 
 use sp_runtime::traits::Convert;
+use crate::migrations::DemocracyV1Migration;
+
 pub struct BalanceToU256;
 impl Convert<Balance, sp_core::U256> for BalanceToU256 {
     fn convert(balance: Balance) -> sp_core::U256 {
@@ -1655,6 +1652,8 @@ type Migrations = (
     //     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
     //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
     pallet_assets::migration::v1::MigrateToV1<Runtime>,
+    pallet_democracy::migrations::v1::Migration<Runtime>,
+    DemocracyV1Migration,
 );
 
 /// MMR helper types.

@@ -1,5 +1,5 @@
 use super::*;
-
+use frame_support::traits::GetStorageVersion;
 pub struct RemoveCollectiveFlip;
 impl frame_support::traits::OnRuntimeUpgrade for RemoveCollectiveFlip {
     fn on_runtime_upgrade() -> Weight {
@@ -135,6 +135,8 @@ impl frame_support::traits::OnRuntimeUpgrade for ElectionStoragePrefixMigration 
 }
 
 use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
+use frame_support::pallet_prelude::StorageVersion;
+
 pub struct CustomOnRuntimeUpgrades;
 impl OnRuntimeUpgrade for CustomOnRuntimeUpgrades {
     fn on_runtime_upgrade() -> Weight {
@@ -189,5 +191,16 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrades {
         frame_support::log::info!("🚀 ElectionsStoragePrefixMigration end");
 
         weight
+    }
+}
+pub struct DemocracyV1Migration;
+impl OnRuntimeUpgrade for DemocracyV1Migration {
+    fn on_runtime_upgrade() -> Weight {
+        let on_chain_version = pallet_democracy::Pallet::<Runtime>::on_chain_storage_version();
+
+        if on_chain_version != 0{
+            StorageVersion::new(0).put::<pallet_democracy::Pallet<Runtime>>();
+        }
+        <pallet_democracy::migrations::v1::Migration<Runtime>  as OnRuntimeUpgrade> ::on_runtime_upgrade()
     }
 }
