@@ -200,7 +200,10 @@ impl OnRuntimeUpgrade for DemocracyV1Migration {
 
         if on_chain_version != 0{
             StorageVersion::new(0).put::<pallet_democracy::Pallet<Runtime>>();
+            let weight = <pallet_democracy::migrations::v1::Migration<Runtime> as OnRuntimeUpgrade> ::on_runtime_upgrade();
+            StorageVersion::new(1).put::<pallet_democracy::Pallet<Runtime>>();
+            return weight
         }
-        <pallet_democracy::migrations::v1::Migration<Runtime>  as OnRuntimeUpgrade> ::on_runtime_upgrade()
+        Weight::zero()
     }
 }
