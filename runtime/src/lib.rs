@@ -1651,6 +1651,7 @@ type Migrations = (
     //     >,
     //     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
     //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
+    pallet_assets::migration::v1::MigrateToV1<Runtime>,
     DemocracyV1Migration,
 );
 
