@@ -4,7 +4,7 @@ path = "src/main.rs"
 
 [package]
 name = "dbc"
-version = "3.0.0"
+version = { workspace = true }
 default-run = "dbc-chain"
 edition = "2021"
 
