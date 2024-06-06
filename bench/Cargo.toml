@@ -15,8 +15,8 @@ dbc-runtime = { path = "../runtime" }
 sc-client-api = { workspace = true }
 sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true }
-serde = "1.0.136"
-serde_json = "1.0.85"
+serde = { workspace = true }
+serde_json = { workspace = true }
 derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
 kvdb = "0.13.0"
 kvdb-rocksdb = "0.17.0"

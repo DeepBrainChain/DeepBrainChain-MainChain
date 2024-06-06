@@ -659,7 +659,7 @@ impl<T: Config<Hash = PreimageHash>> Pallet<T> {
 
 impl<T: Config> Pallet<T> {
     /// Helper to migrate scheduler when the pallet origin type has changed.
-    pub fn migrate_origin<OldOrigin: Into<T::PalletsOrigin> + parity_scale_codec::Decode>() {
+    pub fn migrate_origin<OldOrigin: Into<T::PalletsOrigin> + Decode>() {
         Agenda::<T>::translate::<
             Vec<
                 Option<
