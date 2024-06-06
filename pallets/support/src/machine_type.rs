@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use super::rpc_types::serde_text;
 use super::{verify_slash::OPSlashReason, MachineId};
-use codec::{alloc::string::ToString, Decode, Encode};
+use parity_scale_codec::{alloc::string::ToString, Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

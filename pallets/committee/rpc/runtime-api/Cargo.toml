@@ -1,18 +1,18 @@
 [package]
-authors = ["bobo <dongkaige@gmail.com>"]
-edition = "2021"
 name = "committee-runtime-api"
-version = "0.1.0"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-committee = { version = "0.1.0", path = "../../../committee", default-features = false }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+parity-scale-codec = { workspace = true }
+committee = { path = "../../../committee", default-features = false }
+sp-api = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
-  "codec/std",
+  "parity-scale-codec/std",
   "committee/std",
   "sp-api/std",
 ]

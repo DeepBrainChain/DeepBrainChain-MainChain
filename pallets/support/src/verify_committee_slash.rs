@@ -1,5 +1,5 @@
 use crate::{verify_online::OCBookResultType, MachineId};
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::{cmp, vec::Vec};

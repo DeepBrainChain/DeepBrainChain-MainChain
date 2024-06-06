@@ -53,7 +53,7 @@ use crate::{
     BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet, Perbill, SessionInterface,
     Store, UnappliedSlash,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     ensure,
     traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},

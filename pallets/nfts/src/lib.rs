@@ -43,7 +43,7 @@ mod types;
 pub mod macros;
 pub mod weights;
 
-use codec::{alloc::string::ToString, Decode, Encode};
+use parity_scale_codec::{alloc::string::ToString, Decode, Encode};
 use frame_support::traits::{
     tokens::{AttributeNamespace, Locker},
     BalanceStatus::Reserved,

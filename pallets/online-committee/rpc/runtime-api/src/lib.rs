@@ -3,7 +3,7 @@
 #![allow(clippy::unnecessary_mut_passed)]
 #![warn(unused_crate_dependencies)]
 
-use codec::Codec;
+use parity_scale_codec::Codec;
 use dbc_support::{
     verify_online::{OCCommitteeMachineList, OCMachineCommitteeList},
     MachineId,
@@ -16,7 +16,7 @@ use sp_runtime::traits::MaybeDisplay;
 
 sp_api::decl_runtime_apis! {
     pub trait OcRpcApi<AccountId, BlockNumber, Balance> where
-        AccountId: codec::Codec + Ord,
+        AccountId: Codec + Ord,
         BlockNumber: Codec + MaybeDisplay,
         Balance: Codec + MaybeDisplay,
     {

@@ -1,5 +1,5 @@
 use crate::{ItemList, ReportId};
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, RuntimeDebug};
 use sp_std::{cmp::PartialEq, vec::Vec};

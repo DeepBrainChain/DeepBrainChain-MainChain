@@ -92,7 +92,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
+        Authorship: pallet_authorship::{Pallet, Storage},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -182,8 +182,6 @@ impl pallet_session::historical::Config for Test {
 }
 impl pallet_authorship::Config for Test {
     type FindAuthor = Author11;
-    type UncleGenerations = ConstU64<0>;
-    type FilterUncle = ();
     type EventHandler = Pallet<Test>;
 }
 
@@ -645,7 +643,7 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
     let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
-        Staking::eras_total_stake(active_era()),
+        Staking::eras_total_stake(active_era()).try_into().unwrap(),
         Balances::total_issuance(),
         duration,
     );
@@ -655,7 +653,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
     let (payout, rest) = <Test as Config>::EraPayout::era_payout(
-        Staking::eras_total_stake(active_era()),
+        Staking::eras_total_stake(active_era()).try_into().unwrap(),
         Balances::total_issuance(),
         duration,
     );

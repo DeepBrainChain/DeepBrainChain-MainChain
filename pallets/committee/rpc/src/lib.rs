@@ -1,6 +1,6 @@
 #![warn(unused_crate_dependencies)]
 
-use codec::Codec;
+use parity_scale_codec::Codec;
 use committee::CommitteeList;
 pub use committee_runtime_api::CmRpcApi as CmStorageRuntimeApi;
 use jsonrpsee::{
