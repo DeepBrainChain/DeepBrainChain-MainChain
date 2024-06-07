@@ -59,13 +59,13 @@ impl frame_support::traits::OnRuntimeUpgrade for CouncilStoragePrefixMigration {
     }
 
     #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<(), &'static str> {
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
         pallet_collective::migrations::v4::pre_migrate::<Council, _>(COUNCIL_OLD_PREFIX);
-        Ok(())
+        Ok(Vec::new())
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade() -> Result<(), &'static str> {
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
         pallet_collective::migrations::v4::post_migrate::<Council, _>(COUNCIL_OLD_PREFIX);
         Ok(())
     }
@@ -86,7 +86,7 @@ impl frame_support::traits::OnRuntimeUpgrade for CouncilMembershipStoragePrefixM
     }
 
     #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<(), &'static str> {
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
         use frame_support::traits::PalletInfo;
         let name = <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalMembership>()
             .expect("CouncilMembership is part of runtime, so it has a name; qed");
@@ -94,11 +94,11 @@ impl frame_support::traits::OnRuntimeUpgrade for CouncilMembershipStoragePrefixM
             COUNCIL_MEMBERSHIP_OLD_PREFIX,
             name,
         );
-        Ok(())
+        Ok(Vec::new())
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade() -> Result<(), &'static str> {
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
         use frame_support::traits::PalletInfo;
         let name = <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalMembership>()
             .expect("CouncilMembership is part of runtime, so it has a name; qed");
@@ -118,16 +118,16 @@ impl frame_support::traits::OnRuntimeUpgrade for ElectionStoragePrefixMigration 
     }
 
     #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<(), &'static str> {
-        pallet_elections_phragmen::migrations::v4::pre_migrate::<Runtime, &str>(
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        pallet_elections_phragmen::migrations::v4::pre_migration::<Runtime, &str>(
             ELECTIONS_NEW_PREFIX,
         );
-        Ok(())
+        Ok(Vec::new())
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade() -> Result<(), &'static str> {
-        pallet_elections_phragmen::migrations::v4::post_migrate::<Runtime, &str>(
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        pallet_elections_phragmen::migrations::v4::pre_migration::<Runtime, &str>(
             ELECTIONS_NEW_PREFIX,
         );
         Ok(())
