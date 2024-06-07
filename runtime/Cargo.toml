@@ -32,8 +32,10 @@ sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
 sp-session = { workspace = true }
 sp-transaction-pool = { workspace = true }
+#sp-statement-store = { workspace = true }
 sp-version = { workspace = true }
 sp-io = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
 
 # frame dependencies
 frame-executive = { workspace = true }
@@ -147,6 +149,7 @@ std = [
   "pallet-authority-discovery/std",
   "pallet-authorship/std",
   "sp-consensus-babe/std",
+  "sp-consensus-grandpa/std",
   "pallet-babe/std",
   "pallet-bags-list/std",
   "pallet-balances/std",
@@ -205,6 +208,7 @@ std = [
   # "pallet-transaction-storage/std",
   "pallet-treasury/std",
   "sp-transaction-pool/std",
+  #"sp-statement-store/std",
   "pallet-utility/std",
   "sp-version/std",
   "pallet-ranked-collective/std",

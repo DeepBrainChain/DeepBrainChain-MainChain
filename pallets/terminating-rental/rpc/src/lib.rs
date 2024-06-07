@@ -1,11 +1,11 @@
 #![warn(unused_crate_dependencies)]
 
-use parity_scale_codec::Codec;
 use jsonrpsee::{
     core::{Error as JsonRpseeError, RpcResult},
     proc_macros::rpc,
     types::error::{CallError, ErrorCode, ErrorObject},
 };
+use parity_scale_codec::Codec;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, MaybeDisplay};

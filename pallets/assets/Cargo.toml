@@ -19,6 +19,7 @@ frame-support = { workspace = true }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
 frame-system = { workspace = true }
 sp-core = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 sp-std = { workspace = true, features = ["std"] }
@@ -35,5 +36,6 @@ std = [
 	"sp-runtime/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 ]
 try-runtime = ["frame-support/try-runtime"]

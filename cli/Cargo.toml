@@ -37,7 +37,7 @@ rand = { workspace = true }
 # primitives
 sp-authority-discovery = { workspace = true }
 sp-consensus-babe = { workspace = true }
-sp-finality-grandpa = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
 sp-api = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
@@ -56,11 +56,14 @@ sc-chain-spec = { workspace = true }
 sc-consensus = { workspace = true }
 sc-transaction-pool = { workspace = true }
 sc-transaction-pool-api = { workspace = true }
+sc-statement-store = { workspace = true }
 sc-network = { workspace = true }
 sc-network-common = { workspace = true }
+sc-network-sync = { workspace = true }
+sc-network-statement = { workspace = true }
 sc-consensus-slots = { workspace = true }
 sc-consensus-babe = { workspace = true }
-sc-finality-grandpa = { workspace = true }
+sc-consensus-grandpa = { workspace = true }
 sc-rpc = { workspace = true }
 sc-basic-authorship = { workspace = true }
 sc-service = { workspace = true }
@@ -118,10 +121,10 @@ substrate-rpc-client = { workspace = true }
 pallet-timestamp = { workspace = true }
 
 [build-dependencies]
-clap = { version = "4.0.9", optional = true }
+clap = { workspace = true, optional = true }
 clap_complete = { version = "4.0.2", optional = true }
 dbc-inspect = { path = "../inspect", optional = true }
-frame-benchmarking-cli = { workspace = true , optional = true }
+frame-benchmarking-cli = { workspace = true, optional = true }
 substrate-build-script-utils = { workspace = true, optional = true }
 substrate-frame-cli = { workspace = true, optional = true }
 try-runtime-cli = { workspace = true, optional = true }

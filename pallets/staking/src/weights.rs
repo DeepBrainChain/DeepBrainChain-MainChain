@@ -90,7 +90,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking Payee (r:0 w:1)
 	fn bond() -> Weight {
 		// Minimum execution time: 54_884 nanoseconds.
-		Weight::from_ref_time(55_487_000)
+		Weight::from_parts(55_487_000, 0)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -101,7 +101,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: VoterList ListBags (r:2 w:2)
 	fn bond_extra() -> Weight {
 		// Minimum execution time: 95_115 nanoseconds.
-		Weight::from_ref_time(96_213_000)
+		Weight::from_parts(96_213_000, 0)
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
@@ -116,7 +116,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: VoterList ListBags (r:2 w:2)
 	fn unbond() -> Weight {
 		// Minimum execution time: 102_031 nanoseconds.
-		Weight::from_ref_time(102_842_000)
+		Weight::from_parts(102_842_000, 0)
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
@@ -127,9 +127,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `s` is `[0, 100]`.
 	fn withdraw_unbonded_update(s: u32, ) -> Weight {
 		// Minimum execution time: 46_569 nanoseconds.
-		Weight::from_ref_time(48_034_493)
+		Weight::from_parts(48_034_493, 0)
 			// Standard Error: 654
-			.saturating_add(Weight::from_ref_time(63_628).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(63_628, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -150,9 +150,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `s` is `[0, 100]`.
 	fn withdraw_unbonded_kill(s: u32, ) -> Weight {
 		// Minimum execution time: 90_154 nanoseconds.
-		Weight::from_ref_time(95_725_631)
+		Weight::from_parts(95_725_631, 0)
 			// Standard Error: 2_491
-			.saturating_add(Weight::from_ref_time(1_110_795).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(1_110_795, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(13))
 			.saturating_add(T::DbWeight::get().writes(12))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(s.into())))
@@ -170,7 +170,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking CounterForValidators (r:1 w:1)
 	fn validate() -> Weight {
 		// Minimum execution time: 67_978 nanoseconds.
-		Weight::from_ref_time(69_153_000)
+		Weight::from_parts(69_153_000, 0)
 			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
@@ -179,9 +179,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `k` is `[1, 128]`.
 	fn kick(k: u32, ) -> Weight {
 		// Minimum execution time: 45_328 nanoseconds.
-		Weight::from_ref_time(47_719_103)
+		Weight::from_parts(47_719_103, 0)
 			// Standard Error: 14_458
-			.saturating_add(Weight::from_ref_time(6_999_252).saturating_mul(k.into()))
+			.saturating_add(Weight::from_parts(6_999_252, 0).saturating_mul(k.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -200,9 +200,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `n` is `[1, 16]`.
 	fn nominate(n: u32, ) -> Weight {
 		// Minimum execution time: 74_650 nanoseconds.
-		Weight::from_ref_time(74_350_075)
+		Weight::from_parts(74_350_075, 0)
 			// Standard Error: 10_527
-			.saturating_add(Weight::from_ref_time(2_878_737).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(2_878_737, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes(6))
@@ -216,7 +216,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: VoterList CounterForListNodes (r:1 w:1)
 	fn chill() -> Weight {
 		// Minimum execution time: 67_790 nanoseconds.
-		Weight::from_ref_time(68_738_000)
+		Weight::from_parts(68_738_000, 0)
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
@@ -224,7 +224,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking Payee (r:0 w:1)
 	fn set_payee() -> Weight {
 		// Minimum execution time: 19_237 nanoseconds.
-		Weight::from_ref_time(19_534_000)
+		Weight::from_parts(19_534_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -232,41 +232,41 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking Ledger (r:2 w:2)
 	fn set_controller() -> Weight {
 		// Minimum execution time: 27_288 nanoseconds.
-		Weight::from_ref_time(27_667_000)
+		Weight::from_parts(27_667_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: Staking ValidatorCount (r:0 w:1)
 	fn set_validator_count() -> Weight {
 		// Minimum execution time: 5_155 nanoseconds.
-		Weight::from_ref_time(5_464_000)
+		Weight::from_parts(5_464_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Staking ForceEra (r:0 w:1)
 	fn force_no_eras() -> Weight {
 		// Minimum execution time: 5_405 nanoseconds.
-		Weight::from_ref_time(5_670_000)
+		Weight::from_parts(5_670_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Staking ForceEra (r:0 w:1)
 	fn force_new_era() -> Weight {
 		// Minimum execution time: 5_459 nanoseconds.
-		Weight::from_ref_time(5_616_000)
+		Weight::from_parts(5_616_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Staking ForceEra (r:0 w:1)
 	fn force_new_era_always() -> Weight {
 		// Minimum execution time: 5_476 nanoseconds.
-		Weight::from_ref_time(5_692_000)
+		Weight::from_parts(5_692_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Staking Invulnerables (r:0 w:1)
 	/// The range of component `v` is `[0, 1000]`.
 	fn set_invulnerables(v: u32, ) -> Weight {
 		// Minimum execution time: 5_544 nanoseconds.
-		Weight::from_ref_time(6_513_190)
+		Weight::from_parts(6_513_190, 0)
 			// Standard Error: 76
-			.saturating_add(Weight::from_ref_time(9_975).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(9_975, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Staking Bonded (r:1 w:1)
@@ -285,9 +285,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `s` is `[0, 100]`.
 	fn force_unstake(s: u32, ) -> Weight {
 		// Minimum execution time: 82_414 nanoseconds.
-		Weight::from_ref_time(88_511_246)
+		Weight::from_parts(88_511_246, 0)
 			// Standard Error: 2_622
-			.saturating_add(Weight::from_ref_time(1_131_814).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(1_131_814, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(12))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(s.into())))
@@ -296,9 +296,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `s` is `[1, 1000]`.
 	fn cancel_deferred_slash(s: u32, ) -> Weight {
 		// Minimum execution time: 94_197 nanoseconds.
-		Weight::from_ref_time(903_418_326)
+		Weight::from_parts(903_418_326, 0)
 			// Standard Error: 59_354
-			.saturating_add(Weight::from_ref_time(4_948_354).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(4_948_354, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -314,9 +314,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `n` is `[0, 256]`.
 	fn payout_stakers_dead_controller(n: u32, ) -> Weight {
 		// Minimum execution time: 133_065 nanoseconds.
-		Weight::from_ref_time(197_555_906)
+		Weight::from_parts(197_555_906, 0)
 			// Standard Error: 19_561
-			.saturating_add(Weight::from_ref_time(22_683_426).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(22_683_426, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -335,9 +335,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `n` is `[0, 256]`.
 	fn payout_stakers_alive_staked(n: u32, ) -> Weight {
 		// Minimum execution time: 164_719 nanoseconds.
-		Weight::from_ref_time(226_304_276)
+		Weight::from_parts(226_304_276, 0)
 			// Standard Error: 31_675
-			.saturating_add(Weight::from_ref_time(32_622_427).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(32_622_427, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(10))
 			.saturating_add(T::DbWeight::get().reads((5_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -352,9 +352,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `l` is `[1, 32]`.
 	fn rebond(l: u32, ) -> Weight {
 		// Minimum execution time: 95_631 nanoseconds.
-		Weight::from_ref_time(96_861_556)
+		Weight::from_parts(96_861_556, 0)
 			// Standard Error: 2_114
-			.saturating_add(Weight::from_ref_time(37_543).saturating_mul(l.into()))
+			.saturating_add(Weight::from_parts(37_543, 0).saturating_mul(l.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
@@ -374,9 +374,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `s` is `[1, 100]`.
 	fn reap_stash(s: u32, ) -> Weight {
 		// Minimum execution time: 95_251 nanoseconds.
-		Weight::from_ref_time(97_818_954)
+		Weight::from_parts(97_818_954, 0)
 			// Standard Error: 2_356
-			.saturating_add(Weight::from_ref_time(1_104_695).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(1_104_695, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(12))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(s.into())))
@@ -402,11 +402,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `n` is `[0, 100]`.
 	fn new_era(v: u32, n: u32, ) -> Weight {
 		// Minimum execution time: 512_923 nanoseconds.
-		Weight::from_ref_time(514_740_000)
+		Weight::from_parts(514_740_000, 0)
 			// Standard Error: 1_790_238
-			.saturating_add(Weight::from_ref_time(59_320_539).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(59_320_539, 0).saturating_mul(v.into()))
 			// Standard Error: 178_387
-			.saturating_add(Weight::from_ref_time(13_902_705).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(13_902_705, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(206))
 			.saturating_add(T::DbWeight::get().reads((5_u64).saturating_mul(v.into())))
 			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(n.into())))
@@ -425,11 +425,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `n` is `[500, 1000]`.
 	fn get_npos_voters(v: u32, n: u32, ) -> Weight {
 		// Minimum execution time: 24_913_316 nanoseconds.
-		Weight::from_ref_time(25_053_596_000)
+		Weight::from_parts(25_053_596_000, 0)
 			// Standard Error: 324_610
-			.saturating_add(Weight::from_ref_time(3_454_859).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(3_454_859, 0).saturating_mul(v.into()))
 			// Standard Error: 324_610
-			.saturating_add(Weight::from_ref_time(3_020_267).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(3_020_267, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(201))
 			.saturating_add(T::DbWeight::get().reads((5_u64).saturating_mul(v.into())))
 			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(n.into())))
@@ -440,9 +440,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `v` is `[500, 1000]`.
 	fn get_npos_targets(v: u32, ) -> Weight {
 		// Minimum execution time: 4_916_401 nanoseconds.
-		Weight::from_ref_time(81_160_966)
+		Weight::from_parts(81_160_966, 0)
 			// Standard Error: 23_829
-			.saturating_add(Weight::from_ref_time(9_883_413).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(9_883_413, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(v.into())))
 	}
@@ -454,7 +454,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking MinNominatorBond (r:0 w:1)
 	fn set_staking_configs_all_set() -> Weight {
 		// Minimum execution time: 10_937 nanoseconds.
-		Weight::from_ref_time(11_324_000)
+		Weight::from_parts(11_324_000, 0)
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: Staking MinCommission (r:0 w:1)
@@ -465,7 +465,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking MinNominatorBond (r:0 w:1)
 	fn set_staking_configs_all_remove() -> Weight {
 		// Minimum execution time: 9_424 nanoseconds.
-		Weight::from_ref_time(10_021_000)
+		Weight::from_parts(10_021_000, 0)
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: Staking Ledger (r:1 w:0)
@@ -480,7 +480,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: VoterList CounterForListNodes (r:1 w:1)
 	fn chill_other() -> Weight {
 		// Minimum execution time: 84_495 nanoseconds.
-		Weight::from_ref_time(85_559_000)
+		Weight::from_parts(85_559_000, 0)
 			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
@@ -488,14 +488,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Staking Validators (r:1 w:1)
 	fn force_apply_min_commission() -> Weight {
 		// Minimum execution time: 20_385 nanoseconds.
-		Weight::from_ref_time(20_824_000)
+		Weight::from_parts(20_824_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Staking MinCommission (r:0 w:1)
 	fn set_min_commission() -> Weight {
 		// Minimum execution time: 6_995 nanoseconds.
-		Weight::from_ref_time(7_213_000)
+		Weight::from_parts(7_213_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
@@ -509,7 +509,7 @@ impl WeightInfo for () {
 	// Storage: Staking Payee (r:0 w:1)
 	fn bond() -> Weight {
 		// Minimum execution time: 54_884 nanoseconds.
-		Weight::from_ref_time(55_487_000)
+		Weight::from_parts(55_487_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(4))
 	}
@@ -520,7 +520,7 @@ impl WeightInfo for () {
 	// Storage: VoterList ListBags (r:2 w:2)
 	fn bond_extra() -> Weight {
 		// Minimum execution time: 95_115 nanoseconds.
-		Weight::from_ref_time(96_213_000)
+		Weight::from_parts(96_213_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(8))
 			.saturating_add(RocksDbWeight::get().writes(7))
 	}
@@ -535,7 +535,7 @@ impl WeightInfo for () {
 	// Storage: VoterList ListBags (r:2 w:2)
 	fn unbond() -> Weight {
 		// Minimum execution time: 102_031 nanoseconds.
-		Weight::from_ref_time(102_842_000)
+		Weight::from_parts(102_842_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(12))
 			.saturating_add(RocksDbWeight::get().writes(8))
 	}
@@ -546,9 +546,9 @@ impl WeightInfo for () {
 	/// The range of component `s` is `[0, 100]`.
 	fn withdraw_unbonded_update(s: u32, ) -> Weight {
 		// Minimum execution time: 46_569 nanoseconds.
-		Weight::from_ref_time(48_034_493)
+		Weight::from_parts(48_034_493, 0)
 			// Standard Error: 654
-			.saturating_add(Weight::from_ref_time(63_628).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(63_628, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
@@ -569,9 +569,9 @@ impl WeightInfo for () {
 	/// The range of component `s` is `[0, 100]`.
 	fn withdraw_unbonded_kill(s: u32, ) -> Weight {
 		// Minimum execution time: 90_154 nanoseconds.
-		Weight::from_ref_time(95_725_631)
+		Weight::from_parts(95_725_631, 0)
 			// Standard Error: 2_491
-			.saturating_add(Weight::from_ref_time(1_110_795).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(1_110_795, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(13))
 			.saturating_add(RocksDbWeight::get().writes(12))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
@@ -589,7 +589,7 @@ impl WeightInfo for () {
 	// Storage: Staking CounterForValidators (r:1 w:1)
 	fn validate() -> Weight {
 		// Minimum execution time: 67_978 nanoseconds.
-		Weight::from_ref_time(69_153_000)
+		Weight::from_parts(69_153_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(11))
 			.saturating_add(RocksDbWeight::get().writes(5))
 	}
@@ -598,9 +598,9 @@ impl WeightInfo for () {
 	/// The range of component `k` is `[1, 128]`.
 	fn kick(k: u32, ) -> Weight {
 		// Minimum execution time: 45_328 nanoseconds.
-		Weight::from_ref_time(47_719_103)
+		Weight::from_parts(47_719_103, 0)
 			// Standard Error: 14_458
-			.saturating_add(Weight::from_ref_time(6_999_252).saturating_mul(k.into()))
+			.saturating_add(Weight::from_parts(6_999_252, 0).saturating_mul(k.into()))
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(k.into())))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
@@ -619,9 +619,9 @@ impl WeightInfo for () {
 	/// The range of component `n` is `[1, 16]`.
 	fn nominate(n: u32, ) -> Weight {
 		// Minimum execution time: 74_650 nanoseconds.
-		Weight::from_ref_time(74_350_075)
+		Weight::from_parts(74_350_075, 0)
 			// Standard Error: 10_527
-			.saturating_add(Weight::from_ref_time(2_878_737).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(2_878_737, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(12))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes(6))
@@ -635,7 +635,7 @@ impl WeightInfo for () {
 	// Storage: VoterList CounterForListNodes (r:1 w:1)
 	fn chill() -> Weight {
 		// Minimum execution time: 67_790 nanoseconds.
-		Weight::from_ref_time(68_738_000)
+		Weight::from_parts(68_738_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(8))
 			.saturating_add(RocksDbWeight::get().writes(6))
 	}
@@ -643,7 +643,7 @@ impl WeightInfo for () {
 	// Storage: Staking Payee (r:0 w:1)
 	fn set_payee() -> Weight {
 		// Minimum execution time: 19_237 nanoseconds.
-		Weight::from_ref_time(19_534_000)
+		Weight::from_parts(19_534_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -651,41 +651,41 @@ impl WeightInfo for () {
 	// Storage: Staking Ledger (r:2 w:2)
 	fn set_controller() -> Weight {
 		// Minimum execution time: 27_288 nanoseconds.
-		Weight::from_ref_time(27_667_000)
+		Weight::from_parts(27_667_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: Staking ValidatorCount (r:0 w:1)
 	fn set_validator_count() -> Weight {
 		// Minimum execution time: 5_155 nanoseconds.
-		Weight::from_ref_time(5_464_000)
+		Weight::from_parts(5_464_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Staking ForceEra (r:0 w:1)
 	fn force_no_eras() -> Weight {
 		// Minimum execution time: 5_405 nanoseconds.
-		Weight::from_ref_time(5_670_000)
+		Weight::from_parts(5_670_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Staking ForceEra (r:0 w:1)
 	fn force_new_era() -> Weight {
 		// Minimum execution time: 5_459 nanoseconds.
-		Weight::from_ref_time(5_616_000)
+		Weight::from_parts(5_616_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Staking ForceEra (r:0 w:1)
 	fn force_new_era_always() -> Weight {
 		// Minimum execution time: 5_476 nanoseconds.
-		Weight::from_ref_time(5_692_000)
+		Weight::from_parts(5_692_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Staking Invulnerables (r:0 w:1)
 	/// The range of component `v` is `[0, 1000]`.
 	fn set_invulnerables(v: u32, ) -> Weight {
 		// Minimum execution time: 5_544 nanoseconds.
-		Weight::from_ref_time(6_513_190)
+		Weight::from_parts(6_513_190, 0)
 			// Standard Error: 76
-			.saturating_add(Weight::from_ref_time(9_975).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(9_975, 0).saturating_mul(v.into()))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Staking Bonded (r:1 w:1)
@@ -704,9 +704,9 @@ impl WeightInfo for () {
 	/// The range of component `s` is `[0, 100]`.
 	fn force_unstake(s: u32, ) -> Weight {
 		// Minimum execution time: 82_414 nanoseconds.
-		Weight::from_ref_time(88_511_246)
+		Weight::from_parts(88_511_246, 0)
 			// Standard Error: 2_622
-			.saturating_add(Weight::from_ref_time(1_131_814).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(1_131_814, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(11))
 			.saturating_add(RocksDbWeight::get().writes(12))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
@@ -715,9 +715,9 @@ impl WeightInfo for () {
 	/// The range of component `s` is `[1, 1000]`.
 	fn cancel_deferred_slash(s: u32, ) -> Weight {
 		// Minimum execution time: 94_197 nanoseconds.
-		Weight::from_ref_time(903_418_326)
+		Weight::from_parts(903_418_326, 0)
 			// Standard Error: 59_354
-			.saturating_add(Weight::from_ref_time(4_948_354).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(4_948_354, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -733,9 +733,9 @@ impl WeightInfo for () {
 	/// The range of component `n` is `[0, 256]`.
 	fn payout_stakers_dead_controller(n: u32, ) -> Weight {
 		// Minimum execution time: 133_065 nanoseconds.
-		Weight::from_ref_time(197_555_906)
+		Weight::from_parts(197_555_906, 0)
 			// Standard Error: 19_561
-			.saturating_add(Weight::from_ref_time(22_683_426).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(22_683_426, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(9))
 			.saturating_add(RocksDbWeight::get().reads((3_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes(2))
@@ -754,9 +754,9 @@ impl WeightInfo for () {
 	/// The range of component `n` is `[0, 256]`.
 	fn payout_stakers_alive_staked(n: u32, ) -> Weight {
 		// Minimum execution time: 164_719 nanoseconds.
-		Weight::from_ref_time(226_304_276)
+		Weight::from_parts(226_304_276, 0)
 			// Standard Error: 31_675
-			.saturating_add(Weight::from_ref_time(32_622_427).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(32_622_427, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(10))
 			.saturating_add(RocksDbWeight::get().reads((5_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes(3))
@@ -771,9 +771,9 @@ impl WeightInfo for () {
 	/// The range of component `l` is `[1, 32]`.
 	fn rebond(l: u32, ) -> Weight {
 		// Minimum execution time: 95_631 nanoseconds.
-		Weight::from_ref_time(96_861_556)
+		Weight::from_parts(96_861_556, 0)
 			// Standard Error: 2_114
-			.saturating_add(Weight::from_ref_time(37_543).saturating_mul(l.into()))
+			.saturating_add(Weight::from_parts(37_543, 0).saturating_mul(l.into()))
 			.saturating_add(RocksDbWeight::get().reads(9))
 			.saturating_add(RocksDbWeight::get().writes(8))
 	}
@@ -793,9 +793,9 @@ impl WeightInfo for () {
 	/// The range of component `s` is `[1, 100]`.
 	fn reap_stash(s: u32, ) -> Weight {
 		// Minimum execution time: 95_251 nanoseconds.
-		Weight::from_ref_time(97_818_954)
+		Weight::from_parts(97_818_954, 0)
 			// Standard Error: 2_356
-			.saturating_add(Weight::from_ref_time(1_104_695).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(1_104_695, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(12))
 			.saturating_add(RocksDbWeight::get().writes(12))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(s.into())))
@@ -821,11 +821,11 @@ impl WeightInfo for () {
 	/// The range of component `n` is `[0, 100]`.
 	fn new_era(v: u32, n: u32, ) -> Weight {
 		// Minimum execution time: 512_923 nanoseconds.
-		Weight::from_ref_time(514_740_000)
+		Weight::from_parts(514_740_000, 0)
 			// Standard Error: 1_790_238
-			.saturating_add(Weight::from_ref_time(59_320_539).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(59_320_539, 0).saturating_mul(v.into()))
 			// Standard Error: 178_387
-			.saturating_add(Weight::from_ref_time(13_902_705).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(13_902_705, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(206))
 			.saturating_add(RocksDbWeight::get().reads((5_u64).saturating_mul(v.into())))
 			.saturating_add(RocksDbWeight::get().reads((4_u64).saturating_mul(n.into())))
@@ -844,11 +844,11 @@ impl WeightInfo for () {
 	/// The range of component `n` is `[500, 1000]`.
 	fn get_npos_voters(v: u32, n: u32, ) -> Weight {
 		// Minimum execution time: 24_913_316 nanoseconds.
-		Weight::from_ref_time(25_053_596_000)
+		Weight::from_parts(25_053_596_000, 0)
 			// Standard Error: 324_610
-			.saturating_add(Weight::from_ref_time(3_454_859).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(3_454_859, 0).saturating_mul(v.into()))
 			// Standard Error: 324_610
-			.saturating_add(Weight::from_ref_time(3_020_267).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(3_020_267, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(201))
 			.saturating_add(RocksDbWeight::get().reads((5_u64).saturating_mul(v.into())))
 			.saturating_add(RocksDbWeight::get().reads((4_u64).saturating_mul(n.into())))
@@ -859,9 +859,9 @@ impl WeightInfo for () {
 	/// The range of component `v` is `[500, 1000]`.
 	fn get_npos_targets(v: u32, ) -> Weight {
 		// Minimum execution time: 4_916_401 nanoseconds.
-		Weight::from_ref_time(81_160_966)
+		Weight::from_parts(81_160_966, 0)
 			// Standard Error: 23_829
-			.saturating_add(Weight::from_ref_time(9_883_413).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(9_883_413, 0).saturating_mul(v.into()))
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(v.into())))
 	}
@@ -873,7 +873,7 @@ impl WeightInfo for () {
 	// Storage: Staking MinNominatorBond (r:0 w:1)
 	fn set_staking_configs_all_set() -> Weight {
 		// Minimum execution time: 10_937 nanoseconds.
-		Weight::from_ref_time(11_324_000)
+		Weight::from_parts(11_324_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: Staking MinCommission (r:0 w:1)
@@ -884,7 +884,7 @@ impl WeightInfo for () {
 	// Storage: Staking MinNominatorBond (r:0 w:1)
 	fn set_staking_configs_all_remove() -> Weight {
 		// Minimum execution time: 9_424 nanoseconds.
-		Weight::from_ref_time(10_021_000)
+		Weight::from_parts(10_021_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: Staking Ledger (r:1 w:0)
@@ -899,7 +899,7 @@ impl WeightInfo for () {
 	// Storage: VoterList CounterForListNodes (r:1 w:1)
 	fn chill_other() -> Weight {
 		// Minimum execution time: 84_495 nanoseconds.
-		Weight::from_ref_time(85_559_000)
+		Weight::from_parts(85_559_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(11))
 			.saturating_add(RocksDbWeight::get().writes(6))
 	}
@@ -907,14 +907,14 @@ impl WeightInfo for () {
 	// Storage: Staking Validators (r:1 w:1)
 	fn force_apply_min_commission() -> Weight {
 		// Minimum execution time: 20_385 nanoseconds.
-		Weight::from_ref_time(20_824_000)
+		Weight::from_parts(20_824_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Staking MinCommission (r:0 w:1)
 	fn set_min_commission() -> Weight {
 		// Minimum execution time: 6_995 nanoseconds.
-		Weight::from_ref_time(7_213_000)
+		Weight::from_parts(7_213_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

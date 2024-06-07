@@ -41,7 +41,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -106,7 +105,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn submit_price_unsigned(
             origin: OriginFor<T>,
             price: u64,
@@ -118,7 +117,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn submit_price_by_root(
             origin: OriginFor<T>,
             price: u64,
@@ -130,7 +129,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn add_price_url(origin: OriginFor<T>, new_url: URL) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut price_url = Self::price_url().unwrap_or_default();
@@ -140,7 +139,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn set_price_update_frequency(
             origin: OriginFor<T>,
             frequency: u32,
@@ -154,7 +153,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn rm_price_url_by_index(
             origin: OriginFor<T>,
             index: u32,

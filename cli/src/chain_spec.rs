@@ -24,7 +24,6 @@ use dbc_runtime::{
     ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig,
     SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
@@ -32,6 +31,7 @@ use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
@@ -479,12 +479,13 @@ pub(crate) mod tests {
         sp_tracing::try_init_simple();
 
         sc_service_test::connectivity(integration_test_config_with_two_authorities(), |config| {
-            let NewFullBase { task_manager, client, network, transaction_pool, .. } =
+            let NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
                 new_full_base(config, false, |_, _| ())?;
             Ok(sc_service_test::TestNetComponents::new(
                 task_manager,
                 client,
                 network,
+                sync,
                 transaction_pool,
             ))
         });
