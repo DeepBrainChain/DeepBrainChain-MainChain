@@ -62,7 +62,7 @@ try-runtime = ["dbc-cli/try-runtime"]
 runtime-benchmarks = ["dbc-cli/runtime-benchmarks"]
 
 [workspace.package]
-version = "3.2.0-dev"
+version = "3.3.0-dev"
 authors = ["DeepBrainChain Developers"]
 repository = "https://github.com/DeepBrainChain/DeepBrainChain-MainChain"
 
