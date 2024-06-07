@@ -46,3 +46,6 @@ jobs:
 
       - name: Run ${{ matrix.package }} tests
         run: cargo test -p ${{ matrix.package }}
+
+      - name: Check try-runtime
+        run: cargo check --features try-runtime
