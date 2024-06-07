@@ -2,7 +2,7 @@ use crate::{
     rpc_types::{MachineBriefInfo, RpcIRCommitteeOps, StakerInfo},
     BalanceOf, Config, Pallet, RentOrderDetail, RentOrderId, StashMachines,
 };
-use codec::EncodeLike;
+use parity_scale_codec::EncodeLike;
 use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,

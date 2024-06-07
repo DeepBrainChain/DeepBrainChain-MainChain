@@ -1,4 +1,4 @@
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use dbc_support::{
     verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
     verify_online::OCBookResultType,

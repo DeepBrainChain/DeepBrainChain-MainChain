@@ -8,7 +8,7 @@ use dbc_support::{
 use frame_support::{IterableStorageDoubleMap, IterableStorageMap};
 use sp_std::vec::Vec;
 
-use codec::EncodeLike;
+use parity_scale_codec::EncodeLike;
 
 use crate::{
     rpc_types::{MachineBriefInfo, StakerInfo},

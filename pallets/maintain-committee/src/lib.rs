@@ -13,7 +13,7 @@ mod mock;
 #[allow(non_upper_case_globals)]
 mod tests;
 
-use codec::alloc::string::ToString;
+use parity_scale_codec::alloc::string::ToString;
 use dbc_support::{
     report::{
         MCSlashResult, MTCommitteeOpsDetail, MTCommitteeOrderList, MTLiveReportList, MTOrderStatus,

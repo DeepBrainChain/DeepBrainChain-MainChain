@@ -1,28 +1,24 @@
 [package]
 name = "dbc-executor"
-version = "3.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-description = "Substrate node implementation in Rust."
+version = { workspace = true }
+authors = { workspace = true }
 edition = "2021"
-license = "Apache-2.0"
-homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
-publish = false
+repository = { workspace = true }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2" }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-scale-info = { version = "2.1.1", features = ["derive"] }
-node-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+parity-scale-codec = { workspace = true }
+frame-benchmarking = { workspace = true, features = ["std"] }
+sc-executor = { workspace = true, features = ["std"] }
+scale-info = { workspace = true, features = ["std"] }
+node-primitives = { workspace = true, features = ["std"] }
+sp-core = { workspace = true, features = ["std"] }
+sp-keystore = { workspace = true, features = ["std"] }
+sp-state-machine = { workspace = true, features = ["std"] }
+sp-tracing = { workspace = true, features = ["std"] }
+sp-trie = { workspace = true, features = ["std"] }
 
 dbc-runtime = { path = "../runtime" }
 

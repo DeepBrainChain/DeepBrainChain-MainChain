@@ -1,5 +1,5 @@
 use crate::{BalanceOf, CommitteeUploadInfo, Config, Pallet};
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use dbc_support::{
     verify_online::{OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus},
     MachineId,

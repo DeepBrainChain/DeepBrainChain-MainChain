@@ -1,16 +1,15 @@
 [package]
-authors = ["bobo <dongkaige@gmail.com>"]
-edition = "2021"
 name = "simple-rpc-runtime-api"
-version = "0.1.0"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-simple-rpc = { version = "0.1.0", path = "../../../simple-rpc", default-features = false }
+parity-scale-codec = { workspace = true }
+simple-rpc = { path = "../../../simple-rpc", default-features = false }
 
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+sp-api = { workspace = true }
+sp-std = { workspace = true }
 
 [features]
 default = ["std"]

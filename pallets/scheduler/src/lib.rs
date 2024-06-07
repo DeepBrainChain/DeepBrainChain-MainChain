@@ -59,7 +59,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     dispatch::{
         DispatchError, DispatchResult, Dispatchable, GetDispatchInfo, Parameter, RawOrigin,
@@ -659,7 +659,7 @@ impl<T: Config<Hash = PreimageHash>> Pallet<T> {
 
 impl<T: Config> Pallet<T> {
     /// Helper to migrate scheduler when the pallet origin type has changed.
-    pub fn migrate_origin<OldOrigin: Into<T::PalletsOrigin> + codec::Decode>() {
+    pub fn migrate_origin<OldOrigin: Into<T::PalletsOrigin> + Decode>() {
         Agenda::<T>::translate::<
             Vec<
                 Option<

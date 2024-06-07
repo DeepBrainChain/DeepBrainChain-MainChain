@@ -1,5 +1,5 @@
 use crate::{custom_err::ReportErr, report::MachineFaultType, ItemList, ReportHash, ReportId};
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use frame_support::ensure;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;

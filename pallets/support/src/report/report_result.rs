@@ -2,7 +2,7 @@ use crate::{
     report::{MTReportInfoDetail, ReportConfirmStatus},
     ItemList, MachineId, ReportId, TWO_DAY,
 };
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Saturating, Zero},

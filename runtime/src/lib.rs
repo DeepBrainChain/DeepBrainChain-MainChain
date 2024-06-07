@@ -23,7 +23,7 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 512.
 #![recursion_limit = "512"]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Compact, Decode, Encode, MaxEncodedLen};
 pub use dbc_primitives::{AccountId, Signature};
 use dbc_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use dbc_support::{rental_type::MachineGPUOrder, EraIndex, MachineId, RentOrderId};
@@ -127,8 +127,8 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 /// Runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("node"),
-    impl_name: create_runtime_str!("substrate-node"),
+    spec_name: create_runtime_str!("DeepBrainChain"),
+    impl_name: create_runtime_str!("DeepBrainChain"),
     authoring_version: 10,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
@@ -1333,7 +1333,7 @@ impl pallet_assets::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Balance = u128;
     type AssetId = u32;
-    type AssetIdParameter = codec::Compact<u32>;
+    type AssetIdParameter = Compact<u32>;
     type Currency = Balances;
     type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
     type ForceOrigin = EnsureRoot<AccountId>;
@@ -1802,8 +1802,6 @@ impl_runtime_apis! {
             _set_id: fg_primitives::SetId,
             authority_id: GrandpaId,
         ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
-            use codec::Encode;
-
             Historical::prove((fg_primitives::KEY_TYPE, authority_id))
                 .map(|p| p.encode())
                 .map(fg_primitives::OpaqueKeyOwnershipProof::new)
@@ -1859,8 +1857,6 @@ impl_runtime_apis! {
             _slot: sp_consensus_babe::Slot,
             authority_id: sp_consensus_babe::AuthorityId,
         ) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
-            use codec::Encode;
-
             Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
                 .map(|p| p.encode())
                 .map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)

@@ -1,57 +1,53 @@
 [package]
 name = "dbc-staking"
-version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
+version = { workspace = true }
+authors = { workspace = true }
 edition = "2021"
-license = "Apache-2.0"
-homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
-description = "FRAME pallet staking"
-readme = "README.md"
+repository = { workspace = true }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.136", optional = true }
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-staking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-pallet-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false, features = ["historical"] }
-sp-application-crypto = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-log = { version = "0.4.17", default-features = false }
+serde = { workspace = true, optional = true }
+parity-scale-codec = { workspace = true }
+scale-info = { workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-session = { workspace = true, features = ["historical"] }
+sp-application-crypto = { workspace = true }
+frame-election-provider-support = { workspace = true }
+log = { workspace = true }
 
 dbc-support = { path = "../support", default-features = false }
 
 # Optional imports for benchmarking
 
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false, optional = true }
-rand_chacha = { version = "0.2", default-features = false, optional = true }
+frame-benchmarking = { workspace = true, optional = true }
+rand_chacha = { workspace = true, optional = true }
 
 [dev-dependencies]
-sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-npos-elections = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-pallet-bags-list = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-rand_chacha = { version = "0.2" }
+sp-tracing = { workspace = true, features = ["std"] }
+sp-core = { workspace = true, features = ["std"] }
+sp-npos-elections = { workspace = true, features = ["std"] }
+pallet-balances = { workspace = true, features = ["std"] }
+pallet-staking-reward-curve = { workspace = true }
+pallet-bags-list = { workspace = true, features = ["std"] }
+substrate-test-utils = { workspace = true }
+frame-benchmarking = { workspace = true, features = ["std"] }
+frame-election-provider-support = { workspace = true, features = ["std"] }
+rand_chacha = { workspace = true, features = ["std"] }
 
 [features]
 default = ["std"]
 std = [
-	"codec/std",
+	"parity-scale-codec/std",
 	"dbc-support/std",
 	"log/std",
 	"frame-benchmarking?/std",

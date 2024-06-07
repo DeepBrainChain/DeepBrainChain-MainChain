@@ -19,7 +19,7 @@
 
 use super::*;
 use crate::macros::*;
-use codec::EncodeLike;
+use parity_scale_codec::EncodeLike;
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
     pallet_prelude::{BoundedVec, MaxEncodedLen},

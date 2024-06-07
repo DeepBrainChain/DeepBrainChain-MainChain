@@ -1,6 +1,6 @@
 #![warn(unused_crate_dependencies)]
 
-use codec::Codec;
+use parity_scale_codec::Codec;
 use jsonrpsee::{
     core::{Error as JsonRpseeError, RpcResult},
     proc_macros::rpc,

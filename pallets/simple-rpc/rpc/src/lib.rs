@@ -1,6 +1,6 @@
 #![warn(unused_crate_dependencies)]
 
-use codec::Codec;
+use parity_scale_codec::Codec;
 use dbc_support::rpc_types::RpcBalance;
 use jsonrpsee::{
     core::{Error as JsonRpseeError, RpcResult},
