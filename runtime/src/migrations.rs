@@ -195,15 +195,37 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrades {
 }
 pub struct DemocracyV1Migration;
 impl OnRuntimeUpgrade for DemocracyV1Migration {
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        StorageVersion::new(0).put::<pallet_democracy::Pallet<Runtime>>();
+
+        let state = <pallet_democracy::migrations::v1::Migration<Runtime> as OnRuntimeUpgrade> ::pre_upgrade();
+        log::info!("pre_upgrade ok");
+        StorageVersion::new(1).put::<pallet_democracy::Pallet<Runtime>>();
+
+        state
+    }
     fn on_runtime_upgrade() -> Weight {
         let on_chain_version = pallet_democracy::Pallet::<Runtime>::on_chain_storage_version();
 
         if on_chain_version != 0{
             StorageVersion::new(0).put::<pallet_democracy::Pallet<Runtime>>();
+
             let weight = <pallet_democracy::migrations::v1::Migration<Runtime> as OnRuntimeUpgrade> ::on_runtime_upgrade();
             StorageVersion::new(1).put::<pallet_democracy::Pallet<Runtime>>();
+            let on_chain_version = pallet_democracy::Pallet::<Runtime>::on_chain_storage_version();
+            log::info!("on_runtime_upgrade ok");
             return weight
         }
+
         Weight::zero()
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        <pallet_democracy::migrations::v1::Migration<Runtime> as OnRuntimeUpgrade> ::post_upgrade(_state);
+        log::info!("post_upgrade ok");
+        Ok(())
     }
 }
