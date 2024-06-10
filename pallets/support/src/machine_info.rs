@@ -6,7 +6,7 @@ use crate::{
     },
     EraIndex, MachineId,
 };
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use frame_support::ensure;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]

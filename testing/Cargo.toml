@@ -1,44 +1,40 @@
 [package]
 name = "dbc-testing"
-version = "3.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-description = "Test utilities for Substrate node."
+version = { workspace = true }
+authors = { workspace = true }
 edition = "2021"
-license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
-publish = false
+repository = { workspace = true }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2" }
-fs_extra = "1"
-futures = "0.3.21"
-log = "0.4.17"
-tempfile = "3.1.0"
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+parity-scale-codec = { workspace = true, features = ["std"] }
+fs_extra = { workspace = true }
+futures = { workspace = true }
+log = { workspace = true }
+tempfile = { workspace = true }
+frame-system = { workspace = true, features = ["std"] }
 dbc-executor = { path = "../executor" }
 dbc-primitives = { path = "../primitives" }
 dbc-runtime = { path = "../runtime" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-pallet-asset-tx-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sc-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sc-client-db = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", features = ["rocksdb"] }
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", features = ["test-helpers", "rocksdb"] }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-substrate-test-client = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+pallet-assets = { workspace = true, features = ["std"] }
+pallet-asset-tx-payment = { workspace = true, features = ["std"] }
+pallet-transaction-payment = { workspace = true, features = ["std"] }
+sc-block-builder = { workspace = true }
+sc-client-api = { workspace = true }
+sc-client-db = { workspace = true, features = ["rocksdb"] }
+sc-consensus = { workspace = true }
+sc-executor = { workspace = true, features = ["std"] }
+sc-service = { workspace = true, features = ["test-helpers", "rocksdb"] }
+sp-api = { workspace = true, features = ["std"] }
+sp-block-builder = { workspace = true, features = ["std"] }
+sp-blockchain = { workspace = true }
+sp-consensus = { workspace = true }
+sp-core = { workspace = true, features = ["std"] }
+sp-inherents = { workspace = true, features = ["std"] }
+sp-io = { workspace = true, features = ["std"] }
+sp-keyring = { workspace = true }
+sp-runtime = { workspace = true, features = ["std"] }
+sp-timestamp = { workspace = true, features = ["std"] }
+substrate-test-client = { workspace = true }

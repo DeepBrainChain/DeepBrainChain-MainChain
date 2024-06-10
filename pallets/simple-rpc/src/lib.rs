@@ -1,7 +1,7 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::EncodeLike;
+use parity_scale_codec::EncodeLike;
 use dbc_support::{traits::OPRPCQuery, verify_online::StashMachine};
 use frame_support::{
     pallet_prelude::*,

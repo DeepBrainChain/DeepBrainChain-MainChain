@@ -3,7 +3,7 @@
 #![allow(clippy::unnecessary_mut_passed)]
 #![warn(unused_crate_dependencies)]
 
-use codec::Codec;
+use parity_scale_codec::Codec;
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 
@@ -20,7 +20,7 @@ use terminating_rental::rpc_types::{RpcIRCommitteeOps, StakerInfo};
 // runtime amalgamator file (the `runtime/src/lib.rs`)
 sp_api::decl_runtime_apis! {
     pub trait IrRpcApi<AccountId, Balance, BlockNumber> where
-        AccountId: codec::Codec + Ord,
+        AccountId: Codec + Ord,
         Balance: Codec + MaybeDisplay,
         BlockNumber: Codec + MaybeDisplay,
     {

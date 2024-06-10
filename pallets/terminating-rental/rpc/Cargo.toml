@@ -1,16 +1,17 @@
 [package]
 name = "terminating-rental-rpc"
-version = "0.1.0"
+version = { workspace = true }
+authors = { workspace = true }
 edition = "2021"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", features = ["derive"] }
-jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
+parity-scale-codec = { workspace = true }
+jsonrpsee = { workspace = true, features = ["client-core", "server", "macros"] }
 
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+sp-runtime = { workspace = true, features = ["std"] }
+sp-api = { workspace = true, features = ["std"] }
+sp-blockchain = { workspace = true }
 
-dbc-support = { version = "0.1.0", path = "../../support" }
-terminating-rental = { version = "0.1.0", path = "../../terminating-rental" }
-terminating-rental-runtime-api = { version = "0.1.0", path = "./runtime-api" }
+dbc-support = { path = "../../support" }
+terminating-rental = { path = "../../terminating-rental" }
+terminating-rental-runtime-api = { path = "./runtime-api" }

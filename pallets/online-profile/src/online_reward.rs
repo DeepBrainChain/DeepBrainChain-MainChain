@@ -4,7 +4,7 @@ use crate::{
     ErasMachinePoints, ErasMachineReleasedReward, ErasMachineReward, ErasStashPoints,
     ErasStashReleasedReward, ErasStashReward, MachineRecentReward, Pallet, StashMachines,
 };
-use codec::Decode;
+use parity_scale_codec::Decode;
 use dbc_support::{
     traits::{DbcPrice, ManageCommittee, OPRPCQuery},
     EraIndex, MachineId, ONE_DAY,

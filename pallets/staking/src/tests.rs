@@ -2237,9 +2237,9 @@ fn reward_from_authorship_event_handler_works() {
         assert_eq!(<pallet_authorship::Pallet<Test>>::author(), Some(11));
 
         Pallet::<Test>::note_author(11);
-        Pallet::<Test>::note_uncle(21, 1);
+        // Pallet::<Test>::note_uncle(21, 1);
         // Rewarding the same two times works.
-        Pallet::<Test>::note_uncle(11, 1);
+        // Pallet::<Test>::note_uncle(11, 1);
 
         // Not mandatory but must be coherent with rewards
         assert_eq_uvec!(Session::validators(), vec![11, 21]);

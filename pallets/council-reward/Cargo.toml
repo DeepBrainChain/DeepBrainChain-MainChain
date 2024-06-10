@@ -1,28 +1,29 @@
 [package]
-edition = "2021"
 name = "council-reward"
-version = "0.1.0"
-authors = ["bobo <dongkaige@gmail.com>"]
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { workspace = true }
+scale-info = { workspace = true }
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-collective = { workspace = true }
+pallet-elections-phragmen = { workspace = true }
+sp-std = { workspace = true }
 
 dbc-support = { package = "dbc-support", path = "../support", default-features = false }
 
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-pallet-insecure-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-pallet-treasury = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+pallet-balances = { workspace = true, features = ["std"] }
+pallet-insecure-randomness-collective-flip = { workspace = true, features = ["std"] }
+pallet-treasury = { workspace = true, features = ["std"] }
+sp-core = { workspace = true, features = ["std"] }
+sp-io = { workspace = true, features = ["std"] }
+sp-runtime = { workspace = true, features = ["std"] }
+sp-keyring = { workspace = true }
 
 dbc-price-ocw = { package = "dbc-price-ocw", path = "../dbc-price-ocw" }
 generic-func = { package = "generic-func", path = "../generic-func" }

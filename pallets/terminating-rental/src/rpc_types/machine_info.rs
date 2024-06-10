@@ -1,4 +1,4 @@
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
 use dbc_support::{

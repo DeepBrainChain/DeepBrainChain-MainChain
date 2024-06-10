@@ -9,7 +9,7 @@ use committee::CommitteeList;
 // runtime amalgamator file (the `runtime/src/lib.rs`)
 sp_api::decl_runtime_apis! {
     pub trait CmRpcApi<AccountId> where
-        AccountId: codec::Codec + Ord,
+        AccountId: parity_scale_codec::Codec + Ord,
     {
         fn get_committee_list() -> CommitteeList<AccountId>;
     }

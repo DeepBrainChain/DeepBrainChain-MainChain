@@ -1,4 +1,4 @@
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use dbc_support::{EraIndex, MachineId};
 use scale_info::TypeInfo;
 use sp_runtime::{Perbill, RuntimeDebug};

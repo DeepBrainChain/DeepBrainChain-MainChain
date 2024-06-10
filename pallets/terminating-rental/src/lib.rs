@@ -15,7 +15,7 @@ pub mod rpc_types;
 mod types;
 use frame_support::log;
 
-use codec::alloc::string::ToString;
+use parity_scale_codec::alloc::string::ToString;
 use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,

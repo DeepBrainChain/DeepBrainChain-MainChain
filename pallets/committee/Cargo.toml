@@ -1,36 +1,36 @@
 [package]
-authors = ["bobo <dongkaige@gmail.com>"]
-edition = "2021"
 name = "committee"
-version = "0.1.0"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-dbc-support = { package = "dbc-support", path = "../support", default-features = false }
-serde = { version = "1.0.101", optional = true }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+parity-scale-codec = { workspace = true }
+serde = { workspace = true , optional = true }
+scale-info = { workspace = true }
+dbc-support = { path = "../support", default-features = false }
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 # Optional imports for benchmarking
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false, optional = true }
+frame-benchmarking = { workspace = true, optional = true }
 
 [dev-dependencies]
-hex = { version = "0.4" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-# frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+hex = { workspace = true }
+sp-core = { workspace = true, features = ["std"] }
+sp-io = { workspace = true, features = ["std"] }
+sp-keyring = { workspace = true }
+pallet-balances = { workspace = true, features = ["std"] }
+# frame-benchmarking = { workspace = true, features = ["std"] }
 
 [features]
 default = ["std"]
 runtime-benchmarks = ["frame-benchmarking"]
 std = [
-  "codec/std",
+  "parity-scale-codec/std",
   "serde",
   "frame-support/std",
   "frame-system/std",

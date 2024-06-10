@@ -3,7 +3,7 @@
 #![allow(clippy::unnecessary_mut_passed)]
 #![warn(unused_crate_dependencies)]
 
-use codec::Codec;
+use parity_scale_codec::Codec;
 use simple_rpc::StakerListInfo;
 use sp_std::prelude::Vec;
 

@@ -24,7 +24,7 @@ use dbc_runtime::{
     ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig,
     SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
-use grandpa_primitives::AuthorityId as GrandpaId;
+use sp_finality_grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;

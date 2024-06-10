@@ -23,7 +23,7 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 512.
 #![recursion_limit = "512"]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Compact, Decode, Encode, MaxEncodedLen};
 pub use dbc_primitives::{AccountId, Signature};
 use dbc_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use dbc_support::{rental_type::MachineGPUOrder, EraIndex, MachineId, RentOrderId};
@@ -76,11 +76,6 @@ use sp_runtime::{
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber, FixedU128, PerThing, Perbill, Percent, Permill,
     Perquintill,
-};
-
-use pallet_contracts_primitives::{
-    Code, CodeUploadResult, ContractExecResult,
-    ContractInstantiateResult, GetStorageResult,
 };
 
 use sp_std::prelude::*;
@@ -762,6 +757,8 @@ parameter_types! {
 }
 
 use sp_runtime::traits::Convert;
+use crate::migrations::DemocracyV1Migration;
+
 pub struct BalanceToU256;
 impl Convert<Balance, sp_core::U256> for BalanceToU256 {
     fn convert(balance: Balance) -> sp_core::U256 {
@@ -1336,7 +1333,7 @@ impl pallet_assets::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Balance = u128;
     type AssetId = u32;
-    type AssetIdParameter = codec::Compact<u32>;
+    type AssetIdParameter = Compact<u32>;
     type Currency = Balances;
     type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
     type ForceOrigin = EnsureRoot<AccountId>;
@@ -1660,6 +1657,7 @@ type Migrations = (
     //     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
     //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
     pallet_assets::migration::v1::MigrateToV1<Runtime>,
+    DemocracyV1Migration,
 );
 
 /// MMR helper types.
@@ -1809,8 +1807,6 @@ impl_runtime_apis! {
             _set_id: fg_primitives::SetId,
             authority_id: GrandpaId,
         ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
-            use codec::Encode;
-
             Historical::prove((fg_primitives::KEY_TYPE, authority_id))
                 .map(|p| p.encode())
                 .map(fg_primitives::OpaqueKeyOwnershipProof::new)
@@ -1866,8 +1862,6 @@ impl_runtime_apis! {
             _slot: sp_consensus_babe::Slot,
             authority_id: sp_consensus_babe::AuthorityId,
         ) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
-            use codec::Encode;
-
             Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
                 .map(|p| p.encode())
                 .map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)
