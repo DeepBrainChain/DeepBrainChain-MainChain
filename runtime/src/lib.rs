@@ -1649,7 +1649,7 @@ type Migrations = (
     //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
     //     pallet_assets::migration::v1::MigrateToV1<Runtime>,
     DemocracyV1Migration,
-    pallet_nfts::migration::v1::MigrateToV1<Runtime>
+    pallet_nfts::migration::v1::MigrateToV1<Runtime>,
 );
 
 type EventRecord = frame_system::EventRecord<

@@ -21,7 +21,7 @@ fn report_individual_gpu() {
 
         // 补充质押 让租金进入算工的余额而不是质押
         let mut machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
-        Balances::reserve(&stash, 396000 * ONE_DBC);
+        assert_ok!(Balances::reserve(&stash, 396000 * ONE_DBC));
         machine_info.stake_amount += 396000 * ONE_DBC;
         MachinesInfo::<TestRuntime>::insert(&machine_id, &machine_info);
 

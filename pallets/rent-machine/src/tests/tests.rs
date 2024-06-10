@@ -207,7 +207,7 @@ fn controller_report_offline_when_rented_should_work() {
     new_test_ext_after_machine_online().execute_with(|| {
         // 补充质押
         let mut machine_info = OnlineProfile::machines_info(machine_id.clone()).unwrap();
-        Balances::reserve(&stash, 396000 * ONE_DBC);
+        assert_ok!(Balances::reserve(&stash, 396000 * ONE_DBC));
         machine_info.stake_amount += 396000 * ONE_DBC;
         MachinesInfo::<TestRuntime>::insert(machine_id.clone(), &machine_info);
 
@@ -267,7 +267,7 @@ fn rented_report_offline_rented_end_report_online() {
 
         // 补充质押 让租金进入算工的余额而不是质押
         let mut machine_info = OnlineProfile::machines_info(machine_id.clone()).unwrap();
-        Balances::reserve(&stash, 396000 * ONE_DBC);
+        assert_ok!(Balances::reserve(&stash, 396000 * ONE_DBC));
         machine_info.stake_amount += 396000 * ONE_DBC;
         MachinesInfo::<TestRuntime>::insert(machine_id.clone(), &machine_info);
 
