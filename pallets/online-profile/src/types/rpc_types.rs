@@ -1,6 +1,6 @@
-use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
+use parity_scale_codec::{Decode, Encode};
 // use generic_func::rpc_types::RpcText;
 use crate::{LiveMachine, MachineId, StakerCustomizeInfo};
 use dbc_support::{
@@ -9,6 +9,7 @@ use dbc_support::{
     verify_online::StashMachine,
     EraIndex,
 };
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
@@ -17,7 +18,7 @@ use sp_std::vec::Vec;
 use std::convert::From;
 
 #[cfg(feature = "std")]
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RpcMachineInfo<AccountId: Ord, BlockNumber, Balance> {
@@ -68,7 +69,7 @@ impl<AccountId: Ord, BlockNumber, Balance> From<MachineInfo<AccountId, BlockNumb
 }
 
 #[cfg(feature = "std")]
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct RpcMachineInfoDetail {
     pub committee_upload_info: CommitteeUploadInfo,
@@ -86,7 +87,7 @@ impl From<MachineInfoDetail> for RpcMachineInfoDetail {
 }
 
 #[cfg(feature = "std")]
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct RpcStakerCustomizeInfo {
     pub server_room: H256,
@@ -115,7 +116,7 @@ impl From<StakerCustomizeInfo> for RpcStakerCustomizeInfo {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct StakerInfo<Balance, BlockNumber, AccountId> {
@@ -124,7 +125,7 @@ pub struct StakerInfo<Balance, BlockNumber, AccountId> {
 }
 
 #[cfg(feature = "std")]
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RpcStakerInfo<Balance, BlockNumber, AccountId> {
@@ -133,7 +134,7 @@ pub struct RpcStakerInfo<Balance, BlockNumber, AccountId> {
 }
 
 #[cfg(feature = "std")]
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RpcStashMachine<Balance> {
@@ -175,7 +176,7 @@ impl<Balance> From<StashMachine<Balance>> for RpcStashMachine<Balance> {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct MachineBriefInfo<BlockNumber, AccountId> {
@@ -187,7 +188,7 @@ pub struct MachineBriefInfo<BlockNumber, AccountId> {
 }
 
 #[cfg(feature = "std")]
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RpcLiveMachine {

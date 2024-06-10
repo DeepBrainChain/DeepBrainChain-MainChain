@@ -2,8 +2,8 @@ use crate::{
     custom_err::ReportErr, report::ReportConfirmStatus, BoxPubkey, ItemList, MachineId,
     RentOrderId, ReportHash, FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
 };
-use parity_scale_codec::{Decode, Encode};
 use frame_support::ensure;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Saturating, Zero},

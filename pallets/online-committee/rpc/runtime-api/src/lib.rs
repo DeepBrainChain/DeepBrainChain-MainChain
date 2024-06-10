@@ -3,12 +3,12 @@
 #![allow(clippy::unnecessary_mut_passed)]
 #![warn(unused_crate_dependencies)]
 
-use parity_scale_codec::Codec;
 use dbc_support::{
     verify_online::{OCCommitteeMachineList, OCMachineCommitteeList},
     MachineId,
 };
 use online_committee::rpc::RpcOCCommitteeOps;
+use parity_scale_codec::Codec;
 use sp_runtime::traits::MaybeDisplay;
 
 // Here we declare the runtime API. It is implemented it the `impl` block in

@@ -1,5 +1,5 @@
-use parity_scale_codec::{Decode, Encode};
 use dbc_support::{EraIndex, MachineId};
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{
@@ -93,7 +93,7 @@ impl<AccountId: Ord + Clone> EraStashPoints<AccountId> {
         basic_grade: u64,
         is_online: bool,
     ) {
-        let mut staker_statistic = self
+        let staker_statistic = self
             .staker_statistic
             .entry(stash.clone())
             .or_insert(StashMachineStatistics { ..Default::default() });
@@ -133,7 +133,7 @@ impl<AccountId: Ord + Clone> EraStashPoints<AccountId> {
 
     /// 因机器租用状态改变，而影响得分
     pub fn on_rent_changed(&mut self, stash: AccountId, basic_grade: u64, is_rented: bool) {
-        let mut staker_statistic = self
+        let staker_statistic = self
             .staker_statistic
             .entry(stash.clone())
             .or_insert(StashMachineStatistics { ..Default::default() });

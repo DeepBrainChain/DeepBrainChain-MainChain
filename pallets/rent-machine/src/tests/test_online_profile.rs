@@ -11,13 +11,12 @@ pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
 
-use frame_support::{assert_ok,assert_err,traits::{ReservableCurrency},
-};
+use frame_support::{assert_err, assert_ok, traits::ReservableCurrency};
+use online_profile::{Error as OnlineProfileErr, MachinesInfo};
 use pallet_balances::AccountData;
-use online_profile::{Error as OnlineProfileErr,MachinesInfo};
+use sp_runtime::traits::Zero;
 use std::convert::TryInto;
 use system::AccountInfo;
-
 
 // 机器被审核通过后，stash账户币不够，主动调用fulfill_machine来补充质押
 #[test]
@@ -45,12 +44,14 @@ fn fulfill_machine_works() {
         {
             assert_eq!(System::account(stash), AccountInfo{
                 nonce: 0,
+                consumers: 1,
                 providers: 1,
                 data: AccountData {
                     free: 2_000 * ONE_DBC,
                     reserved: 4_000 * ONE_DBC,
-                    misc_frozen: 0,
-                    fee_frozen: 0,
+                    frozen: Zero::zero(),
+                    // flags: ExtraFlags::old_logic(),
+                    ..Default::default()
                 },
                 ..Default::default()
             });
@@ -135,12 +136,14 @@ fn fulfill_machine_works() {
             // NOTE: stash把币转走，只剩下 2_000 DBC
             assert_eq!(System::account(stash), AccountInfo{
                 nonce: 0,
+                consumers: 1,
                 providers: 1,
                 data: AccountData {
                     free: 1_000 * ONE_DBC,
                     reserved: 5_000 * ONE_DBC,
-                    misc_frozen: 0,
-                    fee_frozen: 0,
+                    frozen: Zero::zero(),
+                    // flags: ExtraFlags::old_logic(),
+                    ..Default::default()
                 },
                 ..Default::default()
             });
@@ -163,12 +166,14 @@ fn fulfill_machine_works() {
             // NOTE: stash把币转走，只剩下 200_000 DBC
             assert_eq!(System::account(stash), AccountInfo{
                 nonce: 0,
+                consumers: 1,
                 providers: 1,
                 data: AccountData {
                     free: 2_000 * ONE_DBC,
                     reserved: 8_000 * ONE_DBC,
-                    misc_frozen: 0,
-                    fee_frozen: 0,
+                    frozen: Zero::zero(),
+                    // flags: ExtraFlags::old_logic(),
+                    ..Default::default()
                 },
                 ..Default::default()
             });
@@ -298,12 +303,14 @@ fn restake_online_machine_works() {
         {
             assert_eq!(System::account(stash), AccountInfo{
                 nonce: 0,
+                consumers: 1,
                 providers: 1,
                 data: AccountData {
                     free: 9_996_000 * ONE_DBC,
                     reserved: 4_000 * ONE_DBC,
-                    misc_frozen: 0,
-                    fee_frozen: 0,
+                    frozen: Zero::zero(),
+                    // flags: ExtraFlags::old_logic(),
+                    ..Default::default()
                 },
                 ..Default::default()
             });
@@ -383,12 +390,14 @@ fn restake_online_machine_works() {
         {
             assert_eq!(System::account(stash), AccountInfo{
                 nonce: 0,
+                consumers: 1,
                 providers: 1,
                 data: AccountData {
                     free: 9_992_000 * ONE_DBC,
                     reserved: 8_000 * ONE_DBC,
-                    misc_frozen: 0,
-                    fee_frozen: 0,
+                    frozen: Zero::zero(),
+                    // flags: ExtraFlags::old_logic(),
+                    ..Default::default()
                 },
                 ..Default::default()
             });
@@ -422,12 +431,14 @@ fn restake_online_machine_works() {
         MachinesInfo::<TestRuntime>::insert(&machine_id2,machine_info);
         assert_eq!(System::account(stash), AccountInfo{
             nonce: 0,
+            consumers: 1,
             providers: 1,
             data: AccountData {
                 free: 9_992_000 * ONE_DBC - 400000*ONE_DBC,
                 reserved: 8_000 * ONE_DBC + 400000*ONE_DBC,
-                misc_frozen: 0,
-                fee_frozen: 0,
+                    frozen: Zero::zero(),
+                    // flags: ExtraFlags::old_logic(),
+                    ..Default::default()
             },
             ..Default::default()
         });
@@ -436,19 +447,18 @@ fn restake_online_machine_works() {
         // restake_online_machine后 退还多质押的1000DBC
         assert_eq!(System::account(stash), AccountInfo{
             nonce: 0,
+            consumers: 1,
             providers: 1,
             data: AccountData {
                 free: 9_992_000 * ONE_DBC - 400000*ONE_DBC +4000*ONE_DBC,
                 reserved: 8_000 * ONE_DBC + 400000*ONE_DBC-4000*ONE_DBC,
-                misc_frozen: 0,
-                fee_frozen: 0,
+                frozen: Zero::zero(),
+                // flags: ExtraFlags::old_logic(),
+                ..Default::default()
             },
             ..Default::default()
         });
     })
-
-
-
 }
 #[test]
 fn cancel_online_profile_slash_works() {}

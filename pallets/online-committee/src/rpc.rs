@@ -1,15 +1,16 @@
 use crate::{BalanceOf, CommitteeUploadInfo, Config, Pallet};
-use parity_scale_codec::{Decode, Encode};
 use dbc_support::{
     verify_online::{OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus},
     MachineId,
 };
+use parity_scale_codec::{Decode, Encode};
+use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;
 
 // for RPC
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 pub struct RpcOCCommitteeOps<BlockNumber, Balance> {

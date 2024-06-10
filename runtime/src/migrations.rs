@@ -134,8 +134,7 @@ impl frame_support::traits::OnRuntimeUpgrade for ElectionStoragePrefixMigration 
     }
 }
 
-use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
-use frame_support::pallet_prelude::StorageVersion;
+use frame_support::{pallet_prelude::StorageVersion, traits::OnRuntimeUpgrade, weights::Weight};
 
 pub struct CustomOnRuntimeUpgrades;
 impl OnRuntimeUpgrade for CustomOnRuntimeUpgrades {
@@ -198,7 +197,7 @@ impl OnRuntimeUpgrade for DemocracyV1Migration {
     fn on_runtime_upgrade() -> Weight {
         let on_chain_version = pallet_democracy::Pallet::<Runtime>::on_chain_storage_version();
 
-        if on_chain_version != 0{
+        if on_chain_version != 0 {
             StorageVersion::new(0).put::<pallet_democracy::Pallet<Runtime>>();
             let weight = <pallet_democracy::migrations::v1::Migration<Runtime> as OnRuntimeUpgrade> ::on_runtime_upgrade();
             StorageVersion::new(1).put::<pallet_democracy::Pallet<Runtime>>();

@@ -42,7 +42,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -113,7 +112,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 设置租用机器手续费：10 DBC
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn set_fixed_tx_fee(
             origin: OriginFor<T>,
             tx_fee: BalanceOf<T>,
@@ -124,7 +123,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn deposit_into_treasury(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -143,7 +142,7 @@ pub mod pallet {
 
         /// fre == 0 将销毁DestroyHook
         #[pallet::call_index(2)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn set_auto_destroy(
             origin: OriginFor<T>,
             who: T::AccountId,
@@ -160,7 +159,7 @@ pub mod pallet {
 
         // 将DBC销毁
         #[pallet::call_index(3)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn destroy_free_dbc(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -171,7 +170,7 @@ pub mod pallet {
 
         // 强制销毁DBC
         #[pallet::call_index(4)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn force_destroy_free_dbc(
             origin: OriginFor<T>,
             who: T::AccountId,

@@ -6,8 +6,8 @@ use crate::{
     },
     EraIndex, MachineId,
 };
-use parity_scale_codec::{Decode, Encode};
 use frame_support::ensure;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

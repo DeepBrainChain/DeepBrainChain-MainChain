@@ -62,6 +62,36 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
         }
     }
 
+    /// Returns the custom attribute value of `item` of `collection` corresponding to `key`.
+    ///
+    /// By default this is `None`; no attributes are defined.
+    fn custom_attribute(
+        account: &T::AccountId,
+        collection: &Self::CollectionId,
+        item: &Self::ItemId,
+        key: &[u8],
+    ) -> Option<Vec<u8>> {
+        let namespace = Account::<T, I>::get((account, collection, item))
+            .map(|_| AttributeNamespace::ItemOwner)
+            .unwrap_or_else(|| AttributeNamespace::Account(account.clone()));
+
+        let key = BoundedSlice::<_, _>::try_from(key).ok()?;
+        Attribute::<T, I>::get((collection, Some(item), namespace, key)).map(|a| a.0.into())
+    }
+
+    /// Returns the system attribute value of `item` of `collection` corresponding to `key`.
+    ///
+    /// By default this is `None`; no attributes are defined.
+    fn system_attribute(
+        collection: &Self::CollectionId,
+        item: &Self::ItemId,
+        key: &[u8],
+    ) -> Option<Vec<u8>> {
+        let namespace = AttributeNamespace::Pallet;
+        let key = BoundedSlice::<_, _>::try_from(key).ok()?;
+        Attribute::<T, I>::get((collection, Some(item), namespace, key)).map(|a| a.0.into())
+    }
+
     /// Returns the attribute value of `item` of `collection` corresponding to `key`.
     ///
     /// When `key` is empty, we return the item metadata value.
@@ -87,16 +117,19 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
     ///
     /// Default implementation is that all items are transferable.
     fn can_transfer(collection: &Self::CollectionId, item: &Self::ItemId) -> bool {
+        use PalletAttributes::TransferDisabled;
+        match Self::has_system_attribute(&collection, &item, TransferDisabled) {
+            Ok(transfer_disabled) if transfer_disabled => return false,
+            _ => (),
+        }
         match (
             CollectionConfigOf::<T, I>::get(collection),
             ItemConfigOf::<T, I>::get(collection, item),
         ) {
             (Some(cc), Some(ic))
-                if cc.is_setting_enabled(CollectionSetting::TransferableItems)
-                    && ic.is_setting_enabled(ItemSetting::Transferable) =>
-            {
-                true
-            },
+                if cc.is_setting_enabled(CollectionSetting::TransferableItems) &&
+                    ic.is_setting_enabled(ItemSetting::Transferable) =>
+                true,
             _ => false,
         }
     }
@@ -159,10 +192,12 @@ impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId, ItemConfig
         Self::do_mint(
             *collection,
             *item,
-            who.clone(),
+            match deposit_collection_owner {
+                true => None,
+                false => Some(who.clone()),
+            },
             who.clone(),
             *item_config,
-            deposit_collection_owner,
             |_, _| Ok(()),
         )
     }
@@ -175,7 +210,7 @@ impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId, ItemConfig
         Self::do_burn(*collection, *item, |d| {
             if let Some(check_owner) = maybe_check_owner {
                 if &d.owner != check_owner {
-                    return Err(Error::<T, I>::NoPermission.into());
+                    return Err(Error::<T, I>::NoPermission.into())
                 }
             }
             Ok(())
@@ -291,6 +326,23 @@ impl<T: Config<I>, I: 'static> Transfer<T::AccountId> for Pallet<T, I> {
         destination: &T::AccountId,
     ) -> DispatchResult {
         Self::do_transfer(*collection, *item, destination.clone(), |_, _| Ok(()))
+    }
+
+    fn disable_transfer(collection: &Self::CollectionId, item: &Self::ItemId) -> DispatchResult {
+        <Self as Mutate<T::AccountId, ItemConfig>>::set_attribute(
+            collection,
+            item,
+            &PalletAttributes::<Self::CollectionId>::TransferDisabled.encode(),
+            &[],
+        )
+    }
+
+    fn enable_transfer(collection: &Self::CollectionId, item: &Self::ItemId) -> DispatchResult {
+        <Self as Mutate<T::AccountId, ItemConfig>>::clear_attribute(
+            collection,
+            item,
+            &PalletAttributes::<Self::CollectionId>::TransferDisabled.encode(),
+        )
     }
 }
 

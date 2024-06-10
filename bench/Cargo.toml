@@ -6,9 +6,9 @@ edition = "2021"
 repository = { workspace = true }
 
 [dependencies]
-array-bytes = "4.1"
-clap = { version = "4.0.9", features = ["derive"] }
-log = "0.4.17"
+array-bytes = { workspace = true }
+clap = { workspace = true }
+log = { workspace = true }
 dbc-primitives = { path = "../primitives" }
 dbc-testing = { path = "../testing" }
 dbc-runtime = { path = "../runtime" }
@@ -19,7 +19,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
 kvdb = "0.13.0"
-kvdb-rocksdb = "0.17.0"
+kvdb-rocksdb = "0.19.0"
 sp-trie = { workspace = true }
 sp-core = { workspace = true }
 sp-consensus = { workspace = true }

@@ -1,12 +1,10 @@
 use crate::{
-    Balance, Balances, RandomnessCollectiveFlip, Runtime, RuntimeCall,
-    RuntimeEvent,  Timestamp,RuntimeBlockWeights
-
+    Balance, Balances, RandomnessCollectiveFlip, Runtime, RuntimeBlockWeights, RuntimeCall,
+    RuntimeEvent, Timestamp,
 };
 use frame_support::{
     parameter_types,
     traits::{ConstBool, ConstU32},
-    weights::Weight,
 };
 
 // Unit = the base number of indivisible units for balances
@@ -14,16 +12,13 @@ pub const DBC: Balance = 1_000_000_000_000_000;
 
 const fn deposit(items: u32, bytes: u32) -> Balance {
     (items as Balance + bytes as Balance) * DBC / 1_000_000
-
 }
 
 parameter_types! {
-	pub const DepositPerItem: Balance = deposit(1, 0);
-	pub const DepositPerByte: Balance = deposit(0, 1);
-	pub const DeletionQueueDepth: u32 = 128;
-	pub DeletionWeightLimit: Weight =
-        RuntimeBlockWeights::get().max_block;
-	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
+    pub const DepositPerItem: Balance = deposit(1, 0);
+    pub const DepositPerByte: Balance = deposit(0, 1);
+    pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+    pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 }
 
 impl pallet_contracts::Config for Runtime {
@@ -41,12 +36,11 @@ impl pallet_contracts::Config for Runtime {
     type CallFilter = frame_support::traits::Nothing;
     type DepositPerItem = DepositPerItem;
     type DepositPerByte = DepositPerByte;
+    type DefaultDepositLimit = DefaultDepositLimit;
     type CallStack = [pallet_contracts::Frame<Self>; 31];
     type WeightPrice = pallet_transaction_payment::Pallet<Self>;
     type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
     type ChainExtension = ();
-    type DeletionQueueDepth = DeletionQueueDepth;
-    type DeletionWeightLimit = DeletionWeightLimit;
     type Schedule = Schedule;
     type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
     // This node is geared towards development and testing of contracts.

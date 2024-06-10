@@ -3,7 +3,6 @@
 #![allow(clippy::unnecessary_mut_passed)]
 #![warn(unused_crate_dependencies)]
 
-use parity_scale_codec::Codec;
 use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,
@@ -11,6 +10,7 @@ use dbc_support::{
     EraIndex, MachineId,
 };
 pub use online_profile::{rpc_types::StakerInfo, PosInfo, SysInfoDetail};
+use parity_scale_codec::Codec;
 use sp_runtime::traits::MaybeDisplay;
 use sp_std::prelude::Vec;
 

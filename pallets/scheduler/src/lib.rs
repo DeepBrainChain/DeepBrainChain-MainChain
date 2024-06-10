@@ -59,7 +59,6 @@ mod mock;
 mod tests;
 pub mod weights;
 
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     dispatch::{
         DispatchError, DispatchResult, Dispatchable, GetDispatchInfo, Parameter, RawOrigin,
@@ -73,6 +72,7 @@ use frame_support::{
     weights::{Weight, WeightMeter},
 };
 use frame_system::{self as system};
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
@@ -172,7 +172,6 @@ pub mod pallet {
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 

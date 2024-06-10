@@ -46,7 +46,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -78,7 +77,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 设置committee每次操作需要质押数量
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(0, 0))]
         pub fn set_committee_stake_params(
             origin: OriginFor<T>,
             stake_params: CommitteeStakeParamsInfo<BalanceOf<T>>,
@@ -92,7 +91,7 @@ pub mod pallet {
         // 添加到委员会，直接添加到fulfill列表中。每次finalize将会读取委员会币数量，
         // 币足则放到committee中 TODO: add max_committee config for better weight
         #[pallet::call_index(1)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         // #[pallet::weight(<T as Config>::WeightInfo::add_committee(100u32))]
         pub fn add_committee(
             origin: OriginFor<T>,
@@ -114,7 +113,7 @@ pub mod pallet {
 
         /// 委员会添用于非对称加密的公钥信息，并绑定质押
         #[pallet::call_index(2)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_set_box_pubkey(
             origin: OriginFor<T>,
             box_pubkey: [u8; 32],
@@ -158,7 +157,7 @@ pub mod pallet {
 
         /// 委员会增加质押
         #[pallet::call_index(3)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_add_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -184,7 +183,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_reduce_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -204,7 +203,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(5)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
 
@@ -225,7 +224,7 @@ pub mod pallet {
 
         // 委员会停止接单
         #[pallet::call_index(6)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let mut committee_list = Self::committee();
@@ -249,7 +248,7 @@ pub mod pallet {
 
         // 委员会可以接单
         #[pallet::call_index(7)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn undo_chill(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let mut committee_list = Self::committee();
@@ -272,7 +271,7 @@ pub mod pallet {
 
         /// Only In Chill list & used_stake == 0 can exit.
         #[pallet::call_index(8)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn exit_committee(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let committee = ensure_signed(origin)?;
             let mut committee_stake = Self::committee_stake(&committee);

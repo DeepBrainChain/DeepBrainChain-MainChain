@@ -1,6 +1,6 @@
 use crate::{custom_err::VerifyErr, machine_type::CommitteeUploadInfo, ItemList, MachineId};
-use parity_scale_codec::{Decode, Encode};
 use frame_support::ensure;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
