@@ -39,6 +39,9 @@ jobs:
           target: wasm32-unknown-unknown
 
       - uses: actions/checkout@v2
+        
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -46,3 +49,6 @@ jobs:
 
       - name: Run ${{ matrix.package }} tests
         run: cargo test -p ${{ matrix.package }}
+
+      - name: Check try-runtime
+        run: cargo check --features try-runtime
