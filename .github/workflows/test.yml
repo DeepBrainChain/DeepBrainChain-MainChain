@@ -39,6 +39,9 @@ jobs:
           target: wasm32-unknown-unknown
 
       - uses: actions/checkout@v2
+        
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
 
       - uses: Swatinem/rust-cache@v2
         with:
