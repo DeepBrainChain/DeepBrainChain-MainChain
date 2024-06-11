@@ -2,7 +2,6 @@ use crate::{CommitteeStake, Config, StorageVersion};
 use frame_support::{debug::info, weights::Weight, IterableStorageMap};
 use sp_runtime::traits::Zero;
 use sp_std::vec::Vec;
-
 pub fn apply<T: Config>() -> Weight {
     frame_support::debug::RuntimeLogger::init();
 
