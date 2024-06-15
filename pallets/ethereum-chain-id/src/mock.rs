@@ -72,7 +72,7 @@ frame_support::construct_runtime!(
 
 pub fn new_test_with() -> sp_io::TestExternalities {
     let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
-    
+
     let mut t: sp_io::TestExternalities = t.into();
 
     t.execute_with(|| {

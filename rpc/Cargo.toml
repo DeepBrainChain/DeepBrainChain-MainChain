@@ -9,6 +9,7 @@ repository = { workspace = true }
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+jsonrpc-pubsub = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
 dbc-primitives = { path = "../primitives" }
 pallet-transaction-payment-rpc = { workspace = true }
@@ -41,3 +42,16 @@ online-profile-rpc = { path = "../pallets/online-profile/rpc" }
 rent-machine-rpc = { path = "../pallets/rent-machine/rpc" }
 simple-rpc-rpc = { path = "../pallets/simple-rpc/rpc" }
 terminating-rental-rpc = { path = "../pallets/terminating-rental/rpc" }
+
+# Finality-rpc
+dbc-finality-rpc = { path = "../client/rpc/finality" }
+
+# EVM
+fc-db = { workspace = true }
+fc-rpc = { workspace = true }
+fc-rpc-core = { workspace = true }
+fc-storage = { workspace = true }
+fp-rpc = { workspace = true }
+fp-storage = { workspace = true }
+sc-transaction-pool = { workspace = true }
+sc-network = { workspace = true }

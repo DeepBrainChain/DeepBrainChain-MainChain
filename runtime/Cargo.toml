@@ -114,7 +114,6 @@ online-profile = { path = "../pallets/online-profile", default-features = false 
 rent-machine = { path = "../pallets/rent-machine", default-features = false }
 simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-features = false }
 terminating-rental = { path = "../pallets/terminating-rental", default-features = false }
-ethereum-chain-id = { path = "../pallets/ethereum-chain-id", default-features = false }
 
 committee-runtime-api = { path = "../pallets/committee/rpc/runtime-api", default-features = false }
 online-committee-runtime-api = { path = "../pallets/online-committee/rpc/runtime-api", default-features = false }
@@ -132,9 +131,25 @@ pallet-contracts-primitives = { workspace = true }
 
 #pallet-contracts-rpc-runtime-api = { workspace = true }
 
+# Evm
+ethereum-chain-id = { path = "../pallets/ethereum-chain-id", default-features = false }
+# Frontier
+fp-evm = { workspace = true }
+fp-rpc = { workspace = true }
+fp-self-contained = { workspace = true }
+pallet-base-fee = { workspace = true }
+pallet-ethereum = { workspace = true }
+pallet-evm = { workspace = true }
+pallet-evm-precompile-blake2 = { workspace = true }
+pallet-evm-precompile-bn128 = { workspace = true }
+pallet-evm-precompile-dispatch = { workspace = true }
+pallet-evm-precompile-modexp = { workspace = true }
+pallet-evm-precompile-sha3fips = { workspace = true }
+pallet-evm-precompile-simple = { workspace = true }
 
 [features]
 default = ["std"]
+dev-mode = []
 with-tracing = ["frame-executive/with-tracing"]
 std = [
   # "pallet-whitelist/std",
@@ -232,7 +247,6 @@ std = [
   "rent-machine/std",
   "simple-rpc/std",
   "terminating-rental/std",
-  "ethereum-chain-id/std",
 
   "committee-runtime-api/std",
   "online-committee-runtime-api/std",
@@ -241,8 +255,23 @@ std = [
   "simple-rpc-runtime-api/std",
   "terminating-rental-runtime-api/std",
 
-  'pallet-contracts/std',
-  'pallet-contracts-primitives/std'
+  "pallet-contracts/std",
+  "pallet-contracts-primitives/std",
+
+  # Evm
+  "ethereum-chain-id/std",
+  "fp-evm/std",
+  "fp-rpc/std",
+  "fp-self-contained/std",
+  "pallet-base-fee/std",
+  "pallet-ethereum/std",
+  "pallet-evm/std",
+  "pallet-evm-precompile-blake2/std",
+  "pallet-evm-precompile-bn128/std",
+  "pallet-evm-precompile-dispatch/std",
+  "pallet-evm-precompile-modexp/std",
+  "pallet-evm-precompile-sha3fips/std",
+  "pallet-evm-precompile-simple/std",
 ]
 runtime-benchmarks = [
   "frame-benchmarking/runtime-benchmarks",

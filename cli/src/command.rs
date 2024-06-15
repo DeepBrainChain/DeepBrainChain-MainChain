@@ -94,7 +94,7 @@ pub fn run() -> Result<()> {
         Some(Subcommand::Benchmark(cmd)) => {
             let runner = cli.create_runner(cmd)?;
 
-            runner.sync_run(|config| {
+            runner.sync_run(|mut config| {
                 // This switch needs to be in the client, since the client decides
                 // which sub-commands it wants to support.
                 match cmd {
@@ -111,7 +111,7 @@ pub fn run() -> Result<()> {
                     },
                     BenchmarkCmd::Block(cmd) => {
                         // ensure that we keep the task manager alive
-                        let partial = new_partial(&config)?;
+                        let partial = new_partial(&mut config)?;
                         cmd.run(partial.client)
                     },
                     #[cfg(not(feature = "runtime-benchmarks"))]
@@ -122,7 +122,7 @@ pub fn run() -> Result<()> {
                     #[cfg(feature = "runtime-benchmarks")]
                     BenchmarkCmd::Storage(cmd) => {
                         // ensure that we keep the task manager alive
-                        let partial = new_partial(&config)?;
+                        let partial = new_partial(&mut config)?;
                         let db = partial.backend.expose_db();
                         let storage = partial.backend.expose_storage();
 
@@ -130,7 +130,7 @@ pub fn run() -> Result<()> {
                     },
                     BenchmarkCmd::Overhead(cmd) => {
                         // ensure that we keep the task manager alive
-                        let partial = new_partial(&config)?;
+                        let partial = new_partial(&mut config)?;
                         let ext_builder = RemarkBuilder::new(partial.client.clone());
 
                         cmd.run(
@@ -143,7 +143,7 @@ pub fn run() -> Result<()> {
                     },
                     BenchmarkCmd::Extrinsic(cmd) => {
                         // ensure that we keep the task manager alive
-                        let partial = service::new_partial(&config)?;
+                        let partial = service::new_partial(&mut config)?;
                         // Register the *Remark* and *TKA* builders.
                         let ext_factory = ExtrinsicFactory(vec![
                             Box::new(RemarkBuilder::new(partial.client.clone())),
@@ -176,31 +176,31 @@ pub fn run() -> Result<()> {
         },
         Some(Subcommand::CheckBlock(cmd)) => {
             let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
+            runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, import_queue, .. } =
-                    new_partial(&config)?;
+                    new_partial(&mut config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         },
         Some(Subcommand::ExportBlocks(cmd)) => {
             let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
-                let PartialComponents { client, task_manager, .. } = new_partial(&config)?;
+            runner.async_run(|mut config| {
+                let PartialComponents { client, task_manager, .. } = new_partial(&mut config)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         },
         Some(Subcommand::ExportState(cmd)) => {
             let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
-                let PartialComponents { client, task_manager, .. } = new_partial(&config)?;
+            runner.async_run(|mut config| {
+                let PartialComponents { client, task_manager, .. } = new_partial(&mut config)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         },
         Some(Subcommand::ImportBlocks(cmd)) => {
             let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
+            runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, import_queue, .. } =
-                    new_partial(&config)?;
+                    new_partial(&mut config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         },
@@ -210,8 +210,8 @@ pub fn run() -> Result<()> {
         },
         Some(Subcommand::Revert(cmd)) => {
             let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
-                let PartialComponents { client, task_manager, backend, .. } = new_partial(&config)?;
+            runner.async_run(|mut config| {
+                let PartialComponents { client, task_manager, backend, .. } = new_partial(&mut config)?;
                 let aux_revert = Box::new(|client: Arc<FullClient>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
                     sc_finality_grandpa::revert(client, blocks)?;
@@ -224,7 +224,7 @@ pub fn run() -> Result<()> {
         Some(Subcommand::TryRuntime(cmd)) => {
             use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
             let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
+            runner.async_run(|mut config| {
                 // we don't need any of the components of new_partial, just a runtime, or a task
                 // manager to do `async_run`.
                 let registry = config.prometheus_config.as_ref().map(|cfg| &cfg.registry);

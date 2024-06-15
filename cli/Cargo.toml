@@ -36,6 +36,7 @@ rand = { workspace = true }
 
 # primitives
 sp-authority-discovery = { workspace = true }
+sp-blockchain = { workspace = true }
 sp-consensus-babe = { workspace = true }
 sp-finality-grandpa = { workspace = true }
 sp-api = { workspace = true }
@@ -70,6 +71,12 @@ sc-authority-discovery = { workspace = true }
 sc-sync-state-rpc = { workspace = true }
 sc-sysinfo = { workspace = true }
 sc-storage-monitor = { workspace = true }
+
+fc-consensus = { workspace = true }
+fc-db = { workspace = true }
+fc-mapping-sync = { workspace = true }
+fc-rpc = { workspace = true }
+fc-rpc-core = { workspace = true }
 
 # frame dependencies
 pallet-assets = { path = "../pallets/assets" }
@@ -149,6 +156,7 @@ runtime-benchmarks = [
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
 try-runtime = ["dbc-runtime/try-runtime", "try-runtime-cli/try-runtime"]
+dev-mode = ["dbc-runtime/dev-mode"]
 
 [[bench]]
 name = "transaction_pool"

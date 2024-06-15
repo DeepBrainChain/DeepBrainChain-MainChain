@@ -24,7 +24,7 @@ use crate::Cli;
 use parity_scale_codec::Encode;
 use dbc_executor::DBCExecutorDispatch;
 use dbc_primitives::Block;
-use dbc_runtime::RuntimeApi;
+use dbc_runtime::{TransactionConverter, RuntimeApi};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
@@ -35,12 +35,23 @@ use sc_network::NetworkService;
 use sc_network_common::{
     protocol::event::Event, service::NetworkEventStream, sync::warp::WarpSyncParams,
 };
-use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
+use sc_service::{BasePath, config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
-use std::sync::Arc;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+    time::Duration
+};
+use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
+use fc_db::DatabaseSource;
+use fc_rpc::EthTask;
+use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
+use fc_consensus::FrontierBlockImport;
+use sc_client_api::BlockchainEvents;
+use sc_rpc::SubscriptionTaskExecutor;
 
 /// The full client type definition.
 pub type FullClient =
@@ -125,9 +136,53 @@ pub fn create_extrinsic(
     )
 }
 
+/// Create the frontier database directory.
+pub fn frontier_database_dir(config: &Configuration, path: &str) -> std::path::PathBuf {
+	let config_dir = config
+		.base_path
+		.as_ref()
+		.map(|base_path| base_path.config_dir(config.chain_spec.id()))
+		.unwrap_or_else(|| {
+			BasePath::from_project("", "", "dbc").config_dir(config.chain_spec.id())
+		});
+	config_dir.join("frontier").join(path)
+}
+
+/// Open the frontier backend.
+pub fn open_frontier_backend<C>(
+	client: Arc<C>,
+	config: &Configuration,
+) -> Result<Arc<fc_db::Backend<Block>>, String>
+where
+	C: sp_blockchain::HeaderBackend<Block>,
+{
+	Ok(Arc::new(fc_db::Backend::<Block>::new(
+		client,
+		&fc_db::DatabaseSettings {
+			source: match config.database {
+				DatabaseSource::RocksDb { .. } => DatabaseSource::RocksDb {
+					path: frontier_database_dir(config, "db"),
+					cache_size: 0,
+				},
+				DatabaseSource::ParityDb { .. } => DatabaseSource::ParityDb {
+					path: frontier_database_dir(config, "paritydb"),
+				},
+				DatabaseSource::Auto { .. } => DatabaseSource::Auto {
+					rocksdb_path: frontier_database_dir(config, "db"),
+					paritydb_path: frontier_database_dir(config, "paritydb"),
+					cache_size: 0,
+				},
+				_ => {
+					return Err("Supported db sources: `rocksdb` | `paritydb` | `auto`".to_string())
+				}
+			},
+		},
+	)?))
+}
+
 /// Creates a new partial node.
 pub fn new_partial(
-    config: &Configuration,
+    config: &mut Configuration,
 ) -> Result<
     sc_service::PartialComponents<
         FullClient,
@@ -136,21 +191,24 @@ pub fn new_partial(
         sc_consensus::DefaultImportQueue<Block, FullClient>,
         sc_transaction_pool::FullPool<Block, FullClient>,
         (
-            impl Fn(
-                dbc_rpc::DenyUnsafe,
-                sc_rpc::SubscriptionTaskExecutor,
-            ) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>,
             (
                 sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
                 sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
                 sc_consensus_babe::BabeLink<Block>,
             ),
-            sc_finality_grandpa::SharedVoterState,
             Option<Telemetry>,
+            (
+                Option<FilterPool>,
+                FeeHistoryCache,
+                Arc<fc_db::Backend<Block>>,
+            ),
         ),
     >,
     ServiceError,
 > {
+    // Use ethereum style for subscription ids
+	config.rpc_id_provider = Some(Box::new(fc_rpc::EthereumSubIdProvider));
+
     let telemetry = config
         .telemetry_endpoints
         .clone()
@@ -192,6 +250,10 @@ pub fn new_partial(
         client.clone(),
     );
 
+    let filter_pool: Option<FilterPool> = Some(Arc::new(Mutex::new(BTreeMap::new())));
+    let fee_history_cache: FeeHistoryCache = Arc::new(Mutex::new(BTreeMap::new()));
+    let frontier_backend = open_frontier_backend(client.clone(), config)?;
+
     let (grandpa_block_import, grandpa_link) = sc_finality_grandpa::block_import(
         client.clone(),
         &(client.clone() as Arc<_>),
@@ -200,16 +262,22 @@ pub fn new_partial(
     )?;
     let justification_import = grandpa_block_import.clone();
 
-    let (block_import, babe_link) = sc_consensus_babe::block_import(
+    let (babe_block_import, babe_link) = sc_consensus_babe::block_import(
         sc_consensus_babe::configuration(&*client)?,
         grandpa_block_import,
         client.clone(),
     )?;
 
+    let frontier_block_import = FrontierBlockImport::new(
+        babe_block_import.clone(),
+        client.clone(),
+        frontier_backend.clone(),
+    );
+
     let slot_duration = babe_link.config().slot_duration();
     let import_queue = sc_consensus_babe::import_queue(
         babe_link.clone(),
-        block_import.clone(),
+        frontier_block_import.clone(),
         Some(Box::new(justification_import)),
         client.clone(),
         select_chain.clone(),
@@ -229,57 +297,8 @@ pub fn new_partial(
         telemetry.as_ref().map(|x| x.handle()),
     )?;
 
-    let import_setup = (block_import, grandpa_link, babe_link);
-
-    let (rpc_extensions_builder, rpc_setup) = {
-        let (_, grandpa_link, babe_link) = &import_setup;
-
-        let justification_stream = grandpa_link.justification_stream();
-        let shared_authority_set = grandpa_link.shared_authority_set().clone();
-        let shared_voter_state = sc_finality_grandpa::SharedVoterState::empty();
-        let shared_voter_state2 = shared_voter_state.clone();
-
-        let finality_proof_provider = sc_finality_grandpa::FinalityProofProvider::new_for_service(
-            backend.clone(),
-            Some(shared_authority_set.clone()),
-        );
-
-        let babe_config = babe_link.config().clone();
-        let shared_epoch_changes = babe_link.epoch_changes().clone();
-
-        let client = client.clone();
-        let pool = transaction_pool.clone();
-        let select_chain = select_chain.clone();
-        let keystore = keystore_container.sync_keystore();
-        let chain_spec = config.chain_spec.cloned_box();
-
-        let rpc_backend = backend.clone();
-        let rpc_extensions_builder = move |deny_unsafe, subscription_executor| {
-            let deps = dbc_rpc::FullDeps {
-                client: client.clone(),
-                pool: pool.clone(),
-                select_chain: select_chain.clone(),
-                chain_spec: chain_spec.cloned_box(),
-                deny_unsafe,
-                babe: dbc_rpc::BabeDeps {
-                    babe_config: babe_config.clone(),
-                    shared_epoch_changes: shared_epoch_changes.clone(),
-                    keystore: keystore.clone(),
-                },
-                grandpa: dbc_rpc::GrandpaDeps {
-                    shared_voter_state: shared_voter_state.clone(),
-                    shared_authority_set: shared_authority_set.clone(),
-                    justification_stream: justification_stream.clone(),
-                    subscription_executor,
-                    finality_provider: finality_proof_provider.clone(),
-                },
-            };
-
-            dbc_rpc::create_full(deps, rpc_backend.clone()).map_err(Into::into)
-        };
-
-        (rpc_extensions_builder, shared_voter_state2)
-    };
+    let import_setup = (babe_block_import, grandpa_link, babe_link);
+    let frontier_setup = (filter_pool, fee_history_cache, frontier_backend);
 
     Ok(sc_service::PartialComponents {
         client,
@@ -289,7 +308,7 @@ pub fn new_partial(
         select_chain,
         import_queue,
         transaction_pool,
-        other: (rpc_extensions_builder, import_setup, rpc_setup, telemetry),
+        other: (import_setup, telemetry, frontier_setup),
     })
 }
 
@@ -331,10 +350,12 @@ pub fn new_full_base(
         keystore_container,
         select_chain,
         transaction_pool,
-        other: (rpc_builder, import_setup, rpc_setup, mut telemetry),
-    } = new_partial(&config)?;
+        other: (import_setup, mut telemetry, frontier_setup),
+    } = new_partial(&mut config)?;
 
-    let shared_voter_state = rpc_setup;
+    let (babe_block_import, grandpa_link, babe_link) = import_setup;
+    let (filter_pool, fee_history_cache, frontier_backend) = frontier_setup;
+
     let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
     let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
         &client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
@@ -347,7 +368,7 @@ pub fn new_full_base(
         .push(sc_finality_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
     let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
         backend.clone(),
-        import_setup.1.shared_authority_set().clone(),
+        grandpa_link.shared_authority_set().clone(),
         Vec::default(),
     ));
 
@@ -379,9 +400,88 @@ pub fn new_full_base(
     let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();
 
+    // EVM
+    let overrides = dbc_rpc::overrides_handle(client.clone());
+    let fee_history_cache_limit = 2048;
+    let block_data_cache = Arc::new(fc_rpc::EthBlockDataCacheTask::new(
+        task_manager.spawn_handle(),
+        overrides.clone(),
+        50,
+        50,
+        prometheus_registry.clone(),
+    ));
+
+    let rpc_builder = {
+        let justification_stream = grandpa_link.justification_stream();
+        let shared_authority_set = grandpa_link.shared_authority_set().clone();
+
+        let finality_proof_provider = sc_finality_grandpa::FinalityProofProvider::new_for_service(
+            backend.clone(),
+            Some(shared_authority_set.clone()),
+        );
+
+        let babe_config = babe_link.config().clone();
+        let shared_epoch_changes = babe_link.epoch_changes().clone();
+
+        let client = client.clone();
+        let transaction_pool_clone = transaction_pool.clone();
+        let select_chain = select_chain.clone();
+        let keystore = keystore_container.sync_keystore();
+        let chain_spec = config.chain_spec.cloned_box();
+
+        // EVM
+        let network = network.clone();
+        let filter_pool = filter_pool.clone();
+        let frontier_backend = frontier_backend.clone();
+        let overrides = overrides.clone();
+        let fee_history_cache = fee_history_cache.clone();
+        let backend_clone = backend.clone();
+
+        Box::new(move |deny_unsafe, subscription_task_executor: SubscriptionTaskExecutor| {
+            let deps = dbc_rpc::FullDeps {
+                client: client.clone(),
+                pool: transaction_pool_clone.clone(),
+                select_chain: select_chain.clone(),
+                chain_spec: chain_spec.cloned_box(),
+                deny_unsafe,
+                babe: dbc_rpc::BabeDeps {
+                    babe_config: babe_config.clone(),
+                    shared_epoch_changes: shared_epoch_changes.clone(),
+                    keystore: keystore.clone(),
+                },
+                grandpa: dbc_rpc::GrandpaDeps {
+                    shared_voter_state: sc_finality_grandpa::SharedVoterState::empty(),
+                    shared_authority_set: shared_authority_set.clone(),
+                    justification_stream: justification_stream.clone(),
+                    subscription_executor: subscription_task_executor.clone(),
+                    finality_provider: finality_proof_provider.clone(),
+                },
+                eth: dbc_rpc::EthDeps {
+                    client: client.clone(),
+	                pool: transaction_pool_clone.clone(),
+                    graph: transaction_pool_clone.pool().clone(),
+                    converter: Some(TransactionConverter),
+                    is_authority: false,
+                    enable_dev_signer: false, // eth_config.enable_dev_signer,
+                    network: network.clone(),
+                    frontier_backend: frontier_backend.clone(),
+                    overrides: overrides.clone(),
+                    block_data_cache: block_data_cache.clone(),
+                    filter_pool: filter_pool.clone(),
+		            max_past_logs: 10000, // eth_config.max_past_logs,
+                    fee_history_cache: fee_history_cache.clone(),
+                    fee_history_cache_limit,
+                    execute_gas_limit_multiplier: 10, // eth_config.execute_gas_limit_multiplier,
+                }
+            };
+
+            dbc_rpc::create_full(deps, backend_clone.clone(), subscription_task_executor.clone()).map_err(Into::into)
+        })
+    };
+
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         config,
-        backend,
+        backend: backend.clone(),
         client: client.clone(),
         keystore: keystore_container.sync_keystore(),
         network: network.clone(),
@@ -411,9 +511,47 @@ pub fn new_full_base(
         }
     }
 
-    let (block_import, grandpa_link, babe_link) = import_setup;
+    (with_startup_data)(&babe_block_import, &babe_link);
 
-    (with_startup_data)(&block_import, &babe_link);
+    task_manager.spawn_essential_handle().spawn(
+        "frontier-mapping-sync-worker",
+        Some("frontier"),
+        MappingSyncWorker::new(
+            client.import_notification_stream(),
+            Duration::new(6, 0),
+            client.clone(),
+            backend,
+            overrides.clone(),
+            frontier_backend.clone(),
+            3,
+            0,
+            SyncStrategy::Normal,
+        )
+        .for_each(|()| futures::future::ready(())),
+    );
+
+    // Spawn Frontier EthFilterApi maintenance task.
+    if let Some(filter_pool) = filter_pool {
+        // Each filter is allowed to stay in the pool for 100 blocks.
+        const FILTER_RETAIN_THRESHOLD: u64 = 100;
+        task_manager.spawn_essential_handle().spawn(
+            "frontier-filter-pool",
+            Some("frontier"),
+            EthTask::filter_pool_task(Arc::clone(&client), filter_pool, FILTER_RETAIN_THRESHOLD),
+        );
+    }
+
+    // Spawn Frontier FeeHistory cache maintenance task.
+    task_manager.spawn_essential_handle().spawn(
+        "frontier-fee-history",
+        Some("frontier"),
+        EthTask::fee_history_task(
+            Arc::clone(&client),
+            Arc::clone(&overrides),
+            fee_history_cache,
+            fee_history_cache_limit,
+        ),
+    );
 
     if let sc_service::config::Role::Authority { .. } = &role {
         let proposer = sc_basic_authorship::ProposerFactory::new(
@@ -431,7 +569,7 @@ pub fn new_full_base(
             client: client.clone(),
             select_chain,
             env: proposer,
-            block_import,
+            block_import: babe_block_import,
             sync_oracle: network.clone(),
             justification_sync_link: network.clone(),
             create_inherent_data_providers: move |parent, ()| {
@@ -532,7 +670,7 @@ pub fn new_full_base(
             telemetry: telemetry.as_ref().map(|x| x.handle()),
             voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
             prometheus_registry,
-            shared_voter_state,
+            shared_voter_state: sc_finality_grandpa::SharedVoterState::empty(),
         };
 
         // the GRANDPA voter task is considered infallible, i.e.

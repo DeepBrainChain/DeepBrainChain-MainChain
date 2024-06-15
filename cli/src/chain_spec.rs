@@ -20,11 +20,11 @@
 
 use dbc_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
-    BalancesConfig, Block, CouncilConfig, DemocracyConfig, ElectionsConfig, GrandpaConfig,
-    ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig,
-    SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+    BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DemocracyConfig,
+    ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, MaxNominations,
+    NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig,
+    SystemConfig, TechnicalCommitteeConfig,
 };
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
@@ -33,6 +33,7 @@ use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
+use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     Perbill,
@@ -373,6 +374,12 @@ pub fn testnet_genesis(
             ..Default::default()
         },
         ethereum_chain_id: Default::default(),
+        evm: Default::default(),
+        ethereum: Default::default(),
+        base_fee: BaseFeeConfig::new(
+            DefaultBaseFeePerGas::get(),
+            sp_runtime::Permill::from_parts(125_000),
+        ),
     }
 }
 
