@@ -1,0 +1,16 @@
+{
+  "name": "test_script",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "bobo <dongkaige@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@polkadot/api": "^4.17.1",
+    "@polkadot/metadata": "^4.12.1",
+    "@polkadot/types": "^4.12.1",
+    "@polkadot/util": "^6.6.1",
+    "@substrate/txwrapper": "^7.0.0",
+    "minimist": "^1.2.5"
+  },
+  "type": "module"
+}
