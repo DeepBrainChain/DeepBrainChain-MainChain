@@ -46,6 +46,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 
 #[frame_support::pallet]
 pub mod pallet {
+    use dbc_support::machine_type::MachineStatus;
     use super::*;
 
     #[pallet::config]
@@ -208,6 +209,17 @@ pub mod pallet {
                 let rent_info = <rent_machine::Pallet<T>>::rent_info(&rent_order_id)
                     .ok_or(Error::<T>::Unknown)?;
                 ensure!(rent_info.renter == reporter, Error::<T>::NotMachineRenter);
+
+                let result = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id);
+                match result {
+                    Some(machine_info) => {
+                        if machine_info.machine_status == MachineStatus::Rented {
+                            <online_profile::Pallet<T>>::add_offline_machine_to_renters(rent_info.machine_id, machine_info.renters);
+                        }
+                    }
+                    None => {}
+                }
+
                 Self::pay_fixed_tx_fee(reporter.clone())?;
             }
             Self::pay_stake_when_report(reporter.clone())?;

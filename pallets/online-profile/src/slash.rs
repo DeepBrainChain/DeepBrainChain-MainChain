@@ -1,5 +1,5 @@
 use crate::{
-    BalanceOf, Config,  Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview,
+    BalanceOf, Config,  Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview,Machine2LastSlashedInfo,
     PendingSlashReviewChecking, StashStake, SysInfo,
 };
 use dbc_support::{
@@ -16,6 +16,7 @@ use sp_runtime::{
 use sp_runtime::traits::CheckedMul;
 use sp_std::{vec, vec::Vec};
 use dbc_support::machine_info::MachineInfo;
+use crate::pallet::OfflineMachine2renters;
 
 impl<T: Config> Pallet<T> {
     pub fn get_new_slash_id() -> u64 {
@@ -67,19 +68,20 @@ impl<T: Config> Pallet<T> {
                 let _ = Self::slash_and_reward(
                     slash_info.slash_who.clone(),
                     slash_info.slash_amount,
-                    slash_info.reward_to_committee.unwrap_or_default(),
+                    slash_info.reward_to_committee.clone().unwrap_or_default(),
                 );
             } else {
                 let _ = Self::do_slash_deposit(&slash_info);
             }
+
+            PendingSlash::<T>::remove(slash_id);
+            Machine2LastSlashedInfo::<T>::insert(&slash_info.machine_id, &slash_info);
 
             Self::deposit_event(Event::<T>::SlashExecuted(
                 slash_info.slash_who,
                 slash_info.machine_id,
                 slash_info.slash_amount,
             ));
-
-            PendingSlash::<T>::remove(slash_id);
         }
     }
 
@@ -157,6 +159,8 @@ impl<T: Config> Pallet<T> {
         let machine_info = Self::machines_info(&machine_id).ok_or(())?;
 
         let slash_amount = Perbill::from_rational(slash_percent, 100) * machine_info.stake_amount;
+
+        OfflineMachine2renters::<T>::remove(&machine_id);
 
         Ok(OPPendingSlashInfo {
             slash_who: machine_info.machine_stash,
