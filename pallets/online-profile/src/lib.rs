@@ -37,6 +37,7 @@ use sp_std::{
     prelude::*,
     str,
     vec::Vec,
+    vec,
 };
 
 pub use pallet::*;

@@ -55,6 +55,7 @@ members = [
   "pallets/council-reward",
   "pallets/nfts",
   "pallets/scheduler",
+    "pallets/ai-staking",
 ]
 
 [features]

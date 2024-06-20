@@ -181,6 +181,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai-staking"
+version = "3.2.0-dev"
+dependencies = [
+ "dbc-support",
+ "frame-support",
+ "frame-system",
+ "online-profile",
+ "parity-scale-codec",
+ "rent-machine",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
