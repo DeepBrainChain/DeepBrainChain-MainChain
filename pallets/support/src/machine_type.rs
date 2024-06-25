@@ -112,6 +112,8 @@ pub struct StakerCustomizeInfo {
     pub latitude: Latitude,
     /// 网络运营商
     pub telecom_operators: Vec<Vec<u8>>,
+    /// if it is a bare machine
+    pub is_bare_machine: bool,
 }
 
 /// Standard GPU rent price Per Era

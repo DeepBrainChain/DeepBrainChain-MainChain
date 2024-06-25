@@ -3,6 +3,8 @@ use crate::{
     PendingSlash, Phase1Destruction, Phase2Destruction, StandardGPUPointPrice, StashMachines,
     StashStake, StorageVersion, SysInfo,
 };
+use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
+use frame_support::pallet_prelude::StorageValue;
 use codec::{Decode, Encode};
 use dbc_support::{
     machine_info::MachineInfo,
@@ -332,3 +334,4 @@ fn reset_params<T: Config>() -> Weight {
 
     0
 }
+
