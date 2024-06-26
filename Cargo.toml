@@ -298,7 +298,6 @@ flume = "0.10.9"
 futures = { version = "0.3.21" }
 jsonrpsee = { version = "0.16.2", default-features = false }
 maplit = "1.0.2"
-jsonrpc-pubsub = "18.0.0"
 nix = "0.23"
 parking_lot = "0.12.0"
 primitive-types = "0.12.0"

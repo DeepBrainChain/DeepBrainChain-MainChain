@@ -391,4 +391,9 @@ try-runtime = [
   "simple-rpc/try-runtime",
   "terminating-rental/try-runtime",
   "pallet-contracts/try-runtime",
+  "fp-self-contained/try-runtime",
+  "ethereum-chain-id/try-runtime",
+  "pallet-evm/try-runtime",
+  "pallet-ethereum/try-runtime",
+  "pallet-base-fee/try-runtime",
 ]
