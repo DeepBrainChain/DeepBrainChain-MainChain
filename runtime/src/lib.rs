@@ -55,6 +55,7 @@ use frame_system::{
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{
+    AddressMapping,
     Account as EVMAccount, EnsureAccountId20, EnsureAddressNever, EnsureAddressRoot, FeeCalculator,
     HashedAddressMapping, IdentityAddressMapping, Runner,
 };
@@ -74,10 +75,12 @@ use fp_rpc::TransactionStatus;
 use pallet_evm::GasWeightMapping;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
+    MultiAddress,
     create_runtime_str,
     curve::PiecewiseLinear,
     generic, impl_opaque_keys,
     traits::{
+        LookupError,
         DispatchInfoOf,PostDispatchInfoOf,Dispatchable,
         self, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor, OpaqueKeys,
         SaturatedConversion, StaticLookup
@@ -86,7 +89,6 @@ use sp_runtime::{
     ApplyExtrinsicResult, FixedPointNumber, FixedU128, PerThing, Perbill, Percent, Permill,
     Perquintill,
 };
-
 
 use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
@@ -223,6 +225,23 @@ parameter_types! {
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
+pub struct EvmAddressMapping;
+impl StaticLookup for EvmAddressMapping {
+    type Source = MultiAddress<AccountId, AccountIndex>;
+    type Target = AccountId;
+
+    fn lookup(a: Self::Source) -> Result<Self::Target, LookupError> {
+        match a {
+            MultiAddress::Address20(i) => Ok(HashedAddressMapping::<BlakeTwo256>::into_account_id(H160::from(&i)).into()),
+            _ => Err(LookupError),
+        }
+    }
+
+    fn unlookup(a: Self::Target) -> Self::Source {
+        MultiAddress::Id(a)
+    }
+}
+
 impl frame_system::Config for Runtime {
     type BaseCallFilter = Everything;
     type BlockWeights = RuntimeBlockWeights;
@@ -235,7 +254,7 @@ impl frame_system::Config for Runtime {
     type Hash = Hash;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
-    type Lookup = Indices;
+    type Lookup = (Indices, EvmAddressMapping);
     type Header = generic::Header<BlockNumber, BlakeTwo256>;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
