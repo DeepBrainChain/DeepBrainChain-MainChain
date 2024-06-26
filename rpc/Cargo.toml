@@ -9,7 +9,6 @@ repository = { workspace = true }
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpc-pubsub = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
 dbc-primitives = { path = "../primitives" }
 pallet-transaction-payment-rpc = { workspace = true }
@@ -52,6 +51,5 @@ fc-rpc = { workspace = true }
 fc-rpc-core = { workspace = true }
 fc-storage = { workspace = true }
 fp-rpc = { workspace = true }
-fp-storage = { workspace = true }
 sc-transaction-pool = { workspace = true }
 sc-network = { workspace = true }

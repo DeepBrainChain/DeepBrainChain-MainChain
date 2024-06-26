@@ -34,6 +34,10 @@ futures = { workspace = true }
 log = { workspace = true }
 rand = { workspace = true }
 
+coins-bip32 = { workspace = true }
+coins-bip39 = { workspace = true }
+k256 = { workspace = true }
+
 # primitives
 sp-authority-discovery = { workspace = true }
 sp-blockchain = { workspace = true }
@@ -77,6 +81,7 @@ fc-db = { workspace = true }
 fc-mapping-sync = { workspace = true }
 fc-rpc = { workspace = true }
 fc-rpc-core = { workspace = true }
+fp-evm = { workspace = true }
 
 # frame dependencies
 pallet-assets = { path = "../pallets/assets" }
