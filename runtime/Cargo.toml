@@ -98,7 +98,7 @@ pallet-asset-tx-payment = { workspace = true }
 
 # DBC pallets
 pallet-assets = { path = "../pallets/assets", default-features = false }
-pallet-staking = { package = "dbc-staking", path = "../pallets/staking", default-features = false }
+pallet-staking = { package = "pallet-staking", path = "../pallets/staking", default-features = false }
 pallet-staking-reward-curve = { package = "pallet-staking-reward-curve", path = "../pallets/staking/reward-curve", default-features = false }
 pallet-staking-runtime-api = { package = "pallet-staking-runtime-api", path = "../pallets/staking/runtime-api", default-features = false }
 pallet-nfts = { path = "../pallets/nfts", default-features = false }
@@ -323,6 +323,7 @@ runtime-benchmarks = [
   # "pallet-whitelist/runtime-benchmarks",
   "frame-system-benchmarking/runtime-benchmarks",
 ]
+
 try-runtime = [
   "frame-try-runtime/try-runtime",
   "frame-executive/try-runtime",
@@ -357,6 +358,7 @@ try-runtime = [
   "pallet-offences/try-runtime",
   "pallet-preimage/try-runtime",
   "pallet-proxy/try-runtime",
+  "pallet-nfts/try-runtime",
   "pallet-insecure-randomness-collective-flip/try-runtime",
   "pallet-ranked-collective/try-runtime",
   "pallet-recovery/try-runtime",
@@ -377,4 +379,16 @@ try-runtime = [
   # "pallet-transaction-storage/try-runtime",
   "pallet-nfts/try-runtime",
   # "pallet-whitelist/try-runtime",
+  "pallet-staking/try-runtime",
+  "generic-func/try-runtime",
+  "committee/try-runtime",
+  "council-reward/try-runtime",
+  "dbc-price-ocw/try-runtime",
+  "maintain-committee/try-runtime",
+  "online-committee/try-runtime",
+  "online-profile/try-runtime",
+  "rent-machine/try-runtime",
+  "simple-rpc/try-runtime",
+  "terminating-rental/try-runtime",
+  "pallet-contracts/try-runtime",
 ]

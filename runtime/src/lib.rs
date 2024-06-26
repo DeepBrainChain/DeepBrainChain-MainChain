@@ -38,7 +38,7 @@ use frame_support::{
     traits::{
         AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, Currency, EitherOfDiverse,
         EqualPrivilegeOnly, Everything, Imbalance, InstanceFilter, KeyOwnerProofSystem,
-        LockIdentifier, OnUnbalanced, U128CurrencyToVote,
+        LockIdentifier, OnUnbalanced, U128CurrencyToVote
     },
     weights::{
         constants::{
@@ -80,12 +80,13 @@ use sp_runtime::{
     traits::{
         DispatchInfoOf,PostDispatchInfoOf,Dispatchable,
         self, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor, OpaqueKeys,
-        SaturatedConversion, StaticLookup,
+        SaturatedConversion, StaticLookup
     },
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidityError, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber, FixedU128, PerThing, Perbill, Percent, Permill,
     Perquintill,
 };
+
 
 use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]

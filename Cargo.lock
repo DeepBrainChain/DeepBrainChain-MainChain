@@ -1970,7 +1970,6 @@ dependencies = [
  "council-reward",
  "dbc-price-ocw",
  "dbc-primitives",
- "dbc-staking",
  "dbc-support",
  "ethereum-chain-id",
  "fp-evm",
@@ -2040,6 +2039,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
+ "pallet-staking 3.2.0-dev",
  "pallet-staking-reward-curve 3.2.0-dev",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
@@ -2074,37 +2074,6 @@ dependencies = [
  "substrate-wasm-builder",
  "terminating-rental",
  "terminating-rental-runtime-api",
-]
-
-[[package]]
-name = "dbc-staking"
-version = "3.2.0-dev"
-dependencies = [
- "dbc-support",
- "frame-benchmarking",
- "frame-election-provider-support",
- "frame-support",
- "frame-system",
- "log",
- "pallet-authorship",
- "pallet-bags-list",
- "pallet-balances",
- "pallet-session",
- "pallet-staking-reward-curve 4.0.0-dev",
- "pallet-timestamp",
- "parity-scale-codec",
- "rand_chacha 0.3.1",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-core",
- "sp-io",
- "sp-npos-elections",
- "sp-runtime",
- "sp-staking",
- "sp-std",
- "sp-tracing",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -6548,7 +6517,7 @@ dependencies = [
  "frame-system",
  "pallet-bags-list",
  "pallet-nomination-pools",
- "pallet-staking",
+ "pallet-staking 4.0.0-dev",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -6601,7 +6570,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-offences",
  "pallet-session",
- "pallet-staking",
+ "pallet-staking 4.0.0-dev",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -6755,11 +6724,42 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-session",
- "pallet-staking",
+ "pallet-staking 4.0.0-dev",
  "rand 0.8.5",
  "sp-runtime",
  "sp-session",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-staking"
+version = "3.2.0-dev"
+dependencies = [
+ "dbc-support",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-authorship",
+ "pallet-bags-list",
+ "pallet-balances",
+ "pallet-session",
+ "pallet-staking-reward-curve 4.0.0-dev",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rand_chacha 0.3.1",
+ "scale-info",
+ "serde",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+ "sp-tracing",
+ "substrate-test-utils",
 ]
 
 [[package]]

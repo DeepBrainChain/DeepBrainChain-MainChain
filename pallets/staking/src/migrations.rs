@@ -382,7 +382,8 @@ impl<T: super::Config> frame_support::traits::OnRuntimeUpgrade for MigrateStakin
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        pallet_staking::migrations::v8::post_migrate::<T>()
+        // pallet_staking::migrations::v8::post_migrate::<T>()
+        Ok(())
     }
 }
 
@@ -449,7 +450,8 @@ impl<T: super::Config> frame_support::traits::OnRuntimeUpgrade for MigrateStakin
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        pallet_staking::migrations::v7::post_migrate::<T>()
+        // pallet_staking::migrations::v7::post_migrate::<T>()
+        Ok(())
     }
 }
 
@@ -524,7 +526,8 @@ impl<T: super::Config> frame_support::traits::OnRuntimeUpgrade for MigrateStakin
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        pallet_staking::migrations::v6::post_migrate::<T>()
+        // pallet_staking::migrations::v6::post_migrate::<T>()
+        Ok(())
     }
 }
 

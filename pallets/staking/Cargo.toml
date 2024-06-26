@@ -1,5 +1,5 @@
 [package]
-name = "dbc-staking"
+name = "pallet-staking"
 version = { workspace = true }
 authors = { workspace = true }
 edition = "2021"

@@ -32,6 +32,12 @@ use sp_keyring::Sr25519Keyring;
 
 use std::sync::Arc;
 
+#[cfg(feature = "try-runtime")]
+use {
+    dbc_runtime::constants::time::SLOT_DURATION,
+    try_runtime_cli::block_building_info::substrate_info,
+};
+
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
         "Substrate Node".into()
