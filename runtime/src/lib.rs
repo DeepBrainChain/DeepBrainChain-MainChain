@@ -1516,6 +1516,12 @@ impl simple_rpc::Config for Runtime {
     type OPRpcQuery = OnlineProfile;
 }
 
+impl ai_project_register::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type DbcPrice = DBCPriceOCW;
+}
+
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
 parameter_types! {
@@ -1587,7 +1593,8 @@ construct_runtime!(
         RentMachine: rent_machine,
         MaintainCommittee: maintain_committee,
         TerminatingRental: terminating_rental,
-        Contracts: pallet_contracts
+        Contracts: pallet_contracts,
+        AIProjectRegister: ai_project_register
     }
 );
 

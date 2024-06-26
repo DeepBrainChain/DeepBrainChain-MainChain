@@ -121,6 +121,8 @@ online-profile-runtime-api = { path = "../pallets/online-profile/rpc/runtime-api
 rent-machine-runtime-api = { path = "../pallets/rent-machine/rpc/runtime-api", default-features = false }
 simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
 terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/runtime-api", default-features = false }
+ai-project-register = { path = "../pallets/ai-project-register", default-features = false }
+
 
 pallet-scheduler = { path = "../pallets/scheduler", default-features = false }
 
