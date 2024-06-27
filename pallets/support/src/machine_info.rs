@@ -127,6 +127,18 @@ where
             self.machine_status = MachineStatus::DistributingOrder;
         }
     }
+    pub fn can_update_server_room_info(&self, who: &AccountId) -> Result<(), OnlineErr> {
+        if self.machine_info_detail.staker_customize_info.telecom_operators.is_empty() {
+            return Err(OnlineErr::TelecomIsNull)
+        }
+        if &self.controller != who {
+            return Err(OnlineErr::NotMachineController)
+        }
+        Ok(())
+    }
+    pub fn update_server_room_info(&mut self, server_room_info: StakerCustomizeInfo) {
+        self.machine_info_detail.staker_customize_info = server_room_info;
+    }
 
     pub fn update_rent_fee(&mut self, rent_fee: Balance, burn_fee: Balance) {
         self.total_rent_fee = self.total_rent_fee.saturating_add(rent_fee);

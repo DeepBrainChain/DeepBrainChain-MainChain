@@ -105,6 +105,7 @@ fn machine_online_works() {
             longitude: Longitude::East(1157894),
             latitude: Latitude::North(235678),
             telecom_operators: vec!["China Unicom".into()],
+            is_bare_machine: false,
         };
         // 控制账户添加机器信息
         assert_ok!(OnlineProfile::add_machine_info(
@@ -563,6 +564,7 @@ fn machine_online_works() {
                 longitude: Longitude::East(1157894),
                 latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
+                is_bare_machine: false
             }
         ));
 
@@ -1057,6 +1059,7 @@ fn committee_not_equal_then_redistribute_works() {
             longitude: Longitude::East(1157894),
             latitude: Latitude::North(235678),
             telecom_operators: vec!["China Unicom".into()],
+            is_bare_machine: false,
         };
         assert_ok!(OnlineProfile::add_machine_info(
             RuntimeOrigin::signed(controller),
@@ -1328,6 +1331,7 @@ fn two_submit_hash_reach_submit_raw_works() {
             longitude: Longitude::East(1157894),
             latitude: Latitude::North(235678),
             telecom_operators: vec!["China Unicom".into()],
+            is_bare_machine: false,
         };
         assert_ok!(OnlineProfile::add_machine_info(
             RuntimeOrigin::signed(controller),

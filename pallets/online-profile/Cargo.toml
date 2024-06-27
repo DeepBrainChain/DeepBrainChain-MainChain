@@ -17,6 +17,7 @@ sp-core = { workspace = true }
 
 dbc-support = { path = "../support", default-features = false }
 generic-func = { path = "../generic-func", default-features = false }
+log = { workspace = true }
 
 [dev-dependencies]
 

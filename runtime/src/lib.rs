@@ -1775,6 +1775,8 @@ type Migrations = (
     //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
     pallet_assets::migration::v1::MigrateToV1<Runtime>,
     DemocracyV1Migration,
+    online_profile::migration::v1::Migration<Runtime>,
+    terminating_rental::migrations::v1::Migration<Runtime>,
 );
 
 /// MMR helper types.
