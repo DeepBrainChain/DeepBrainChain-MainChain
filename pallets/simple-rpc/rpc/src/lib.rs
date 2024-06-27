@@ -1,12 +1,12 @@
 #![warn(unused_crate_dependencies)]
 
-use parity_scale_codec::Codec;
 use dbc_support::rpc_types::RpcBalance;
 use jsonrpsee::{
     core::{Error as JsonRpseeError, RpcResult},
     proc_macros::rpc,
     types::error::{CallError, ErrorCode, ErrorObject},
 };
+use parity_scale_codec::Codec;
 use simple_rpc::StakerListInfo;
 pub use simple_rpc_runtime_api::SimpleRpcApi as SrStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;

@@ -1,11 +1,11 @@
 #![warn(unused_crate_dependencies)]
 
-use parity_scale_codec::Codec;
 use jsonrpsee::{
     core::{Error as JsonRpseeError, RpcResult},
     proc_macros::rpc,
     types::error::{CallError, ErrorCode, ErrorObject},
 };
+use parity_scale_codec::Codec;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, MaybeDisplay};
@@ -96,13 +96,13 @@ where
                 rent_status: order_detail.rent_status,
                 gpu_num: order_detail.gpu_num,
                 gpu_index: order_detail.gpu_index,
-            });
+            })
         }
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))));
+        ))))
     }
 
     fn get_rent_list(

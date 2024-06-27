@@ -19,13 +19,13 @@
 
 use super::*;
 use crate::macros::*;
-use parity_scale_codec::EncodeLike;
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
     pallet_prelude::{BoundedVec, MaxEncodedLen},
     traits::Get,
     BoundedBTreeMap, BoundedBTreeSet,
 };
+use parity_scale_codec::EncodeLike;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 
 pub(super) type DepositBalanceOf<T, I = ()> =

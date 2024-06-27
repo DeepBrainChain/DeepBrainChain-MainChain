@@ -1,6 +1,6 @@
-use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
+use parity_scale_codec::{Decode, Encode};
 // use generic_func::rpc_types::RpcText;
 use crate::{LiveMachine, MachineId, StakerCustomizeInfo};
 use dbc_support::{

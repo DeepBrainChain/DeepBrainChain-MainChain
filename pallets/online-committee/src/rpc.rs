@@ -1,9 +1,9 @@
 use crate::{BalanceOf, CommitteeUploadInfo, Config, Pallet};
-use parity_scale_codec::{Decode, Encode};
 use dbc_support::{
     verify_online::{OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus},
     MachineId,
 };
+use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;

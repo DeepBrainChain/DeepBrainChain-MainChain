@@ -1,7 +1,6 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use parity_scale_codec::EncodeLike;
 use dbc_support::{traits::OPRPCQuery, verify_online::StashMachine};
 use frame_support::{
     pallet_prelude::*,
@@ -10,6 +9,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use pallet_identity::Data;
+use parity_scale_codec::EncodeLike;
 use sp_std::vec::Vec;
 
 pub mod rpc_types;

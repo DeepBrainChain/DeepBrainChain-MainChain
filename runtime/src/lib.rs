@@ -23,7 +23,6 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 512.
 #![recursion_limit = "512"]
 
-use parity_scale_codec::{Compact, Decode, Encode, MaxEncodedLen};
 pub use dbc_primitives::{AccountId, Signature};
 use dbc_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use dbc_support::{rental_type::MachineGPUOrder, EraIndex, MachineId, RentOrderId};
@@ -38,7 +37,7 @@ use frame_support::{
     traits::{
         AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, Currency, EitherOfDiverse,
         EqualPrivilegeOnly, Everything, Imbalance, InstanceFilter, KeyOwnerProofSystem,
-        LockIdentifier, OnUnbalanced, U128CurrencyToVote
+        LockIdentifier, OnUnbalanced, U128CurrencyToVote,
     },
     weights::{
         constants::{
@@ -61,6 +60,7 @@ use pallet_nfts::PalletFeatures;
 use pallet_session::historical::{self as pallet_session_historical};
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+use parity_scale_codec::{Compact, Decode, Encode, MaxEncodedLen};
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -71,13 +71,12 @@ use sp_runtime::{
     generic, impl_opaque_keys,
     traits::{
         self, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor, OpaqueKeys,
-        SaturatedConversion, StaticLookup
+        SaturatedConversion, StaticLookup,
     },
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber, FixedU128, PerThing, Perbill, Percent, Permill,
     Perquintill,
 };
-
 
 use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
@@ -757,8 +756,8 @@ parameter_types! {
     pub const MaxPointsToBalance: u8 = 10;
 }
 
-use sp_runtime::traits::Convert;
 use crate::migrations::DemocracyV1Migration;
+use sp_runtime::traits::Convert;
 
 pub struct BalanceToU256;
 impl Convert<Balance, sp_core::U256> for BalanceToU256 {
@@ -1988,68 +1987,68 @@ impl_runtime_apis! {
     }
 
    impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash>
-		for Runtime
-	{
-		fn call(
-			origin: AccountId,
-			dest: AccountId,
-			value: Balance,
-			gas_limit: Option<Weight>,
-			storage_deposit_limit: Option<Balance>,
-			input_data: Vec<u8>,
-		) -> pallet_contracts_primitives::ContractExecResult<Balance> {
-			let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
-			Contracts::bare_call(
-				origin,
-				dest,
-				value,
-				gas_limit,
-				storage_deposit_limit,
-				input_data,
-				CONTRACTS_DEBUG_OUTPUT,
-				pallet_contracts::Determinism::Deterministic,
-			)
-		}
+        for Runtime
+    {
+        fn call(
+            origin: AccountId,
+            dest: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            input_data: Vec<u8>,
+        ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
+            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+            Contracts::bare_call(
+                origin,
+                dest,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                input_data,
+                CONTRACTS_DEBUG_OUTPUT,
+                pallet_contracts::Determinism::Deterministic,
+            )
+        }
 
-		fn instantiate(
-			origin: AccountId,
-			value: Balance,
-			gas_limit: Option<Weight>,
-			storage_deposit_limit: Option<Balance>,
-			code: pallet_contracts_primitives::Code<Hash>,
-			data: Vec<u8>,
-			salt: Vec<u8>,
-		) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance>
-		{
-			let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
-			Contracts::bare_instantiate(
-				origin,
-				value,
-				gas_limit,
-				storage_deposit_limit,
-				code,
-				data,
-				salt,
-				CONTRACTS_DEBUG_OUTPUT
-			)
-		}
+        fn instantiate(
+            origin: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            code: pallet_contracts_primitives::Code<Hash>,
+            data: Vec<u8>,
+            salt: Vec<u8>,
+        ) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance>
+        {
+            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+            Contracts::bare_instantiate(
+                origin,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                data,
+                salt,
+                CONTRACTS_DEBUG_OUTPUT
+            )
+        }
 
-		fn upload_code(
-			origin: AccountId,
-			code: Vec<u8>,
-			storage_deposit_limit: Option<Balance>,
-			determinism: pallet_contracts::Determinism,
-		) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
-		{
-			Contracts::bare_upload_code(origin, code, storage_deposit_limit, determinism)
-		}
+        fn upload_code(
+            origin: AccountId,
+            code: Vec<u8>,
+            storage_deposit_limit: Option<Balance>,
+            determinism: pallet_contracts::Determinism,
+        ) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
+        {
+            Contracts::bare_upload_code(origin, code, storage_deposit_limit, determinism)
+        }
 
-		fn get_storage(
-			address: AccountId,
-			key: Vec<u8>,
-		) -> pallet_contracts_primitives::GetStorageResult {
-			Contracts::get_storage(address, key)
-		}
+        fn get_storage(
+            address: AccountId,
+            key: Vec<u8>,
+        ) -> pallet_contracts_primitives::GetStorageResult {
+            Contracts::get_storage(address, key)
+        }
 }
 
     #[cfg(feature = "try-runtime")]

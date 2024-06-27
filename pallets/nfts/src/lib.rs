@@ -43,13 +43,13 @@ mod types;
 pub mod macros;
 pub mod weights;
 
-use parity_scale_codec::{alloc::string::ToString, Decode, Encode};
 use frame_support::traits::{
     tokens::{AttributeNamespace, Locker},
     BalanceStatus::Reserved,
     Currency, EnsureOriginWithArg, ReservableCurrency,
 };
 use frame_system::Config as SystemConfig;
+use parity_scale_codec::{alloc::string::ToString, Decode, Encode};
 use sp_runtime::{
     traits::{Saturating, StaticLookup, Zero},
     RuntimeDebug, SaturatedConversion,
