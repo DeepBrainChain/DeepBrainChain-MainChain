@@ -2,7 +2,6 @@ use crate::{
     rpc_types::{MachineBriefInfo, RpcIRCommitteeOps, StakerInfo},
     BalanceOf, Config, Pallet, RentOrderDetail, RentOrderId, StashMachines,
 };
-use parity_scale_codec::EncodeLike;
 use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,
@@ -11,6 +10,7 @@ use dbc_support::{
     MachineId,
 };
 use frame_support::IterableStorageMap;
+use parity_scale_codec::EncodeLike;
 use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {

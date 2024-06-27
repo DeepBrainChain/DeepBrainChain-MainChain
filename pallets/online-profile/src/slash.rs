@@ -1,8 +1,9 @@
 use crate::{
-    BalanceOf, Config,  Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview,
+    BalanceOf, Config, Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview,
     PendingSlashReviewChecking, StashStake, SysInfo,
 };
 use dbc_support::{
+    machine_info::MachineInfo,
     machine_type::MachineStatus,
     traits::GNOps,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
@@ -10,12 +11,10 @@ use dbc_support::{
 };
 use frame_support::traits::ReservableCurrency;
 use sp_runtime::{
-    traits::{Saturating, Zero},
+    traits::{CheckedMul, Saturating, Zero},
     Perbill, SaturatedConversion,
 };
-use sp_runtime::traits::CheckedMul;
 use sp_std::{vec, vec::Vec};
-use dbc_support::machine_info::MachineInfo;
 
 impl<T: Config> Pallet<T> {
     pub fn get_new_slash_id() -> u64 {
@@ -215,13 +214,16 @@ impl<T: Config> Pallet<T> {
         // slash to treasury
         let _ = Self::slash_and_reward(slash_info.slash_who.clone(), slash_to_treasury, vec![]);
 
-        Self::try_to_change_machine_status_to_fulfill(&slash_info.slash_who,machine_info)?;
+        Self::try_to_change_machine_status_to_fulfill(&slash_info.slash_who, machine_info)?;
 
         return Ok(())
     }
 
     // 检查已质押资金是否满足单GPU质押金额*gpu数量 若不满足则变更机器状态为fulfill
-    pub fn try_to_change_machine_status_to_fulfill(slash_account:&T::AccountId,mut machine_info: MachineInfo<T::AccountId,T::BlockNumber,BalanceOf<T>>)->Result<(),()>{
+    pub fn try_to_change_machine_status_to_fulfill(
+        slash_account: &T::AccountId,
+        mut machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+    ) -> Result<(), ()> {
         let staked_amount = Self::stash_stake(&slash_account);
 
         let stake_amount_per_gpu = Self::stake_per_gpu().ok_or(())?;

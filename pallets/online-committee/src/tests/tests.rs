@@ -479,7 +479,7 @@ fn machine_online_works() {
         // 领取奖励后，查询剩余奖励
         stash_machine_info.total_claimed_reward = stash_machine_info.can_claim_reward;
         stash_machine_info.can_claim_reward = 0;
-        machine_info.stake_amount = 400000*ONE_DBC;
+        machine_info.stake_amount = 400000 * ONE_DBC;
         assert_eq!(&OnlineProfile::stash_machines(&stash), &stash_machine_info);
 
         // 领取奖励后，查询账户余额
@@ -592,7 +592,7 @@ fn machine_online_works() {
             OnlineProfile::live_machines(),
             LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
-        let x =  OnlineProfile::machines_info(&machine_id);
+        let x = OnlineProfile::machines_info(&machine_id);
         machine_info.machine_status = MachineStatus::CommitteeVerifying;
         assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
         assert_eq!(
@@ -764,7 +764,7 @@ fn machine_online_works() {
             OnlineProfile::user_mut_hardware_stake(&stash, &machine_id),
             UserMutHardwareStakeInfo { ..Default::default() }
         );
-        assert_eq!(OnlineProfile::stash_stake(&stash),400000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(&stash), 400000 * ONE_DBC);
         // 检查分数
 
         let mut staker_statistic = BTreeMap::new();

@@ -4,11 +4,11 @@ use crate::{
     ErasMachinePoints, ErasMachineReleasedReward, ErasMachineReward, ErasStashPoints,
     ErasStashReleasedReward, ErasStashReward, MachineRecentReward, Pallet, StashMachines,
 };
-use parity_scale_codec::Decode;
 use dbc_support::{
     traits::{DbcPrice, ManageCommittee, OPRPCQuery},
     EraIndex, MachineId, ONE_DAY,
 };
+use parity_scale_codec::Decode;
 use sp_runtime::{
     traits::{CheckedMul, Saturating, Zero},
     Perbill, SaturatedConversion,

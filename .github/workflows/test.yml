@@ -47,8 +47,11 @@ jobs:
         with:
           cache-on-failure: "true"
 
-      - name: Run ${{ matrix.package }} tests
-        run: cargo test -p ${{ matrix.package }}
+      - name: Check fmt
+        run: cargo fmt --all -- --check
 
       - name: Check try-runtime
         run: cargo check --features try-runtime
+
+      - name: Run ${{ matrix.package }} tests
+        run: cargo test -p ${{ matrix.package }}
