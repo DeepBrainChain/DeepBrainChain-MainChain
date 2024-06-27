@@ -386,7 +386,6 @@ pub fn testnet_genesis(
             ..Default::default()
         },
         ethereum_chain_id: Default::default(),
-        // evm: Default::default(),
         evm: EvmConfig {
 			accounts: evm_accounts
                 .iter()
