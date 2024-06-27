@@ -18,13 +18,17 @@
 
 //! Substrate chain configurations.
 
+use coins_bip32::ecdsa::{SigningKey, VerifyingKey};
+use coins_bip39::{English, Mnemonic, Wordlist};
 use dbc_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
     BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DemocracyConfig,
-    ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, MaxNominations,
+    ElectionsConfig, EvmConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, MaxNominations,
     NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig,
-    SystemConfig, TechnicalCommitteeConfig, EvmConfig,
+    SystemConfig, TechnicalCommitteeConfig,
 };
+use fp_evm::GenesisAccount;
+use k256::{elliptic_curve::sec1::ToEncodedPoint, EncodedPoint};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
@@ -32,21 +36,14 @@ use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::{H256, H160, ecdsa, crypto::UncheckedInto, sr25519, Pair, Public};
+use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public, H160};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
+use sp_io::hashing::keccak_256;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     Perbill,
 };
-use sp_io::hashing::keccak_256;
-use coins_bip32::ecdsa::{VerifyingKey, SigningKey};
-use coins_bip39::{English, Mnemonic, Wordlist};
-use k256::{
-    elliptic_curve::sec1::ToEncodedPoint,
-    EncodedPoint,
-};
 use std::str::FromStr;
-use fp_evm::GenesisAccount;
 
 pub use dbc_primitives::{AccountId, Balance, Signature};
 pub use dbc_runtime::GenesisConfig;
@@ -313,8 +310,8 @@ pub fn testnet_genesis(
     const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
     const STASH: Balance = ENDOWMENT / 1000;
 
-	// We prefund the standard dev accounts
-	let evm_accounts = get_evm_accounts(None);
+    // We prefund the standard dev accounts
+    let evm_accounts = get_evm_accounts(None);
 
     GenesisConfig {
         system: SystemConfig { code: wasm_binary_unwrap().to_vec() },
@@ -387,21 +384,21 @@ pub fn testnet_genesis(
         },
         ethereum_chain_id: Default::default(),
         evm: EvmConfig {
-			accounts: evm_accounts
+            accounts: evm_accounts
                 .iter()
-				.map(|addr| {
-					(
-						(*addr).into(),
-						GenesisAccount {
-							nonce: Default::default(),
-							balance: (100 * DOLLARS).into(),
-							storage: Default::default(),
-							code: Default::default(),
-						},
-					)
-				})
-				.collect(),
-		},
+                .map(|addr| {
+                    (
+                        (*addr).into(),
+                        GenesisAccount {
+                            nonce: Default::default(),
+                            balance: (100 * DOLLARS).into(),
+                            storage: Default::default(),
+                            code: Default::default(),
+                        },
+                    )
+                })
+                .collect(),
+        },
         ethereum: Default::default(),
         base_fee: BaseFeeConfig::new(
             DefaultBaseFeePerGas::get(),
@@ -486,7 +483,8 @@ fn generate_evm_address<W: Wordlist>(phrase: &str, index: u32) -> H160 {
 }
 
 fn get_evm_accounts(mnemonic: Option<&str>) -> Vec<H160> {
-    let phrase = mnemonic.unwrap_or("bottom drive obey lake curtain smoke basket hold race lonely fit walk");
+    let phrase =
+        mnemonic.unwrap_or("bottom drive obey lake curtain smoke basket hold race lonely fit walk");
     let mut evm_accounts = Vec::new();
     for index in 0..10u32 {
         let addr = generate_evm_address::<English>(phrase, index);

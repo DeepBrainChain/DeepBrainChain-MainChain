@@ -27,6 +27,7 @@ pub use dbc_primitives::{AccountId, Signature};
 use dbc_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use dbc_support::{rental_type::MachineGPUOrder, EraIndex, MachineId, RentOrderId};
 use fp_evm::weight_per_gas;
+use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{
     onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
 };
@@ -38,7 +39,7 @@ use frame_support::{
     traits::{
         AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, Currency, EitherOfDiverse,
         EqualPrivilegeOnly, Everything, Imbalance, InstanceFilter, KeyOwnerProofSystem,
-        LockIdentifier, OnUnbalanced, U128CurrencyToVote
+        LockIdentifier, OnUnbalanced, U128CurrencyToVote,
     },
     weights::{
         constants::{
@@ -55,9 +56,9 @@ use frame_system::{
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{
-    AddressMapping,
-    Account as EVMAccount, EnsureAccountId20, EnsureAddressNever, EnsureAddressRoot, FeeCalculator,
-    HashedAddressMapping, IdentityAddressMapping, Runner,
+    Account as EVMAccount, AddressMapping, EnsureAccountId20, EnsureAddressNever,
+    EnsureAddressRoot, FeeCalculator, GasWeightMapping, HashedAddressMapping,
+    IdentityAddressMapping, Runner,
 };
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -70,24 +71,21 @@ use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use parity_scale_codec::{Compact, Decode, Encode, MaxEncodedLen};
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, U256, H256, H160};
-use fp_rpc::TransactionStatus;
-use pallet_evm::GasWeightMapping;
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-    MultiAddress,
     create_runtime_str,
     curve::PiecewiseLinear,
     generic, impl_opaque_keys,
     traits::{
-        LookupError,
-        DispatchInfoOf,PostDispatchInfoOf,Dispatchable,
-        self, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor, OpaqueKeys,
-        SaturatedConversion, StaticLookup
+        self, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, DispatchInfoOf, Dispatchable,
+        LookupError, NumberFor, OpaqueKeys, PostDispatchInfoOf, SaturatedConversion, StaticLookup,
     },
-    transaction_validity::{TransactionPriority, TransactionSource, TransactionValidityError, TransactionValidity},
-    ApplyExtrinsicResult, FixedPointNumber, FixedU128, PerThing, Perbill, Percent, Permill,
-    Perquintill,
+    transaction_validity::{
+        TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
+    },
+    ApplyExtrinsicResult, FixedPointNumber, FixedU128, MultiAddress, PerThing, Perbill, Percent,
+    Permill, Perquintill,
 };
 
 use sp_std::prelude::*;
@@ -232,7 +230,8 @@ impl StaticLookup for EvmAddressMapping {
 
     fn lookup(a: Self::Source) -> Result<Self::Target, LookupError> {
         match a {
-            MultiAddress::Address20(i) => Ok(HashedAddressMapping::<BlakeTwo256>::into_account_id(H160::from(&i)).into()),
+            MultiAddress::Address20(i) =>
+                Ok(HashedAddressMapping::<BlakeTwo256>::into_account_id(H160::from(&i)).into()),
             _ => Err(LookupError),
         }
     }
@@ -1739,11 +1738,13 @@ pub type SignedExtra = (
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+pub type UncheckedExtrinsic =
+    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra, H160>;
+pub type CheckedExtrinsic =
+    fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra, H160>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
     Runtime,
@@ -1872,9 +1873,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         }
     }
 
-    fn check_self_contained(
-        &self
-    ) -> Option<Result<Self::SignedInfo, TransactionValidityError>> {
+    fn check_self_contained(&self) -> Option<Result<Self::SignedInfo, TransactionValidityError>> {
         match self {
             RuntimeCall::Ethereum(call) => call.check_self_contained(),
             _ => None,
@@ -1888,7 +1887,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         len: usize,
     ) -> Option<TransactionValidity> {
         match self {
-            RuntimeCall::Ethereum(call) => call.validate_self_contained(signed_info, dispatch_info, len),
+            RuntimeCall::Ethereum(call) =>
+                call.validate_self_contained(signed_info, dispatch_info, len),
             _ => None,
         }
     }
@@ -1900,7 +1900,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         len: usize,
     ) -> Option<Result<(), TransactionValidityError>> {
         match self {
-            RuntimeCall::Ethereum(call) => call.pre_dispatch_self_contained(info, dispatch_info, len),
+            RuntimeCall::Ethereum(call) =>
+                call.pre_dispatch_self_contained(info, dispatch_info, len),
             _ => None,
         }
     }
@@ -1910,11 +1911,10 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         info: Self::SignedInfo,
     ) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
         match self {
-            call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) => Some(
-                call.dispatch(RuntimeOrigin::from(
-                    pallet_ethereum::RawOrigin::EthereumTransaction(info)
-                ))
-            ),
+            call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) =>
+                Some(call.dispatch(RuntimeOrigin::from(
+                    pallet_ethereum::RawOrigin::EthereumTransaction(info),
+                ))),
             _ => None,
         }
     }

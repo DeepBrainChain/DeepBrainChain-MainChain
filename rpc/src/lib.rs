@@ -4,11 +4,7 @@ use std::sync::Arc;
 
 use dbc_primitives::{AccountId, Balance, Block, BlockNumber, Hash, Index};
 use jsonrpsee::RpcModule;
-use sc_client_api::{
-    AuxStore,
-    backend::StorageProvider,
-    client::BlockchainEvents,
-};
+use sc_client_api::{backend::StorageProvider, client::BlockchainEvents, AuxStore};
 use sc_consensus_babe::{BabeConfiguration, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
 use sc_finality_grandpa::{
@@ -122,12 +118,12 @@ where
     use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
     use committee_rpc::{CmRpcApiServer, CmStorage};
+    use dbc_finality_rpc::{DbcFinality, DbcFinalityApiServer};
     use online_committee_rpc::{OcRpcApiServer, OcStorage};
     use online_profile_rpc::{OpRpcApiServer, OpStorage};
     use rent_machine_rpc::{RmRpcApiServer, RmStorage};
     use simple_rpc_rpc::{SimpleRpcApiServer, SrStorage};
     use terminating_rental_rpc::{IrRpcApiServer, IrStorage};
-    use dbc_finality_rpc::{DbcFinality, DbcFinalityApiServer};
 
     let mut io = RpcModule::new(());
     let FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa, eth } = deps;
@@ -189,10 +185,7 @@ where
     io.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())?;
     io.merge(Dev::new(client.clone(), deny_unsafe).into_rpc())?;
 
-    io.merge(DbcFinality::new(
-        client.clone(),
-        eth.frontier_backend.clone(),
-    ).into_rpc())?;
+    io.merge(DbcFinality::new(client.clone(), eth.frontier_backend.clone()).into_rpc())?;
 
     // Ethereum compatibility RPCs
     let io = create_eth::<_, _, _, _, _, _>(io, eth, subscription_task_executor)?;

@@ -217,7 +217,8 @@ pub fn run() -> Result<()> {
         Some(Subcommand::Revert(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
-                let PartialComponents { client, task_manager, backend, .. } = new_partial(&mut config)?;
+                let PartialComponents { client, task_manager, backend, .. } =
+                    new_partial(&mut config)?;
                 let aux_revert = Box::new(|client: Arc<FullClient>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
                     sc_finality_grandpa::revert(client, blocks)?;

@@ -21,21 +21,29 @@
 //! Service implementation. Specialized wrapper over substrate service.
 
 use crate::Cli;
-use parity_scale_codec::Encode;
 use dbc_executor::DBCExecutorDispatch;
 use dbc_primitives::Block;
-use dbc_runtime::{TransactionConverter, RuntimeApi};
+use dbc_runtime::{RuntimeApi, TransactionConverter};
+use fc_consensus::FrontierBlockImport;
+use fc_db::DatabaseSource;
+use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
+use fc_rpc::EthTask;
+use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
-use sc_client_api::BlockBackend;
+use parity_scale_codec::Encode;
+use sc_client_api::{BlockBackend, BlockchainEvents};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::NetworkService;
 use sc_network_common::{
     protocol::event::Event, service::NetworkEventStream, sync::warp::WarpSyncParams,
 };
-use sc_service::{BasePath, config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
+use sc_rpc::SubscriptionTaskExecutor;
+use sc_service::{
+    config::Configuration, error::Error as ServiceError, BasePath, RpcHandlers, TaskManager,
+};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
@@ -43,15 +51,8 @@ use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
-    time::Duration
+    time::Duration,
 };
-use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
-use fc_db::DatabaseSource;
-use fc_rpc::EthTask;
-use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
-use fc_consensus::FrontierBlockImport;
-use sc_client_api::BlockchainEvents;
-use sc_rpc::SubscriptionTaskExecutor;
 
 /// The full client type definition.
 pub type FullClient =
@@ -138,46 +139,44 @@ pub fn create_extrinsic(
 
 /// Create the frontier database directory.
 pub fn frontier_database_dir(config: &Configuration, path: &str) -> std::path::PathBuf {
-	let config_dir = config
-		.base_path
-		.as_ref()
-		.map(|base_path| base_path.config_dir(config.chain_spec.id()))
-		.unwrap_or_else(|| {
-			BasePath::from_project("", "", "dbc").config_dir(config.chain_spec.id())
-		});
-	config_dir.join("frontier").join(path)
+    let config_dir = config
+        .base_path
+        .as_ref()
+        .map(|base_path| base_path.config_dir(config.chain_spec.id()))
+        .unwrap_or_else(|| {
+            BasePath::from_project("", "", "dbc").config_dir(config.chain_spec.id())
+        });
+    config_dir.join("frontier").join(path)
 }
 
 /// Open the frontier backend.
 pub fn open_frontier_backend<C>(
-	client: Arc<C>,
-	config: &Configuration,
+    client: Arc<C>,
+    config: &Configuration,
 ) -> Result<Arc<fc_db::Backend<Block>>, String>
 where
-	C: sp_blockchain::HeaderBackend<Block>,
+    C: sp_blockchain::HeaderBackend<Block>,
 {
-	Ok(Arc::new(fc_db::Backend::<Block>::new(
-		client,
-		&fc_db::DatabaseSettings {
-			source: match config.database {
-				DatabaseSource::RocksDb { .. } => DatabaseSource::RocksDb {
-					path: frontier_database_dir(config, "db"),
-					cache_size: 0,
-				},
-				DatabaseSource::ParityDb { .. } => DatabaseSource::ParityDb {
-					path: frontier_database_dir(config, "paritydb"),
-				},
-				DatabaseSource::Auto { .. } => DatabaseSource::Auto {
-					rocksdb_path: frontier_database_dir(config, "db"),
-					paritydb_path: frontier_database_dir(config, "paritydb"),
-					cache_size: 0,
-				},
-				_ => {
-					return Err("Supported db sources: `rocksdb` | `paritydb` | `auto`".to_string())
-				}
-			},
-		},
-	)?))
+    Ok(Arc::new(fc_db::Backend::<Block>::new(
+        client,
+        &fc_db::DatabaseSettings {
+            source: match config.database {
+                DatabaseSource::RocksDb { .. } => DatabaseSource::RocksDb {
+                    path: frontier_database_dir(config, "db"),
+                    cache_size: 0,
+                },
+                DatabaseSource::ParityDb { .. } =>
+                    DatabaseSource::ParityDb { path: frontier_database_dir(config, "paritydb") },
+                DatabaseSource::Auto { .. } => DatabaseSource::Auto {
+                    rocksdb_path: frontier_database_dir(config, "db"),
+                    paritydb_path: frontier_database_dir(config, "paritydb"),
+                    cache_size: 0,
+                },
+                _ =>
+                    return Err("Supported db sources: `rocksdb` | `paritydb` | `auto`".to_string()),
+            },
+        },
+    )?))
 }
 
 /// Creates a new partial node.
@@ -197,17 +196,13 @@ pub fn new_partial(
                 sc_consensus_babe::BabeLink<Block>,
             ),
             Option<Telemetry>,
-            (
-                Option<FilterPool>,
-                FeeHistoryCache,
-                Arc<fc_db::Backend<Block>>,
-            ),
+            (Option<FilterPool>, FeeHistoryCache, Arc<fc_db::Backend<Block>>),
         ),
     >,
     ServiceError,
 > {
     // Use ethereum style for subscription ids
-	config.rpc_id_provider = Some(Box::new(fc_rpc::EthereumSubIdProvider));
+    config.rpc_id_provider = Some(Box::new(fc_rpc::EthereumSubIdProvider));
 
     let telemetry = config
         .telemetry_endpoints
@@ -458,7 +453,7 @@ pub fn new_full_base(
                 },
                 eth: dbc_rpc::EthDeps {
                     client: client.clone(),
-	                pool: transaction_pool_clone.clone(),
+                    pool: transaction_pool_clone.clone(),
                     graph: transaction_pool_clone.pool().clone(),
                     converter: Some(TransactionConverter),
                     is_authority: false,
@@ -468,14 +463,15 @@ pub fn new_full_base(
                     overrides: overrides.clone(),
                     block_data_cache: block_data_cache.clone(),
                     filter_pool: filter_pool.clone(),
-		            max_past_logs: 10000, // eth_config.max_past_logs,
+                    max_past_logs: 10000, // eth_config.max_past_logs,
                     fee_history_cache: fee_history_cache.clone(),
                     fee_history_cache_limit,
                     execute_gas_limit_multiplier: 10, // eth_config.execute_gas_limit_multiplier,
-                }
+                },
             };
 
-            dbc_rpc::create_full(deps, backend_clone.clone(), subscription_task_executor.clone()).map_err(Into::into)
+            dbc_rpc::create_full(deps, backend_clone.clone(), subscription_task_executor.clone())
+                .map_err(Into::into)
         })
     };
 

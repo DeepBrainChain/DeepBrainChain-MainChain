@@ -7,9 +7,9 @@ build-runtime:
 	cargo build --release -p dbc-runtime
 
 .PHONY: fmt
+fmt:
 	cargo fmt --all
 
-run:
 .PHONY: run
 run:
 	cargo run --features dev-mode -- --dev -lruntime=debug --ws-port=9944 --ws-external --rpc-port=8545 --rpc-external --rpc-cors=all --rpc-methods=unsafe --pruning=archive
