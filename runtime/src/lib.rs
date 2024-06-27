@@ -56,9 +56,8 @@ use frame_system::{
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{
-    Account as EVMAccount, AddressMapping, EnsureAccountId20, EnsureAddressNever,
-    EnsureAddressRoot, FeeCalculator, GasWeightMapping, HashedAddressMapping,
-    IdentityAddressMapping, Runner,
+    Account as EVMAccount, AddressMapping, EnsureAddressNever, EnsureAddressRoot, FeeCalculator,
+    GasWeightMapping, HashedAddressMapping, Runner,
 };
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
