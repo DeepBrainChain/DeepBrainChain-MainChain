@@ -5189,6 +5189,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "generic-func",
+ "log",
  "parity-scale-codec",
  "scale-info",
  "serde",

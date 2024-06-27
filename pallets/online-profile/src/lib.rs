@@ -10,6 +10,7 @@ mod traits;
 mod types;
 mod utils;
 
+pub mod migration;
 use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,
@@ -49,6 +50,8 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
+use frame_support::traits::StorageVersion;
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -71,6 +74,7 @@ pub mod pallet {
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::storage]
@@ -1119,6 +1123,37 @@ pub mod pallet {
             MaxSlashExeced::<T>::insert(machine_id, now);
             Ok(().into())
         }
+
+        #[pallet::call_index(19)]
+        #[pallet::weight(10000)]
+        pub fn update_machine_info(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            server_room_info: StakerCustomizeInfo,
+        ) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+            // check if the machine id is under control of the account
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            machine_info
+                .can_update_server_room_info(&controller)
+                .map_err::<Error<T>, _>(Into::into)?;
+
+            let stash_server_rooms = Self::stash_server_rooms(&machine_info.machine_stash);
+            ensure!(!server_room_info.telecom_operators.is_empty(), Error::<T>::TelecomIsNull);
+            ensure!(
+                stash_server_rooms.binary_search(&server_room_info.server_room).is_ok(),
+                Error::<T>::ServerRoomNotFound
+            );
+
+            MachinesInfo::<T>::try_mutate(&machine_id, |machine_info| {
+                let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
+                machine_info.add_server_room_info(server_room_info);
+                Ok::<(), DispatchError>(())
+            })?;
+
+            Self::deposit_event(Event::MachineInfoUpdated(machine_id));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1136,6 +1171,7 @@ pub mod pallet {
         StakeReduced(T::AccountId, BalanceOf<T>),
         ServerRoomGenerated(T::AccountId, H256),
         MachineInfoAdded(MachineId),
+        MachineInfoUpdated(MachineId),
         ClaimReward(T::AccountId, BalanceOf<T>),
         ControllerReportOffline(MachineId),
         ControllerReportOnline(MachineId),
@@ -1162,7 +1198,6 @@ pub mod pallet {
         BalanceNotEnough,
         NotMachineController,
         PayTxFeeFailed,
-        RewardPhaseOutOfRange,
         ClaimRewardFailed,
         ConvertMachineIdToWalletFailed,
         NoStashBond,
@@ -1172,7 +1207,6 @@ pub mod pallet {
         NotAllowedChangeMachineInfo,
         MachineStashNotEqualControllerStash,
         CalcStakeAmountFailed,
-        NotRefusedMachine,
         SigMachineIdNotEqualBondedMachineId,
         TelecomIsNull,
         MachineStatusNotAllowed,

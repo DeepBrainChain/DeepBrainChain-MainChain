@@ -128,8 +128,8 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 /// Runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("DeepBrainChain"),
-    impl_name: create_runtime_str!("DeepBrainChain"),
+    spec_name: create_runtime_str!("node"),
+    impl_name: create_runtime_str!("substrate-node"),
     authoring_version: 10,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
@@ -1654,6 +1654,8 @@ type Migrations = (
     //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
     pallet_assets::migration::v1::MigrateToV1<Runtime>,
     DemocracyV1Migration,
+    online_profile::migration::v1::Migration<Runtime>,
+    terminating_rental::migrations::v1::Migration<Runtime>,
 );
 
 /// MMR helper types.

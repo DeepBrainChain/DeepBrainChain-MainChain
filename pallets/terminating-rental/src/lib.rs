@@ -7,7 +7,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod migrations;
+pub mod migrations;
 mod online_verify_slash;
 mod report_machine_fault;
 mod rpc;
@@ -67,6 +67,8 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 pub use pallet::*;
 pub use types::*;
 
+use frame_support::traits::StorageVersion;
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
