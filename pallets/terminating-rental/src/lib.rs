@@ -15,7 +15,6 @@ pub mod rpc_types;
 mod types;
 use frame_support::log;
 
-use parity_scale_codec::alloc::string::ToString;
 use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,
@@ -41,6 +40,7 @@ use frame_support::{
     pallet_prelude::*,
     traits::{Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency},
 };
+use parity_scale_codec::alloc::string::ToString;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, SaturatedConversion, Saturating, Zero},
     Perbill,

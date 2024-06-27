@@ -21,13 +21,13 @@
 //! Service implementation. Specialized wrapper over substrate service.
 
 use crate::Cli;
-use parity_scale_codec::Encode;
 use dbc_executor::DBCExecutorDispatch;
 use dbc_primitives::Block;
 use dbc_runtime::RuntimeApi;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
+use parity_scale_codec::Encode;
 use sc_client_api::BlockBackend;
 use sc_consensus_babe::{self, SlotProportion};
 use sc_executor::NativeElseWasmExecutor;

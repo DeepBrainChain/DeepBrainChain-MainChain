@@ -1,6 +1,6 @@
 use crate::{Config, Error};
-use parity_scale_codec::{Decode, Encode};
 use dbc_support::custom_err::VerifyErr;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
