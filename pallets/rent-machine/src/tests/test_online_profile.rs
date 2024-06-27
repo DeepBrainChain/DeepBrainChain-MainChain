@@ -75,6 +75,7 @@ fn fulfill_machine_works() {
                 longitude: Longitude::East(1157894),
                 latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
+                is_bare_machine: false
             }
         ));
 
@@ -328,6 +329,7 @@ fn restake_online_machine_works() {
                 longitude: Longitude::East(1157894),
                 latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
+                is_bare_machine: false
             }
         ));
 
