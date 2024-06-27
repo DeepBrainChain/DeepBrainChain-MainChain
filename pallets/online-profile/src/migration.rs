@@ -1,5 +1,8 @@
-
-use frame_support::{pallet_prelude::*, storage_alias, traits::{OnRuntimeUpgrade,StorageInstance}};
+use frame_support::{
+    pallet_prelude::*,
+    storage_alias,
+    traits::{OnRuntimeUpgrade, StorageInstance},
+};
 use Config;
 
 use crate::*;
@@ -7,18 +10,21 @@ use sp_std::prelude::*;
 
 const TARGET: &'static str = "online-profile-migration";
 
-
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type BlockNumberOf<T> = <T as frame_system::Config>::BlockNumber;
 
-mod v0{
-    use frame_support::dispatch::{Decode, Encode, TypeInfo};
-    use frame_support::{RuntimeDebug};
+mod v0 {
+    use dbc_support::{
+        machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus},
+        EraIndex,
+    };
+    use frame_support::{
+        dispatch::{Decode, Encode, TypeInfo},
+        RuntimeDebug,
+    };
     #[cfg(feature = "std")]
     use serde::{Deserialize, Serialize};
     use sp_core::H256;
-    use dbc_support::EraIndex;
-    use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, MachineStatus};
 
     #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
     #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -86,25 +92,25 @@ mod v0{
         pub telecom_operators: Vec<Vec<u8>>,
     }
 
-
     use super::*;
     #[storage_alias]
     pub type OldMachinesInfo<T: Config> = StorageMap<
         Pallet<T>,
         Blake2_128Concat,
         MachineId,
-        MachineInfo< AccountIdOf<T>,BlockNumberOf<T>, BalanceOf<T>>,
+        MachineInfo<AccountIdOf<T>, BlockNumberOf<T>, BalanceOf<T>>,
     >;
-
 }
-pub mod v1{
-    use frame_support::migration::{storage_iter, storage_key_iter};
-    use frame_support::traits::Len;
-    use dbc_support::machine_type::MachineInfoDetail;
+pub mod v1 {
     use super::*;
+    use dbc_support::machine_type::MachineInfoDetail;
+    use frame_support::{
+        migration::{storage_iter, storage_key_iter},
+        traits::Len,
+    };
 
-    pub struct  Migration<T>(PhantomData<T>);
-    impl <T: Config > OnRuntimeUpgrade for Migration<T> {
+    pub struct Migration<T>(PhantomData<T>);
+    impl<T: Config> OnRuntimeUpgrade for Migration<T> {
         fn on_runtime_upgrade() -> Weight {
             migrate::<T>()
         }
@@ -115,8 +121,8 @@ pub mod v1{
             let current_version = Pallet::<T>::current_storage_version();
             let on_chain_version = Pallet::<T>::on_chain_storage_version();
 
-            log::info!("c : {:?} ",current_version);
-            log::info!("o : {:?}",on_chain_version);
+            log::info!("c : {:?} ", current_version);
+            log::info!("o : {:?}", on_chain_version);
 
             ensure!(on_chain_version == 0, "this migration can be deleted");
             Ok(Vec::new())
@@ -133,25 +139,24 @@ pub mod v1{
         }
     }
 
-
-    pub fn migrate<T:Config>() -> Weight {
+    pub fn migrate<T: Config>() -> Weight {
         let on_chain_version = Pallet::<T>::on_chain_storage_version();
         let current_version = Pallet::<T>::current_storage_version();
         let mut weight = T::DbWeight::get().reads(2);
 
-        if on_chain_version == 0 && current_version == 1{
-            log::info!(target: TARGET,"migrate executing");
+        if on_chain_version == 0 && current_version == 1 {
+            log::info!(target: TARGET, "migrate executing");
 
             MachinesInfo::<T>::translate(
                 |index, old: v0::MachineInfo<AccountIdOf<T>, BlockNumberOf<T>, BalanceOf<T>>| {
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-                    let new_machine_info = MachineInfo{
+                    let new_machine_info = MachineInfo {
                         controller: old.controller,
                         machine_stash: old.machine_stash,
                         renters: old.renters,
                         last_machine_restake: old.last_machine_restake,
-                        bonding_height:old.bonding_height,
+                        bonding_height: old.bonding_height,
                         online_height: old.online_height,
                         last_online_height: old.last_online_height,
                         init_stake_per_gpu: old.init_stake_per_gpu,
@@ -161,20 +166,29 @@ pub mod v1{
                         total_rented_times: old.total_rented_times,
                         total_rent_fee: old.total_rent_fee,
                         total_burn_fee: old.total_burn_fee,
-                        machine_info_detail: MachineInfoDetail{
-                            staker_customize_info: StakerCustomizeInfo{
-                                server_room: old.machine_info_detail.staker_customize_info.server_room,
-                                upload_net: old.machine_info_detail.staker_customize_info.upload_net,
-                                download_net: old.machine_info_detail.staker_customize_info.download_net,
+                        machine_info_detail: MachineInfoDetail {
+                            staker_customize_info: StakerCustomizeInfo {
+                                server_room: old
+                                    .machine_info_detail
+                                    .staker_customize_info
+                                    .server_room,
+                                upload_net: old
+                                    .machine_info_detail
+                                    .staker_customize_info
+                                    .upload_net,
+                                download_net: old
+                                    .machine_info_detail
+                                    .staker_customize_info
+                                    .download_net,
                                 longitude: old.machine_info_detail.staker_customize_info.longitude,
                                 latitude: old.machine_info_detail.staker_customize_info.latitude,
-                                telecom_operators: old.machine_info_detail.staker_customize_info.telecom_operators,
+                                telecom_operators: old
+                                    .machine_info_detail
+                                    .staker_customize_info
+                                    .telecom_operators,
                                 is_bare_machine: false,
-
                             },
                             committee_upload_info: old.machine_info_detail.committee_upload_info,
-
-
                         },
 
                         reward_committee: old.reward_committee,

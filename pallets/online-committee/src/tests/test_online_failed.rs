@@ -45,6 +45,7 @@ fn test_machine_online_refused_after_some_online() {
                 longitude: Longitude::East(1157894),
                 latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
+                is_bare_machine: false
             }
         ));
         // 将会派发机器
