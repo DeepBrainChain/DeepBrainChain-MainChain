@@ -133,9 +133,25 @@ pallet-contracts-primitives = { workspace = true }
 
 #pallet-contracts-rpc-runtime-api = { workspace = true }
 
+# Evm
+ethereum-chain-id = { path = "../pallets/ethereum-chain-id", default-features = false }
+# Frontier
+fp-evm = { workspace = true }
+fp-rpc = { workspace = true }
+fp-self-contained = { workspace = true }
+pallet-base-fee = { workspace = true }
+pallet-ethereum = { workspace = true }
+pallet-evm = { workspace = true }
+pallet-evm-precompile-blake2 = { workspace = true }
+pallet-evm-precompile-bn128 = { workspace = true }
+pallet-evm-precompile-dispatch = { workspace = true }
+pallet-evm-precompile-modexp = { workspace = true }
+pallet-evm-precompile-sha3fips = { workspace = true }
+pallet-evm-precompile-simple = { workspace = true }
 
 [features]
 default = ["std"]
+dev-mode = []
 with-tracing = ["frame-executive/with-tracing"]
 std = [
   # "pallet-whitelist/std",
@@ -241,8 +257,23 @@ std = [
   "simple-rpc-runtime-api/std",
   "terminating-rental-runtime-api/std",
 
-  'pallet-contracts/std',
-  'pallet-contracts-primitives/std'
+  "pallet-contracts/std",
+  "pallet-contracts-primitives/std",
+
+  # Evm
+  "ethereum-chain-id/std",
+  "fp-evm/std",
+  "fp-rpc/std",
+  "fp-self-contained/std",
+  "pallet-base-fee/std",
+  "pallet-ethereum/std",
+  "pallet-evm/std",
+  "pallet-evm-precompile-blake2/std",
+  "pallet-evm-precompile-bn128/std",
+  "pallet-evm-precompile-dispatch/std",
+  "pallet-evm-precompile-modexp/std",
+  "pallet-evm-precompile-sha3fips/std",
+  "pallet-evm-precompile-simple/std",
 ]
 runtime-benchmarks = [
   "frame-benchmarking/runtime-benchmarks",
@@ -362,4 +393,9 @@ try-runtime = [
   "simple-rpc/try-runtime",
   "terminating-rental/try-runtime",
   "pallet-contracts/try-runtime",
+  "fp-self-contained/try-runtime",
+  "ethereum-chain-id/try-runtime",
+  "pallet-evm/try-runtime",
+  "pallet-ethereum/try-runtime",
+  "pallet-base-fee/try-runtime",
 ]

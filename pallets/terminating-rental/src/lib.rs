@@ -7,7 +7,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod migrations;
+pub mod migrations;
 mod online_verify_slash;
 mod report_machine_fault;
 mod rpc;
@@ -15,7 +15,6 @@ pub mod rpc_types;
 mod types;
 use frame_support::log;
 
-use parity_scale_codec::alloc::string::ToString;
 use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,
@@ -41,6 +40,7 @@ use frame_support::{
     pallet_prelude::*,
     traits::{Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency},
 };
+use parity_scale_codec::alloc::string::ToString;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedMul, CheckedSub, SaturatedConversion, Saturating, Zero},
     Perbill,
@@ -67,6 +67,8 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 pub use pallet::*;
 pub use types::*;
 
+use frame_support::traits::StorageVersion;
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;

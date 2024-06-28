@@ -299,12 +299,12 @@ pub mod weights;
 
 mod pallet;
 
-use parity_scale_codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
     traits::{Currency, Defensive, Get},
     weights::Weight,
     BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+use parity_scale_codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
     curve::PiecewiseLinear,

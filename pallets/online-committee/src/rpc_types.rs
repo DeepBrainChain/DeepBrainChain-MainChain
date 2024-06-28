@@ -1,6 +1,6 @@
-use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::RpcText;
+use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 

@@ -52,6 +52,7 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
                 longitude: Longitude::East(1157894),
                 latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
+                is_bare_machine: false
             }
         ));
 

@@ -11,13 +11,11 @@ pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
 
-use frame_support::{assert_ok,assert_err,traits::{ReservableCurrency},
-};
+use frame_support::{assert_err, assert_ok, traits::ReservableCurrency};
+use online_profile::{Error as OnlineProfileErr, MachinesInfo};
 use pallet_balances::AccountData;
-use online_profile::{Error as OnlineProfileErr,MachinesInfo};
 use std::convert::TryInto;
 use system::AccountInfo;
-
 
 // 机器被审核通过后，stash账户币不够，主动调用fulfill_machine来补充质押
 #[test]
@@ -77,6 +75,7 @@ fn fulfill_machine_works() {
                 longitude: Longitude::East(1157894),
                 latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
+                is_bare_machine: false
             }
         ));
 
@@ -330,6 +329,7 @@ fn restake_online_machine_works() {
                 longitude: Longitude::East(1157894),
                 latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
+                is_bare_machine: false
             }
         ));
 
@@ -446,9 +446,6 @@ fn restake_online_machine_works() {
             ..Default::default()
         });
     })
-
-
-
 }
 #[test]
 fn cancel_online_profile_slash_works() {}

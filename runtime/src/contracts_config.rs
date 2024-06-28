@@ -1,7 +1,6 @@
 use crate::{
-    Balance, Balances, RandomnessCollectiveFlip, Runtime, RuntimeCall,
-    RuntimeEvent,  Timestamp,RuntimeBlockWeights
-
+    Balance, Balances, RandomnessCollectiveFlip, Runtime, RuntimeBlockWeights, RuntimeCall,
+    RuntimeEvent, Timestamp,
 };
 use frame_support::{
     parameter_types,
@@ -14,16 +13,15 @@ pub const DBC: Balance = 1_000_000_000_000_000;
 
 const fn deposit(items: u32, bytes: u32) -> Balance {
     (items as Balance + bytes as Balance) * DBC / 1_000_000
-
 }
 
 parameter_types! {
-	pub const DepositPerItem: Balance = deposit(1, 0);
-	pub const DepositPerByte: Balance = deposit(0, 1);
-	pub const DeletionQueueDepth: u32 = 128;
-	pub DeletionWeightLimit: Weight =
+    pub const DepositPerItem: Balance = deposit(1, 0);
+    pub const DepositPerByte: Balance = deposit(0, 1);
+    pub const DeletionQueueDepth: u32 = 128;
+    pub DeletionWeightLimit: Weight =
         RuntimeBlockWeights::get().max_block;
-	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
+    pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 }
 
 impl pallet_contracts::Config for Runtime {

@@ -41,3 +41,15 @@ online-profile-rpc = { path = "../pallets/online-profile/rpc" }
 rent-machine-rpc = { path = "../pallets/rent-machine/rpc" }
 simple-rpc-rpc = { path = "../pallets/simple-rpc/rpc" }
 terminating-rental-rpc = { path = "../pallets/terminating-rental/rpc" }
+
+# Finality-rpc
+dbc-finality-rpc = { path = "../client/rpc/finality" }
+
+# EVM
+fc-db = { workspace = true }
+fc-rpc = { workspace = true }
+fc-rpc-core = { workspace = true }
+fc-storage = { workspace = true }
+fp-rpc = { workspace = true }
+sc-transaction-pool = { workspace = true }
+sc-network = { workspace = true }

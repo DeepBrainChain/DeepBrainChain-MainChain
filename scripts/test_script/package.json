@@ -10,7 +10,7 @@
     "@polkadot/types": "^4.12.1",
     "@polkadot/util": "^6.6.1",
     "@substrate/txwrapper": "^7.0.0",
-    "minimist": "^1.2.5"
+    "minimist": "^1.2.6"
   },
   "type": "module"
 }

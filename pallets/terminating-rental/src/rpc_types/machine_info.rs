@@ -1,4 +1,3 @@
-use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::{serde_text, RpcText};
 use dbc_support::{
@@ -8,6 +7,7 @@ use dbc_support::{
     verify_online::StashMachine,
     MachineId,
 };
+use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
