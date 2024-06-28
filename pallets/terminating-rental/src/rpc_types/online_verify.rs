@@ -1,10 +1,10 @@
-use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use dbc_support::rpc_types::RpcText;
 use dbc_support::{
     machine_type::CommitteeUploadInfo,
     verify_online::{OCCommitteeMachineList, OCMachineStatus as VerifyMachineStatus},
 };
+use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_std::vec::Vec;

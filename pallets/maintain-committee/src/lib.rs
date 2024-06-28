@@ -13,7 +13,6 @@ mod mock;
 #[allow(non_upper_case_globals)]
 mod tests;
 
-use parity_scale_codec::alloc::string::ToString;
 use dbc_support::{
     report::{
         MCSlashResult, MTCommitteeOpsDetail, MTCommitteeOrderList, MTLiveReportList, MTOrderStatus,
@@ -32,6 +31,7 @@ use frame_support::{
     traits::{Currency, OnUnbalanced, ReservableCurrency},
 };
 use frame_system::pallet_prelude::*;
+use parity_scale_codec::alloc::string::ToString;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{str, vec, vec::Vec};
 

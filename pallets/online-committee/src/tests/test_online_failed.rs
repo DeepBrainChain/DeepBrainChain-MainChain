@@ -45,6 +45,7 @@ fn test_machine_online_refused_after_some_online() {
                 longitude: Longitude::East(1157894),
                 latitude: Latitude::North(235678),
                 telecom_operators: vec!["China Unicom".into()],
+                is_bare_machine: false
             }
         ));
         // 将会派发机器
@@ -108,10 +109,7 @@ fn test_machine_online_refused_after_some_online() {
 
         run_to_block(15);
 
-        assert_eq!(
-            Balances::free_balance(&*stash),
-            INIT_BALANCE - 4000 * ONE_DBC - 50 * ONE_DBC
-        );
+        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 4000 * ONE_DBC - 50 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 4000 * ONE_DBC + 50 * ONE_DBC);
 
         // Add two days later stash being slashed:
@@ -135,10 +133,7 @@ fn test_machine_online_refused_after_some_online() {
         // on_initialize will do slash
         run_to_block(15 + 2880 * 2);
 
-        assert_eq!(
-            Balances::free_balance(&*stash),
-            INIT_BALANCE - 4000 * ONE_DBC - 50 * ONE_DBC
-        );
+        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 4000 * ONE_DBC - 50 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 4000 * ONE_DBC);
         assert!(<PendingSlash<TestRuntime>>::contains_key(0));
 
