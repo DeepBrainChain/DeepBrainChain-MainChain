@@ -552,7 +552,6 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
     ext
 }
 
-
 pub fn new_test_with_init_params_ext_1() -> sp_io::TestExternalities {
     let mut ext = new_test_with_init_machine_online();
     ext.execute_with(|| {
@@ -580,7 +579,6 @@ pub fn new_test_with_init_params_ext_1() -> sp_io::TestExternalities {
         ));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter), 0));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter1), 1));
-
     });
 
     ext

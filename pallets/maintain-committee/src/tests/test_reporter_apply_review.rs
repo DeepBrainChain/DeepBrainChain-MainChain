@@ -243,13 +243,12 @@ fn apply_slash_review_case1_2() {
         let renter = sr25519::Public::from(Sr25519Keyring::Two).into();
         let reporter1 = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-
         assert_eq!(
             &OnlineProfile::live_machines(),
             &LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
-        run_to_block(2880 *2+ 11);
+        run_to_block(2880 * 2 + 11);
 
         // Stash apply reonline
         assert_ok!(OnlineProfile::controller_report_online(
@@ -257,6 +256,6 @@ fn apply_slash_review_case1_2() {
             machine_id.clone()
         ));
 
-        assert_eq!(OnlineProfile::pending_slash(0).unwrap().renters, vec![renter,reporter1]);
+        assert_eq!(OnlineProfile::pending_slash(0).unwrap().renters, vec![renter, reporter1]);
     })
 }

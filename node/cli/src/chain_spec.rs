@@ -391,7 +391,7 @@ pub fn testnet_genesis(
                         (*addr).into(),
                         GenesisAccount {
                             nonce: Default::default(),
-                            balance: (100 * DOLLARS).into(),
+                            balance: (100_000 * DOLLARS).into(), // 1000 DBC
                             storage: Default::default(),
                             code: Default::default(),
                         },
