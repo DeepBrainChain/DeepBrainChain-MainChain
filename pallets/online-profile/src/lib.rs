@@ -336,7 +336,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn offline_machine_to_renters)]
     pub(super) type OfflineMachine2renters<T: Config> =
-    StorageMap<_, Blake2_128Concat, MachineId, Vec<T::AccountId>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, MachineId, Vec<T::AccountId>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn machine_to_last_slashed_info)]
@@ -1120,7 +1120,6 @@ pub mod pallet {
                         Some(committee),
                         offline_duration,
                     )
-
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
@@ -1634,10 +1633,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn  add_offline_machine_to_renters(machine_id: MachineId, renters :Vec<T::AccountId>){
-        OfflineMachine2renters::<T>::mutate(machine_id, |renters_exists| {
-            *renters_exists = renters
-        });
+    pub fn add_offline_machine_to_renters(machine_id: MachineId, renters: Vec<T::AccountId>) {
+        OfflineMachine2renters::<T>::mutate(machine_id, |renters_exists| *renters_exists = renters);
     }
-
 }
