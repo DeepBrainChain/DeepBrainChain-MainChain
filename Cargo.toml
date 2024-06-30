@@ -1,32 +1,24 @@
-[[bin]]
-name = "dbc-chain"
-path = "src/main.rs"
-
-[package]
-name = "dbc"
-version = { workspace = true }
-default-run = "dbc-chain"
-edition = "2021"
+[workspace.package]
+version = "3.2.0-dev"
+authors = ["DeepBrainChain Developers"]
+repository = "https://github.com/DeepBrainChain/DeepBrainChain-MainChain"
 
 [profile.release]
 panic = "unwind"
 opt-level = 3
 
-[dependencies]
-dbc-cli = { path = "cli" }
-sc-cli = { workspace = true }
-
 [workspace]
+resolver = "2"
 members = [
-  "bench",
-  "cli",
+  "node",
+  "node/cli",
+  "node/executor",
+  "node/inspect",
+  "node/runtime-interface",
   "client/rpc/finality",
-  "executor",
-  "inspect",
   "primitives",
   "rpc",
   "runtime",
-  "testing",
 
   "pallets/assets",
   "pallets/staking",
@@ -58,16 +50,6 @@ members = [
   "pallets/nfts",
   "pallets/scheduler",
 ]
-
-[features]
-dev-mode = ["dbc-cli/dev-mode"]
-try-runtime = ["dbc-cli/try-runtime"]
-runtime-benchmarks = ["dbc-cli/runtime-benchmarks"]
-
-[workspace.package]
-version = "3.2.0-dev"
-authors = ["DeepBrainChain Developers"]
-repository = "https://github.com/DeepBrainChain/DeepBrainChain-MainChain"
 
 [workspace.dependencies]
 
@@ -156,6 +138,7 @@ sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polka
 sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-runtime-interface = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+sp-runtime-interface-proc-macro = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-staking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
@@ -184,6 +167,7 @@ sc-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch
 sc-consensus-manual-seal = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-consensus-slots = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+sc-executor-common = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-informant = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }

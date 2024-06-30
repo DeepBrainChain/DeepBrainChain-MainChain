@@ -20,8 +20,8 @@ sp-state-machine = { workspace = true, features = ["std"] }
 sp-tracing = { workspace = true, features = ["std"] }
 sp-trie = { workspace = true, features = ["std"] }
 
-dbc-runtime = { path = "../runtime" }
-
+dbc-runtime = { path = "../../runtime" }
+dbc-runtime-interface = { path = "../runtime-interface" }
 
 [features]
 stress-test = []
