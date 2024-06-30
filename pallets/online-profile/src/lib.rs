@@ -333,6 +333,20 @@ pub mod pallet {
     #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, u16, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn offline_machine_to_renters)]
+    pub(super) type OfflineMachine2renters<T: Config> =
+    StorageMap<_, Blake2_128Concat, MachineId, Vec<T::AccountId>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn machine_to_last_slashed_info)]
+    pub(super) type Machine2LastSlashedInfo<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+    >;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
@@ -848,7 +862,7 @@ pub mod pallet {
                         machine_id.clone(),
                         slash_reason,
                         Some(reporter),
-                        machine_info.renters.clone(),
+                        Self::offline_machine_to_renters(&machine_id),
                         Some(committee),
                         offline_duration,
                     )
@@ -1102,10 +1116,11 @@ pub mod pallet {
                         machine_id.clone(),
                         slash_reason,
                         Some(reporter),
-                        machine_info.renters.clone(),
+                        Self::offline_machine_to_renters(&machine_id),
                         Some(committee),
                         offline_duration,
                     )
+
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
             }
@@ -1618,4 +1633,11 @@ impl<T: Config> Pallet<T> {
         }
         Ok(())
     }
+
+    pub fn  add_offline_machine_to_renters(machine_id: MachineId, renters :Vec<T::AccountId>){
+        OfflineMachine2renters::<T>::mutate(machine_id, |renters_exists| {
+            *renters_exists = renters
+        });
+    }
+
 }
