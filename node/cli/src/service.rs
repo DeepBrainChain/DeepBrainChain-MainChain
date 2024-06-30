@@ -24,7 +24,6 @@ use crate::Cli;
 use dbc_executor::DBCExecutorDispatch;
 use dbc_primitives::Block;
 use dbc_runtime::{RuntimeApi, TransactionConverter};
-use fc_consensus::FrontierBlockImport;
 use fc_db::DatabaseSource;
 use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
 use fc_rpc::EthTask;
@@ -263,16 +262,10 @@ pub fn new_partial(
         client.clone(),
     )?;
 
-    let frontier_block_import = FrontierBlockImport::new(
-        babe_block_import.clone(),
-        client.clone(),
-        frontier_backend.clone(),
-    );
-
     let slot_duration = babe_link.config().slot_duration();
     let import_queue = sc_consensus_babe::import_queue(
         babe_link.clone(),
-        frontier_block_import.clone(),
+        babe_block_import.clone(),
         Some(Box::new(justification_import)),
         client.clone(),
         select_chain.clone(),
