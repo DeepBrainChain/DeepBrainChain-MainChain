@@ -18,9 +18,7 @@ fmt:
 run:
 	cargo run --features dev-mode -- --dev -lruntime=debug --ws-port=9944 --ws-external --rpc-port=8545 --rpc-external --rpc-cors=all --rpc-methods=unsafe --pruning=archive
 
-# mainnet wss://info1.dbcwallet.io:443
-# testnet wss://infotest.dbcwallet.io:7780
-NODE_RUI=wss://info1.dbcwallet.io:443
+NODE_URI=wss://info1.dbcwallet.io:443
 BLOCK_HASH=0xc4d4e9b1a2b8c44d7859a6004c43ad6eebb61c57b6173a53fe794a6aa479a49b
 .PHONY: try-runtime-live
 try-runtime-live: build-try-runtime
@@ -30,7 +28,7 @@ try-runtime-live: build-try-runtime
 		--chain=mainnet \
 		on-runtime-upgrade \
 		live \
-		--uri ${NODE_RUI} \
+		--uri ${NODE_URI} \
 		--at ${BLOCK_HASH}
 
 .PHONY: try-runtime-snap
@@ -39,9 +37,9 @@ try-runtime-create-snap:
 		try-runtime \
 		--runtime existing \
 		create-snapshot \
-		--uri ${NODE_RUI} \
+		--uri ${NODE_URI} \
 		--at ${BLOCK_HASH} \
-		dbc-latest.snap
+		dbc-${BLOCK_HASH}.snap
 
 .PHONY: try-runtime-upgrade-snap
 try-runtime-upgrade-snap: build-try-runtime
@@ -51,4 +49,4 @@ try-runtime-upgrade-snap: build-try-runtime
 		--chain=mainnet \
 		on-runtime-upgrade \
 		snap \
-		-s dbc-latest.snap
+		-s dbc-${BLOCK_HASH}.snap
