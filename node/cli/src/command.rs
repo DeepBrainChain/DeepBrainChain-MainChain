@@ -231,7 +231,7 @@ pub fn run() -> Result<()> {
         Some(Subcommand::TryRuntime(cmd)) => {
             use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
             let runner = cli.create_runner(cmd)?;
-            runner.async_run(|mut config| {
+            runner.async_run(|config| {
                 // we don't need any of the components of new_partial, just a runtime, or a task
                 // manager to do `async_run`.
                 let registry = config.prometheus_config.as_ref().map(|cfg| &cfg.registry);
