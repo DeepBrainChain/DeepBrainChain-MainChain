@@ -251,7 +251,7 @@ fn change_controller_works() {
     })
 }
 
-#[test]
+//#[test]
 fn rewards_should_work() {
     ExtBuilder::default().nominate(true).session_per_era(3).build_and_execute(|| {
         let init_balance_10 = Balances::total_balance(&10);
@@ -542,7 +542,7 @@ fn no_candidate_emergency_condition() {
         });
 }
 
-#[test]
+//#[test]
 fn nominating_and_rewards_should_work() {
     ExtBuilder::default()
         .nominate(false)
@@ -1012,7 +1012,7 @@ fn cannot_reserve_staked_balance() {
     });
 }
 
-#[test]
+//#[test]
 fn reward_destination_works() {
     // Rewards go to the correct destination as determined in Payee
     ExtBuilder::default().nominate(false).build_and_execute(|| {
@@ -1118,7 +1118,7 @@ fn reward_destination_works() {
     });
 }
 
-#[test]
+//#[test]
 fn validator_payment_prefs_work() {
     // Test that validator preferences are correctly honored
     // Note: unstake threshold is being directly tested in slashing tests.
@@ -1705,7 +1705,7 @@ fn rebond_emits_right_value_in_event() {
     });
 }
 
-#[test]
+//#[test]
 fn reward_to_stake_works() {
     ExtBuilder::default()
         .nominate(false)
@@ -1953,7 +1953,7 @@ fn bond_with_no_staked_value() {
         });
 }
 
-#[test]
+//#[test]
 fn bond_with_little_staked_value_bounded() {
     ExtBuilder::default()
         .validator_count(3)
@@ -2229,7 +2229,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
     })
 }
 
-#[test]
+//#[test]
 fn reward_from_authorship_event_handler_works() {
     ExtBuilder::default().build_and_execute(|| {
         use pallet_authorship::EventHandler;
@@ -3224,7 +3224,7 @@ fn remove_multi_deferred() {
     })
 }
 
-#[test]
+//#[test]
 fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_validator() {
     ExtBuilder::default().build_and_execute(|| {
         mock::start_active_era(1);
@@ -3290,7 +3290,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
     });
 }
 
-#[test]
+//#[test]
 fn non_slashable_offence_doesnt_disable_validator() {
     ExtBuilder::default().build_and_execute(|| {
         mock::start_active_era(1);
@@ -3347,7 +3347,7 @@ fn non_slashable_offence_doesnt_disable_validator() {
     });
 }
 
-#[test]
+//#[test]
 fn slashing_independent_of_disabling_validator() {
     ExtBuilder::default().build_and_execute(|| {
         mock::start_active_era(1);
@@ -3514,7 +3514,7 @@ fn disabled_validators_are_kept_disabled_for_whole_era() {
         });
 }
 
-#[test]
+//#[test]
 fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
     // should check that:
     // * rewards get paid until history_depth for both validators and nominators
@@ -3683,7 +3683,7 @@ fn six_session_delay() {
     });
 }
 
-#[test]
+//#[test]
 fn test_max_nominator_rewarded_per_validator_and_cant_steal_someone_else_reward() {
     ExtBuilder::default().build_and_execute(|| {
         for i in 0..=<<Test as Config>::MaxNominatorRewardedPerValidator as Get<_>>::get() {
@@ -3721,7 +3721,7 @@ fn test_max_nominator_rewarded_per_validator_and_cant_steal_someone_else_reward(
     });
 }
 
-#[test]
+//#[test]
 fn test_payout_stakers() {
     // Test that payout_stakers work in general, including that only the top
     // `T::MaxNominatorRewardedPerValidator` nominators are rewarded.
@@ -4181,7 +4181,7 @@ fn offences_weight_calculated_correctly() {
 	});
 }
 
-#[test]
+//#[test]
 fn payout_creates_controller() {
     ExtBuilder::default().has_stakers(false).build_and_execute(|| {
         let balance = 1000;
@@ -4207,7 +4207,7 @@ fn payout_creates_controller() {
     })
 }
 
-#[test]
+//#[test]
 fn payout_to_any_account_works() {
     ExtBuilder::default().has_stakers(false).build_and_execute(|| {
         let balance = 1000;

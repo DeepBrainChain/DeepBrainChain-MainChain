@@ -20,17 +20,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      fail-fast: false
-      matrix:
-        package:
-          - dbc-price-ocw
-          - online-committee
-          - rent-machine
-          - maintain-committee
-          - committee
-          - terminating-rental
-
     steps:
       - name: Add wasm toolchain
         uses: actions-rs/toolchain@v1
@@ -53,5 +42,5 @@ jobs:
       - name: Check try-runtime
         run: cargo check --features try-runtime
 
-      - name: Run ${{ matrix.package }} tests
-        run: cargo test -p ${{ matrix.package }}
+      - name: Run tests
+        run: cargo test --all
