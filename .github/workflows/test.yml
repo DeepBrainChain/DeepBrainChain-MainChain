@@ -34,7 +34,7 @@ jobs:
         uses: jlumbroso/free-disk-space@main
         with:
           tool-cache: false
-          large-packages: true
+          large-packages: false
         
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
