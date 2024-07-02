@@ -149,7 +149,6 @@ pallet-evm-precompile-simple = { workspace = true }
 
 [features]
 default = ["std"]
-dev-mode = []
 with-tracing = ["frame-executive/with-tracing"]
 std = [
   # "pallet-whitelist/std",
