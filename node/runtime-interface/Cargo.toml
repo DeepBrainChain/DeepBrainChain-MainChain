@@ -5,14 +5,10 @@ authors = { workspace = true }
 edition = "2021"
 
 [dependencies]
-parity-scale-codec = { workspace = true }
-sp-runtime = { workspace = true }
 sp-runtime-interface = { workspace = true }
-sp-runtime-interface-proc-macro = { workspace = true }
 
 [features]
 default = [ "std" ]
 std = [
-  "sp-runtime/std",
   "sp-runtime-interface/std",
 ]

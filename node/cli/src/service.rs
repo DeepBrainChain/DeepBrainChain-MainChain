@@ -693,7 +693,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 #[cfg(test)]
 mod tests {
     use crate::service::{new_full_base, NewFullBase};
-    use codec::Encode;
+    use parity_scale_codec::Encode;
     use dbc_primitives::{Block, DigestItem, Signature};
     use dbc_runtime::{
         constants::{currency::CENTS, time::SLOT_DURATION},
