@@ -23,7 +23,7 @@ use coins_bip39::{English, Mnemonic, Wordlist};
 use dbc_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
     BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DemocracyConfig,
-    ElectionsConfig, EvmConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, MaxNominations,
+    EVMConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, MaxNominations,
     NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig,
     SystemConfig, TechnicalCommitteeConfig,
 };
@@ -383,7 +383,7 @@ pub fn testnet_genesis(
             ..Default::default()
         },
         ethereum_chain_id: Default::default(),
-        evm: EvmConfig {
+        evm: EVMConfig {
             accounts: evm_accounts
                 .iter()
                 .map(|addr| {

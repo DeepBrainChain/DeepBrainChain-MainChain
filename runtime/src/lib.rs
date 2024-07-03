@@ -1704,7 +1704,7 @@ construct_runtime!(
         TerminatingRental: terminating_rental,
         Contracts: pallet_contracts,
         EthereumChainId: ethereum_chain_id,
-        Evm: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
+        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
         Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
     }
@@ -2256,7 +2256,7 @@ impl_runtime_apis! {
         }
 
         fn account_basic(address: H160) -> EVMAccount {
-            let (account, _) = Evm::account_basic(&address);
+            let (account, _) = EVM::account_basic(&address);
             account
         }
 
