@@ -227,3 +227,63 @@ impl OnRuntimeUpgrade for DemocracyV1Migration {
         )
     }
 }
+
+pub struct BabeV1Migration;
+impl OnRuntimeUpgrade for BabeV1Migration {
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        let timestamp = pallet_timestamp::Pallet::<Runtime>::get();
+        let current_slot = pallet_babe::CurrentSlot::<Runtime>::get();
+        log::info!(
+            "BabeV1Migration pre_upgrade timestamp: {:?}, current slot: {:?} ",
+            timestamp,
+            current_slot
+        );
+
+        Ok(Vec::new())
+    }
+    fn on_runtime_upgrade() -> Weight {
+        let weight = Weight::zero();
+
+        let block_time = <Runtime as pallet_babe::Config>::ExpectedBlockTime::get();
+        let timestamp_slot = pallet_babe::CurrentSlot::<Runtime>::get();
+        log::info!(
+            "BabeV1Migration block_time: {:?}, timestamp_slot: {:?}",
+            block_time,
+            timestamp_slot
+        );
+
+        // if block_time == 30_000 {
+        {
+            use sp_consensus_babe::Slot;
+
+            let timestamp = pallet_timestamp::Pallet::<Runtime>::get() + 1;
+            let slot_duration = pallet_babe::Pallet::<Runtime>::slot_duration();
+
+            let timestamp_slot = timestamp / slot_duration;
+            let timestamp_slot = Slot::from(timestamp_slot.saturated_into::<u64>());
+
+            let before_slot = pallet_babe::CurrentSlot::<Runtime>::get();
+            pallet_babe::CurrentSlot::<Runtime>::put(timestamp_slot);
+            let current_slot = pallet_babe::CurrentSlot::<Runtime>::get();
+
+            log::info!("BabeV1Migration on_runtime_upgrade ok, new timestamp_slot: {:?}, before_slot: {:?}, current_slot: {:?}", timestamp_slot, before_slot, current_slot);
+            weight.saturating_add(<Runtime as frame_system::Config>::DbWeight::get().writes(1));
+        }
+
+        weight
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        let timestamp = pallet_timestamp::Pallet::<Runtime>::get();
+        let new_slot = pallet_babe::CurrentSlot::<Runtime>::get();
+        log::info!(
+            "BabeV1Migration post_upgrade timestamp: {:?}, new slot: {:?} ",
+            timestamp,
+            new_slot
+        );
+
+        Ok(())
+    }
+}

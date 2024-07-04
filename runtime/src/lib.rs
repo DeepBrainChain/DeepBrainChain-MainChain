@@ -786,7 +786,7 @@ parameter_types! {
     pub const MaxPointsToBalance: u8 = 10;
 }
 
-use crate::migrations::DemocracyV1Migration;
+use crate::migrations::{BabeV1Migration, DemocracyV1Migration};
 use sp_runtime::traits::Convert;
 
 pub struct BalanceToU256;
@@ -1775,6 +1775,7 @@ type Migrations = (
     DemocracyV1Migration,
     online_profile::migration::v1::Migration<Runtime>,
     terminating_rental::migrations::v1::Migration<Runtime>,
+    BabeV1Migration,
 );
 
 /// MMR helper types.
