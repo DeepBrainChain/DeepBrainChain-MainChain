@@ -1,0 +1,16 @@
+[package]
+name = "dbc-executor"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+repository = { workspace = true }
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+frame-benchmarking = { workspace = true, features = ["std"] }
+sc-executor = { workspace = true, features = ["std"] }
+
+dbc-runtime = { path = "../../runtime" }
+dbc-runtime-interface = { path = "../runtime-interface" }

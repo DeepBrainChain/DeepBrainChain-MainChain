@@ -1,5 +1,5 @@
 # This is a basic workflow to help you get started with Actions
-name: testcase
+name: Tests
 
 # Controls when the workflow will run
 on:
@@ -16,20 +16,13 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        package:
-          - dbc-price-ocw
-          - online-committee
-          - rent-machine
-          - maintain-committee
-          - committee
-          - terminating-rental
 
     steps:
       - name: Add wasm toolchain
@@ -38,7 +31,14 @@ jobs:
           toolchain: nightly
           target: wasm32-unknown-unknown
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
+      # https://github.com/jlumbroso/free-disk-space
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          large-packages: false
         
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
@@ -53,5 +53,5 @@ jobs:
       - name: Check try-runtime
         run: cargo check --features try-runtime
 
-      - name: Run ${{ matrix.package }} tests
-        run: cargo test -p ${{ matrix.package }}
+      - name: Run tests
+        run: cargo test --all

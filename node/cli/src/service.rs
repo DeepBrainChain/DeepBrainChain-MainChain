@@ -24,7 +24,6 @@ use crate::Cli;
 use dbc_executor::DBCExecutorDispatch;
 use dbc_primitives::Block;
 use dbc_runtime::{RuntimeApi, TransactionConverter};
-use fc_consensus::FrontierBlockImport;
 use fc_db::DatabaseSource;
 use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
 use fc_rpc::EthTask;
@@ -263,16 +262,10 @@ pub fn new_partial(
         client.clone(),
     )?;
 
-    let frontier_block_import = FrontierBlockImport::new(
-        babe_block_import.clone(),
-        client.clone(),
-        frontier_backend.clone(),
-    );
-
     let slot_duration = babe_link.config().slot_duration();
     let import_queue = sc_consensus_babe::import_queue(
         babe_link.clone(),
-        frontier_block_import.clone(),
+        babe_block_import.clone(),
         Some(Box::new(justification_import)),
         client.clone(),
         select_chain.clone(),
@@ -700,12 +693,12 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 #[cfg(test)]
 mod tests {
     use crate::service::{new_full_base, NewFullBase};
-    use codec::Encode;
     use dbc_primitives::{Block, DigestItem, Signature};
     use dbc_runtime::{
         constants::{currency::CENTS, time::SLOT_DURATION},
         Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
     };
+    use parity_scale_codec::Encode;
     use sc_client_api::BlockBackend;
     use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
     use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
