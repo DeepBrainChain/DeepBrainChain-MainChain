@@ -339,12 +339,13 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, MachineId, Vec<T::AccountId>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn machine_to_last_slashed_info)]
-    pub(super) type Machine2LastSlashedInfo<T: Config> = StorageMap<
+    #[pallet::getter(fn machine_to_pending_slash_ids)]
+    pub(super) type Machine2PendingSlashIds<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         MachineId,
-        OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        Vec<SlashId>,
+        ValueQuery
     >;
 
     #[pallet::hooks]
@@ -916,6 +917,11 @@ pub mod pallet {
                     ItemList::add_item(pending_exec_slash, slash_id);
                 });
                 PendingSlash::<T>::insert(slash_id, slash_info);
+
+                Machine2PendingSlashIds::<T>::mutate(&machine_id, |slash_ids| {
+                    ItemList::add_item(slash_ids, slash_id);
+                });
+
             }
 
             ItemList::rm_item(&mut live_machine.offline_machine, &machine_id);
@@ -1132,6 +1138,10 @@ pub mod pallet {
                     ItemList::add_item(pending_exec_slash, slash_id);
                 });
                 PendingSlash::<T>::insert(slash_id, slash_info);
+
+                Machine2PendingSlashIds::<T>::mutate(&machine_id, |slash_ids| {
+                    ItemList::add_item(slash_ids, slash_id);
+                });
             }
 
             MaxSlashExeced::<T>::insert(machine_id, now);
