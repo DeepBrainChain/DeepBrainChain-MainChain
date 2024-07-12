@@ -23,14 +23,28 @@ dbc-support = { path = "../support", default-features = false }
 online-profile = { path = "../online-profile", default-features = false }
 rent-machine = { path = "../rent-machine", default-features = false }
 
+#sp-io = { workspace = true, features = ["std"] }
+
 
 [dev-dependencies]
 sp-std = { workspace = true, features = ["std"] }
 sp-io = { workspace = true, features = ["std"] }
 
+pallet-insecure-randomness-collective-flip = { workspace = true, features = ["std"] }
+pallet-collective = { workspace = true, features = ["std"] }
+pallet-balances = { workspace = true, features = ["std"] }
+dbc-price-ocw = { path = "../dbc-price-ocw", default-features = false }
+generic-func = { path = "../generic-func", default-features = false }
+committee = { path = "../committee" }
+hex = "0.4.3"
+sp-keyring = { workspace = true }
+log = "0.4.22"
+
+
 [features]
 default = ["std"]
 std = [
+    "sp-io/std",
     "parity-scale-codec/std",
     "scale-info/std",
     "sp-core/std",
@@ -38,5 +52,9 @@ std = [
     "sp-runtime/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-balances/std",
+    "pallet-insecure-randomness-collective-flip/std",
+    "pallet-collective/std"
+
 ]
 try-runtime = ["frame-support/try-runtime"]
