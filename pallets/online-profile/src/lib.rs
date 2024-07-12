@@ -1142,6 +1142,8 @@ pub mod pallet {
                 Machine2PendingSlashIds::<T>::mutate(&machine_id, |slash_ids| {
                     ItemList::add_item(slash_ids, slash_id);
                 });
+                Self::deposit_event(Event::AddSlash(machine_id.clone(),slash_id));
+
             }
 
             MaxSlashExeced::<T>::insert(machine_id, now);
@@ -1213,6 +1215,7 @@ pub mod pallet {
         StashResetController(T::AccountId, T::AccountId, T::AccountId),
         // machine_id, pre_stake, delta_stake
         MachineAddStake(MachineId, BalanceOf<T>, BalanceOf<T>),
+        AddSlash(MachineId,SlashId)
     }
 
     #[pallet::error]
