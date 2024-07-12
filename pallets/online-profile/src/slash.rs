@@ -1,6 +1,6 @@
 use crate::{
     BalanceOf, Config, Event, NextSlashId, Pallet, PendingSlash, PendingSlashReview,
-    PendingSlashReviewChecking, StashStake, SysInfo
+    PendingSlashReviewChecking, StashStake, SysInfo,
 };
 use dbc_support::{
     machine_info::MachineInfo,

@@ -340,13 +340,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn machine_to_pending_slash_ids)]
-    pub(super) type Machine2PendingSlashIds<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        MachineId,
-        Vec<SlashId>,
-        ValueQuery
-    >;
+    pub(super) type Machine2PendingSlashIds<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, Vec<SlashId>, ValueQuery>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -921,7 +916,6 @@ pub mod pallet {
                 Machine2PendingSlashIds::<T>::mutate(&machine_id, |slash_ids| {
                     ItemList::add_item(slash_ids, slash_id);
                 });
-
             }
 
             ItemList::rm_item(&mut live_machine.offline_machine, &machine_id);
@@ -1142,8 +1136,7 @@ pub mod pallet {
                 Machine2PendingSlashIds::<T>::mutate(&machine_id, |slash_ids| {
                     ItemList::add_item(slash_ids, slash_id);
                 });
-                Self::deposit_event(Event::AddSlash(machine_id.clone(),slash_id));
-
+                Self::deposit_event(Event::AddSlash(machine_id.clone(), slash_id));
             }
 
             MaxSlashExeced::<T>::insert(machine_id, now);
@@ -1215,7 +1208,7 @@ pub mod pallet {
         StashResetController(T::AccountId, T::AccountId, T::AccountId),
         // machine_id, pre_stake, delta_stake
         MachineAddStake(MachineId, BalanceOf<T>, BalanceOf<T>),
-        AddSlash(MachineId,SlashId)
+        AddSlash(MachineId, SlashId),
     }
 
     #[pallet::error]
