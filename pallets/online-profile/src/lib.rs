@@ -916,6 +916,8 @@ pub mod pallet {
                 Machine2PendingSlashIds::<T>::mutate(&machine_id, |slash_ids| {
                     ItemList::add_item(slash_ids, slash_id);
                 });
+
+                Self::deposit_event(Event::AddSlash(machine_id.clone(), slash_id));
             }
 
             ItemList::rm_item(&mut live_machine.offline_machine, &machine_id);
