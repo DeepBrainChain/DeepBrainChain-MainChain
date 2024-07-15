@@ -100,14 +100,15 @@ where
                     origin_amount == amount.saturating_mul(U256::from(1000)),
                     PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
-                        output: format!("amount address").into(),
+                        output: format!("invalid amount, origin amount: {:?}", origin_amount)
+                            .into(),
                     }
                 );
 
                 let amount: BalanceOf<T> =
                     amount.try_into().map_err(|_| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
-                        output: "invalid amount".into(),
+                        output: format!("invalid amount: {:?}", amount).into(),
                     })?;
 
                 log::debug!(
