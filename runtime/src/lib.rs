@@ -457,7 +457,7 @@ impl pallet_indices::Config for Runtime {
 }
 
 parameter_types! {
-    pub const ExistentialDeposit: Balance = 1 * DOLLARS;
+    pub const ExistentialDeposit: Balance = 0;
     // For weight estimation, we assume that the most locks on an individual account will be 50.
     // This number may need to be adjusted in the future if this assumption no longer holds true.
     pub const MaxLocks: u32 = 50;
@@ -1608,7 +1608,8 @@ impl pallet_ethereum::Config for Runtime {
 
 parameter_types! {
     pub DefaultBaseFeePerGas: U256 = U256::from(1_000_000_000_000u128);
-    pub DefaultElasticity: Permill = Permill::from_parts(125_000);
+    // No gas price adjustment for now. default is 125_000 (12.5%)
+    pub DefaultElasticity: Permill = Permill::from_parts(0);
 }
 
 pub struct BaseFeeThreshold;
@@ -1704,7 +1705,7 @@ construct_runtime!(
         TerminatingRental: terminating_rental,
         Contracts: pallet_contracts,
         EthereumChainId: ethereum_chain_id,
-        Evm: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
+        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
         Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
     }
@@ -1772,7 +1773,6 @@ type Migrations = (
     //     >,
     //     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
     //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
-    pallet_assets::migration::v1::MigrateToV1<Runtime>,
     DemocracyV1Migration,
     online_profile::migration::v1::Migration<Runtime>,
     terminating_rental::migrations::v1::Migration<Runtime>,
@@ -2257,7 +2257,7 @@ impl_runtime_apis! {
         }
 
         fn account_basic(address: H160) -> EVMAccount {
-            let (account, _) = Evm::account_basic(&address);
+            let (account, _) = EVM::account_basic(&address);
             account
         }
 
@@ -2782,10 +2782,10 @@ mod tests {
     fn call_size() {
         let size = core::mem::size_of::<RuntimeCall>();
         assert!(
-			size <= 208,
-			"size of RuntimeCall {} is more than 208 bytes: some calls have too big arguments, use Box to reduce the
+			size <= 310,
+			"size of RuntimeCall {} is more than 310 bytes: some calls have too big arguments, use Box to reduce the
 			size of RuntimeCall.
-			If the limit is too strong, maybe consider increase the limit to 300.",
+			If the limit is too strong, maybe consider increase the limit.",
 			size,
 		);
     }

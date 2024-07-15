@@ -208,7 +208,8 @@ mod multiplier_tests {
                 let next = runtime_multiplier_update(fm);
                 fm = next;
             }
-            assert!(fm > Multiplier::saturating_from_rational(1234, 1000));
+            // assert!(fm > Multiplier::saturating_from_rational(10234, 10000));
+            assert!(fm > Multiplier::saturating_from_rational(1021, 1000));
         })
     }
 

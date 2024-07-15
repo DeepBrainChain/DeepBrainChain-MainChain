@@ -39,7 +39,7 @@ impl pallet_contracts::Config for Runtime {
     type CallFilter = frame_support::traits::Nothing;
     type DepositPerItem = DepositPerItem;
     type DepositPerByte = DepositPerByte;
-    type CallStack = [pallet_contracts::Frame<Self>; 31];
+    type CallStack = [pallet_contracts::Frame<Self>; 5];
     type WeightPrice = pallet_transaction_payment::Pallet<Self>;
     type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
     type ChainExtension = ();
@@ -55,7 +55,7 @@ impl pallet_contracts::Config for Runtime {
     // if a too-large contract is uploaded. We noticed that it poses
     // less friction during development when the requirement here is
     // just more lax.
-    type MaxCodeLen = ConstU32<{ 128 * 1024 }>;
+    type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
     type MaxStorageKeyLen = ConstU32<128>;
     type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
     type UnsafeUnstableInterface = ConstBool<true>;

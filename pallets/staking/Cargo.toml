@@ -21,7 +21,6 @@ frame-system = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-session = { workspace = true, features = ["historical"] }
-sp-application-crypto = { workspace = true }
 frame-election-provider-support = { workspace = true }
 log = { workspace = true }
 
@@ -59,7 +58,6 @@ std = [
 	"pallet-timestamp/std",
 	"serde",
 	"scale-info/std",
-	"sp-application-crypto/std",
 	"sp-std/std",
 	"sp-io/std",
 	"sp-runtime/std",

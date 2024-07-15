@@ -49,6 +49,8 @@ members = [
   "pallets/council-reward",
   "pallets/nfts",
   "pallets/scheduler",
+
+  "runtime/src/precompiles/macro",
 ]
 
 [workspace.dependencies]
@@ -246,6 +248,8 @@ fc-storage = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polk
 fp-consensus = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
 fp-storage = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
 
+ethabi = { version = "18.0.0", default-features = false }
+
 # Other (wasm)
 affix = "0.1.2"
 async-trait = { version = "0.1.42" }
@@ -302,3 +306,6 @@ enumflags2 = { version = "0.7.5" }
 bs58 = { package = "bs58", version = "0.4.0", default-features = false }
 array-bytes = { version = "4.1" }
 fs_extra = { version = "1" }
+quote = { version = "1.0.20" }
+syn = { version = "1.0.98" }
+proc-macro2 = { version = "1.0.40" }

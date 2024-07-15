@@ -12,7 +12,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 parity-scale-codec = { workspace = true }
 scale-info = { workspace = true }
 frame-system = { workspace = true }
-sp-application-crypto = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 
@@ -22,7 +21,6 @@ std = [
 	"parity-scale-codec/std",
 	"frame-system/std",
 	"scale-info/std",
-	"sp-application-crypto/std",
 	"sp-core/std",
 	"sp-runtime/std",
 ]
