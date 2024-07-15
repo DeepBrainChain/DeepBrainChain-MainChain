@@ -22,10 +22,10 @@ use coins_bip32::ecdsa::{SigningKey, VerifyingKey};
 use coins_bip39::{English, Mnemonic, Wordlist};
 use dbc_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
-    BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DemocracyConfig,
-    EVMConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, MaxNominations,
-    NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig, SudoConfig,
-    SystemConfig, TechnicalCommitteeConfig,
+    BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DefaultElasticity,
+    DemocracyConfig, EVMConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig,
+    MaxNominations, NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
+    SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
 use fp_evm::GenesisAccount;
 use k256::{elliptic_curve::sec1::ToEncodedPoint, EncodedPoint};
@@ -400,10 +400,7 @@ pub fn testnet_genesis(
                 .collect(),
         },
         ethereum: Default::default(),
-        base_fee: BaseFeeConfig::new(
-            DefaultBaseFeePerGas::get(),
-            sp_runtime::Permill::from_parts(125_000),
-        ),
+        base_fee: BaseFeeConfig::new(DefaultBaseFeePerGas::get(), DefaultElasticity::get()),
     }
 }
 

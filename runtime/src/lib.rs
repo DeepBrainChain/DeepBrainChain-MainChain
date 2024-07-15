@@ -1608,7 +1608,8 @@ impl pallet_ethereum::Config for Runtime {
 
 parameter_types! {
     pub DefaultBaseFeePerGas: U256 = U256::from(1_000_000_000_000u128);
-    pub DefaultElasticity: Permill = Permill::from_parts(125_000);
+    // No gas price adjustment for now. default is 125_000 (12.5%)
+    pub DefaultElasticity: Permill = Permill::from_parts(0);
 }
 
 pub struct BaseFeeThreshold;
