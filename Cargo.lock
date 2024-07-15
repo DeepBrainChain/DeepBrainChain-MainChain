@@ -2521,7 +2521,7 @@ dependencies = [
 
 [[package]]
 name = "evm-macro"
-version = "3.2.0-dev"
+version = "3.3.0-dev"
 dependencies = [
  "proc-macro2",
  "quote",
