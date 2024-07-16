@@ -457,7 +457,7 @@ impl pallet_indices::Config for Runtime {
 }
 
 parameter_types! {
-    pub const ExistentialDeposit: Balance = 1 * DOLLARS;
+    pub const ExistentialDeposit: Balance = 0;
     // For weight estimation, we assume that the most locks on an individual account will be 50.
     // This number may need to be adjusted in the future if this assumption no longer holds true.
     pub const MaxLocks: u32 = 50;
@@ -1608,7 +1608,8 @@ impl pallet_ethereum::Config for Runtime {
 
 parameter_types! {
     pub DefaultBaseFeePerGas: U256 = U256::from(1_000_000_000_000u128);
-    pub DefaultElasticity: Permill = Permill::from_parts(125_000);
+    // No gas price adjustment for now. default is 125_000 (12.5%)
+    pub DefaultElasticity: Permill = Permill::from_parts(0);
 }
 
 pub struct BaseFeeThreshold;
