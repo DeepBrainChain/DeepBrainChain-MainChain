@@ -1,16 +1,13 @@
-use frame_support::dispatch::RawOrigin;
 use crate as ai_project_register;
 
 use frame_support::pallet_prelude::ConstU32;
-use frame_support::{assert_ok, parameter_types};
+use frame_support::{parameter_types};
 use sp_core::{H256, sr25519};
 use sp_core::sr25519::Signature;
-use sp_runtime::{Perbill, traits::{BlakeTwo256, IdentityLookup}};
+use sp_runtime::{ traits::{BlakeTwo256, IdentityLookup}};
 use sp_runtime::testing::{Header, TestXt};
 use sp_runtime::traits::Verify;
 use frame_system::{EnsureRoot};
-use dbc_price_ocw::MAX_LEN;
-use dbc_support::machine_type::CommitteeUploadInfo;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -23,6 +20,7 @@ frame_support::construct_runtime!(
     UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
+        Timestamp: pallet_timestamp,
         AiProjectRegister: ai_project_register::{Pallet, Call, Storage, Event<T>},
         Balances: pallet_balances,
         OnlineProfile: online_profile,
@@ -32,6 +30,7 @@ frame_support::construct_runtime!(
         Committee: committee,
         TechnicalCommittee: pallet_collective::<Instance2>,
         RentMachine: rent_machine,
+
 	}
 );
 
@@ -126,6 +125,8 @@ impl online_profile::Config for Test {
 
 impl ai_project_register::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+
+    type TimeProvider = pallet_timestamp::Pallet<Test>;
 }
 
 impl rent_machine::Config for Test {
@@ -134,6 +135,24 @@ impl rent_machine::Config for Test {
     type RTOps = OnlineProfile;
     type DbcPrice = DBCPriceOCW;
 }
+
+
+
+pub type Moment = u64;
+
+
+parameter_types! {
+    pub const MinimumPeriod: Moment = 6000;
+}
+
+
+impl pallet_timestamp::Config for Test {
+    type Moment = Moment;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Test>;
+}
+
 
 
 parameter_types! {

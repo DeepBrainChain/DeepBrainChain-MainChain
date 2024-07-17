@@ -196,6 +196,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collective",
  "pallet-insecure-randomness-collective-flip",
+ "pallet-timestamp",
  "parity-scale-codec",
  "rent-machine",
  "scale-info",

@@ -82,12 +82,10 @@ fn test_add_machine_registered_project_should_work() {
 #[test]
 fn test_remove_machine_registered_project_should_work() {
     new_test_ext().execute_with(|| {
-        let fake_staker = sr25519::Public::from(Sr25519Keyring::Two);
+        System::set_block_number(10);
+
         let staker = sr25519::Public::from(Sr25519Keyring::One);
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
-            .as_bytes()
-            .to_vec();
-        let fake_machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26xxx"
             .as_bytes()
             .to_vec();
         let project_name = "dgc"
@@ -119,5 +117,6 @@ fn test_remove_machine_registered_project_should_work() {
     assert_err!(AiProjectRegister::remove_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name.clone()),Err::<Test>::NotRegistered);
     assert_ok!(AiProjectRegister::remove_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name1.clone()));
     assert_eq!(AiProjectRegister::machine_id_to_ai_project_name(machine_id.clone()),vec![project_name2.clone()]);
+    assert_eq!(AiProjectRegister::projec_machine_to_unregistered_times(project_name1,machine_id),10);
     });
 }

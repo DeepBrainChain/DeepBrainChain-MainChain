@@ -29,7 +29,7 @@ rent-machine = { path = "../rent-machine", default-features = false }
 [dev-dependencies]
 sp-std = { workspace = true, features = ["std"] }
 sp-io = { workspace = true, features = ["std"] }
-
+pallet-timestamp = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true, features = ["std"] }
 pallet-collective = { workspace = true, features = ["std"] }
 pallet-balances = { workspace = true, features = ["std"] }

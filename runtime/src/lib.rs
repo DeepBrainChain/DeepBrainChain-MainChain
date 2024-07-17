@@ -1631,6 +1631,12 @@ impl pallet_base_fee::Config for Runtime {
     type DefaultElasticity = DefaultElasticity;
 }
 
+impl ai_project_register::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+
+    type TimeProvider = pallet_timestamp::Pallet<Runtime>;
+}
+
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
 parameter_types! {
@@ -1707,6 +1713,7 @@ construct_runtime!(
         EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
         Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
+        AiProjectRegister: ai_project_register::{Pallet, Call, Storage, Event<T>},
     }
 );
 

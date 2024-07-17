@@ -17,6 +17,7 @@ use frame_support::{
 
 use frame_system::{ ensure_signed, pallet_prelude::*};
 use sp_std::{prelude::*, vec, vec::Vec};
+use frame_support::traits::UnixTime;
 
 use dbc_support::{
      MachineId, RentOrderId,
@@ -27,7 +28,6 @@ use dbc_support::{
 pub use pallet::*;
 
 
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -35,6 +35,8 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + online_profile::Config  + rent_machine::Config{
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        type TimeProvider: UnixTime;
     }
 
 
@@ -59,6 +61,18 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage]
+    #[pallet::getter(fn projec_machine_to_unregistered_times)]
+    pub(super) type ProjectMachine2UnregisteredTimes<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        Vec<u8>,
+        Blake2_128Concat,
+        MachineId,
+        <T as frame_system::Config>::BlockNumber,
+        ValueQuery,
+    >;
+
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
@@ -68,7 +82,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         AddMachineRegisteredProject(MachineId,  Vec<u8>),
-        RemoveMachineRegisteredProject(MachineId, Vec<u8>),
+        RemoveMachineRegisteredProject(MachineId, Vec<u8>,<T as frame_system::Config>::BlockNumber),
     }
 
     #[pallet::error]
@@ -136,6 +150,10 @@ pub mod pallet {
             MachineId2AIProjectName::<T>::mutate(&machine_id, |project_names|{
                     project_names.into_iter().position(|x| *x == project_name).map(|i| project_names.remove(i));
             });
+
+            let now = <frame_system::Pallet<T>>::block_number();
+            ProjectMachine2UnregisteredTimes::<T>::insert(&project_name, &machine_id, now);
+            Self::deposit_event(Event::RemoveMachineRegisteredProject(machine_id, project_name,now));
             Ok(().into())
         }
 
@@ -151,7 +169,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     pub fn is_registered(machine_id: MachineId, project_name: Vec<u8>)-> bool{
-        Self::machine_id_to_ai_project_name(&machine_id,).contains(&project_name)
+        Self::machine_id_to_ai_project_name(&machine_id).contains(&project_name)
     }
 
     // get calc_point of machine
