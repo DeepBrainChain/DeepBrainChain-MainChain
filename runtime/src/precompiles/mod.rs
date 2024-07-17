@@ -11,6 +11,8 @@ use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripe
 
 mod bridge;
 use bridge::Bridge;
+mod dbc_price;
+use dbc_price::DBCPrice;
 
 const LOG_TARGET: &str = "evm";
 
@@ -42,6 +44,7 @@ where
     T: pallet_evm::Config,
     Dispatch<T>: Precompile,
     Bridge<T>: Precompile,
+    DBCPrice<T>: Precompile,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         match handle.code_address() {
@@ -62,6 +65,7 @@ where
 
             // DBC specific precompiles
             a if a == hash(2048) => Some(Bridge::<T>::execute(handle)),
+            a if a == hash(2049) => Some(DBCPrice::<T>::execute(handle)),
             _ => None,
         }
     }

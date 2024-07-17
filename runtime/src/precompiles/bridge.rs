@@ -1,6 +1,6 @@
 use fp_evm::{
-    ExitError, ExitRevert, ExitSucceed, Precompile, PrecompileFailure, PrecompileHandle,
-    PrecompileOutput, PrecompileResult,
+    ExitRevert, ExitSucceed, Precompile, PrecompileFailure, PrecompileHandle, PrecompileOutput,
+    PrecompileResult,
 };
 use sp_core::{Get, U256};
 use sp_runtime::RuntimeDebug;
@@ -23,7 +23,7 @@ pub struct Bridge<T>(PhantomData<T>);
 #[derive(RuntimeDebug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u32)]
 pub enum Selector {
-    Trnasfer = "transfer(string,uint256)",
+    Transfer = "transfer(string,uint256)",
 }
 
 type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
@@ -53,7 +53,7 @@ where
         })?;
 
         match selector {
-            Transfer => {
+            Selector::Transfer => {
                 let from = T::AddressMapping::into_account_id(context.caller);
 
                 let param = ethabi::decode(
