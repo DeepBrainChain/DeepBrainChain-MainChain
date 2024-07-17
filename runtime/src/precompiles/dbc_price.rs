@@ -19,6 +19,7 @@ pub struct DBCPrice<T>(PhantomData<T>);
 #[derive(RuntimeDebug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u32)]
 pub enum Selector {
+    GetDBCPrice = "getDBCPrice()",
     GetDBCAmountByValue = "getDBCAmountByValue(uint256)",
 }
 
@@ -49,6 +50,31 @@ where
         })?;
 
         match selector {
+            Selector::GetDBCPrice => {
+                let origin_value: U256 = <dbc_price_ocw::Pallet<T> as DbcPrice>::get_dbc_price()
+                    .map(|v| v.into())
+                    .unwrap_or_default();
+
+                // evm decimals is 18, native balance decimals is 15
+                let value = origin_value.saturating_mul(U256::from(1000));
+
+                log::debug!(
+                    target: LOG_TARGET,
+                    "dbc-price: value: {:?}, origin value: {:?}",
+                    value,
+                    origin_value
+                );
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Uint(value)]),
+                })
+            },
             Selector::GetDBCAmountByValue => {
                 let param =
                     ethabi::decode(&[ethabi::ParamType::Uint(256)], &input[4..]).map_err(|e| {
