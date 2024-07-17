@@ -1841,13 +1841,16 @@ name = "dbc-runtime"
 version = "3.2.0-dev"
 dependencies = [
  "ai-project-register",
+ "array-bytes",
  "committee",
  "committee-runtime-api",
  "council-reward",
  "dbc-price-ocw",
  "dbc-primitives",
  "dbc-support",
+ "ethabi",
  "ethereum-chain-id",
+ "evm-macro",
  "fp-evm",
  "fp-rpc",
  "fp-self-contained",
@@ -1862,6 +1865,7 @@ dependencies = [
  "generic-func",
  "log",
  "maintain-committee",
+ "num_enum",
  "online-committee",
  "online-committee-runtime-api",
  "online-profile",
@@ -2394,6 +2398,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethabi"
+version = "18.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7413c5f74cc903ea37386a8965a936cbeb334bd270862fdece542c1b2dcbc898"
+dependencies = [
+ "ethereum-types",
+ "hex",
+ "serde",
+ "sha3",
+ "thiserror",
+ "uint",
+]
+
+[[package]]
 name = "ethbloom"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2527,6 +2545,16 @@ dependencies = [
  "evm-core",
  "evm-runtime",
  "primitive-types",
+]
+
+[[package]]
+name = "evm-macro"
+version = "3.2.0-dev"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "sha3",
+ "syn 1.0.109",
 ]
 
 [[package]]

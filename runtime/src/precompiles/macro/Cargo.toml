@@ -1,0 +1,14 @@
+[package]
+name = "evm-macro"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+sha3 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true, features = ["full", "fold", "extra-traits", "visit"] }
+proc-macro2 = { workspace = true }
