@@ -76,6 +76,8 @@ fn test_add_machine_registered_project_should_work() {
 
         assert_ok!(AiProjectRegister::add_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name1.clone()));
         assert_ok!(AiProjectRegister::add_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name2.clone()));
+        assert_eq!(AiProjectRegister::registered_info_to_owner(machine_id.clone(),project_name2.clone()).unwrap().eq(&staker),true) ;
+
         assert_err!(AiProjectRegister::add_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name3.clone()),Err::<Test>::OverMaxLimitPerMachineIdCanRegister);
     });
 }
@@ -110,13 +112,15 @@ fn test_remove_machine_registered_project_should_work() {
         gpu_index: vec![],
     };
     RentInfo::<Test>::insert(2,rent_info_renting );
-    assert_err!(AiProjectRegister::remove_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name.clone()),Err::<Test>::NotRegistered);
+    assert_err!(AiProjectRegister::remove_machine_registered_project(RuntimeOrigin::signed(staker),machine_id.clone(),project_name.clone()),Err::<Test>::NotRegistered);
     assert_ok!(AiProjectRegister::add_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name1.clone()));
     assert_ok!(AiProjectRegister::add_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name2.clone()));
     assert_eq!(AiProjectRegister::machine_id_to_ai_project_name(machine_id.clone()),vec![project_name1.clone(),project_name2.clone()]);
-    assert_err!(AiProjectRegister::remove_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name.clone()),Err::<Test>::NotRegistered);
-    assert_ok!(AiProjectRegister::remove_machine_registered_project(RuntimeOrigin::signed(staker),2,machine_id.clone(),project_name1.clone()));
+    assert_err!(AiProjectRegister::remove_machine_registered_project(RuntimeOrigin::signed(staker),machine_id.clone(),project_name.clone()),Err::<Test>::NotRegistered);
+    assert_ok!(AiProjectRegister::remove_machine_registered_project(RuntimeOrigin::signed(staker),machine_id.clone(),project_name1.clone()));
     assert_eq!(AiProjectRegister::machine_id_to_ai_project_name(machine_id.clone()),vec![project_name2.clone()]);
+    assert_eq!(AiProjectRegister::registered_info_to_owner(machine_id.clone(),project_name1.clone()).is_none(),true) ;
     assert_eq!(AiProjectRegister::projec_machine_to_unregistered_times(project_name1,machine_id),10);
+
     });
 }
