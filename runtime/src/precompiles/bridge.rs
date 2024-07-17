@@ -39,7 +39,7 @@ where
         let context = handle.context();
 
         ensure!(
-            input.len() > 4,
+            input.len() >= 4,
             PrecompileFailure::Revert {
                 exit_status: ExitRevert::Reverted,
                 output: "invalid input".into(),
