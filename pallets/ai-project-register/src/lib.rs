@@ -186,10 +186,34 @@ impl<T: Config> Pallet<T> {
     }
 
     // get calc_point of machine
-    pub fn machine_calc_point(
+    pub fn get_machine_calc_point(
         machine_id: MachineId,
     ) -> Result<u64, &'static str>  {
         let machine_info = online_profile::Pallet::<T>::machines_info(machine_id).ok_or("machine not found")?;
         Ok(machine_info.calc_point())
+    }
+
+    pub fn get_machine_valid_stake_duration(
+        renter: T::AccountId,
+        stake_start_at: T::BlockNumber,
+        machine_id: MachineId,
+        rent_ids: Vec<RentOrderId>,
+    ) -> T::BlockNumber  {
+        let now = <frame_system::Pallet<T>>::block_number();
+        let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
+        rent_ids.iter().for_each(|rent_id|{
+            let rent_info_result = <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or(Error::<T>::RentInfoNotFound);
+            if let Ok(rent_info) = rent_info_result{
+                if renter == rent_info.renter  && rent_info.machine_id == machine_id && rent_info.rent_end >= stake_start_at {
+                    if rent_info.rent_end>=now{
+                        rent_duration += now-stake_start_at
+                    }else{
+                        rent_duration += rent_info.rent_end-stake_start_at
+                    }
+                }
+            }
+
+        });
+        rent_duration
     }
 }
