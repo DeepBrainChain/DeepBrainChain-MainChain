@@ -24,7 +24,7 @@ use dbc_support::{
      rental_type::{RentStatus},
 
 };
-
+use dbc_support::traits::AiProjectRegister;
 pub use pallet::*;
 
 
@@ -180,20 +180,25 @@ pub mod pallet {
     }
 }
 
-impl<T: Config> Pallet<T> {
-    pub fn is_registered(machine_id: MachineId, project_name: Vec<u8>)-> bool{
+impl<T: Config> AiProjectRegister for Pallet<T>  {
+    type AccountId =T::AccountId;
+    type BlockNumber = T::BlockNumber;
+    fn is_registered(machine_id: MachineId, project_name: Vec<u8>)-> bool{
         Self::machine_id_to_ai_project_name(&machine_id).contains(&project_name)
     }
 
     // get calc_point of machine
-    pub fn get_machine_calc_point(
+    fn get_machine_calc_point(
         machine_id: MachineId,
-    ) -> Result<u64, &'static str>  {
-        let machine_info = online_profile::Pallet::<T>::machines_info(machine_id).ok_or("machine not found")?;
-        Ok(machine_info.calc_point())
+    ) -> u64  {
+        let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id);
+        if let Some(machine_info) = machine_info_result{
+            return machine_info.calc_point()
+        }
+        0
     }
 
-    pub fn get_machine_valid_stake_duration(
+    fn get_machine_valid_stake_duration(
         renter: T::AccountId,
         stake_start_at: T::BlockNumber,
         machine_id: MachineId,

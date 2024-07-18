@@ -1,4 +1,5 @@
 use sp_std::vec::Vec;
+use crate::{MachineId, RentOrderId};
 
 pub trait PhaseReward {
     type Balance;
@@ -114,6 +115,19 @@ pub trait DbcPrice {
     fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance>;
 
     fn get_dbc_avg_price() -> Option<u64>;
+}
+
+pub trait AiProjectRegister {
+    type AccountId;
+    type BlockNumber;
+    fn is_registered(machine_id: MachineId, project_name: Vec<u8>)-> bool;
+    fn get_machine_calc_point(machine_id: MachineId) -> u64;
+    fn get_machine_valid_stake_duration(
+        renter: Self::AccountId,
+        stake_start_at: Self::BlockNumber,
+        machine_id: MachineId,
+        rent_ids: Vec<RentOrderId>,
+    ) -> Self::BlockNumber;
 }
 
 pub trait MTOps {
