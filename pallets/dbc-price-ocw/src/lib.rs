@@ -267,6 +267,10 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> DbcPrice for Pallet<T> {
     type Balance = BalanceOf<T>;
 
+    fn get_dbc_price() -> Option<Self::Balance> {
+        Some(Self::avg_price()?.saturated_into::<Self::Balance>())
+    }
+
     // avgPrice = price * 10**6 usd
     // usd = avgPrice * dbc_num => dbc_amount = usd * 10**6 / avgPrice
     fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance> {
