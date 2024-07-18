@@ -223,13 +223,15 @@ pub mod v1 {
                 }
             );
 
-            let result = MachinesInfo::<T>::get("601d50086714f19a24ae378be63167e75ce8d22aa798548ee24b1c91c4609a61".as_bytes().to_vec());
+            let machine_id = "601d50086714f19a24ae378be63167e75ce8d22aa798548ee24b1c91c4609a61".as_bytes().to_vec();
+            let result = MachinesInfo::<T>::get(&machine_id);
             // let result = MachinesInfo::<T>::get("c64f005ade44d989e067de03cf46aaa01fd71dbb717503a5e43ae588efb90065".as_bytes().to_vec());
             if let Some(mut machine_info) = result {
                if let MachineStatus::ReporterReportOffline(reason,last_status,a,b) = machine_info.machine_status{
                     if let MachineStatus::ReporterReportOffline(reason,inner_last_status,a,b) = *last_status{
                         machine_info.machine_status = MachineStatus::ReporterReportOffline(reason,inner_last_status,a,b);
                         log::info!("machine_info.machine_status: {:?}",machine_info.machine_status);
+                        MachinesInfo::<T>::insert(machine_id, machine_info);
                     }
                 }
             }
