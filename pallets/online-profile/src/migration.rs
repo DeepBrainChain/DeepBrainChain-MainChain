@@ -106,7 +106,6 @@ pub mod v1 {
     use dbc_support::machine_type::MachineInfoDetail;
     use frame_support::{
         migration::{storage_iter, storage_key_iter},
-        traits::Len,
     };
 
     pub struct Migration<T>(PhantomData<T>);
@@ -197,6 +196,43 @@ pub mod v1 {
                     Some(new_machine_info)
                 },
             );
+
+            StashMachines::<T>::translate(
+                |stash, old: StashMachine<BalanceOf<T>>| {
+                    weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+                    let mut total_online_gpu_num: u64 = 0;
+                    old.online_machine.iter().for_each(|machine_id| {
+                        weight.saturating_accrue(T::DbWeight::get().reads(1));
+                        let  machine_info_result = MachinesInfo::<T>::get(machine_id);
+                        if let Some(machine_info) = machine_info_result {
+                                total_online_gpu_num += machine_info.gpu_num() as u64;
+                        }
+                    });
+                    if total_online_gpu_num != old.total_gpu_num{
+                        log::info!("old.total_gpu_num: {}, total_online_gpu_num: {}",old.total_gpu_num, total_online_gpu_num);
+                        weight.saturating_accrue(T::DbWeight::get().writes( 1));
+                        if old.online_machine.len() as u64 != old.total_gpu_num{
+                            return Some(StashMachine {
+                                total_gpu_num: total_online_gpu_num,
+                                ..old
+                            })
+                        }
+                    }
+                    Some(old)
+                }
+            );
+
+            let result = MachinesInfo::<T>::get("601d50086714f19a24ae378be63167e75ce8d22aa798548ee24b1c91c4609a61".as_bytes().to_vec());
+            // let result = MachinesInfo::<T>::get("c64f005ade44d989e067de03cf46aaa01fd71dbb717503a5e43ae588efb90065".as_bytes().to_vec());
+            if let Some(mut machine_info) = result {
+               if let MachineStatus::ReporterReportOffline(reason,last_status,a,b) = machine_info.machine_status{
+                    if let MachineStatus::ReporterReportOffline(reason,inner_last_status,a,b) = *last_status{
+                        machine_info.machine_status = MachineStatus::ReporterReportOffline(reason,inner_last_status,a,b);
+                        log::info!("machine_info.machine_status: {:?}",machine_info.machine_status);
+                    }
+                }
+            }
             current_version.put::<Pallet<T>>()
         }
 
