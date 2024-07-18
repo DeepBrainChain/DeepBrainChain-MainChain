@@ -4,26 +4,47 @@ use sp_std::marker::PhantomData;
 
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_bn128::{Bn128Add, Bn128Mul, Bn128Pairing};
+use pallet_evm_precompile_dispatch::Dispatch;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
 
-pub struct DBCPrecompiles<R>(PhantomData<R>);
+mod bridge;
+use bridge::Bridge;
+mod dbc_price;
+use dbc_price::DBCPrice;
 
-impl<R> DBCPrecompiles<R>
+const LOG_TARGET: &str = "evm";
+
+pub struct DBCPrecompiles<T>(PhantomData<T>);
+
+impl<T> DBCPrecompiles<T>
 where
-    R: pallet_evm::Config,
+    T: pallet_evm::Config,
 {
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 7] {
-        [hash(1), hash(2), hash(3), hash(4), hash(5), hash(1024), hash(1025)]
+    pub fn used_addresses() -> [H160; 9] {
+        [
+            hash(1),
+            hash(2),
+            hash(3),
+            hash(4),
+            hash(5),
+            hash(1024),
+            hash(1025),
+            hash(1026),
+            hash(2048),
+        ]
     }
 }
-impl<R> PrecompileSet for DBCPrecompiles<R>
+impl<T> PrecompileSet for DBCPrecompiles<T>
 where
-    R: pallet_evm::Config,
+    T: pallet_evm::Config,
+    Dispatch<T>: Precompile,
+    Bridge<T>: Precompile,
+    DBCPrice<T>: Precompile,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         match handle.code_address() {
@@ -39,7 +60,12 @@ where
             a if a == hash(9) => Some(Blake2F::execute(handle)),
             // Non-Frontier specific nor Ethereum precompiles :
             a if a == hash(1024) => Some(Sha3FIPS256::execute(handle)),
-            a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
+            a if a == hash(1025) => Some(Dispatch::<T>::execute(handle)),
+            a if a == hash(1026) => Some(ECRecoverPublicKey::execute(handle)),
+
+            // DBC specific precompiles
+            a if a == hash(2048) => Some(Bridge::<T>::execute(handle)),
+            a if a == hash(2049) => Some(DBCPrice::<T>::execute(handle)),
             _ => None,
         }
     }

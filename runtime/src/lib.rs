@@ -56,8 +56,9 @@ use frame_system::{
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{
-    Account as EVMAccount, AddressMapping, EnsureAddressNever, EnsureAddressRoot, FeeCalculator,
-    GasWeightMapping, HashedAddressMapping, Runner,
+    Account as EVMAccount, AddressMapping, EVMCurrencyAdapter, EnsureAddressNever,
+    EnsureAddressRoot, FeeCalculator, GasWeightMapping, HashedAddressMapping,
+    OnChargeEVMTransaction as OnChargeEVMTransactionT, Runner,
 };
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -1574,6 +1575,50 @@ parameter_types! {
     pub WeightPerGas: Weight = Weight::from_ref_time(weight_per_gas(BLOCK_GAS_LIMIT, NORMAL_DISPATCH_RATIO, WEIGHT_MILLISECS_PER_BLOCK));
 }
 
+type CurrencyAccountId<T> = <T as frame_system::Config>::AccountId;
+
+type BalanceFor<T> =
+    <<T as pallet_evm::Config>::Currency as Currency<CurrencyAccountId<T>>>::Balance;
+
+type PositiveImbalanceFor<T> =
+    <<T as pallet_evm::Config>::Currency as Currency<CurrencyAccountId<T>>>::PositiveImbalance;
+
+type NegativeImbalanceFor<T> =
+    <<T as pallet_evm::Config>::Currency as Currency<CurrencyAccountId<T>>>::NegativeImbalance;
+
+pub struct OnChargeEVMTransaction<OU>(sp_std::marker::PhantomData<OU>);
+impl<T, OU> OnChargeEVMTransactionT<T> for OnChargeEVMTransaction<OU>
+where
+    T: pallet_evm::Config,
+    PositiveImbalanceFor<T>: Imbalance<BalanceFor<T>, Opposite = NegativeImbalanceFor<T>>,
+    NegativeImbalanceFor<T>: Imbalance<BalanceFor<T>, Opposite = PositiveImbalanceFor<T>>,
+    OU: OnUnbalanced<NegativeImbalanceFor<T>>,
+    BalanceFor<T>: TryFrom<U256>,
+{
+    type LiquidityInfo = Option<NegativeImbalanceFor<T>>;
+
+    fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
+        EVMCurrencyAdapter::<<T as pallet_evm::Config>::Currency, ()>::withdraw_fee(who, fee)
+    }
+
+    fn correct_and_deposit_fee(
+        who: &H160,
+        corrected_fee: U256,
+        base_fee: U256,
+        already_withdrawn: Self::LiquidityInfo,
+    ) -> Self::LiquidityInfo {
+        <EVMCurrencyAdapter<<T as pallet_evm::Config>::Currency, OU> as OnChargeEVMTransactionT<
+            T,
+        >>::correct_and_deposit_fee(who, corrected_fee, base_fee, already_withdrawn)
+    }
+
+    fn pay_priority_fee(tip: Self::LiquidityInfo) {
+        if let Some(tip) = tip {
+            OU::on_unbalanced(tip);
+        }
+    }
+}
+
 impl pallet_evm::Config for Runtime {
     type FeeCalculator = BaseFee;
     type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
@@ -1589,11 +1634,9 @@ impl pallet_evm::Config for Runtime {
     type ChainId = EthereumChainId;
     type BlockGasLimit = BlockGasLimit;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
-    type OnChargeTransaction = ();
-    // type OnChargeTransaction = pallet_evm::EVMCurrencyAdapter<Balances, DealWithBTCFees>;
+    type OnChargeTransaction = OnChargeEVMTransaction<DealWithFees>;
     type OnCreate = ();
     type FindAuthor = ();
-    //type FindAuthor = FindAuthorTruncated<Aura>;
 }
 
 parameter_types! {
@@ -1608,7 +1651,8 @@ impl pallet_ethereum::Config for Runtime {
 
 parameter_types! {
     pub DefaultBaseFeePerGas: U256 = U256::from(1_000_000_000_000u128);
-    pub DefaultElasticity: Permill = Permill::from_parts(125_000);
+    // No gas price adjustment for now. default is 125_000 (12.5%)
+    pub DefaultElasticity: Permill = Permill::from_parts(0);
 }
 
 pub struct BaseFeeThreshold;
