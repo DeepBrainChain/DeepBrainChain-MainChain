@@ -22,7 +22,7 @@ pub struct AIProjectRegister<T>(PhantomData<T>);
 #[repr(u32)]
 pub enum Selector {
     GetMachineCalcPoint = "getMachineCalcPoint(string)",
-    MachineIsRegistered = "machineIsRegistered(string)",
+    MachineIsRegistered = "machineIsRegistered(string,string)",
     GetRentDuration = "getRentDuration(address,uint256,uint128[])",
 }
 
