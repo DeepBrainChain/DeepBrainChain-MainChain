@@ -1,7 +1,7 @@
 use frame_support::{
     pallet_prelude::*,
     storage_alias,
-    traits::{OnRuntimeUpgrade, StorageInstance},
+    traits::{OnRuntimeUpgrade},
 };
 use Config;
 
@@ -104,10 +104,6 @@ mod v0 {
 pub mod v1 {
     use super::*;
     use dbc_support::machine_type::MachineInfoDetail;
-    use frame_support::{
-        migration::{storage_iter, storage_key_iter},
-        traits::Len,
-    };
 
     pub struct Migration<T>(PhantomData<T>);
     impl<T: Config> OnRuntimeUpgrade for Migration<T> {
@@ -148,7 +144,7 @@ pub mod v1 {
             log::info!(target: TARGET, "migrate executing");
 
             MachinesInfo::<T>::translate(
-                |index, old: v0::MachineInfo<AccountIdOf<T>, BlockNumberOf<T>, BalanceOf<T>>| {
+                |_index, old: v0::MachineInfo<AccountIdOf<T>, BlockNumberOf<T>, BalanceOf<T>>| {
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
                     let new_machine_info = MachineInfo {

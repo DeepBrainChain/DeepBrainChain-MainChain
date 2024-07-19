@@ -13,18 +13,13 @@ parity-scale-codec = { workspace = true }
 scale-info = { workspace = true }
 sp-std = { workspace = true }
 # Needed for various traits. In our case, `OnFinalize`.
-sp-runtime = { workspace = true }
 # Needed for type-safe access to storage DB.
 frame-support = { workspace = true }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
 frame-system = { workspace = true }
-sp-core = { workspace = true }
 dbc-support = { path = "../support", default-features = false }
 online-profile = { path = "../online-profile", default-features = false }
 rent-machine = { path = "../rent-machine", default-features = false }
-
-#sp-io = { workspace = true, features = ["std"] }
-
 
 [dev-dependencies]
 sp-std = { workspace = true, features = ["std"] }
@@ -47,9 +42,7 @@ std = [
     "sp-io/std",
     "parity-scale-codec/std",
     "scale-info/std",
-    "sp-core/std",
     "sp-std/std",
-    "sp-runtime/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-balances/std",

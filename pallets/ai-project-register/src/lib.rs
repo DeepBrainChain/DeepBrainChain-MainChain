@@ -11,7 +11,6 @@ mod tests;
 
 use frame_support::{ensure, pallet_prelude::*};
 
-use frame_support::traits::UnixTime;
 use frame_system::{ensure_signed, pallet_prelude::*};
 use sp_std::{prelude::*, vec, vec::Vec};
 

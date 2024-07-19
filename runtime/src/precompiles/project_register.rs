@@ -170,7 +170,7 @@ where
                 let stake_at_block_number_uint =
                     param[2].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
-                        output: "decode param[1] failed".into(),
+                        output: "decode param[2] failed".into(),
                     })?;
 
                 let stake_at_block_number: u64 =
@@ -185,7 +185,7 @@ where
                         }
                     })?;
 
-                let rent_ids: Vec<u8> =
+                let rent_ids =
                     param[3].clone().into_bytes().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[0] failed".into(),
