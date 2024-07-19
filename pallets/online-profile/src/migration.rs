@@ -1,8 +1,4 @@
-use frame_support::{
-    pallet_prelude::*,
-    storage_alias,
-    traits::{OnRuntimeUpgrade},
-};
+use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 use Config;
 
 use crate::*;
