@@ -205,7 +205,9 @@ pub mod pallet {
             let mut reporter_report = Self::reporter_report(&reporter);
 
             // 支付
-            if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) = report_reason.clone() {
+            if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) =
+                report_reason.clone()
+            {
                 let rent_info = <rent_machine::Pallet<T>>::rent_info(&rent_order_id)
                     .ok_or(Error::<T>::Unknown)?;
                 ensure!(rent_info.renter == reporter, Error::<T>::NotMachineRenter);
