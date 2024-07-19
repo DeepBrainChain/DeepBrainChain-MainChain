@@ -116,16 +116,11 @@ pub mod v1 {
             log::info!("c : {:?} ", current_version);
             log::info!("o : {:?}", on_chain_version);
 
-            // ensure!(on_chain_version == 0, "this migration can be deleted");
             Ok(Vec::new())
         }
 
         #[cfg(feature = "try-runtime")]
         fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-            let on_chain_version = Pallet::<T>::on_chain_storage_version();
-
-            // ensure!(on_chain_version == 1, "this migration needs to be removed");
-
             log::info!("post_upgrade ok");
             Ok(())
         }
