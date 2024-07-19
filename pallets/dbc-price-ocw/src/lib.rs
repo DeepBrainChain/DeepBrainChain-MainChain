@@ -281,7 +281,4 @@ impl<T: Config> DbcPrice for Pallet<T> {
             .checked_mul(&one_dbc)?
             .checked_div(&dbc_price)
     }
-    fn get_dbc_avg_price() -> Option<u64> {
-        Self::avg_price()
-    }
 }

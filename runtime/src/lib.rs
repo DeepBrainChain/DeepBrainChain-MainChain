@@ -1677,8 +1677,6 @@ impl pallet_base_fee::Config for Runtime {
 
 impl ai_project_register::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-
-    type TimeProvider = pallet_timestamp::Pallet<Runtime>;
 }
 
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;

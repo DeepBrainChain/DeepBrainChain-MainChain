@@ -1,25 +1,24 @@
 use crate as ai_project_register;
 
-use frame_support::pallet_prelude::ConstU32;
-use frame_support::{parameter_types};
-use sp_core::{H256, sr25519};
-use sp_core::sr25519::Signature;
-use sp_runtime::{ traits::{BlakeTwo256, IdentityLookup}};
-use sp_runtime::testing::{Header, TestXt};
-use sp_runtime::traits::Verify;
-use frame_system::{EnsureRoot};
+use frame_support::{pallet_prelude::ConstU32, parameter_types};
+use frame_system::EnsureRoot;
+use sp_core::{sr25519, sr25519::Signature, H256};
+use sp_runtime::{
+    testing::{Header, TestXt},
+    traits::{BlakeTwo256, IdentityLookup, Verify},
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub enum Test where
+    pub enum Test where
     Block = Block,
     NodeBlock = Block,
     UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system,
+    {
+        System: frame_system,
         Timestamp: pallet_timestamp,
         AiProjectRegister: ai_project_register::{Pallet, Call, Storage, Event<T>},
         Balances: pallet_balances,
@@ -31,9 +30,8 @@ frame_support::construct_runtime!(
         TechnicalCommittee: pallet_collective::<Instance2>,
         RentMachine: rent_machine,
 
-	}
+    }
 );
-
 
 impl frame_system::Config for Test {
     type BaseCallFilter = ();
@@ -91,7 +89,6 @@ impl dbc_price_ocw::Config for Test {
 
 type TechnicalCollective = pallet_collective::Instance2;
 
-
 parameter_types! {
     pub const CouncilMotionDuration: u32 = 5 * 2880;
     pub const CouncilMaxProposals: u32 = 100;
@@ -110,7 +107,6 @@ impl pallet_collective::Config<TechnicalCollective> for Test {
     type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 }
 
-
 impl online_profile::Config for Test {
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
@@ -125,8 +121,6 @@ impl online_profile::Config for Test {
 
 impl ai_project_register::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-
-    type TimeProvider = pallet_timestamp::Pallet<Test>;
 }
 
 impl rent_machine::Config for Test {
@@ -136,15 +130,11 @@ impl rent_machine::Config for Test {
     type DbcPrice = DBCPriceOCW;
 }
 
-
-
 pub type Moment = u64;
-
 
 parameter_types! {
     pub const MinimumPeriod: Moment = 6000;
 }
-
 
 impl pallet_timestamp::Config for Test {
     type Moment = Moment;
@@ -152,8 +142,6 @@ impl pallet_timestamp::Config for Test {
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Test>;
 }
-
-
 
 parameter_types! {
     pub const ExistentialDeposit: Balance = 1;
@@ -176,11 +164,10 @@ impl pallet_balances::Config for Test {
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 }
 
-
 type TestExtrinsic = TestXt<RuntimeCall, ()>;
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
-    where
-        RuntimeCall: From<LocalCall>,
+where
+    RuntimeCall: From<LocalCall>,
 {
     fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
         call: RuntimeCall,
@@ -199,13 +186,12 @@ impl frame_system::offchain::SigningTypes for Test {
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
-    where
-        RuntimeCall: From<C>,
+where
+    RuntimeCall: From<C>,
 {
     type OverarchingCall = RuntimeCall;
     type Extrinsic = TestExtrinsic;
 }
-
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
