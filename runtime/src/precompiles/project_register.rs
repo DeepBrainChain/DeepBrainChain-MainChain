@@ -8,7 +8,7 @@ extern crate alloc;
 use crate::precompiles::LOG_TARGET;
 use alloc::format;
 use core::marker::PhantomData;
-use dbc_support::traits::AiProjectRegister;
+use dbc_support::traits::ProjectRegister;
 use frame_support::{ensure, pallet_prelude::Weight};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pallet_evm::{AddressMapping, GasWeightMapping};
@@ -66,7 +66,7 @@ where
                 let machine_id = machine_id_str.as_bytes().to_vec();
 
                 let calc_point: U256 =
-                    <ai_project_register::Pallet<T> as AiProjectRegister>::get_machine_calc_point(
+                    <ai_project_register::Pallet<T> as ProjectRegister>::get_machine_calc_point(
                         machine_id.clone(),
                     )
                     .into();
@@ -114,7 +114,7 @@ where
                 let project_name = project_name_str.as_bytes().to_vec();
 
                 let is_registered: bool =
-                    <ai_project_register::Pallet<T> as AiProjectRegister>::is_registered(
+                    <ai_project_register::Pallet<T> as ProjectRegister>::is_registered(
                         machine_id.clone(),
                         project_name.clone(),
                     );
@@ -192,7 +192,7 @@ where
                     })?;
                 let rent_ids: Vec<u64> = rent_ids.iter().map(|&x| x.into()).collect();
                 let rent_ids_size = rent_ids.len() as u64;
-                let duration  =<ai_project_register::Pallet<T> as AiProjectRegister>::get_machine_valid_stake_duration(stake_holder.clone(), T::BlockNumber::saturated_from(stake_at_block_number),machine_id_str.as_bytes().to_vec(), rent_ids.clone());
+                let duration  =<ai_project_register::Pallet<T> as ProjectRegister>::get_machine_valid_stake_duration(stake_holder.clone(), T::BlockNumber::saturated_from(stake_at_block_number), machine_id_str.as_bytes().to_vec(), rent_ids.clone());
 
                 log::debug!(target: LOG_TARGET, "stake_holder : {:?}, rent_ids: {:?},  get_machine_valid_stake_duration: duration: {:?}",stake_holder,rent_ids,duration);
 

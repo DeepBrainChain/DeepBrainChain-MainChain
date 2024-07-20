@@ -14,7 +14,7 @@ use frame_support::{ensure, pallet_prelude::*};
 use frame_system::{ensure_signed, pallet_prelude::*};
 use sp_std::{prelude::*, vec, vec::Vec};
 
-use dbc_support::{rental_type::RentStatus, traits::AiProjectRegister, MachineId, RentOrderId};
+use dbc_support::{rental_type::RentStatus, traits::ProjectRegister, MachineId, RentOrderId};
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -174,7 +174,7 @@ pub mod pallet {
     }
 }
 
-impl<T: Config> AiProjectRegister for Pallet<T> {
+impl<T: Config> ProjectRegister for Pallet<T> {
     type AccountId = T::AccountId;
     type BlockNumber = T::BlockNumber;
     fn is_registered(machine_id: MachineId, project_name: Vec<u8>) -> bool {

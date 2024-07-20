@@ -34,6 +34,9 @@ committee = { path = "../committee" }
 hex = "0.4.3"
 sp-keyring = { workspace = true }
 log = "0.4.22"
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+
 
 
 [features]
@@ -47,7 +50,9 @@ std = [
     "frame-system/std",
     "pallet-balances/std",
     "pallet-insecure-randomness-collective-flip/std",
-    "pallet-collective/std"
+    "pallet-collective/std",
+    "sp-core/std",
+    "sp-runtime/std"
 
 ]
 try-runtime = ["frame-support/try-runtime"]

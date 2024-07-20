@@ -115,7 +115,7 @@ pub trait DbcPrice {
     fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance>;
 }
 
-pub trait AiProjectRegister {
+pub trait ProjectRegister {
     type AccountId;
     type BlockNumber;
     fn is_registered(machine_id: MachineId, project_name: Vec<u8>) -> bool;
