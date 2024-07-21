@@ -1842,7 +1842,6 @@ type Migrations = (
     DemocracyV1Migration,
     online_profile::migration::v1::Migration<Runtime>,
     terminating_rental::migrations::v1::Migration<Runtime>,
-    BabeV1Migration,
 );
 
 /// MMR helper types.
