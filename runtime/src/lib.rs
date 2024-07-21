@@ -514,9 +514,32 @@ parameter_types! {
     pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
 }
 
+// TODO: remove it
+use frame_support::traits::OnTimestampSet;
+use sp_consensus_babe::Slot;
+pub struct HandleBabeSlot<M>(sp_std::marker::PhantomData<M>);
+impl OnTimestampSet<Moment> for HandleBabeSlot<Moment> {
+    fn on_timestamp_set(moment: Moment) {
+        let slot_duration = SLOT_DURATION;
+
+        let timestamp_slot = moment / slot_duration;
+        let timestamp_slot = Slot::from(timestamp_slot.saturated_into::<u64>());
+
+        let current_slot = pallet_babe::CurrentSlot::<Runtime>::get();
+        if current_slot != timestamp_slot {
+            log::info!(
+                "Timestamp slot must match CurrentSlot: {:?}, AuctalSlot: {:?}",
+                current_slot,
+                timestamp_slot
+            );
+            pallet_babe::CurrentSlot::<Runtime>::put(timestamp_slot);
+        }
+    }
+}
+
 impl pallet_timestamp::Config for Runtime {
     type Moment = Moment;
-    type OnTimestampSet = Babe;
+    type OnTimestampSet = (HandleBabeSlot<Moment>, Babe);
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Runtime>;
 }
@@ -787,7 +810,7 @@ parameter_types! {
     pub const MaxPointsToBalance: u8 = 10;
 }
 
-use crate::migrations::{BabeV1Migration, DemocracyV1Migration};
+use crate::migrations::DemocracyV1Migration;
 use sp_runtime::traits::Convert;
 
 pub struct BalanceToU256;
