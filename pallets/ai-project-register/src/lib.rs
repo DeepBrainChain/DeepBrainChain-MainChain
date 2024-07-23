@@ -9,13 +9,14 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use frame_support::{ensure, pallet_prelude::*};
+use frame_support::pallet_prelude::*;
 
-use frame_system::{ensure_signed, pallet_prelude::*};
+use frame_system::pallet_prelude::*;
 use sp_std::{prelude::*, vec, vec::Vec};
 
 use dbc_support::{rental_type::RentStatus, traits::ProjectRegister, MachineId, RentOrderId};
 pub use pallet::*;
+use sp_runtime::traits::{IdentifyAccount, Verify};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -72,6 +73,7 @@ pub mod pallet {
             Vec<u8>,
             <T as frame_system::Config>::BlockNumber,
         ),
+        SignatureVerifyResult(bool),
     }
 
     #[pallet::error]
@@ -87,79 +89,79 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::call_index(0)]
-        #[pallet::weight(10000)]
-        pub fn add_machine_registered_project(
-            origin: OriginFor<T>,
-            rent_id: RentOrderId,
-            machine_id: MachineId,
-            project_name: Vec<u8>,
-        ) -> DispatchResultWithPostInfo {
-            // check the machine_id and rent_id is valid
-            let who = ensure_signed(origin)?;
-
-            let rent_info = <rent_machine::Pallet<T>>::rent_info(rent_id)
-                .ok_or(Error::<T>::RentInfoNotFound)?;
-            ensure!(who == rent_info.renter, Error::<T>::NotRentOwner);
-            ensure!(rent_info.rent_status == RentStatus::Renting, Error::<T>::StatusNotRenting);
-            ensure!(rent_info.machine_id == machine_id, Error::<T>::NotRentMachine);
-
-            if !MachineId2AIProjectName::<T>::contains_key(&machine_id) {
-                MachineId2AIProjectName::<T>::insert(&machine_id, vec![&project_name]);
-            } else {
-                let mut project_names = Self::machine_id_to_ai_project_name(&machine_id);
-                let projects_num = project_names.len() as u32;
-                ensure!(
-                    projects_num < Self::max_limit_per_machine_id_can_register(),
-                    Error::<T>::OverMaxLimitPerMachineIdCanRegister
-                );
-                if project_names.contains(&project_name) {
-                    return Ok(().into())
-                }
-                project_names.push(project_name.clone());
-                MachineId2AIProjectName::<T>::insert(&machine_id, project_names);
-            }
-
-            RegisteredInfo2Owner::<T>::insert(&machine_id, &project_name, &who);
-            Self::deposit_event(Event::AddMachineRegisteredProject(machine_id, project_name, who));
-            Ok(().into())
-        }
-
-        #[pallet::call_index(1)]
-        #[pallet::weight(10000)]
-        pub fn remove_machine_registered_project(
-            origin: OriginFor<T>,
-            machine_id: MachineId,
-            project_name: Vec<u8>,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-            let owner = Self::registered_info_to_owner(&machine_id, &project_name)
-                .ok_or(Error::<T>::NotRegistered)?;
-            ensure!(who == owner, Error::<T>::NotRegisteredInfoOwner);
-            ensure!(
-                MachineId2AIProjectName::<T>::contains_key(&machine_id),
-                Error::<T>::NotRegistered
-            );
-            let project_names = Self::machine_id_to_ai_project_name(&machine_id);
-            ensure!(project_names.contains(&project_name), Error::<T>::NotRegistered);
-
-            MachineId2AIProjectName::<T>::mutate(&machine_id, |project_names| {
-                project_names
-                    .into_iter()
-                    .position(|x| *x == project_name)
-                    .map(|i| project_names.remove(i));
-            });
-
-            let now = <frame_system::Pallet<T>>::block_number();
-            ProjectMachine2UnregisteredTimes::<T>::insert(&project_name, &machine_id, now);
-            RegisteredInfo2Owner::<T>::remove(&machine_id, &project_name);
-            Self::deposit_event(Event::RemoveMachineRegisteredProject(
-                machine_id,
-                project_name,
-                now,
-            ));
-            Ok(().into())
-        }
+        // #[pallet::call_index(0)]
+        // #[pallet::weight(10000)]
+        // pub fn add_machine_registered_project(
+        //     origin: OriginFor<T>,
+        //     rent_id: RentOrderId,
+        //     machine_id: MachineId,
+        //     project_name: Vec<u8>,
+        // ) -> DispatchResultWithPostInfo {
+        //     // check the machine_id and rent_id is valid
+        //     let who = ensure_signed(origin)?;
+        //
+        //     let rent_info = <rent_machine::Pallet<T>>::rent_info(rent_id)
+        //         .ok_or(Error::<T>::RentInfoNotFound)?;
+        //     ensure!(who == rent_info.renter, Error::<T>::NotRentOwner);
+        //     ensure!(rent_info.rent_status == RentStatus::Renting, Error::<T>::StatusNotRenting);
+        //     ensure!(rent_info.machine_id == machine_id, Error::<T>::NotRentMachine);
+        //
+        //     if !MachineId2AIProjectName::<T>::contains_key(&machine_id) {
+        //         MachineId2AIProjectName::<T>::insert(&machine_id, vec![&project_name]);
+        //     } else {
+        //         let mut project_names = Self::machine_id_to_ai_project_name(&machine_id);
+        //         let projects_num = project_names.len() as u32;
+        //         ensure!(
+        //             projects_num < Self::max_limit_per_machine_id_can_register(),
+        //             Error::<T>::OverMaxLimitPerMachineIdCanRegister
+        //         );
+        //         if project_names.contains(&project_name) {
+        //             return Ok(().into())
+        //         }
+        //         project_names.push(project_name.clone());
+        //         MachineId2AIProjectName::<T>::insert(&machine_id, project_names);
+        //     }
+        //
+        //     RegisteredInfo2Owner::<T>::insert(&machine_id, &project_name, &who.into());
+        //     Self::deposit_event(Event::AddMachineRegisteredProject(machine_id, project_name, who.into()));
+        //     Ok(().into())
+        // }
+        //
+        // #[pallet::call_index(1)]
+        // #[pallet::weight(10000)]
+        // pub fn remove_machine_registered_project(
+        //     origin: OriginFor<T>,
+        //     machine_id: MachineId,
+        //     project_name: Vec<u8>,
+        // ) -> DispatchResultWithPostInfo {
+        //     let who = ensure_signed(origin)?;
+        //     let owner = Self::registered_info_to_owner(&machine_id, &project_name)
+        //         .ok_or(Error::<T>::NotRegistered)?;
+        //     ensure!(who == owner, Error::<T>::NotRegisteredInfoOwner);
+        //     ensure!(
+        //         MachineId2AIProjectName::<T>::contains_key(&machine_id),
+        //         Error::<T>::NotRegistered
+        //     );
+        //     let project_names = Self::machine_id_to_ai_project_name(&machine_id);
+        //     ensure!(project_names.contains(&project_name), Error::<T>::NotRegistered);
+        //
+        //     MachineId2AIProjectName::<T>::mutate(&machine_id, |project_names| {
+        //         project_names
+        //             .into_iter()
+        //             .position(|x| *x == project_name)
+        //             .map(|i| project_names.remove(i));
+        //     });
+        //
+        //     let now = <frame_system::Pallet<T>>::block_number();
+        //     ProjectMachine2UnregisteredTimes::<T>::insert(&project_name, &machine_id, now);
+        //     RegisteredInfo2Owner::<T>::remove(&machine_id, &project_name);
+        //     Self::deposit_event(Event::RemoveMachineRegisteredProject(
+        //         machine_id,
+        //         project_name,
+        //         now,
+        //     ));
+        //     Ok(().into())
+        // }
 
         #[pallet::call_index(2)]
         #[pallet::weight(10000)]
@@ -171,12 +173,28 @@ pub mod pallet {
             MaxLimitPerMachineIdCanRegister::<T>::mutate(|v| *v = value);
             Ok(().into())
         }
+
+        // #[pallet::call_index(3)]
+        // #[pallet::weight(10000)]
+        // pub fn verify_substrate_signature(
+        //     origin: OriginFor<T>,
+        //     data: Vec<u8>, sig: T::Signature, from: T::PublicKey,
+        // ) -> DispatchResultWithPostInfo {
+        //     let _who = ensure_signed(origin)?;
+        //     let ok = Self::verify_signature(data, sig, from);
+        //     Self::deposit_event(Event::SignatureVerifyResult(ok));
+        //     Ok(().into())
+        // }
     }
 }
 
 impl<T: Config> ProjectRegister for Pallet<T> {
     type AccountId = T::AccountId;
     type BlockNumber = T::BlockNumber;
+
+    type Signature = sp_core::sr25519::Signature;
+
+    type PublicKey = sp_core::sr25519::Public;
     fn is_registered(machine_id: MachineId, project_name: Vec<u8>) -> bool {
         Self::machine_id_to_ai_project_name(&machine_id).contains(&project_name)
     }
@@ -191,11 +209,19 @@ impl<T: Config> ProjectRegister for Pallet<T> {
     }
 
     fn get_machine_valid_stake_duration(
-        renter: T::AccountId,
+        data: Vec<u8>,
+        sig: Self::Signature,
+        from: Self::PublicKey,
         stake_start_at: T::BlockNumber,
         machine_id: MachineId,
         rent_ids: Vec<RentOrderId>,
-    ) -> T::BlockNumber {
+    ) -> Result<T::BlockNumber, &'static str> {
+        let ok = Self::verify_signature(data, sig, from.clone());
+        if !ok {
+            return Err("signature verify failed")
+        };
+
+        let renter = Self::account_id(from.clone())?;
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
         rent_ids.iter().for_each(|rent_id| {
@@ -214,6 +240,110 @@ impl<T: Config> ProjectRegister for Pallet<T> {
                 }
             }
         });
-        rent_duration
+        Ok(rent_duration)
+    }
+
+    fn verify_signature(data: Vec<u8>, sig: Self::Signature, from: Self::PublicKey) -> bool {
+        sig.verify(&data[..], &from.into_account())
+    }
+
+    fn add_machine_registered_project(
+        data: Vec<u8>,
+        sig: Self::Signature,
+        from: Self::PublicKey,
+        rent_id: RentOrderId,
+        machine_id: MachineId,
+        project_name: Vec<u8>,
+    ) -> Result<(), &'static str> {
+        let ok = Self::verify_signature(data, sig, from.clone());
+        if !ok {
+            return Err("signature verify failed")
+        };
+
+        let who = Self::account_id(from.clone())?;
+
+        let rent_info =
+            <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or("rent info not found")?;
+
+        if machine_id != rent_info.machine_id {
+            return Err("machine not rented")
+        };
+
+        if who != rent_info.renter {
+            return Err("not rent owner")
+        };
+
+        if rent_info.rent_status != RentStatus::Renting {
+            return Err("status not renting")
+        };
+
+        if !MachineId2AIProjectName::<T>::contains_key(&machine_id) {
+            MachineId2AIProjectName::<T>::insert(&machine_id, vec![&project_name]);
+        } else {
+            let mut project_names = Self::machine_id_to_ai_project_name(&machine_id);
+            let projects_num = project_names.len() as u32;
+            if projects_num >= Self::max_limit_per_machine_id_can_register() {
+                return Err("over max limit per machine id can register")
+            }
+
+            if project_names.contains(&project_name) {
+                return Ok(().into())
+            }
+            project_names.push(project_name.clone());
+            MachineId2AIProjectName::<T>::insert(&machine_id, project_names);
+        }
+
+        RegisteredInfo2Owner::<T>::insert(&machine_id, &project_name, &who);
+        Self::deposit_event(Event::AddMachineRegisteredProject(machine_id, project_name, who));
+        Ok(().into())
+    }
+
+    fn remove_machine_registered_project(
+        data: Vec<u8>,
+        sig: Self::Signature,
+        from: Self::PublicKey,
+        machine_id: MachineId,
+        project_name: Vec<u8>,
+    ) -> Result<(), &'static str> {
+        let ok = Self::verify_signature(data, sig, from.clone());
+        if !ok {
+            return Err("signature verify failed")
+        };
+
+        let who = Self::account_id(from.clone())?;
+        let owner =
+            Self::registered_info_to_owner(&machine_id, &project_name).ok_or("not registered")?;
+        if who != owner {
+            return Err("not registered info owner")
+        }
+
+        if !MachineId2AIProjectName::<T>::contains_key(&machine_id) {
+            return Err("machine not registered")
+        }
+        let project_names = Self::machine_id_to_ai_project_name(&machine_id);
+        if !project_names.contains(&project_name) {
+            return Err("project not registered")
+        }
+
+        MachineId2AIProjectName::<T>::mutate(&machine_id, |project_names| {
+            project_names
+                .into_iter()
+                .position(|x| *x == project_name)
+                .map(|i| project_names.remove(i));
+        });
+
+        let now = <frame_system::Pallet<T>>::block_number();
+        ProjectMachine2UnregisteredTimes::<T>::insert(&project_name, &machine_id, now);
+        RegisteredInfo2Owner::<T>::remove(&machine_id, &project_name);
+        Self::deposit_event(Event::RemoveMachineRegisteredProject(machine_id, project_name, now));
+        Ok(().into())
+    }
+
+    fn account_id(from: Self::PublicKey) -> Result<T::AccountId, &'static str> {
+        let result = T::AccountId::decode(&mut &from.encode()[..]);
+        match result {
+            Ok(account_id) => Ok(account_id),
+            Err(_) => Err("account_id decode failed"),
+        }
     }
 }

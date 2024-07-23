@@ -118,14 +118,38 @@ pub trait DbcPrice {
 pub trait ProjectRegister {
     type AccountId;
     type BlockNumber;
+    type Signature;
+    type PublicKey;
     fn is_registered(machine_id: MachineId, project_name: Vec<u8>) -> bool;
     fn get_machine_calc_point(machine_id: MachineId) -> u64;
     fn get_machine_valid_stake_duration(
-        renter: Self::AccountId,
+        data: Vec<u8>,
+        sig: Self::Signature,
+        from: Self::PublicKey,
         stake_start_at: Self::BlockNumber,
         machine_id: MachineId,
         rent_ids: Vec<RentOrderId>,
-    ) -> Self::BlockNumber;
+    ) -> Result<Self::BlockNumber, &'static str>;
+    fn verify_signature(data: Vec<u8>, sig: Self::Signature, from: Self::PublicKey) -> bool;
+
+    fn add_machine_registered_project(
+        data: Vec<u8>,
+        sig: Self::Signature,
+        from: Self::PublicKey,
+        rent_id: RentOrderId,
+        machine_id: MachineId,
+        project_name: Vec<u8>,
+    ) -> Result<(), &'static str>;
+
+    fn remove_machine_registered_project(
+        data: Vec<u8>,
+        sig: Self::Signature,
+        from: Self::PublicKey,
+        machine_id: MachineId,
+        project_name: Vec<u8>,
+    ) -> Result<(), &'static str>;
+
+    fn account_id(from: Self::PublicKey) -> Result<Self::AccountId, &'static str>;
 }
 
 pub trait MTOps {

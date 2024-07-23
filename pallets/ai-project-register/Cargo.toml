@@ -15,6 +15,9 @@ sp-std = { workspace = true }
 # Needed for various traits. In our case, `OnFinalize`.
 # Needed for type-safe access to storage DB.
 frame-support = { workspace = true }
+sp-runtime = { workspace = true }
+sp-core = { workspace = true }
+
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
 frame-system = { workspace = true }
 dbc-support = { path = "../support", default-features = false }
@@ -36,6 +39,8 @@ sp-keyring = { workspace = true }
 log = "0.4.22"
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
+env_logger = "0.10.2"
+
 
 
 

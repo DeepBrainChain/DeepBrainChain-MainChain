@@ -2,7 +2,7 @@ use super::super::{mock::*, *};
 use crate::mock::new_test_ext;
 use dbc_support::rental_type::RentOrderDetail;
 use frame_support::{assert_err, assert_ok, traits::Currency};
-use sp_core::sr25519;
+use sp_core::{crypto::Ss58Codec, sr25519, Pair, H256};
 pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
@@ -16,9 +16,12 @@ type BalanceOf<Test> = <<Test as rent_machine::Config>::Currency as Currency<
 
 #[test]
 fn test_add_machine_registered_project_should_work() {
+    use sp_core::Pair;
+    let _ = env_logger::builder().is_test(true).try_init();
+
     new_test_ext().execute_with(|| {
         let fake_staker = sr25519::Public::from(Sr25519Keyring::Two);
-        let staker = sr25519::Public::from(Sr25519Keyring::One);
+        let staker = sr25519::Public::from(Sr25519Keyring::Alice);
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
@@ -30,14 +33,20 @@ fn test_add_machine_registered_project_should_work() {
         let project_name2 = "dgc2".as_bytes().to_vec();
         let project_name3 = "dgc3".as_bytes().to_vec();
 
+        let alice = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+        let msg: Vec<u8> = b"The actual message".to_vec();
+        let sig = alice.sign(&msg[..]);
+
         assert_err!(
             AiProjectRegister::add_machine_registered_project(
-                RuntimeOrigin::signed(staker),
+                msg.clone(),
+                sig.clone(),
+                alice.public(),
                 1,
                 machine_id.clone(),
                 project_name.clone().clone()
             ),
-            Err::<Test>::RentInfoNotFound
+            "rent info not found"
         );
 
         let rent_info: RentOrderDetail<
@@ -59,21 +68,44 @@ fn test_add_machine_registered_project_should_work() {
 
         assert_err!(
             AiProjectRegister::add_machine_registered_project(
-                RuntimeOrigin::signed(fake_staker),
+                msg.clone(),
+                sig.clone(),
+                alice.public(),
                 1,
                 machine_id.clone(),
                 project_name.clone()
             ),
-            Err::<Test>::NotRentOwner
+            "not rent owner"
         );
+
+        RentInfo::<Test>::remove(1);
+        let rent_info: RentOrderDetail<
+            <Test as frame_system::Config>::AccountId,
+            <Test as frame_system::Config>::BlockNumber,
+            BalanceOf<Test>,
+        > = RentOrderDetail {
+            machine_id: machine_id.clone(),
+            renter: sr25519::Public::from(Sr25519Keyring::Alice),
+            rent_start: 1,
+            confirm_rent: 1,
+            rent_end: 1,
+            stake_amount: 1,
+            rent_status: Default::default(),
+            gpu_num: 1,
+            gpu_index: vec![],
+        };
+        RentInfo::<Test>::insert(1, rent_info);
+
         assert_err!(
             AiProjectRegister::add_machine_registered_project(
-                RuntimeOrigin::signed(staker),
+                msg.clone(),
+                sig.clone(),
+                alice.public(),
                 1,
                 machine_id.clone(),
                 project_name.clone()
             ),
-            Err::<Test>::StatusNotRenting
+            "status not renting"
         );
 
         let rent_info_renting: RentOrderDetail<
@@ -82,7 +114,7 @@ fn test_add_machine_registered_project_should_work() {
             BalanceOf<Test>,
         > = RentOrderDetail {
             machine_id: machine_id.clone(),
-            renter: sr25519::Public::from(Sr25519Keyring::One),
+            renter: sr25519::Public::from(Sr25519Keyring::Alice),
             rent_start: 1,
             confirm_rent: 1,
             rent_end: 1,
@@ -95,34 +127,44 @@ fn test_add_machine_registered_project_should_work() {
 
         assert_err!(
             AiProjectRegister::add_machine_registered_project(
-                RuntimeOrigin::signed(staker),
+                msg.clone(),
+                sig.clone(),
+                alice.public(),
                 2,
                 fake_machine_id.clone(),
                 project_name.clone()
             ),
-            Err::<Test>::NotRentMachine
+            "machine not rented"
         );
         assert_ok!(AiProjectRegister::add_machine_registered_project(
-            RuntimeOrigin::signed(staker),
+            msg.clone(),
+            sig.clone(),
+            alice.public(),
             2,
             machine_id.clone(),
             project_name.clone()
         ));
         assert_ok!(AiProjectRegister::add_machine_registered_project(
-            RuntimeOrigin::signed(staker),
+            msg.clone(),
+            sig.clone(),
+            alice.public(),
             2,
             machine_id.clone(),
             project_name.clone()
         ));
 
         assert_ok!(AiProjectRegister::add_machine_registered_project(
-            RuntimeOrigin::signed(staker),
+            msg.clone(),
+            sig.clone(),
+            alice.public(),
             2,
             machine_id.clone(),
             project_name1.clone()
         ));
         assert_ok!(AiProjectRegister::add_machine_registered_project(
-            RuntimeOrigin::signed(staker),
+            msg.clone(),
+            sig.clone(),
+            alice.public(),
             2,
             machine_id.clone(),
             project_name2.clone()
@@ -136,12 +178,14 @@ fn test_add_machine_registered_project_should_work() {
 
         assert_err!(
             AiProjectRegister::add_machine_registered_project(
-                RuntimeOrigin::signed(staker),
+                msg.clone(),
+                sig.clone(),
+                alice.public(),
                 2,
                 machine_id.clone(),
                 project_name3.clone()
             ),
-            Err::<Test>::OverMaxLimitPerMachineIdCanRegister
+            "over max limit per machine id can register"
         );
     });
 }
@@ -158,13 +202,17 @@ fn test_remove_machine_registered_project_should_work() {
         let project_name1 = "dgc1".as_bytes().to_vec();
         let project_name2 = "dgc2".as_bytes().to_vec();
 
+        let alice = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+        let msg: Vec<u8> = b"The actual message".to_vec();
+        let sig = alice.sign(&msg[..]);
+
         let rent_info_renting: RentOrderDetail<
             <Test as frame_system::Config>::AccountId,
             <Test as frame_system::Config>::BlockNumber,
             BalanceOf<Test>,
         > = RentOrderDetail {
             machine_id: machine_id.clone(),
-            renter: sr25519::Public::from(Sr25519Keyring::One),
+            renter: sr25519::Public::from(Sr25519Keyring::Alice),
             rent_start: 1,
             confirm_rent: 1,
             rent_end: 1,
@@ -176,20 +224,26 @@ fn test_remove_machine_registered_project_should_work() {
         RentInfo::<Test>::insert(2, rent_info_renting);
         assert_err!(
             AiProjectRegister::remove_machine_registered_project(
-                RuntimeOrigin::signed(staker),
+                msg.clone(),
+                sig.clone(),
+                alice.public(),
                 machine_id.clone(),
                 project_name.clone()
             ),
-            Err::<Test>::NotRegistered
+            "not registered"
         );
         assert_ok!(AiProjectRegister::add_machine_registered_project(
-            RuntimeOrigin::signed(staker),
+            msg.clone(),
+            sig.clone(),
+            alice.public(),
             2,
             machine_id.clone(),
             project_name1.clone()
         ));
         assert_ok!(AiProjectRegister::add_machine_registered_project(
-            RuntimeOrigin::signed(staker),
+            msg.clone(),
+            sig.clone(),
+            alice.public(),
             2,
             machine_id.clone(),
             project_name2.clone()
@@ -200,14 +254,18 @@ fn test_remove_machine_registered_project_should_work() {
         );
         assert_err!(
             AiProjectRegister::remove_machine_registered_project(
-                RuntimeOrigin::signed(staker),
+                msg.clone(),
+                sig.clone(),
+                alice.public(),
                 machine_id.clone(),
                 project_name.clone()
             ),
-            Err::<Test>::NotRegistered
+            "not registered"
         );
         assert_ok!(AiProjectRegister::remove_machine_registered_project(
-            RuntimeOrigin::signed(staker),
+            msg.clone(),
+            sig.clone(),
+            alice.public(),
             machine_id.clone(),
             project_name1.clone()
         ));
@@ -224,5 +282,121 @@ fn test_remove_machine_registered_project_should_work() {
             AiProjectRegister::projec_machine_to_unregistered_times(project_name1, machine_id),
             10
         );
+    });
+}
+
+#[test]
+fn sig_verify_should_works() {
+    use sp_core::Pair;
+    let _ = env_logger::builder().is_test(true).try_init();
+
+    new_test_ext().execute_with(|| {
+        let alice = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+        let msg: Vec<u8> = b"The actual message".to_vec();
+        let sig = alice.sign(&msg[..]);
+
+
+        // Works as expected - no magic involved.
+        assert_eq!(AiProjectRegister::verify_signature(msg.clone(), sig.clone(), alice.public()),true);
+        // Signature on "The actual message" by Alice via PolkadotJS.
+        let alice = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+        // Signature on "The actual message" by Alice via PolkadotJS.
+        let origin_sig = b"860ab35af395c6cc989b0498269d26c13d488431f8ceac89ed82744eb84361162ce7f6c817575e46c07287f000397a0c3d5521577ac63e20ce1d0b3ab158cd88";
+        let sig = hex::decode(origin_sig).unwrap();
+        // let a: = sp_core::H256::from(alice.public().as_bytes());
+        let sig2 = sp_core::sr25519::Signature::from_slice(&sig[..]).unwrap();
+        // This will not work since it's missing the wrapping:
+        let msg: Vec<u8> = b"The actual message".to_vec();
+        assert_eq!(AiProjectRegister::verify_signature(msg,sig2.clone(), alice.public()),false);
+
+        let public = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY".as_bytes();
+        println!("size: {:?}",public.len());
+
+        // This will work since it's wrapped:
+        let msg: Vec<u8> = b"<Bytes>The actual message</Bytes>".to_vec();
+
+        assert_eq!(AiProjectRegister::verify_signature(msg, sig2, alice.public()),true);
+
+    });
+}
+#[test]
+fn test_account_id_should_works() {
+    use sp_core::Pair;
+    let _ = env_logger::builder().is_test(true).try_init();
+
+    new_test_ext().execute_with(|| {
+        let alice = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+
+        let r = AiProjectRegister::account_id(alice.public()).unwrap();
+        assert_eq!(r, alice.public());
+    });
+}
+
+#[test]
+fn test_get_machine_valid_stake_duration_should_works() {
+    use sp_core::Pair;
+    let _ = env_logger::builder().is_test(true).try_init();
+
+    new_test_ext().execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        let alice = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+        let msg: Vec<u8> = b"The actual message".to_vec();
+        let sig = alice.sign(&msg[..]);
+
+        let rent_info_renting: RentOrderDetail<
+            <Test as frame_system::Config>::AccountId,
+            <Test as frame_system::Config>::BlockNumber,
+            BalanceOf<Test>,
+        > = RentOrderDetail {
+            machine_id: machine_id.clone(),
+            renter: sr25519::Public::from(Sr25519Keyring::Alice),
+            rent_start: 1,
+            confirm_rent: 1,
+            rent_end: 1,
+            stake_amount: 1,
+            rent_status: RentStatus::Renting,
+            gpu_num: 1,
+            gpu_index: vec![],
+        };
+        RentInfo::<Test>::insert(2, rent_info_renting);
+        System::set_block_number(10);
+        let r = AiProjectRegister::get_machine_valid_stake_duration(
+            msg.clone(),
+            sig.clone(),
+            alice.public(),
+            0,
+            machine_id.clone(),
+            vec![2],
+        );
+        assert_eq!(r.unwrap(), 1);
+
+        let rent_info_renting: RentOrderDetail<
+            <Test as frame_system::Config>::AccountId,
+            <Test as frame_system::Config>::BlockNumber,
+            BalanceOf<Test>,
+        > = RentOrderDetail {
+            machine_id: machine_id.clone(),
+            renter: sr25519::Public::from(Sr25519Keyring::Alice),
+            rent_start: 1,
+            confirm_rent: 1,
+            rent_end: 20,
+            stake_amount: 1,
+            rent_status: RentStatus::Renting,
+            gpu_num: 1,
+            gpu_index: vec![],
+        };
+        RentInfo::<Test>::insert(2, rent_info_renting);
+        let r = AiProjectRegister::get_machine_valid_stake_duration(
+            msg,
+            sig,
+            alice.public(),
+            0,
+            machine_id,
+            vec![2],
+        );
+        assert_eq!(r.unwrap(), 10);
     });
 }
