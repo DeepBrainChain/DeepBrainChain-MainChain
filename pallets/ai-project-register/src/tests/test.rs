@@ -2,12 +2,11 @@ use super::super::{mock::*, *};
 use crate::mock::new_test_ext;
 use dbc_support::rental_type::RentOrderDetail;
 use frame_support::{assert_err, assert_ok, traits::Currency};
-use sp_core::{crypto::Ss58Codec, sr25519, Pair, H256};
+use sp_core::{ sr25519, Pair};
 pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
 
-use crate::Error as Err;
 use rent_machine::RentInfo;
 
 type BalanceOf<Test> = <<Test as rent_machine::Config>::Currency as Currency<
@@ -20,7 +19,6 @@ fn test_add_machine_registered_project_should_work() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     new_test_ext().execute_with(|| {
-        let fake_staker = sr25519::Public::from(Sr25519Keyring::Two);
         let staker = sr25519::Public::from(Sr25519Keyring::Alice);
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
@@ -194,7 +192,6 @@ fn test_remove_machine_registered_project_should_work() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
 
-        let staker = sr25519::Public::from(Sr25519Keyring::One);
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
@@ -303,21 +300,41 @@ fn sig_verify_should_works() {
         // Signature on "The actual message" by Alice via PolkadotJS.
         let origin_sig = b"860ab35af395c6cc989b0498269d26c13d488431f8ceac89ed82744eb84361162ce7f6c817575e46c07287f000397a0c3d5521577ac63e20ce1d0b3ab158cd88";
         let sig = hex::decode(origin_sig).unwrap();
+        println!("sig size: {:?}",sig.len());
+
         // let a: = sp_core::H256::from(alice.public().as_bytes());
         let sig2 = sp_core::sr25519::Signature::from_slice(&sig[..]).unwrap();
         // This will not work since it's missing the wrapping:
         let msg: Vec<u8> = b"The actual message".to_vec();
         assert_eq!(AiProjectRegister::verify_signature(msg,sig2.clone(), alice.public()),false);
 
-        let public = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY".as_bytes();
-        println!("size: {:?}",public.len());
-
         // This will work since it's wrapped:
         let msg: Vec<u8> = b"<Bytes>The actual message</Bytes>".to_vec();
 
         assert_eq!(AiProjectRegister::verify_signature(msg, sig2, alice.public()),true);
 
-    });
+
+        let msg: Vec<u8> = b"123".to_vec();
+        let sig_str = "5cae2fcdb2c088cc288dea283a10ad260a5e6df8dc4c07b00ad086967e354850cbbec859aaefa5ddc277d6b1c790c9be43b56160965a7dafdf10abbf7d976189";
+        let pub_key_str = "34e9bdb4c0107a249c44515441acbda4b9d0f03db123241a54711d2a8ed6ce51";
+
+
+        let sig = hex::decode(sig_str.as_bytes()).unwrap();
+
+        let mut b = [0u8; 64];
+        b.copy_from_slice(&sig[..]);
+        let sig = sp_core::sr25519::Signature(b);
+
+
+        let pub_key = hex::decode(pub_key_str.as_bytes()).unwrap();
+
+        let mut b = [0u8; 32];
+        b.copy_from_slice(&pub_key[..]);
+        let pub_key = sp_core::sr25519::Public(b);
+
+        println!("sig: {:?}, pub_key: {:?}", sig, pub_key);
+        assert_eq!(AiProjectRegister::verify_signature(msg, sig,pub_key),true);
+    })
 }
 #[test]
 fn test_account_id_should_works() {

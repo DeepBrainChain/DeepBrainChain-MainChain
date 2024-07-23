@@ -76,94 +76,9 @@ pub mod pallet {
         SignatureVerifyResult(bool),
     }
 
-    #[pallet::error]
-    pub enum Error<T> {
-        RentInfoNotFound,
-        NotRentOwner,
-        NotRegisteredInfoOwner,
-        NotRegistered,
-        StatusNotRenting,
-        NotRentMachine,
-        OverMaxLimitPerMachineIdCanRegister,
-    }
-
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // #[pallet::call_index(0)]
-        // #[pallet::weight(10000)]
-        // pub fn add_machine_registered_project(
-        //     origin: OriginFor<T>,
-        //     rent_id: RentOrderId,
-        //     machine_id: MachineId,
-        //     project_name: Vec<u8>,
-        // ) -> DispatchResultWithPostInfo {
-        //     // check the machine_id and rent_id is valid
-        //     let who = ensure_signed(origin)?;
-        //
-        //     let rent_info = <rent_machine::Pallet<T>>::rent_info(rent_id)
-        //         .ok_or(Error::<T>::RentInfoNotFound)?;
-        //     ensure!(who == rent_info.renter, Error::<T>::NotRentOwner);
-        //     ensure!(rent_info.rent_status == RentStatus::Renting, Error::<T>::StatusNotRenting);
-        //     ensure!(rent_info.machine_id == machine_id, Error::<T>::NotRentMachine);
-        //
-        //     if !MachineId2AIProjectName::<T>::contains_key(&machine_id) {
-        //         MachineId2AIProjectName::<T>::insert(&machine_id, vec![&project_name]);
-        //     } else {
-        //         let mut project_names = Self::machine_id_to_ai_project_name(&machine_id);
-        //         let projects_num = project_names.len() as u32;
-        //         ensure!(
-        //             projects_num < Self::max_limit_per_machine_id_can_register(),
-        //             Error::<T>::OverMaxLimitPerMachineIdCanRegister
-        //         );
-        //         if project_names.contains(&project_name) {
-        //             return Ok(().into())
-        //         }
-        //         project_names.push(project_name.clone());
-        //         MachineId2AIProjectName::<T>::insert(&machine_id, project_names);
-        //     }
-        //
-        //     RegisteredInfo2Owner::<T>::insert(&machine_id, &project_name, &who.into());
-        //     Self::deposit_event(Event::AddMachineRegisteredProject(machine_id, project_name, who.into()));
-        //     Ok(().into())
-        // }
-        //
-        // #[pallet::call_index(1)]
-        // #[pallet::weight(10000)]
-        // pub fn remove_machine_registered_project(
-        //     origin: OriginFor<T>,
-        //     machine_id: MachineId,
-        //     project_name: Vec<u8>,
-        // ) -> DispatchResultWithPostInfo {
-        //     let who = ensure_signed(origin)?;
-        //     let owner = Self::registered_info_to_owner(&machine_id, &project_name)
-        //         .ok_or(Error::<T>::NotRegistered)?;
-        //     ensure!(who == owner, Error::<T>::NotRegisteredInfoOwner);
-        //     ensure!(
-        //         MachineId2AIProjectName::<T>::contains_key(&machine_id),
-        //         Error::<T>::NotRegistered
-        //     );
-        //     let project_names = Self::machine_id_to_ai_project_name(&machine_id);
-        //     ensure!(project_names.contains(&project_name), Error::<T>::NotRegistered);
-        //
-        //     MachineId2AIProjectName::<T>::mutate(&machine_id, |project_names| {
-        //         project_names
-        //             .into_iter()
-        //             .position(|x| *x == project_name)
-        //             .map(|i| project_names.remove(i));
-        //     });
-        //
-        //     let now = <frame_system::Pallet<T>>::block_number();
-        //     ProjectMachine2UnregisteredTimes::<T>::insert(&project_name, &machine_id, now);
-        //     RegisteredInfo2Owner::<T>::remove(&machine_id, &project_name);
-        //     Self::deposit_event(Event::RemoveMachineRegisteredProject(
-        //         machine_id,
-        //         project_name,
-        //         now,
-        //     ));
-        //     Ok(().into())
-        // }
-
-        #[pallet::call_index(2)]
+        #[pallet::call_index(0)]
         #[pallet::weight(10000)]
         pub fn set_max_limit_per_machine_id_can_register(
             origin: OriginFor<T>,
@@ -173,18 +88,6 @@ pub mod pallet {
             MaxLimitPerMachineIdCanRegister::<T>::mutate(|v| *v = value);
             Ok(().into())
         }
-
-        // #[pallet::call_index(3)]
-        // #[pallet::weight(10000)]
-        // pub fn verify_substrate_signature(
-        //     origin: OriginFor<T>,
-        //     data: Vec<u8>, sig: T::Signature, from: T::PublicKey,
-        // ) -> DispatchResultWithPostInfo {
-        //     let _who = ensure_signed(origin)?;
-        //     let ok = Self::verify_signature(data, sig, from);
-        //     Self::deposit_event(Event::SignatureVerifyResult(ok));
-        //     Ok(().into())
-        // }
     }
 }
 
@@ -226,7 +129,7 @@ impl<T: Config> ProjectRegister for Pallet<T> {
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
         rent_ids.iter().for_each(|rent_id| {
             let rent_info_result =
-                <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or(Error::<T>::RentInfoNotFound);
+                <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or("rent not found");
             if let Ok(rent_info) = rent_info_result {
                 if renter == rent_info.renter &&
                     rent_info.machine_id == machine_id &&

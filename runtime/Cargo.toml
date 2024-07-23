@@ -152,6 +152,8 @@ pallet-evm-precompile-dispatch = { workspace = true }
 pallet-evm-precompile-modexp = { workspace = true }
 pallet-evm-precompile-sha3fips = { workspace = true }
 pallet-evm-precompile-simple = { workspace = true }
+hex = {version = "0.4.3", default-features = false}
+
 
 [features]
 default = ["std"]
