@@ -407,4 +407,5 @@ try-runtime = [
   "pallet-evm/try-runtime",
   "pallet-ethereum/try-runtime",
   "pallet-base-fee/try-runtime",
+  "ai-project-register/try-runtime"
 ]
