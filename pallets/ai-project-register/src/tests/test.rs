@@ -385,6 +385,7 @@ fn test_get_machine_valid_stake_duration_should_works() {
             sig.clone(),
             alice.public(),
             0,
+            0,
             machine_id.clone(),
             vec![2],
         );
@@ -410,6 +411,7 @@ fn test_get_machine_valid_stake_duration_should_works() {
             msg,
             sig,
             alice.public(),
+            0,
             0,
             machine_id,
             vec![2],
