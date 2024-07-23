@@ -115,7 +115,8 @@ impl<T: Config> ProjectRegister for Pallet<T> {
         data: Vec<u8>,
         sig: Self::Signature,
         from: Self::PublicKey,
-        stake_start_at: T::BlockNumber,
+        last_claim_at: T::BlockNumber,
+        slash_at: T::BlockNumber,
         machine_id: MachineId,
         rent_ids: Vec<RentOrderId>,
     ) -> Result<T::BlockNumber, &'static str> {
@@ -127,22 +128,42 @@ impl<T: Config> ProjectRegister for Pallet<T> {
         let renter = Self::account_id(from.clone())?;
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
-        rent_ids.iter().for_each(|rent_id| {
-            let rent_info_result =
-                <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or("rent not found");
-            if let Ok(rent_info) = rent_info_result {
-                if renter == rent_info.renter &&
-                    rent_info.machine_id == machine_id &&
-                    rent_info.rent_end >= stake_start_at
-                {
-                    if rent_info.rent_end >= now {
-                        rent_duration += now - stake_start_at
-                    } else {
-                        rent_duration += rent_info.rent_end - stake_start_at
+        if slash_at == T::BlockNumber::default() {
+            rent_ids.iter().for_each(|rent_id| {
+                let rent_info_result =
+                    <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or("rent not found");
+                if let Ok(rent_info) = rent_info_result {
+                    if renter == rent_info.renter &&
+                        rent_info.machine_id == machine_id &&
+                        rent_info.rent_end >= last_claim_at
+                    {
+                        if rent_info.rent_end >= now {
+                            rent_duration += now - last_claim_at
+                        } else {
+                            rent_duration += rent_info.rent_end - last_claim_at
+                        }
                     }
                 }
-            }
-        });
+            });
+        } else {
+            rent_ids.iter().for_each(|rent_id| {
+                let rent_info_result =
+                    <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or("rent not found");
+                if let Ok(rent_info) = rent_info_result {
+                    if renter == rent_info.renter &&
+                        rent_info.machine_id == machine_id &&
+                        rent_info.rent_end >= last_claim_at
+                    {
+                        if rent_info.rent_end >= slash_at {
+                            rent_duration += slash_at - last_claim_at
+                        } else {
+                            rent_duration += rent_info.rent_end - last_claim_at
+                        }
+                    }
+                }
+            });
+        }
+
         Ok(rent_duration)
     }
 

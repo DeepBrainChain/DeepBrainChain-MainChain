@@ -22,7 +22,7 @@ pub struct AIProjectRegister<T>(PhantomData<T>);
 pub enum Selector {
     GetMachineCalcPoint = "getMachineCalcPoint(string)",
     MachineIsRegistered = "machineIsRegistered(string,string)",
-    GetRentDuration = "getRentDuration(string,string,string,uint256,string,uint256[])",
+    GetRentDuration = "getRentDuration(string,string,string,uint256,uint256,string,uint256[])",
     AddMachineRegisteredProject =
         "add_machine_registered_project(string,string,string,uint256,string,string)",
     RemovalMachineRegisteredProject =
@@ -147,7 +147,8 @@ where
                         ethabi::ParamType::String,                                        // msg
                         ethabi::ParamType::String,                                        // sig
                         ethabi::ParamType::String,                                        // public
-                        ethabi::ParamType::Uint(256), // stake_at
+                        ethabi::ParamType::Uint(256), // last_claim_at
+                        ethabi::ParamType::Uint(256), // slash_at
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Array(Box::new(ethabi::ParamType::Uint(256))), // rent_ids
                     ],
@@ -188,37 +189,44 @@ where
                 b.copy_from_slice(&public[..]);
                 let public = sp_core::sr25519::Public(b);
 
-                let stake_at_block_number_uint =
+                let last_claim_at_block_number_uint =
                     param[3].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[3] failed".into(),
                     })?;
 
-                let stake_at_block_number: u64 = stake_at_block_number_uint.as_u64();
+                let last_claim_at_block_number: u64 = last_claim_at_block_number_uint.as_u64();
 
-                let machine_id_str =
-                    param[4].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                let slash_at_block_number_uint =
+                    param[4].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[4] failed".into(),
                     })?;
 
-                let rent_ids =
-                    param[5].clone().into_array().ok_or_else(|| PrecompileFailure::Revert {
+                let slash_at_block_number: u64 = slash_at_block_number_uint.as_u64();
+
+                let machine_id_str =
+                    param[5].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[5] failed".into(),
+                    })?;
+
+                let rent_ids =
+                    param[6].clone().into_array().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[6] failed".into(),
                     })?;
 
                 let rent_ids: Vec<u64> =
                     rent_ids.into_iter().map(|x| x.into_uint().unwrap().as_u64()).collect();
                 let rent_ids_size = rent_ids.len() as u64;
-
-                let duration  =<ai_project_register::Pallet<T> as ProjectRegister>::get_machine_valid_stake_duration(msg.clone().into_bytes(),sig.clone(),public.clone(), T::BlockNumber::saturated_from(stake_at_block_number.clone()), machine_id_str.clone().as_bytes().to_vec(), rent_ids.clone()).map_err( |e| {
+                let duration  =<ai_project_register::Pallet<T> as ProjectRegister>::get_machine_valid_stake_duration(msg.clone().into_bytes(),sig.clone(),public.clone(), T::BlockNumber::saturated_from(last_claim_at_block_number.clone()),T::BlockNumber::saturated_from(slash_at_block_number.clone()), machine_id_str.clone().as_bytes().to_vec(), rent_ids.clone()).map_err( |e| {
                     PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
-                        output: format!("err: {}, msg: {}, sig: {:?}, public: {:?}, stake_at: {}, machine_id: {}, rent_ids: {:?}",e,msg,sig,public,stake_at_block_number,machine_id_str,rent_ids).into(),
+                        output: format!("err: {}, msg: {}, sig: {:?}, public: {:?}, last_claim_at: {},slash_at: {}, machine_id: {}, rent_ids: {:?}",e,msg,sig,public,last_claim_at_block_number,slash_at_block_number,machine_id_str,rent_ids).into(),
                     }
                 })?;
-                log::debug!(target: LOG_TARGET, "msg : {:?}, sig : {:?}, public : {:?},  stake_at : {:?}, machine_id : {:?}, rent_ids: {:?},  get_machine_valid_stake_duration: duration: {:?}",msg,sig,public,stake_at_block_number,machine_id_str,rent_ids,duration);
+                log::debug!(target: LOG_TARGET, "msg : {:?}, sig : {:?}, public : {:?}, last_claim_at: {},slash_at: {}, machine_id : {:?}, rent_ids: {:?},  get_machine_valid_stake_duration: duration: {:?}",msg,sig,public,last_claim_at_block_number,slash_at_block_number,machine_id_str,rent_ids,duration);
 
                 let weight = Weight::default().saturating_add(
                     <T as frame_system::Config>::DbWeight::get().reads(rent_ids_size),

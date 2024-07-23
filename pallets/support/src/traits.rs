@@ -126,7 +126,8 @@ pub trait ProjectRegister {
         data: Vec<u8>,
         sig: Self::Signature,
         from: Self::PublicKey,
-        stake_start_at: Self::BlockNumber,
+        last_claim_at: Self::BlockNumber,
+        slash_at: Self::BlockNumber,
         machine_id: MachineId,
         rent_ids: Vec<RentOrderId>,
     ) -> Result<Self::BlockNumber, &'static str>;
