@@ -2,7 +2,7 @@ use super::super::{mock::*, *};
 use crate::mock::new_test_ext;
 use dbc_support::rental_type::RentOrderDetail;
 use frame_support::{assert_err, assert_ok, traits::Currency};
-use sp_core::{ sr25519, Pair};
+use sp_core::{sr25519, Pair};
 pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
