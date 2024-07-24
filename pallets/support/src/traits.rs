@@ -151,6 +151,14 @@ pub trait ProjectRegister {
     ) -> Result<(), &'static str>;
 
     fn account_id(from: Self::PublicKey) -> Result<Self::AccountId, &'static str>;
+
+    fn is_registered_machine_owner(
+        data: Vec<u8>,
+        sig: Self::Signature,
+        from: Self::PublicKey,
+        machine_id: MachineId,
+        project_name: Vec<u8>,
+    ) -> Result<bool, &'static str>;
 }
 
 pub trait MTOps {

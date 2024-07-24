@@ -8,12 +8,13 @@ extern crate alloc;
 use crate::precompiles::LOG_TARGET;
 use alloc::format;
 use core::marker::PhantomData;
-use dbc_support::traits::ProjectRegister;
+use dbc_support::{traits::ProjectRegister, MachineId};
 use frame_support::{ensure, pallet_prelude::Weight};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pallet_evm::GasWeightMapping;
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::{boxed::Box, vec::Vec};
+
 pub struct AIProjectRegister<T>(PhantomData<T>);
 
 #[evm_macro::generate_function_selector]
@@ -27,6 +28,7 @@ pub enum Selector {
         "add_machine_registered_project(string,string,string,uint256,string,string)",
     RemovalMachineRegisteredProject =
         "remove_machine_registered_project(string,string,string,string,string)",
+    IsRegisteredMachineOwner = "is_registered_machine_owner(string,string,string,string,string)",
 }
 
 impl<T> Precompile for AIProjectRegister<T>
@@ -124,7 +126,7 @@ where
 
                 log::debug!(
                     target: LOG_TARGET,
-                    ":machine_id: {:?}, project_name: {:?}, is_registered: {:?}",
+                    "machine_id: {:?}, project_name: {:?}, is_registered: {:?}",
                     machine_id,
                     project_name,
                     is_registered
@@ -411,6 +413,94 @@ where
 
                 let weight = Weight::default()
                     .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Bool(true)]),
+                })
+            },
+
+            Selector::IsRegisteredMachineOwner => {
+                let param = ethabi::decode(
+                    &[
+                        ethabi::ParamType::String,
+                        ethabi::ParamType::String,
+                        ethabi::ParamType::String,
+                        ethabi::ParamType::String,
+                        ethabi::ParamType::String,
+                    ],
+                    &input[4..],
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
+
+                let msg =
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+
+                let sig_str =
+                    param[1].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[1] failed".into(),
+                    })?;
+
+                let sig = hex::decode(sig_str.as_bytes()).unwrap();
+
+                let mut b = [0u8; 64];
+                b.copy_from_slice(&sig[..]);
+                let sig = sp_core::sr25519::Signature(b);
+
+                let public_str =
+                    param[2].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[2] failed".into(),
+                    })?;
+
+                let public = hex::decode(public_str.as_bytes()).unwrap();
+
+                let mut b = [0u8; 32];
+                b.copy_from_slice(&public[..]);
+                let public = sp_core::sr25519::Public(b);
+
+                let machine_id_str =
+                    param[3].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[3] failed".into(),
+                    })?;
+
+                let project_name_str =
+                    param[4].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[4] failed".into(),
+                    })?;
+                let project_name = project_name_str.as_bytes().to_vec();
+                let is_owner = <ai_project_register::Pallet<T> as ProjectRegister>::is_registered_machine_owner(
+                    msg.clone().into_bytes(),sig.clone(),public.clone(),machine_id_str.clone().as_bytes().to_vec(),project_name.clone(),
+                ).map_err(|e|{
+                    PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: e.into(),
+                    }
+                })?;
+
+                log::debug!(
+                    target: LOG_TARGET,
+                    "pub_key: {:?}, machine_id: {:?}, project_name: {:?}, is registered owner result :{}",
+                    public_str,
+                    machine_id_str,
+                    project_name,
+                    is_owner,
+
+                );
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2));
 
                 handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
 

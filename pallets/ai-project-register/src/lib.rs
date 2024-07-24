@@ -270,4 +270,21 @@ impl<T: Config> ProjectRegister for Pallet<T> {
             Err(_) => Err("account_id decode failed"),
         }
     }
+
+    fn is_registered_machine_owner(
+        data: Vec<u8>,
+        sig: Self::Signature,
+        from: Self::PublicKey,
+        machine_id: MachineId,
+        project_name: Vec<u8>,
+    ) -> Result<bool, &'static str> {
+        let ok = Self::verify_signature(data, sig, from.clone());
+        if !ok {
+            return Err("signature verify failed")
+        };
+        let owner =
+            Self::registered_info_to_owner(machine_id, project_name).ok_or("not registered")?;
+        let who = Self::account_id(from.clone())?;
+        Ok(owner == who)
+    }
 }
