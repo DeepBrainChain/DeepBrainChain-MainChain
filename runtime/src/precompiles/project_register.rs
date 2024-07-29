@@ -8,12 +8,11 @@ extern crate alloc;
 use crate::precompiles::LOG_TARGET;
 use alloc::format;
 use core::marker::PhantomData;
-use dbc_support::{traits::ProjectRegister, MachineId};
+use dbc_support::traits::ProjectRegister;
 use frame_support::{ensure, pallet_prelude::Weight};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pallet_evm::GasWeightMapping;
 use sp_runtime::traits::SaturatedConversion;
-use sp_std::{boxed::Box, vec::Vec};
 
 pub struct AIProjectRegister<T>(PhantomData<T>);
 
@@ -323,9 +322,8 @@ where
                     project_name,
                 );
 
-                let weight = Weight::default().saturating_add(
-                    <T as frame_system::Config>::DbWeight::get().reads(2).writes(1),
-                );
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
 
                 handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
 

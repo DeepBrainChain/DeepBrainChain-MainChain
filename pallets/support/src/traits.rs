@@ -1,4 +1,4 @@
-use crate::{MachineId, RentOrderId};
+use crate::MachineId;
 use sp_std::vec::Vec;
 
 pub trait PhaseReward {
