@@ -129,7 +129,6 @@ pub trait ProjectRegister {
         last_claim_at: Self::BlockNumber,
         slash_at: Self::BlockNumber,
         machine_id: MachineId,
-        rent_ids: Vec<RentOrderId>,
     ) -> Result<Self::BlockNumber, &'static str>;
     fn verify_signature(data: Vec<u8>, sig: Self::Signature, from: Self::PublicKey) -> bool;
 
@@ -137,7 +136,6 @@ pub trait ProjectRegister {
         data: Vec<u8>,
         sig: Self::Signature,
         from: Self::PublicKey,
-        rent_id: RentOrderId,
         machine_id: MachineId,
         project_name: Vec<u8>,
     ) -> Result<(), &'static str>;

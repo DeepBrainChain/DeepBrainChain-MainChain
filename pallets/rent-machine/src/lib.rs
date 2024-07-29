@@ -87,7 +87,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn machine_rent_order)]
-    pub(super) type MachineRentOrder<T: Config> =
+    pub type MachineRentOrder<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, MachineGPUOrder, ValueQuery>;
 
     #[pallet::storage]

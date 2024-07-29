@@ -17,6 +17,7 @@ use sp_std::{prelude::*, vec, vec::Vec};
 use dbc_support::{rental_type::RentStatus, traits::ProjectRegister, MachineId, RentOrderId};
 pub use pallet::*;
 use sp_runtime::traits::{IdentifyAccount, Verify};
+use RentStatus::Renting;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -118,7 +119,6 @@ impl<T: Config> ProjectRegister for Pallet<T> {
         last_claim_at: T::BlockNumber,
         slash_at: T::BlockNumber,
         machine_id: MachineId,
-        rent_ids: Vec<RentOrderId>,
     ) -> Result<T::BlockNumber, &'static str> {
         let ok = Self::verify_signature(data, sig, from.clone());
         if !ok {
@@ -126,6 +126,7 @@ impl<T: Config> ProjectRegister for Pallet<T> {
         };
 
         let renter = Self::account_id(from.clone())?;
+        let rent_ids = Self::get_rent_ids(machine_id.clone(), &renter);
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
         if slash_at == T::BlockNumber::default() {
@@ -154,9 +155,11 @@ impl<T: Config> ProjectRegister for Pallet<T> {
                         rent_info.machine_id == machine_id &&
                         rent_info.rent_end >= last_claim_at
                     {
-                        if rent_info.rent_end >= slash_at {
-                            rent_duration += slash_at - last_claim_at
-                        } else {
+                        if rent_info.rent_end >= slash_at && slash_at >= last_claim_at {
+                            rent_duration += slash_at - last_claim_at;
+                        } else if rent_info.rent_end < slash_at &&
+                            rent_info.rent_end >= last_claim_at
+                        {
                             rent_duration += rent_info.rent_end - last_claim_at
                         }
                     }
@@ -175,7 +178,6 @@ impl<T: Config> ProjectRegister for Pallet<T> {
         data: Vec<u8>,
         sig: Self::Signature,
         from: Self::PublicKey,
-        rent_id: RentOrderId,
         machine_id: MachineId,
         project_name: Vec<u8>,
     ) -> Result<(), &'static str> {
@@ -186,20 +188,10 @@ impl<T: Config> ProjectRegister for Pallet<T> {
 
         let who = Self::account_id(from.clone())?;
 
-        let rent_info =
-            <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or("rent info not found")?;
-
-        if machine_id != rent_info.machine_id {
+        let rent_ids = Self::get_rent_ids(machine_id.clone(), &who);
+        if rent_ids.len() == 0 {
             return Err("machine not rented")
-        };
-
-        if who != rent_info.renter {
-            return Err("not rent owner")
-        };
-
-        if rent_info.rent_status != RentStatus::Renting {
-            return Err("status not renting")
-        };
+        }
 
         if !MachineId2AIProjectName::<T>::contains_key(&machine_id) {
             MachineId2AIProjectName::<T>::insert(&machine_id, vec![&project_name]);
@@ -216,7 +208,6 @@ impl<T: Config> ProjectRegister for Pallet<T> {
             project_names.push(project_name.clone());
             MachineId2AIProjectName::<T>::insert(&machine_id, project_names);
         }
-
         RegisteredInfo2Owner::<T>::insert(&machine_id, &project_name, &who);
         Self::deposit_event(Event::AddMachineRegisteredProject(machine_id, project_name, who));
         Ok(().into())
@@ -286,5 +277,22 @@ impl<T: Config> ProjectRegister for Pallet<T> {
             Self::registered_info_to_owner(machine_id, project_name).ok_or("not registered")?;
         let who = Self::account_id(from.clone())?;
         Ok(owner == who)
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    fn get_rent_ids(machine_id: MachineId, renter: &T::AccountId) -> Vec<RentOrderId> {
+        let machine_orders = <rent_machine::Pallet<T>>::machine_rent_order(machine_id);
+
+        let mut rent_ids: Vec<RentOrderId> = Vec::new();
+        // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
+        for order_id in machine_orders.rent_order {
+            if let Some(rent_info) = <rent_machine::Pallet<T>>::rent_info(order_id) {
+                if renter == &rent_info.renter && rent_info.rent_status == Renting {
+                    rent_ids.push(order_id);
+                }
+            }
+        }
+        rent_ids
     }
 }

@@ -23,9 +23,9 @@ pub struct AIProjectRegister<T>(PhantomData<T>);
 pub enum Selector {
     GetMachineCalcPoint = "getMachineCalcPoint(string)",
     MachineIsRegistered = "machineIsRegistered(string,string)",
-    GetRentDuration = "getRentDuration(string,string,string,uint256,uint256,string,uint256[])",
+    GetRentDuration = "getRentDuration(string,string,string,uint256,uint256,string)",
     AddMachineRegisteredProject =
-        "add_machine_registered_project(string,string,string,uint256,string,string)",
+        "add_machine_registered_project(string,string,string,string,string)",
     RemovalMachineRegisteredProject =
         "remove_machine_registered_project(string,string,string,string,string)",
     IsRegisteredMachineOwner = "is_registered_machine_owner(string,string,string,string,string)",
@@ -146,13 +146,12 @@ where
             Selector::GetRentDuration => {
                 let param = ethabi::decode(
                     &[
-                        ethabi::ParamType::String,                                        // msg
-                        ethabi::ParamType::String,                                        // sig
-                        ethabi::ParamType::String,                                        // public
+                        ethabi::ParamType::String,    // msg
+                        ethabi::ParamType::String,    // sig
+                        ethabi::ParamType::String,    // public
                         ethabi::ParamType::Uint(256), // last_claim_at
                         ethabi::ParamType::Uint(256), // slash_at
                         ethabi::ParamType::String,    // machine_id
-                        ethabi::ParamType::Array(Box::new(ethabi::ParamType::Uint(256))), // rent_ids
                     ],
                     &input[4..],
                 )
@@ -173,7 +172,11 @@ where
                         output: "decode param[1] failed".into(),
                     })?;
 
-                let sig = hex::decode(sig_str.as_bytes()).unwrap();
+                let sig =
+                    hex::decode(sig_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode sig failed: {:?}", e).into(),
+                    })?;
 
                 let mut b = [0u8; 64];
                 b.copy_from_slice(&sig[..]);
@@ -185,7 +188,11 @@ where
                         output: "decode param[2] failed".into(),
                     })?;
 
-                let public = hex::decode(public_str.as_bytes()).unwrap();
+                let public =
+                    hex::decode(public_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode pub key failed: {:?}", e).into(),
+                    })?;
 
                 let mut b = [0u8; 32];
                 b.copy_from_slice(&public[..]);
@@ -213,26 +220,16 @@ where
                         output: "decode param[5] failed".into(),
                     })?;
 
-                let rent_ids =
-                    param[6].clone().into_array().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[6] failed".into(),
-                    })?;
-
-                let rent_ids: Vec<u64> =
-                    rent_ids.into_iter().map(|x| x.into_uint().unwrap().as_u64()).collect();
-                let rent_ids_size = rent_ids.len() as u64;
-                let duration  =<ai_project_register::Pallet<T> as ProjectRegister>::get_machine_valid_stake_duration(msg.clone().into_bytes(),sig.clone(),public.clone(), T::BlockNumber::saturated_from(last_claim_at_block_number.clone()),T::BlockNumber::saturated_from(slash_at_block_number.clone()), machine_id_str.clone().as_bytes().to_vec(), rent_ids.clone()).map_err( |e| {
+                let duration  =<ai_project_register::Pallet<T> as ProjectRegister>::get_machine_valid_stake_duration(msg.clone().into_bytes(),sig.clone(),public.clone(), T::BlockNumber::saturated_from(last_claim_at_block_number.clone()),T::BlockNumber::saturated_from(slash_at_block_number.clone()), machine_id_str.clone().as_bytes().to_vec()).map_err( |e| {
                     PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
-                        output: format!("err: {}, msg: {}, sig: {:?}, public: {:?}, last_claim_at: {},slash_at: {}, machine_id: {}, rent_ids: {:?}",e,msg,sig,public,last_claim_at_block_number,slash_at_block_number,machine_id_str,rent_ids).into(),
+                        output: format!("err: {}, msg: {}, sig: {:?}, public: {:?}, last_claim_at: {},slash_at: {}, machine_id: {}",e,msg,sig,public,last_claim_at_block_number,slash_at_block_number,machine_id_str).into(),
                     }
                 })?;
-                log::debug!(target: LOG_TARGET, "msg : {:?}, sig : {:?}, public : {:?}, last_claim_at: {},slash_at: {}, machine_id : {:?}, rent_ids: {:?},  get_machine_valid_stake_duration: duration: {:?}",msg,sig,public,last_claim_at_block_number,slash_at_block_number,machine_id_str,rent_ids,duration);
+                log::debug!(target: LOG_TARGET, "msg : {:?}, sig : {:?}, public : {:?}, last_claim_at: {},slash_at: {}, machine_id : {:?},  get_machine_valid_stake_duration: duration: {:?}",msg,sig,public,last_claim_at_block_number,slash_at_block_number,machine_id_str,duration);
 
-                let weight = Weight::default().saturating_add(
-                    <T as frame_system::Config>::DbWeight::get().reads(rent_ids_size),
-                );
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
 
                 handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
 
@@ -250,7 +247,6 @@ where
                         ethabi::ParamType::String,
                         ethabi::ParamType::String,
                         ethabi::ParamType::String,
-                        ethabi::ParamType::Uint(256),
                         ethabi::ParamType::String,
                         ethabi::ParamType::String,
                     ],
@@ -273,7 +269,11 @@ where
                         output: "decode param[1] failed".into(),
                     })?;
 
-                let sig = hex::decode(sig_str.as_bytes()).unwrap();
+                let sig =
+                    hex::decode(sig_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode sig failed: {:?}", e).into(),
+                    })?;
 
                 let mut b = [0u8; 64];
                 b.copy_from_slice(&sig[..]);
@@ -285,32 +285,30 @@ where
                         output: "decode param[2] failed".into(),
                     })?;
 
-                let public = hex::decode(public_str.as_bytes()).unwrap();
+                let public =
+                    hex::decode(public_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode pub key failed: {:?}", e).into(),
+                    })?;
 
                 let mut b = [0u8; 32];
                 b.copy_from_slice(&public[..]);
                 let public = sp_core::sr25519::Public(b);
 
-                let rent_id_uint =
-                    param[3].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                let machine_id_str =
+                    param[3].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[3] failed".into(),
                     })?;
 
-                let machine_id_str =
+                let project_name_str =
                     param[4].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[4] failed".into(),
                     })?;
-
-                let project_name_str =
-                    param[5].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[5] failed".into(),
-                    })?;
                 let project_name = project_name_str.as_bytes().to_vec();
                 <ai_project_register::Pallet<T> as ProjectRegister>::add_machine_registered_project(
-                        msg.clone().into_bytes(),sig.clone(),public.clone(),rent_id_uint.as_u64(),machine_id_str.clone().as_bytes().to_vec(),project_name.clone(),
+                        msg.clone().into_bytes(),sig.clone(),public.clone(),machine_id_str.clone().as_bytes().to_vec(),project_name.clone(),
                     ).map_err(|e|{
                         PrecompileFailure::Revert {
                             exit_status: ExitRevert::Reverted,
@@ -325,8 +323,9 @@ where
                     project_name,
                 );
 
-                let weight = Weight::default()
-                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(2));
+                let weight = Weight::default().saturating_add(
+                    <T as frame_system::Config>::DbWeight::get().reads(2).writes(1),
+                );
 
                 handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
 
@@ -364,7 +363,11 @@ where
                         output: "decode param[1] failed".into(),
                     })?;
 
-                let sig = hex::decode(&sig_str.as_bytes()).unwrap();
+                let sig =
+                    hex::decode(sig_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode sig failed: {:?}", e).into(),
+                    })?;
 
                 let mut b = [0u8; 64];
                 b.copy_from_slice(&sig[..]);
@@ -376,7 +379,11 @@ where
                         output: "decode param[2] failed".into(),
                     })?;
 
-                let public = hex::decode(&public_str.as_bytes()).unwrap();
+                let public =
+                    hex::decode(public_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode pub key failed: {:?}", e).into(),
+                    })?;
 
                 let mut b = [0u8; 32];
                 b.copy_from_slice(&public[..]);
@@ -395,14 +402,14 @@ where
                     })?;
                 let project_name = project_name_str.as_bytes().to_vec();
 
-                let _ =<ai_project_register::Pallet<T> as ProjectRegister>::remove_machine_registered_project(
+                <ai_project_register::Pallet<T> as ProjectRegister>::remove_machine_registered_project(
                         msg.clone().into_bytes(),sig.clone(),public.clone(),machine_id_str.clone().as_bytes().to_vec(),project_name.clone(),
                     ).map_err(|e|{
                         PrecompileFailure::Revert {
                             exit_status: ExitRevert::Reverted,
                             output: e.into(),
                         }
-                    });
+                    })?;
 
                 log::debug!(
                     target: LOG_TARGET,
@@ -412,7 +419,7 @@ where
                 );
 
                 let weight = Weight::default()
-                    .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2));
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
 
                 handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
 
@@ -450,7 +457,11 @@ where
                         output: "decode param[1] failed".into(),
                     })?;
 
-                let sig = hex::decode(sig_str.as_bytes()).unwrap();
+                let sig =
+                    hex::decode(sig_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode sig failed: {:?}", e).into(),
+                    })?;
 
                 let mut b = [0u8; 64];
                 b.copy_from_slice(&sig[..]);
@@ -462,7 +473,11 @@ where
                         output: "decode param[2] failed".into(),
                     })?;
 
-                let public = hex::decode(public_str.as_bytes()).unwrap();
+                let public =
+                    hex::decode(public_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode pub key failed: {:?}", e).into(),
+                    })?;
 
                 let mut b = [0u8; 32];
                 b.copy_from_slice(&public[..]);

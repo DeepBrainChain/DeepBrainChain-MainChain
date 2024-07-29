@@ -1,13 +1,13 @@
 use super::super::{mock::*, *};
 use crate::mock::new_test_ext;
-use dbc_support::rental_type::RentOrderDetail;
+use dbc_support::rental_type::{MachineGPUOrder, RentOrderDetail};
 use frame_support::{assert_err, assert_ok, traits::Currency};
 use sp_core::{sr25519, Pair};
 pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
 
-use rent_machine::RentInfo;
+use rent_machine::{MachineRentOrder, RentInfo};
 
 type BalanceOf<Test> = <<Test as rent_machine::Config>::Currency as Currency<
     <Test as frame_system::Config>::AccountId,
@@ -40,11 +40,10 @@ fn test_add_machine_registered_project_should_work() {
                 msg.clone(),
                 sig.clone(),
                 alice.public(),
-                1,
                 machine_id.clone(),
                 project_name.clone().clone()
             ),
-            "rent info not found"
+            "machine not rented"
         );
 
         let rent_info: RentOrderDetail<
@@ -64,19 +63,24 @@ fn test_add_machine_registered_project_should_work() {
         };
         RentInfo::<Test>::insert(1, rent_info);
 
+        let order: MachineGPUOrder = MachineGPUOrder { rent_order: vec![1], used_gpu: vec![0] };
+
+        MachineRentOrder::<Test>::insert(machine_id.clone(), order);
+
         assert_err!(
             AiProjectRegister::add_machine_registered_project(
                 msg.clone(),
                 sig.clone(),
                 alice.public(),
-                1,
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "not rent owner"
+            "machine not rented"
         );
 
         RentInfo::<Test>::remove(1);
+        MachineRentOrder::<Test>::remove(machine_id.clone());
+
         let rent_info: RentOrderDetail<
             <Test as frame_system::Config>::AccountId,
             <Test as frame_system::Config>::BlockNumber,
@@ -93,17 +97,19 @@ fn test_add_machine_registered_project_should_work() {
             gpu_index: vec![],
         };
         RentInfo::<Test>::insert(1, rent_info);
+        let order: MachineGPUOrder = MachineGPUOrder { rent_order: vec![1], used_gpu: vec![0] };
+
+        MachineRentOrder::<Test>::insert(machine_id.clone(), order);
 
         assert_err!(
             AiProjectRegister::add_machine_registered_project(
                 msg.clone(),
                 sig.clone(),
                 alice.public(),
-                1,
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "status not renting"
+            "machine not rented"
         );
 
         let rent_info_renting: RentOrderDetail<
@@ -123,12 +129,14 @@ fn test_add_machine_registered_project_should_work() {
         };
         RentInfo::<Test>::insert(2, rent_info_renting);
 
+        let order: MachineGPUOrder = MachineGPUOrder { rent_order: vec![2], used_gpu: vec![0] };
+
+        MachineRentOrder::<Test>::insert(machine_id.clone(), order);
         assert_err!(
             AiProjectRegister::add_machine_registered_project(
                 msg.clone(),
                 sig.clone(),
                 alice.public(),
-                2,
                 fake_machine_id.clone(),
                 project_name.clone()
             ),
@@ -138,15 +146,18 @@ fn test_add_machine_registered_project_should_work() {
             msg.clone(),
             sig.clone(),
             alice.public(),
-            2,
             machine_id.clone(),
             project_name.clone()
         ));
+
+        assert_eq!(
+            AiProjectRegister::is_registered(machine_id.clone(), project_name.clone()),
+            true
+        );
         assert_ok!(AiProjectRegister::add_machine_registered_project(
             msg.clone(),
             sig.clone(),
             alice.public(),
-            2,
             machine_id.clone(),
             project_name.clone()
         ));
@@ -155,18 +166,27 @@ fn test_add_machine_registered_project_should_work() {
             msg.clone(),
             sig.clone(),
             alice.public(),
-            2,
             machine_id.clone(),
             project_name1.clone()
         ));
+        assert_eq!(
+            AiProjectRegister::is_registered(machine_id.clone(), project_name1.clone()),
+            true
+        );
+
         assert_ok!(AiProjectRegister::add_machine_registered_project(
             msg.clone(),
             sig.clone(),
             alice.public(),
-            2,
             machine_id.clone(),
             project_name2.clone()
         ));
+
+        assert_eq!(
+            AiProjectRegister::is_registered(machine_id.clone(), project_name2.clone()),
+            true
+        );
+
         assert_eq!(
             AiProjectRegister::registered_info_to_owner(machine_id.clone(), project_name2.clone())
                 .unwrap()
@@ -179,7 +199,6 @@ fn test_add_machine_registered_project_should_work() {
                 msg.clone(),
                 sig.clone(),
                 alice.public(),
-                2,
                 machine_id.clone(),
                 project_name3.clone()
             ),
@@ -198,6 +217,7 @@ fn test_remove_machine_registered_project_should_work() {
         let project_name = "dgc".as_bytes().to_vec();
         let project_name1 = "dgc1".as_bytes().to_vec();
         let project_name2 = "dgc2".as_bytes().to_vec();
+        let project_name3 = "dgc3".as_bytes().to_vec();
 
         let alice = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
         let msg: Vec<u8> = b"The actual message".to_vec();
@@ -219,6 +239,10 @@ fn test_remove_machine_registered_project_should_work() {
             gpu_index: vec![],
         };
         RentInfo::<Test>::insert(2, rent_info_renting);
+        let order: MachineGPUOrder = MachineGPUOrder { rent_order: vec![2], used_gpu: vec![0] };
+
+        MachineRentOrder::<Test>::insert(machine_id.clone(), order);
+
         assert_err!(
             AiProjectRegister::remove_machine_registered_project(
                 msg.clone(),
@@ -233,7 +257,6 @@ fn test_remove_machine_registered_project_should_work() {
             msg.clone(),
             sig.clone(),
             alice.public(),
-            2,
             machine_id.clone(),
             project_name1.clone()
         ));
@@ -241,13 +264,25 @@ fn test_remove_machine_registered_project_should_work() {
             msg.clone(),
             sig.clone(),
             alice.public(),
-            2,
             machine_id.clone(),
             project_name2.clone()
         ));
         assert_eq!(
             AiProjectRegister::machine_id_to_ai_project_name(machine_id.clone()),
             vec![project_name1.clone(), project_name2.clone()]
+        );
+
+        assert_ok!(AiProjectRegister::add_machine_registered_project(
+            msg.clone(),
+            sig.clone(),
+            alice.public(),
+            machine_id.clone(),
+            project_name3.clone()
+        ));
+
+        assert_eq!(
+            AiProjectRegister::machine_id_to_ai_project_name(machine_id.clone()),
+            vec![project_name1.clone(), project_name2.clone(), project_name3.clone()]
         );
         assert_err!(
             AiProjectRegister::remove_machine_registered_project(
@@ -268,7 +303,7 @@ fn test_remove_machine_registered_project_should_work() {
         ));
         assert_eq!(
             AiProjectRegister::machine_id_to_ai_project_name(machine_id.clone()),
-            vec![project_name2.clone()]
+            vec![project_name2.clone(), project_name3.clone()]
         );
         assert_eq!(
             AiProjectRegister::registered_info_to_owner(machine_id.clone(), project_name1.clone())
@@ -379,6 +414,11 @@ fn test_get_machine_valid_stake_duration_should_works() {
             gpu_index: vec![],
         };
         RentInfo::<Test>::insert(2, rent_info_renting);
+
+        let order: MachineGPUOrder = MachineGPUOrder { rent_order: vec![2], used_gpu: vec![0] };
+
+        MachineRentOrder::<Test>::insert(machine_id.clone(), order);
+
         System::set_block_number(10);
         let r = AiProjectRegister::get_machine_valid_stake_duration(
             msg.clone(),
@@ -387,7 +427,6 @@ fn test_get_machine_valid_stake_duration_should_works() {
             0,
             0,
             machine_id.clone(),
-            vec![2],
         );
         assert_eq!(r.unwrap(), 1);
 
@@ -414,7 +453,6 @@ fn test_get_machine_valid_stake_duration_should_works() {
             0,
             0,
             machine_id,
-            vec![2],
         );
         assert_eq!(r.unwrap(), 10);
     });
