@@ -1970,6 +1970,7 @@ version = "3.2.0-dev"
 dependencies = [
  "bs58",
  "frame-support",
+ "frame-system",
  "hex",
  "parity-scale-codec",
  "scale-info",

@@ -1,9 +1,11 @@
-use sp_runtime::traits::Verify;
+use parity_scale_codec::{Decode, Encode};
+use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_std::{
     convert::{TryFrom, TryInto},
     str, vec,
     vec::Vec,
 };
+
 
 // Reference： primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
 // from_ss58check_with_version
@@ -148,5 +150,23 @@ pub trait OnlineCommitteeSummary {
             }
         };
         summary
+    }
+}
+
+pub fn verify_signature(
+    data: Vec<u8>,
+    sig: sp_core::sr25519::Signature,
+    from: sp_core::sr25519::Public,
+) -> bool {
+    sig.verify(&data[..], &from.into_account())
+}
+
+pub fn account_id<T: frame_system::Config>(
+    from: sp_core::sr25519::Public,
+) -> Result<T::AccountId, &'static str> {
+    let result = T::AccountId::decode(&mut &from.encode()[..]);
+    match result {
+        Ok(account_id) => Ok(account_id),
+        Err(_) => Err("account_id decode failed"),
     }
 }

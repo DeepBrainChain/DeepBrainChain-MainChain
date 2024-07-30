@@ -14,7 +14,8 @@ mod tests;
 pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
-    traits::{DbcPrice, RTOps},
+    traits::{DbcPrice, MachineInfoTrait, RTOps},
+    utils::{account_id, verify_signature},
     EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY,
 };
 use frame_support::{
@@ -661,5 +662,87 @@ impl<T: Config> Pallet<T> {
             }
         }
         Ok((machine_order_count < 2, renter_order_count < 2))
+    }
+
+    pub fn get_rent_ids(machine_id: MachineId, renter: &T::AccountId) -> Vec<RentOrderId> {
+        let machine_orders = Self::machine_rent_order(machine_id);
+
+        let mut rent_ids: Vec<RentOrderId> = Vec::new();
+        for order_id in machine_orders.rent_order {
+            if let Some(rent_info) = Self::rent_info(order_id) {
+                if renter == &rent_info.renter && rent_info.rent_status == RentStatus::Renting {
+                    rent_ids.push(order_id);
+                }
+            }
+        }
+        rent_ids
+    }
+}
+
+impl<T: Config> MachineInfoTrait for Pallet<T> {
+    type BlockNumber = T::BlockNumber;
+
+    fn get_machine_calc_point(machine_id: MachineId) -> u64 {
+        let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id);
+        if let Some(machine_info) = machine_info_result {
+            return machine_info.calc_point()
+        }
+        0
+    }
+
+    fn get_machine_valid_stake_duration(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        last_claim_at: T::BlockNumber,
+        slash_at: T::BlockNumber,
+        machine_id: MachineId,
+    ) -> Result<T::BlockNumber, &'static str> {
+        let ok = verify_signature(data, sig, from.clone());
+        if !ok {
+            return Err("signature verify failed")
+        };
+
+        let renter = account_id::<T>(from.clone())?;
+        let rent_ids = Self::get_rent_ids(machine_id.clone(), &renter);
+        let now = <frame_system::Pallet<T>>::block_number();
+        let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
+        if slash_at == T::BlockNumber::default() {
+            rent_ids.iter().for_each(|rent_id| {
+                let rent_info_result = Self::rent_info(rent_id).ok_or("rent not found");
+                if let Ok(rent_info) = rent_info_result {
+                    if renter == rent_info.renter &&
+                        rent_info.machine_id == machine_id &&
+                        rent_info.rent_end >= last_claim_at
+                    {
+                        if rent_info.rent_end >= now {
+                            rent_duration += now - last_claim_at
+                        } else {
+                            rent_duration += rent_info.rent_end - last_claim_at
+                        }
+                    }
+                }
+            });
+        } else {
+            rent_ids.iter().for_each(|rent_id| {
+                let rent_info_result = Self::rent_info(rent_id).ok_or("rent not found");
+                if let Ok(rent_info) = rent_info_result {
+                    if renter == rent_info.renter &&
+                        rent_info.machine_id == machine_id &&
+                        rent_info.rent_end >= last_claim_at
+                    {
+                        if rent_info.rent_end >= slash_at && slash_at >= last_claim_at {
+                            rent_duration += slash_at - last_claim_at;
+                        } else if rent_info.rent_end < slash_at &&
+                            rent_info.rent_end >= last_claim_at
+                        {
+                            rent_duration += rent_info.rent_end - last_claim_at
+                        }
+                    }
+                }
+            });
+        }
+
+        Ok(rent_duration)
     }
 }

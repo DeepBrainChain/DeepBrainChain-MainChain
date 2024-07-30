@@ -17,6 +17,9 @@ use dbc_price::DBCPrice;
 mod project_register;
 use project_register::AIProjectRegister;
 
+mod machine_info;
+use machine_info::MachineInfo;
+
 const LOG_TARGET: &str = "evm";
 
 pub struct DBCPrecompiles<T>(PhantomData<T>);
@@ -49,6 +52,8 @@ where
     Bridge<T>: Precompile,
     DBCPrice<T>: Precompile,
     AIProjectRegister<T>: Precompile,
+    MachineInfo<T>: Precompile,
+
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         match handle.code_address() {
@@ -71,7 +76,7 @@ where
             a if a == hash(2048) => Some(Bridge::<T>::execute(handle)),
             a if a == hash(2049) => Some(DBCPrice::<T>::execute(handle)),
             a if a == hash(2050) => Some(AIProjectRegister::<T>::execute(handle)),
-
+            a if a == hash(2051) => Some(MachineInfo::<T>::execute(handle)),
             _ => None,
         }
     }

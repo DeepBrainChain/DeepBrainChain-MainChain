@@ -14,17 +14,19 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_std::{prelude::*, vec, vec::Vec};
 
-use dbc_support::{rental_type::RentStatus, traits::ProjectRegister, MachineId, RentOrderId};
+use dbc_support::{
+    traits::ProjectRegister,
+    utils::{account_id, verify_signature},
+    MachineId,
+};
 pub use pallet::*;
-use sp_runtime::traits::{IdentifyAccount, Verify};
-use RentStatus::Renting;
 
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + online_profile::Config + rent_machine::Config {
+    pub trait Config: frame_system::Config + rent_machine::Config {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
     }
 
@@ -93,102 +95,25 @@ pub mod pallet {
 }
 
 impl<T: Config> ProjectRegister for Pallet<T> {
-    type AccountId = T::AccountId;
-    type BlockNumber = T::BlockNumber;
-
-    type Signature = sp_core::sr25519::Signature;
-
-    type PublicKey = sp_core::sr25519::Public;
     fn is_registered(machine_id: MachineId, project_name: Vec<u8>) -> bool {
         Self::machine_id_to_ai_project_name(&machine_id).contains(&project_name)
     }
 
-    // get calc_point of machine
-    fn get_machine_calc_point(machine_id: MachineId) -> u64 {
-        let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id);
-        if let Some(machine_info) = machine_info_result {
-            return machine_info.calc_point()
-        }
-        0
-    }
-
-    fn get_machine_valid_stake_duration(
-        data: Vec<u8>,
-        sig: Self::Signature,
-        from: Self::PublicKey,
-        last_claim_at: T::BlockNumber,
-        slash_at: T::BlockNumber,
-        machine_id: MachineId,
-    ) -> Result<T::BlockNumber, &'static str> {
-        let ok = Self::verify_signature(data, sig, from.clone());
-        if !ok {
-            return Err("signature verify failed")
-        };
-
-        let renter = Self::account_id(from.clone())?;
-        let rent_ids = Self::get_rent_ids(machine_id.clone(), &renter);
-        let now = <frame_system::Pallet<T>>::block_number();
-        let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
-        if slash_at == T::BlockNumber::default() {
-            rent_ids.iter().for_each(|rent_id| {
-                let rent_info_result =
-                    <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or("rent not found");
-                if let Ok(rent_info) = rent_info_result {
-                    if renter == rent_info.renter &&
-                        rent_info.machine_id == machine_id &&
-                        rent_info.rent_end >= last_claim_at
-                    {
-                        if rent_info.rent_end >= now {
-                            rent_duration += now - last_claim_at
-                        } else {
-                            rent_duration += rent_info.rent_end - last_claim_at
-                        }
-                    }
-                }
-            });
-        } else {
-            rent_ids.iter().for_each(|rent_id| {
-                let rent_info_result =
-                    <rent_machine::Pallet<T>>::rent_info(rent_id).ok_or("rent not found");
-                if let Ok(rent_info) = rent_info_result {
-                    if renter == rent_info.renter &&
-                        rent_info.machine_id == machine_id &&
-                        rent_info.rent_end >= last_claim_at
-                    {
-                        if rent_info.rent_end >= slash_at && slash_at >= last_claim_at {
-                            rent_duration += slash_at - last_claim_at;
-                        } else if rent_info.rent_end < slash_at &&
-                            rent_info.rent_end >= last_claim_at
-                        {
-                            rent_duration += rent_info.rent_end - last_claim_at
-                        }
-                    }
-                }
-            });
-        }
-
-        Ok(rent_duration)
-    }
-
-    fn verify_signature(data: Vec<u8>, sig: Self::Signature, from: Self::PublicKey) -> bool {
-        sig.verify(&data[..], &from.into_account())
-    }
-
     fn add_machine_registered_project(
         data: Vec<u8>,
-        sig: Self::Signature,
-        from: Self::PublicKey,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
         machine_id: MachineId,
         project_name: Vec<u8>,
     ) -> Result<(), &'static str> {
-        let ok = Self::verify_signature(data, sig, from.clone());
+        let ok = verify_signature(data, sig, from.clone());
         if !ok {
             return Err("signature verify failed")
         };
 
-        let who = Self::account_id(from.clone())?;
+        let who = account_id::<T>(from.clone())?;
 
-        let rent_ids = Self::get_rent_ids(machine_id.clone(), &who);
+        let rent_ids = <rent_machine::Pallet<T>>::get_rent_ids(machine_id.clone(), &who);
         if rent_ids.len() == 0 {
             return Err("machine not rented")
         }
@@ -215,17 +140,17 @@ impl<T: Config> ProjectRegister for Pallet<T> {
 
     fn remove_machine_registered_project(
         data: Vec<u8>,
-        sig: Self::Signature,
-        from: Self::PublicKey,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
         machine_id: MachineId,
         project_name: Vec<u8>,
     ) -> Result<(), &'static str> {
-        let ok = Self::verify_signature(data, sig, from.clone());
+        let ok = verify_signature(data, sig, from.clone());
         if !ok {
             return Err("signature verify failed")
         };
 
-        let who = Self::account_id(from.clone())?;
+        let who = account_id::<T>(from.clone())?;
         let owner =
             Self::registered_info_to_owner(&machine_id, &project_name).ok_or("not registered")?;
         if who != owner {
@@ -254,45 +179,20 @@ impl<T: Config> ProjectRegister for Pallet<T> {
         Ok(().into())
     }
 
-    fn account_id(from: Self::PublicKey) -> Result<T::AccountId, &'static str> {
-        let result = T::AccountId::decode(&mut &from.encode()[..]);
-        match result {
-            Ok(account_id) => Ok(account_id),
-            Err(_) => Err("account_id decode failed"),
-        }
-    }
-
     fn is_registered_machine_owner(
         data: Vec<u8>,
-        sig: Self::Signature,
-        from: Self::PublicKey,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
         machine_id: MachineId,
         project_name: Vec<u8>,
     ) -> Result<bool, &'static str> {
-        let ok = Self::verify_signature(data, sig, from.clone());
+        let ok = verify_signature(data, sig, from.clone());
         if !ok {
             return Err("signature verify failed")
         };
         let owner =
             Self::registered_info_to_owner(machine_id, project_name).ok_or("not registered")?;
-        let who = Self::account_id(from.clone())?;
+        let who = account_id::<T>(from.clone())?;
         Ok(owner == who)
-    }
-}
-
-impl<T: Config> Pallet<T> {
-    fn get_rent_ids(machine_id: MachineId, renter: &T::AccountId) -> Vec<RentOrderId> {
-        let machine_orders = <rent_machine::Pallet<T>>::machine_rent_order(machine_id);
-
-        let mut rent_ids: Vec<RentOrderId> = Vec::new();
-        // NOTE: 一定是正在租用的机器才算，正在确认中的租用不算
-        for order_id in machine_orders.rent_order {
-            if let Some(rent_info) = <rent_machine::Pallet<T>>::rent_info(order_id) {
-                if renter == &rent_info.renter && rent_info.rent_status == Renting {
-                    rent_ids.push(order_id);
-                }
-            }
-        }
-        rent_ids
     }
 }

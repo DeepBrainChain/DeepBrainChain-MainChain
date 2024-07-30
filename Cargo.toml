@@ -150,6 +150,7 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch 
 sp-transaction-storage-proof = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-version = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 substrate-fixed = { git = "https://github.com/encointer/substrate-fixed", default-features = false }
+env_logger = "0.10.2"
 
 # Substrate (client)
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }

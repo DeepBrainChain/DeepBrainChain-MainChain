@@ -116,47 +116,46 @@ pub trait DbcPrice {
 }
 
 pub trait ProjectRegister {
-    type AccountId;
-    type BlockNumber;
-    type Signature;
-    type PublicKey;
+    // type BlockNumber;
     fn is_registered(machine_id: MachineId, project_name: Vec<u8>) -> bool;
-    fn get_machine_calc_point(machine_id: MachineId) -> u64;
-    fn get_machine_valid_stake_duration(
-        data: Vec<u8>,
-        sig: Self::Signature,
-        from: Self::PublicKey,
-        last_claim_at: Self::BlockNumber,
-        slash_at: Self::BlockNumber,
-        machine_id: MachineId,
-    ) -> Result<Self::BlockNumber, &'static str>;
-    fn verify_signature(data: Vec<u8>, sig: Self::Signature, from: Self::PublicKey) -> bool;
 
     fn add_machine_registered_project(
         data: Vec<u8>,
-        sig: Self::Signature,
-        from: Self::PublicKey,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
         machine_id: MachineId,
         project_name: Vec<u8>,
     ) -> Result<(), &'static str>;
 
     fn remove_machine_registered_project(
         data: Vec<u8>,
-        sig: Self::Signature,
-        from: Self::PublicKey,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
         machine_id: MachineId,
         project_name: Vec<u8>,
     ) -> Result<(), &'static str>;
 
-    fn account_id(from: Self::PublicKey) -> Result<Self::AccountId, &'static str>;
-
     fn is_registered_machine_owner(
         data: Vec<u8>,
-        sig: Self::Signature,
-        from: Self::PublicKey,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
         machine_id: MachineId,
         project_name: Vec<u8>,
     ) -> Result<bool, &'static str>;
+}
+
+pub trait MachineInfoTrait {
+    type BlockNumber;
+    fn get_machine_calc_point(machine_id: MachineId) -> u64;
+
+    fn get_machine_valid_stake_duration(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        last_claim_at: Self::BlockNumber,
+        slash_at: Self::BlockNumber,
+        machine_id: MachineId,
+    ) -> Result<Self::BlockNumber, &'static str>;
 }
 
 pub trait MTOps {

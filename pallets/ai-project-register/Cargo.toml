@@ -34,11 +34,10 @@ pallet-balances = { workspace = true, features = ["std"] }
 dbc-price-ocw = { path = "../dbc-price-ocw", default-features = false }
 generic-func = { path = "../generic-func", default-features = false }
 committee = { path = "../committee" }
-hex = "0.4.3"
+hex = { workspace = true }
 sp-keyring = { workspace = true }
-sp-core = { workspace = true }
 sp-runtime = { workspace = true }
-env_logger = "0.10.2"
+env_logger = { workspace = true }
 
 [features]
 default = ["std"]
@@ -52,7 +51,6 @@ std = [
     "pallet-balances/std",
     "pallet-insecure-randomness-collective-flip/std",
     "pallet-collective/std",
-    "sp-core/std",
     "sp-runtime/std"
 
 ]
