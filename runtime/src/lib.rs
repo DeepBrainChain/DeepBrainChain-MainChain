@@ -1426,27 +1426,6 @@ impl pallet_nfts::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
-    pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
-    pub const MigrationMaxKeyLen: u32 = 512;
-}
-
-impl pallet_state_trie_migration::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type ControlOrigin = EnsureRoot<AccountId>;
-    type Currency = Balances;
-    type MaxKeyLen = MigrationMaxKeyLen;
-    type SignedDepositPerItem = MigrationSignedDepositPerItem;
-    type SignedDepositBase = MigrationSignedDepositBase;
-    // Warning: this is not advised, as it might allow the chain to be temporarily DOS-ed.
-    // Preferably, if the chain's governance/maintenance team is planning on using a specific
-    // account for the migration, put it here to make sure only that account can trigger the signed
-    // migrations.
-    type SignedFilter = EnsureSigned<Self::AccountId>;
-    type WeightInfo = ();
-}
-
-parameter_types! {
     pub const BlockPerEra: u32 = 3600 * 24 / 30;
 }
 
@@ -1729,7 +1708,6 @@ construct_runtime!(
         Mmr: pallet_mmr,
         Nfts: pallet_nfts,
         VoterList: pallet_bags_list::<Instance1>,
-        StateTrieMigration: pallet_state_trie_migration,
         ChildBounties: pallet_child_bounties,
         Referenda: pallet_referenda,
         ConvictionVoting: pallet_conviction_voting,

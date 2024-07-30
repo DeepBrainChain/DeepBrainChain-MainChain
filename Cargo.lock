@@ -1893,7 +1893,6 @@ dependencies = [
  "pallet-staking 4.0.0-dev",
  "pallet-staking-reward-curve 4.0.0-dev",
  "pallet-staking-runtime-api",
- "pallet-state-trie-migration",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-tips",
@@ -6584,23 +6583,6 @@ version = "4.0.0-dev"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
-]
-
-[[package]]
-name = "pallet-state-trie-migration"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.39#8c4b84520cee2d7de53cc33cb67605ce4efefba8"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]

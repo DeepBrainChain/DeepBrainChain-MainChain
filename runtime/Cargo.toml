@@ -88,7 +88,6 @@ pallet-referenda = { workspace = true }
 pallet-root-testing = { workspace = true }
 pallet-session = { workspace = true, features = ["historical"] }
 pallet-session-benchmarking = { workspace = true, optional = true }
-pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-tips = { workspace = true }
@@ -213,7 +212,6 @@ std = [
   "sp-staking/std",
   "pallet-staking/std",
   "pallet-staking-runtime-api/std",
-  "pallet-state-trie-migration/std",
   "sp-session/std",
   "pallet-sudo/std",
   "frame-support/std",
@@ -320,7 +318,6 @@ runtime-benchmarks = [
   # "pallet-remark/runtime-benchmarks",
   "pallet-session-benchmarking/runtime-benchmarks",
   "pallet-staking/runtime-benchmarks",
-  "pallet-state-trie-migration/runtime-benchmarks",
   "pallet-timestamp/runtime-benchmarks",
   "pallet-tips/runtime-benchmarks",
   # "pallet-transaction-storage/runtime-benchmarks",
@@ -374,7 +371,6 @@ try-runtime = [
   "pallet-root-testing/try-runtime",
   "pallet-session/try-runtime",
   "pallet-staking/try-runtime",
-  "pallet-state-trie-migration/try-runtime",
   "pallet-scheduler/try-runtime",
   "pallet-sudo/try-runtime",
   "pallet-timestamp/try-runtime",
