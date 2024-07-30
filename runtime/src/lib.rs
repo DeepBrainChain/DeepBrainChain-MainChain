@@ -1581,6 +1581,11 @@ construct_runtime!(
         NominationPools: pallet_nomination_pools = 32,
         Sudo: pallet_sudo = 33,
 
+        // Evm
+        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 50,
+        Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 51,
+        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 52,
+
         // DBC pallets
         Staking: pallet_staking = 100,
         Assets: pallet_assets = 101,
@@ -1597,9 +1602,6 @@ construct_runtime!(
         MaintainCommittee: maintain_committee = 112,
         TerminatingRental: terminating_rental = 113,
         EthereumChainId: ethereum_chain_id = 114,
-        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 115,
-        Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 116,
-        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 177,
     }
 );
 
