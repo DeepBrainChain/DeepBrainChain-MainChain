@@ -6,7 +6,6 @@ use sp_std::{
     vec::Vec,
 };
 
-
 // Reference： primitives/core/src/crypto.rs: impl Ss58Codec for AccountId32
 // from_ss58check_with_version
 // eg.

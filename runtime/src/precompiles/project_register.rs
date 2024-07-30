@@ -2,7 +2,7 @@ use fp_evm::{
     ExitRevert, ExitSucceed, Precompile, PrecompileFailure, PrecompileHandle, PrecompileOutput,
     PrecompileResult,
 };
-use sp_core::{Get};
+use sp_core::Get;
 use sp_runtime::RuntimeDebug;
 extern crate alloc;
 use crate::precompiles::LOG_TARGET;

@@ -53,7 +53,6 @@ where
     DBCPrice<T>: Precompile,
     AIProjectRegister<T>: Precompile,
     MachineInfo<T>: Precompile,
-
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         match handle.code_address() {

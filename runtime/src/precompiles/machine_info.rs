@@ -8,7 +8,7 @@ extern crate alloc;
 use crate::precompiles::LOG_TARGET;
 use alloc::format;
 use core::marker::PhantomData;
-use dbc_support::traits::{MachineInfoTrait};
+use dbc_support::traits::MachineInfoTrait;
 use frame_support::{ensure, pallet_prelude::Weight};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pallet_evm::GasWeightMapping;
