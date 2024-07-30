@@ -1701,7 +1701,6 @@ name = "dbc-executor"
 version = "4.0.0-dev"
 dependencies = [
  "dbc-runtime",
- "dbc-runtime-interface",
  "frame-benchmarking",
  "sc-executor",
 ]
