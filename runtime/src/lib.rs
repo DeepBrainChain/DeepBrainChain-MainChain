@@ -817,120 +817,6 @@ impl pallet_nomination_pools::Config for Runtime {
 }
 
 parameter_types! {
-    pub const VoteLockingPeriod: BlockNumber = 30 * DAYS;
-}
-
-impl pallet_conviction_voting::Config for Runtime {
-    type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Self>;
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type VoteLockingPeriod = VoteLockingPeriod;
-    type MaxVotes = ConstU32<512>;
-    type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
-    type Polls = Referenda;
-}
-
-parameter_types! {
-    pub const AlarmInterval: BlockNumber = 1;
-    pub const SubmissionDeposit: Balance = 100 * DOLLARS;
-    pub const UndecidingTimeout: BlockNumber = 28 * DAYS;
-}
-
-pub struct TracksInfo;
-impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
-    type Id = u16;
-    type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-    fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
-        static DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 1] = [(
-            0u16,
-            pallet_referenda::TrackInfo {
-                name: "root",
-                max_deciding: 1,
-                decision_deposit: 10,
-                prepare_period: 4,
-                decision_period: 4,
-                confirm_period: 2,
-                min_enactment_period: 4,
-                min_approval: pallet_referenda::Curve::LinearDecreasing {
-                    length: Perbill::from_percent(100),
-                    floor: Perbill::from_percent(50),
-                    ceil: Perbill::from_percent(100),
-                },
-                min_support: pallet_referenda::Curve::LinearDecreasing {
-                    length: Perbill::from_percent(100),
-                    floor: Perbill::from_percent(0),
-                    ceil: Perbill::from_percent(100),
-                },
-            },
-        )];
-        &DATA[..]
-    }
-    fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
-        if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
-            match system_origin {
-                frame_system::RawOrigin::Root => Ok(0),
-                _ => Err(()),
-            }
-        } else {
-            Err(())
-        }
-    }
-}
-pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);
-
-impl pallet_referenda::Config for Runtime {
-    type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type Scheduler = Scheduler;
-    type Currency = pallet_balances::Pallet<Self>;
-    type SubmitOrigin = EnsureSigned<AccountId>;
-    type CancelOrigin = EnsureRoot<AccountId>;
-    type KillOrigin = EnsureRoot<AccountId>;
-    type Slash = ();
-    type Votes = pallet_conviction_voting::VotesOf<Runtime>;
-    type Tally = pallet_conviction_voting::TallyOf<Runtime>;
-    type SubmissionDeposit = SubmissionDeposit;
-    type MaxQueued = ConstU32<100>;
-    type UndecidingTimeout = UndecidingTimeout;
-    type AlarmInterval = AlarmInterval;
-    type Tracks = TracksInfo;
-    type Preimages = Preimage;
-}
-
-impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
-    type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type Scheduler = Scheduler;
-    type Currency = pallet_balances::Pallet<Self>;
-    type SubmitOrigin = EnsureSigned<AccountId>;
-    type CancelOrigin = EnsureRoot<AccountId>;
-    type KillOrigin = EnsureRoot<AccountId>;
-    type Slash = ();
-    type Votes = pallet_ranked_collective::Votes;
-    type Tally = pallet_ranked_collective::TallyOf<Runtime>;
-    type SubmissionDeposit = SubmissionDeposit;
-    type MaxQueued = ConstU32<100>;
-    type UndecidingTimeout = UndecidingTimeout;
-    type AlarmInterval = AlarmInterval;
-    type Tracks = TracksInfo;
-    type Preimages = Preimage;
-}
-
-impl pallet_ranked_collective::Config for Runtime {
-    type WeightInfo = pallet_ranked_collective::weights::SubstrateWeight<Self>;
-    type RuntimeEvent = RuntimeEvent;
-    type PromoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<65535>>;
-    type DemoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<65535>>;
-    type Polls = RankedPolls;
-    type MinRankOfClass = traits::Identity;
-    type VoteWeight = pallet_ranked_collective::Geometric;
-}
-
-impl pallet_root_testing::Config for Runtime {}
-
-parameter_types! {
     pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES;
@@ -1694,11 +1580,7 @@ construct_runtime!(
         Tips: pallet_tips,
         VoterList: pallet_bags_list::<Instance1>,
         ChildBounties: pallet_child_bounties,
-        Referenda: pallet_referenda,
-        ConvictionVoting: pallet_conviction_voting,
         NominationPools: pallet_nomination_pools,
-        RankedPolls: pallet_referenda::<Instance2>,
-        RankedCollective: pallet_ranked_collective,
 
         // DBC pallets
         Staking: pallet_staking,
@@ -1804,7 +1686,6 @@ mod benches {
         [pallet_bounties, Bounties]
         [pallet_child_bounties, ChildBounties]
         [pallet_collective, Council]
-        [pallet_conviction_voting, ConvictionVoting]
         [pallet_democracy, Democracy]
         [pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
         [pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
@@ -1822,8 +1703,6 @@ mod benches {
         [pallet_offences, OffencesBench::<Runtime>]
         [pallet_preimage, Preimage]
         [pallet_proxy, Proxy]
-        [pallet_ranked_collective, RankedCollective]
-        [pallet_referenda, Referenda]
         [pallet_recovery, Recovery]
         [pallet_remark, Remark]
         [pallet_scheduler, Scheduler]
