@@ -81,7 +81,6 @@ pallet-proxy = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
 pallet-recovery = { workspace = true }
 # pallet-remark = { workspace = true }
-pallet-root-testing = { workspace = true }
 pallet-session = { workspace = true, features = ["historical"] }
 pallet-session-benchmarking = { workspace = true, optional = true }
 pallet-sudo = { workspace = true }
@@ -101,6 +100,7 @@ pallet-staking = { package = "pallet-staking", path = "../pallets/staking", defa
 pallet-staking-reward-curve = { package = "pallet-staking-reward-curve", path = "../pallets/staking/reward-curve", default-features = false }
 pallet-staking-runtime-api = { package = "pallet-staking-runtime-api", path = "../pallets/staking/runtime-api", default-features = false }
 pallet-nfts = { path = "../pallets/nfts", default-features = false }
+pallet-scheduler = { path = "../pallets/scheduler", default-features = false }
 
 committee = { path = "../pallets/committee", default-features = false }
 council-reward = { path = "../pallets/council-reward", default-features = false }
@@ -120,8 +120,6 @@ online-profile-runtime-api = { path = "../pallets/online-profile/rpc/runtime-api
 rent-machine-runtime-api = { path = "../pallets/rent-machine/rpc/runtime-api", default-features = false }
 simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
 terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/runtime-api", default-features = false }
-
-pallet-scheduler = { path = "../pallets/scheduler", default-features = false }
 
 # Evm
 ethereum-chain-id = { path = "../pallets/ethereum-chain-id", default-features = false }
@@ -216,7 +214,6 @@ std = [
   "pallet-utility/std",
   "sp-version/std",
   # "pallet-remark/std",
-  "pallet-root-testing/std",
   "pallet-recovery/std",
   "pallet-nfts/std",
   "log/std",
@@ -342,7 +339,6 @@ try-runtime = [
   "pallet-insecure-randomness-collective-flip/try-runtime",
   "pallet-recovery/try-runtime",
   # "pallet-remark/try-runtime",
-  "pallet-root-testing/try-runtime",
   "pallet-session/try-runtime",
   "pallet-staking/try-runtime",
   "pallet-scheduler/try-runtime",

@@ -51,7 +51,7 @@ use frame_support::{
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
-    EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureWithSuccess,
+    EnsureRoot, EnsureSigned, EnsureWithSuccess,
 };
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
@@ -1544,62 +1544,62 @@ construct_runtime!(
         NodeBlock = dbc_primitives::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
-        System: frame_system,
-        Utility: pallet_utility,
-        Babe: pallet_babe,
-        Timestamp: pallet_timestamp,
+        System: frame_system = 0,
+        Utility: pallet_utility = 1,
+        Timestamp: pallet_timestamp = 2,
+        Babe: pallet_babe = 3,
+        Grandpa: pallet_grandpa = 4,
         // Authorship must be before session in order to note author in the correct session and era
         // for im-online and staking.
-        Authorship: pallet_authorship,
-        Indices: pallet_indices,
-        Balances: pallet_balances,
-        TransactionPayment: pallet_transaction_payment,
-        AssetTxPayment: pallet_asset_tx_payment,
-        ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
-        Session: pallet_session,
-        Democracy: pallet_democracy,
-        Council: pallet_collective::<Instance1>,
-        TechnicalCommittee: pallet_collective::<Instance2>,
-        Elections: pallet_elections_phragmen,
-        TechnicalMembership: pallet_membership::<Instance1>,
-        Grandpa: pallet_grandpa,
-        Treasury: pallet_treasury,
-        Sudo: pallet_sudo,
-        ImOnline: pallet_im_online,
-        AuthorityDiscovery: pallet_authority_discovery,
-        Offences: pallet_offences,
-        Historical: pallet_session_historical::{Pallet},
-        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
-        Identity: pallet_identity,
-        Recovery: pallet_recovery,
-        Scheduler: pallet_scheduler,
-        Preimage: pallet_preimage,
-        Proxy: pallet_proxy,
-        Multisig: pallet_multisig,
-        Bounties: pallet_bounties,
-        Tips: pallet_tips,
-        VoterList: pallet_bags_list::<Instance1>,
-        ChildBounties: pallet_child_bounties,
-        NominationPools: pallet_nomination_pools,
+        Authorship: pallet_authorship = 5,
+        Indices: pallet_indices = 6,
+        Balances: pallet_balances = 7,
+        TransactionPayment: pallet_transaction_payment = 8,
+        AssetTxPayment: pallet_asset_tx_payment = 9,
+        Session: pallet_session = 10,
+        Historical: pallet_session_historical::{Pallet} = 11,
+        Democracy: pallet_democracy = 12,
+        Council: pallet_collective::<Instance1> = 13,
+        TechnicalCommittee: pallet_collective::<Instance2> = 14,
+        Elections: pallet_elections_phragmen = 15,
+        ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 16,
+        TechnicalMembership: pallet_membership::<Instance1> = 17,
+        Treasury: pallet_treasury = 18,
+        ImOnline: pallet_im_online = 19,
+        AuthorityDiscovery: pallet_authority_discovery = 20,
+        Offences: pallet_offences = 21,
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 22,
+        Identity: pallet_identity = 23,
+        Recovery: pallet_recovery = 24,
+        Preimage: pallet_preimage = 25,
+        Proxy: pallet_proxy = 26,
+        Multisig: pallet_multisig = 27,
+        Bounties: pallet_bounties = 28,
+        ChildBounties: pallet_child_bounties = 29,
+        Tips: pallet_tips = 30,
+        VoterList: pallet_bags_list::<Instance1> = 31,
+        NominationPools: pallet_nomination_pools = 32,
+        Sudo: pallet_sudo = 33,
 
         // DBC pallets
-        Staking: pallet_staking,
-        Assets: pallet_assets,
-        Nfts: pallet_nfts,
-        GenericFunc: generic_func,
-        CouncilReward: council_reward,
-        DBCPriceOCW: dbc_price_ocw,
-        OnlineProfile: online_profile,
-        Committee: committee,
-        SimpleRpc: simple_rpc,
-        OnlineCommittee: online_committee,
-        RentMachine: rent_machine,
-        MaintainCommittee: maintain_committee,
-        TerminatingRental: terminating_rental,
-        EthereumChainId: ethereum_chain_id,
-        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
-        Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
-        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
+        Staking: pallet_staking = 100,
+        Assets: pallet_assets = 101,
+        Nfts: pallet_nfts = 102,
+        Scheduler: pallet_scheduler = 103,
+        GenericFunc: generic_func = 104,
+        CouncilReward: council_reward = 105,
+        DBCPriceOCW: dbc_price_ocw = 106,
+        OnlineProfile: online_profile = 107,
+        Committee: committee = 108,
+        SimpleRpc: simple_rpc = 109,
+        OnlineCommittee: online_committee = 110,
+        RentMachine: rent_machine = 111,
+        MaintainCommittee: maintain_committee = 112,
+        TerminatingRental: terminating_rental = 113,
+        EthereumChainId: ethereum_chain_id = 114,
+        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 115,
+        Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 116,
+        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 177,
     }
 );
 
@@ -2088,7 +2088,7 @@ impl_runtime_apis! {
             let gas_limit = gas_limit.min(u64::MAX.into()).low_u64();
             let without_base_extrinsic_weight = true;
 
-            let (weight_limit, proof_size_base_cost) =
+            let (_weight_limit, _proof_size_base_cost) =
                 match <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
                     gas_limit,
                     without_base_extrinsic_weight
@@ -2111,8 +2111,8 @@ impl_runtime_apis! {
                 access_list.unwrap_or_default(),
                 is_transactional,
                 validate,
-                // weight_limit,
-                // proof_size_base_cost,
+                // _weight_limit,
+                // _proof_size_base_cost,
                 config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
             ).map_err(|err| err.error.into())
         }
@@ -2165,7 +2165,7 @@ impl_runtime_apis! {
             };
             let without_base_extrinsic_weight = true;
 
-            let (weight_limit, proof_size_base_cost) =
+            let (_weight_limit, _proof_size_base_cost) =
                 match <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
                     gas_limit,
                     without_base_extrinsic_weight
@@ -2188,8 +2188,8 @@ impl_runtime_apis! {
                 access_list.unwrap_or_default(),
                 is_transactional,
                 validate,
-                // weight_limit,
-                // proof_size_base_cost,
+                // _weight_limit,
+                // _proof_size_base_cost,
                 config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
             ).map_err(|err| err.error.into())
         }
