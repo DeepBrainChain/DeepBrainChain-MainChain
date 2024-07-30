@@ -1,3 +1,4 @@
+use crate::MachineId;
 use sp_std::vec::Vec;
 
 pub trait PhaseReward {
@@ -112,6 +113,49 @@ pub trait DbcPrice {
 
     fn get_dbc_price() -> Option<Self::Balance>;
     fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance>;
+}
+
+pub trait ProjectRegister {
+    // type BlockNumber;
+    fn is_registered(machine_id: MachineId, project_name: Vec<u8>) -> bool;
+
+    fn add_machine_registered_project(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+        project_name: Vec<u8>,
+    ) -> Result<(), &'static str>;
+
+    fn remove_machine_registered_project(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+        project_name: Vec<u8>,
+    ) -> Result<(), &'static str>;
+
+    fn is_registered_machine_owner(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+        project_name: Vec<u8>,
+    ) -> Result<bool, &'static str>;
+}
+
+pub trait MachineInfoTrait {
+    type BlockNumber;
+    fn get_machine_calc_point(machine_id: MachineId) -> u64;
+
+    fn get_machine_valid_stake_duration(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        last_claim_at: Self::BlockNumber,
+        slash_at: Self::BlockNumber,
+        machine_id: MachineId,
+    ) -> Result<Self::BlockNumber, &'static str>;
 }
 
 pub trait MTOps {

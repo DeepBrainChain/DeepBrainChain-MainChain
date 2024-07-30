@@ -36,7 +36,7 @@ use sp_std::{
     collections::{btree_map::BTreeMap, vec_deque::VecDeque},
     convert::From,
     prelude::*,
-    str,
+    str, vec,
     vec::Vec,
 };
 

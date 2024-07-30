@@ -125,6 +125,8 @@ online-profile-runtime-api = { path = "../pallets/online-profile/rpc/runtime-api
 rent-machine-runtime-api = { path = "../pallets/rent-machine/rpc/runtime-api", default-features = false }
 simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
 terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/runtime-api", default-features = false }
+ai-project-register = { path = "../pallets/ai-project-register", default-features = false }
+
 
 pallet-scheduler = { path = "../pallets/scheduler", default-features = false }
 
@@ -150,6 +152,8 @@ pallet-evm-precompile-dispatch = { workspace = true }
 pallet-evm-precompile-modexp = { workspace = true }
 pallet-evm-precompile-sha3fips = { workspace = true }
 pallet-evm-precompile-simple = { workspace = true }
+hex = {version = "0.4.3", default-features = false}
+
 
 [features]
 default = ["std"]
@@ -402,4 +406,5 @@ try-runtime = [
   "pallet-evm/try-runtime",
   "pallet-ethereum/try-runtime",
   "pallet-base-fee/try-runtime",
+  "ai-project-register/try-runtime"
 ]
