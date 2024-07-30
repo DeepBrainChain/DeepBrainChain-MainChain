@@ -127,13 +127,6 @@ terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/run
 
 pallet-scheduler = { path = "../pallets/scheduler", default-features = false }
 
-pallet-contracts = { workspace = true }
-pallet-contracts-primitives = { workspace = true }
-# Chain extension
-#pallet-assets-chain-extension = { git = "https://github.com/727-Ventures/pallet-assets-chain-extension", default-features = false, features = ["substrate"], branch = "polkadot-v0.9.37"  }
-
-#pallet-contracts-rpc-runtime-api = { workspace = true }
-
 # Evm
 ethereum-chain-id = { path = "../pallets/ethereum-chain-id", default-features = false }
 # Frontier
@@ -259,9 +252,6 @@ std = [
   "rent-machine-runtime-api/std",
   "simple-rpc-runtime-api/std",
   "terminating-rental-runtime-api/std",
-
-  "pallet-contracts/std",
-  "pallet-contracts-primitives/std",
 
   # Evm
   "ethereum-chain-id/std",
@@ -393,7 +383,6 @@ try-runtime = [
   "rent-machine/try-runtime",
   "simple-rpc/try-runtime",
   "terminating-rental/try-runtime",
-  "pallet-contracts/try-runtime",
   "fp-self-contained/try-runtime",
   "ethereum-chain-id/try-runtime",
   "pallet-evm/try-runtime",
