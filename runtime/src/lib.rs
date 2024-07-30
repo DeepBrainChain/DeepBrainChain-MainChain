@@ -1339,15 +1339,6 @@ impl pallet_recovery::Config for Runtime {
     type RecoveryDeposit = RecoveryDeposit;
 }
 
-impl pallet_mmr::Config for Runtime {
-    const INDEXING_PREFIX: &'static [u8] = b"mmr";
-    type Hashing = <Runtime as frame_system::Config>::Hashing;
-    type Hash = <Runtime as frame_system::Config>::Hash;
-    type LeafData = pallet_mmr::ParentNumberAndHash<Self>;
-    type OnNewRoot = ();
-    type WeightInfo = ();
-}
-
 parameter_types! {
     pub const AssetDeposit: Balance = 100 * DOLLARS;
     pub const ApprovalDeposit: Balance = 1 * DOLLARS;
@@ -1679,7 +1670,6 @@ construct_runtime!(
         TransactionPayment: pallet_transaction_payment,
         AssetTxPayment: pallet_asset_tx_payment,
         ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
-        Staking: pallet_staking,
         Session: pallet_session,
         Democracy: pallet_democracy,
         Council: pallet_collective::<Instance1>,
@@ -1702,9 +1692,6 @@ construct_runtime!(
         Multisig: pallet_multisig,
         Bounties: pallet_bounties,
         Tips: pallet_tips,
-        Assets: pallet_assets,
-        Mmr: pallet_mmr,
-        Nfts: pallet_nfts,
         VoterList: pallet_bags_list::<Instance1>,
         ChildBounties: pallet_child_bounties,
         Referenda: pallet_referenda,
@@ -1712,6 +1699,11 @@ construct_runtime!(
         NominationPools: pallet_nomination_pools,
         RankedPolls: pallet_referenda::<Instance2>,
         RankedCollective: pallet_ranked_collective,
+
+        // DBC pallets
+        Staking: pallet_staking,
+        Assets: pallet_assets,
+        Nfts: pallet_nfts,
         GenericFunc: generic_func,
         CouncilReward: council_reward,
         DBCPriceOCW: dbc_price_ocw,
@@ -1796,16 +1788,6 @@ type Migrations = (
     terminating_rental::migrations::v1::Migration<Runtime>,
 );
 
-/// MMR helper types.
-mod mmr {
-    use super::Runtime;
-    pub use pallet_mmr::primitives::*;
-
-    pub type Leaf = <<Runtime as pallet_mmr::Config>::LeafData as LeafDataProvider>::LeafData;
-    pub type Hash = <Runtime as pallet_mmr::Config>::Hash;
-    pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 extern crate frame_benchmarking;
@@ -1835,7 +1817,6 @@ mod benches {
         [pallet_indices, Indices]
         [pallet_membership, TechnicalMembership]
         [pallet_message_queue, MessageQueue]
-        [pallet_mmr, Mmr]
         [pallet_multisig, Multisig]
         [pallet_nomination_pools, NominationPoolsBench::<Runtime>]
         [pallet_offences, OffencesBench::<Runtime>]
@@ -2139,56 +2120,6 @@ impl_runtime_apis! {
         }
         fn query_length_to_fee(length: u32) -> Balance {
             TransactionPayment::length_to_fee(length)
-        }
-    }
-
-    impl pallet_mmr::primitives::MmrApi<
-        Block,
-        mmr::Hash,
-        BlockNumber,
-    > for Runtime {
-        fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
-            Ok(Mmr::mmr_root())
-        }
-
-        fn mmr_leaf_count() -> Result<mmr::LeafIndex, mmr::Error> {
-            Ok(Mmr::mmr_leaves())
-        }
-
-        fn generate_proof(
-            block_numbers: Vec<BlockNumber>,
-            best_known_block_number: Option<BlockNumber>,
-        ) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<mmr::Hash>), mmr::Error> {
-            Mmr::generate_proof(block_numbers, best_known_block_number).map(
-                |(leaves, proof)| {
-                    (
-                        leaves
-                            .into_iter()
-                            .map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf))
-                            .collect(),
-                        proof,
-                    )
-                },
-            )
-        }
-
-        fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::Proof<mmr::Hash>)
-            -> Result<(), mmr::Error>
-        {
-            let leaves = leaves.into_iter().map(|leaf|
-                leaf.into_opaque_leaf()
-                .try_decode()
-                .ok_or(mmr::Error::Verify)).collect::<Result<Vec<mmr::Leaf>, mmr::Error>>()?;
-            Mmr::verify_leaves(leaves, proof)
-        }
-
-        fn verify_proof_stateless(
-            root: mmr::Hash,
-            leaves: Vec<mmr::EncodableOpaqueLeaf>,
-            proof: mmr::Proof<mmr::Hash>
-        ) -> Result<(), mmr::Error> {
-            let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
-            pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
         }
     }
 

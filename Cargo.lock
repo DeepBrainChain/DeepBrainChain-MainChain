@@ -1776,7 +1776,6 @@ dependencies = [
  "fc-storage",
  "fp-rpc",
  "jsonrpsee",
- "mmr-rpc",
  "online-committee-rpc",
  "online-profile-rpc",
  "pallet-transaction-payment-rpc",
@@ -1871,7 +1870,6 @@ dependencies = [
  "pallet-indices",
  "pallet-insecure-randomness-collective-flip",
  "pallet-membership",
- "pallet-mmr",
  "pallet-multisig",
  "pallet-nfts",
  "pallet-nomination-pools",
@@ -5004,22 +5002,6 @@ dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "mmr-rpc"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.39#8c4b84520cee2d7de53cc33cb67605ce4efefba8"
-dependencies = [
- "anyhow",
- "jsonrpsee",
- "parity-scale-codec",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-mmr-primitives",
- "sp-runtime",
 ]
 
 [[package]]
