@@ -1,16 +1,17 @@
 use super::super::{mock::*, *};
 use crate::mock::new_test_ext;
-use dbc_support::rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus};
+use dbc_support::{
+    rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
+    traits::MachineInfoTrait,
+};
 use frame_support::{assert_err, assert_ok, traits::Currency};
 use sp_core::{sr25519, Pair};
 pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
-use dbc_support::traits::MachineInfoTrait;
 
-
-use RentMachine;
 use rent_machine::{MachineRentOrder, RentInfo};
+use RentMachine;
 
 type BalanceOf<Test> = <<Test as rent_machine::Config>::Currency as Currency<
     <Test as frame_system::Config>::AccountId,
@@ -449,7 +450,7 @@ fn test_get_machine_valid_stake_duration_should_works() {
             gpu_index: vec![],
         };
         RentInfo::<Test>::insert(2, rent_info_renting);
-        let r =RentMachine::get_machine_valid_stake_duration(
+        let r = RentMachine::get_machine_valid_stake_duration(
             msg,
             sig,
             alice.public(),
