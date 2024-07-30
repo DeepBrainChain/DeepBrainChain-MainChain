@@ -1,12 +1,15 @@
 use super::super::{mock::*, *};
 use crate::mock::new_test_ext;
-use dbc_support::rental_type::{MachineGPUOrder, RentOrderDetail};
+use dbc_support::rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus};
 use frame_support::{assert_err, assert_ok, traits::Currency};
 use sp_core::{sr25519, Pair};
 pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
+use dbc_support::traits::MachineInfoTrait;
 
+
+use RentMachine;
 use rent_machine::{MachineRentOrder, RentInfo};
 
 type BalanceOf<Test> = <<Test as rent_machine::Config>::Currency as Currency<
@@ -329,7 +332,7 @@ fn sig_verify_should_works() {
 
 
         // Works as expected - no magic involved.
-        assert_eq!(AiProjectRegister::verify_signature(msg.clone(), sig.clone(), alice.public()),true);
+        assert_eq!(verify_signature(msg.clone(), sig.clone(), alice.public()),true);
         // Signature on "The actual message" by Alice via PolkadotJS.
         let alice = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
         // Signature on "The actual message" by Alice via PolkadotJS.
@@ -341,12 +344,12 @@ fn sig_verify_should_works() {
         let sig2 = sp_core::sr25519::Signature::from_slice(&sig[..]).unwrap();
         // This will not work since it's missing the wrapping:
         let msg: Vec<u8> = b"The actual message".to_vec();
-        assert_eq!(AiProjectRegister::verify_signature(msg,sig2.clone(), alice.public()),false);
+        assert_eq!(verify_signature(msg,sig2.clone(), alice.public()),false);
 
         // This will work since it's wrapped:
         let msg: Vec<u8> = b"<Bytes>The actual message</Bytes>".to_vec();
 
-        assert_eq!(AiProjectRegister::verify_signature(msg, sig2, alice.public()),true);
+        assert_eq!(verify_signature(msg, sig2, alice.public()),true);
 
 
         let msg: Vec<u8> = b"123".to_vec();
@@ -368,7 +371,7 @@ fn sig_verify_should_works() {
         let pub_key = sp_core::sr25519::Public(b);
 
         println!("sig: {:?}, pub_key: {:?}", sig, pub_key);
-        assert_eq!(AiProjectRegister::verify_signature(msg, sig,pub_key),true);
+        assert_eq!(verify_signature(msg, sig,pub_key),true);
     })
 }
 #[test]
@@ -379,7 +382,7 @@ fn test_account_id_should_works() {
     new_test_ext().execute_with(|| {
         let alice = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
 
-        let r = AiProjectRegister::account_id(alice.public()).unwrap();
+        let r = account_id::<Test>(alice.public()).unwrap();
         assert_eq!(r, alice.public());
     });
 }
@@ -420,7 +423,7 @@ fn test_get_machine_valid_stake_duration_should_works() {
         MachineRentOrder::<Test>::insert(machine_id.clone(), order);
 
         System::set_block_number(10);
-        let r = AiProjectRegister::get_machine_valid_stake_duration(
+        let r = RentMachine::get_machine_valid_stake_duration(
             msg.clone(),
             sig.clone(),
             alice.public(),
@@ -446,7 +449,7 @@ fn test_get_machine_valid_stake_duration_should_works() {
             gpu_index: vec![],
         };
         RentInfo::<Test>::insert(2, rent_info_renting);
-        let r = AiProjectRegister::get_machine_valid_stake_duration(
+        let r =RentMachine::get_machine_valid_stake_duration(
             msg,
             sig,
             alice.public(),

@@ -22,13 +22,13 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp,
         AiProjectRegister: ai_project_register::{Pallet, Call, Storage, Event<T>},
         Balances: pallet_balances,
-        // OnlineProfile: online_profile,
+        OnlineProfile: online_profile,
         DBCPriceOCW: dbc_price_ocw,
         GenericFunc: generic_func,
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
         Committee: committee,
         TechnicalCommittee: pallet_collective::<Instance2>,
-        RentMachine: rent_machine,
+        RentMachine: rent_machine::{Pallet, Call, Storage, Event<T>},
 
     }
 );
