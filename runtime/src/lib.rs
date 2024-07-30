@@ -140,17 +140,17 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 /// Runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("node"),
-    impl_name: create_runtime_str!("substrate-node"),
-    authoring_version: 10,
+    spec_name: create_runtime_str!("DeepBrainChain"),
+    impl_name: create_runtime_str!("DeepBrainChain"),
+    authoring_version: 1,
     // Per convention: if the runtime behavior changes, increment spec_version
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 279,
+    spec_version: 400,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 2,
+    transaction_version: 1,
     state_version: 1,
 };
 

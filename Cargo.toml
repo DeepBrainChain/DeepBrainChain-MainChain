@@ -1,5 +1,5 @@
 [workspace.package]
-version = "3.2.0-dev"
+version = "4.0.0-dev"
 authors = ["DeepBrainChain Developers"]
 repository = "https://github.com/DeepBrainChain/DeepBrainChain-MainChain"
 
@@ -115,12 +115,8 @@ pallet-treasury = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-tips = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 pallet-whitelist = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-parity-scale-codec = { version = "3.2.2", default-features = false, features = [
-	"derive",
-] }
-scale-info = { version = "2.0", default-features = false, features = [
-	"derive",
-] }
+parity-scale-codec = { version = "3.2.2", default-features = false, features = ["derive"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
@@ -214,9 +210,7 @@ mmr-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-
 node-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 
 # Frontier (wasm)
-ethereum = { version = "0.14.0", default-features = false, features = [
-	"with-codec",
-] }
+ethereum = { version = "0.14.0", default-features = false, features = ["with-codec"] }
 ethereum-types = { version = "0.14", default-features = false }
 evm = { git = "https://github.com/paritytech/evm", branch = "tgm-record-external-cost", default-features = false }
 evm-gasometer = { git = "https://github.com/paritytech/evm", branch = "tgm-record-external-cost", default-features = false }
@@ -240,9 +234,7 @@ pallet-evm-precompile-simple = { git = "https://github.com/DeepBrainChain/DBC-EV
 fc-consensus = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
 fc-db = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
 fc-mapping-sync = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
-fc-rpc = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39", features = [
-	"rpc-binary-search-estimate",
-] }
+fc-rpc = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39", features = ["rpc-binary-search-estimate"] }
 fc-rpc-core = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
 fc-storage = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
 fp-consensus = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
