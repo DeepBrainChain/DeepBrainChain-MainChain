@@ -13,4 +13,3 @@ frame-benchmarking = { workspace = true, features = ["std"] }
 sc-executor = { workspace = true, features = ["std"] }
 
 dbc-runtime = { path = "../../runtime" }
-dbc-runtime-interface = { path = "../runtime-interface" }

@@ -51,7 +51,7 @@ use frame_support::{
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
-    EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureWithSuccess,
+    EnsureRoot, EnsureSigned, EnsureWithSuccess,
 };
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
@@ -122,7 +122,6 @@ mod voter_bags;
 
 mod migrations;
 
-mod contracts_config;
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -194,7 +193,6 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
 const MAXIMUM_BLOCK_WEIGHT: Weight =
     Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
-pub const CONTRACTS_DEBUG_OUTPUT: bool = true;
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 2400;
@@ -819,120 +817,6 @@ impl pallet_nomination_pools::Config for Runtime {
 }
 
 parameter_types! {
-    pub const VoteLockingPeriod: BlockNumber = 30 * DAYS;
-}
-
-impl pallet_conviction_voting::Config for Runtime {
-    type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Self>;
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type VoteLockingPeriod = VoteLockingPeriod;
-    type MaxVotes = ConstU32<512>;
-    type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
-    type Polls = Referenda;
-}
-
-parameter_types! {
-    pub const AlarmInterval: BlockNumber = 1;
-    pub const SubmissionDeposit: Balance = 100 * DOLLARS;
-    pub const UndecidingTimeout: BlockNumber = 28 * DAYS;
-}
-
-pub struct TracksInfo;
-impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
-    type Id = u16;
-    type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
-    fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
-        static DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 1] = [(
-            0u16,
-            pallet_referenda::TrackInfo {
-                name: "root",
-                max_deciding: 1,
-                decision_deposit: 10,
-                prepare_period: 4,
-                decision_period: 4,
-                confirm_period: 2,
-                min_enactment_period: 4,
-                min_approval: pallet_referenda::Curve::LinearDecreasing {
-                    length: Perbill::from_percent(100),
-                    floor: Perbill::from_percent(50),
-                    ceil: Perbill::from_percent(100),
-                },
-                min_support: pallet_referenda::Curve::LinearDecreasing {
-                    length: Perbill::from_percent(100),
-                    floor: Perbill::from_percent(0),
-                    ceil: Perbill::from_percent(100),
-                },
-            },
-        )];
-        &DATA[..]
-    }
-    fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
-        if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
-            match system_origin {
-                frame_system::RawOrigin::Root => Ok(0),
-                _ => Err(()),
-            }
-        } else {
-            Err(())
-        }
-    }
-}
-pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);
-
-impl pallet_referenda::Config for Runtime {
-    type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type Scheduler = Scheduler;
-    type Currency = pallet_balances::Pallet<Self>;
-    type SubmitOrigin = EnsureSigned<AccountId>;
-    type CancelOrigin = EnsureRoot<AccountId>;
-    type KillOrigin = EnsureRoot<AccountId>;
-    type Slash = ();
-    type Votes = pallet_conviction_voting::VotesOf<Runtime>;
-    type Tally = pallet_conviction_voting::TallyOf<Runtime>;
-    type SubmissionDeposit = SubmissionDeposit;
-    type MaxQueued = ConstU32<100>;
-    type UndecidingTimeout = UndecidingTimeout;
-    type AlarmInterval = AlarmInterval;
-    type Tracks = TracksInfo;
-    type Preimages = Preimage;
-}
-
-impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
-    type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type Scheduler = Scheduler;
-    type Currency = pallet_balances::Pallet<Self>;
-    type SubmitOrigin = EnsureSigned<AccountId>;
-    type CancelOrigin = EnsureRoot<AccountId>;
-    type KillOrigin = EnsureRoot<AccountId>;
-    type Slash = ();
-    type Votes = pallet_ranked_collective::Votes;
-    type Tally = pallet_ranked_collective::TallyOf<Runtime>;
-    type SubmissionDeposit = SubmissionDeposit;
-    type MaxQueued = ConstU32<100>;
-    type UndecidingTimeout = UndecidingTimeout;
-    type AlarmInterval = AlarmInterval;
-    type Tracks = TracksInfo;
-    type Preimages = Preimage;
-}
-
-impl pallet_ranked_collective::Config for Runtime {
-    type WeightInfo = pallet_ranked_collective::weights::SubstrateWeight<Self>;
-    type RuntimeEvent = RuntimeEvent;
-    type PromoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<65535>>;
-    type DemoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<65535>>;
-    type Polls = RankedPolls;
-    type MinRankOfClass = traits::Identity;
-    type VoteWeight = pallet_ranked_collective::Geometric;
-}
-
-impl pallet_root_testing::Config for Runtime {}
-
-parameter_types! {
     pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES;
@@ -1341,15 +1225,6 @@ impl pallet_recovery::Config for Runtime {
     type RecoveryDeposit = RecoveryDeposit;
 }
 
-impl pallet_mmr::Config for Runtime {
-    const INDEXING_PREFIX: &'static [u8] = b"mmr";
-    type Hashing = <Runtime as frame_system::Config>::Hashing;
-    type Hash = <Runtime as frame_system::Config>::Hash;
-    type LeafData = pallet_mmr::ParentNumberAndHash<Self>;
-    type OnNewRoot = ();
-    type WeightInfo = ();
-}
-
 parameter_types! {
     pub const AssetDeposit: Balance = 100 * DOLLARS;
     pub const ApprovalDeposit: Balance = 1 * DOLLARS;
@@ -1423,27 +1298,6 @@ impl pallet_nfts::Config for Runtime {
     type Helper = ();
     type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
     type Locker = ();
-}
-
-parameter_types! {
-    pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
-    pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
-    pub const MigrationMaxKeyLen: u32 = 512;
-}
-
-impl pallet_state_trie_migration::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type ControlOrigin = EnsureRoot<AccountId>;
-    type Currency = Balances;
-    type MaxKeyLen = MigrationMaxKeyLen;
-    type SignedDepositPerItem = MigrationSignedDepositPerItem;
-    type SignedDepositBase = MigrationSignedDepositBase;
-    // Warning: this is not advised, as it might allow the chain to be temporarily DOS-ed.
-    // Preferably, if the chain's governance/maintenance team is planning on using a specific
-    // account for the migration, put it here to make sure only that account can trigger the signed
-    // migrations.
-    type SignedFilter = EnsureSigned<Self::AccountId>;
-    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -1690,67 +1544,64 @@ construct_runtime!(
         NodeBlock = dbc_primitives::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
-        System: frame_system,
-        Utility: pallet_utility,
-        Babe: pallet_babe,
-        Timestamp: pallet_timestamp,
+        System: frame_system = 0,
+        Utility: pallet_utility = 1,
+        Timestamp: pallet_timestamp = 2,
+        Babe: pallet_babe = 3,
+        Grandpa: pallet_grandpa = 4,
         // Authorship must be before session in order to note author in the correct session and era
         // for im-online and staking.
-        Authorship: pallet_authorship,
-        Indices: pallet_indices,
-        Balances: pallet_balances,
-        TransactionPayment: pallet_transaction_payment,
-        AssetTxPayment: pallet_asset_tx_payment,
-        ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
-        Staking: pallet_staking,
-        Session: pallet_session,
-        Democracy: pallet_democracy,
-        Council: pallet_collective::<Instance1>,
-        TechnicalCommittee: pallet_collective::<Instance2>,
-        Elections: pallet_elections_phragmen,
-        TechnicalMembership: pallet_membership::<Instance1>,
-        Grandpa: pallet_grandpa,
-        Treasury: pallet_treasury,
-        Sudo: pallet_sudo,
-        ImOnline: pallet_im_online,
-        AuthorityDiscovery: pallet_authority_discovery,
-        Offences: pallet_offences,
-        Historical: pallet_session_historical::{Pallet},
-        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
-        Identity: pallet_identity,
-        Recovery: pallet_recovery,
-        Scheduler: pallet_scheduler,
-        Preimage: pallet_preimage,
-        Proxy: pallet_proxy,
-        Multisig: pallet_multisig,
-        Bounties: pallet_bounties,
-        Tips: pallet_tips,
-        Assets: pallet_assets,
-        Mmr: pallet_mmr,
-        Nfts: pallet_nfts,
-        VoterList: pallet_bags_list::<Instance1>,
-        StateTrieMigration: pallet_state_trie_migration,
-        ChildBounties: pallet_child_bounties,
-        Referenda: pallet_referenda,
-        ConvictionVoting: pallet_conviction_voting,
-        NominationPools: pallet_nomination_pools,
-        RankedPolls: pallet_referenda::<Instance2>,
-        RankedCollective: pallet_ranked_collective,
-        GenericFunc: generic_func,
-        CouncilReward: council_reward,
-        DBCPriceOCW: dbc_price_ocw,
-        OnlineProfile: online_profile,
-        Committee: committee,
-        SimpleRpc: simple_rpc,
-        OnlineCommittee: online_committee,
-        RentMachine: rent_machine,
-        MaintainCommittee: maintain_committee,
-        TerminatingRental: terminating_rental,
-        Contracts: pallet_contracts,
-        EthereumChainId: ethereum_chain_id,
-        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
-        Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
-        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
+        Authorship: pallet_authorship = 5,
+        Indices: pallet_indices = 6,
+        Balances: pallet_balances = 7,
+        TransactionPayment: pallet_transaction_payment = 8,
+        AssetTxPayment: pallet_asset_tx_payment = 9,
+        Session: pallet_session = 10,
+        Historical: pallet_session_historical::{Pallet} = 11,
+        Democracy: pallet_democracy = 12,
+        Council: pallet_collective::<Instance1> = 13,
+        TechnicalCommittee: pallet_collective::<Instance2> = 14,
+        Elections: pallet_elections_phragmen = 15,
+        ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 16,
+        TechnicalMembership: pallet_membership::<Instance1> = 17,
+        Treasury: pallet_treasury = 18,
+        ImOnline: pallet_im_online = 19,
+        AuthorityDiscovery: pallet_authority_discovery = 20,
+        Offences: pallet_offences = 21,
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 22,
+        Identity: pallet_identity = 23,
+        Recovery: pallet_recovery = 24,
+        Preimage: pallet_preimage = 25,
+        Proxy: pallet_proxy = 26,
+        Multisig: pallet_multisig = 27,
+        Bounties: pallet_bounties = 28,
+        ChildBounties: pallet_child_bounties = 29,
+        Tips: pallet_tips = 30,
+        VoterList: pallet_bags_list::<Instance1> = 31,
+        NominationPools: pallet_nomination_pools = 32,
+        Sudo: pallet_sudo = 33,
+
+        // Evm
+        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 50,
+        Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 51,
+        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 52,
+
+        // DBC pallets
+        Staking: pallet_staking = 100,
+        Assets: pallet_assets = 101,
+        Nfts: pallet_nfts = 102,
+        Scheduler: pallet_scheduler = 103,
+        GenericFunc: generic_func = 104,
+        CouncilReward: council_reward = 105,
+        DBCPriceOCW: dbc_price_ocw = 106,
+        OnlineProfile: online_profile = 107,
+        Committee: committee = 108,
+        SimpleRpc: simple_rpc = 109,
+        OnlineCommittee: online_committee = 110,
+        RentMachine: rent_machine = 111,
+        MaintainCommittee: maintain_committee = 112,
+        TerminatingRental: terminating_rental = 113,
+        EthereumChainId: ethereum_chain_id = 114,
     }
 );
 
@@ -1821,16 +1672,6 @@ type Migrations = (
     terminating_rental::migrations::v1::Migration<Runtime>,
 );
 
-/// MMR helper types.
-mod mmr {
-    use super::Runtime;
-    pub use pallet_mmr::primitives::*;
-
-    pub type Leaf = <<Runtime as pallet_mmr::Config>::LeafData as LeafDataProvider>::LeafData;
-    pub type Hash = <Runtime as pallet_mmr::Config>::Hash;
-    pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 extern crate frame_benchmarking;
@@ -1847,7 +1688,6 @@ mod benches {
         [pallet_bounties, Bounties]
         [pallet_child_bounties, ChildBounties]
         [pallet_collective, Council]
-        [pallet_conviction_voting, ConvictionVoting]
         [pallet_democracy, Democracy]
         [pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
         [pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
@@ -1860,14 +1700,11 @@ mod benches {
         [pallet_indices, Indices]
         [pallet_membership, TechnicalMembership]
         [pallet_message_queue, MessageQueue]
-        [pallet_mmr, Mmr]
         [pallet_multisig, Multisig]
         [pallet_nomination_pools, NominationPoolsBench::<Runtime>]
         [pallet_offences, OffencesBench::<Runtime>]
         [pallet_preimage, Preimage]
         [pallet_proxy, Proxy]
-        [pallet_ranked_collective, RankedCollective]
-        [pallet_referenda, Referenda]
         [pallet_recovery, Recovery]
         [pallet_remark, Remark]
         [pallet_scheduler, Scheduler]
@@ -2167,56 +2004,6 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_mmr::primitives::MmrApi<
-        Block,
-        mmr::Hash,
-        BlockNumber,
-    > for Runtime {
-        fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
-            Ok(Mmr::mmr_root())
-        }
-
-        fn mmr_leaf_count() -> Result<mmr::LeafIndex, mmr::Error> {
-            Ok(Mmr::mmr_leaves())
-        }
-
-        fn generate_proof(
-            block_numbers: Vec<BlockNumber>,
-            best_known_block_number: Option<BlockNumber>,
-        ) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<mmr::Hash>), mmr::Error> {
-            Mmr::generate_proof(block_numbers, best_known_block_number).map(
-                |(leaves, proof)| {
-                    (
-                        leaves
-                            .into_iter()
-                            .map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf))
-                            .collect(),
-                        proof,
-                    )
-                },
-            )
-        }
-
-        fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::Proof<mmr::Hash>)
-            -> Result<(), mmr::Error>
-        {
-            let leaves = leaves.into_iter().map(|leaf|
-                leaf.into_opaque_leaf()
-                .try_decode()
-                .ok_or(mmr::Error::Verify)).collect::<Result<Vec<mmr::Leaf>, mmr::Error>>()?;
-            Mmr::verify_leaves(leaves, proof)
-        }
-
-        fn verify_proof_stateless(
-            root: mmr::Hash,
-            leaves: Vec<mmr::EncodableOpaqueLeaf>,
-            proof: mmr::Proof<mmr::Hash>
-        ) -> Result<(), mmr::Error> {
-            let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
-            pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
-        }
-    }
-
     impl sp_session::SessionKeys<Block> for Runtime {
         fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
             SessionKeys::generate(seed)
@@ -2226,71 +2013,6 @@ impl_runtime_apis! {
             encoded: Vec<u8>,
         ) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
             SessionKeys::decode_into_raw_public_keys(&encoded)
-        }
-    }
-
-   impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash>
-        for Runtime
-    {
-        fn call(
-            origin: AccountId,
-            dest: AccountId,
-            value: Balance,
-            gas_limit: Option<Weight>,
-            storage_deposit_limit: Option<Balance>,
-            input_data: Vec<u8>,
-        ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
-            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
-            Contracts::bare_call(
-                origin,
-                dest,
-                value,
-                gas_limit,
-                storage_deposit_limit,
-                input_data,
-                CONTRACTS_DEBUG_OUTPUT,
-                pallet_contracts::Determinism::Deterministic,
-            )
-        }
-
-        fn instantiate(
-            origin: AccountId,
-            value: Balance,
-            gas_limit: Option<Weight>,
-            storage_deposit_limit: Option<Balance>,
-            code: pallet_contracts_primitives::Code<Hash>,
-            data: Vec<u8>,
-            salt: Vec<u8>,
-        ) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance>
-        {
-            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
-            Contracts::bare_instantiate(
-                origin,
-                value,
-                gas_limit,
-                storage_deposit_limit,
-                code,
-                data,
-                salt,
-                CONTRACTS_DEBUG_OUTPUT
-            )
-        }
-
-        fn upload_code(
-            origin: AccountId,
-            code: Vec<u8>,
-            storage_deposit_limit: Option<Balance>,
-            determinism: pallet_contracts::Determinism,
-        ) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
-        {
-            Contracts::bare_upload_code(origin, code, storage_deposit_limit, determinism)
-        }
-
-        fn get_storage(
-            address: AccountId,
-            key: Vec<u8>,
-        ) -> pallet_contracts_primitives::GetStorageResult {
-            Contracts::get_storage(address, key)
         }
     }
 
@@ -2368,7 +2090,7 @@ impl_runtime_apis! {
             let gas_limit = gas_limit.min(u64::MAX.into()).low_u64();
             let without_base_extrinsic_weight = true;
 
-            let (weight_limit, proof_size_base_cost) =
+            let (_weight_limit, _proof_size_base_cost) =
                 match <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
                     gas_limit,
                     without_base_extrinsic_weight
@@ -2391,8 +2113,8 @@ impl_runtime_apis! {
                 access_list.unwrap_or_default(),
                 is_transactional,
                 validate,
-                // weight_limit,
-                // proof_size_base_cost,
+                // _weight_limit,
+                // _proof_size_base_cost,
                 config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
             ).map_err(|err| err.error.into())
         }
@@ -2445,7 +2167,7 @@ impl_runtime_apis! {
             };
             let without_base_extrinsic_weight = true;
 
-            let (weight_limit, proof_size_base_cost) =
+            let (_weight_limit, _proof_size_base_cost) =
                 match <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
                     gas_limit,
                     without_base_extrinsic_weight
@@ -2468,8 +2190,8 @@ impl_runtime_apis! {
                 access_list.unwrap_or_default(),
                 is_transactional,
                 validate,
-                // weight_limit,
-                // proof_size_base_cost,
+                // _weight_limit,
+                // _proof_size_base_cost,
                 config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
             ).map_err(|err| err.error.into())
         }
