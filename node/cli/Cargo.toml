@@ -32,10 +32,7 @@ serde = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
 log = { workspace = true }
 rand = { workspace = true }
-
-coins-bip32 = { workspace = true }
-coins-bip39 = { workspace = true }
-k256 = { workspace = true }
+jsonrpsee = { workspace = true, features = ["server"] }
 
 # primitives
 sp-authority-discovery = { workspace = true }
@@ -73,12 +70,6 @@ sc-authority-discovery = { workspace = true }
 sc-sync-state-rpc = { workspace = true }
 sc-sysinfo = { workspace = true }
 sc-storage-monitor = { workspace = true }
-fc-db = { workspace = true }
-fc-mapping-sync = { workspace = true }
-fc-rpc = { workspace = true }
-fc-rpc-core = { workspace = true }
-fp-evm = { workspace = true }
-
 # frame dependencies
 pallet-assets = { path = "../../pallets/assets" }
 

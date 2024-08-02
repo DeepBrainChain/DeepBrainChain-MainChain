@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use dbc_primitives::{AccountId, Balance, Block, BlockNumber, Hash, Index};
 use jsonrpsee::RpcModule;
-use sc_client_api::{backend::StorageProvider, client::BlockchainEvents, AuxStore};
+use sc_client_api::{AuxStore};
 use sc_consensus_babe::{BabeConfiguration, Epoch};
 use sc_consensus_epochs::SharedEpochChanges;
 use sc_finality_grandpa::{
@@ -12,7 +12,6 @@ use sc_finality_grandpa::{
 };
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
-use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
@@ -20,11 +19,6 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
-use sp_runtime::traits::Block as BlockT;
-
-mod eth;
-pub use self::eth::{create_eth, overrides_handle, EthDeps};
-
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
     /// BABE protocol config.
@@ -50,7 +44,7 @@ pub struct GrandpaDeps<B> {
 }
 
 /// Full client dependencies.
-pub struct FullDeps<C, P, SC, B, A: ChainApi, CT> {
+pub struct FullDeps<C, P, SC, B> {
     /// The client instance to use.
     pub client: Arc<C>,
     /// Transaction pool instance.
@@ -65,15 +59,12 @@ pub struct FullDeps<C, P, SC, B, A: ChainApi, CT> {
     pub babe: BabeDeps,
     /// GRANDPA specific dependencies.
     pub grandpa: GrandpaDeps<B>,
-    /// Ethereum-compatibility specific dependencies.
-    pub eth: EthDeps<C, P, A, CT, Block>,
 }
 
 /// Instantiate all Full RPC extensions.
-pub fn create_full<C, P, SC, B, A, CT>(
-    deps: FullDeps<C, P, SC, B, A, CT>,
+pub fn create_full<C, P, SC, B>(
+    deps: FullDeps<C, P, SC, B>,
     backend: Arc<B>,
-    subscription_task_executor: SubscriptionTaskExecutor,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     C: ProvideRuntimeApi<Block>
@@ -81,8 +72,6 @@ where
         + HeaderBackend<Block>
         + AuxStore
         + HeaderMetadata<Block, Error = BlockChainError>
-        + StorageProvider<Block, B>
-        + BlockchainEvents<Block>
         + Sync
         + Send
         + 'static,
@@ -96,29 +85,23 @@ where
     C::Api: online_committee_rpc::OcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: rent_machine_rpc::RmStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: terminating_rental_rpc::IrStorageRuntimeApi<Block, AccountId, Balance, BlockNumber>,
-    C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
-    C::Api: fp_rpc::ConvertTransactionRuntimeApi<Block>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
-    P: TransactionPool<Block = Block> + Sync + Send + 'static,
+    P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
     B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
-    A: ChainApi<Block = Block> + 'static,
-    CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
 {
     use mmr_rpc::{Mmr, MmrApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_babe_rpc::{Babe, BabeApiServer};
     use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
-    use sc_rpc::dev::{Dev, DevApiServer};
     use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
     use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
     use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
     use committee_rpc::{CmRpcApiServer, CmStorage};
-    use dbc_finality_rpc::{DbcFinality, DbcFinalityApiServer};
     use online_committee_rpc::{OcRpcApiServer, OcStorage};
     use online_profile_rpc::{OpRpcApiServer, OpStorage};
     use rent_machine_rpc::{RmRpcApiServer, RmStorage};
@@ -126,7 +109,7 @@ where
     use terminating_rental_rpc::{IrRpcApiServer, IrStorage};
 
     let mut io = RpcModule::new(());
-    let FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa, eth } = deps;
+    let FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa } = deps;
 
     let BabeDeps { keystore, babe_config, shared_epoch_changes } = babe;
     let GrandpaDeps {
@@ -183,12 +166,6 @@ where
     )?;
 
     io.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())?;
-    io.merge(Dev::new(client.clone(), deny_unsafe).into_rpc())?;
-
-    io.merge(DbcFinality::new(client.clone(), eth.frontier_backend.clone()).into_rpc())?;
-
-    // Ethereum compatibility RPCs
-    let io = create_eth::<_, _, _, _, _, _>(io, eth, subscription_task_executor)?;
 
     Ok(io)
 }

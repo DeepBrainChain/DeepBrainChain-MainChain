@@ -18,17 +18,15 @@
 
 //! Substrate chain configurations.
 
-use coins_bip32::ecdsa::{SigningKey, VerifyingKey};
-use coins_bip39::{English, Mnemonic, Wordlist};
+
 use dbc_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
-    BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DefaultElasticity,
-    DemocracyConfig, EVMConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig,
+    BalancesConfig, Block, CouncilConfig,
+    DemocracyConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig,
     MaxNominations, NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
     SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
-use fp_evm::GenesisAccount;
-use k256::{elliptic_curve::sec1::ToEncodedPoint, EncodedPoint};
+
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
@@ -36,15 +34,12 @@ use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public, H160};
-use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_io::hashing::keccak_256;
+use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     Perbill,
 };
-use std::str::FromStr;
-
+use sp_finality_grandpa::AuthorityId as GrandpaId;
 pub use dbc_primitives::{AccountId, Balance, Signature};
 pub use dbc_runtime::GenesisConfig;
 
@@ -310,8 +305,6 @@ pub fn testnet_genesis(
     const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
     const STASH: Balance = ENDOWMENT / 1000;
 
-    // We prefund the standard dev accounts
-    let evm_accounts = get_evm_accounts(None);
 
     GenesisConfig {
         system: SystemConfig { code: wasm_binary_unwrap().to_vec() },
@@ -382,25 +375,6 @@ pub fn testnet_genesis(
             min_join_bond: 1 * DOLLARS,
             ..Default::default()
         },
-        ethereum_chain_id: Default::default(),
-        evm: EVMConfig {
-            accounts: evm_accounts
-                .iter()
-                .map(|addr| {
-                    (
-                        (*addr).into(),
-                        GenesisAccount {
-                            nonce: Default::default(),
-                            balance: (100_000 * DOLLARS).into(), // 1000 DBC
-                            storage: Default::default(),
-                            code: Default::default(),
-                        },
-                    )
-                })
-                .collect(),
-        },
-        ethereum: Default::default(),
-        base_fee: BaseFeeConfig::new(DefaultBaseFeePerGas::get(), DefaultElasticity::get()),
     }
 }
 
@@ -453,43 +427,6 @@ pub fn local_testnet_config() -> ChainSpec {
         Default::default(),
     )
 }
-
-fn generate_evm_address<W: Wordlist>(phrase: &str, index: u32) -> H160 {
-    let derivation_path =
-        coins_bip32::path::DerivationPath::from_str(&format!("m/44'/60'/0'/0/{}", index))
-            .expect("should parse the default derivation path");
-    let mnemonic = Mnemonic::<W>::new_from_phrase(phrase).unwrap();
-
-    let derived_priv_key = mnemonic.derive_key(derivation_path, None).unwrap();
-    let key: &SigningKey = derived_priv_key.as_ref();
-    let secret_key: SigningKey = SigningKey::from_bytes(&key.to_bytes()).unwrap();
-    let verify_key: VerifyingKey = secret_key.verifying_key();
-
-    let point: &EncodedPoint = &verify_key.to_encoded_point(false);
-    let public_key = point.to_bytes();
-
-    let hash = keccak_256(&public_key[1..]);
-    let address = H160::from_slice(&hash[12..]);
-
-    log::info!(
-        "private_key: 0x{:?} --------> Address: {:x?}",
-        sp_core::hexdisplay::HexDisplay::from(&key.to_bytes().to_vec()),
-        address
-    );
-    address
-}
-
-fn get_evm_accounts(mnemonic: Option<&str>) -> Vec<H160> {
-    let phrase =
-        mnemonic.unwrap_or("bottom drive obey lake curtain smoke basket hold race lonely fit walk");
-    let mut evm_accounts = Vec::new();
-    for index in 0..10u32 {
-        let addr = generate_evm_address::<English>(phrase, index);
-        evm_accounts.push(addr);
-    }
-    evm_accounts
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
