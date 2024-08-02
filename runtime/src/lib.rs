@@ -70,14 +70,12 @@ use sp_runtime::{
     curve::PiecewiseLinear,
     generic, impl_opaque_keys,
     traits::{
-        self, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
-         NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
+        self, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor, OpaqueKeys,
+        SaturatedConversion, StaticLookup,
     },
-    transaction_validity::{
-        TransactionPriority, TransactionSource, TransactionValidity,
-    },
-    ApplyExtrinsicResult, FixedPointNumber, FixedU128, PerThing, Perbill, Percent,
-    Permill, Perquintill,
+    transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
+    ApplyExtrinsicResult, FixedPointNumber, FixedU128, PerThing, Perbill, Percent, Permill,
+    Perquintill,
 };
 
 use sp_std::prelude::*;
