@@ -23,28 +23,24 @@
 use crate::Cli;
 use dbc_executor::DBCExecutorDispatch;
 use dbc_primitives::Block;
-use dbc_runtime::{RuntimeApi};
+use dbc_runtime::RuntimeApi;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use parity_scale_codec::Encode;
-use sc_client_api::{BlockBackend};
+use sc_client_api::BlockBackend;
 use sc_consensus_babe::{self, SlotProportion};
 use sc_executor::NativeElseWasmExecutor;
 use sc_network::NetworkService;
 use sc_network_common::{
     protocol::event::Event, service::NetworkEventStream, sync::warp::WarpSyncParams,
 };
-use sc_service::{
-    config::Configuration, error::Error as ServiceError,RpcHandlers, TaskManager,
-};
+use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
-use std::{
-    sync::{Arc},
-};
+use std::sync::Arc;
 
 /// The full client type definition.
 pub type FullClient =
@@ -337,6 +333,7 @@ pub fn new_full_base(
         other: (rpc_builder, import_setup, rpc_setup, mut telemetry),
     } = new_partial(&mut config)?;
 
+    let shared_voter_state = rpc_setup;
     let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
     let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
         &client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
@@ -532,7 +529,7 @@ pub fn new_full_base(
             telemetry: telemetry.as_ref().map(|x| x.handle()),
             voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
             prometheus_registry,
-            shared_voter_state: sc_finality_grandpa::SharedVoterState::empty(),
+            shared_voter_state,
         };
 
         // the GRANDPA voter task is considered infallible, i.e.

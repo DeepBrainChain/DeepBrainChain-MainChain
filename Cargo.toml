@@ -207,21 +207,6 @@ try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "p
 mmr-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 node-primitives = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 
-# Frontier (wasm)
-ethereum = { version = "0.14.0", default-features = false, features = [
-	"with-codec",
-] }
-ethereum-types = { version = "0.14", default-features = false }
-evm = { git = "https://github.com/paritytech/evm", branch = "tgm-record-external-cost", default-features = false }
-evm-gasometer = { git = "https://github.com/paritytech/evm", branch = "tgm-record-external-cost", default-features = false }
-evm-runtime = { git = "https://github.com/paritytech/evm", branch = "tgm-record-external-cost", default-features = false }
-fc-rpc = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39", features = [
-	"rpc-binary-search-estimate",
-] }
-fc-rpc-core = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
-fc-storage = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
-fp-consensus = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
-fp-storage = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.39" }
 # Other (wasm)
 affix = "0.1.2"
 async-trait = { version = "0.1.42" }

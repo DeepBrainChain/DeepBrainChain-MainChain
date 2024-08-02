@@ -29,14 +29,13 @@ array-bytes = { workspace = true }
 clap = { workspace = true, optional = true }
 parity-scale-codec = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+jsonrpsee = { workspace = true, features = ["server"] }
 futures = { workspace = true }
 log = { workspace = true }
 rand = { workspace = true }
-jsonrpsee = { workspace = true, features = ["server"] }
 
 # primitives
 sp-authority-discovery = { workspace = true }
-sp-blockchain = { workspace = true }
 sp-consensus-babe = { workspace = true }
 sp-finality-grandpa = { workspace = true }
 sp-api = { workspace = true }
