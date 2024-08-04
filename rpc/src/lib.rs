@@ -98,6 +98,7 @@ where
     use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
     use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
     use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
+    use sc_rpc::dev::{Dev, DevApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
     use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
@@ -166,6 +167,7 @@ where
     )?;
 
     io.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())?;
+    io.merge(Dev::new(client, deny_unsafe).into_rpc())?;
 
     Ok(io)
 }
