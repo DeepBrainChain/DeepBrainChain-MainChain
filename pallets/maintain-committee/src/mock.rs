@@ -551,3 +551,35 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
 
     ext
 }
+
+pub fn new_test_with_init_params_ext_1() -> sp_io::TestExternalities {
+    let mut ext = new_test_with_init_machine_online();
+    ext.execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        // 报告人租用机器
+        let reporter = sr25519::Public::from(Sr25519Keyring::Two);
+        let reporter1 = sr25519::Public::from(Sr25519Keyring::Eve);
+
+        // rent machine for 1 days
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(reporter),
+            machine_id.clone(),
+            2,
+            1 * 2880
+        ));
+
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(reporter1),
+            machine_id.clone(),
+            2,
+            2 * 2880
+        ));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter), 0));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter1), 1));
+    });
+
+    ext
+}

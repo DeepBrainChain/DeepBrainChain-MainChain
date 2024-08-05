@@ -67,8 +67,6 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 pub use pallet::*;
 pub use types::*;
 
-use frame_support::traits::StorageVersion;
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;

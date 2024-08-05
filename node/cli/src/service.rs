@@ -124,10 +124,9 @@ pub fn create_extrinsic(
         extra,
     )
 }
-
 /// Creates a new partial node.
 pub fn new_partial(
-    config: &Configuration,
+    config: &mut Configuration,
 ) -> Result<
     sc_service::PartialComponents<
         FullClient,
@@ -332,7 +331,7 @@ pub fn new_full_base(
         select_chain,
         transaction_pool,
         other: (rpc_builder, import_setup, rpc_setup, mut telemetry),
-    } = new_partial(&config)?;
+    } = new_partial(&mut config)?;
 
     let shared_voter_state = rpc_setup;
     let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
@@ -378,10 +377,9 @@ pub fn new_full_base(
     let name = config.network.node_name.clone();
     let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();
-
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         config,
-        backend,
+        backend: backend.clone(),
         client: client.clone(),
         keystore: keystore_container.sync_keystore(),
         network: network.clone(),
@@ -412,7 +410,6 @@ pub fn new_full_base(
     }
 
     let (block_import, grandpa_link, babe_link) = import_setup;
-
     (with_startup_data)(&block_import, &babe_link);
 
     if let sc_service::config::Role::Authority { .. } = &role {
@@ -566,12 +563,12 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 #[cfg(test)]
 mod tests {
     use crate::service::{new_full_base, NewFullBase};
-    use codec::Encode;
     use dbc_primitives::{Block, DigestItem, Signature};
     use dbc_runtime::{
         constants::{currency::CENTS, time::SLOT_DURATION},
         Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
     };
+    use parity_scale_codec::Encode;
     use sc_client_api::BlockBackend;
     use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
     use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};

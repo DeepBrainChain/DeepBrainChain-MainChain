@@ -1,0 +1,14 @@
+[package]
+name = "dbc-runtime-interface"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+
+[dependencies]
+sp-runtime-interface = { workspace = true }
+
+[features]
+default = [ "std" ]
+std = [
+  "sp-runtime-interface/std",
+]

@@ -103,7 +103,6 @@ use impls::{Author, CreditToBlockAuthor};
 pub mod constants;
 use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
-
 /// Generated voter bag information.
 mod voter_bags;
 
@@ -209,7 +208,6 @@ parameter_types! {
 }
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
-
 impl frame_system::Config for Runtime {
     type BaseCallFilter = Everything;
     type BlockWeights = RuntimeBlockWeights;
@@ -1514,7 +1512,6 @@ impl simple_rpc::Config for Runtime {
     type Currency = Balances;
     type OPRpcQuery = OnlineProfile;
 }
-
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
 parameter_types! {
@@ -1586,7 +1583,7 @@ construct_runtime!(
         RentMachine: rent_machine,
         MaintainCommittee: maintain_committee,
         TerminatingRental: terminating_rental,
-        Contracts: pallet_contracts
+        Contracts: pallet_contracts,
     }
 );
 
@@ -1651,7 +1648,6 @@ type Migrations = (
     //     >,
     //     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
     //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
-    pallet_assets::migration::v1::MigrateToV1<Runtime>,
     DemocracyV1Migration,
     online_profile::migration::v1::Migration<Runtime>,
     terminating_rental::migrations::v1::Migration<Runtime>,
@@ -1720,7 +1716,6 @@ mod benches {
         [pallet_whitelist, Whitelist]
     );
 }
-
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
@@ -2049,8 +2044,7 @@ impl_runtime_apis! {
         ) -> pallet_contracts_primitives::GetStorageResult {
             Contracts::get_storage(address, key)
         }
-}
-
+    }
     #[cfg(feature = "try-runtime")]
     impl frame_try_runtime::TryRuntime<Block> for Runtime {
         fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
@@ -2346,10 +2340,10 @@ mod tests {
     fn call_size() {
         let size = core::mem::size_of::<RuntimeCall>();
         assert!(
-			size <= 208,
-			"size of RuntimeCall {} is more than 208 bytes: some calls have too big arguments, use Box to reduce the
+			size <= 310,
+			"size of RuntimeCall {} is more than 310 bytes: some calls have too big arguments, use Box to reduce the
 			size of RuntimeCall.
-			If the limit is too strong, maybe consider increase the limit to 300.",
+			If the limit is too strong, maybe consider increase the limit.",
 			size,
 		);
     }

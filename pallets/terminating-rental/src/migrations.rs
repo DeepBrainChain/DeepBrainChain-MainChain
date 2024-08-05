@@ -50,11 +50,7 @@ impl<A, B, C> From<OldOCPendingSlashInfo<A, B, C>> for OCPendingSlashInfo<A, B, 
 //     );
 // }
 
-use frame_support::{
-    pallet_prelude::*,
-    storage_alias,
-    traits::{OnRuntimeUpgrade, StorageInstance},
-};
+use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 use Config;
 
 use crate::*;
@@ -156,10 +152,6 @@ mod v0 {
 pub mod v1 {
     use super::*;
     use dbc_support::machine_type::MachineInfoDetail;
-    use frame_support::{
-        migration::{storage_iter, storage_key_iter},
-        traits::Len,
-    };
 
     pub struct Migration<T>(PhantomData<T>);
     impl<T: Config> OnRuntimeUpgrade for Migration<T> {
@@ -192,65 +184,54 @@ pub mod v1 {
     }
 
     pub fn migrate<T: Config>() -> Weight {
-        let on_chain_version = Pallet::<T>::on_chain_storage_version();
-        let current_version = Pallet::<T>::current_storage_version();
         let mut weight = T::DbWeight::get().reads(2);
 
-        if on_chain_version == 0 && current_version == 1 {
-            log::info!(target: TARGET, "migrate executing");
+        log::info!(target: TARGET, "migrate executing");
 
-            MachinesInfo::<T>::translate(
-                |index, old: v0::MachineInfo<AccountIdOf<T>, BlockNumberOf<T>, BalanceOf<T>>| {
-                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        MachinesInfo::<T>::translate(
+            |_index, old: v0::MachineInfo<AccountIdOf<T>, BlockNumberOf<T>, BalanceOf<T>>| {
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-                    let new_machine_info = MachineInfo {
-                        controller: old.controller,
-                        machine_stash: old.machine_stash,
-                        renters: old.renters,
-                        last_machine_restake: old.last_machine_restake,
-                        bonding_height: old.bonding_height,
-                        online_height: old.online_height,
-                        last_online_height: old.last_online_height,
-                        init_stake_per_gpu: old.init_stake_per_gpu,
-                        stake_amount: old.stake_amount,
-                        machine_status: old.machine_status,
-                        total_rented_duration: old.total_rented_duration,
-                        total_rented_times: old.total_rented_times,
-                        total_rent_fee: old.total_rent_fee,
-                        total_burn_fee: old.total_burn_fee,
-                        machine_info_detail: MachineInfoDetail {
-                            staker_customize_info: StakerCustomizeInfo {
-                                server_room: old
-                                    .machine_info_detail
-                                    .staker_customize_info
-                                    .server_room,
-                                upload_net: old
-                                    .machine_info_detail
-                                    .staker_customize_info
-                                    .upload_net,
-                                download_net: old
-                                    .machine_info_detail
-                                    .staker_customize_info
-                                    .download_net,
-                                longitude: old.machine_info_detail.staker_customize_info.longitude,
-                                latitude: old.machine_info_detail.staker_customize_info.latitude,
-                                telecom_operators: old
-                                    .machine_info_detail
-                                    .staker_customize_info
-                                    .telecom_operators,
-                                is_bare_machine: false,
-                            },
-                            committee_upload_info: old.machine_info_detail.committee_upload_info,
+                let new_machine_info = MachineInfo {
+                    controller: old.controller,
+                    machine_stash: old.machine_stash,
+                    renters: old.renters,
+                    last_machine_restake: old.last_machine_restake,
+                    bonding_height: old.bonding_height,
+                    online_height: old.online_height,
+                    last_online_height: old.last_online_height,
+                    init_stake_per_gpu: old.init_stake_per_gpu,
+                    stake_amount: old.stake_amount,
+                    machine_status: old.machine_status,
+                    total_rented_duration: old.total_rented_duration,
+                    total_rented_times: old.total_rented_times,
+                    total_rent_fee: old.total_rent_fee,
+                    total_burn_fee: old.total_burn_fee,
+                    machine_info_detail: MachineInfoDetail {
+                        staker_customize_info: StakerCustomizeInfo {
+                            server_room: old.machine_info_detail.staker_customize_info.server_room,
+                            upload_net: old.machine_info_detail.staker_customize_info.upload_net,
+                            download_net: old
+                                .machine_info_detail
+                                .staker_customize_info
+                                .download_net,
+                            longitude: old.machine_info_detail.staker_customize_info.longitude,
+                            latitude: old.machine_info_detail.staker_customize_info.latitude,
+                            telecom_operators: old
+                                .machine_info_detail
+                                .staker_customize_info
+                                .telecom_operators,
+                            is_bare_machine: false,
                         },
+                        committee_upload_info: old.machine_info_detail.committee_upload_info,
+                    },
 
-                        reward_committee: old.reward_committee,
-                        reward_deadline: old.reward_deadline,
-                    };
-                    Some(new_machine_info)
-                },
-            );
-            current_version.put::<Pallet<T>>()
-        }
+                    reward_committee: old.reward_committee,
+                    reward_deadline: old.reward_deadline,
+                };
+                Some(new_machine_info)
+            },
+        );
 
         log::info!("migrate ok");
         weight

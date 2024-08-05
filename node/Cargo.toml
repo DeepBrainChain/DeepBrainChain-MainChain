@@ -1,0 +1,19 @@
+[package]
+name = "dbc"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+default-run = "dbc-chain"
+
+[[bin]]
+name = "dbc-chain"
+path = "src/main.rs"
+
+[dependencies]
+dbc-cli = { path = "cli" }
+sc-cli = { workspace = true }
+
+[features]
+dev-mode = ["dbc-cli/dev-mode"]
+try-runtime = ["dbc-cli/try-runtime"]
+runtime-benchmarks = ["dbc-cli/runtime-benchmarks"]

@@ -24,6 +24,9 @@ use dbc_runtime::{
     ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig,
     SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
+
+pub use dbc_primitives::{AccountId, Balance, Signature};
+pub use dbc_runtime::GenesisConfig;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
@@ -37,9 +40,6 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     Perbill,
 };
-
-pub use dbc_primitives::{AccountId, Balance, Signature};
-pub use dbc_runtime::GenesisConfig;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
