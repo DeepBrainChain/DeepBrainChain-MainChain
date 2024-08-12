@@ -23,9 +23,9 @@ use coins_bip39::{English, Mnemonic, Wordlist};
 use dbc_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
     BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DefaultElasticity,
-    DemocracyConfig, EVMConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig,
-    MaxNominations, NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus, StakingConfig,
-    SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+    DemocracyConfig, EVMConfig, ElectionsConfig, EthereumChainIdConfig, GrandpaConfig,
+    ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig,
+    SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
 use fp_evm::GenesisAccount;
 use k256::{elliptic_curve::sec1::ToEncodedPoint, EncodedPoint};
@@ -112,83 +112,83 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
 		AuthorityDiscoveryId,
 	)> = vec![
 		(
-			// 5Fbsd6WXDGiLTxunqeK5BATNiocfCqu9bS1yArVjCgeBLkVy
-			array_bytes::hex_n_into_unchecked("9c7a2ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"),
-			// 5EnCiV7wSHeNhjW3FSUwiJNkcc2SBkPLn5Nj93FmbLtBjQUq
-			array_bytes::hex_n_into_unchecked("781ead1e2fa9ccb74b44c19d29cb2a7a4b5be3972927ae98cd3877523976a276"),
-			// 5Fb9ayurnxnaXj56CjmyQLBiadfRCqUbL2VWNbbe1nZU6wiC
-			array_bytes::hex2array_unchecked("9becad03e6dcac03cee07edebca5475314861492cdfc96a2144a67bbe9699332")
+			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+			array_bytes::hex_n_into_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06"),
+			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+			array_bytes::hex_n_into_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06"),
+			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+			array_bytes::hex2array_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06")
 				.unchecked_into(),
-			// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-			array_bytes::hex2array_unchecked("6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106")
+			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+			array_bytes::hex2array_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06")
 				.unchecked_into(),
-			// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-			array_bytes::hex2array_unchecked("6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106")
+			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+			array_bytes::hex2array_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06")
 				.unchecked_into(),
-			// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-			array_bytes::hex2array_unchecked("6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106")
-				.unchecked_into(),
-		),
-		(
-			// 5ERawXCzCWkjVq3xz1W5KGNtVx2VdefvZ62Bw1FEuZW4Vny2
-			array_bytes::hex_n_into_unchecked("68655684472b743e456907b398d3a44c113f189e56d1bbfd55e889e295dfde78"),
-			// 5Gc4vr42hH1uDZc93Nayk5G7i687bAQdHHc9unLuyeawHipF
-			array_bytes::hex_n_into_unchecked("c8dc79e36b29395413399edaec3e20fcca7205fb19776ed8ddb25d6f427ec40e"),
-			// 5EockCXN6YkiNCDjpqqnbcqd4ad35nU4RmA1ikM4YeRN4WcE
-			array_bytes::hex2array_unchecked("7932cff431e748892fa48e10c63c17d30f80ca42e4de3921e641249cd7fa3c2f")
-				.unchecked_into(),
-			// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-			array_bytes::hex2array_unchecked("482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e")
-				.unchecked_into(),
-			// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-			array_bytes::hex2array_unchecked("482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e")
-				.unchecked_into(),
-			// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-			array_bytes::hex2array_unchecked("482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e")
+			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+			array_bytes::hex2array_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06")
 				.unchecked_into(),
 		),
 		(
-			// 5DyVtKWPidondEu8iHZgi6Ffv9yrJJ1NDNLom3X9cTDi98qp
-			array_bytes::hex_n_into_unchecked("547ff0ab649283a7ae01dbc2eb73932eba2fb09075e9485ff369082a2ff38d65"),
-			// 5FeD54vGVNpFX3PndHPXJ2MDakc462vBCD5mgtWRnWYCpZU9
-			array_bytes::hex_n_into_unchecked("9e42241d7cd91d001773b0b616d523dd80e13c6c2cab860b1234ef1b9ffc1526"),
-			// 5E1jLYfLdUQKrFrtqoKgFrRvxM3oQPMbf6DfcsrugZZ5Bn8d
-			array_bytes::hex2array_unchecked("5633b70b80a6c8bb16270f82cca6d56b27ed7b76c8fd5af2986a25a4788ce440")
+			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+			array_bytes::hex_n_into_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033"),
+			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+			array_bytes::hex_n_into_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033"),
+			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+			array_bytes::hex2array_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033")
 				.unchecked_into(),
-			// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-			array_bytes::hex2array_unchecked("482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a")
+			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+			array_bytes::hex2array_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033")
 				.unchecked_into(),
-			// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-			array_bytes::hex2array_unchecked("482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a")
+			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+			array_bytes::hex2array_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033")
 				.unchecked_into(),
-			// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-			array_bytes::hex2array_unchecked("482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a")
+			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+			array_bytes::hex2array_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033")
 				.unchecked_into(),
 		),
 		(
-			// 5HYZnKWe5FVZQ33ZRJK1rG3WaLMztxWrrNDb1JRwaHHVWyP9
-			array_bytes::hex_n_into_unchecked("f26cdb14b5aec7b2789fd5ca80f979cef3761897ae1f37ffb3e154cbcc1c2663"),
-			// 5EPQdAQ39WQNLCRjWsCk5jErsCitHiY5ZmjfWzzbXDoAoYbn
-			array_bytes::hex_n_into_unchecked("66bc1e5d275da50b72b15de072a2468a5ad414919ca9054d2695767cf650012f"),
-			// 5DMa31Hd5u1dwoRKgC4uvqyrdK45RHv3CpwvpUC1EzuwDit4
-			array_bytes::hex2array_unchecked("3919132b851ef0fd2dae42a7e734fe547af5a6b809006100f48944d7fae8e8ef")
+			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+			array_bytes::hex_n_into_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508"),
+			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+			array_bytes::hex_n_into_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508"),
+			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+			array_bytes::hex2array_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508")
 				.unchecked_into(),
-			// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-			array_bytes::hex2array_unchecked("00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378")
+			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+			array_bytes::hex2array_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508")
 				.unchecked_into(),
-			// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-			array_bytes::hex2array_unchecked("00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378")
+			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+			array_bytes::hex2array_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508")
 				.unchecked_into(),
-			// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-			array_bytes::hex2array_unchecked("00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378")
+			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+			array_bytes::hex2array_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508")
+				.unchecked_into(),
+		),
+		(
+			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+			array_bytes::hex_n_into_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d"),
+			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+			array_bytes::hex_n_into_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d"),
+			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+			array_bytes::hex2array_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d")
+				.unchecked_into(),
+			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+			array_bytes::hex2array_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d")
+				.unchecked_into(),
+			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+			array_bytes::hex2array_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d")
+				.unchecked_into(),
+			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+			array_bytes::hex2array_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d")
 				.unchecked_into(),
 		),
 	];
 
     // generated with secret: subkey inspect "$secret"/fir
     let root_key: AccountId = array_bytes::hex_n_into_unchecked(
-        // 5Ff3iXP75ruzroPWRP2FYBHWnmGGBSb63857BgnzCoXNxfPo
-        "9ee5e5bdc0ec239eb164f865ecc345ce4c88e76ee002e0f7e318097347471809",
+        // 5DMESR6Zr58qvqtoFEritA8kDULLgCw5XRapffgUvSYSdfJN
+        "38d71b8cec5c8d06d3bdc60f1d235612b8544acfe7f26bc0e3bdda12a3996a04",
     );
 
     let endowed_accounts: Vec<AccountId> = vec![root_key.clone()];
@@ -200,8 +200,8 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
 pub fn staging_testnet_config() -> ChainSpec {
     let boot_nodes = vec![];
     ChainSpec::from_genesis(
-        "Staging Testnet",
-        "staging_testnet",
+        "Staging Testnet 2024",
+        "staging_testnet_2024",
         ChainType::Live,
         staging_testnet_config_genesis,
         boot_nodes,
@@ -211,7 +211,7 @@ pub fn staging_testnet_config() -> ChainSpec {
         ),
         None,
         None,
-        None,
+        Some(serde_json::from_str(DEFAULT_PROPS).unwrap()),
         Default::default(),
     )
 }
@@ -246,7 +246,7 @@ pub fn authority_keys_from_seed(
 }
 
 /// Helper function to create GenesisConfig for testing
-pub fn testnet_genesis(
+pub fn dev_testnet_genesis(
     initial_authorities: Vec<(
         AccountId,
         AccountId,
@@ -382,7 +382,7 @@ pub fn testnet_genesis(
             min_join_bond: 1 * DOLLARS,
             ..Default::default()
         },
-        ethereum_chain_id: Default::default(),
+        ethereum_chain_id: EthereumChainIdConfig { chain_id: 19850818u64 },
         evm: EVMConfig {
             accounts: evm_accounts
                 .iter()
@@ -404,8 +404,149 @@ pub fn testnet_genesis(
     }
 }
 
+/// Helper function to create GenesisConfig for testing
+pub fn testnet_genesis(
+    initial_authorities: Vec<(
+        AccountId,
+        AccountId,
+        GrandpaId,
+        BabeId,
+        ImOnlineId,
+        AuthorityDiscoveryId,
+    )>,
+    initial_nominators: Vec<AccountId>,
+    root_key: AccountId,
+    endowed_accounts: Option<Vec<AccountId>>,
+) -> GenesisConfig {
+    let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
+        vec![
+            get_account_id_from_seed::<sr25519::Public>("Alice"),
+            get_account_id_from_seed::<sr25519::Public>("Bob"),
+            get_account_id_from_seed::<sr25519::Public>("Charlie"),
+            get_account_id_from_seed::<sr25519::Public>("Dave"),
+            get_account_id_from_seed::<sr25519::Public>("Eve"),
+            get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+            get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+            get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+            get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+        ]
+    });
+    // endow all authorities and nominators.
+    initial_authorities
+        .iter()
+        .map(|x| &x.0)
+        .chain(initial_nominators.iter())
+        .for_each(|x| {
+            if !endowed_accounts.contains(x) {
+                endowed_accounts.push(x.clone())
+            }
+        });
+
+    // stakers: all validators and nominators.
+    let mut rng = rand::thread_rng();
+    let stakers = initial_authorities
+        .iter()
+        .map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
+        .chain(initial_nominators.iter().map(|x| {
+            use rand::{seq::SliceRandom, Rng};
+            let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
+            let count = rng.gen::<usize>() % limit;
+            let nominations = initial_authorities
+                .as_slice()
+                .choose_multiple(&mut rng, count)
+                .into_iter()
+                .map(|choice| choice.0.clone())
+                .collect::<Vec<_>>();
+            (x.clone(), x.clone(), STASH, StakerStatus::Nominator(nominations))
+        }))
+        .collect::<Vec<_>>();
+
+    let num_endowed_accounts = endowed_accounts.len();
+
+    const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
+    const STASH: Balance = ENDOWMENT / 1000;
+
+    GenesisConfig {
+        system: SystemConfig { code: wasm_binary_unwrap().to_vec() },
+        balances: BalancesConfig {
+            balances: endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect(),
+        },
+        indices: IndicesConfig { indices: vec![] },
+        session: SessionConfig {
+            keys: initial_authorities
+                .iter()
+                .map(|x| {
+                    (
+                        x.0.clone(),
+                        x.0.clone(),
+                        session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+                    )
+                })
+                .collect::<Vec<_>>(),
+        },
+        staking: StakingConfig {
+            validator_count: initial_authorities.len() as u32,
+            minimum_validator_count: initial_authorities.len() as u32,
+            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+            slash_reward_fraction: Perbill::from_percent(10),
+            stakers,
+            ..Default::default()
+        },
+        democracy: DemocracyConfig::default(),
+        elections: ElectionsConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .map(|member| (member, STASH))
+                .collect(),
+        },
+        council: CouncilConfig::default(),
+        technical_committee: TechnicalCommitteeConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .collect(),
+            phantom: Default::default(),
+        },
+        sudo: SudoConfig { key: Some(root_key) },
+        babe: BabeConfig {
+            authorities: vec![],
+            epoch_config: Some(dbc_runtime::BABE_GENESIS_EPOCH_CONFIG),
+        },
+        im_online: ImOnlineConfig { keys: vec![] },
+        authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+        grandpa: GrandpaConfig { authorities: vec![] },
+        technical_membership: Default::default(),
+        treasury: Default::default(),
+        // vesting: Default::default(),
+        assets: pallet_assets::GenesisConfig {
+            // This asset is used by the NIS pallet as counterpart currency.
+            assets: vec![(88, get_account_id_from_seed::<sr25519::Public>("Alice"), true, 1)],
+            ..Default::default()
+        },
+        // transaction_storage: Default::default(),
+        transaction_payment: Default::default(),
+        // alliance: Default::default(),
+        // alliance_motion: Default::default(),
+        nomination_pools: NominationPoolsConfig {
+            min_create_bond: 10 * DOLLARS,
+            min_join_bond: 1 * DOLLARS,
+            ..Default::default()
+        },
+        ethereum_chain_id: EthereumChainIdConfig { chain_id: 19850818u64 },
+        evm: Default::default(),
+        ethereum: Default::default(),
+        base_fee: BaseFeeConfig::new(DefaultBaseFeePerGas::get(), DefaultElasticity::get()),
+    }
+}
+
 fn development_config_genesis() -> GenesisConfig {
-    testnet_genesis(
+    dev_testnet_genesis(
         vec![authority_keys_from_seed("Alice")],
         vec![],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
