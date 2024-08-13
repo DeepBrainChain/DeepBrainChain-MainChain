@@ -92,7 +92,6 @@ dbc-rpc = { path = "../../rpc" }
 dbc-primitives = { path = "../../primitives" }
 dbc-executor = { path = "../executor" }
 dbc-runtime = { path = "../../runtime" }
-dbc-inspect = { path = "../inspect", optional = true }
 
 # CLI-specific dependencies
 sc-cli = { workspace = true, optional = true }
@@ -126,7 +125,6 @@ pallet-timestamp = { workspace = true }
 [build-dependencies]
 clap = { version = "4.0.9", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
-dbc-inspect = { path = "../inspect", optional = true }
 frame-benchmarking-cli = { workspace = true , optional = true }
 substrate-build-script-utils = { workspace = true, optional = true }
 substrate-frame-cli = { workspace = true, optional = true }
@@ -138,7 +136,6 @@ sc-storage-monitor = { workspace = true }
 [features]
 default = ["cli"]
 cli = [
-	"dbc-inspect",
 	"sc-cli",
 	"frame-benchmarking-cli",
 	"substrate-frame-cli",

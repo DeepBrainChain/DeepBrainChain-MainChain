@@ -13,7 +13,6 @@ members = [
   "node",
   "node/cli",
   "node/executor",
-  "node/inspect",
   "node/runtime-interface",
   "client/rpc/finality",
   "primitives",

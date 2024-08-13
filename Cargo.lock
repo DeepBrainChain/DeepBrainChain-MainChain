@@ -1612,7 +1612,6 @@ dependencies = [
  "coins-bip32",
  "coins-bip39",
  "dbc-executor",
- "dbc-inspect",
  "dbc-primitives",
  "dbc-rpc",
  "dbc-runtime",
@@ -1709,22 +1708,6 @@ dependencies = [
  "sp-blockchain",
  "sp-core",
  "sp-runtime",
-]
-
-[[package]]
-name = "dbc-inspect"
-version = "4.0.0-dev"
-dependencies = [
- "clap",
- "parity-scale-codec",
- "sc-cli",
- "sc-client-api",
- "sc-executor",
- "sc-service",
- "sp-blockchain",
- "sp-core",
- "sp-runtime",
- "thiserror",
 ]
 
 [[package]]
