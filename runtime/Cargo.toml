@@ -81,6 +81,7 @@ pallet-proxy = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
 pallet-recovery = { workspace = true }
 # pallet-remark = { workspace = true }
+pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true, features = ["historical"] }
 pallet-session-benchmarking = { workspace = true, optional = true }
 pallet-sudo = { workspace = true }
@@ -100,7 +101,6 @@ pallet-staking = { package = "pallet-staking", path = "../pallets/staking", defa
 pallet-staking-reward-curve = { package = "pallet-staking-reward-curve", path = "../pallets/staking/reward-curve", default-features = false }
 pallet-staking-runtime-api = { package = "pallet-staking-runtime-api", path = "../pallets/staking/runtime-api", default-features = false }
 pallet-nfts = { path = "../pallets/nfts", default-features = false }
-pallet-scheduler = { path = "../pallets/scheduler", default-features = false }
 
 committee = { path = "../pallets/committee", default-features = false }
 council-reward = { path = "../pallets/council-reward", default-features = false }
