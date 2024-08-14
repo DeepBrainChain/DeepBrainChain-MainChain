@@ -680,24 +680,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn test_connectivity() {
-        sp_tracing::try_init_simple();
-
-        sc_service_test::connectivity(integration_test_config_with_two_authorities(), |config| {
-            let NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
-                new_full_base(config, false, |_, _| ())?;
-            Ok(sc_service_test::TestNetComponents::new(
-                task_manager,
-                client,
-                network,
-                sync,
-                transaction_pool,
-            ))
-        });
-    }
-
-    #[test]
     fn test_create_development_chain_spec() {
         development_config().build_storage().unwrap();
     }
