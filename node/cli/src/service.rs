@@ -713,4 +713,3 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 
     Ok(task_manager)
 }
-
