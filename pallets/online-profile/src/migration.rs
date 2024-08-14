@@ -2,6 +2,7 @@ use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 use Config;
 
 use crate::*;
+use sp_runtime::TryRuntimeError;
 use sp_std::prelude::*;
 
 const TARGET: &'static str = "online-profile-migration";
@@ -108,7 +109,7 @@ pub mod v1 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
             log::info!("pre_upgrade ok");
             let current_version = Pallet::<T>::current_storage_version();
             let on_chain_version = Pallet::<T>::on_chain_storage_version();
@@ -120,7 +121,7 @@ pub mod v1 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
             log::info!("post_upgrade ok");
             Ok(())
         }
