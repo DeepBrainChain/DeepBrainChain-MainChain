@@ -112,11 +112,11 @@ where
                 MachineStatus::WaitingFulfill |
                 MachineStatus::StakerReportOffline(..)
         ) {
-            return Err(OnlineErr::NotAllowedChangeMachineInfo)
+            return Err(OnlineErr::NotAllowedChangeMachineInfo);
         }
 
         if &self.controller != who {
-            return Err(OnlineErr::NotMachineController)
+            return Err(OnlineErr::NotMachineController);
         }
         Ok(())
     }
@@ -129,10 +129,10 @@ where
     }
     pub fn can_update_server_room_info(&self, who: &AccountId) -> Result<(), OnlineErr> {
         if self.machine_info_detail.staker_customize_info.telecom_operators.is_empty() {
-            return Err(OnlineErr::TelecomIsNull)
+            return Err(OnlineErr::TelecomIsNull);
         }
         if &self.controller != who {
-            return Err(OnlineErr::NotMachineController)
+            return Err(OnlineErr::NotMachineController);
         }
         Ok(())
     }

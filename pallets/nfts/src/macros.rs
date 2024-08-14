@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,9 +48,9 @@ macro_rules! impl_codec_bitflags {
         }
         impl EncodeLike for $wrapper {}
         impl Decode for $wrapper {
-            fn decode<I: parity_scale_codec::Input>(
+            fn decode<I: codec::Input>(
                 input: &mut I,
-            ) -> sp_std::result::Result<Self, parity_scale_codec::Error> {
+            ) -> sp_std::result::Result<Self, codec::Error> {
                 let field = <$size>::decode(input)?;
                 Ok(Self(BitFlags::from_bits(field as $size).map_err(|_| "invalid value")?))
             }

@@ -86,7 +86,7 @@ fn test_reward_works() {
         let treasury = CouncilReward::treasury();
         if treasury.is_none() {
             // TODO: should set treasury first.
-            return
+            return;
         }
         let treasury = treasury.unwrap();
         // assert_ok!(Balances::set_balance(RawOrigin::Root.into(), treasury, 10000000 * ONE_DBC, 0));

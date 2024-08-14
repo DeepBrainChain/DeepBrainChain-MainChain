@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2020-2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +22,11 @@ use frame_support::{
     dispatch::GetStorageVersion, pallet_prelude::ValueQuery, storage_alias,
     traits::OnRuntimeUpgrade,
 };
+
+#[cfg(feature = "try-runtime")]
+use frame_support::ensure;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 
 /// Used for release versioning upto v12.
 ///
@@ -58,7 +63,7 @@ pub mod v13 {
     pub struct MigrateToV13<T>(sp_std::marker::PhantomData<T>);
     impl<T: Config> OnRuntimeUpgrade for MigrateToV13<T> {
         #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
             frame_support::ensure!(
                 StorageVersion::<T>::get() == ObsoleteReleases::V12_0_0,
                 "Required v12 before upgrading to v13"
@@ -84,7 +89,7 @@ pub mod v13 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
             frame_support::ensure!(
                 Pallet::<T>::on_chain_storage_version() == 13,
                 "v13 not applied"
@@ -114,7 +119,7 @@ pub mod v12 {
     pub struct MigrateToV12<T>(sp_std::marker::PhantomData<T>);
     impl<T: Config> OnRuntimeUpgrade for MigrateToV12<T> {
         #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
             frame_support::ensure!(
                 StorageVersion::<T>::get() == ObsoleteReleases::V11_0_0,
                 "Expected v11 before upgrading to v12"
@@ -146,7 +151,7 @@ pub mod v12 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
             frame_support::ensure!(
                 StorageVersion::<T>::get() == ObsoleteReleases::V12_0_0,
                 "v12 not applied"
@@ -170,7 +175,7 @@ pub mod v11 {
         for MigrateToV11<T, P, N>
     {
         #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
             frame_support::ensure!(
                 StorageVersion::<T>::get() == ObsoleteReleases::V10_0_0,
                 "must upgrade linearly"
@@ -205,7 +210,7 @@ pub mod v11 {
                         warn,
                         "new bags-list name is equal to the old one, only bumping the version"
                     );
-                    return T::DbWeight::get().reads(1).saturating_add(T::DbWeight::get().writes(1))
+                    return T::DbWeight::get().reads(1).saturating_add(T::DbWeight::get().writes(1));
                 }
 
                 move_pallet(old_pallet_name.as_bytes(), new_pallet_name.as_bytes());
@@ -217,7 +222,7 @@ pub mod v11 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
             frame_support::ensure!(
                 StorageVersion::<T>::get() == ObsoleteReleases::V11_0_0,
                 "wrong version after the upgrade"
@@ -228,7 +233,7 @@ pub mod v11 {
 
             // skip storage prefix checks for the same pallet names
             if new_pallet_name == old_pallet_name {
-                return Ok(())
+                return Ok(());
             }
 
             let old_pallet_prefix = twox_128(N::get().as_bytes());
@@ -249,13 +254,6 @@ pub mod v11 {
     }
 }
 
-pub struct StakingMigrationV11OldPallet;
-impl Get<&'static str> for StakingMigrationV11OldPallet {
-    fn get() -> &'static str {
-        "VoterList"
-    }
-}
-
 pub mod v10 {
     use super::*;
     use frame_support::storage_alias;
@@ -272,7 +270,7 @@ pub mod v10 {
     impl<T: Config> OnRuntimeUpgrade for MigrateToV10<T> {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             if StorageVersion::<T>::get() == ObsoleteReleases::V9_0_0 {
-                let pending_slashes = <Pallet<T> as Store>::UnappliedSlashes::iter().take(512);
+                let pending_slashes = UnappliedSlashes::<T>::iter().take(512);
                 for (era, slashes) in pending_slashes {
                     for slash in slashes {
                         // in the old slashing scheme, the slash era was the key at which we read
@@ -339,7 +337,7 @@ pub mod v9 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
             frame_support::ensure!(
                 StorageVersion::<T>::get() == ObsoleteReleases::V8_0_0,
                 "must upgrade linearly"
@@ -350,40 +348,24 @@ pub mod v9 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(prev_count: Vec<u8>) -> Result<(), &'static str> {
+        fn post_upgrade(prev_count: Vec<u8>) -> Result<(), TryRuntimeError> {
             let prev_count: u32 = Decode::decode(&mut prev_count.as_slice()).expect(
                 "the state parameter should be something that was generated by pre_upgrade",
             );
             let post_count = T::VoterList::count();
             let validators = Validators::<T>::count();
-            assert!(post_count == prev_count + validators);
+            ensure!(
+                post_count == prev_count + validators,
+                "`VoterList` count after the migration must equal to the sum of \
+				previous count and the current number of validators"
+            );
 
             frame_support::ensure!(
                 StorageVersion::<T>::get() == ObsoleteReleases::V9_0_0,
-                "must upgrade "
+                "must upgrade"
             );
             Ok(())
         }
-    }
-}
-
-/// A migration which update `Staking` to `v8`
-pub struct MigrateStakingToV8<T>(sp_std::marker::PhantomData<T>);
-impl<T: super::Config> frame_support::traits::OnRuntimeUpgrade for MigrateStakingToV8<T> {
-    fn on_runtime_upgrade() -> Weight {
-        super::migrations::v8::migrate::<T>()
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        super::migrations::v8::pre_migrate::<T>()?;
-        Ok(Vec::new())
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        // pallet_staking::migrations::v8::post_migrate::<T>()
-        Ok(())
     }
 }
 
@@ -413,7 +395,6 @@ pub mod v8 {
                 Nominators::<T>::iter().map(|(id, _)| id),
                 Pallet::<T>::weight_of_fn(),
             );
-            // debug_assert_eq!(T::VoterList::try_state(), Ok(()));
 
             StorageVersion::<T>::put(ObsoleteReleases::V8_0_0);
             crate::log!(
@@ -432,25 +413,6 @@ pub mod v8 {
     pub fn post_migrate<T: Config>() -> Result<(), &'static str> {
         T::VoterList::try_state().map_err(|_| "VoterList is not in a sane state.")?;
         crate::log!(info, "👜 staking bags-list migration passes POST migrate checks ✅",);
-        Ok(())
-    }
-}
-
-pub struct MigrateStakingToV7<T>(sp_std::marker::PhantomData<T>);
-impl<T: super::Config> frame_support::traits::OnRuntimeUpgrade for MigrateStakingToV7<T> {
-    fn on_runtime_upgrade() -> Weight {
-        super::migrations::v7::migrate::<T>()
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        super::migrations::v7::pre_migrate::<T>()?;
-        Ok(Vec::new())
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        // pallet_staking::migrations::v7::post_migrate::<T>()
         Ok(())
     }
 }
@@ -491,43 +453,6 @@ pub mod v7 {
         log!(info, "Completed staking migration to ObsoleteReleases::V7_0_0");
 
         T::DbWeight::get().reads_writes(validator_count.saturating_add(nominator_count).into(), 2)
-    }
-}
-
-// A value placed in storage that represents the current version of the Staking storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-// This should match directly with the semantic versions of the Rust crate.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
-enum OldReleases {
-    V1_0_0Ancient,
-    V2_0_0,
-    V3_0_0,
-    V4_0_0,
-    V5_0_0,
-}
-
-impl Default for OldReleases {
-    fn default() -> Self {
-        OldReleases::V5_0_0
-    }
-}
-
-pub struct MigrateStakingToV6<T>(sp_std::marker::PhantomData<T>);
-impl<T: super::Config> frame_support::traits::OnRuntimeUpgrade for MigrateStakingToV6<T> {
-    fn on_runtime_upgrade() -> Weight {
-        super::migrations::v6::migrate::<T>()
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        super::migrations::v6::pre_migrate::<T>()?;
-        Ok(Vec::new())
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-        // pallet_staking::migrations::v6::post_migrate::<T>()
-        Ok(())
     }
 }
 

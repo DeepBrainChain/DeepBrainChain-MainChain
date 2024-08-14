@@ -63,7 +63,7 @@ impl Default for VerifyResult {
 impl<AccountId: Clone + Ord> Summary<AccountId> {
     pub fn should_slash_committee(&self) -> bool {
         if !self.unruly.is_empty() {
-            return true
+            return true;
         }
         match self.verify_result {
             VerifyResult::NoConsensus => false,

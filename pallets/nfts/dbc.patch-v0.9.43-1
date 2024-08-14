@@ -1,0 +1,13 @@
+diff --git a/pallets/nfts/src/lib.rs b/pallets/nfts/src/lib.rs
+index f53ef80..0b10b8e 100644
+--- a/pallets/nfts/src/lib.rs
++++ b/pallets/nfts/src/lib.rs
+@@ -44,7 +44,7 @@ mod types;
+ pub mod macros;
+ pub mod weights;
+ 
+-use codec::{Decode, Encode};
++use codec::{alloc::string::ToString, Decode, Encode};
+ use frame_support::traits::{
+     tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
+ };

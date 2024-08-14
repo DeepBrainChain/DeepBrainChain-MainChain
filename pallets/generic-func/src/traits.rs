@@ -21,7 +21,7 @@ impl<T: Config> GNOps for Pallet<T> {
         let reward_to_num = reward_who.len() as u32;
 
         if slash_who.is_empty() || each_slash == Zero::zero() {
-            return Ok(())
+            return Ok(());
         }
 
         if reward_to_num == 0 {
@@ -33,7 +33,7 @@ impl<T: Config> GNOps for Pallet<T> {
                     T::Slash::on_unbalanced(imbalance);
                 }
             }
-            return Ok(())
+            return Ok(());
         }
 
         for a_slash_person in slash_who {

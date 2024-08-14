@@ -66,7 +66,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -153,7 +152,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn submit_confirm_hash(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -187,7 +186,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn submit_confirm_raw(
             origin: OriginFor<T>,
             machine_info_detail: CommitteeUploadInfo,
@@ -222,7 +221,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn apply_slash_review(
             origin: OriginFor<T>,
             slash_id: SlashId,
@@ -285,7 +284,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn cancel_slash(origin: OriginFor<T>, slash_id: SlashId) -> DispatchResultWithPostInfo {
             <T as Config>::CancelSlashOrigin::ensure_origin(origin)?;
             ensure!(
@@ -355,7 +354,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_work_index() -> Option<Vec<VerifySequence<T::AccountId>>> {
         let mut committee = <committee::Pallet<T>>::available_committee()?;
         if committee.len() < 3 {
-            return None
+            return None;
         };
 
         let mut verify_sequence = Vec::new();
@@ -438,10 +437,10 @@ impl<T: Config> Pallet<T> {
         if machine_committee.can_submit_raw(now) {
             machine_committee.status = OCVerifyStatus::SubmittingRaw;
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            return Ok(())
+            return Ok(());
         }
         if !machine_committee.can_summary(now) {
-            return Ok(())
+            return Ok(());
         }
 
         let mut submit_info = vec![];

@@ -19,7 +19,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use parity_scale_codec::Codec;
+use codec::Codec;
 
 sp_api::decl_runtime_apis! {
     pub trait StakingApi<Balance>

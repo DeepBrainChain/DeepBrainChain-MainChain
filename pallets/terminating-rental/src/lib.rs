@@ -89,7 +89,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -403,7 +402,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         // 设置每张卡质押数量
         pub fn set_stake_per_gpu(
             origin: OriginFor<T>,
@@ -416,7 +415,7 @@ pub mod pallet {
 
         // 需要质押10000DBC作为保证金，验证通过保证金解锁
         #[pallet::call_index(1)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_online_deposit(
             origin: OriginFor<T>,
             deposit: BalanceOf<T>,
@@ -428,7 +427,7 @@ pub mod pallet {
 
         // 设置特定GPU标准算力与对应的每天租用价格
         #[pallet::call_index(2)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_standard_gpu_point_price(
             origin: OriginFor<T>,
             point_price: dbc_support::machine_type::StandardGpuPointPrice,
@@ -439,7 +438,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_reporter_stake_params(
             origin: OriginFor<T>,
             params: ReporterStakeParamsInfo<BalanceOf<T>>,
@@ -451,7 +450,7 @@ pub mod pallet {
 
         // 资金账户设置控制账户
         #[pallet::call_index(4)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_controller(
             origin: OriginFor<T>,
             controller: T::AccountId,
@@ -474,7 +473,7 @@ pub mod pallet {
 
         // Controller generate new server room id, record to stash account
         #[pallet::call_index(5)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn gen_server_room(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
@@ -492,7 +491,7 @@ pub mod pallet {
         // - Writes: LiveMachine, StashMachines, MachineInfo,
         // StashStake, Balance
         #[pallet::call_index(6)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn bond_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -527,7 +526,7 @@ pub mod pallet {
 
         // - Write: LiveMachine, MachinesInfo
         #[pallet::call_index(7)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn add_machine_info(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -564,7 +563,7 @@ pub mod pallet {
 
         // - Writes: CommitteeMachine, CommitteeOps, MachineSubmitedHash, MachineCommittee
         #[pallet::call_index(8)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn submit_confirm_hash(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -597,7 +596,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(9)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn submit_confirm_raw(
             origin: OriginFor<T>,
             machine_info_detail: CommitteeUploadInfo,
@@ -633,7 +632,7 @@ pub mod pallet {
 
         /// 用户租用机器（按分钟租用）
         #[pallet::call_index(10)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn rent_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -647,7 +646,7 @@ pub mod pallet {
             let gpu_num = machine_info.gpu_num();
 
             if gpu_num == 0 || duration == Zero::zero() {
-                return Ok(().into())
+                return Ok(().into());
             }
 
             // 检查还有空闲的GPU
@@ -740,7 +739,7 @@ pub mod pallet {
 
         /// 用户在租用15min(30个块)内确认机器租用成功
         #[pallet::call_index(11)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn confirm_rent(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -800,7 +799,7 @@ pub mod pallet {
 
         /// 用户续租(按分钟续租)
         #[pallet::call_index(12)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn relet_machine(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -833,7 +832,7 @@ pub mod pallet {
                 if max_rent_end >= wanted_rent_end { duration } else { (2880u32 * 60).into() };
 
             if add_duration == Zero::zero() {
-                return Ok(().into())
+                return Ok(().into());
             }
 
             // 计算rent_fee
@@ -884,7 +883,7 @@ pub mod pallet {
         // NOTE: confirm_machine, machine_offline, terminate_rent 需要改变 machine_info.renters
         /// 用户终止租用
         #[pallet::call_index(13)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn terminate_rent(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -909,7 +908,7 @@ pub mod pallet {
             for rent_id in &machine_rent_order.rent_order {
                 let rent_order = Self::rent_order(rent_id).ok_or(Error::<T>::Unknown)?;
                 if rent_order.renter == renter {
-                    break
+                    break;
                 }
                 MachinesInfo::<T>::try_mutate(&rent_order.machine_id, |machine_info| {
                     let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
@@ -927,7 +926,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(14)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn machine_offline(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -978,7 +977,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(15)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn machine_online(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1006,13 +1005,13 @@ pub mod pallet {
                 MachinesInfo::<T>::insert(machine_id, machine_info);
                 Ok(().into())
             } else {
-                return Err(Error::<T>::StatusNotAllowed.into())
+                return Err(Error::<T>::StatusNotAllowed.into());
             }
         }
 
         // 满1年，机器可以退出，并退还质押币
         #[pallet::call_index(16)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn machine_exit(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1082,7 +1081,7 @@ pub mod pallet {
         // 如果租用成功发现硬件造假，可以举报。
         // 举报成功，100％没收质押币。50%举报人, 30%验证人, 20％国库
         #[pallet::call_index(17)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
             // NOTE: Here only one fault type (RentedHardwareCounterfeit) can be report, so we only
@@ -1111,7 +1110,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(18)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_add_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -1121,7 +1120,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(19)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_reduce_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -1132,7 +1131,7 @@ pub mod pallet {
 
         // 报告人可以在抢单之前取消该报告
         #[pallet::call_index(20)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_cancel_report(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1167,7 +1166,7 @@ pub mod pallet {
 
         /// 委员会进行抢单
         #[pallet::call_index(21)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_book_report(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1192,7 +1191,7 @@ pub mod pallet {
         // 报告人在委员会完成抢单后，30分钟内用委员会的公钥，提交加密后的故障信息
         // 只有报告机器故障或者无法租用时需要提交加密信息
         #[pallet::call_index(22)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_add_encrypted_error_info(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1229,7 +1228,7 @@ pub mod pallet {
         // 委员会提交验证之后的Hash
         // 用户必须在自己的Order状态为Verifying时提交Hash
         #[pallet::call_index(23)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_submit_verify_hash(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1271,7 +1270,7 @@ pub mod pallet {
 
         /// 订单状态必须是等待SubmittingRaw: 除了offline之外的所有错误类型
         #[pallet::call_index(24)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_submit_verify_raw(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1472,7 +1471,7 @@ impl<T: Config> Pallet<T> {
         for a_committee in &report_info.hashed_committee {
             let committee_ops = Self::committee_report_ops(a_committee, report_id);
             if committee_ops.confirm_hash == hash {
-                return Err(Error::<T>::DuplicateHash.into())
+                return Err(Error::<T>::DuplicateHash.into());
             }
         }
         Ok(().into())
@@ -1555,7 +1554,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_work_index() -> Option<Vec<VerifySequence<T::AccountId>>> {
         let mut committee = <committee::Pallet<T>>::available_committee()?;
         if committee.len() < 3 {
-            return None
+            return None;
         };
 
         let mut verify_sequence = Vec::new();
@@ -1650,10 +1649,10 @@ impl<T: Config> Pallet<T> {
         if machine_committee.can_submit_raw(now) {
             machine_committee.status = OCVerifyStatus::SubmittingRaw;
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            return Ok(())
+            return Ok(());
         }
         if !machine_committee.can_summary(now) {
-            return Ok(())
+            return Ok(());
         }
 
         let mut submit_info = vec![];
@@ -1861,7 +1860,7 @@ impl<T: Config> Pallet<T> {
     // machine_price = standard_price * machine_point / standard_point
     fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64> {
         if total_gpu == 0 {
-            return None
+            return None;
         }
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
         standard_gpu_point_price
@@ -1902,7 +1901,7 @@ impl<T: Config> Pallet<T> {
         let new_rent_id = loop {
             let new_rent_id = if rent_id == u64::MAX { 0 } else { rent_id + 1 };
             if !RentOrder::<T>::contains_key(new_rent_id) {
-                break new_rent_id
+                break new_rent_id;
             }
         };
 
@@ -2019,7 +2018,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_rent_finished() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<PendingRentEnding<T>>::contains_key(now) {
-            return Ok(())
+            return Ok(());
         }
         let pending_ending = Self::pending_rent_ending(now);
 
@@ -2059,7 +2058,7 @@ impl<T: Config> Pallet<T> {
         // 租用结束
         let gpu_num = machine_info.gpu_num();
         if gpu_num == 0 {
-            return Ok(())
+            return Ok(());
         }
         machine_info.total_rented_duration +=
             Perbill::from_rational(rented_gpu_num, gpu_num) * rent_duration;
@@ -2156,7 +2155,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_offline_timeout() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<OfflineMachines<T>>::contains_key(now) {
-            return Ok(())
+            return Ok(());
         }
         let offline_machines = Self::offline_machines(now);
 

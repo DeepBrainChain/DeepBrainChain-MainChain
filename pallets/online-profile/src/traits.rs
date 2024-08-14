@@ -109,7 +109,7 @@ impl<T: Config> OCOps for Pallet<T> {
                 machine_info.machine_status = MachineStatus::WaitingFulfill;
                 MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
                 LiveMachines::<T>::put(live_machines);
-                return Ok(())
+                return Ok(());
             }
         }
         // NOTE: 下线更改机器配置的时候，如果余额超过所需（比如从多卡变成单卡）则**不需要**退还质押
@@ -148,7 +148,7 @@ impl<T: Config> OCOps for Pallet<T> {
         // if matches!(machine_info.machine_status, MachineStatus::Online) {
         Self::update_region_on_online_changed(&machine_info, true);
         let _ = Self::update_snap_on_online_changed(machine_id.clone(), true);
-        return Ok(())
+        return Ok(());
     }
 
     // When committees reach an agreement to refuse machine, change machine status and record refuse
@@ -186,7 +186,7 @@ impl<T: Config> OCOps for Pallet<T> {
                 reonline_stake,
             );
 
-            return None
+            return None;
         }
 
         // let mut sys_info = Self::sys_info();
@@ -254,7 +254,7 @@ impl<T: Config> RTOps for Pallet<T> {
     // machine_price = standard_price * machine_point / standard_point
     fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64> {
         if total_gpu == 0 {
-            return None
+            return None;
         }
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
         standard_gpu_point_price
@@ -324,7 +324,7 @@ impl<T: Config> RTOps for Pallet<T> {
         // 租用结束
         let gpu_num = machine_info.gpu_num();
         if gpu_num == 0 {
-            return Ok(())
+            return Ok(());
         }
         machine_info.total_rented_duration +=
             Perbill::from_rational(rented_gpu_num, gpu_num) * rent_duration;

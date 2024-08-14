@@ -220,6 +220,6 @@ where
                 out.reporter_stake = Zero::zero();
             },
         }
-        return out
+        return out;
     }
 }

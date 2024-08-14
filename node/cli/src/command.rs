@@ -92,11 +92,6 @@ pub fn run() -> Result<()> {
                 service::new_full(config, cli).map_err(sc_cli::Error::Service)
             })
         },
-        Some(Subcommand::Inspect(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-
-            runner.sync_run(|config| cmd.run::<Block, RuntimeApi, DBCExecutorDispatch>(config))
-        },
         Some(Subcommand::Benchmark(cmd)) => {
             let runner = cli.create_runner(cmd)?;
 
@@ -110,7 +105,7 @@ pub fn run() -> Result<()> {
                                 "Runtime benchmarking wasn't enabled when building the node. \
 							You can enable it with `--features runtime-benchmarks`."
                                     .into(),
-                            )
+                            );
                         }
 
                         cmd.run::<Block, DBCExecutorDispatch>(config)
@@ -221,7 +216,7 @@ pub fn run() -> Result<()> {
                     new_partial(&mut config)?;
                 let aux_revert = Box::new(|client: Arc<FullClient>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
-                    sc_finality_grandpa::revert(client, blocks)?;
+                    sc_consensus_grandpa::revert(client, blocks)?;
                     Ok(())
                 });
                 Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))

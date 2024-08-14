@@ -106,13 +106,13 @@ where
                 confirm_time: ops.confirm_time,
                 machine_status: ops.machine_status,
                 machine_info: ops.machine_info,
-            })
+            });
         }
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))))
+        ))));
     }
 
     fn get_machine_committee_list(

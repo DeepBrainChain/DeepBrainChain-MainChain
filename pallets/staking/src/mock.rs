@@ -91,14 +91,14 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Authorship: pallet_authorship::{Pallet, Storage},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-        Historical: pallet_session::historical::{Pallet, Storage},
-        VoterBagsList: pallet_bags_list::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        System: frame_system,
+        Authorship: pallet_authorship,
+        Timestamp: pallet_timestamp,
+        Balances: pallet_balances,
+        Staking: pallet_staking,
+        Session: pallet_session,
+        Historical: pallet_session::historical,
+        VoterBagsList: pallet_bags_list::<Instance1>,
     }
 );
 
@@ -157,6 +157,10 @@ impl pallet_balances::Config for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type HoldIdentifier = ();
+    type MaxHolds = ();
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -304,6 +308,7 @@ impl crate::pallet::pallet::Config for Test {
     type OnStakerSlash = OnStakerSlashMock<Test>;
     type BenchmarkingConfig = TestBenchmarkingConfig;
     type WeightInfo = ();
+    type MinimumPeriod = ConstU64<5>;
 }
 
 pub(crate) type StakingCall = crate::Call<Test>;
@@ -428,7 +433,7 @@ impl ExtBuilder {
                 (2, 20 * self.balance_factor),
                 (3, 300 * self.balance_factor),
                 (4, 400 * self.balance_factor),
-                // controllers
+                // controllers (still used in some tests. Soon to be deprecated).
                 (10, self.balance_factor),
                 (20, self.balance_factor),
                 (30, self.balance_factor),
@@ -461,18 +466,18 @@ impl ExtBuilder {
             stakers = vec![
                 // (stash, ctrl, stake, status)
                 // these two will be elected in the default test where we elect 2.
-                (11, 10, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
-                (21, 20, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
+                (11, 11, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
+                (21, 21, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
                 // a loser validator
-                (31, 30, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
+                (31, 31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
                 // an idle validator
-                (41, 40, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+                (41, 41, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
             ];
             // optionally add a nominator
             if self.nominate {
                 stakers.push((
                     101,
-                    100,
+                    101,
                     self.balance_factor * 500,
                     StakerStatus::<AccountId>::Nominator(vec![11, 21]),
                 ))
@@ -559,35 +564,24 @@ pub(crate) fn current_era() -> EraIndex {
     Staking::current_era().unwrap()
 }
 
-pub(crate) fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
-    let _ = Balances::make_free_balance_be(&stash, val);
-    let _ = Balances::make_free_balance_be(&ctrl, val);
-    assert_ok!(Staking::bond(
-        RuntimeOrigin::signed(stash),
-        ctrl,
-        val,
-        RewardDestination::Controller
-    ));
+pub(crate) fn bond(who: AccountId, val: Balance) {
+    let _ = Balances::make_free_balance_be(&who, val);
+    assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Controller));
 }
 
-pub(crate) fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
-    bond(stash, ctrl, val);
-    assert_ok!(Staking::validate(RuntimeOrigin::signed(ctrl), ValidatorPrefs::default()));
+pub(crate) fn bond_validator(who: AccountId, val: Balance) {
+    bond(who, val);
+    assert_ok!(Staking::validate(RuntimeOrigin::signed(who), ValidatorPrefs::default()));
     assert_ok!(Session::set_keys(
-        RuntimeOrigin::signed(ctrl),
-        SessionKeys { other: ctrl.into() },
+        RuntimeOrigin::signed(who),
+        SessionKeys { other: who.into() },
         vec![]
     ));
 }
 
-pub(crate) fn bond_nominator(
-    stash: AccountId,
-    ctrl: AccountId,
-    val: Balance,
-    target: Vec<AccountId>,
-) {
-    bond(stash, ctrl, val);
-    assert_ok!(Staking::nominate(RuntimeOrigin::signed(ctrl), target));
+pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId>) {
+    bond(who, val);
+    assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
 /// Progress to the given block, triggering session and era changes as we progress.
@@ -707,9 +701,9 @@ pub(crate) fn on_offence_in_era(
     for &(bonded_era, start_session) in bonded_eras.iter() {
         if bonded_era == era {
             let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
-            return
+            return;
         } else if bonded_era > era {
-            break
+            break;
         }
     }
 

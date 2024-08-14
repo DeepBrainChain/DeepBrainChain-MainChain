@@ -17,7 +17,7 @@ impl<T: Config> Pallet<T> {
 
         for a_pending_review in all_pending_review {
             if Self::do_a_pending_review(a_pending_review).is_err() {
-                continue
+                continue;
             };
         }
     }
@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
         let slash_info = Self::pending_slash(a_pending_review).ok_or(())?;
 
         if review_info.expire_time < now {
-            return Ok(())
+            return Ok(());
         }
 
         if let Some(machine_stash) = slash_info.machine_stash {
@@ -76,7 +76,7 @@ impl<T: Config> Pallet<T> {
 
         for slash_id in pending_unhandled_id.clone() {
             if Self::do_a_slash(slash_id, &mut pending_unhandled_id).is_err() {
-                continue
+                continue;
             };
         }
         UnhandledSlash::<T>::put(pending_unhandled_id);
@@ -86,7 +86,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
         let mut slash_info = Self::pending_slash(slash_id).ok_or(())?;
         if now < slash_info.slash_exec_time {
-            return Ok(())
+            return Ok(());
         }
 
         // 将资金退还给已经完成了任务的委员会（降低已使用的质押）

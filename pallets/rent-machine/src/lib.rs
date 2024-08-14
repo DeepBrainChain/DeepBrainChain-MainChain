@@ -54,7 +54,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -148,7 +147,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 设置机器租金支付目标地址
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_rent_fee_pot(
             origin: OriginFor<T>,
             pot_addr: T::AccountId,
@@ -160,7 +159,7 @@ pub mod pallet {
 
         /// 用户租用机器(按天租用)
         #[pallet::call_index(1)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn rent_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -173,7 +172,7 @@ pub mod pallet {
 
         /// 用户在租用15min(30个块)内确认机器租用成功
         #[pallet::call_index(2)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn confirm_rent(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -247,7 +246,7 @@ pub mod pallet {
 
         /// 用户续租(按天续租), 通过order_id来续租
         #[pallet::call_index(3)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn relet_machine(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -306,7 +305,7 @@ impl<T: Config> Pallet<T> {
         let gpu_num = machine_info.gpu_num();
 
         if gpu_num == 0 || duration == Zero::zero() {
-            return Ok(().into())
+            return Ok(().into());
         }
 
         // 检查还有空闲的GPU
@@ -434,7 +433,7 @@ impl<T: Config> Pallet<T> {
         };
 
         if add_duration == 0u32.into() {
-            return Ok(().into())
+            return Ok(().into());
         }
 
         // 计算rent_fee
@@ -486,7 +485,7 @@ impl<T: Config> Pallet<T> {
         let new_rent_id = loop {
             let new_rent_id = if rent_id == u64::MAX { 0 } else { rent_id + 1 };
             if !RentInfo::<T>::contains_key(new_rent_id) {
-                break new_rent_id
+                break new_rent_id;
             }
         };
 
@@ -531,7 +530,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
 
         if !<ConfirmingOrder<T>>::contains_key(now) {
-            return Ok(())
+            return Ok(());
         }
 
         let pending_confirming = Self::confirming_order(now);
@@ -617,7 +616,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_rent_finished() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<RentEnding<T>>::contains_key(now) {
-            return Ok(())
+            return Ok(());
         }
         let pending_ending = Self::rent_ending(now);
 

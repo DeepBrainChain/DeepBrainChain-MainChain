@@ -19,11 +19,11 @@ build-try-runtime:
 
 .PHONY: fmt
 fmt:
-	cargo fmt --all
+	cargo +nightly fmt --all
 
 .PHONY: run
 run:
-	cargo run -- --dev -lruntime=debug,evm=debug --ws-port=9944 --ws-external --rpc-port=8545 --rpc-external --rpc-cors=all --rpc-methods=unsafe --pruning=archive
+	cargo run -- --dev -lruntime=debug,evm=debug --rpc-port=9944 --rpc-external --rpc-cors=all --rpc-methods=unsafe --pruning=archive
 
 NODE_URI ?=wss://info1.dbcwallet.io:443
 BLOCK_HASH ?=0xc4d4e9b1a2b8c44d7859a6004c43ad6eebb61c57b6173a53fe794a6aa479a49b

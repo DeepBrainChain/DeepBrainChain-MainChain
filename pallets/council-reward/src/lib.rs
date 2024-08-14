@@ -48,7 +48,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -121,7 +120,7 @@ impl<T: Config> Pallet<T> {
 
         for member in members {
             if out.len() == 3 || reward_index >= 3 {
-                break
+                break;
             }
             if Some(member.who.clone()) != prime {
                 out.push((member.who.clone(), rewards[reward_index]));

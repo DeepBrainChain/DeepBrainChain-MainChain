@@ -71,7 +71,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -182,7 +181,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_reporter_stake_params(
             origin: OriginFor<T>,
             stake_params: ReporterStakeParamsInfo<BalanceOf<T>>,
@@ -194,7 +193,7 @@ pub mod pallet {
 
         /// 用户报告机器硬件故障
         #[pallet::call_index(1)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
             report_reason: MachineFaultType,
@@ -244,7 +243,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_add_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -254,7 +253,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_reduce_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -265,7 +264,7 @@ pub mod pallet {
 
         // 报告人可以在抢单之前取消该报告
         #[pallet::call_index(4)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_cancel_report(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -300,7 +299,7 @@ pub mod pallet {
 
         /// 委员会进行抢单
         #[pallet::call_index(5)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_book_report(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -333,7 +332,7 @@ pub mod pallet {
         /// 报告人在委员会完成抢单后，30分钟内用委员会的公钥，提交加密后的故障信息
         /// 只有报告机器故障或者无法租用时需要提交加密信息
         #[pallet::call_index(6)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_add_encrypted_error_info(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -370,7 +369,7 @@ pub mod pallet {
         // 委员会提交验证之后的Hash
         // 用户必须在自己的Order状态为Verifying时提交Hash
         #[pallet::call_index(7)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_submit_verify_hash(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -412,7 +411,7 @@ pub mod pallet {
 
         /// 订单状态必须是等待SubmittingRaw: 除了offline之外的所有错误类型
         #[pallet::call_index(8)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_submit_verify_raw(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -478,7 +477,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(9)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_submit_inaccessible_raw(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -520,7 +519,7 @@ pub mod pallet {
 
         /// Reporter and committee apply technical committee review
         #[pallet::call_index(10)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn apply_slash_review(
             origin: OriginFor<T>,
             report_result_id: ReportId,
@@ -595,7 +594,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(11)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn cancel_reporter_slash(
             origin: OriginFor<T>,
             slashed_report_id: ReportId,
@@ -871,7 +870,7 @@ impl<T: Config> Pallet<T> {
                 report_info.report_status = ReportStatus::SubmittingRaw;
                 ReportInfo::<T>::insert(report_id, report_info);
             }
-            return Ok(())
+            return Ok(());
         }
 
         // 初始化报告结果
@@ -931,7 +930,7 @@ impl<T: Config> Pallet<T> {
 
             ItemList::add_item(&mut reporter_report.failed_report, report_id);
             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
-            return Ok(())
+            return Ok(());
         }
 
         // 处理支持报告人的情况
@@ -1071,7 +1070,7 @@ impl<T: Config> Pallet<T> {
 
         // Reported, WaitingBook, CommitteeConfirmed, SubmittingRaw
         if !matches!(report_info.report_status, ReportStatus::Verifying) {
-            return Ok(())
+            return Ok(());
         }
 
         let verifying_committee = report_info.verifying_committee.clone().ok_or(())?;
@@ -1104,7 +1103,7 @@ impl<T: Config> Pallet<T> {
             Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
             ReportResult::<T>::insert(report_id, report_result);
 
-            return Ok(())
+            return Ok(());
         }
 
         // 委员会没有提交Hash，删除该委员会，并惩罚
@@ -1142,7 +1141,7 @@ impl<T: Config> Pallet<T> {
         if matches!(report_info.report_status, ReportStatus::WaitingBook) {
             report_info.report_status = ReportStatus::SubmittingRaw;
             ReportInfo::<T>::insert(report_id, report_info);
-            return Ok(())
+            return Ok(());
         }
 
         // 但是最后一个委员会订阅时间小于1个小时
@@ -1183,7 +1182,7 @@ impl<T: Config> Pallet<T> {
 
         let mut report_info = Self::report_info(&report_id).ok_or(())?;
         if !report_info.can_summary(now) {
-            return Ok(())
+            return Ok(());
         }
 
         let fault_report_result = report_info.summary();

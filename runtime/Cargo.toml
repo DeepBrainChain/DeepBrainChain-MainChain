@@ -25,6 +25,7 @@ num_enum = { workspace = true }
 # primitives
 sp-authority-discovery = { workspace = true }
 sp-consensus-babe = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-inherents = { workspace = true }
 dbc-primitives = { path = "../primitives", default-features = false }
@@ -53,7 +54,7 @@ pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-babe = { workspace = true }
 pallet-bags-list = { workspace = true }
-pallet-balances = { workspace = true }
+pallet-balances = { workspace = true, features = ["insecure_zero_ed"] }
 pallet-bounties = { workspace = true }
 pallet-child-bounties = { workspace = true }
 pallet-collective = { workspace = true }
@@ -121,8 +122,6 @@ rent-machine-runtime-api = { path = "../pallets/rent-machine/rpc/runtime-api", d
 simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
 terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/runtime-api", default-features = false }
 
-# Evm
-ethereum-chain-id = { path = "../pallets/ethereum-chain-id", default-features = false }
 # Frontier
 fp-evm = { workspace = true }
 fp-rpc = { workspace = true }
@@ -130,6 +129,7 @@ fp-self-contained = { workspace = true }
 pallet-base-fee = { workspace = true }
 pallet-ethereum = { workspace = true }
 pallet-evm = { workspace = true }
+pallet-evm-chain-id = { workspace = true }
 pallet-evm-precompile-blake2 = { workspace = true }
 pallet-evm-precompile-bn128 = { workspace = true }
 pallet-evm-precompile-dispatch = { workspace = true }
@@ -155,6 +155,7 @@ std = [
   "pallet-authority-discovery/std",
   "pallet-authorship/std",
   "sp-consensus-babe/std",
+  "sp-consensus-grandpa/std",
   "pallet-babe/std",
   "pallet-bags-list/std",
   "pallet-balances/std",
@@ -242,12 +243,12 @@ std = [
   "terminating-rental-runtime-api/std",
 
   # Evm
-  "ethereum-chain-id/std",
   "fp-evm/std",
   "fp-rpc/std",
   "fp-self-contained/std",
   "pallet-base-fee/std",
   "pallet-ethereum/std",
+  "pallet-evm-chain-id/std",
   "pallet-evm/std",
   "pallet-evm-precompile-blake2/std",
   "pallet-evm-precompile-bn128/std",
@@ -363,8 +364,8 @@ try-runtime = [
   "simple-rpc/try-runtime",
   "terminating-rental/try-runtime",
   "fp-self-contained/try-runtime",
-  "ethereum-chain-id/try-runtime",
-  "pallet-evm/try-runtime",
   "pallet-ethereum/try-runtime",
+  "pallet-evm/try-runtime",
+  "pallet-evm-chain-id/try-runtime",
   "pallet-base-fee/try-runtime",
 ]
