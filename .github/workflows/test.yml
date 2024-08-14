@@ -48,7 +48,7 @@ jobs:
           cache-on-failure: "true"
 
       - name: Check fmt
-        run: cargo fmt --all -- --check
+        run: cargo +nightly fmt --all -- --check
 
       - name: Check try-runtime
         run: cargo check --features try-runtime

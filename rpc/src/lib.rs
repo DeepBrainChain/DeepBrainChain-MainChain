@@ -102,7 +102,7 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: BabeApi<Block>,
     C::Api: BlockBuilder<Block>,
-    // P: TransactionPool + 'static,
+    P: TransactionPool + 'static,
     SC: SelectChain<Block> + 'static,
     BE: sc_client_api::Backend<Block> + Send + Sync + 'static,
     BE::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
@@ -122,7 +122,6 @@ where
     A: ChainApi<Block = Block> + 'static,
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
 {
-    use dbc_finality_rpc::{DbcFinality, DbcFinalityApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_babe_rpc::{Babe, BabeApiServer};
     use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
@@ -130,6 +129,14 @@ where
     use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
     use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
+
+    use committee_rpc::{CmRpcApiServer, CmStorage};
+    use dbc_finality_rpc::{DbcFinality, DbcFinalityApiServer};
+    use online_committee_rpc::{OcRpcApiServer, OcStorage};
+    use online_profile_rpc::{OpRpcApiServer, OpStorage};
+    use rent_machine_rpc::{RmRpcApiServer, RmStorage};
+    use simple_rpc_rpc::{SimpleRpcApiServer, SrStorage};
+    use terminating_rental_rpc::{IrRpcApiServer, IrStorage};
 
     let mut io = RpcModule::new(());
     let FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa, eth } = deps;
@@ -171,6 +178,13 @@ where
     )?;
 
     io.merge(Dev::new(client.clone(), deny_unsafe).into_rpc())?;
+
+    io.merge(SrStorage::new(client.clone()).into_rpc())?;
+    io.merge(CmStorage::new(client.clone()).into_rpc())?;
+    io.merge(OcStorage::new(client.clone()).into_rpc())?;
+    io.merge(OpStorage::new(client.clone()).into_rpc())?;
+    io.merge(RmStorage::new(client.clone()).into_rpc())?;
+    io.merge(IrStorage::new(client.clone()).into_rpc())?;
 
     io.merge(DbcFinality::new(client.clone(), eth.frontier_backend.clone()).into_rpc())?;
 
