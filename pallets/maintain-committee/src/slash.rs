@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
             let report_result_info = Self::report_result(&a_pending_review).ok_or(())?;
 
             if review_info.expire_time < now {
-                continue;
+                continue
             }
 
             let is_slashed_reporter =

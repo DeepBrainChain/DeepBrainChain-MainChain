@@ -354,7 +354,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_work_index() -> Option<Vec<VerifySequence<T::AccountId>>> {
         let mut committee = <committee::Pallet<T>>::available_committee()?;
         if committee.len() < 3 {
-            return None;
+            return None
         };
 
         let mut verify_sequence = Vec::new();
@@ -437,10 +437,10 @@ impl<T: Config> Pallet<T> {
         if machine_committee.can_submit_raw(now) {
             machine_committee.status = OCVerifyStatus::SubmittingRaw;
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            return Ok(());
+            return Ok(())
         }
         if !machine_committee.can_summary(now) {
-            return Ok(());
+            return Ok(())
         }
 
         let mut submit_info = vec![];

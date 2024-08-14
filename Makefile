@@ -19,7 +19,7 @@ build-try-runtime:
 
 .PHONY: fmt
 fmt:
-	cargo +nightly fmt --all
+	cargo +nightly-2023-09-20 fmt --all
 
 .PHONY: run
 run:

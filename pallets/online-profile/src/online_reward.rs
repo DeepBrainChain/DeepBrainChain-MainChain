@@ -134,7 +134,7 @@ impl<T: Config> Pallet<T> {
                         );
                     } else {
                         AllMachineIdSnap::<T>::put(all_machine);
-                        return;
+                        return
                     }
                 }
 
@@ -190,7 +190,7 @@ impl<T: Config> Pallet<T> {
 
         if machine_reward_info.recent_reward_sum == Zero::zero() {
             MachineRecentReward::<T>::insert(&machine_id, machine_reward_info);
-            return Ok(());
+            return Ok(())
         }
 
         let latest_reward = if !machine_reward_info.recent_machine_reward.is_empty() {

@@ -1089,12 +1089,12 @@ pub mod pallet {
                             &slash_reason,
                             offline_duration.saturated_into::<u64>(),
                         ) {
-                            return Err(Error::<T>::MachineStatusNotAllowed.into());
+                            return Err(Error::<T>::MachineStatusNotAllowed.into())
                         }
 
                         let ever_slashed = Self::max_slash_execed(&machine_id);
                         if ever_slashed > report_time && ever_slashed < now {
-                            return Err(Error::<T>::MachineStatusNotAllowed.into());
+                            return Err(Error::<T>::MachineStatusNotAllowed.into())
                         }
                         report_time
                     },
@@ -1605,7 +1605,7 @@ impl<T: Config> Pallet<T> {
                 .ok_or(())?;
 
             if stake_need <= machine_info.stake_amount {
-                continue;
+                continue
             }
             // 现在需要的stake 比 已经stake的多了。
             let extra_need = stake_need - machine_info.stake_amount; // 这个机器还需要这么多质押。
@@ -1634,7 +1634,7 @@ impl<T: Config> Pallet<T> {
                     pre_stake,
                     amount_left,
                 ));
-                return Ok(());
+                return Ok(())
             }
         }
         Ok(())

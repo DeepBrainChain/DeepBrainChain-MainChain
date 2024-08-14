@@ -935,16 +935,16 @@ pub mod pallet {
             let controller_to_be_deprecated = stash.clone();
 
             if <Bonded<T>>::contains_key(&stash) {
-                return Err(Error::<T>::AlreadyBonded.into());
+                return Err(Error::<T>::AlreadyBonded.into())
             }
 
             if <Ledger<T>>::contains_key(&controller_to_be_deprecated) {
-                return Err(Error::<T>::AlreadyPaired.into());
+                return Err(Error::<T>::AlreadyPaired.into())
             }
 
             // Reject a bond which is considered to be _dust_.
             if value < T::Currency::minimum_balance() {
-                return Err(Error::<T>::InsufficientBond.into());
+                return Err(Error::<T>::InsufficientBond.into())
             }
 
             frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
@@ -1332,7 +1332,7 @@ pub mod pallet {
             let old_controller = Self::bonded(&stash).ok_or(Error::<T>::NotStash)?;
 
             if <Ledger<T>>::contains_key(&stash) {
-                return Err(Error::<T>::AlreadyPaired.into());
+                return Err(Error::<T>::AlreadyPaired.into())
             }
             if old_controller != stash {
                 <Bonded<T>>::insert(&stash, &stash);
@@ -1782,7 +1782,7 @@ pub mod pallet {
 
             if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
                 Self::chill_stash(&stash);
-                return Ok(());
+                return Ok(())
             }
 
             if caller != controller {

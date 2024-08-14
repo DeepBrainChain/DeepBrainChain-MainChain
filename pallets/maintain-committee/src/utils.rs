@@ -32,7 +32,7 @@ impl<T: Config> Pallet<T> {
         for a_committee in &report_info.hashed_committee {
             let committee_ops = Self::committee_ops(a_committee, report_id);
             if committee_ops.confirm_hash == hash {
-                return Err(Error::<T>::DuplicateHash.into());
+                return Err(Error::<T>::DuplicateHash.into())
             }
         }
         Ok(().into())
@@ -106,7 +106,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // 未达成共识，则退还报告人质押
         if matches!(report_result, ReportResultType::NoConsensus) {
-            return;
+            return
         }
 
         ReporterStake::<T>::mutate(reporter, |reporter_stake| {

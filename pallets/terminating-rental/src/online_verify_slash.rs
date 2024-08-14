@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
 
         for slash_id in pending_unhandled_id.clone() {
             if Self::do_a_slash(slash_id, &mut pending_unhandled_id).is_err() {
-                continue;
+                continue
             };
         }
         UnhandledOnlineSlash::<T>::put(pending_unhandled_id);
@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
         let mut slash_info = Self::pending_online_slash(slash_id).ok_or(())?;
         if now < slash_info.slash_exec_time {
-            return Ok(());
+            return Ok(())
         }
 
         if !slash_info.stash_slash_amount.is_zero() {

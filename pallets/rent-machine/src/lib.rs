@@ -305,7 +305,7 @@ impl<T: Config> Pallet<T> {
         let gpu_num = machine_info.gpu_num();
 
         if gpu_num == 0 || duration == Zero::zero() {
-            return Ok(().into());
+            return Ok(().into())
         }
 
         // 检查还有空闲的GPU
@@ -433,7 +433,7 @@ impl<T: Config> Pallet<T> {
         };
 
         if add_duration == 0u32.into() {
-            return Ok(().into());
+            return Ok(().into())
         }
 
         // 计算rent_fee
@@ -485,7 +485,7 @@ impl<T: Config> Pallet<T> {
         let new_rent_id = loop {
             let new_rent_id = if rent_id == u64::MAX { 0 } else { rent_id + 1 };
             if !RentInfo::<T>::contains_key(new_rent_id) {
-                break new_rent_id;
+                break new_rent_id
             }
         };
 
@@ -530,7 +530,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
 
         if !<ConfirmingOrder<T>>::contains_key(now) {
-            return Ok(());
+            return Ok(())
         }
 
         let pending_confirming = Self::confirming_order(now);
@@ -616,7 +616,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_rent_finished() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<RentEnding<T>>::contains_key(now) {
-            return Ok(());
+            return Ok(())
         }
         let pending_ending = Self::rent_ending(now);
 

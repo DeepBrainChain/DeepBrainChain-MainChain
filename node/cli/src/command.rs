@@ -105,7 +105,7 @@ pub fn run() -> Result<()> {
                                 "Runtime benchmarking wasn't enabled when building the node. \
 							You can enable it with `--features runtime-benchmarks`."
                                     .into(),
-                            );
+                            )
                         }
 
                         cmd.run::<Block, DBCExecutorDispatch>(config)

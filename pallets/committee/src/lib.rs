@@ -140,7 +140,7 @@ pub mod pallet {
                 ItemList::add_item(&mut committee_list.normal, committee.clone());
                 Committee::<T>::put(committee_list);
             } else if !committee_list.is_normal(&committee) {
-                return Err(Error::<T>::StatusNotAllowed.into());
+                return Err(Error::<T>::StatusNotAllowed.into())
             }
 
             CommitteeStake::<T>::mutate(&committee, |committee_stake| {
@@ -231,7 +231,7 @@ pub mod pallet {
 
             ensure!(committee_list.is_committee(&committee), Error::<T>::NotCommittee);
             if committee_list.is_chill(&committee) {
-                return Ok(().into());
+                return Ok(().into())
             }
             // waiting_box_pubkey不能执行该操作
             ensure!(!committee_list.is_waiting_puk(&committee), Error::<T>::PubkeyNotSet);

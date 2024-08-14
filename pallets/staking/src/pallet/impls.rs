@@ -206,7 +206,7 @@ impl<T: Config> Pallet<T> {
 
         // Nothing to do if they have no reward points.
         if validator_reward_points.is_zero() {
-            return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
+            return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
         }
 
         // This is the fraction of the total reward that the validator and the
@@ -337,7 +337,7 @@ impl<T: Config> Pallet<T> {
                 _ => {
                     // Either `Forcing::ForceNone`,
                     // or `Forcing::NotForcing if era_length >= T::SessionsPerEra::get()`.
-                    return None;
+                    return None
                 },
             }
 
@@ -504,7 +504,7 @@ impl<T: Config> Pallet<T> {
     fn reward_to_committee_team() -> Result<(), ()> {
         let reward_times = Self::reward_times();
         if reward_times < 1 {
-            return Ok(());
+            return Ok(())
         }
         for (dest_account, amount) in Self::committee_team_reward_per_year().ok_or(())? {
             T::Currency::deposit_creating(&dest_account, amount);
@@ -519,7 +519,7 @@ impl<T: Config> Pallet<T> {
         let mut treasury_reward = Self::treasury_reward().ok_or(())?;
 
         if foundation_reward.reward_interval == 0 || treasury_reward.reward_interval == 0 {
-            return Ok(());
+            return Ok(())
         }
 
         if foundation_reward.left_reward_times > 0 &&
@@ -635,7 +635,7 @@ impl<T: Config> Pallet<T> {
             }
 
             Self::deposit_event(Event::StakingElectionFailed);
-            return None;
+            return None
         }
 
         Self::deposit_event(Event::StakersElected);
@@ -1116,7 +1116,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
         // We can't handle this case yet -- return an error.
         if maybe_max_len.map_or(false, |max_len| target_count > max_len as u32) {
-            return Err("Target snapshot too big");
+            return Err("Target snapshot too big")
         }
 
         Ok(Self::get_npos_targets(None))
@@ -1384,7 +1384,7 @@ where
             add_db_reads_writes(1, 0);
             if active_era.is_none() {
                 // This offence need not be re-submitted.
-                return consumed_weight;
+                return consumed_weight
             }
             active_era.expect("value checked not to be `None`; qed").index
         };
@@ -1425,7 +1425,7 @@ where
 
             // Skip if the validator is invulnerable.
             if invulnerables.contains(stash) {
-                continue;
+                continue
             }
 
             let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
@@ -1773,7 +1773,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
     ) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
         let is_bonded = Self::bonded(who).is_some();
         if !is_bonded {
-            return Err(Error::<T>::NotStash.into());
+            return Err(Error::<T>::NotStash.into())
         }
 
         let is_validator = Validators::<T>::contains_key(&who);

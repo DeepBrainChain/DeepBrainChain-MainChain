@@ -89,11 +89,11 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             if Self::price_url().is_none() {
-                return;
+                return
             };
             let price_update_frequency = Self::price_update_frequency();
             if price_update_frequency == 0 {
-                return;
+                return
             }
 
             if block_number % price_update_frequency.into() == 0u32.into() {
@@ -146,7 +146,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             if frequency == 0 {
-                return Ok(().into());
+                return Ok(().into())
             }
             PriceUpdateFrequency::<T>::put(frequency);
             Ok(().into())
@@ -226,7 +226,7 @@ impl<T: Config> Pallet<T> {
         let response = pending.try_wait(timeout).map_err(|_| http::Error::DeadlineReached)??;
         // Let's check the status code before we proceed to reading the response.
         if response.code != 200 {
-            return Err(http::Error::Unknown);
+            return Err(http::Error::Unknown)
         }
         let body = response.body().collect::<Vec<u8>>();
 
@@ -251,7 +251,7 @@ impl<T: Config> Pallet<T> {
     pub fn add_avg_price() {
         let prices = Prices::<T>::get();
         if prices.len() != MAX_LEN {
-            return;
+            return
         }
         let avg_price = prices
             .iter()

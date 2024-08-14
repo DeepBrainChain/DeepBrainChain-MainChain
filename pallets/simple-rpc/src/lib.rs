@@ -64,7 +64,7 @@ impl<T: Config> Pallet<T> {
         let mut stash_list_info = Vec::new();
 
         if all_stash.len() == 0 {
-            return stash_list_info;
+            return stash_list_info
         }
 
         let cur_page = cur_page as usize;
@@ -73,7 +73,7 @@ impl<T: Config> Pallet<T> {
         let mut page_end = page_start + per_page;
 
         if page_start >= all_stash.len() {
-            return stash_list_info;
+            return stash_list_info
         }
 
         if page_end >= all_stash.len() {

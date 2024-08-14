@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
     pub fn pay_stake_when_report(reporter: T::AccountId) -> DispatchResultWithPostInfo {
         let stake_params = Self::reporter_stake_params();
         if stake_params.stake_per_report == Zero::zero() {
-            return Ok(().into());
+            return Ok(().into())
         }
 
         ReporterStake::<T>::mutate(&reporter, |reporter_stake| {
@@ -241,7 +241,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // 未达成共识，则退还报告人质押
         if matches!(report_result, ReportResultType::NoConsensus) {
-            return;
+            return
         }
 
         ReporterStake::<T>::mutate(reporter, |reporter_stake| {
@@ -360,7 +360,7 @@ impl<T: Config> Pallet<T> {
 
         // Reported, WaitingBook, CommitteeConfirmed, SubmittingRaw
         if !matches!(report_info.report_status, ReportStatus::Verifying) {
-            return Ok(());
+            return Ok(())
         }
 
         let verifying_committee = report_info.verifying_committee.clone().ok_or(())?;
@@ -393,7 +393,7 @@ impl<T: Config> Pallet<T> {
             Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
             ReportResult::<T>::insert(report_id, report_result);
 
-            return Ok(());
+            return Ok(())
         }
 
         // 委员会没有提交Hash，删除该委员会，并惩罚
@@ -426,7 +426,7 @@ impl<T: Config> Pallet<T> {
 
         let mut report_info = Self::report_info(&report_id).ok_or(())?;
         if !report_info.can_summary(now) {
-            return Ok(());
+            return Ok(())
         }
 
         let fault_report_result = report_info.summary();
@@ -530,7 +530,7 @@ impl<T: Config> Pallet<T> {
         if matches!(report_info.report_status, ReportStatus::WaitingBook) {
             report_info.report_status = ReportStatus::SubmittingRaw;
             ReportInfo::<T>::insert(report_id, report_info);
-            return Ok(());
+            return Ok(())
         }
 
         // 但是最后一个委员会订阅时间小于1个小时
