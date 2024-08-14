@@ -1,16 +1,32 @@
-FROM ubuntu:22.04
+FROM docker.io/paritytech/ci-unified:latest AS builder
 
-# RUN sed -i 's@//.*archive.ubuntu.com@//mirrors.ustc.edu.cn@g' /etc/apt/sources.list
-
-RUN apt-get -y update
-RUN apt-get -y install ca-certificates curl git gnupg cmake pkg-config libssl-dev git gcc build-essential clang libclang-dev gcc-12 g++-12 protobuf-compiler
-
-# ENV RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup
-# ENV RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-COPY . /DeepBrainChain-MainChain
 WORKDIR /DeepBrainChain-MainChain
+COPY . .
 
-RUN cargo build --release
+RUN cargo fetch
+RUN cargo build --locked --release
+
+# =============
+
+FROM docker.io/parity/base-bin:latest
+LABEL maintainer="DeepBrainChain Developers"
+
+COPY --from=builder /DeepBrainChain-MainChain/target/release/dbc-chain /usr/local/bin
+
+USER root
+ARG USERNAME=dbc
+RUN useradd -m -u 1001 -U -s /bin/sh -d /$USERNAME $USERNAME && \
+	mkdir -p /$USERNAME/data /$USERNAME/.local/share && \
+	chown -R $USERNAME:$USERNAME /$USERNAME/data && \
+	ln -s /$USERNAME/data /$USERNAME/.local/share/dbc-chain && \
+# unclutter and minimize the attack surface
+	# rm -rf /usr/bin /usr/sbin && \
+# check if executable works in this container
+	/usr/local/bin/dbc-chain --version
+
+USER $USERNAME
+
+EXPOSE 30333 9933 9944 9615
+VOLUME ["/$USERNAME/data"]
+
+ENTRYPOINT ["/usr/local/bin/dbc-chain"]
