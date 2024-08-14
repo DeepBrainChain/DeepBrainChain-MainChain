@@ -1,4 +1,21 @@
-// Datatype for easy mutation of the extra "sidecar" data.
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Datatype for easy mutation of the extra "sidecar" data.
 
 use super::*;
 
@@ -45,7 +62,7 @@ impl<T: Config<I>, I: 'static> ExtraMutator<T, I> {
         id: T::AssetId,
         who: impl sp_std::borrow::Borrow<T::AccountId>,
     ) -> Option<ExtraMutator<T, I>> {
-        if let Some(a) = Account::<T, I>::get(id, who.borrow()) {
+        if let Some(a) = Account::<T, I>::get(&id, who.borrow()) {
             Some(ExtraMutator::<T, I> {
                 id,
                 who: who.borrow().clone(),
@@ -60,7 +77,7 @@ impl<T: Config<I>, I: 'static> ExtraMutator<T, I> {
     /// Commit any changes to storage.
     pub fn commit(&mut self) -> Result<(), ()> {
         if let Some(extra) = self.pending.take() {
-            Account::<T, I>::try_mutate(self.id, self.who.borrow(), |maybe_account| {
+            Account::<T, I>::try_mutate(&self.id, &self.who, |maybe_account| {
                 maybe_account.as_mut().ok_or(()).map(|account| account.extra = extra)
             })
         } else {
@@ -71,7 +88,7 @@ impl<T: Config<I>, I: 'static> ExtraMutator<T, I> {
     /// Revert any changes, even those already committed by `self` and drop self.
     pub fn revert(mut self) -> Result<(), ()> {
         self.pending = None;
-        Account::<T, I>::try_mutate(self.id, self.who.borrow(), |maybe_account| {
+        Account::<T, I>::try_mutate(&self.id, &self.who, |maybe_account| {
             maybe_account
                 .as_mut()
                 .ok_or(())

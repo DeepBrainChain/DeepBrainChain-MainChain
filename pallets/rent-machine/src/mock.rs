@@ -4,7 +4,9 @@ use dbc_support::machine_type::{
     CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
 };
 use frame_support::{
-    assert_ok, parameter_types,
+    assert_ok,
+    pallet_prelude::Weight,
+    parameter_types,
     traits::{ConstU32, OnFinalize, OnInitialize},
     PalletId,
 };
@@ -83,6 +85,10 @@ impl pallet_balances::Config for TestRuntime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+    type HoldIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for TestRuntime {}
@@ -136,6 +142,8 @@ parameter_types! {
     pub const CouncilMotionDuration: u32 = 5 * 2880;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 100;
+    pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights::simple_max(Weight::MAX);
+    pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 
 type TechnicalCollective = pallet_collective::Instance2;
@@ -149,6 +157,7 @@ impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
     type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+    type MaxProposalWeight = MaxProposalWeight;
 }
 
 parameter_types! {

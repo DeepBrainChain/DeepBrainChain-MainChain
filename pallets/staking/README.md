@@ -150,7 +150,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Reward a validator.
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reward_myself(origin: OriginFor<T>) -> DispatchResult {
             let reported = ensure_signed(origin)?;
             <staking::Pallet<T>>::reward_by_ids(vec![(reported, 10)]);

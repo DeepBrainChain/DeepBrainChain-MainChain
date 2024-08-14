@@ -5,7 +5,7 @@ use dbc_support::{
 };
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, TryRuntimeError};
 use sp_std::vec::Vec;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -160,7 +160,7 @@ pub mod v1 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
             log::info!("pre_upgrade ok");
             let current_version = Pallet::<T>::current_storage_version();
             let on_chain_version = Pallet::<T>::on_chain_storage_version();
@@ -173,7 +173,7 @@ pub mod v1 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+        fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
             let on_chain_version = Pallet::<T>::on_chain_storage_version();
 
             ensure!(on_chain_version == 1, "this migration needs to be removed");

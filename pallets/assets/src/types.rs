@@ -1,27 +1,39 @@
-// Various basic types for use in the assets pallet.
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Various basic types for use in the assets pallet.
 
 use super::*;
 use frame_support::{
     pallet_prelude::*,
-    traits::{fungible, tokens::BalanceConversion},
-    BoundedBTreeMap,
+    traits::{fungible, tokens::ConversionToAssetBalance},
 };
 use sp_runtime::{traits::Convert, FixedPointNumber, FixedPointOperand, FixedU128};
 
 pub(super) type DepositBalanceOf<T, I = ()> =
     <<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
-pub(super) type AssetAccountOf<T, I> =
-    AssetAccount<<T as Config<I>>::Balance, DepositBalanceOf<T, I>, <T as Config<I>>::Extra>;
-
-pub(super) type ApprovalsOf<T, I = ()> = BoundedBTreeMap<
-    u32,
-    AssetLock<
-        <T as SystemConfig>::AccountId,
-        <T as Config<I>>::Balance,
-        <T as SystemConfig>::BlockNumber,
-    >,
-    <T as Config<I>>::AssetLockLimit,
+pub(super) type AssetAccountOf<T, I> = AssetAccount<
+    <T as Config<I>>::Balance,
+    DepositBalanceOf<T, I>,
+    <T as Config<I>>::Extra,
+    <T as SystemConfig>::AccountId,
 >;
+pub(super) type ExistenceReasonOf<T, I> =
+    ExistenceReason<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
 
 /// AssetStatus holds the current state of the asset. It could either be Live and available for use,
 /// or in a Destroying state.
@@ -77,23 +89,35 @@ pub struct Approval<Balance, DepositBalance> {
 
 #[test]
 fn ensure_bool_decodes_to_consumer_or_sufficient() {
-    assert_eq!(false.encode(), ExistenceReason::<()>::Consumer.encode());
-    assert_eq!(true.encode(), ExistenceReason::<()>::Sufficient.encode());
+    assert_eq!(false.encode(), ExistenceReason::<(), ()>::Consumer.encode());
+    assert_eq!(true.encode(), ExistenceReason::<(), ()>::Sufficient.encode());
 }
 
+/// The reason for an account's existence within an asset class.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub enum ExistenceReason<Balance> {
+pub enum ExistenceReason<Balance, AccountId> {
+    /// A consumer reference was used to create this account.
     #[codec(index = 0)]
     Consumer,
+    /// The asset class is `sufficient` for account existence.
     #[codec(index = 1)]
     Sufficient,
+    /// The account holder has placed a deposit to exist within an asset class.
     #[codec(index = 2)]
     DepositHeld(Balance),
+    /// A deposit was placed for this account to exist, but it has been refunded.
     #[codec(index = 3)]
     DepositRefunded,
+    /// Some other `AccountId` has placed a deposit to make this account exist.
+    /// An account with such a reason might not be referenced in `system`.
+    #[codec(index = 4)]
+    DepositFrom(AccountId, Balance),
 }
 
-impl<Balance> ExistenceReason<Balance> {
+impl<Balance, AccountId> ExistenceReason<Balance, AccountId>
+where
+    AccountId: Clone,
+{
     pub(crate) fn take_deposit(&mut self) -> Option<Balance> {
         if !matches!(self, ExistenceReason::DepositHeld(_)) {
             return None
@@ -106,16 +130,56 @@ impl<Balance> ExistenceReason<Balance> {
             None
         }
     }
+
+    pub(crate) fn take_deposit_from(&mut self) -> Option<(AccountId, Balance)> {
+        if !matches!(self, ExistenceReason::DepositFrom(..)) {
+            return None
+        }
+        if let ExistenceReason::DepositFrom(depositor, deposit) =
+            sp_std::mem::replace(self, ExistenceReason::DepositRefunded)
+        {
+            Some((depositor, deposit))
+        } else {
+            None
+        }
+    }
+}
+
+#[test]
+fn ensure_bool_decodes_to_liquid_or_frozen() {
+    assert_eq!(false.encode(), AccountStatus::Liquid.encode());
+    assert_eq!(true.encode(), AccountStatus::Frozen.encode());
+}
+
+/// The status of an asset account.
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub enum AccountStatus {
+    /// Asset account can receive and transfer the assets.
+    Liquid,
+    /// Asset account cannot transfer the assets.
+    Frozen,
+    /// Asset account cannot receive and transfer the assets.
+    Blocked,
+}
+impl AccountStatus {
+    /// Returns `true` if frozen or blocked.
+    pub(crate) fn is_frozen(&self) -> bool {
+        matches!(self, AccountStatus::Frozen | AccountStatus::Blocked)
+    }
+    /// Returns `true` if blocked.
+    pub(crate) fn is_blocked(&self) -> bool {
+        matches!(self, AccountStatus::Blocked)
+    }
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub struct AssetAccount<Balance, DepositBalance, Extra> {
+pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
     /// The balance.
     pub(super) balance: Balance,
-    /// Whether the account is frozen.
-    pub(super) is_frozen: bool,
+    /// The status of the account.
+    pub(super) status: AccountStatus,
     /// The reason for the existence of the account.
-    pub(super) reason: ExistenceReason<DepositBalance>,
+    pub(super) reason: ExistenceReason<DepositBalance, AccountId>,
     /// Additional "sidecar" data, in case some other pallet wants to use this storage item.
     pub(super) extra: Extra,
 }
@@ -222,7 +286,7 @@ type BalanceOf<F, T> = <F as fungible::Inspect<AccountIdOf<T>>>::Balance;
 /// Converts a balance value into an asset balance based on the ratio between the fungible's
 /// minimum balance and the minimum asset balance.
 pub struct BalanceToAssetBalance<F, T, CON, I = ()>(PhantomData<(F, T, CON, I)>);
-impl<F, T, CON, I> BalanceConversion<BalanceOf<F, T>, AssetIdOf<T, I>, AssetBalanceOf<T, I>>
+impl<F, T, CON, I> ConversionToAssetBalance<BalanceOf<F, T>, AssetIdOf<T, I>, AssetBalanceOf<T, I>>
     for BalanceToAssetBalance<F, T, CON, I>
 where
     F: fungible::Inspect<AccountIdOf<T>>,
@@ -256,8 +320,19 @@ where
     }
 }
 
+use frame_support::BoundedBTreeMap;
+pub(super) type ApprovalsOf<T, I = ()> = BoundedBTreeMap<
+    u32,
+    AssetLock<
+        <T as SystemConfig>::AccountId,
+        <T as Config<I>>::Balance,
+        <T as SystemConfig>::BlockNumber,
+    >,
+    AssetLockLimit,
+>;
+
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, MaxEncodedLen, TypeInfo)]
-pub struct AssetLock<
+pub(super) struct AssetLock<
     AccountId: Encode + Decode + Clone + Eq + PartialEq,
     Balance: Encode + Decode + Clone + Eq + PartialEq,
     BlockNumber: Encode + Decode + Clone + Eq + PartialEq,

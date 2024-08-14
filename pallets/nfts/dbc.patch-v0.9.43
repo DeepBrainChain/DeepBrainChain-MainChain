@@ -1,0 +1,63 @@
+diff --git a/pallets/nfts/src/lib.rs b/pallets/nfts/src/lib.rs
+index f1188c5..b223052 100644
+--- a/pallets/nfts/src/lib.rs
++++ b/pallets/nfts/src/lib.rs
+@@ -44,7 +44,7 @@ mod types;
+ pub mod macros;
+ pub mod weights;
+ 
+-use codec::{Decode, Encode};
++use codec::{alloc::string::ToString, Decode, Encode};
+ use frame_support::traits::{
+     tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
+ };
+@@ -1870,6 +1870,49 @@ pub mod pallet {
+             Self::validate_signature(&Encode::encode(&data), &signature, &signer)?;
+             Self::do_set_attributes_pre_signed(origin, data, signer)
+         }
++
++        #[pallet::call_index(39)]
++        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
++        pub fn active(
++            origin: OriginFor<T>,
++            collection: T::CollectionId,
++            item: T::ItemId,
++        ) -> DispatchResult {
++            let origin = ensure_signed(origin)?;
++            let item_details = match Item::<T, I>::get(&collection, &item) {
++                Some(x) => x,
++                None => return Err(Error::<T, I>::UnknownItem.into()),
++            };
++            ensure!(item_details.owner == origin, Error::<T, I>::WrongOwner);
++
++            let now: u64 = <frame_system::Pallet<T>>::block_number().saturated_into();
++            let namespace = AttributeNamespace::CollectionOwner;
++            // `validPeriod`: `0x76616c6964506572696f64`
++            let key: BoundedVec<_, _> = b"validPeriod".to_vec().try_into().unwrap();
++
++            let collection_valid_period =
++                match Attribute::<T, I>::get((collection, None::<T::ItemId>, &namespace, &key)) {
++                    Some(collection_valid_period) => collection_valid_period,
++                    None => return Err(Error::<T, I>::LockedCollectionAttributes.into()),
++                };
++
++            let period: u64 =
++                from_utf8(collection_valid_period.0.as_slice()).unwrap().parse().unwrap();
++            let expire: Vec<_> = now.saturating_add(period.into()).to_string().as_bytes().to_vec();
++            let expire: BoundedVec<_, _> = expire.try_into().unwrap();
++
++            match Attribute::<T, I>::get((collection, Some(item), &namespace, &key)) {
++                Some(_) => Err(Error::<T, I>::AlreadyExists.into()),
++                None => Self::do_force_set_attribute(
++                    None,
++                    collection,
++                    Some(item),
++                    namespace,
++                    key,
++                    expire,
++                ),
++            }
++        }
+     }
+ }
+ 

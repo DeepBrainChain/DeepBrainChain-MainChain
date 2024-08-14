@@ -4,7 +4,6 @@
 
 mod traits;
 
-pub use dbc_support::ItemList;
 use frame_support::{
     pallet_prelude::*,
     traits::{Currency, OnUnbalanced, Randomness, ReservableCurrency},
@@ -36,13 +35,12 @@ pub mod pallet {
         type Currency: ReservableCurrency<Self::AccountId>;
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type BlockPerEra: Get<u32>;
-        type RandomnessSource: Randomness<H256, Self::BlockNumber>;
+        type RandomnessSource: Randomness<H256, BlockNumberFor<Self>>;
         type FixedTxFee: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -63,7 +61,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn destroy_hook)]
-    pub(super) type DestroyHook<T: Config> = StorageValue<_, (T::AccountId, T::BlockNumber)>;
+    pub(super) type DestroyHook<T: Config> = StorageValue<_, (T::AccountId, BlockNumberFor<T>)>;
 
     #[pallet::storage]
     #[pallet::getter(fn total_destroy)]
@@ -72,7 +70,7 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(block_number: T::BlockNumber) -> Weight {
+        fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
             let weight = Weight::default();
 
             let frequency = Self::destroy_hook();
@@ -113,7 +111,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 设置租用机器手续费：10 DBC
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_fixed_tx_fee(
             origin: OriginFor<T>,
             tx_fee: BalanceOf<T>,
@@ -124,7 +122,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn deposit_into_treasury(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -143,11 +141,11 @@ pub mod pallet {
 
         /// fre == 0 将销毁DestroyHook
         #[pallet::call_index(2)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_auto_destroy(
             origin: OriginFor<T>,
             who: T::AccountId,
-            frequency: T::BlockNumber,
+            frequency: BlockNumberFor<T>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             if frequency == 0u32.into() {
@@ -160,7 +158,7 @@ pub mod pallet {
 
         // 将DBC销毁
         #[pallet::call_index(3)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn destroy_free_dbc(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -171,7 +169,7 @@ pub mod pallet {
 
         // 强制销毁DBC
         #[pallet::call_index(4)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn force_destroy_free_dbc(
             origin: OriginFor<T>,
             who: T::AccountId,

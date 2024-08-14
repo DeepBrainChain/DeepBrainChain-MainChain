@@ -23,9 +23,9 @@ use coins_bip39::{English, Mnemonic, Wordlist};
 use dbc_runtime::{
     constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
     BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DefaultElasticity,
-    DemocracyConfig, EVMConfig, ElectionsConfig, EthereumChainIdConfig, GrandpaConfig,
-    ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig,
-    SessionKeys, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+    DemocracyConfig, EVMChainIdConfig, EVMConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig,
+    IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus,
+    StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
 use fp_evm::GenesisAccount;
 use k256::{elliptic_curve::sec1::ToEncodedPoint, EncodedPoint};
@@ -36,8 +36,8 @@ use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public, H160};
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
@@ -382,7 +382,7 @@ pub fn dev_testnet_genesis(
             min_join_bond: 1 * DOLLARS,
             ..Default::default()
         },
-        ethereum_chain_id: EthereumChainIdConfig { chain_id: 19850818u64 },
+        ethereum: Default::default(),
         evm: EVMConfig {
             accounts: evm_accounts
                 .iter()
@@ -399,7 +399,7 @@ pub fn dev_testnet_genesis(
                 })
                 .collect(),
         },
-        ethereum: Default::default(),
+        evm_chain_id: EVMChainIdConfig { chain_id: 19850818u64 },
         base_fee: BaseFeeConfig::new(DefaultBaseFeePerGas::get(), DefaultElasticity::get()),
     }
 }
@@ -534,9 +534,9 @@ pub fn testnet_genesis(
             min_join_bond: 1 * DOLLARS,
             ..Default::default()
         },
-        ethereum_chain_id: EthereumChainIdConfig { chain_id: 19850818u64 },
-        evm: Default::default(),
         ethereum: Default::default(),
+        evm: Default::default(),
+        evm_chain_id: EVMChainIdConfig { chain_id: 19850818u64 },
         base_fee: BaseFeeConfig::new(DefaultBaseFeePerGas::get(), DefaultElasticity::get()),
     }
 }
@@ -673,23 +673,6 @@ pub(crate) mod tests {
             None,
             Default::default(),
         )
-    }
-
-    #[test]
-    #[ignore]
-    fn test_connectivity() {
-        sp_tracing::try_init_simple();
-
-        sc_service_test::connectivity(integration_test_config_with_two_authorities(), |config| {
-            let NewFullBase { task_manager, client, network, transaction_pool, .. } =
-                new_full_base(config, false, |_, _| ())?;
-            Ok(sc_service_test::TestNetComponents::new(
-                task_manager,
-                client,
-                network,
-                transaction_pool,
-            ))
-        });
     }
 
     #[test]
