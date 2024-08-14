@@ -25,7 +25,10 @@ pub use sc_executor::NativeElseWasmExecutor;
 pub struct DBCExecutorDispatch;
 
 impl sc_executor::NativeExecutionDispatch for DBCExecutorDispatch {
-    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+    type ExtendHostFunctions =(
+        frame_benchmarking::benchmarking::HostFunctions,
+        dbc_runtime_interface::sandbox::HostFunctions,
+    );
 
     fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
         dbc_runtime::api::dispatch(method, data)
