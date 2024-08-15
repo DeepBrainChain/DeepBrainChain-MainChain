@@ -37,9 +37,9 @@ use frame_support::{
     pallet_prelude::Get,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, Currency, EitherOfDiverse,
-        EqualPrivilegeOnly, Everything, Hooks, Imbalance, InstanceFilter, KeyOwnerProofSystem,
-        LockIdentifier, OnUnbalanced, U128CurrencyToVote,
+        AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, Currency as CurrencyT,
+        EitherOfDiverse, EqualPrivilegeOnly, Everything, Hooks, Imbalance, InstanceFilter,
+        KeyOwnerProofSystem, LockIdentifier, OnUnbalanced, U128CurrencyToVote,
     },
     weights::{
         constants::{
@@ -53,6 +53,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, EnsureSigned, EnsureWithSuccess,
 };
+use pallet_balances::NegativeImbalance;
 use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{
@@ -79,6 +80,7 @@ use sp_runtime::{
     traits::{
         self, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, DispatchInfoOf, Dispatchable,
         LookupError, NumberFor, OpaqueKeys, PostDispatchInfoOf, SaturatedConversion, StaticLookup,
+        UniqueSaturatedInto,
     },
     transaction_validity::{
         TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
@@ -106,7 +108,7 @@ pub use sp_runtime::BuildStorage;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{Author, CreditToBlockAuthor};
+use impls::CreditToBlockAuthor;
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -163,20 +165,48 @@ pub fn native_version() -> NativeVersion {
     NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
-
-pub struct DealWithFees;
-impl OnUnbalanced<NegativeImbalance> for DealWithFees {
-    fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
+pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
+impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
+where
+    R: pallet_balances::Config + pallet_treasury::Config + pallet_authorship::Config,
+    pallet_treasury::Pallet<R>: OnUnbalanced<NegativeImbalance<R>>,
+{
+    // this seems to be called for substrate-based transactions
+    fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
         if let Some(fees) = fees_then_tips.next() {
             // for fees, 80% to treasury, 20% to author
-            let mut split = fees.ration(80, 20);
-            if let Some(tips) = fees_then_tips.next() {
-                // for tips, if any, 80% to treasury, 20% to author (though this can be anything)
-                tips.ration_merge_into(80, 20, &mut split);
+            let (to_treasury, to_author) = fees.ration(80, 20);
+
+            <pallet_treasury::Pallet<R> as OnUnbalanced<_>>::on_unbalanced(to_treasury);
+
+            if let Some(author) = pallet_authorship::Pallet::<R>::author() {
+                pallet_balances::Pallet::<R>::resolve_creating(&author, to_author);
             }
-            Treasury::on_unbalanced(split.0);
-            Author::on_unbalanced(split.1);
+
+            // handle tip if there is one
+            if let Some(tip) = fees_then_tips.next() {
+                // for now we use the same treasury/author strategy used for regular fees
+                let (to_treasury, to_author) = tip.ration(80, 20);
+
+                <pallet_treasury::Pallet<R> as OnUnbalanced<_>>::on_unbalanced(to_treasury);
+
+                if let Some(author) = pallet_authorship::Pallet::<R>::author() {
+                    pallet_balances::Pallet::<R>::resolve_creating(&author, to_author);
+                }
+            }
+        }
+    }
+
+    // this is called from pallet_evm for Ethereum-based transactions
+    // (technically, it calls on_unbalanced, which calls this when non-zero)
+    fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+        // for fees, 80% to treasury, 20% to author
+        let (to_treasury, to_author) = amount.ration(80, 20);
+
+        <pallet_treasury::Pallet<R> as OnUnbalanced<_>>::on_unbalanced(to_treasury);
+
+        if let Some(author) = pallet_authorship::Pallet::<R>::author() {
+            pallet_balances::Pallet::<R>::resolve_creating(&author, to_author);
         }
     }
 }
@@ -487,7 +517,7 @@ parameter_types! {
 
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+    type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Runtime>>;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
     type WeightToFee = IdentityFee<Balance>;
     type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -1424,13 +1454,13 @@ parameter_types! {
 type CurrencyAccountId<T> = <T as frame_system::Config>::AccountId;
 
 type BalanceFor<T> =
-    <<T as pallet_evm::Config>::Currency as Currency<CurrencyAccountId<T>>>::Balance;
+    <<T as pallet_evm::Config>::Currency as CurrencyT<CurrencyAccountId<T>>>::Balance;
 
 type PositiveImbalanceFor<T> =
-    <<T as pallet_evm::Config>::Currency as Currency<CurrencyAccountId<T>>>::PositiveImbalance;
+    <<T as pallet_evm::Config>::Currency as CurrencyT<CurrencyAccountId<T>>>::PositiveImbalance;
 
 type NegativeImbalanceFor<T> =
-    <<T as pallet_evm::Config>::Currency as Currency<CurrencyAccountId<T>>>::NegativeImbalance;
+    <<T as pallet_evm::Config>::Currency as CurrencyT<CurrencyAccountId<T>>>::NegativeImbalance;
 
 pub struct OnChargeEVMTransaction<OU>(sp_std::marker::PhantomData<OU>);
 impl<T, OU> OnChargeEVMTransactionT<T> for OnChargeEVMTransaction<OU>
@@ -1439,7 +1469,7 @@ where
     PositiveImbalanceFor<T>: Imbalance<BalanceFor<T>, Opposite = NegativeImbalanceFor<T>>,
     NegativeImbalanceFor<T>: Imbalance<BalanceFor<T>, Opposite = PositiveImbalanceFor<T>>,
     OU: OnUnbalanced<NegativeImbalanceFor<T>>,
-    BalanceFor<T>: TryFrom<U256>,
+    U256: UniqueSaturatedInto<BalanceFor<T>>,
 {
     type LiquidityInfo = Option<NegativeImbalanceFor<T>>;
 
@@ -1480,7 +1510,7 @@ impl pallet_evm::Config for Runtime {
     type ChainId = EVMChainId;
     type BlockGasLimit = BlockGasLimit;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
-    type OnChargeTransaction = OnChargeEVMTransaction<DealWithFees>;
+    type OnChargeTransaction = OnChargeEVMTransaction<DealWithFees<Runtime>>;
     type OnCreate = ();
     type FindAuthor = ();
     type GasLimitPovSizeRatio = GasLimitPovSizeRatio;
