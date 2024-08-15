@@ -17,21 +17,9 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{AccountId, Assets, Authorship, Balances, NegativeImbalance, Runtime};
-use frame_support::traits::{
-    fungibles::{Balanced, Credit},
-    Currency, OnUnbalanced,
-};
+use crate::{AccountId, Assets, Runtime};
+use frame_support::traits::fungibles::{Balanced, Credit};
 use pallet_asset_tx_payment::HandleCredit;
-
-pub struct Author;
-impl OnUnbalanced<NegativeImbalance> for Author {
-    fn on_nonzero_unbalanced(amount: NegativeImbalance) {
-        if let Some(author) = Authorship::author() {
-            Balances::resolve_creating(&author, amount);
-        }
-    }
-}
 
 /// A `HandleCredit` implementation that naively transfers the fees to the block author.
 /// Will drop and burn the assets in case the transfer fails.
