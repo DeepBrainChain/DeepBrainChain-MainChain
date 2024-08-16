@@ -3,6 +3,7 @@
 #![warn(unused_crate_dependencies)]
 
 // mod migrations;
+mod impl_dlc_slash_info;
 mod slash;
 mod types;
 mod utils;
@@ -28,18 +29,27 @@ use dbc_support::{
 };
 use frame_support::{
     pallet_prelude::*,
-    traits::{Currency, OnUnbalanced, ReservableCurrency},
+    traits::{fungibles::Mutate, Currency, OnUnbalanced, ReservableCurrency},
+    PalletId,
 };
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::alloc::string::ToString;
-use sp_runtime::traits::{Saturating, Zero};
-use sp_std::{str, vec, vec::Vec};
-
 pub use pallet::*;
+use parity_scale_codec::alloc::string::ToString;
+use sp_runtime::{
+    traits::{AccountIdConversion, CheckedSub, Saturating, Zero},
+    Perbill,
+};
+use sp_std::{prelude::*, vec, vec::Vec};
 use types::*;
+
+pub const ONE_DLC: u128 = 1_000_000_000_000_000;
+const PALLET_ID: PalletId = PalletId(*b"dlc_lock");
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+type DLCBalanceOf<T> = <T as pallet_assets::Config>::Balance;
+
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
@@ -51,7 +61,14 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + online_profile::Config + generic_func::Config + rent_machine::Config
+        frame_system::Config
+        + online_profile::Config
+        + generic_func::Config
+        + rent_machine::Config
+        + pallet_assets::Config
+        + pallet_treasury::Config
+        + rent_dlc_machine::Config
+        + dlc_machine::Config
     {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
@@ -68,6 +85,11 @@ pub mod pallet {
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::RuntimeOrigin>;
         type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+
+        type AssetId: IsType<<Self as pallet_assets::Config>::AssetId> + Parameter + From<u32>;
+
+        #[pallet::constant]
+        type DLCAssetId: Get<u32>;
     }
 
     #[pallet::pallet]
@@ -178,6 +200,17 @@ pub mod pallet {
         ReportId,
         MTPendingSlashReviewInfo<T::AccountId, BalanceOf<T>, T::BlockNumber>,
     >;
+
+    // reserve dlc from user when user report dlc machine fault
+    #[pallet::storage]
+    #[pallet::getter(fn account_id_2_reserve_dlc)]
+    pub(super) type AccountId2ReserveDLC<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, DLCBalanceOf<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn dlc_machine_2_report_info)]
+    pub(super) type DLCMachine2ReportInfo<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, (ReportId, Vec<u8>, u64)>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -524,6 +557,10 @@ pub mod pallet {
             reason: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let applicant = ensure_signed(origin)?;
+            ensure!(
+                !Self::is_dlc_machine_fault_report(report_result_id),
+                Error::<T>::DlcReportNotAllowed
+            );
             let now = <frame_system::Pallet<T>>::block_number();
             let reporter_stake_params =
                 Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
@@ -676,6 +713,79 @@ pub mod pallet {
             PendingSlashReview::<T>::remove(slashed_report_id);
             Ok(().into())
         }
+
+        #[pallet::call_index(12)]
+        #[pallet::weight(10000)]
+        pub fn report_dlc_machine_fault(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            rent_order_id: RentOrderId,
+            reporter_evm_address: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            let rent_order_id =
+                <rent_dlc_machine::Pallet<T>>::get_parent_dbc_rent_order_id(rent_order_id.clone())?;
+            let dlc_rent_info = <rent_dlc_machine::Pallet<T>>::rent_info(&rent_order_id)
+                .ok_or(Error::<T>::DlcRentOrderNotExist)?;
+            ensure!(dlc_rent_info.renter == reporter, Error::<T>::NotDLCMachineRenter);
+
+            let report_reason =
+                MachineFaultType::RentedInaccessible(machine_id.clone(), rent_order_id);
+            let mut live_report = Self::live_report();
+            let mut reporter_report = Self::reporter_report(&reporter);
+
+            // 支付
+            if let MachineFaultType::RentedInaccessible(_, rent_order_id) = report_reason.clone() {
+                let rent_info = <rent_machine::Pallet<T>>::rent_info(&rent_order_id)
+                    .ok_or(Error::<T>::Unknown)?;
+
+                let result = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id);
+                match result {
+                    Some(machine_info) =>
+                        if machine_info.machine_status == MachineStatus::Rented {
+                            let renters =
+                                <rent_dlc_machine::Pallet<T>>::get_renters(&rent_info.machine_id);
+                            <online_profile::Pallet<T>>::add_offline_machine_to_renters(
+                                rent_info.machine_id,
+                                renters,
+                            );
+                        },
+                    None => {},
+                }
+            }
+
+            let asset_id = Self::get_dlc_asset_id();
+            let account_id_for_reserve_dlc =
+                Self::pallet_account_id().ok_or(Error::<T>::DlcReserveAccountNotSet)?;
+            // let account_id_for_reserve_dlc_lookup = <T::Lookup as sp_runtime::traits::StaticLookup>::unlookup(account_id_for_reserve_dlc.clone());
+
+            let reserve_amount = Self::get_dlc_reserve_amount();
+            // <pallet_assets::Pallet<T>>::transfer(origin,asset_id.into(),account_id_for_reserve_dlc_lookup,reserve_amount.into())?;
+            <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
+                asset_id,
+                &reporter,
+                &account_id_for_reserve_dlc,
+                reserve_amount,
+            )?;
+
+            AccountId2ReserveDLC::<T>::mutate(&reporter, |reserve_dlc| {
+                *reserve_dlc = reserve_dlc.saturating_add(reserve_amount)
+            });
+
+            // Only be error when params not be set
+            let report_id = Self::do_report_dlc_machine_fault(
+                reporter.clone(),
+                report_reason,
+                None,
+                &mut live_report,
+                &mut reporter_report,
+            )?;
+
+            DLCMachine2ReportInfo::<T>::insert(machine_id, (report_id, reporter_evm_address, 0));
+            LiveReport::<T>::put(live_report);
+            ReporterReport::<T>::insert(&reporter, reporter_report);
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -690,6 +800,7 @@ pub mod pallet {
         ReporterReduceStake(T::AccountId, BalanceOf<T>),
         ApplySlashReview(ReportId),
         CommitteeBookReport(T::AccountId, ReportId),
+        ReportDLCMachineFault(T::AccountId, MachineFaultType),
     }
 
     #[pallet::error]
@@ -726,6 +837,10 @@ pub mod pallet {
         NotMachineRenter,
         ReduceUsedStakeFailed,
         Unknown,
+        DlcReserveAccountNotSet,
+        DlcReportNotAllowed,
+        DlcRentOrderNotExist,
+        NotDLCMachineRenter,
     }
 }
 
@@ -803,6 +918,35 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::ReportMachineFault(reporter, machine_fault_type));
         Ok(().into())
+    }
+
+    fn do_report_dlc_machine_fault(
+        reporter: T::AccountId,
+        machine_fault_type: MachineFaultType,
+        report_time: Option<T::BlockNumber>,
+        live_report: &mut MTLiveReportList,
+        reporter_report: &mut ReporterReportList,
+    ) -> Result<ReportId, DispatchError> {
+        // 获取处理报告需要的信息
+        let report_id = Self::get_new_report_id();
+        let report_time = report_time.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
+
+        // 记录到 live_report & reporter_report
+        live_report.new_report(report_id);
+        reporter_report.new_report(report_id);
+
+        ReportInfo::<T>::insert(
+            &report_id,
+            MTReportInfoDetail::new(
+                reporter.clone(),
+                report_time,
+                machine_fault_type.clone(),
+                BalanceOf::<T>::zero(),
+            ),
+        );
+
+        Self::deposit_event(Event::ReportDLCMachineFault(reporter, machine_fault_type));
+        Ok(report_id)
     }
 
     fn book_report(
@@ -1257,6 +1401,100 @@ impl<T: Config> Pallet<T> {
         }
         ReportResult::<T>::insert(report_id, report_result);
         ReportInfo::<T>::insert(report_id, report_info);
+        Ok(())
+    }
+
+    pub fn get_dlc_asset_id() -> <T as pallet_assets::Config>::AssetId {
+        let asset_id: <T as Config>::AssetId = <T as Config>::DLCAssetId::get().into();
+        asset_id.into()
+    }
+
+    pub fn get_dlc_reserve_amount() -> <T as pallet_assets::Config>::Balance {
+        let reserve_amount = 10000 * ONE_DLC as u64;
+        reserve_amount.into()
+    }
+
+    pub fn pallet_account_id() -> Option<T::AccountId> {
+        PALLET_ID.try_into_account()
+    }
+    pub fn get_treasury_account_id() -> T::AccountId {
+        <pallet_treasury::Pallet<T>>::account_id()
+    }
+
+    fn slash_reporter_dlc(
+        reporter: T::AccountId,
+        reward_who: Vec<T::AccountId>,
+        reporter_staked_dlc_amount: DLCBalanceOf<T>,
+    ) -> Result<(), ()> {
+        let treasury_account = Self::get_treasury_account_id();
+        // 如果reward_to为0，则将币转到国库
+        let reward_to_num = reward_who.len() as u32;
+
+        let asset_id = Self::get_dlc_asset_id();
+
+        let account_id_for_reserve_dlc = Self::pallet_account_id().ok_or(())?;
+
+        if reward_to_num == 0 {
+            // Slash to Treasury
+            <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
+                asset_id,
+                &account_id_for_reserve_dlc,
+                &treasury_account,
+                reporter_staked_dlc_amount,
+            )
+            .map_err(|_| ())?;
+
+            AccountId2ReserveDLC::<T>::mutate(&reporter, |reserve_dlc| {
+                *reserve_dlc = reserve_dlc.saturating_sub(reporter_staked_dlc_amount)
+            });
+
+            return Ok(())
+        }
+
+        let reward_each_get =
+            Perbill::from_rational(1u32, reward_to_num) * reporter_staked_dlc_amount;
+        let mut left_reward = reporter_staked_dlc_amount;
+
+        for a_committee in &reward_who {
+            if left_reward >= reward_each_get {
+                <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
+                    asset_id,
+                    &account_id_for_reserve_dlc,
+                    a_committee,
+                    reward_each_get,
+                )
+                .map_err(|_| ())?;
+
+                AccountId2ReserveDLC::<T>::mutate(&reporter, |reserve_dlc| {
+                    *reserve_dlc = reserve_dlc.saturating_sub(reward_each_get)
+                });
+
+                left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
+            } else {
+                <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
+                    asset_id,
+                    &account_id_for_reserve_dlc,
+                    a_committee,
+                    left_reward,
+                )
+                .map_err(|_| ())?;
+
+                AccountId2ReserveDLC::<T>::mutate(&reporter, |reserve_dlc| {
+                    *reserve_dlc = reserve_dlc.saturating_sub(left_reward)
+                });
+            }
+        }
+
+        if left_reward > Zero::zero() {
+            <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
+                asset_id,
+                &account_id_for_reserve_dlc,
+                &treasury_account,
+                left_reward,
+            )
+            .map_err(|_| ())?;
+        }
+
         Ok(())
     }
 }

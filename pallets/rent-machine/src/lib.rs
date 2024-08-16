@@ -41,7 +41,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + online_profile::Config + generic_func::Config {
+    pub trait Config: frame_system::Config + online_profile::Config {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type RTOps: RTOps<
@@ -677,6 +677,25 @@ impl<T: Config> Pallet<T> {
         }
         rent_ids
     }
+
+    pub fn get_rent_id_of_renting_dbc_machine_by_owner(
+        machine_id: &MachineId,
+    ) -> Option<RentOrderId> {
+        let machine_order = Self::machine_rent_order(machine_id.clone());
+        if let Some(machine_info) = online_profile::Pallet::<T>::machines_info(machine_id) {
+            if machine_order.rent_order.len() == 1 {
+                let rent_id = machine_order.rent_order[0];
+                if let Some(rent_info) = Self::rent_info(machine_order.rent_order[0]) {
+                    if rent_info.rent_status == RentStatus::Renting &&
+                        rent_info.renter == machine_info.controller
+                    {
+                        return Some(rent_id)
+                    }
+                }
+            }
+        };
+        None
+    }
 }
 
 impl<T: Config> MachineInfoTrait for Pallet<T> {
@@ -744,5 +763,56 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         }
 
         Ok(rent_duration)
+    }
+
+    fn is_both_machine_renter_and_owner(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+    ) -> Result<bool, &'static str> {
+        let ok = verify_signature(data, sig, from.clone());
+        if !ok {
+            return Err("signature verify failed")
+        };
+
+        let renter = account_id::<T>(from.clone())?;
+        let machine_info =
+            online_profile::Pallet::<T>::machines_info(machine_id).ok_or("machine not found")?;
+        if machine_info.machine_status != MachineStatus::Rented {
+            return Err("machine not rented")
+        };
+
+        if machine_info.controller != renter {
+            return Err("not machine owner")
+        }
+
+        if machine_info.renters.len() != 1 {
+            return Err("machine renters more than one")
+        }
+
+        if machine_info.renters.iter().find(|&r| r == &renter).is_some() {
+            return Ok(true)
+        }
+
+        return Err("not machine renter")
+    }
+
+    fn is_machine_owner(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+    ) -> Result<bool, &'static str> {
+        let ok = verify_signature(data, sig, from.clone());
+        if !ok {
+            return Err("signature verify failed")
+        };
+
+        let renter = account_id::<T>(from.clone())?;
+        let machine_info =
+            online_profile::Pallet::<T>::machines_info(machine_id).ok_or("machine not found")?;
+
+        return Ok(machine_info.controller == renter)
     }
 }

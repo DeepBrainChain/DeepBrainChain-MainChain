@@ -12,7 +12,7 @@
 ###
 # 1.1 查询某个资金账户控制的所有机器
 # 参数：[资金账户 (stash account)]
-POST {{url}} HTTP/1.1
+POST {{url2}} HTTP/1.1
 content-type: application/json
 
 {
@@ -113,7 +113,7 @@ content-type: application/json
 
 ###
 # 1.9 查看 onlineProfile 模块统计信息
-POST {{url}} HTTP/1.1
+POST {{url2}} HTTP/1.1
 content-type: application/json
 
 {

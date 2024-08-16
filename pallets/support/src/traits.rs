@@ -156,6 +156,42 @@ pub trait MachineInfoTrait {
         slash_at: Self::BlockNumber,
         machine_id: MachineId,
     ) -> Result<Self::BlockNumber, &'static str>;
+
+    fn is_both_machine_renter_and_owner(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+    ) -> Result<bool, &'static str>;
+
+    fn is_machine_owner(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+    ) -> Result<bool, &'static str>;
+}
+
+pub trait DLCMachineReportStakingTrait {
+    fn report_dlc_staking(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+    ) -> Result<(), &'static str>;
+
+    fn report_dlc_end_staking(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+    ) -> Result<(), &'static str>;
+}
+
+pub trait DLCMachineSlashInfoTrait {
+    fn get_dlc_machine_slashed_at(machine_id: MachineId) -> u64;
+    fn get_dlc_machine_slashed_report_id(machine_id: MachineId) -> u64;
+    fn get_dlc_machine_slashed_reporter(machine_id: MachineId) -> Vec<u8>;
 }
 
 pub trait MTOps {

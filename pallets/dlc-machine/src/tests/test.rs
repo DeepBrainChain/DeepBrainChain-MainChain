@@ -11,6 +11,7 @@ pub use sp_keyring::{
 };
 
 use rent_machine::{MachineRentOrder, RentInfo};
+use RentMachine;
 
 type BalanceOf<Test> = <<Test as rent_machine::Config>::Currency as Currency<
     <Test as frame_system::Config>::AccountId,
@@ -66,7 +67,7 @@ fn test_add_machine_registered_project_should_work() {
         };
         RentInfo::<Test>::insert(1, rent_info);
 
-        let order: MachineGPUOrder = MachineGPUOrder { rent_order: vec![1], used_gpu: vec![0] };
+        let order: MachineGPUOrder = MachineGPUOrder { rent_order: vec![1], used_gpu: vec![1] };
 
         MachineRentOrder::<Test>::insert(machine_id.clone(), order);
 

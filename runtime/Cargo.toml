@@ -126,8 +126,10 @@ rent-machine-runtime-api = { path = "../pallets/rent-machine/rpc/runtime-api", d
 simple-rpc-runtime-api = { path = "../pallets/simple-rpc/rpc/runtime-api", default-features = false }
 terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/runtime-api", default-features = false }
 ai-project-register = { path = "../pallets/ai-project-register", default-features = false }
+rent-dlc-machine = { path = "../pallets/rent-dlc-machine", default-features = false }
+rent-dlc-machine-runtime-api = { path = "../pallets/rent-dlc-machine/rpc/runtime-api", default-features = false }
 
-
+dlc-machine = { path = "../pallets/dlc-machine", default-features = false }
 pallet-scheduler = { path = "../pallets/scheduler", default-features = false }
 
 pallet-contracts = { workspace = true }
@@ -265,6 +267,8 @@ std = [
   "rent-machine-runtime-api/std",
   "simple-rpc-runtime-api/std",
   "terminating-rental-runtime-api/std",
+  "rent-dlc-machine/std",
+  "dlc-machine/std",
 
   "pallet-contracts/std",
   "pallet-contracts-primitives/std",
@@ -407,5 +411,7 @@ try-runtime = [
   "pallet-evm/try-runtime",
   "pallet-ethereum/try-runtime",
   "pallet-base-fee/try-runtime",
-  "ai-project-register/try-runtime"
+  "ai-project-register/try-runtime",
+  "rent-dlc-machine/try-runtime",
+  "dlc-machine/try-runtime"
 ]

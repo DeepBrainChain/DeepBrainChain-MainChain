@@ -1808,6 +1808,7 @@ dependencies = [
  "online-committee-rpc",
  "online-profile-rpc",
  "pallet-transaction-payment-rpc",
+ "rent-dlc-machine-rpc",
  "rent-machine-rpc",
  "sc-chain-spec",
  "sc-client-api",
@@ -1848,6 +1849,7 @@ dependencies = [
  "dbc-price-ocw",
  "dbc-primitives",
  "dbc-support",
+ "dlc-machine",
  "ethabi",
  "ethereum-chain-id",
  "evm-macro",
@@ -1932,6 +1934,8 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
+ "rent-dlc-machine",
+ "rent-dlc-machine-runtime-api",
  "rent-machine",
  "rent-machine-runtime-api",
  "scale-info",
@@ -2177,6 +2181,33 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.48",
+]
+
+[[package]]
+name = "dlc-machine"
+version = "3.2.0-dev"
+dependencies = [
+ "committee",
+ "dbc-price-ocw",
+ "dbc-support",
+ "env_logger",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "online-profile",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-insecure-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rent-machine",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4887,6 +4918,7 @@ dependencies = [
  "committee",
  "dbc-price-ocw",
  "dbc-support",
+ "dlc-machine",
  "frame-support",
  "frame-system",
  "generic-func",
@@ -4894,12 +4926,14 @@ dependencies = [
  "once_cell",
  "online-committee",
  "online-profile",
+ "pallet-assets",
  "pallet-balances",
  "pallet-collective",
  "pallet-insecure-randomness-collective-flip",
  "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec",
+ "rent-dlc-machine",
  "rent-machine",
  "scale-info",
  "sp-core",
@@ -7697,6 +7731,62 @@ dependencies = [
  "libc",
  "mach",
  "winapi",
+]
+
+[[package]]
+name = "rent-dlc-machine"
+version = "3.2.0-dev"
+dependencies = [
+ "committee",
+ "dbc-price-ocw",
+ "dbc-primitives",
+ "dbc-support",
+ "dlc-machine",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "once_cell",
+ "online-committee",
+ "online-profile",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-insecure-randomness-collective-flip",
+ "pallet-timestamp",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "rent-machine",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "rent-dlc-machine-rpc"
+version = "3.2.0-dev"
+dependencies = [
+ "dbc-support",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "rent-dlc-machine-runtime-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "rent-dlc-machine-runtime-api"
+version = "3.2.0-dev"
+dependencies = [
+ "dbc-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

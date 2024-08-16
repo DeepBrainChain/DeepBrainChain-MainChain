@@ -139,7 +139,7 @@ pub mod v1 {
                 >| {
                     let mut new_map = BoundedBTreeMap::new();
                     for (k, v) in old_value.into_iter().map(|(k, v)| (k, v.migrate_to_v1())) {
-                        new_map.try_insert(k, v);
+                        let _ = new_map.try_insert(k, v);
                     }
                     Some(new_map)
                 },

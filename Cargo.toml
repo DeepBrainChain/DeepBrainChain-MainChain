@@ -51,6 +51,10 @@ members = [
   "pallets/scheduler",
   "runtime/src/precompiles/macro",
   "pallets/ai-project-register",
+  "pallets/dlc-machine",
+  "pallets/rent-dlc-machine",
+  "pallets/rent-dlc-machine/rpc",
+  "pallets/rent-dlc-machine/rpc/runtime-api",
 ]
 
 [workspace.dependencies]

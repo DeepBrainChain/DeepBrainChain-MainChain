@@ -1530,6 +1530,8 @@ impl maintain_committee::Config for Runtime {
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 5>;
     type SlashAndReward = GenericFunc;
+    type AssetId = u32;
+    type DLCAssetId = ConstU32<88>;
 }
 
 impl terminating_rental::Config for Runtime {
@@ -1679,6 +1681,18 @@ impl ai_project_register::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 }
 
+impl rent_dlc_machine::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RTOps = OnlineProfile;
+    type DbcPrice = DBCPriceOCW;
+    type AssetId = u32;
+    type DLCAssetId = ConstU32<88>;
+}
+
+impl dlc_machine::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+}
+
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
 parameter_types! {
@@ -1756,6 +1770,8 @@ construct_runtime!(
         Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
         AiProjectRegister: ai_project_register::{Pallet, Call, Storage, Event<T>},
+        RentDLCMachine:rent_dlc_machine::{Pallet, Call, Storage, Event<T>},
+        DLCMachine: dlc_machine::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -2704,6 +2720,24 @@ impl_runtime_apis! {
         }
 
         fn get_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
+            RentMachine::get_machine_rent_id(machine_id)
+        }
+    }
+
+     impl rent_dlc_machine_runtime_api::DlcRmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
+        fn get_dlc_rent_order(rent_id: RentOrderId) -> Option<dbc_support::rental_type::RentOrderDetail<AccountId, BlockNumber, Balance>> {
+            RentMachine::get_rent_order(rent_id)
+        }
+
+        fn get_dlc_rent_list(renter: AccountId) -> Vec<RentOrderId> {
+            RentMachine::get_rent_list(renter)
+        }
+
+        fn is_dlc_machine_renter(machine_id: MachineId, renter: AccountId) -> bool {
+            RentMachine::is_machine_renter(machine_id, renter)
+        }
+
+        fn get_dlc_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
             RentMachine::get_machine_rent_id(machine_id)
         }
     }
