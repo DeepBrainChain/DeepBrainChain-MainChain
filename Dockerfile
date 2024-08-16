@@ -8,25 +8,21 @@ RUN cargo build --locked --release
 
 # =============
 
-FROM docker.io/parity/base-bin:latest
+FROM phusion/baseimage:focal-1.2.0
 LABEL maintainer="DeepBrainChain Developers"
+
+#ARG USERNAME=dbc
+#RUN useradd -m -u 1000 -U -s /bin/sh -d /$USERNAME $USERNAME
 
 COPY --from=builder /DeepBrainChain-MainChain/target/release/dbc-chain /usr/local/bin
 
-USER root
-ARG USERNAME=dbc
-RUN useradd -m -u 1001 -U -s /bin/sh -d /$USERNAME $USERNAME && \
-	mkdir -p /$USERNAME/data /$USERNAME/.local/share && \
-	chown -R $USERNAME:$USERNAME /$USERNAME/data && \
-	ln -s /$USERNAME/data /$USERNAME/.local/share/dbc-chain && \
-# unclutter and minimize the attack surface
-	# rm -rf /usr/bin /usr/sbin && \
-# check if executable works in this container
-	/usr/local/bin/dbc-chain --version
+RUN /usr/local/bin/dbc-chain --version
 
-USER $USERNAME
+#USER $USERNAME
+#RUN mkdir /$USERNAME/data
 
 EXPOSE 30333 9933 9944 9615
-VOLUME ["/$USERNAME/data"]
+VOLUME ["/data"]
+#VOLUME ["/$USERNAME/data"]
 
 ENTRYPOINT ["/usr/local/bin/dbc-chain"]
