@@ -13,8 +13,9 @@ mod tests;
 
 pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
-    rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
-    traits::{DbcPrice, RTOps},
+    rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
+    traits::{DLCMachineInfoTrait, DbcPrice, RTOps},
+    utils::{account_id, verify_signature},
     EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY,
 };
 use frame_support::{
@@ -129,6 +130,16 @@ pub mod pallet {
     pub type DlcRentId2ParentDbcRentId<T: Config> =
         StorageMap<_, Blake2_128Concat, RentOrderId, RentOrderId>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn machine_rented_orders)]
+    pub type MachineRentedOrders<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        Vec<MachineRentedOrderDetail<T::AccountId, T::BlockNumber>>,
+        ValueQuery,
+    >;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
@@ -168,6 +179,8 @@ pub mod pallet {
         DLCRentIdNotFound,
         DBCRentIdNotFound,
     }
+
+    use dbc_support::rental_type::MachineRentedOrderDetail;
 }
 
 impl<T: Config> Pallet<T> {
@@ -262,24 +275,30 @@ impl<T: Config> Pallet<T> {
 
         let asset_id = Self::get_dlc_asset_id();
         <pallet_assets::Pallet<T> as Inspect<T::AccountId>>::can_withdraw(
-            asset_id, &renter, rent_fee,
+            asset_id,
+            &renter,
+            rent_fee.clone(),
         )
         .into_result()?;
-        <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::slash(asset_id, &renter, rent_fee)?;
+        <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::slash(
+            asset_id,
+            &renter,
+            rent_fee.clone(),
+        )?;
 
         BurnRecords::<T>::mutate(|records| {
             records.push((
-                rent_fee,
+                rent_fee.clone(),
                 <frame_system::Pallet<T>>::block_number(),
                 renter.clone(),
                 rent_id.clone(),
             ));
         });
         BurnTotalAmount::<T>::mutate(|total_amount| {
-            *total_amount = total_amount.saturating_add(rent_fee)
+            *total_amount = total_amount.saturating_add(rent_fee.clone())
         });
 
-        Self::deposit_event(Event::PayTxFeeAndBurn(rent_id, renter.clone(), rent_fee));
+        Self::deposit_event(Event::PayTxFeeAndBurn(rent_id, renter.clone(), rent_fee.clone()));
 
         DLCMachineRentedGPU::<T>::mutate(&machine_id, |rented_gpu| {
             *rented_gpu = rented_gpu.saturating_add(rent_gpu_num)
@@ -290,7 +309,7 @@ impl<T: Config> Pallet<T> {
             renter.clone(),
             now,
             rent_end,
-            rent_fee,
+            rent_fee.clone(),
             rent_gpu_num,
             rentable_gpu_index,
         );
@@ -308,6 +327,15 @@ impl<T: Config> Pallet<T> {
         });
 
         MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
+
+        MachineRentedOrders::<T>::mutate(&machine_id, |machine_rented_orders| {
+            machine_rented_orders.push(MachineRentedOrderDetail {
+                renter: renter.clone(),
+                rent_start: now,
+                rent_end,
+                rent_id: rent_id.clone(),
+            });
+        });
 
         Self::deposit_event(Event::DLCRent(
             rent_id,
@@ -441,5 +469,43 @@ impl<T: Config> Pallet<T> {
             Self::dlc_rent_id_2_parent_dbc_rent_id(rent_id).ok_or(Error::<T>::DLCRentIdNotFound)?;
 
         Ok(dbc_rent_id)
+    }
+}
+
+impl<T: Config> DLCMachineInfoTrait for Pallet<T> {
+    type BlockNumber = T::BlockNumber;
+    fn get_dlc_machine_rent_duration(
+        last_claim_at: T::BlockNumber,
+        slash_at: T::BlockNumber,
+        machine_id: MachineId,
+    ) -> Result<T::BlockNumber, &'static str> {
+        let now = <frame_system::Pallet<T>>::block_number();
+        let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
+        let rented_orders = Self::machine_rented_orders(machine_id);
+        if slash_at == T::BlockNumber::default() {
+            rented_orders.iter().for_each(|rented_order| {
+                if rented_order.rent_end >= last_claim_at {
+                    if rented_order.rent_end >= now {
+                        rent_duration += now - last_claim_at
+                    } else {
+                        rent_duration += rented_order.rent_end - last_claim_at
+                    }
+                }
+            });
+        } else {
+            rented_orders.iter().for_each(|rented_order| {
+                if rented_order.rent_end >= last_claim_at {
+                    if rented_order.rent_end >= slash_at && slash_at >= last_claim_at {
+                        rent_duration += slash_at - last_claim_at;
+                    } else if rented_order.rent_end < slash_at &&
+                        rented_order.rent_end >= last_claim_at
+                    {
+                        rent_duration += rented_order.rent_end - last_claim_at
+                    }
+                }
+            });
+        }
+
+        Ok(rent_duration)
     }
 }

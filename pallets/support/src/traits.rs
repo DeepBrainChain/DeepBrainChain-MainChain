@@ -1,4 +1,5 @@
 use crate::MachineId;
+use sp_core::H160;
 use sp_std::vec::Vec;
 
 pub trait PhaseReward {
@@ -172,6 +173,16 @@ pub trait MachineInfoTrait {
     ) -> Result<bool, &'static str>;
 }
 
+pub trait DLCMachineInfoTrait {
+    type BlockNumber;
+
+    fn get_dlc_machine_rent_duration(
+        last_claim_at: Self::BlockNumber,
+        slash_at: Self::BlockNumber,
+        machine_id: MachineId,
+    ) -> Result<Self::BlockNumber, &'static str>;
+}
+
 pub trait DLCMachineReportStakingTrait {
     fn report_dlc_staking(
         data: Vec<u8>,
@@ -191,7 +202,7 @@ pub trait DLCMachineReportStakingTrait {
 pub trait DLCMachineSlashInfoTrait {
     fn get_dlc_machine_slashed_at(machine_id: MachineId) -> u64;
     fn get_dlc_machine_slashed_report_id(machine_id: MachineId) -> u64;
-    fn get_dlc_machine_slashed_reporter(machine_id: MachineId) -> Vec<u8>;
+    fn get_dlc_machine_slashed_reporter(machine_id: MachineId) -> H160;
 }
 
 pub trait MTOps {

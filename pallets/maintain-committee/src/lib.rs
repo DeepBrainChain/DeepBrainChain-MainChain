@@ -58,6 +58,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 pub mod pallet {
     use super::*;
     use dbc_support::machine_type::MachineStatus;
+    use sp_core::H160;
 
     #[pallet::config]
     pub trait Config:
@@ -210,7 +211,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn dlc_machine_2_report_info)]
     pub(super) type DLCMachine2ReportInfo<T: Config> =
-        StorageMap<_, Blake2_128Concat, MachineId, (ReportId, Vec<u8>, u64)>;
+        StorageMap<_, Blake2_128Concat, MachineId, (ReportId, H160, u64)>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -720,7 +721,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             machine_id: MachineId,
             rent_order_id: RentOrderId,
-            reporter_evm_address: Vec<u8>,
+            reporter_evm_address: H160,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
             let rent_order_id =

@@ -20,11 +20,10 @@ pub struct AIProjectRegister<T>(PhantomData<T>);
 #[repr(u32)]
 pub enum Selector {
     MachineIsRegistered = "machineIsRegistered(string,string)",
-    AddMachineRegisteredProject =
-        "add_machine_registered_project(string,string,string,string,string)",
+    AddMachineRegisteredProject = "addMachineRegisteredProject(string,string,string,string,string)",
     RemovalMachineRegisteredProject =
-        "remove_machine_registered_project(string,string,string,string,string)",
-    IsRegisteredMachineOwner = "is_registered_machine_owner(string,string,string,string,string)",
+        "removeMachineRegisteredProject(string,string,string,string,string)",
+    IsRegisteredMachineOwner = "isRegisteredMachineOwner(string,string,string,string,string)",
 }
 
 impl<T> Precompile for AIProjectRegister<T>

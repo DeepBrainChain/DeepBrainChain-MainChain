@@ -8,7 +8,7 @@ extern crate alloc;
 use crate::precompiles::LOG_TARGET;
 use alloc::format;
 use core::marker::PhantomData;
-use dbc_support::traits::MachineInfoTrait;
+use dbc_support::traits::{DLCMachineInfoTrait, MachineInfoTrait};
 use frame_support::{ensure, pallet_prelude::Weight};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pallet_evm::GasWeightMapping;
@@ -22,11 +22,15 @@ pub struct MachineInfo<T>(PhantomData<T>);
 pub enum Selector {
     GetMachineCalcPoint = "getMachineCalcPoint(string)",
     GetRentDuration = "getRentDuration(string,string,string,uint256,uint256,string)",
+    GetDlcMachineRentDuration = "getDlcMachineRentDuration(uint256,uint256,string)",
 }
 
 impl<T> Precompile for MachineInfo<T>
 where
-    T: pallet_evm::Config + pallet_balances::Config + rent_machine::Config,
+    T: pallet_evm::Config
+        + pallet_balances::Config
+        + rent_machine::Config
+        + rent_dlc_machine::Config,
 {
     fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
         let input = handle.input();
@@ -170,6 +174,63 @@ where
                     }
                 })?;
                 log::debug!(target: LOG_TARGET, "msg : {:?}, sig : {:?}, public : {:?}, last_claim_at: {},slash_at: {}, machine_id : {:?},  get_machine_valid_stake_duration: duration: {:?}",msg,sig,public,last_claim_at_block_number,slash_at_block_number,machine_id_str,duration);
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Uint(
+                        duration.saturated_into::<u64>().into(),
+                    )]),
+                })
+            },
+
+            Selector::GetDlcMachineRentDuration => {
+                let param = ethabi::decode(
+                    &[
+                        ethabi::ParamType::Uint(256), // last_claim_at
+                        ethabi::ParamType::Uint(256), // slash_at
+                        ethabi::ParamType::String,    // machine_id
+                    ],
+                    &input[4..],
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
+
+                let last_claim_at_block_number_uint =
+                    param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+
+                let last_claim_at_block_number: u64 = last_claim_at_block_number_uint.as_u64();
+
+                let slash_at_block_number_uint =
+                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[1] failed".into(),
+                    })?;
+
+                let slash_at_block_number: u64 = slash_at_block_number_uint.as_u64();
+
+                let machine_id_str =
+                    param[2].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[2] failed".into(),
+                    })?;
+
+                let duration  = <rent_dlc_machine::Pallet<T> as DLCMachineInfoTrait>::get_dlc_machine_rent_duration( T::BlockNumber::saturated_from(last_claim_at_block_number.clone()),T::BlockNumber::saturated_from(slash_at_block_number.clone()), machine_id_str.clone().as_bytes().to_vec()).map_err( |e| {
+                    PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("err: {},  last_claim_at: {},slash_at: {}, machine_id: {}",e,last_claim_at_block_number,slash_at_block_number,machine_id_str).into(),
+                    }
+                })?;
+                log::debug!(target: LOG_TARGET, "last_claim_at: {},slash_at: {}, machine_id : {:?},  get_machine_valid_stake_duration: duration: {:?}",last_claim_at_block_number,slash_at_block_number,machine_id_str,duration);
 
                 let weight = Weight::default()
                     .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));

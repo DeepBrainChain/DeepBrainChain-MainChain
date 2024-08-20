@@ -13,7 +13,7 @@ mod tests;
 
 pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
-    rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
+    rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
     traits::{DbcPrice, MachineInfoTrait, RTOps},
     utils::{account_id, verify_signature},
     EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY,
@@ -90,6 +90,17 @@ pub mod pallet {
     #[pallet::getter(fn machine_rent_order)]
     pub type MachineRentOrder<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, MachineGPUOrder, ValueQuery>;
+
+    //Vec(renter,rent_start,rent_end)
+    #[pallet::storage]
+    #[pallet::getter(fn machine_rented_orders)]
+    pub type MachineRentedOrders<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        Vec<MachineRentedOrderDetail<T::AccountId, T::BlockNumber>>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn next_rent_id)]
@@ -375,6 +386,15 @@ impl<T: Config> Pallet<T> {
                 rentable_gpu_index,
             ),
         );
+
+        MachineRentedOrders::<T>::mutate(&machine_id, |machine_rented_orders| {
+            machine_rented_orders.push(MachineRentedOrderDetail {
+                renter: renter.clone(),
+                rent_start: now,
+                rent_end,
+                rent_id: rent_id.clone(),
+            });
+        });
 
         UserOrder::<T>::mutate(&renter, |user_order| {
             ItemList::add_item(user_order, rent_id);
@@ -723,40 +743,28 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         };
 
         let renter = account_id::<T>(from.clone())?;
-        let rent_ids = Self::get_rent_ids(machine_id.clone(), &renter);
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
+        let rented_orders = Self::machine_rented_orders(machine_id);
         if slash_at == T::BlockNumber::default() {
-            rent_ids.iter().for_each(|rent_id| {
-                let rent_info_result = Self::rent_info(rent_id).ok_or("rent not found");
-                if let Ok(rent_info) = rent_info_result {
-                    if renter == rent_info.renter &&
-                        rent_info.machine_id == machine_id &&
-                        rent_info.rent_end >= last_claim_at
-                    {
-                        if rent_info.rent_end >= now {
-                            rent_duration += now - last_claim_at
-                        } else {
-                            rent_duration += rent_info.rent_end - last_claim_at
-                        }
+            rented_orders.iter().for_each(|rented_order| {
+                if renter == rented_order.renter && rented_order.rent_end >= last_claim_at {
+                    if rented_order.rent_end >= now {
+                        rent_duration += now - last_claim_at
+                    } else {
+                        rent_duration += rented_order.rent_end - last_claim_at
                     }
                 }
             });
         } else {
-            rent_ids.iter().for_each(|rent_id| {
-                let rent_info_result = Self::rent_info(rent_id).ok_or("rent not found");
-                if let Ok(rent_info) = rent_info_result {
-                    if renter == rent_info.renter &&
-                        rent_info.machine_id == machine_id &&
-                        rent_info.rent_end >= last_claim_at
+            rented_orders.iter().for_each(|rented_order| {
+                if renter == rented_order.renter && rented_order.rent_end >= last_claim_at {
+                    if rented_order.rent_end >= slash_at && slash_at >= last_claim_at {
+                        rent_duration += slash_at - last_claim_at;
+                    } else if rented_order.rent_end < slash_at &&
+                        rented_order.rent_end >= last_claim_at
                     {
-                        if rent_info.rent_end >= slash_at && slash_at >= last_claim_at {
-                            rent_duration += slash_at - last_claim_at;
-                        } else if rent_info.rent_end < slash_at &&
-                            rent_info.rent_end >= last_claim_at
-                        {
-                            rent_duration += rent_info.rent_end - last_claim_at
-                        }
+                        rent_duration += rented_order.rent_end - last_claim_at
                     }
                 }
             });

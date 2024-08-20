@@ -116,3 +116,13 @@ impl MachineGPUOrder {
         }
     }
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct MachineRentedOrderDetail<AccountId, BlockNumber> {
+    pub rent_id: RentOrderId,
+    pub renter: AccountId,
+    pub rent_start: BlockNumber,
+    pub rent_end: BlockNumber,
+}

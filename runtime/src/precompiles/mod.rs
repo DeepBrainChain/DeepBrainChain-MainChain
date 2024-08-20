@@ -20,6 +20,12 @@ use project_register::AIProjectRegister;
 mod machine_info;
 use machine_info::MachineInfo;
 
+mod dlc_machine_slash_info;
+use dlc_machine_slash_info::DLCMachineSlashInfo;
+
+mod dlc_machine_report_staking;
+use dlc_machine_report_staking::DLCMachineReportStaking;
+
 const LOG_TARGET: &str = "evm";
 
 pub struct DBCPrecompiles<T>(PhantomData<T>);
@@ -53,6 +59,8 @@ where
     DBCPrice<T>: Precompile,
     AIProjectRegister<T>: Precompile,
     MachineInfo<T>: Precompile,
+    DLCMachineReportStaking<T>: Precompile,
+    DLCMachineSlashInfo<T>: Precompile,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         match handle.code_address() {
@@ -76,6 +84,9 @@ where
             a if a == hash(2049) => Some(DBCPrice::<T>::execute(handle)),
             a if a == hash(2050) => Some(AIProjectRegister::<T>::execute(handle)),
             a if a == hash(2051) => Some(MachineInfo::<T>::execute(handle)),
+            a if a == hash(2052) => Some(DLCMachineReportStaking::<T>::execute(handle)),
+            a if a == hash(2053) => Some(DLCMachineSlashInfo::<T>::execute(handle)),
+
             _ => None,
         }
     }

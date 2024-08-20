@@ -1,5 +1,6 @@
 use crate::*;
 use dbc_support::traits::DLCMachineSlashInfoTrait;
+use sp_core::H160;
 impl<T: Config> DLCMachineSlashInfoTrait for Pallet<T> {
     fn get_dlc_machine_slashed_at(machine_id: MachineId) -> u64 {
         if let Some((_, _, slash_at)) = Self::dlc_machine_2_report_info(&machine_id) {
@@ -17,7 +18,7 @@ impl<T: Config> DLCMachineSlashInfoTrait for Pallet<T> {
         return 0
     }
 
-    fn get_dlc_machine_slashed_reporter(machine_id: MachineId) -> Vec<u8> {
+    fn get_dlc_machine_slashed_reporter(machine_id: MachineId) -> H160 {
         if let Some((_, reporter_evm_address, slash_at)) =
             Self::dlc_machine_2_report_info(&machine_id)
         {
@@ -26,7 +27,7 @@ impl<T: Config> DLCMachineSlashInfoTrait for Pallet<T> {
             }
         }
 
-        return vec![]
+        return H160::default()
     }
 }
 
