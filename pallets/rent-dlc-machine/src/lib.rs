@@ -15,7 +15,6 @@ pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
     rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
     traits::{DLCMachineInfoTrait, DbcPrice, RTOps},
-    utils::{account_id, verify_signature},
     EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY,
 };
 use frame_support::{
@@ -61,7 +60,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -143,7 +141,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(Weight::from_parts(10000, 0))]
         pub fn rent_dlc_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -275,12 +273,13 @@ impl<T: Config> Pallet<T> {
 
         let asset_id = Self::get_dlc_asset_id();
         <pallet_assets::Pallet<T> as Inspect<T::AccountId>>::can_withdraw(
-            asset_id,
+            asset_id.clone(),
             &renter,
             rent_fee.clone(),
         )
-        .into_result()?;
-        <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::slash(
+        .into_result(false)?;
+
+        <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::shelve(
             asset_id,
             &renter,
             rent_fee.clone(),

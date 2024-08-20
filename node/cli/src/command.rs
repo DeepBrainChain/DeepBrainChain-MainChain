@@ -40,7 +40,7 @@ use {
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
-        "Substrate Node".into()
+        "DeepBrainChain Node".into()
     }
 
     fn impl_version() -> String {
@@ -56,7 +56,7 @@ impl SubstrateCli for Cli {
     }
 
     fn support_url() -> String {
-        "https://github.com/paritytech/substrate/issues/new".into()
+        "https://github.com/DeepBrainChain/DeepBrainChain-MainChain/issues/new".into()
     }
 
     fn copyright_start_year() -> i32 {
@@ -91,11 +91,6 @@ pub fn run() -> Result<()> {
             runner.run_node_until_exit(|config| async move {
                 service::new_full(config, cli).map_err(sc_cli::Error::Service)
             })
-        },
-        Some(Subcommand::Inspect(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-
-            runner.sync_run(|config| cmd.run::<Block, RuntimeApi, DBCExecutorDispatch>(config))
         },
         Some(Subcommand::Benchmark(cmd)) => {
             let runner = cli.create_runner(cmd)?;
@@ -221,7 +216,7 @@ pub fn run() -> Result<()> {
                     new_partial(&mut config)?;
                 let aux_revert = Box::new(|client: Arc<FullClient>, backend, blocks| {
                     sc_consensus_babe::revert(client.clone(), backend, blocks)?;
-                    sc_finality_grandpa::revert(client, blocks)?;
+                    sc_consensus_grandpa::revert(client, blocks)?;
                     Ok(())
                 });
                 Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))

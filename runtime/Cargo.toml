@@ -25,6 +25,7 @@ num_enum = { workspace = true }
 # primitives
 sp-authority-discovery = { workspace = true }
 sp-consensus-babe = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-inherents = { workspace = true }
 dbc-primitives = { path = "../primitives", default-features = false }
@@ -53,11 +54,10 @@ pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-babe = { workspace = true }
 pallet-bags-list = { workspace = true }
-pallet-balances = { workspace = true }
+pallet-balances = { workspace = true, features = ["insecure_zero_ed"] }
 pallet-bounties = { workspace = true }
 pallet-child-bounties = { workspace = true }
 pallet-collective = { workspace = true }
-pallet-conviction-voting = { workspace = true }
 pallet-democracy = { workspace = true }
 pallet-election-provider-multi-phase = { workspace = true }
 pallet-election-provider-support-benchmarking = { workspace = true, optional = true }
@@ -71,7 +71,6 @@ pallet-identity = { workspace = true }
 # pallet-lottery = { workspace = true }
 pallet-membership = { workspace = true }
 # pallet-message-queue = { workspace = true }
-pallet-mmr = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-benchmarking = { workspace = true, optional = true }
@@ -81,14 +80,11 @@ pallet-offences-benchmarking = { workspace = true, optional = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
-pallet-ranked-collective = { workspace = true }
 pallet-recovery = { workspace = true }
-pallet-referenda = { workspace = true }
 # pallet-remark = { workspace = true }
-pallet-root-testing = { workspace = true }
+pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true, features = ["historical"] }
 pallet-session-benchmarking = { workspace = true, optional = true }
-pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-tips = { workspace = true }
@@ -128,19 +124,8 @@ terminating-rental-runtime-api = { path = "../pallets/terminating-rental/rpc/run
 ai-project-register = { path = "../pallets/ai-project-register", default-features = false }
 rent-dlc-machine = { path = "../pallets/rent-dlc-machine", default-features = false }
 rent-dlc-machine-runtime-api = { path = "../pallets/rent-dlc-machine/rpc/runtime-api", default-features = false }
-
 dlc-machine = { path = "../pallets/dlc-machine", default-features = false }
-pallet-scheduler = { path = "../pallets/scheduler", default-features = false }
 
-pallet-contracts = { workspace = true }
-pallet-contracts-primitives = { workspace = true }
-# Chain extension
-#pallet-assets-chain-extension = { git = "https://github.com/727-Ventures/pallet-assets-chain-extension", default-features = false, features = ["substrate"], branch = "polkadot-v0.9.37"  }
-
-#pallet-contracts-rpc-runtime-api = { workspace = true }
-
-# Evm
-ethereum-chain-id = { path = "../pallets/ethereum-chain-id", default-features = false }
 # Frontier
 fp-evm = { workspace = true }
 fp-rpc = { workspace = true }
@@ -148,6 +133,7 @@ fp-self-contained = { workspace = true }
 pallet-base-fee = { workspace = true }
 pallet-ethereum = { workspace = true }
 pallet-evm = { workspace = true }
+pallet-evm-chain-id = { workspace = true }
 pallet-evm-precompile-blake2 = { workspace = true }
 pallet-evm-precompile-bn128 = { workspace = true }
 pallet-evm-precompile-dispatch = { workspace = true }
@@ -159,7 +145,6 @@ hex = {version = "0.4.3", default-features = false}
 
 [features]
 default = ["std"]
-dev-mode = []
 with-tracing = ["frame-executive/with-tracing"]
 std = [
   "ethabi/std",
@@ -176,6 +161,7 @@ std = [
   "pallet-authority-discovery/std",
   "pallet-authorship/std",
   "sp-consensus-babe/std",
+  "sp-consensus-grandpa/std",
   "pallet-babe/std",
   "pallet-bags-list/std",
   "pallet-balances/std",
@@ -184,7 +170,6 @@ std = [
   "parity-scale-codec/std",
   "scale-info/std",
   "pallet-collective/std",
-  "pallet-conviction-voting/std",
   "pallet-democracy/std",
   "pallet-elections-phragmen/std",
   # "pallet-fast-unstake/std",
@@ -197,7 +182,6 @@ std = [
   # "pallet-lottery/std",
   "pallet-membership/std",
   # "pallet-message-queue/std",
-  "pallet-mmr/std",
   "pallet-multisig/std",
   "pallet-nomination-pools/std",
   "pallet-nomination-pools-runtime-api/std",
@@ -219,7 +203,6 @@ std = [
   "sp-staking/std",
   "pallet-staking/std",
   "pallet-staking-runtime-api/std",
-  "pallet-state-trie-migration/std",
   "sp-session/std",
   "pallet-sudo/std",
   "frame-support/std",
@@ -236,10 +219,7 @@ std = [
   "sp-transaction-pool/std",
   "pallet-utility/std",
   "sp-version/std",
-  "pallet-ranked-collective/std",
-  "pallet-referenda/std",
   # "pallet-remark/std",
-  "pallet-root-testing/std",
   "pallet-recovery/std",
   "pallet-nfts/std",
   "log/std",
@@ -270,16 +250,13 @@ std = [
   "rent-dlc-machine/std",
   "dlc-machine/std",
 
-  "pallet-contracts/std",
-  "pallet-contracts-primitives/std",
-
   # Evm
-  "ethereum-chain-id/std",
   "fp-evm/std",
   "fp-rpc/std",
   "fp-self-contained/std",
   "pallet-base-fee/std",
   "pallet-ethereum/std",
+  "pallet-evm-chain-id/std",
   "pallet-evm/std",
   "pallet-evm-precompile-blake2/std",
   "pallet-evm-precompile-bn128/std",
@@ -301,7 +278,6 @@ runtime-benchmarks = [
   "pallet-bounties/runtime-benchmarks",
   "pallet-child-bounties/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
-  "pallet-conviction-voting/runtime-benchmarks",
   "pallet-democracy/runtime-benchmarks",
   "pallet-election-provider-multi-phase/runtime-benchmarks",
   "pallet-election-provider-support-benchmarking/runtime-benchmarks",
@@ -315,20 +291,16 @@ runtime-benchmarks = [
   # "pallet-lottery/runtime-benchmarks",
   "pallet-membership/runtime-benchmarks",
   # "pallet-message-queue/runtime-benchmarks",
-  "pallet-mmr/runtime-benchmarks",
   "pallet-multisig/runtime-benchmarks",
   "pallet-nomination-pools-benchmarking/runtime-benchmarks",
   "pallet-offences-benchmarking/runtime-benchmarks",
   "pallet-preimage/runtime-benchmarks",
   "pallet-proxy/runtime-benchmarks",
   # "pallet-scheduler/runtime-benchmarks",
-  "pallet-ranked-collective/runtime-benchmarks",
-  "pallet-referenda/runtime-benchmarks",
   "pallet-recovery/runtime-benchmarks",
   # "pallet-remark/runtime-benchmarks",
   "pallet-session-benchmarking/runtime-benchmarks",
   "pallet-staking/runtime-benchmarks",
-  "pallet-state-trie-migration/runtime-benchmarks",
   "pallet-timestamp/runtime-benchmarks",
   "pallet-tips/runtime-benchmarks",
   # "pallet-transaction-storage/runtime-benchmarks",
@@ -354,7 +326,6 @@ try-runtime = [
   "pallet-bounties/try-runtime",
   "pallet-child-bounties/try-runtime",
   "pallet-collective/try-runtime",
-  "pallet-conviction-voting/try-runtime",
   "pallet-democracy/try-runtime",
   "pallet-election-provider-multi-phase/try-runtime",
   "pallet-elections-phragmen/try-runtime",
@@ -367,7 +338,6 @@ try-runtime = [
   # "pallet-lottery/try-runtime",
   "pallet-membership/try-runtime",
   # "pallet-message-queue/try-runtime",
-  "pallet-mmr/try-runtime",
   "pallet-multisig/try-runtime",
   "pallet-nomination-pools/try-runtime",
   "pallet-offences/try-runtime",
@@ -375,14 +345,10 @@ try-runtime = [
   "pallet-proxy/try-runtime",
   "pallet-nfts/try-runtime",
   "pallet-insecure-randomness-collective-flip/try-runtime",
-  "pallet-ranked-collective/try-runtime",
   "pallet-recovery/try-runtime",
-  "pallet-referenda/try-runtime",
   # "pallet-remark/try-runtime",
-  "pallet-root-testing/try-runtime",
   "pallet-session/try-runtime",
   "pallet-staking/try-runtime",
-  "pallet-state-trie-migration/try-runtime",
   "pallet-scheduler/try-runtime",
   "pallet-sudo/try-runtime",
   "pallet-timestamp/try-runtime",
@@ -405,11 +371,10 @@ try-runtime = [
   "rent-machine/try-runtime",
   "simple-rpc/try-runtime",
   "terminating-rental/try-runtime",
-  "pallet-contracts/try-runtime",
   "fp-self-contained/try-runtime",
-  "ethereum-chain-id/try-runtime",
-  "pallet-evm/try-runtime",
   "pallet-ethereum/try-runtime",
+  "pallet-evm/try-runtime",
+  "pallet-evm-chain-id/try-runtime",
   "pallet-base-fee/try-runtime",
   "ai-project-register/try-runtime",
   "rent-dlc-machine/try-runtime",

@@ -1,5 +1,6 @@
 use crate as council_reward;
 use frame_support::{
+    pallet_prelude::Weight,
     parameter_types,
     traits::{ConstU32, LockIdentifier, OnFinalize, OnInitialize, U128CurrencyToVote},
     PalletId,
@@ -86,6 +87,10 @@ impl pallet_balances::Config for TestRuntime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+    type HoldIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 parameter_types! {
@@ -124,6 +129,8 @@ parameter_types! {
     pub const CouncilMotionDuration: u32 = 5 * 2880;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 100;
+    pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights::simple_max(Weight::MAX);
+    pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 
 type CouncilCollective = pallet_collective::Instance1;
@@ -137,6 +144,7 @@ impl pallet_collective::Config<CouncilCollective> for TestRuntime {
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
     type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+    type MaxProposalWeight = MaxProposalWeight;
 }
 
 parameter_types! {

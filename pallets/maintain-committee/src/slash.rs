@@ -1,13 +1,11 @@
-use crate::{
-    pallet::AccountId2ReserveDLC, Config, DLCMachine2ReportInfo, Pallet, PendingSlashReview,
-    ReportResult, ReporterStake, UnhandledReportResult, ONE_DLC,
-};
+use crate::{pallet::AccountId2ReserveDLC, Config, DLCMachine2ReportInfo, Pallet, PendingSlashReview, ReportResult, ReporterStake, UnhandledReportResult, ONE_DLC, DLCBalanceOf};
 use dbc_support::{
     report::{MCSlashResult, MTReportResultInfo, ReportResultType},
     traits::MTOps,
     ReportId,
 };
 use frame_support::{traits::fungibles::Mutate, IterableStorageMap};
+use frame_support::traits::tokens::Preservation;
 use sp_runtime::{SaturatedConversion, Saturating};
 use sp_std::{vec, vec::Vec};
 
@@ -52,11 +50,12 @@ impl<T: Config> Pallet<T> {
                         let asset_id = Self::get_dlc_asset_id();
                         let reserve_amount = Self::get_dlc_reserve_amount();
 
-                        <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
+                        <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::transfer(
                             asset_id,
                             &account_id_for_reserve_dlc,
                             &reporter,
                             reserve_amount,
+                            Preservation::Protect
                         )
                         .map_err(|_| ())?;
 
@@ -84,7 +83,7 @@ impl<T: Config> Pallet<T> {
                         let _ = Self::slash_reporter_dlc(
                             reporter,
                             reward_committee.clone(),
-                            (10000 * ONE_DLC as u64).into(),
+                            DLCBalanceOf::<T>::saturated_from(10000 * ONE_DLC as u64),
                         );
                     }
                 },

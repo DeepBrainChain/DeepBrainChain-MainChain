@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,7 +67,7 @@
 //!
 //! An account pair can become bonded using the [`bond`](Call::bond) call.
 //!
-//! Stash accounts can change their associated controller using the
+//! Stash accounts can update their associated controller back to the stash account using the
 //! [`set_controller`](Call::set_controller) call.
 //!
 //! There are three possible roles that any staked account pair can be in: `Validator`, `Nominator`
@@ -282,8 +282,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-// #[cfg(feature = "runtime-benchmarks")]
-// pub mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 pub mod testing_utils;
 
@@ -299,18 +299,19 @@ pub mod weights;
 
 mod pallet;
 
+use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
     traits::{Currency, Defensive, Get},
     weights::Weight,
     BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
-use parity_scale_codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
     curve::PiecewiseLinear,
     traits::{AtLeast32BitUnsigned, Convert, Saturating, StaticLookup, Zero},
     Perbill, Perquintill, Rounding, RuntimeDebug,
 };
+pub use sp_staking::StakerStatus;
 use sp_staking::{
     offence::{Offence, OffenceError, ReportOffence},
     EraIndex, SessionIndex,
@@ -379,18 +380,6 @@ impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
     fn default() -> Self {
         EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
     }
-}
-
-/// Indicates the initial status of the staker.
-#[derive(RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize, Clone))]
-pub enum StakerStatus<AccountId> {
-    /// Chilling.
-    Idle,
-    /// Declared desire in validating or already participating in it.
-    Validator,
-    /// Nominating for a group of other stakers.
-    Nominator(Vec<AccountId>),
 }
 
 /// A destination account for payment.
@@ -848,14 +837,12 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
         era_duration_millis: u64,
     ) -> (Balance, Balance) {
         let (validator_payout, max_payout) = inflation::compute_total_payout(
-            // Duration of era; more than u64::MAX is rewarded as u64::MAX.
             milliseconds_per_year,
             yearly_inflation_amount,
+            // Duration of era; more than u64::MAX is rewarded as u64::MAX.
             era_duration_millis,
         );
-
-        let rest = (max_payout - validator_payout.clone()).into();
-
+        let rest = max_payout.saturating_sub(validator_payout.clone());
         (validator_payout, rest)
     }
 }

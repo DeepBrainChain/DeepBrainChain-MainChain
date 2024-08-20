@@ -63,7 +63,6 @@ pub mod pallet {
         StorageDoubleMap<_, Blake2_128Concat, MachineId, Blake2_128Concat, Vec<u8>, T::AccountId>;
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -82,7 +81,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(Weight::from_parts(10000, 0))]
         pub fn set_max_limit_per_machine_id_can_register(
             origin: OriginFor<T>,
             value: u32,

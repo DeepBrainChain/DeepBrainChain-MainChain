@@ -1,26 +1,21 @@
 use crate as maintain_committee;
-use crate::ONE_DLC;
 use dbc_price_ocw::MAX_LEN;
-use dbc_support::{
-    machine_type::{
-        CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
-    },
-    traits::DLCMachineReportStakingTrait,
+use dbc_support::machine_type::{
+    CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
 };
 use frame_support::{
-    assert_ok, parameter_types,
-    traits::{AsEnsureOriginWithArg, ConstU32, OnFinalize, OnInitialize},
+    assert_ok,
+    pallet_prelude::Weight,
+    parameter_types,
+    traits::{ConstU32, OnFinalize, OnInitialize},
     PalletId,
 };
+pub use frame_system::RawOrigin;
 use frame_system::{EnsureRoot, EnsureWithSuccess};
-pub use frame_system::{EnsureSigned, RawOrigin};
-use parity_scale_codec::Compact;
 pub use sp_core::{
     sr25519::{self, Signature},
     H256,
 };
-use sp_core::{ConstU128, Pair};
-use sp_keyring::AccountKeyring::Eve;
 pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
@@ -91,6 +86,10 @@ impl pallet_balances::Config for TestRuntime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+    type HoldIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 impl dbc_price_ocw::Config for TestRuntime {
@@ -177,6 +176,8 @@ parameter_types! {
     pub const CouncilMotionDuration: u32 = 5 * 2880;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 100;
+    pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights::simple_max(Weight::MAX);
+    pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 
 type TechnicalCollective = pallet_collective::Instance2;
@@ -190,6 +191,7 @@ impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
     type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+    type MaxProposalWeight = MaxProposalWeight;
 }
 
 parameter_types! {
@@ -244,9 +246,6 @@ impl maintain_committee::Config for TestRuntime {
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<Self::AccountId, TechnicalCollective, 2, 3>;
     type SlashAndReward = GenericFunc;
-
-    type AssetId = u32;
-    type DLCAssetId = ConstU32<88>;
 }
 
 impl rent_machine::Config for TestRuntime {
@@ -254,55 +253,6 @@ impl rent_machine::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RTOps = OnlineProfile;
     type DbcPrice = DBCPriceOCW;
-}
-
-pub const DBCS: Balance = 1_000_000_000_000_000;
-pub const DOLLARS: Balance = DBCS / 100;
-
-parameter_types! {
-    pub const AssetDeposit: Balance = 100 * DOLLARS;
-    pub const ApprovalDeposit: Balance = 1 * DOLLARS;
-    pub const StringLimit: u32 = 50;
-    pub const MetadataDepositBase: Balance = 10 * DOLLARS;
-    pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
-
-    pub const AssetLockLimit: u32 = 1000;
-}
-impl pallet_assets::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
-    type Balance = u128;
-    type AssetId = u32;
-    type AssetIdParameter = Compact<u32>;
-    type Currency = Balances;
-    type CreateOrigin =
-        AsEnsureOriginWithArg<EnsureSigned<<TestRuntime as frame_system::Config>::AccountId>>;
-    type ForceOrigin = EnsureRoot<<TestRuntime as frame_system::Config>::AccountId>;
-    type AssetDeposit = AssetDeposit;
-    type AssetAccountDeposit = ConstU128<DOLLARS>;
-    type MetadataDepositBase = MetadataDepositBase;
-    type MetadataDepositPerByte = MetadataDepositPerByte;
-    type ApprovalDeposit = ApprovalDeposit;
-    type StringLimit = StringLimit;
-    type Freezer = ();
-    type Extra = ();
-    type CallbackHandle = ();
-    type WeightInfo = pallet_assets::weights::SubstrateWeight<TestRuntime>;
-    type RemoveItemsLimit = ConstU32<1000>;
-    type AssetLockLimit = AssetLockLimit;
-    // #[cfg(feature = "runtime-benchmarks")]
-    // type BenchmarkHelper = ();
-}
-
-impl dlc_machine::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
-}
-//
-impl rent_dlc_machine::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
-    type RTOps = OnlineProfile;
-    type DbcPrice = DBCPriceOCW;
-    type AssetId = u32;
-    type DLCAssetId = ConstU32<88>;
 }
 
 // Configure a mock runtime to test the pallet.
@@ -325,9 +275,6 @@ frame_support::construct_runtime!(
         MaintainCommittee: maintain_committee,
         TechnicalCommittee: pallet_collective::<Instance2>,
         RentMachine: rent_machine,
-        RentDlcMachine: rent_dlc_machine,
-        DlcMachine: dlc_machine,
-        Assets: pallet_assets,
     }
 );
 
@@ -641,62 +588,6 @@ pub fn new_test_with_init_params_ext_1() -> sp_io::TestExternalities {
         ));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter), 0));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter1), 1));
-    });
-
-    ext
-}
-
-pub fn new_test_with_init_dlc_rent_params_ext() -> sp_io::TestExternalities {
-    let eve = sp_core::sr25519::Pair::from(Eve);
-    let msg: Vec<u8> = b"abc".to_vec();
-    let eve_sig = eve.sign(&msg[..]);
-
-    let mut ext = new_test_with_init_machine_online();
-    ext.execute_with(|| {
-        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
-            .as_bytes()
-            .to_vec();
-
-        let reporter = sr25519::Public::from(Sr25519Keyring::Eve);
-        // rent machine for 1 days
-        assert_ok!(RentMachine::rent_machine(
-            RuntimeOrigin::signed(reporter),
-            machine_id.clone(),
-            4,
-            1 * 2880
-        ));
-        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter), 0));
-
-        let dlc_renter = sr25519::Public::from(Sr25519Keyring::Two);
-
-        let asset_id = RentDlcMachine::get_dlc_asset_id_parameter();
-        assert_ok!(Assets::create(RuntimeOrigin::signed(dlc_renter), asset_id, dlc_renter, 1));
-        assert_ok!(Assets::mint(
-            RuntimeOrigin::signed(dlc_renter),
-            asset_id,
-            dlc_renter,
-            10_000_000 * ONE_DLC
-        ));
-
-        assert_eq!(Assets::balance(asset_id.into(), dlc_renter), 10_000_000 * ONE_DLC);
-
-        assert_ok!(
-            <dlc_machine::Pallet<TestRuntime> as DLCMachineReportStakingTrait>::report_dlc_staking(
-                msg,
-                eve_sig,
-                Eve.public(),
-                machine_id.clone()
-            )
-        );
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), true);
-
-        assert_ok!(RentDlcMachine::rent_dlc_machine(
-            RuntimeOrigin::signed(dlc_renter),
-            machine_id.clone(),
-            4,
-            1 * 2880 * 2
-        ));
     });
 
     ext

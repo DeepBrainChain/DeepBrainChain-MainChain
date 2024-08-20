@@ -108,7 +108,7 @@ pub mod v1 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
             log::info!("pre_upgrade ok");
             let current_version = Pallet::<T>::current_storage_version();
             let on_chain_version = Pallet::<T>::on_chain_storage_version();
@@ -116,80 +116,108 @@ pub mod v1 {
             log::info!("c : {:?} ", current_version);
             log::info!("o : {:?}", on_chain_version);
 
-            ensure!(on_chain_version == 0, "this migration can be deleted");
             Ok(Vec::new())
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-            let on_chain_version = Pallet::<T>::on_chain_storage_version();
-
-            ensure!(on_chain_version == 1, "this migration needs to be removed");
-
+        fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
             log::info!("post_upgrade ok");
             Ok(())
         }
     }
 
     pub fn migrate<T: Config>() -> Weight {
-        let on_chain_version = Pallet::<T>::on_chain_storage_version();
-        let current_version = Pallet::<T>::current_storage_version();
         let mut weight = T::DbWeight::get().reads(2);
 
-        if on_chain_version == 0 && current_version == 1 {
-            log::info!(target: TARGET, "migrate executing");
+        log::info!(target: TARGET, "migrate executing");
 
-            MachinesInfo::<T>::translate(
-                |_index, old: v0::MachineInfo<AccountIdOf<T>, BlockNumberOf<T>, BalanceOf<T>>| {
-                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        MachinesInfo::<T>::translate(
+            |_index, old: v0::MachineInfo<AccountIdOf<T>, BlockNumberOf<T>, BalanceOf<T>>| {
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-                    let new_machine_info = MachineInfo {
-                        controller: old.controller,
-                        machine_stash: old.machine_stash,
-                        renters: old.renters,
-                        last_machine_restake: old.last_machine_restake,
-                        bonding_height: old.bonding_height,
-                        online_height: old.online_height,
-                        last_online_height: old.last_online_height,
-                        init_stake_per_gpu: old.init_stake_per_gpu,
-                        stake_amount: old.stake_amount,
-                        machine_status: old.machine_status,
-                        total_rented_duration: old.total_rented_duration,
-                        total_rented_times: old.total_rented_times,
-                        total_rent_fee: old.total_rent_fee,
-                        total_burn_fee: old.total_burn_fee,
-                        machine_info_detail: MachineInfoDetail {
-                            staker_customize_info: StakerCustomizeInfo {
-                                server_room: old
-                                    .machine_info_detail
-                                    .staker_customize_info
-                                    .server_room,
-                                upload_net: old
-                                    .machine_info_detail
-                                    .staker_customize_info
-                                    .upload_net,
-                                download_net: old
-                                    .machine_info_detail
-                                    .staker_customize_info
-                                    .download_net,
-                                longitude: old.machine_info_detail.staker_customize_info.longitude,
-                                latitude: old.machine_info_detail.staker_customize_info.latitude,
-                                telecom_operators: old
-                                    .machine_info_detail
-                                    .staker_customize_info
-                                    .telecom_operators,
-                                is_bare_machine: false,
-                            },
-                            committee_upload_info: old.machine_info_detail.committee_upload_info,
+                let new_machine_info = MachineInfo {
+                    controller: old.controller,
+                    machine_stash: old.machine_stash,
+                    renters: old.renters,
+                    last_machine_restake: old.last_machine_restake,
+                    bonding_height: old.bonding_height,
+                    online_height: old.online_height,
+                    last_online_height: old.last_online_height,
+                    init_stake_per_gpu: old.init_stake_per_gpu,
+                    stake_amount: old.stake_amount,
+                    machine_status: old.machine_status,
+                    total_rented_duration: old.total_rented_duration,
+                    total_rented_times: old.total_rented_times,
+                    total_rent_fee: old.total_rent_fee,
+                    total_burn_fee: old.total_burn_fee,
+                    machine_info_detail: MachineInfoDetail {
+                        staker_customize_info: StakerCustomizeInfo {
+                            server_room: old.machine_info_detail.staker_customize_info.server_room,
+                            upload_net: old.machine_info_detail.staker_customize_info.upload_net,
+                            download_net: old
+                                .machine_info_detail
+                                .staker_customize_info
+                                .download_net,
+                            longitude: old.machine_info_detail.staker_customize_info.longitude,
+                            latitude: old.machine_info_detail.staker_customize_info.latitude,
+                            telecom_operators: old
+                                .machine_info_detail
+                                .staker_customize_info
+                                .telecom_operators,
+                            is_bare_machine: false,
                         },
+                        committee_upload_info: old.machine_info_detail.committee_upload_info,
+                    },
 
-                        reward_committee: old.reward_committee,
-                        reward_deadline: old.reward_deadline,
-                    };
-                    Some(new_machine_info)
-                },
-            );
-            current_version.put::<Pallet<T>>()
+                    reward_committee: old.reward_committee,
+                    reward_deadline: old.reward_deadline,
+                };
+                Some(new_machine_info)
+            },
+        );
+
+        StashMachines::<T>::translate(|_stash, old: StashMachine<BalanceOf<T>>| {
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+            let mut total_online_gpu_num: u64 = 0;
+            old.online_machine.iter().for_each(|machine_id| {
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+                let machine_info_result = MachinesInfo::<T>::get(machine_id);
+                if let Some(machine_info) = machine_info_result {
+                    total_online_gpu_num += machine_info.gpu_num() as u64;
+                }
+            });
+            if total_online_gpu_num != old.total_gpu_num {
+                log::info!(
+                    "old.total_gpu_num: {}, total_online_gpu_num: {}",
+                    old.total_gpu_num,
+                    total_online_gpu_num
+                );
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+                if old.online_machine.len() as u64 != old.total_gpu_num {
+                    return Some(StashMachine { total_gpu_num: total_online_gpu_num, ..old })
+                }
+            }
+            Some(old)
+        });
+
+        let machine_id = "c64f005ade44d989e067de03cf46aaa01fd71dbb717503a5e43ae588efb90065"
+            .as_bytes()
+            .to_vec();
+        let result = MachinesInfo::<T>::get(&machine_id);
+        if let Some(mut machine_info) = result {
+            if let MachineStatus::ReporterReportOffline(_, last_status, _, _) =
+                machine_info.machine_status
+            {
+                if let MachineStatus::ReporterReportOffline(reason, inner_last_status, a, b) =
+                    *last_status
+                {
+                    machine_info.machine_status =
+                        MachineStatus::ReporterReportOffline(reason, inner_last_status, a, b);
+                    log::info!("machine_info.machine_status: {:?}", machine_info.machine_status);
+                    MachinesInfo::<T>::insert(machine_id, machine_info);
+                }
+            }
         }
 
         log::info!("migrate ok");

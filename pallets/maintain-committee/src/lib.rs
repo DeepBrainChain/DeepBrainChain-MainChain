@@ -13,6 +13,7 @@ mod mock;
 #[cfg(test)]
 #[allow(non_upper_case_globals)]
 mod tests;
+use sp_runtime::SaturatedConversion;
 
 use dbc_support::{
     report::{
@@ -32,6 +33,7 @@ use frame_support::{
     traits::{fungibles::Mutate, Currency, OnUnbalanced, ReservableCurrency},
     PalletId,
 };
+use frame_support::traits::tokens::Preservation;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use parity_scale_codec::alloc::string::ToString;
@@ -42,7 +44,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, vec, vec::Vec};
 use types::*;
 
-pub const ONE_DLC: u128 = 1_000_000_000_000_000;
+pub const ONE_DLC: u128 = 100_000_000;
 const PALLET_ID: PalletId = PalletId(*b"dlc_lock");
 
 type BalanceOf<T> =
@@ -94,7 +96,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
@@ -216,7 +217,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_reporter_stake_params(
             origin: OriginFor<T>,
             stake_params: ReporterStakeParamsInfo<BalanceOf<T>>,
@@ -228,7 +229,7 @@ pub mod pallet {
 
         /// 用户报告机器硬件故障
         #[pallet::call_index(1)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
             report_reason: MachineFaultType,
@@ -239,10 +240,13 @@ pub mod pallet {
             let mut reporter_report = Self::reporter_report(&reporter);
 
             // 支付
-            if let MachineFaultType::RentedInaccessible(_, rent_order_id) = report_reason.clone() {
+            if let MachineFaultType::RentedInaccessible(machine_id, rent_order_id) =
+                report_reason.clone()
+            {
                 let rent_info = <rent_machine::Pallet<T>>::rent_info(&rent_order_id)
                     .ok_or(Error::<T>::Unknown)?;
                 ensure!(rent_info.renter == reporter, Error::<T>::NotMachineRenter);
+                ensure!(machine_id == rent_info.machine_id, Error::<T>::NotMachineRenter);
 
                 let result = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id);
                 match result {
@@ -275,7 +279,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_add_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -285,7 +289,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_reduce_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -296,7 +300,7 @@ pub mod pallet {
 
         // 报告人可以在抢单之前取消该报告
         #[pallet::call_index(4)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_cancel_report(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -331,7 +335,7 @@ pub mod pallet {
 
         /// 委员会进行抢单
         #[pallet::call_index(5)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_book_report(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -364,7 +368,7 @@ pub mod pallet {
         /// 报告人在委员会完成抢单后，30分钟内用委员会的公钥，提交加密后的故障信息
         /// 只有报告机器故障或者无法租用时需要提交加密信息
         #[pallet::call_index(6)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn reporter_add_encrypted_error_info(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -401,7 +405,7 @@ pub mod pallet {
         // 委员会提交验证之后的Hash
         // 用户必须在自己的Order状态为Verifying时提交Hash
         #[pallet::call_index(7)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_submit_verify_hash(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -443,7 +447,7 @@ pub mod pallet {
 
         /// 订单状态必须是等待SubmittingRaw: 除了offline之外的所有错误类型
         #[pallet::call_index(8)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_submit_verify_raw(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -509,7 +513,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(9)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn committee_submit_inaccessible_raw(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -551,7 +555,7 @@ pub mod pallet {
 
         /// Reporter and committee apply technical committee review
         #[pallet::call_index(10)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn apply_slash_review(
             origin: OriginFor<T>,
             report_result_id: ReportId,
@@ -630,7 +634,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(11)]
-        #[pallet::weight(0)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn cancel_reporter_slash(
             origin: OriginFor<T>,
             slashed_report_id: ReportId,
@@ -716,7 +720,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(12)]
-        #[pallet::weight(10000)]
+        #[pallet::weight(Weight::from_parts(10000, 0))]
         pub fn report_dlc_machine_fault(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -762,11 +766,12 @@ pub mod pallet {
 
             let reserve_amount = Self::get_dlc_reserve_amount();
             // <pallet_assets::Pallet<T>>::transfer(origin,asset_id.into(),account_id_for_reserve_dlc_lookup,reserve_amount.into())?;
-            <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
+            <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::transfer(
                 asset_id,
                 &reporter,
                 &account_id_for_reserve_dlc,
                 reserve_amount,
+                Preservation::Protect
             )?;
 
             AccountId2ReserveDLC::<T>::mutate(&reporter, |reserve_dlc| {
@@ -1412,7 +1417,8 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_dlc_reserve_amount() -> <T as pallet_assets::Config>::Balance {
         let reserve_amount = 10000 * ONE_DLC as u64;
-        reserve_amount.into()
+        DLCBalanceOf::<T>::saturated_from(reserve_amount)
+        // reserve_amount.saturated_from
     }
 
     pub fn pallet_account_id() -> Option<T::AccountId> {
@@ -1437,11 +1443,12 @@ impl<T: Config> Pallet<T> {
 
         if reward_to_num == 0 {
             // Slash to Treasury
-            <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
+            <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::transfer(
                 asset_id,
                 &account_id_for_reserve_dlc,
                 &treasury_account,
                 reporter_staked_dlc_amount,
+                Preservation::Protect
             )
             .map_err(|_| ())?;
 
@@ -1458,11 +1465,12 @@ impl<T: Config> Pallet<T> {
 
         for a_committee in &reward_who {
             if left_reward >= reward_each_get {
-                <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
-                    asset_id,
+                <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::transfer(
+                    asset_id.clone(),
                     &account_id_for_reserve_dlc,
                     a_committee,
                     reward_each_get,
+                    Preservation::Protect
                 )
                 .map_err(|_| ())?;
 
@@ -1472,13 +1480,13 @@ impl<T: Config> Pallet<T> {
 
                 left_reward = left_reward.checked_sub(&reward_each_get).ok_or(())?;
             } else {
-                <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
-                    asset_id,
+                <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::transfer(
+                    asset_id.clone(),
                     &account_id_for_reserve_dlc,
                     a_committee,
                     left_reward,
-                )
-                .map_err(|_| ())?;
+                    Preservation::Protect
+                ).map_err(|_| ())?;
 
                 AccountId2ReserveDLC::<T>::mutate(&reporter, |reserve_dlc| {
                     *reserve_dlc = reserve_dlc.saturating_sub(left_reward)
@@ -1487,11 +1495,12 @@ impl<T: Config> Pallet<T> {
         }
 
         if left_reward > Zero::zero() {
-            <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::teleport(
+            <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::transfer(
                 asset_id,
                 &account_id_for_reserve_dlc,
                 &treasury_account,
                 left_reward,
+                Preservation::Protect
             )
             .map_err(|_| ())?;
         }
