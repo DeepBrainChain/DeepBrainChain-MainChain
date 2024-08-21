@@ -133,7 +133,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 277,
+    spec_version: 280,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -1648,9 +1648,9 @@ type Migrations = (
     //     >,
     //     pallet_staking::migrations::v12::MigrateToV12<Runtime>,
     //     pallet_staking::migrations::v13::MigrateToV13<Runtime>,
-    DemocracyV1Migration,
-    online_profile::migration::v1::Migration<Runtime>,
-    terminating_rental::migrations::v1::Migration<Runtime>,
+    // DemocracyV1Migration,
+    // online_profile::migration::v1::Migration<Runtime>,
+    // terminating_rental::migrations::v1::Migration<Runtime>,
 );
 
 /// MMR helper types.
