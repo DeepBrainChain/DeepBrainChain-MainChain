@@ -105,18 +105,18 @@ where
         // 检查当前机器状态是否允许
         if !matches!(
             self.machine_status,
-            MachineStatus::AddingCustomizeInfo |
-                MachineStatus::DistributingOrder |
-                MachineStatus::CommitteeVerifying |
-                MachineStatus::CommitteeRefused(..) |
-                MachineStatus::WaitingFulfill |
-                MachineStatus::StakerReportOffline(..)
+            MachineStatus::AddingCustomizeInfo
+                | MachineStatus::DistributingOrder
+                | MachineStatus::CommitteeVerifying
+                | MachineStatus::CommitteeRefused(..)
+                | MachineStatus::WaitingFulfill
+                | MachineStatus::StakerReportOffline(..)
         ) {
-            return Err(OnlineErr::NotAllowedChangeMachineInfo)
+            return Err(OnlineErr::NotAllowedChangeMachineInfo);
         }
 
         if &self.controller != who {
-            return Err(OnlineErr::NotMachineController)
+            return Err(OnlineErr::NotMachineController);
         }
         Ok(())
     }
@@ -129,10 +129,10 @@ where
     }
     pub fn can_update_server_room_info(&self, who: &AccountId) -> Result<(), OnlineErr> {
         if self.machine_info_detail.staker_customize_info.telecom_operators.is_empty() {
-            return Err(OnlineErr::TelecomIsNull)
+            return Err(OnlineErr::TelecomIsNull);
         }
         if &self.controller != who {
-            return Err(OnlineErr::NotMachineController)
+            return Err(OnlineErr::NotMachineController);
         }
         Ok(())
     }
@@ -205,11 +205,11 @@ where
     fn can_add_customize_info(&self) -> bool {
         matches!(
             self.machine_status,
-            MachineStatus::AddingCustomizeInfo |
-                MachineStatus::CommitteeVerifying |
-                MachineStatus::CommitteeRefused(_) |
-                MachineStatus::WaitingFulfill |
-                MachineStatus::StakerReportOffline(..)
+            MachineStatus::AddingCustomizeInfo
+                | MachineStatus::CommitteeVerifying
+                | MachineStatus::CommitteeRefused(_)
+                | MachineStatus::WaitingFulfill
+                | MachineStatus::StakerReportOffline(..)
         )
     }
 

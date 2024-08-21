@@ -63,7 +63,7 @@ impl Default for VerifyResult {
 impl<AccountId: Clone + Ord> Summary<AccountId> {
     pub fn should_slash_committee(&self) -> bool {
         if !self.unruly.is_empty() {
-            return true
+            return true;
         }
         match self.verify_result {
             VerifyResult::NoConsensus => false,
@@ -277,8 +277,8 @@ where
     }
 
     pub fn can_submit_raw(&self, now: BlockNumber) -> bool {
-        matches!(self.status, OCVerifyStatus::SubmittingHash) &&
-            now >= self.book_time + SUBMIT_RAW_START.into()
+        matches!(self.status, OCVerifyStatus::SubmittingHash)
+            && now >= self.book_time + SUBMIT_RAW_START.into()
     }
 
     pub fn submit_raw(&mut self, time: BlockNumber, committee: AccountId) -> Result<(), VerifyErr> {
@@ -297,9 +297,9 @@ where
 
     // 是Summarizing的状态或 是SummitingRaw 且在有效时间内
     pub fn can_summary(&mut self, now: BlockNumber) -> bool {
-        matches!(self.status, OCVerifyStatus::Summarizing) ||
-            matches!(self.status, OCVerifyStatus::SubmittingRaw) &&
-                now >= self.book_time + SUBMIT_RAW_END.into()
+        matches!(self.status, OCVerifyStatus::Summarizing)
+            || matches!(self.status, OCVerifyStatus::SubmittingRaw)
+                && now >= self.book_time + SUBMIT_RAW_END.into()
     }
 
     // 记录没有提交原始信息的委员会

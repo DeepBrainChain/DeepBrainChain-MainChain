@@ -214,13 +214,13 @@ where
                 total_rent_fee: machine_info.total_rent_fee.into(),
                 machine_info_detail: machine_info.machine_info_detail.into(),
                 reward_committee: machine_info.reward_committee,
-            })
+            });
         };
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))))
+        ))));
     }
 
     fn get_committee_machine_list(
@@ -264,13 +264,13 @@ where
                 confirm_time: ops.confirm_time,
                 machine_status: ops.machine_status,
                 machine_info: ops.machine_info,
-            })
+            });
         }
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))))
+        ))));
     }
 
     fn get_machine_committee_list(
@@ -313,13 +313,13 @@ where
                 rent_status: order_detail.rent_status,
                 gpu_num: order_detail.gpu_num,
                 gpu_index: order_detail.gpu_index,
-            })
+            });
         }
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))))
+        ))));
     }
 
     fn get_rent_list(

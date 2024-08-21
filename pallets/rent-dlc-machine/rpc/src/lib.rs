@@ -97,13 +97,13 @@ where
                 rent_status: order_detail.rent_status,
                 gpu_num: order_detail.gpu_num,
                 gpu_index: order_detail.gpu_index,
-            })
+            });
         }
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))))
+        ))));
     }
 
     fn get_dlc_rent_list(

@@ -33,8 +33,8 @@ impl MTLiveReportList {
         report_type: MachineFaultType,
         booked_committee_count: usize,
     ) {
-        if booked_committee_count == 3 ||
-            !matches!(report_type, MachineFaultType::RentedInaccessible(..))
+        if booked_committee_count == 3
+            || !matches!(report_type, MachineFaultType::RentedInaccessible(..))
         {
             ItemList::rm_item(&mut self.bookable_report, &report_id);
             ItemList::add_item(&mut self.verifying_report, report_id);

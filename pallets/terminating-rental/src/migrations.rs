@@ -5,7 +5,7 @@ use dbc_support::{
 };
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::{RuntimeDebug};
+use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]

@@ -78,7 +78,7 @@ pub mod pallet {
             match frequency {
                 Some(frequency) => {
                     if frequency.1 == 0u32.into() {
-                        return weight
+                        return weight;
                     }
                     if block_number % frequency.1 == 0u32.into() {
                         Self::auto_destroy(frequency.0);
@@ -250,7 +250,7 @@ impl<T: Config> Pallet<T> {
         let free_balance = T::Currency::free_balance(&who);
         let fixed_tx_fee = Self::fixed_tx_fee().ok_or(Error::<T>::UnknownFixedTxFee)?;
         if free_balance <= fixed_tx_fee {
-            return Ok(().into())
+            return Ok(().into());
         }
 
         let max_burn_amount = free_balance.saturating_sub(fixed_tx_fee);

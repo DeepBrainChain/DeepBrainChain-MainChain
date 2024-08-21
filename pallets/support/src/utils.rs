@@ -17,7 +17,7 @@ pub fn get_accountid32(addr: &[u8]) -> Option<[u8; 32]> {
 
     let length = bs58::decode(addr).into(&mut data).ok()?;
     if length != 35 {
-        return None
+        return None;
     }
 
     let (_prefix_len, _ident) = match data[0] {

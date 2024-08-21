@@ -32,7 +32,7 @@ impl<T: Config> Pallet<T> {
         for a_committee in &report_info.hashed_committee {
             let committee_ops = Self::committee_ops(a_committee, report_id);
             if committee_ops.confirm_hash == hash {
-                return Err(Error::<T>::DuplicateHash.into())
+                return Err(Error::<T>::DuplicateHash.into());
             }
         }
         Ok(().into())
@@ -86,8 +86,8 @@ impl<T: Config> Pallet<T> {
                 reporter_stake.used_stake =
                     reporter_stake.used_stake.saturating_add(stake_params.stake_per_report);
                 ensure!(
-                    reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake) >=
-                        stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                    reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake)
+                        >= stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                     Error::<T>::StakeNotEnough
                 );
             }
@@ -106,7 +106,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // 未达成共识，则退还报告人质押
         if matches!(report_result, ReportResultType::NoConsensus) {
-            return
+            return;
         }
 
         ReporterStake::<T>::mutate(reporter, |reporter_stake| {

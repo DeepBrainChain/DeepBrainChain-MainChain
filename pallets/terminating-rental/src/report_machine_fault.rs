@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
     pub fn pay_stake_when_report(reporter: T::AccountId) -> DispatchResultWithPostInfo {
         let stake_params = Self::reporter_stake_params();
         if stake_params.stake_per_report == Zero::zero() {
-            return Ok(().into())
+            return Ok(().into());
         }
 
         ReporterStake::<T>::mutate(&reporter, |reporter_stake| {
@@ -42,8 +42,8 @@ impl<T: Config> Pallet<T> {
                 reporter_stake.used_stake =
                     reporter_stake.used_stake.saturating_add(stake_params.stake_per_report);
                 ensure!(
-                    reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake) >=
-                        stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                    reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake)
+                        >= stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                     Error::<T>::StakeNotEnough
                 );
             }
@@ -75,8 +75,8 @@ impl<T: Config> Pallet<T> {
             );
 
             ensure!(
-                reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake) >=
-                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake)
+                    >= stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                 Error::<T>::StakeNotEnough
             );
         }
@@ -196,8 +196,8 @@ impl<T: Config> Pallet<T> {
                 },
                 // NoConsensus means no committee confirm confirmation, should be slashed all
                 ReportResultType::NoConsensus => {},
-                ReportResultType::ReportRefused |
-                ReportResultType::ReporterNotSubmitEncryptedInfo => {
+                ReportResultType::ReportRefused
+                | ReportResultType::ReporterNotSubmitEncryptedInfo => {
                     // 惩罚报告人
                     let _ = Self::slash_and_reward(
                         vec![reporter.clone()],
@@ -241,7 +241,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // 未达成共识，则退还报告人质押
         if matches!(report_result, ReportResultType::NoConsensus) {
-            return
+            return;
         }
 
         ReporterStake::<T>::mutate(reporter, |reporter_stake| {
@@ -360,15 +360,15 @@ impl<T: Config> Pallet<T> {
 
         // Reported, WaitingBook, CommitteeConfirmed, SubmittingRaw
         if !matches!(report_info.report_status, ReportStatus::Verifying) {
-            return Ok(())
+            return Ok(());
         }
 
         let verifying_committee = report_info.verifying_committee.clone().ok_or(())?;
         let committee_ops = Self::committee_report_ops(&verifying_committee, &report_id);
 
         // 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
-        if now.saturating_sub(committee_ops.booked_time) >= HALF_HOUR.into() &&
-            committee_ops.encrypted_err_info.is_none()
+        if now.saturating_sub(committee_ops.booked_time) >= HALF_HOUR.into()
+            && committee_ops.encrypted_err_info.is_none()
         {
             reporter_report.clean_not_submit_encrypted_report(report_id);
             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
@@ -393,7 +393,7 @@ impl<T: Config> Pallet<T> {
             Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
             ReportResult::<T>::insert(report_id, report_result);
 
-            return Ok(())
+            return Ok(());
         }
 
         // 委员会没有提交Hash，删除该委员会，并惩罚
@@ -426,7 +426,7 @@ impl<T: Config> Pallet<T> {
 
         let mut report_info = Self::report_info(&report_id).ok_or(())?;
         if !report_info.can_summary(now) {
-            return Ok(())
+            return Ok(());
         }
 
         let fault_report_result = report_info.summary();
@@ -530,7 +530,7 @@ impl<T: Config> Pallet<T> {
         if matches!(report_info.report_status, ReportStatus::WaitingBook) {
             report_info.report_status = ReportStatus::SubmittingRaw;
             ReportInfo::<T>::insert(report_id, report_info);
-            return Ok(())
+            return Ok(());
         }
 
         // 但是最后一个委员会订阅时间小于1个小时

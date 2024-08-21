@@ -70,8 +70,9 @@ impl SubstrateCli for Cli {
             "local" => Box::new(chain_spec::local_testnet_config()),
             "fir" | "flaming-fir" => Box::new(chain_spec::flaming_fir_config()?),
             "staging" => Box::new(chain_spec::staging_testnet_config()),
-            path =>
-                Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+            path => {
+                Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
+            },
         };
         Ok(spec)
     }
@@ -105,7 +106,7 @@ pub fn run() -> Result<()> {
                                 "Runtime benchmarking wasn't enabled when building the node. \
 							You can enable it with `--features runtime-benchmarks`."
                                     .into(),
-                            )
+                            );
                         }
 
                         cmd.run::<Block, DBCExecutorDispatch>(config)
@@ -162,8 +163,9 @@ pub fn run() -> Result<()> {
                             &ext_factory,
                         )
                     },
-                    BenchmarkCmd::Machine(cmd) =>
-                        cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()),
+                    BenchmarkCmd::Machine(cmd) => {
+                        cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())
+                    },
                 }
             })
         },

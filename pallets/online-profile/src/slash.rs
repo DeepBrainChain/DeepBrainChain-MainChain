@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
     pub fn check_pending_slash() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !PendingSlashReviewChecking::<T>::contains_key(now) {
-            return Ok(())
+            return Ok(());
         }
 
         let pending_slash_checking = Self::pending_slash_review_checking(now);
@@ -176,10 +176,10 @@ impl<T: Config> Pallet<T> {
         slash_info: &OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> Result<(), ()> {
         let machine_info = Self::machines_info(&slash_info.machine_id).ok_or(())?;
-        if <T as Config>::Currency::reserved_balance(&machine_info.machine_stash) <
-            slash_info.slash_amount
+        if <T as Config>::Currency::reserved_balance(&machine_info.machine_stash)
+            < slash_info.slash_amount
         {
-            return Ok(())
+            return Ok(());
         }
 
         let (mut reward_to_reporter, mut reward_to_committee) = (Zero::zero(), Zero::zero());
@@ -216,7 +216,7 @@ impl<T: Config> Pallet<T> {
 
         Self::try_to_change_machine_status_to_fulfill(&slash_info.slash_who, machine_info)?;
 
-        return Ok(())
+        return Ok(());
     }
 
     // 检查已质押资金是否满足单GPU质押金额*gpu数量 若不满足则变更机器状态为fulfill

@@ -4,18 +4,18 @@ use sp_core::H160;
 impl<T: Config> DLCMachineSlashInfoTrait for Pallet<T> {
     fn get_dlc_machine_slashed_at(machine_id: MachineId) -> u64 {
         if let Some((_, _, slash_at)) = Self::dlc_machine_2_report_info(&machine_id) {
-            return slash_at
+            return slash_at;
         };
         0
     }
     fn get_dlc_machine_slashed_report_id(machine_id: MachineId) -> u64 {
         if let Some((report_id, _, slash_at)) = Self::dlc_machine_2_report_info(&machine_id) {
             if slash_at > 0 {
-                return report_id.into()
+                return report_id.into();
             }
         }
 
-        return 0
+        return 0;
     }
 
     fn get_dlc_machine_slashed_reporter(machine_id: MachineId) -> H160 {
@@ -23,11 +23,11 @@ impl<T: Config> DLCMachineSlashInfoTrait for Pallet<T> {
             Self::dlc_machine_2_report_info(&machine_id)
         {
             if slash_at > 0 {
-                return reporter_evm_address
+                return reporter_evm_address;
             }
         }
 
-        return H160::default()
+        return H160::default();
     }
 }
 

@@ -817,10 +817,10 @@ pub mod pallet {
             let offline_time = match machine_info.machine_status.clone() {
                 MachineStatus::StakerReportOffline(offline_time, _) => offline_time,
                 MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
-                    OPSlashReason::RentedInaccessible(report_time) |
-                    OPSlashReason::RentedHardwareMalfunction(report_time) |
-                    OPSlashReason::RentedHardwareCounterfeit(report_time) |
-                    OPSlashReason::OnlineRentFailed(report_time) => report_time,
+                    OPSlashReason::RentedInaccessible(report_time)
+                    | OPSlashReason::RentedHardwareMalfunction(report_time)
+                    | OPSlashReason::RentedHardwareCounterfeit(report_time)
+                    | OPSlashReason::OnlineRentFailed(report_time) => report_time,
                     _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
                 },
                 _ => return Err(Error::<T>::MachineStatusNotAllowed.into()),
@@ -881,12 +881,12 @@ pub mod pallet {
             }
 
             // NOTE: 如果机器上线超过一年，空闲超过10天，下线后上线不添加惩罚
-            if now >= machine_info.online_height &&
-                now.saturating_sub(machine_info.online_height) > (365 * 2880u32).into() &&
-                offline_time >= machine_info.last_online_height &&
-                offline_time.saturating_sub(machine_info.last_online_height) >=
-                    (10 * 2880u32).into() &&
-                matches!(&machine_info.machine_status, &MachineStatus::StakerReportOffline(..))
+            if now >= machine_info.online_height
+                && now.saturating_sub(machine_info.online_height) > (365 * 2880u32).into()
+                && offline_time >= machine_info.last_online_height
+                && offline_time.saturating_sub(machine_info.last_online_height)
+                    >= (10 * 2880u32).into()
+                && matches!(&machine_info.machine_status, &MachineStatus::StakerReportOffline(..))
             {
                 slash_info.slash_amount = Zero::zero();
             }
@@ -1076,25 +1076,26 @@ pub mod pallet {
             let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
 
             let offline_time = match machine_info.machine_status.clone() {
-                MachineStatus::StakerReportOffline(_offline_time, _) =>
-                    return Err(Error::<T>::MachineStatusNotAllowed.into()),
+                MachineStatus::StakerReportOffline(_offline_time, _) => {
+                    return Err(Error::<T>::MachineStatusNotAllowed.into())
+                },
                 MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
-                    OPSlashReason::RentedInaccessible(report_time) |
-                    OPSlashReason::RentedHardwareMalfunction(report_time) |
-                    OPSlashReason::RentedHardwareCounterfeit(report_time) |
-                    OPSlashReason::OnlineRentFailed(report_time) => {
+                    OPSlashReason::RentedInaccessible(report_time)
+                    | OPSlashReason::RentedHardwareMalfunction(report_time)
+                    | OPSlashReason::RentedHardwareCounterfeit(report_time)
+                    | OPSlashReason::OnlineRentFailed(report_time) => {
                         // 确保机器达到最大惩罚量时，才允许调用
                         let offline_duration = now.saturating_sub(report_time);
                         if !crate::utils::reach_max_slash(
                             &slash_reason,
                             offline_duration.saturated_into::<u64>(),
                         ) {
-                            return Err(Error::<T>::MachineStatusNotAllowed.into())
+                            return Err(Error::<T>::MachineStatusNotAllowed.into());
                         }
 
                         let ever_slashed = Self::max_slash_execed(&machine_id);
                         if ever_slashed > report_time && ever_slashed < now {
-                            return Err(Error::<T>::MachineStatusNotAllowed.into())
+                            return Err(Error::<T>::MachineStatusNotAllowed.into());
                         }
                         report_time
                     },
@@ -1605,7 +1606,7 @@ impl<T: Config> Pallet<T> {
                 .ok_or(())?;
 
             if stake_need <= machine_info.stake_amount {
-                continue
+                continue;
             }
             // 现在需要的stake 比 已经stake的多了。
             let extra_need = stake_need - machine_info.stake_amount; // 这个机器还需要这么多质押。
@@ -1634,7 +1635,7 @@ impl<T: Config> Pallet<T> {
                     pre_stake,
                     amount_left,
                 ));
-                return Ok(())
+                return Ok(());
             }
         }
         Ok(())

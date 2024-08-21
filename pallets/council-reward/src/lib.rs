@@ -120,7 +120,7 @@ impl<T: Config> Pallet<T> {
 
         for member in members {
             if out.len() == 3 || reward_index >= 3 {
-                break
+                break;
             }
             if Some(member.who.clone()) != prime {
                 out.push((member.who.clone(), rewards[reward_index]));

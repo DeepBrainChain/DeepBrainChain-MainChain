@@ -110,13 +110,13 @@ where
     }
 
     pub fn is_slashed_committee(&self, who: &Account) -> bool {
-        self.inconsistent_committee.binary_search(who).is_ok() ||
-            self.unruly_committee.binary_search(who).is_ok()
+        self.inconsistent_committee.binary_search(who).is_ok()
+            || self.unruly_committee.binary_search(who).is_ok()
     }
 
     pub fn is_slashed_stash(&self, who: Account) -> bool {
-        matches!(self.report_result, ReportResultType::ReportSucceed) &&
-            self.machine_stash.clone() == Some(who)
+        matches!(self.report_result, ReportResultType::ReportSucceed)
+            && self.machine_stash.clone() == Some(who)
     }
 
     pub fn i_exten_sorted(&mut self, a_list: Vec<Account>) {
@@ -220,6 +220,6 @@ where
                 out.reporter_stake = Zero::zero();
             },
         }
-        return out
+        return out;
     }
 }

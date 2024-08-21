@@ -243,13 +243,13 @@ where
                 machine_info_detail: machine_info.machine_info_detail.into(),
                 reward_committee: machine_info.reward_committee,
                 reward_deadline: machine_info.reward_deadline,
-            })
+            });
         };
         return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Something wrong",
             Some("NotFound"),
-        ))))
+        ))));
     }
 
     fn get_pos_gpu_info(

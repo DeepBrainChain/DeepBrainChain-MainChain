@@ -646,7 +646,7 @@ pub mod pallet {
             let gpu_num = machine_info.gpu_num();
 
             if gpu_num == 0 || duration == Zero::zero() {
-                return Ok(().into())
+                return Ok(().into());
             }
 
             // 检查还有空闲的GPU
@@ -832,7 +832,7 @@ pub mod pallet {
                 if max_rent_end >= wanted_rent_end { duration } else { (2880u32 * 60).into() };
 
             if add_duration == Zero::zero() {
-                return Ok(().into())
+                return Ok(().into());
             }
 
             // 计算rent_fee
@@ -908,7 +908,7 @@ pub mod pallet {
             for rent_id in &machine_rent_order.rent_order {
                 let rent_order = Self::rent_order(rent_id).ok_or(Error::<T>::Unknown)?;
                 if rent_order.renter == renter {
-                    break
+                    break;
                 }
                 MachinesInfo::<T>::try_mutate(&rent_order.machine_id, |machine_info| {
                     let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
@@ -1005,7 +1005,7 @@ pub mod pallet {
                 MachinesInfo::<T>::insert(machine_id, machine_info);
                 Ok(().into())
             } else {
-                return Err(Error::<T>::StatusNotAllowed.into())
+                return Err(Error::<T>::StatusNotAllowed.into());
             }
         }
 
@@ -1471,7 +1471,7 @@ impl<T: Config> Pallet<T> {
         for a_committee in &report_info.hashed_committee {
             let committee_ops = Self::committee_report_ops(a_committee, report_id);
             if committee_ops.confirm_hash == hash {
-                return Err(Error::<T>::DuplicateHash.into())
+                return Err(Error::<T>::DuplicateHash.into());
             }
         }
         Ok(().into())
@@ -1554,7 +1554,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_work_index() -> Option<Vec<VerifySequence<T::AccountId>>> {
         let mut committee = <committee::Pallet<T>>::available_committee()?;
         if committee.len() < 3 {
-            return None
+            return None;
         };
 
         let mut verify_sequence = Vec::new();
@@ -1649,10 +1649,10 @@ impl<T: Config> Pallet<T> {
         if machine_committee.can_submit_raw(now) {
             machine_committee.status = OCVerifyStatus::SubmittingRaw;
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            return Ok(())
+            return Ok(());
         }
         if !machine_committee.can_summary(now) {
-            return Ok(())
+            return Ok(());
         }
 
         let mut submit_info = vec![];
@@ -1860,7 +1860,7 @@ impl<T: Config> Pallet<T> {
     // machine_price = standard_price * machine_point / standard_point
     fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64> {
         if total_gpu == 0 {
-            return None
+            return None;
         }
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
         standard_gpu_point_price
@@ -1901,7 +1901,7 @@ impl<T: Config> Pallet<T> {
         let new_rent_id = loop {
             let new_rent_id = if rent_id == u64::MAX { 0 } else { rent_id + 1 };
             if !RentOrder::<T>::contains_key(new_rent_id) {
-                break new_rent_id
+                break new_rent_id;
             }
         };
 
@@ -1976,8 +1976,8 @@ impl<T: Config> Pallet<T> {
             rent_fee = rent_fee.saturating_sub(burn_amount);
         }
         let committee_each_get =
-            Perbill::from_rational(1u32, machine_info.reward_committee.len() as u32) *
-                reward_to_committee;
+            Perbill::from_rational(1u32, machine_info.reward_committee.len() as u32)
+                * reward_to_committee;
         for a_committee in machine_info.reward_committee.clone() {
             let _ = <T as Config>::Currency::transfer(
                 &rent_order.renter,
@@ -2018,7 +2018,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_rent_finished() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<PendingRentEnding<T>>::contains_key(now) {
-            return Ok(())
+            return Ok(());
         }
         let pending_ending = Self::pending_rent_ending(now);
 
@@ -2058,7 +2058,7 @@ impl<T: Config> Pallet<T> {
         // 租用结束
         let gpu_num = machine_info.gpu_num();
         if gpu_num == 0 {
-            return Ok(())
+            return Ok(());
         }
         machine_info.total_rented_duration +=
             Perbill::from_rational(rented_gpu_num, gpu_num) * rent_duration;
@@ -2155,7 +2155,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_offline_timeout() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<OfflineMachines<T>>::contains_key(now) {
-            return Ok(())
+            return Ok(());
         }
         let offline_machines = Self::offline_machines(now);
 

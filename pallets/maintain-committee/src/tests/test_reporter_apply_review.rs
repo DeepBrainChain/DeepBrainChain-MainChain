@@ -219,11 +219,11 @@ fn apply_slash_review_case1_1() {
         // 机器400000, 委员会质押20000, 申述1000， 罚款16000
         assert_eq!(
             Balances::free_balance(machine_stash),
-            INIT_BALANCE + rent_fee -
-                400000 * ONE_DBC -
-                20000 * ONE_DBC -
-                1000 * ONE_DBC -
-                16000 * ONE_DBC
+            INIT_BALANCE + rent_fee
+                - 400000 * ONE_DBC
+                - 20000 * ONE_DBC
+                - 1000 * ONE_DBC
+                - 16000 * ONE_DBC
         );
         assert_eq!(OnlineProfile::stash_stake(&machine_stash), 400000 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&machine_stash), 400000 * ONE_DBC + 20000 * ONE_DBC);
