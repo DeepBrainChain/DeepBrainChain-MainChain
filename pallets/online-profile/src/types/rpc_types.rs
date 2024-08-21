@@ -95,6 +95,7 @@ pub struct RpcStakerCustomizeInfo {
     pub longitude: Longitude,
     pub latitude: Latitude,
     pub telecom_operators: Vec<RpcText>,
+    pub is_bare_machine: bool,
 }
 
 #[cfg(feature = "std")]
@@ -106,6 +107,7 @@ impl From<StakerCustomizeInfo> for RpcStakerCustomizeInfo {
             download_net: info.download_net,
             longitude: info.longitude,
             latitude: info.latitude,
+            is_bare_machine: info.is_bare_machine,
             telecom_operators: info
                 .telecom_operators
                 .iter()

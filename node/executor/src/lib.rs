@@ -25,7 +25,7 @@ pub use sc_executor::NativeElseWasmExecutor;
 pub struct DBCExecutorDispatch;
 
 impl sc_executor::NativeExecutionDispatch for DBCExecutorDispatch {
-    type ExtendHostFunctions =(
+    type ExtendHostFunctions = (
         frame_benchmarking::benchmarking::HostFunctions,
         dbc_runtime_interface::sandbox::HostFunctions,
     );

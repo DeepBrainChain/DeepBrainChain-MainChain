@@ -142,7 +142,8 @@
     "download_net": "u64",
     "longitude": "Longitude",
     "latitude": "Latitude",
-    "telecom_operators": "Vec<TelecomName>"
+    "telecom_operators": "Vec<TelecomName>",
+    "is_bare_machine”": "bool"
   },
   "Longitude": {
     "_enum": {
