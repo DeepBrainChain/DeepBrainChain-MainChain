@@ -207,7 +207,8 @@ fn report_machine_inaccessible_works1() {
             );
         }
 
-        run_to_block(21);
+        // 5分钟后
+        run_to_block(11 + 5 * ONE_MINUTE);
         // - Writes:
         // ReportInfo, committee_ops,
         assert_ok!(MaintainCommittee::committee_submit_inaccessible_raw(
@@ -232,7 +233,7 @@ fn report_machine_inaccessible_works1() {
                     hashed_committee: vec![*committee],
                     confirmed_committee: vec![*committee],
                     support_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0

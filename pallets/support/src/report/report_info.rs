@@ -221,7 +221,7 @@ where
             self.first_book_time = now;
             self.confirm_start = match self.machine_fault_type {
                 // 将在5分钟后开始提交委员会的验证结果
-                MachineFaultType::RentedInaccessible(..) => now + 10u32.into(),
+                MachineFaultType::RentedInaccessible(..) => now + FIVE_MINUTES.into(),
                 // 将在三个小时之后开始提交委员会的验证结果
                 _ => now + THREE_HOURS.into(),
             };
