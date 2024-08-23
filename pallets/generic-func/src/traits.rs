@@ -1,6 +1,5 @@
 use crate::{BalanceOf, Config, Pallet};
 use dbc_support::traits::GNOps;
-pub use dbc_support::ItemList;
 use frame_support::traits::{BalanceStatus, OnUnbalanced, ReservableCurrency};
 use sp_runtime::{
     traits::{CheckedSub, Zero},

@@ -7,7 +7,7 @@ use dbc_support::{
     machine_type::MachineStatus,
     traits::GNOps,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
-    MachineId, FIVE_DAYS, TWO_DAYS,
+    MachineId, TWO_DAYS,
 };
 use frame_support::traits::ReservableCurrency;
 use sp_runtime::{

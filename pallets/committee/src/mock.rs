@@ -1,13 +1,8 @@
 pub use crate as committee;
 use frame_support::{parameter_types, traits::ConstU32};
 pub use frame_system::RawOrigin;
-pub use sp_core::{
-    sr25519::{self, Signature},
-    H256,
-};
-pub use sp_keyring::{
-    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
-};
+pub use sp_core::{sr25519, H256};
+pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},

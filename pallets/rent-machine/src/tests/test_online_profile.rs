@@ -7,9 +7,7 @@ use dbc_support::{
     MachineId,
 };
 
-pub use sp_keyring::{
-    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
-};
+pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 
 use frame_support::{assert_err, assert_ok, traits::ReservableCurrency};
 use online_profile::{Error as OnlineProfileErr, MachinesInfo};

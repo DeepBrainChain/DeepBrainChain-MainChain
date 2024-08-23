@@ -1,7 +1,6 @@
 use crate::mock::*;
 use dbc_support::ONE_DAY;
 use frame_support::assert_ok;
-pub use frame_system::{self as system, RawOrigin};
 use pallet_elections_phragmen::SeatHolder;
 
 pub const MAX_LEN: usize = 64;

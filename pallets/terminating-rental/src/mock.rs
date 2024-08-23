@@ -10,9 +10,7 @@ pub use sp_core::{
     sr25519::{self, Signature},
     H256,
 };
-pub use sp_keyring::{
-    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
-};
+pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use sp_runtime::{
     generic::Header,
     testing::TestXt,
