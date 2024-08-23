@@ -15,7 +15,7 @@ pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, RTOps},
-    EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY, ONE_MINUTE,
+    EraIndex, ItemList, MachineId, RentOrderId, HALF_HOUR, ONE_DAY, ONE_MINUTE,
 };
 use frame_support::{
     dispatch::DispatchResult,
@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
         ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
         // 租用必须是30min的整数倍
-        ensure!(duration % 60u32.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
+        ensure!(duration % HALF_HOUR.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
 
         // 检查machine_id状态是否可以租用
         ensure!(
@@ -339,7 +339,7 @@ impl<T: Config> Pallet<T> {
         let rent_fee_value = machine_price
             .checked_mul(duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
-            .checked_div(ONE_DAY as u64)
+            .checked_div(ONE_DAY.into())
             .ok_or(Error::<T>::Overflow)?;
         let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
             .ok_or(Error::<T>::Overflow)?;

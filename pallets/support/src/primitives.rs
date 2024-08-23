@@ -3,7 +3,6 @@ use sp_std::vec::Vec;
 pub const ONE_MINUTE: u32 = 2;
 pub const FIVE_MINUTES: u32 = ONE_MINUTE * 5;
 pub const SEVEN_MINUTES: u32 = ONE_MINUTE * 7;
-pub const TEN_MINUTES: u32 = ONE_MINUTE * 10;
 
 pub const HALF_HOUR: u32 = ONE_MINUTE * 30;
 pub const ONE_HOUR: u32 = ONE_MINUTE * 60;

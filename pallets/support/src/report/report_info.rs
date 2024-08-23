@@ -1,6 +1,6 @@
 use crate::{
     custom_err::ReportErr, report::ReportConfirmStatus, BoxPubkey, ItemList, MachineId,
-    RentOrderId, ReportHash, FOUR_HOURS, TEN_MINUTES, THREE_HOURS,
+    RentOrderId, ReportHash, FIVE_MINUTES, FOUR_HOURS, ONE_MINUTE, THREE_HOURS,
 };
 use frame_support::ensure;
 use parity_scale_codec::{Decode, Encode};
@@ -313,7 +313,7 @@ where
 
         if matches!(self.report_status, ReportStatus::SubmittingRaw) {
             // 不到10分钟，且没全部提交确认，允许继续提交
-            if now.saturating_sub(self.first_book_time) < TEN_MINUTES.into() &&
+            if now.saturating_sub(self.first_book_time) < (10 * ONE_MINUTE).into() &&
                 self.confirmed_committee.len() < self.hashed_committee.len()
             {
                 return Err(())

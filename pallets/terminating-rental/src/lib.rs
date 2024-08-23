@@ -33,8 +33,8 @@ use dbc_support::{
         OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, StashMachine, Summary,
         VerifyResult, VerifySequence,
     },
-    BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId, ONE_DAY,
-    ONE_HOUR, ONE_MINUTE, TWO_DAYS,
+    BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId,
+    HALF_HOUR, ONE_DAY, ONE_HOUR, ONE_MINUTE, TWO_DAYS,
 };
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -654,7 +654,7 @@ pub mod pallet {
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
             // 只允许半小时整数倍的租用
             ensure!(
-                duration % 60u32.into() == Zero::zero(),
+                duration % HALF_HOUR.into() == Zero::zero(),
                 Error::<T>::OnlyAllowIntegerMultipleOfHour
             );
 
@@ -663,7 +663,7 @@ pub mod pallet {
 
             // 最大租用时间限制MaximumRentalDuration
             let duration =
-                duration.min((Self::maximum_rental_duration().saturating_mul(24 * 60)).into());
+                duration.min((Self::maximum_rental_duration().saturating_mul(ONE_DAY)).into());
 
             // NOTE: 用户提交订单，需要扣除10个DBC
             Self::pay_fixed_tx_fee(renter.clone())?;
@@ -678,7 +678,7 @@ pub mod pallet {
             let rent_fee_value = machine_price
                 .checked_mul(duration.saturated_into::<u64>())
                 .ok_or(Error::<T>::Overflow)?
-                .checked_div(24 * 60 * 2)
+                .checked_div(ONE_DAY.into())
                 .ok_or(Error::<T>::Overflow)?;
             let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
@@ -738,7 +738,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 用户在租用15min(30个块)内确认机器租用成功
+        /// 用户在租用15min内确认机器租用成功
         #[pallet::call_index(11)]
         #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn confirm_rent(
@@ -813,7 +813,7 @@ pub mod pallet {
             let gpu_num = order_info.gpu_num;
 
             // 续租允许10分钟及以上
-            ensure!(duration >= 20u32.into(), Error::<T>::ReletTooShort);
+            ensure!(duration >= (10 * ONE_MINUTE).into(), Error::<T>::ReletTooShort);
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
             ensure!(order_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 
@@ -955,7 +955,7 @@ pub mod pallet {
 
                 // 根据时间(小时向下取整)计算需要的租金
                 let rent_duration =
-                    now.saturating_sub(rent_order.rent_start) / 120u32.into() * 120u32.into();
+                    now.saturating_sub(rent_order.rent_start) / ONE_HOUR.into() * ONE_HOUR.into();
                 let rent_fee = Perbill::from_rational(
                     rent_duration,
                     rent_order.rent_end.saturating_sub(rent_order.rent_start),
@@ -1036,7 +1036,7 @@ pub mod pallet {
 
                 // 根据时间(小时向下取整)计算需要的租金
                 let rent_duration =
-                    now.saturating_sub(rent_order.rent_start) / 120u32.into() * 120u32.into();
+                    now.saturating_sub(rent_order.rent_start) / ONE_HOUR.into() * ONE_HOUR.into();
                 let rent_fee = Perbill::from_rational(
                     rent_duration,
                     rent_order.rent_end.saturating_sub(rent_order.rent_start),
