@@ -1,6 +1,6 @@
 use sp_std::vec::Vec;
 
-pub const ONE_MINUTE: u32 = 2;
+pub const ONE_MINUTE: u32 = 10;
 pub const FIVE_MINUTES: u32 = ONE_MINUTE * 5;
 pub const SEVEN_MINUTES: u32 = ONE_MINUTE * 7;
 

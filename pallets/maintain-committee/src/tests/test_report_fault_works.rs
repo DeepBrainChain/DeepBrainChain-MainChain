@@ -1,5 +1,5 @@
 use super::super::{mock::*, ReporterStakeInfo};
-use dbc_support::{report::ReportStatus, ONE_DAY};
+use dbc_support::{report::ReportStatus, ONE_DAY, ONE_HOUR};
 use frame_support::assert_ok;
 use once_cell::sync::Lazy;
 use std::convert::TryInto;
@@ -100,7 +100,7 @@ fn report_machine_fault_works_case1() {
             first_book_time: 11,
             verifying_committee: Some(committee1.clone()),
             booked_committee: vec![committee1.clone()],
-            confirm_start: 11 + 360,
+            confirm_start: 11 + 3 * ONE_HOUR,
             report_status: crate::ReportStatus::Verifying,
             ..report_status
         };
@@ -184,7 +184,7 @@ fn report_machine_fault_works_case1() {
         }
 
         // 3个小时之后才能提交：
-        run_to_block(360 + 13);
+        run_to_block(13 + 3 * ONE_HOUR);
         {
             report_info.report_status = crate::ReportStatus::SubmittingRaw;
             assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
@@ -217,7 +217,7 @@ fn report_machine_fault_works_case1() {
             report_info.err_info = err_reason;
             assert_eq!(MaintainCommittee::report_info(0), Some(report_info.clone()));
 
-            committee_ops.confirm_time = 374;
+            committee_ops.confirm_time = 14 + 3 * ONE_HOUR;
             committee_ops.confirm_result = true;
             committee_ops.order_status = crate::MTOrderStatus::Finished;
 
@@ -237,7 +237,7 @@ fn report_machine_fault_works_case1() {
         // assert_eq!(&super::ReportConfirmStatus::Confirmed(_, _, _),
         // MaintainCommittee::summary_report(0));
 
-        run_to_block(360 + 14);
+        run_to_block(14 + 3 * ONE_HOUR);
 
         {
             // summary_fault_case -> summary_waiting_raw -> Confirmed -> mt_machine_offline
@@ -268,10 +268,13 @@ fn report_machine_fault_works_case1() {
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
             // NOTE: 没有任何反对的成功举报，同样需要记录
-            assert_eq!(MaintainCommittee::unhandled_report_result(374 + ONE_DAY * 2), vec![0]);
+            assert_eq!(
+                MaintainCommittee::unhandled_report_result(14 + 3 * ONE_HOUR + ONE_DAY * 2),
+                vec![0]
+            );
         }
 
-        run_to_block(ONE_DAY * 2 + 374);
+        run_to_block(14 + 3 * ONE_HOUR + ONE_DAY * 2);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),
@@ -376,7 +379,7 @@ fn report_machine_fault_works_case2() {
             first_book_time: 11,
             verifying_committee: Some(committee1.clone()),
             booked_committee: vec![committee1.clone()],
-            confirm_start: 11 + 360,
+            confirm_start: 11 + 3 * ONE_HOUR,
             report_status: crate::ReportStatus::Verifying,
             ..report_status
         };
@@ -505,7 +508,7 @@ fn report_machine_fault_works_case2() {
         }
 
         // 3个小时之后才能提交：
-        // run_to_block(360 + 13);
+        // run_to_block(13 + 3 * ONE_HOUR);
         // 立即就可以提交原始值
         {
             report_info.report_status = crate::ReportStatus::SubmittingRaw;
@@ -582,7 +585,7 @@ fn report_machine_fault_works_case2() {
         // assert_eq!(&super::ReportConfirmStatus::Confirmed(_, _, _),
         // MaintainCommittee::summary_report(0));
 
-        run_to_block(360 + 14);
+        run_to_block(14 + 3 * ONE_HOUR);
 
         {
             // summary_fault_case -> summary_waiting_raw -> Confirmed -> mt_machine_offline
@@ -614,7 +617,7 @@ fn report_machine_fault_works_case2() {
             );
         }
 
-        run_to_block(ONE_DAY + 400);
+        run_to_block(40 + 3 * ONE_HOUR + ONE_DAY);
 
         // 报告人上线机器
         assert_ok!(OnlineProfile::controller_report_online(
@@ -710,7 +713,7 @@ fn report_machine_fault_works_case3() {
             first_book_time: 11,
             verifying_committee: Some(committee1.clone()),
             booked_committee: vec![committee1.clone()],
-            confirm_start: 11 + 360,
+            confirm_start: 11 + 3 * ONE_HOUR,
             report_status: crate::ReportStatus::Verifying,
             ..report_status
         };
@@ -839,7 +842,7 @@ fn report_machine_fault_works_case3() {
         }
 
         // 3个小时之后才能提交：
-        // run_to_block(360 + 13);
+        // run_to_block(13 + 3 * ONE_HOUR);
         // 立即就可以提交原始值
         {
             report_info.report_status = crate::ReportStatus::SubmittingRaw;
@@ -917,7 +920,7 @@ fn report_machine_fault_works_case3() {
         // MaintainCommittee::summary_report(0));
 
         // 下一个块即进行summary
-        // run_to_block(360 + 14);
+        // run_to_block(14 + 3 * ONE_HOUR);
         run_to_block(12);
 
         {
@@ -1043,7 +1046,7 @@ fn report_machine_fault_works_case4() {
             first_book_time: 11,
             verifying_committee: Some(committee1.clone()),
             booked_committee: vec![committee1.clone()],
-            confirm_start: 11 + 360,
+            confirm_start: 11 + 3 * ONE_HOUR,
             report_status: crate::ReportStatus::Verifying,
             ..report_status.clone()
         };
@@ -1105,7 +1108,7 @@ fn report_machine_fault_works_case4() {
 
         // 4个小时之后检查状态
         // 将会重新派单，并添加结果，2天后将根据结果进行惩罚！
-        run_to_block(480 + 13);
+        run_to_block(13 + 4 * ONE_HOUR);
         {
             assert_eq!(
                 MaintainCommittee::report_info(0),
@@ -1115,7 +1118,7 @@ fn report_machine_fault_works_case4() {
                     booked_committee: vec![*committee1],
                     hashed_committee: vec![*committee1],
                     get_encrypted_info_committee: vec![*committee1],
-                    confirm_start: 11 + 360,
+                    confirm_start: 11 + 3 * ONE_HOUR,
                     report_status: crate::ReportStatus::CommitteeConfirmed,
                     ..report_status
                 })
@@ -1136,8 +1139,8 @@ fn report_machine_fault_works_case4() {
                     reporter_stake: 0,
                     unruly_committee: vec![*committee1],
                     committee_stake: 1000 * ONE_DBC,
-                    slash_time: 11 + 480,
-                    slash_exec_time: 11 + 480 + ONE_DAY * 2,
+                    slash_time: 11 + 4 * ONE_HOUR,
+                    slash_exec_time: 11 + 4 * ONE_HOUR + ONE_DAY * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -1150,7 +1153,7 @@ fn report_machine_fault_works_case4() {
 
         // 不退还报告人第一次质押
         // 惩罚掉委员会的质押
-        run_to_block(ONE_DAY * 2 + 11 + 4880);
+        run_to_block(13 + 4 * ONE_HOUR + 2 * ONE_DAY);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),

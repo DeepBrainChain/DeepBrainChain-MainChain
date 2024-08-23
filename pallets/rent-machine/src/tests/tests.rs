@@ -1,10 +1,11 @@
 use crate::{
     mock::*, ConfirmingOrder, Error, MachineGPUOrder, RentOrderDetail, RentOrderId, RentStatus,
+    WAITING_CONFIRMING_DELAY,
 };
 use dbc_support::{
     machine_type::MachineStatus,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
-    ONE_DAY,
+    ONE_DAY, ONE_HOUR, ONE_MINUTE,
 };
 use frame_support::{assert_noop, assert_ok, traits::ReservableCurrency};
 use once_cell::sync::Lazy;
@@ -35,7 +36,7 @@ fn rent_machine_should_works() {
         // 过10个块之后执行租用成功
         run_to_block(10 + 20);
 
-        // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
+        // Dave confirm rent is succeed: should submit confirmation in 30 mins
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_dave), 0));
 
         let era_grade_snap = OnlineProfile::eras_stash_points(2);
@@ -104,7 +105,7 @@ fn rent_machine_should_works() {
         );
 
         // 21 days later
-        run_to_block(60530);
+        run_to_block(50 + 21 * ONE_DAY);
         let era_grade_snap = OnlineProfile::eras_stash_points(21);
         assert_eq!(era_grade_snap.total, 59914) // 59890 * 4 / 10000 + 59890
     })
@@ -177,7 +178,8 @@ fn rent_machine_confirm_expired_should_work() {
         let user_stake = RentMachine::user_total_stake(&*renter_dave);
         assert_eq!(user_stake, 249541666666666666666);
 
-        run_to_block(72);
+        // 30分钟
+        run_to_block(11 + 30 * ONE_MINUTE);
 
         {
             // 机器状态
@@ -293,7 +295,7 @@ fn rented_report_offline_rented_end_report_online() {
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
-        run_to_block(3000);
+        run_to_block(11 + ONE_DAY + ONE_HOUR);
 
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(controller),
@@ -304,22 +306,22 @@ fn rented_report_offline_rented_end_report_online() {
             Some(OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id: machine_id.clone(),
-                slash_time: 3001,
+                slash_time: 12 + ONE_DAY + ONE_HOUR,
                 slash_amount: 16000 * ONE_DBC,
-                slash_exec_time: 3001 + ONE_DAY * 2,
+                slash_exec_time: 12 + ONE_DAY + ONE_HOUR + ONE_DAY * 2,
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
-                slash_reason: OPSlashReason::RentedReportOffline(2881)
+                slash_reason: OPSlashReason::RentedReportOffline(1 + ONE_DAY)
             })
         );
 
         // rent-machine module will do check if rent finished after machine is reonline
-        run_to_block(3001);
+        run_to_block(12 + ONE_DAY + ONE_HOUR);
 
         let machine_info = OnlineProfile::machines_info(&*machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Online);
-        assert_eq!(machine_info.last_online_height, 3001);
+        assert_eq!(machine_info.last_online_height, 12 + ONE_DAY + ONE_HOUR);
         assert_eq!(machine_info.total_rented_duration, ONE_DAY);
         assert_eq!(machine_info.total_rented_times, 1);
     });
@@ -484,7 +486,7 @@ fn rent_and_relet_by_minutes_works() {
                 RuntimeOrigin::signed(*renter_dave),
                 machine_id.clone(),
                 4,
-                29 * 2
+                29 * ONE_MINUTE
             ),
             Error::<TestRuntime>::OnlyHalfHourAllowed
         );
@@ -493,7 +495,7 @@ fn rent_and_relet_by_minutes_works() {
                 RuntimeOrigin::signed(*renter_dave),
                 machine_id.clone(),
                 4,
-                29 * 2
+                29 * ONE_MINUTE
             ),
             Error::<TestRuntime>::OnlyHalfHourAllowed
         );
@@ -501,7 +503,7 @@ fn rent_and_relet_by_minutes_works() {
             RuntimeOrigin::signed(*renter_dave),
             machine_id.clone(),
             4,
-            30 * 2
+            30 * ONE_MINUTE
         ));
         {
             // 检查租用人质押
@@ -521,7 +523,7 @@ fn rent_and_relet_by_minutes_works() {
                     renter: *renter_dave,
                     rent_start: 11,
                     confirm_rent: 0,
-                    rent_end: 11 + 60, // 租用30min = 60block
+                    rent_end: 11 + 30 * ONE_MINUTE, // 租用30min
                     stake_amount: 519878416666666666,
                     rent_status: crate::RentStatus::WaitingVerifying,
                     gpu_num: 4,
@@ -530,14 +532,17 @@ fn rent_and_relet_by_minutes_works() {
             );
 
             // RentEnding
-            assert_eq!(RentMachine::rent_ending(11 + 60), vec![0]);
+            assert_eq!(RentMachine::rent_ending(11 + 30 * ONE_MINUTE), vec![0]);
 
             // ConfirmingOrder
-            assert_eq!(<ConfirmingOrder<TestRuntime>>::contains_key(11 + 30), true);
+            assert_eq!(
+                <ConfirmingOrder<TestRuntime>>::contains_key(11 + WAITING_CONFIRMING_DELAY),
+                true
+            );
         }
 
         // 检查订单被清理，检查David余额
-        run_to_block(10 + 32);
+        run_to_block(12 + 30 * ONE_MINUTE);
         {
             // 检查租用人质押
             let user_stake = RentMachine::user_total_stake(&*renter_dave);
@@ -570,7 +575,7 @@ fn rent_and_relet_by_minutes_works() {
             RuntimeOrigin::signed(*renter_dave),
             machine_id.clone(),
             4,
-            30 * 2
+            30 * ONE_MINUTE
         ));
         {
             assert_eq!(
@@ -578,9 +583,9 @@ fn rent_and_relet_by_minutes_works() {
                 Some(RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: *renter_dave,
-                    rent_start: 43,
+                    rent_start: 13 + 30 * ONE_MINUTE,
                     confirm_rent: 0,
-                    rent_end: 43 + 60, // 租用30min = 60block
+                    rent_end: 13 + 30 * ONE_MINUTE + 30 * ONE_MINUTE, // 租用30min
                     stake_amount: 519878416666666666,
                     rent_status: crate::RentStatus::WaitingVerifying,
                     gpu_num: 4,
@@ -589,7 +594,7 @@ fn rent_and_relet_by_minutes_works() {
             );
         }
 
-        // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
+        // Dave confirm rent is succeed: should submit confirmation in 30 mins
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_dave), 1));
         {
             // 检查租用人质押
@@ -605,9 +610,9 @@ fn rent_and_relet_by_minutes_works() {
                 Some(RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: *renter_dave,
-                    rent_start: 43,
-                    confirm_rent: 43,
-                    rent_end: 43 + 60, // 租用30min = 60block
+                    rent_start: 13 + 30 * ONE_MINUTE,
+                    confirm_rent: 13 + 30 * ONE_MINUTE,
+                    rent_end: 13 + 30 * ONE_MINUTE + 30 * ONE_MINUTE, // 租用30min
                     stake_amount: 0,
                     rent_status: crate::RentStatus::Renting,
                     gpu_num: 4,
@@ -623,7 +628,11 @@ fn rent_and_relet_by_minutes_works() {
         }
 
         // Dave relet machine
-        assert_ok!(RentMachine::relet_machine(RuntimeOrigin::signed(*renter_dave), 1, 30 * 2));
+        assert_ok!(RentMachine::relet_machine(
+            RuntimeOrigin::signed(*renter_dave),
+            1,
+            30 * ONE_MINUTE
+        ));
         {
             // 检查租用人质押
             let user_stake = RentMachine::user_total_stake(&*renter_dave);
@@ -637,9 +646,9 @@ fn rent_and_relet_by_minutes_works() {
                 Some(RentOrderDetail {
                     machine_id: machine_id.clone(),
                     renter: *renter_dave,
-                    rent_start: 43,
-                    confirm_rent: 43,
-                    rent_end: 43 + 120, // 租用30min = 60block
+                    rent_start: 13 + 30 * ONE_MINUTE,
+                    confirm_rent: 13 + 30 * ONE_MINUTE,
+                    rent_end: 13 + 30 * ONE_MINUTE + 60 * ONE_MINUTE, // 租用60min
                     stake_amount: 0,
                     rent_status: crate::RentStatus::Renting,
                     gpu_num: 4,
@@ -648,7 +657,7 @@ fn rent_and_relet_by_minutes_works() {
             );
 
             // RentEnding
-            assert_eq!(RentMachine::rent_ending(43 + 120), vec![1]);
+            assert_eq!(RentMachine::rent_ending(13 + 30 * ONE_MINUTE + 60 * ONE_MINUTE), vec![1]);
 
             // ConfirmingOrder
             assert_eq!(<ConfirmingOrder<TestRuntime>>::contains_key(0), false);
@@ -692,7 +701,7 @@ fn rent_machine_by_gpu_works() {
             assert_eq!(RentMachine::user_order(&*renter_dave), vec![0],);
 
             // 15 min之后需要确认租用
-            assert_eq!(RentMachine::confirming_order(11 + 30), vec![0]);
+            assert_eq!(RentMachine::confirming_order(11 + WAITING_CONFIRMING_DELAY), vec![0]);
 
             assert_eq!(RentMachine::rent_ending(10 * ONE_DAY + 11), vec![0]);
 
@@ -705,7 +714,7 @@ fn rent_machine_by_gpu_works() {
         // 过10个块之后执行租用成功
         run_to_block(10 + 20);
 
-        // Dave confirm rent is succeed: should submit confirmation in 30 mins (60 blocks)
+        // Dave confirm rent is succeed: should submit confirmation in 30 mins
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_dave), 0));
     })
 }

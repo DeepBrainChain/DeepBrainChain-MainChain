@@ -4,7 +4,7 @@ use dbc_support::{
     live_machine::LiveMachine,
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
     verify_online::StashMachine,
-    MachineId,
+    MachineId, ONE_DAY,
 };
 
 pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
@@ -408,7 +408,7 @@ fn restake_online_machine_works() {
             OnlineProfile::restake_online_machine(RuntimeOrigin::signed(controller),machine_id2.clone()),
             OnlineProfileErr::<TestRuntime>::TooFastToReStake);
         // skip more than 365 days
-        System::set_block_number((60*60*24*365/30)+100);
+        System::set_block_number(365 * ONE_DAY + 100);
 
         // stake_amount(4000dbc) == need_stake(40Wdbc)
         assert_err!(

@@ -8,7 +8,7 @@ use dbc_support::{
         StakerCustomizeInfo,
     },
     verify_online::StashMachine,
-    ONE_DAY,
+    ONE_DAY, ONE_HOUR,
 };
 use frame_support::assert_ok;
 use online_profile::{EraStashPoints, MachineGradeStatus, UserMutHardwareStakeInfo};
@@ -190,7 +190,7 @@ fn machine_online_works() {
             OnlineCommittee::machine_committee(machine_id.clone()),
             OCMachineCommitteeList {
                 book_time: 4,
-                confirm_start_time: 4324,
+                confirm_start_time: 4 + 36 * ONE_HOUR,
                 booked_committee: vec![committee2, committee3, committee1],
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
@@ -209,7 +209,7 @@ fn machine_online_works() {
             OnlineCommittee::committee_ops(&committee3, &machine_id),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![4, 1444, 2884],
+                verify_time: vec![4, 4 + 12 * ONE_HOUR, 4 + 24 * ONE_HOUR],
                 ..Default::default()
             }
         );
@@ -281,7 +281,7 @@ fn machine_online_works() {
             OnlineCommittee::machine_committee(&machine_id),
             crate::OCMachineCommitteeList {
                 book_time: 4,
-                confirm_start_time: 4324,
+                confirm_start_time: 4 + 36 * ONE_HOUR,
                 booked_committee: vec![committee2, committee3, committee1],
                 hashed_committee: vec![committee2, committee3, committee1],
                 confirmed_committee: vec![committee2, committee3, committee1],
@@ -301,7 +301,7 @@ fn machine_online_works() {
             OnlineCommittee::committee_ops(&committee1, machine_id.clone()),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![484, 1924, 3364],
+                verify_time: vec![4 + 4 * ONE_HOUR, 4 + 16 * ONE_HOUR, 4 + 28 * ONE_HOUR],
                 confirm_hash: machine_info_hash1,
                 hash_time: 6,
                 confirm_time: 6,
@@ -381,7 +381,7 @@ fn machine_online_works() {
         assert_eq!(OnlineProfile::eras_machine_points(2), era_machine_points);
 
         // 过一个Era
-        run_to_block(ONE_DAY * 2 + 2);
+        run_to_block(2 * ONE_DAY + 2);
 
         // do distribute_reward
         // - Writes:
@@ -415,7 +415,7 @@ fn machine_online_works() {
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
 
         // 再次释放
-        run_to_block(ONE_DAY * 3 + 2);
+        run_to_block(3 * ONE_DAY + 2);
 
         // 线性释放
         // do distribute_reward
@@ -515,8 +515,10 @@ fn machine_online_works() {
                 OnlineProfile::live_machines(),
                 LiveMachine { bonding_machine: vec![machine_id.clone()], ..Default::default() }
             );
-            machine_info.machine_status =
-                MachineStatus::StakerReportOffline(8643, Box::new(MachineStatus::Online));
+            machine_info.machine_status = MachineStatus::StakerReportOffline(
+                3 + 3 * ONE_DAY,
+                Box::new(MachineStatus::Online),
+            );
             assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
             // 支付 4% * 400000 DBC = 16000DBC
             assert_eq!(OnlineProfile::stash_stake(&stash), (2000 + 400000 + 16000) * ONE_DBC);
@@ -525,7 +527,7 @@ fn machine_online_works() {
                 online_profile::UserMutHardwareStakeInfo {
                     verify_fee: 2000 * ONE_DBC,
                     offline_slash: 16000 * ONE_DBC,
-                    offline_time: ONE_DAY * 3 + 3,
+                    offline_time: 3 + 3 * ONE_DAY,
                     need_fulfilling: false,
                 }
             );
@@ -576,7 +578,7 @@ fn machine_online_works() {
             );
         }
 
-        run_to_block(ONE_DAY * 3 + 3);
+        run_to_block(3 + 3 * ONE_DAY);
 
         // 委员会审核机器重新上链
 
@@ -601,8 +603,8 @@ fn machine_online_works() {
         assert_eq!(
             OnlineCommittee::machine_committee(machine_id.clone()),
             OCMachineCommitteeList {
-                book_time: ONE_DAY * 3 + 3,
-                confirm_start_time: ONE_DAY * 3 + 3 + 4320,
+                book_time: 3 + 3 * ONE_DAY,
+                confirm_start_time: 3 + 3 * ONE_DAY + 36 * ONE_HOUR,
                 booked_committee: vec![committee2, committee3, committee1],
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
@@ -622,7 +624,11 @@ fn machine_online_works() {
             OnlineCommittee::committee_ops(&committee1, &machine_id),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![9603, 11043, 12483],
+                verify_time: vec![
+                    3 + 3 * ONE_DAY + 8 * ONE_HOUR,
+                    3 + 3 * ONE_DAY + 20 * ONE_HOUR,
+                    3 + 3 * ONE_DAY + 32 * ONE_HOUR
+                ],
                 ..Default::default()
             }
         );
@@ -698,8 +704,8 @@ fn machine_online_works() {
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
             crate::OCMachineCommitteeList {
-                book_time: 8643,
-                confirm_start_time: 12963,
+                book_time: 3 + 3 * ONE_DAY,
+                confirm_start_time: 3 + 3 * ONE_DAY + 36 * ONE_HOUR,
                 booked_committee: vec![committee2, committee3, committee1],
                 hashed_committee: vec![committee2, committee3, committee1],
                 confirmed_committee: vec![committee2, committee3, committee1],
@@ -720,16 +726,20 @@ fn machine_online_works() {
             OnlineCommittee::committee_ops(&committee1, machine_id.clone()),
             crate::OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![9603, 11043, 12483],
+                verify_time: vec![
+                    3 + 3 * ONE_DAY + 8 * ONE_HOUR,
+                    3 + 3 * ONE_DAY + 20 * ONE_HOUR,
+                    3 + 3 * ONE_DAY + 32 * ONE_HOUR
+                ],
                 confirm_hash: machine_info_hash1,
-                hash_time: 8644,
-                confirm_time: 8644,
+                hash_time: 4 + 3 * ONE_DAY,
+                confirm_time: 4 + 3 * ONE_DAY,
                 machine_status: crate::OCMachineStatus::Confirmed,
                 machine_info: committee_upload_info.clone(),
             }
         );
 
-        run_to_block(ONE_DAY * 3 + 4);
+        run_to_block(4 + 3 * ONE_DAY);
 
         // Will do lc_confirm_machine
         // - Writes:
@@ -740,8 +750,8 @@ fn machine_online_works() {
         committee_upload_info.rand_str = vec![];
         machine_info.machine_info_detail.committee_upload_info = committee_upload_info;
         let machine_info = MachineInfo {
-            last_machine_restake: 8644,
-            last_online_height: 8644,
+            last_machine_restake: 4 + 3 * ONE_DAY,
+            last_online_height: 4 + 3 * ONE_DAY,
             stake_amount: 8000 * ONE_DBC,
             machine_status: MachineStatus::Online,
             ..machine_info
@@ -859,7 +869,7 @@ fn committee_not_submit_hash_slash_works() {
             book_time: 6,
             booked_committee: vec![committee3, committee1, committee4],
             hashed_committee: vec![committee3, committee1],
-            confirm_start_time: 4326,
+            confirm_start_time: 6 + 36 * ONE_HOUR,
             confirmed_committee: vec![],
             onlined_committee: vec![],
             status: crate::OCVerifyStatus::default(),
@@ -868,7 +878,7 @@ fn committee_not_submit_hash_slash_works() {
         assert_eq!(OnlineCommittee::machine_committee(&machine_id), machine_committee);
 
         // 等到36个小时之后，提交确认信息
-        run_to_block(4326); // 6 + 36 * 120 = 4326
+        run_to_block(6 + 36 * ONE_HOUR); // 6 + 36 * 120 = 4326
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
@@ -880,7 +890,7 @@ fn committee_not_submit_hash_slash_works() {
             CommitteeUploadInfo { rand_str: rand_str2, ..machine_base_info }
         ));
 
-        run_to_block(4327);
+        run_to_block(7 + 36 * ONE_HOUR);
 
         assert_eq!(
             OnlineProfile::live_machines(),
@@ -895,8 +905,8 @@ fn committee_not_submit_hash_slash_works() {
                 unruly_committee: vec![committee4],
                 reward_committee: vec![committee3, committee1],
                 committee_stake: 1000 * ONE_DBC,
-                slash_time: 4327,
-                slash_exec_time: 4327 + ONE_DAY * 2,
+                slash_time: 7 + 36 * ONE_HOUR,
+                slash_exec_time: 7 + 36 * ONE_HOUR + 2 * ONE_DAY,
                 book_result: OCBookResultType::OnlineSucceed,
                 slash_result: OCSlashResult::Pending,
                 machine_stash: None,
@@ -922,7 +932,7 @@ fn committee_not_submit_hash_slash_works() {
         );
 
         // 惩罚
-        run_to_block(4327 + ONE_DAY * 2 + 1);
+        run_to_block(7 + 36 * ONE_HOUR + 2 * ONE_DAY + 1);
 
         assert_eq!(
             Committee::committee_stake(committee4),
@@ -1143,7 +1153,7 @@ fn committee_not_equal_then_redistribute_works() {
                 booked_committee: vec![committee3, committee1, committee2],
                 hashed_committee: vec![committee3, committee1, committee2],
                 confirmed_committee: vec![committee3, committee1, committee2],
-                confirm_start_time: 4336,
+                confirm_start_time: 16 + 36 * ONE_HOUR,
                 status: OCVerifyStatus::Summarizing,
                 onlined_committee: vec![]
             }
@@ -1197,7 +1207,7 @@ fn committee_not_equal_then_redistribute_works() {
             OCMachineCommitteeList {
                 book_time: 17,
                 booked_committee: vec![committee3, committee1, committee2],
-                confirm_start_time: 4337,
+                confirm_start_time: 17 + 36 * ONE_HOUR,
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
                 onlined_committee: vec![],
@@ -1211,7 +1221,7 @@ fn committee_not_equal_then_redistribute_works() {
             OnlineCommittee::committee_ops(&committee1, &machine_id),
             OCCommitteeOps {
                 staked_dbc: 1000 * ONE_DBC,
-                verify_time: vec![497, 1937, 3377],
+                verify_time: vec![17 + 4 * ONE_HOUR, 17 + 16 * ONE_HOUR, 17 + 28 * ONE_HOUR],
                 ..Default::default()
             }
         );
@@ -1380,7 +1390,7 @@ fn two_submit_hash_reach_submit_raw_works() {
             OCMachineCommitteeList {
                 book_time: 16,
                 booked_committee: vec![committee3, committee1, committee2],
-                confirm_start_time: 4336,
+                confirm_start_time: 16 + 36 * ONE_HOUR,
                 status: OCVerifyStatus::SubmittingHash,
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
@@ -1406,14 +1416,14 @@ fn two_submit_hash_reach_submit_raw_works() {
                 book_time: 16,
                 booked_committee: vec![committee3, committee1, committee2],
                 hashed_committee: vec![committee1, committee2],
-                confirm_start_time: 4336,
+                confirm_start_time: 16 + 36 * ONE_HOUR,
                 status: OCVerifyStatus::SubmittingHash,
                 confirmed_committee: vec![],
                 onlined_committee: vec![]
             }
         );
 
-        run_to_block(4336);
+        run_to_block(16 + 36 * ONE_HOUR);
 
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
@@ -1421,7 +1431,7 @@ fn two_submit_hash_reach_submit_raw_works() {
                 book_time: 16,
                 booked_committee: vec![committee3, committee1, committee2],
                 hashed_committee: vec![committee1, committee2],
-                confirm_start_time: 4336,
+                confirm_start_time: 16 + 36 * ONE_HOUR,
                 status: OCVerifyStatus::SubmittingRaw,
                 confirmed_committee: vec![],
                 onlined_committee: vec![]

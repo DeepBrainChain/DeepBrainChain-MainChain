@@ -97,7 +97,7 @@ fn verify_machine_works() {
                 OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee3, committee1, committee4],
-                    confirm_start_time: 2 + 4320,
+                    confirm_start_time: 2 + 36 * ONE_HOUR,
                     status: OCVerifyStatus::SubmittingHash,
                     hashed_committee: vec![],
                     confirmed_committee: vec![],
@@ -115,7 +115,7 @@ fn verify_machine_works() {
                 IRMachine::committee_online_ops(&committee1, &machine_id),
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
-                    verify_time: vec![2, 1442, 2882], // 2 + 320 * 3
+                    verify_time: vec![2, 2 + 12 * ONE_HOUR, 2 + 24 * ONE_HOUR],
                     machine_status: VerifyMachineStatus::Booked,
                     ..Default::default()
                 }
@@ -166,7 +166,7 @@ fn verify_machine_works() {
                 IRMachine::committee_online_ops(&committee1, &machine_id),
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
-                    verify_time: vec![2, 1442, 2882],
+                    verify_time: vec![2, 2 + 12 * ONE_HOUR, 2 + 24 * ONE_HOUR],
                     confirm_hash: hash1,
                     hash_time: 4,
                     machine_status: VerifyMachineStatus::Hashed,
@@ -252,7 +252,7 @@ fn verify_machine_works() {
                 IRMachine::committee_online_ops(&committee1, &machine_id),
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
-                    verify_time: vec![2, 1442, 2882],
+                    verify_time: vec![2, 2 + 12 * ONE_HOUR, 2 + 24 * ONE_HOUR],
                     confirm_hash: hash1,
                     hash_time: 4,
                     confirm_time: 4,

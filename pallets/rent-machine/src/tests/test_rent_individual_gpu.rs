@@ -1,5 +1,8 @@
 use super::super::mock::*;
-use crate::{ConfirmingOrder, MachineGPUOrder, RentInfo, RentOrderDetail, RentOrderId, RentStatus};
+use crate::{
+    ConfirmingOrder, MachineGPUOrder, RentInfo, RentOrderDetail, RentOrderId, RentStatus,
+    WAITING_CONFIRMING_DELAY,
+};
 use dbc_support::{
     live_machine::LiveMachine, machine_type::MachineStatus, verify_online::StashMachine, ONE_DAY,
     ONE_HOUR,
@@ -62,7 +65,7 @@ fn report_individual_gpu() {
             );
             assert_eq!(RentMachine::user_order(&renter1), vec![0]);
             assert_eq!(RentMachine::rent_ending(11 + ONE_DAY), vec![0]);
-            assert_eq!(RentMachine::confirming_order(11 + 30), vec![0]);
+            assert_eq!(RentMachine::confirming_order(11 + WAITING_CONFIRMING_DELAY), vec![0]);
             assert_eq!(
                 RentMachine::machine_rent_order(&machine_id),
                 MachineGPUOrder { rent_order: vec![0], used_gpu: vec![0, 1] }
@@ -106,7 +109,7 @@ fn report_individual_gpu() {
             );
             assert_eq!(RentMachine::user_order(&renter1), vec![0]);
             assert_eq!(RentMachine::rent_ending(11 + ONE_DAY), vec![0, 1]);
-            assert_eq!(RentMachine::confirming_order(11 + 30), vec![0, 1]);
+            assert_eq!(RentMachine::confirming_order(11 + WAITING_CONFIRMING_DELAY), vec![0, 1]);
             assert_eq!(
                 RentMachine::machine_rent_order(&machine_id),
                 MachineGPUOrder { rent_order: vec![0, 1], used_gpu: vec![0, 1, 2, 3] }
@@ -354,7 +357,7 @@ fn report_individual_gpu() {
             assert!(live_machines.rented_machine.binary_search(&machine_id).is_err());
             let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
             assert_eq!(machine_info.machine_status, MachineStatus::Online);
-            assert_eq!(machine_info.total_rented_duration, 4320);
+            assert_eq!(machine_info.total_rented_duration, 36 * ONE_HOUR);
             assert_eq!(machine_info.renters, vec![]);
 
             // clean_order

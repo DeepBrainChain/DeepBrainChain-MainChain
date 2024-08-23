@@ -2,6 +2,7 @@ use super::super::{mock::*, Error};
 use crate::{MTOrderStatus, ReportStatus};
 use dbc_support::{
     live_machine::LiveMachine, machine_type::MachineStatus, verify_slash::OPSlashReason, ONE_DAY,
+    ONE_MINUTE,
 };
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
@@ -110,7 +111,7 @@ fn report_machine_inaccessible_works1() {
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
                     booked_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -173,7 +174,7 @@ fn report_machine_inaccessible_works1() {
                     verifying_committee: None,
                     booked_committee: vec![*committee],
                     hashed_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -251,7 +252,7 @@ fn report_machine_inaccessible_works1() {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
                     hash_time: 11,
-                    confirm_time: 22,
+                    confirm_time: 12 + 5 * ONE_MINUTE,
                     confirm_result: true,
                     order_status: MTOrderStatus::Finished,
                     ..Default::default()
@@ -259,7 +260,7 @@ fn report_machine_inaccessible_works1() {
             );
         }
 
-        run_to_block(23);
+        run_to_block(12 + 5 * ONE_MINUTE);
 
         // 检查summary的结果
         // summary_a_inaccessible
@@ -280,7 +281,7 @@ fn report_machine_inaccessible_works1() {
                     hashed_committee: vec![*committee],
                     confirmed_committee: vec![*committee],
                     support_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -301,8 +302,8 @@ fn report_machine_inaccessible_works1() {
                     reward_committee: vec![*committee],
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
-                    slash_time: 22,
-                    slash_exec_time: 22 + ONE_DAY * 2,
+                    slash_time: 12 + 5 * ONE_MINUTE,
+                    slash_exec_time: 12 + 5 * ONE_MINUTE + ONE_DAY * 2,
                     report_result: crate::ReportResultType::ReportSucceed,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -320,7 +321,7 @@ fn report_machine_inaccessible_works1() {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
                     hash_time: 11,
-                    confirm_time: 22,
+                    confirm_time: 12 + 5 * ONE_MINUTE,
                     confirm_result: true,
                     order_status: crate::MTOrderStatus::Finished,
 
@@ -333,7 +334,7 @@ fn report_machine_inaccessible_works1() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(22 + ONE_DAY * 2),
+                &MaintainCommittee::unhandled_report_result(12 + 5 * ONE_MINUTE + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -389,7 +390,7 @@ fn report_machine_inaccessible_works2() {
             offline_committee_hash.clone()
         ));
 
-        run_to_block(21);
+        run_to_block(11 + 5 * ONE_MINUTE);
         // - Writes:
         // ReportInfo, committee_ops,
         assert_ok!(MaintainCommittee::committee_submit_inaccessible_raw(
@@ -414,7 +415,7 @@ fn report_machine_inaccessible_works2() {
                     hashed_committee: vec![*committee],
                     confirmed_committee: vec![*committee],
                     against_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -432,7 +433,7 @@ fn report_machine_inaccessible_works2() {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
                     hash_time: 11,
-                    confirm_time: 22,
+                    confirm_time: 12 + 5 * ONE_MINUTE,
                     confirm_result: false,
                     order_status: MTOrderStatus::Finished,
                     ..Default::default()
@@ -440,7 +441,7 @@ fn report_machine_inaccessible_works2() {
             );
         }
 
-        run_to_block(23);
+        run_to_block(13 + 5 * ONE_MINUTE);
 
         // 检查summary的结果
         // summary_a_inaccessible
@@ -461,7 +462,7 @@ fn report_machine_inaccessible_works2() {
                     hashed_committee: vec![*committee],
                     confirmed_committee: vec![*committee],
                     against_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -482,8 +483,8 @@ fn report_machine_inaccessible_works2() {
                     reward_committee: vec![*committee],
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
-                    slash_time: 22,
-                    slash_exec_time: 22 + ONE_DAY * 2,
+                    slash_time: 12 + 5 * ONE_MINUTE,
+                    slash_exec_time: 12 + 5 * ONE_MINUTE + ONE_DAY * 2,
                     report_result: crate::ReportResultType::ReportRefused,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -501,7 +502,7 @@ fn report_machine_inaccessible_works2() {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
                     hash_time: 11,
-                    confirm_time: 22,
+                    confirm_time: 12 + 5 * ONE_MINUTE,
                     confirm_result: false,
                     order_status: crate::MTOrderStatus::Finished,
 
@@ -514,7 +515,7 @@ fn report_machine_inaccessible_works2() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(22 + ONE_DAY * 2),
+                &MaintainCommittee::unhandled_report_result(12 + 5 * ONE_MINUTE + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -552,7 +553,7 @@ fn report_machine_inaccessible_works3() {
             offline_committee_hash.clone()
         ));
 
-        run_to_block(34);
+        run_to_block(14 + 10 * ONE_MINUTE);
 
         // 检查summary的结果
 
@@ -574,7 +575,7 @@ fn report_machine_inaccessible_works3() {
                     verifying_committee: None,
                     booked_committee: vec![*committee],
                     hashed_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -597,8 +598,8 @@ fn report_machine_inaccessible_works3() {
                     unruly_committee: vec![*committee],
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
-                    slash_time: 31,
-                    slash_exec_time: 31 + ONE_DAY * 2,
+                    slash_time: 11 + 10 * ONE_MINUTE,
+                    slash_exec_time: 11 + 10 * ONE_MINUTE + ONE_DAY * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -625,7 +626,7 @@ fn report_machine_inaccessible_works3() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(31 + ONE_DAY * 2),
+                &MaintainCommittee::unhandled_report_result(11 + 10 * ONE_MINUTE + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -699,7 +700,7 @@ fn report_machine_inaccessible_works4() {
         // 委员会订阅机器故障报告
         assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(*committee), 0));
 
-        run_to_block(34);
+        run_to_block(14 + 10 * ONE_MINUTE);
 
         // 检查summary的结果
 
@@ -720,7 +721,7 @@ fn report_machine_inaccessible_works4() {
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
                     booked_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -744,8 +745,8 @@ fn report_machine_inaccessible_works4() {
                     unruly_committee: vec![*committee],
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
-                    slash_time: 22,
-                    slash_exec_time: 22 + ONE_DAY * 2,
+                    slash_time: 12 + 5 * ONE_MINUTE,
+                    slash_exec_time: 12 + 5 * ONE_MINUTE + ONE_DAY * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -772,7 +773,7 @@ fn report_machine_inaccessible_works4() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(22 + ONE_DAY * 2),
+                &MaintainCommittee::unhandled_report_result(12 + 5 * ONE_MINUTE + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -827,7 +828,7 @@ fn report_machine_inaccessible_works5() {
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
                     booked_committee: vec![committee2, committee3, committee1],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -928,7 +929,7 @@ fn report_machine_inaccessible_works5() {
                     verifying_committee: None,
                     booked_committee: vec![committee2, committee3, committee1],
                     hashed_committee: vec![committee2, committee3, committee1],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -1002,7 +1003,7 @@ fn report_machine_inaccessible_works5() {
                     hashed_committee: vec![committee2, committee3, committee1],
                     confirmed_committee: vec![committee2, committee3, committee1],
                     support_committee: vec![committee2, committee3, committee1],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -1054,7 +1055,7 @@ fn report_machine_inaccessible_works5() {
                     hashed_committee: vec![committee2, committee3, committee1],
                     confirmed_committee: vec![committee2, committee3, committee1],
                     support_committee: vec![committee2, committee3, committee1],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -1207,7 +1208,7 @@ fn report_machine_inaccessible_works8() {
                     hashed_committee: vec![committee2, committee3, committee1],
                     confirmed_committee: vec![committee2, committee3, committee1],
                     against_committee: vec![committee2, committee3, committee1],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -1255,7 +1256,7 @@ fn report_machine_inaccessible_works8() {
                     hashed_committee: vec![committee2, committee3, committee1],
                     confirmed_committee: vec![committee2, committee3, committee1],
                     against_committee: vec![committee2, committee3, committee1],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0

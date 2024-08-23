@@ -5,7 +5,7 @@ use crate::{
 use dbc_support::{
     live_machine::LiveMachine,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
-    ONE_DAY,
+    ONE_DAY, ONE_MINUTE,
 };
 use frame_support::assert_ok;
 
@@ -19,7 +19,7 @@ use frame_support::assert_ok;
 // 没有新的在线奖励，旧的奖励仍然线性释放。(机器下线后，如果机器从首次上线时间起超过365天，
 // 可以申请退回押金)
 
-// 空闲不足10天，块高20时报告下线，不超过7分钟(14个块)报告上线
+// 空闲不足10天，块高20时报告下线，不超过7分钟报告上线
 #[test]
 fn test_staker_report_offline() {
     new_test_with_machine_online().execute_with(|| {
@@ -32,7 +32,7 @@ fn test_staker_report_offline() {
             machine_id.clone()
         ));
 
-        run_to_block(20);
+        run_to_block(11 + 5 * ONE_MINUTE);
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(*controller),
             machine_id.clone()
@@ -43,9 +43,9 @@ fn test_staker_report_offline() {
             Some(OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id,
-                slash_time: 21,
+                slash_time: 12 + 5 * ONE_MINUTE,
                 slash_amount: 80 * ONE_DBC,
-                slash_exec_time: 21 + ONE_DAY * 2,
+                slash_exec_time: 12 + 5 * ONE_MINUTE + 2 * ONE_DAY,
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
@@ -68,7 +68,7 @@ fn test_staker_report_offline() {
         );
 
         // 两天之后，惩罚被执行
-        run_to_block(21 + ONE_DAY * 2);
+        run_to_block(11 + 5 * ONE_MINUTE + 2 * ONE_DAY);
 
         // 罚金4000*2%已经进入国库
         assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
@@ -99,7 +99,7 @@ fn test_staker_report_offline2() {
             machine_id.clone()
         ));
 
-        run_to_block(50);
+        run_to_block(11 + 20 * ONE_MINUTE);
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(*controller),
             machine_id.clone()
@@ -110,9 +110,9 @@ fn test_staker_report_offline2() {
             Some(OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id,
-                slash_time: 51,
+                slash_time: 12 + 20 * ONE_MINUTE,
                 slash_amount: 80 * 2 * ONE_DBC,
-                slash_exec_time: 51 + ONE_DAY * 2,
+                slash_exec_time: 12 + 20 * ONE_MINUTE + 2 * ONE_DAY,
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
@@ -134,7 +134,7 @@ fn test_staker_report_offline2() {
         );
 
         // 两天之后，惩罚被执行
-        run_to_block(51 + ONE_DAY * 2);
+        run_to_block(11 + 20 * ONE_MINUTE + 2 * ONE_DAY);
 
         assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
         assert_eq!(OnlineProfile::stash_stake(*stash), 4000 * ONE_DBC);
@@ -164,7 +164,7 @@ fn test_staker_report_offline3() {
             machine_id.clone()
         ));
 
-        run_to_block(50 + ONE_DAY * 2);
+        run_to_block(50 + 2 * ONE_DAY);
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(*controller),
             machine_id.clone()
@@ -175,9 +175,9 @@ fn test_staker_report_offline3() {
             Some(OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id,
-                slash_time: 51 + ONE_DAY * 2,
+                slash_time: 51 + 2 * ONE_DAY,
                 slash_amount: 80 * 15 * ONE_DBC,
-                slash_exec_time: 51 + ONE_DAY * 2 + ONE_DAY * 2,
+                slash_exec_time: 51 + 2 * ONE_DAY + 2 * ONE_DAY,
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
@@ -199,7 +199,7 @@ fn test_staker_report_offline3() {
         );
 
         // 两天之后，惩罚被执行
-        run_to_block(51 + ONE_DAY * 2 + ONE_DAY * 2);
+        run_to_block(51 + 2 * ONE_DAY + 2 * ONE_DAY);
 
         assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
         assert_eq!(OnlineProfile::stash_stake(*stash), 4000 * ONE_DBC);
@@ -229,7 +229,7 @@ fn test_staker_report_offline4() {
             machine_id.clone()
         ));
 
-        run_to_block(50 + ONE_DAY * 10);
+        run_to_block(50 + 10 * ONE_DAY);
 
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(*controller),
@@ -249,9 +249,9 @@ fn test_staker_report_offline4() {
             Some(OPPendingSlashInfo {
                 slash_who: *stash,
                 machine_id,
-                slash_time: 51 + ONE_DAY * 10,
+                slash_time: 51 + 10 * ONE_DAY,
                 slash_amount: 80 * 40 * ONE_DBC,
-                slash_exec_time: 51 + ONE_DAY * 10 + ONE_DAY * 2,
+                slash_exec_time: 51 + 10 * ONE_DAY + 2 * ONE_DAY,
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
@@ -276,7 +276,7 @@ fn test_staker_report_offline4() {
         );
 
         // 两天之后，惩罚被执行
-        run_to_block(51 + ONE_DAY * 10 + ONE_DAY * 2);
+        run_to_block(51 + 10 * ONE_DAY + 2 * ONE_DAY);
 
         assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
         assert_eq!(OnlineProfile::stash_stake(*stash), 4000 * ONE_DBC);
@@ -303,13 +303,13 @@ fn test_staker_report_offline4() {
 //             .to_vec();
 
 //         // 空闲10天
-//         run_to_block(50 + ONE_DAY * 10);
+//         run_to_block(50 + 10 * ONE_DAY);
 
 //         assert_ok!(OnlineProfile::controller_report_offline(
 //             RuntimeOrigin::signed(*controller),
 //             machine_id.clone()
 //         ));
-//         run_to_block(50 + ONE_DAY * 10 + 5);
+//         run_to_block(50 + 10 * ONE_DAY + 5);
 //         assert_ok!(OnlineProfile::controller_report_online(
 //             RuntimeOrigin::signed(*controller),
 //             machine_id

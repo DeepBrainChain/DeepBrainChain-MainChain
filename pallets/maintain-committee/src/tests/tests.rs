@@ -1,5 +1,5 @@
 use super::super::mock::*;
-use dbc_support::ONE_DAY;
+use dbc_support::{ONE_DAY, ONE_HOUR, ONE_MINUTE};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -39,8 +39,8 @@ fn test_heart_beat1() {
         // - Writes:
         // LiveReport, ReportInfo, CommitteeOps, CommitteeOrder
 
-        // 预订时间为11
-        run_to_block(11 + 61);
+        // 预订时间为11 30分钟后
+        run_to_block(11 + 30 * ONE_MINUTE);
 
         // hertbeat will run, and report info will be deleted
         // - Writes:
@@ -66,7 +66,7 @@ fn test_heart_beat1() {
                 first_book_time: 11,
                 verifying_committee: Some(committee1),
                 booked_committee: vec![committee1],
-                confirm_start: 371,
+                confirm_start: 11 + 3 * ONE_HOUR,
                 report_status: crate::ReportStatus::Verifying,
                 machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(
                     report_hash,
@@ -92,8 +92,8 @@ fn test_heart_beat1() {
                 unruly_committee: vec![],
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
-                slash_time: 11 + 60,
-                slash_exec_time: 11 + 60 + ONE_DAY * 2,
+                slash_time: 11 + 30 * ONE_MINUTE,
+                slash_exec_time: 11 + 30 * ONE_MINUTE + ONE_DAY * 2,
                 report_result: crate::ReportResultType::ReporterNotSubmitEncryptedInfo,
                 slash_result: crate::MCSlashResult::Pending,
                 machine_stash: None,
@@ -153,8 +153,8 @@ fn test_heart_beat2() {
         // - Writes:
         // CommitteeOps, ReportInfo
 
-        // 预订时间为11
-        run_to_block(11 + 121);
+        // 预订时间为11 60分钟后
+        run_to_block(11 + ONE_HOUR);
 
         // hertbeat will run, and report info will be deleted
         // - Writes:
@@ -209,8 +209,8 @@ fn test_heart_beat2() {
                 unruly_committee: vec![committee1],
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
-                slash_time: 131,
-                slash_exec_time: 5891,
+                slash_time: 11 + ONE_HOUR,
+                slash_exec_time: 11 + ONE_HOUR + ONE_DAY * 2,
                 report_result: crate::ReportResultType::ReportRefused,
                 slash_result: crate::MCSlashResult::Pending,
                 machine_stash: None,
@@ -219,7 +219,7 @@ fn test_heart_beat2() {
         );
 
         // 惩罚
-        run_to_block(132 + ONE_DAY * 2 + 1);
+        run_to_block(11 + ONE_HOUR + ONE_DAY * 2 + 1);
     })
 }
 
@@ -273,8 +273,8 @@ fn test_heart_beat3() {
         // - Writes:
         // CommitteeOps, ReportInfo
 
-        // 预订时间为11
-        run_to_block(11 + 60);
+        // 预订时间为11 30分钟后
+        run_to_block(11 + 30 * ONE_MINUTE);
 
         // 提交验证Hash
         let committee_hash: [u8; 16] =
@@ -285,8 +285,8 @@ fn test_heart_beat3() {
             committee_hash.clone()
         ));
 
-        // 第二个委员会去预订: 第一次预订时间为11， 则开始提交原始值时间为11 + 3*120
-        run_to_block(3 * 120);
+        // 第二个委员会去预订: 第一次预订时间为11， 则开始提交原始值时间为11 + 3小时
+        run_to_block(3 * ONE_HOUR);
         // 委员会订阅机器故障报告
         assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee2), 0));
         // 报告人给第二个委员会提供加密信息
@@ -298,7 +298,7 @@ fn test_heart_beat3() {
         ));
         // 第二个委员会没来得及提交原始值
 
-        run_to_block(11 + 3 * 120 + 1);
+        run_to_block(11 + 3 * ONE_HOUR + 1);
 
         // hertbeat will run, and report info will be deleted
         // - Writes:
@@ -324,7 +324,7 @@ fn test_heart_beat3() {
                 booked_committee: vec![committee1],
                 get_encrypted_info_committee: vec![committee1],
                 hashed_committee: vec![committee1],
-                confirm_start: 371,
+                confirm_start: 11 + 3 * ONE_HOUR,
                 reporter_stake: 1000 * ONE_DBC,
                 report_status: crate::ReportStatus::Verifying,
                 machine_fault_type: crate::MachineFaultType::RentedHardwareMalfunction(
@@ -395,7 +395,7 @@ fn test_apply_slash_review() {
                 first_book_time: 11,
                 verifying_committee: Some(committee1),
                 booked_committee: vec![committee1],
-                confirm_start: 11 + 360,
+                confirm_start: 11 + 3 * ONE_HOUR,
                 report_status: crate::ReportStatus::Verifying,
                 machine_fault_type: crate::MachineFaultType::OnlineRentFailed(
                     report_hash,
@@ -441,7 +441,7 @@ fn test_apply_slash_review() {
         ));
 
         // more than 1 hour later
-        run_to_block(11 + 130);
+        run_to_block(11 + 10 + ONE_HOUR);
         assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(committee2), 0));
 
         assert_ok!(MaintainCommittee::reporter_add_encrypted_error_info(
@@ -452,7 +452,7 @@ fn test_apply_slash_review() {
         ));
 
         // 3个小时之后才能提交：
-        run_to_block(360 + 13);
+        run_to_block(3 * ONE_HOUR + 13);
 
         assert_ok!(MaintainCommittee::committee_submit_verify_raw(
             RuntimeOrigin::signed(committee1),
@@ -466,7 +466,7 @@ fn test_apply_slash_review() {
             true
         ));
 
-        run_to_block(360 + 14);
+        run_to_block(3 * ONE_HOUR + 14);
 
         assert_eq!(
             MaintainCommittee::report_info(0),
@@ -482,7 +482,7 @@ fn test_apply_slash_review() {
                 booked_committee: vec![committee1],
                 get_encrypted_info_committee: vec![committee1],
                 hashed_committee: vec![committee1],
-                confirm_start: 371,
+                confirm_start: 11 + 3 * ONE_HOUR,
                 confirmed_committee: vec![committee1],
                 support_committee: vec![committee1],
                 against_committee: vec![],
@@ -504,8 +504,8 @@ fn test_apply_slash_review() {
                 unruly_committee: vec![committee2],
                 reward_committee: vec![committee1],
                 committee_stake: 1000 * ONE_DBC,
-                slash_time: 374,
-                slash_exec_time: 374 + ONE_DAY * 2,
+                slash_time: 14 + 3 * ONE_HOUR,
+                slash_exec_time: 14 + 3 * ONE_HOUR + ONE_DAY * 2,
                 report_result: crate::ReportResultType::ReportSucceed,
                 slash_result: crate::MCSlashResult::Pending,
                 machine_stash: None,

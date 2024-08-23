@@ -1048,8 +1048,8 @@ fn test_machine_noconsensus_works() {
                 unruly_committee: vec![*committee4],
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
-                slash_time: 4332,
-                slash_exec_time: 4332 + ONE_DAY * 2,
+                slash_time: 12 + ONE_DAY + 12 * ONE_HOUR,
+                slash_exec_time: 12 + ONE_DAY + 12 * ONE_HOUR + ONE_DAY * 2,
                 book_result: crate::OCBookResultType::NoConsensus,
                 slash_result: crate::OCSlashResult::Pending,
                 machine_stash: None,
@@ -1060,10 +1060,10 @@ fn test_machine_noconsensus_works() {
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
             OCMachineCommitteeList {
-                book_time: 4332,
+                book_time: 12 + ONE_DAY + 12 * ONE_HOUR,
                 booked_committee: vec![*committee3, *committee2, *committee4],
                 hashed_committee: vec![],
-                confirm_start_time: 8652,
+                confirm_start_time: 12 + ONE_DAY + 12 * ONE_HOUR + 36 * ONE_HOUR,
                 confirmed_committee: vec![],
                 onlined_committee: vec![],
                 status: OCVerifyStatus::default(),
