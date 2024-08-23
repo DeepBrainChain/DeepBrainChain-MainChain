@@ -1,6 +1,9 @@
 use super::super::{mock::*, *};
 use crate::tests::{committee1, committee2, committee3, committee4, controller, stash};
-use dbc_support::machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo};
+use dbc_support::{
+    machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
+    ONE_DAY, ONE_HOUR,
+};
 use frame_support::assert_ok;
 use once_cell::sync::Lazy;
 use sp_runtime::Perbill;
@@ -124,14 +127,14 @@ fn test_machine_online_refused_after_some_online() {
                 reward_committee: vec![*committee3, *committee2, *committee4],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 14,
-                slash_exec_time: 14 + 2880 * 2,
+                slash_exec_time: 14 + ONE_DAY * 2,
                 book_result: OCBookResultType::OnlineRefused,
                 slash_result: OCSlashResult::Pending,
             })
         );
 
         // on_initialize will do slash
-        run_to_block(15 + 2880 * 2);
+        run_to_block(15 + ONE_DAY * 2);
 
         assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 4000 * ONE_DBC - 50 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 4000 * ONE_DBC);
@@ -166,7 +169,7 @@ fn test_machine_online_refused_claim_reserved() {
             OCMachineCommitteeList {
                 book_time: 6,
                 booked_committee: vec![*committee3, *committee1, *committee4],
-                confirm_start_time: 6 + 4320,
+                confirm_start_time: 6 + 36 * ONE_HOUR,
                 status: OCVerifyStatus::SubmittingHash,
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
@@ -242,14 +245,14 @@ fn test_machine_online_refused_claim_reserved() {
                 reward_committee: vec![*committee3, *committee1, *committee4],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 11,
-                slash_exec_time: 11 + 2880 * 2,
+                slash_exec_time: 11 + ONE_DAY * 2,
                 book_result: OCBookResultType::OnlineRefused,
                 slash_result: OCSlashResult::Pending,
             })
         );
 
         // 5771 on_initialize will do slash
-        run_to_block(11 + 2880 * 2);
+        run_to_block(11 + ONE_DAY * 2);
 
         assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 50 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 0);
@@ -358,11 +361,11 @@ fn test_online_refused_apply_review_ignored_works() {
                 applicant: *stash,
                 staked_amount: 1000 * ONE_DBC,
                 apply_time: 12,
-                expire_time: 11 + 2880 * 2,
+                expire_time: 11 + ONE_DAY * 2,
                 reason: vec![],
             })
         );
-        run_to_block(11 + 2880 * 2);
+        run_to_block(11 + ONE_DAY * 2);
         assert_eq!(Balances::reserved_balance(*stash), 0);
         assert_eq!(Balances::free_balance(*stash), INIT_BALANCE - 1050 * ONE_DBC);
 
@@ -470,7 +473,7 @@ fn test_online_refused_apply_review_succeed_works() {
                     applicant: *stash,
                     staked_amount: 1000 * ONE_DBC,
                     apply_time: 12,
-                    expire_time: 11 + 2880 * 2,
+                    expire_time: 11 + ONE_DAY * 2,
                     reason: vec![],
                 })
             );

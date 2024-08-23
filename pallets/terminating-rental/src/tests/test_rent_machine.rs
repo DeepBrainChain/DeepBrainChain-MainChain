@@ -13,7 +13,7 @@ use dbc_support::{
         MTReportInfoDetail, MachineFaultType, ReportStatus, ReporterReportList, ReporterStakeInfo,
     },
     verify_online::StashMachine,
-    BoxPubkey, ReportHash,
+    BoxPubkey, ReportHash, ONE_DAY,
 };
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::Perbill;
@@ -295,7 +295,7 @@ fn machine_offline_works() {
             IRMachine::machine_offline(RuntimeOrigin::signed(controller), machine_id.clone()),
             Error::<TestRuntime>::OfflineNotYetAllowed,
         );
-        run_to_block(4 + 2880);
+        run_to_block(4 + ONE_DAY);
         assert_ok!(IRMachine::machine_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
@@ -337,17 +337,22 @@ fn machine_offline_10more_days_slash_works() {
             .as_bytes()
             .to_vec();
 
-        assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800));
-        run_to_block(4 + 2880);
+        assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + ONE_DAY * 10));
+        run_to_block(4 + ONE_DAY);
         assert_ok!(IRMachine::machine_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
-        assert_eq!(IRMachine::offline_machines(5 + 2880 + 28800), vec![machine_id.clone()]);
+        assert_eq!(
+            IRMachine::offline_machines(5 + ONE_DAY + ONE_DAY * 10),
+            vec![machine_id.clone()]
+        );
 
-        run_to_block(6 + 28800 + 2880);
+        run_to_block(6 + ONE_DAY * 10 + ONE_DAY);
         {
-            assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800 + 2880));
+            assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(
+                &5 + ONE_DAY * 10 + ONE_DAY
+            ));
             let machine_info = IRMachine::machines_info(&machine_id).unwrap();
             assert_eq!(machine_info.stake_amount, 0);
         }

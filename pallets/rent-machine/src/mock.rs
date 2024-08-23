@@ -1,7 +1,10 @@
 use crate as rent_machine;
 use dbc_price_ocw::MAX_LEN;
-use dbc_support::machine_type::{
-    CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
+use dbc_support::{
+    machine_type::{
+        CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
+    },
+    ONE_DAY,
 };
 use frame_support::{
     assert_ok,
@@ -20,7 +23,8 @@ pub use sp_keyring::{
     ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
 use sp_runtime::{
-    testing::{Header, TestXt},
+    generic::Header,
+    testing::TestXt,
     traits::{BlakeTwo256, IdentityLookup, Verify},
     Perbill, Permill,
 };
@@ -34,12 +38,12 @@ type Balance = u128;
 pub const ONE_DBC: u128 = 1_000_000_000_000_000;
 // 初始1000WDBC
 pub const INIT_BALANCE: u128 = 10_000_000 * ONE_DBC;
-pub type BlockNumber = u64;
 pub const INIT_TIMESTAMP: u64 = 90_000;
 pub const BLOCK_TIME: u64 = 30_000;
+pub type BlockNumber = u32;
 
 parameter_types! {
-    pub const BlockHashCount: u64 = 250;
+    pub const BlockHashCount: BlockNumber = 250;
     pub const SS58Prefix: u8 = 42;
 }
 
@@ -51,12 +55,12 @@ impl frame_system::Config for TestRuntime {
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Index = u64;
-    type BlockNumber = u64;
+    type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = sr25519::Public;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Header = Header<BlockNumber, BlakeTwo256>;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -93,12 +97,7 @@ impl pallet_balances::Config for TestRuntime {
 
 impl pallet_insecure_randomness_collective_flip::Config for TestRuntime {}
 
-parameter_types! {
-    pub const BlockPerEra: u32 = 3600 * 24 / 30;
-}
-
 impl generic_func::Config for TestRuntime {
-    type BlockPerEra = BlockPerEra;
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
@@ -109,7 +108,7 @@ impl generic_func::Config for TestRuntime {
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub const ProposalBondMinimum: u64 = 1;
-    pub const SpendPeriod: u64 = 2;
+    pub const SpendPeriod: BlockNumber = 2;
     pub const Burn: Permill = Permill::from_percent(50);
     pub const DataDepositPerByte: u64 = 1;
     pub const TreasuryModuleId: PalletId = PalletId(*b"py/trsry");
@@ -139,7 +138,7 @@ impl pallet_treasury::Config for TestRuntime {
 }
 
 parameter_types! {
-    pub const CouncilMotionDuration: u32 = 5 * 2880;
+    pub const CouncilMotionDuration: u32 = 5 * ONE_DAY;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 100;
     pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights::simple_max(Weight::MAX);
@@ -496,7 +495,7 @@ pub fn run_to_block(n: BlockNumber) {
         RentMachine::on_finalize(b);
         System::on_finalize(b);
         RandomnessCollectiveFlip::on_finalize(b);
-        Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
+        Timestamp::set_timestamp(System::block_number() as u64 * BLOCK_TIME + INIT_TIMESTAMP);
 
         System::set_block_number(b + 1);
 

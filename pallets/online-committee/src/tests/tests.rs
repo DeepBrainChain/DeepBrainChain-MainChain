@@ -8,6 +8,7 @@ use dbc_support::{
         StakerCustomizeInfo,
     },
     verify_online::StashMachine,
+    ONE_DAY,
 };
 use frame_support::assert_ok;
 use online_profile::{EraStashPoints, MachineGradeStatus, UserMutHardwareStakeInfo};
@@ -379,8 +380,8 @@ fn machine_online_works() {
         );
         assert_eq!(OnlineProfile::eras_machine_points(2), era_machine_points);
 
-        // 过一个Era: 一天是2880个块
-        run_to_block(2880 * 2 + 2);
+        // 过一个Era
+        run_to_block(ONE_DAY * 2 + 2);
 
         // do distribute_reward
         // - Writes:
@@ -414,7 +415,7 @@ fn machine_online_works() {
         assert_eq!(&Committee::committee_stake(&committee1), &committee_stake_info);
 
         // 再次释放
-        run_to_block(2880 * 3 + 2);
+        run_to_block(ONE_DAY * 3 + 2);
 
         // 线性释放
         // do distribute_reward
@@ -524,7 +525,7 @@ fn machine_online_works() {
                 online_profile::UserMutHardwareStakeInfo {
                     verify_fee: 2000 * ONE_DBC,
                     offline_slash: 16000 * ONE_DBC,
-                    offline_time: 2880 * 3 + 3,
+                    offline_time: ONE_DAY * 3 + 3,
                     need_fulfilling: false,
                 }
             );
@@ -575,7 +576,7 @@ fn machine_online_works() {
             );
         }
 
-        run_to_block(2880 * 3 + 3);
+        run_to_block(ONE_DAY * 3 + 3);
 
         // 委员会审核机器重新上链
 
@@ -600,8 +601,8 @@ fn machine_online_works() {
         assert_eq!(
             OnlineCommittee::machine_committee(machine_id.clone()),
             OCMachineCommitteeList {
-                book_time: 2880 * 3 + 3,
-                confirm_start_time: 2880 * 3 + 3 + 4320,
+                book_time: ONE_DAY * 3 + 3,
+                confirm_start_time: ONE_DAY * 3 + 3 + 4320,
                 booked_committee: vec![committee2, committee3, committee1],
                 hashed_committee: vec![],
                 confirmed_committee: vec![],
@@ -728,7 +729,7 @@ fn machine_online_works() {
             }
         );
 
-        run_to_block(2880 * 3 + 4);
+        run_to_block(ONE_DAY * 3 + 4);
 
         // Will do lc_confirm_machine
         // - Writes:
@@ -895,7 +896,7 @@ fn committee_not_submit_hash_slash_works() {
                 reward_committee: vec![committee3, committee1],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 4327,
-                slash_exec_time: 4327 + 2880 * 2,
+                slash_exec_time: 4327 + ONE_DAY * 2,
                 book_result: OCBookResultType::OnlineSucceed,
                 slash_result: OCSlashResult::Pending,
                 machine_stash: None,
@@ -921,7 +922,7 @@ fn committee_not_submit_hash_slash_works() {
         );
 
         // 惩罚
-        run_to_block(4327 + 2880 * 2 + 1);
+        run_to_block(4327 + ONE_DAY * 2 + 1);
 
         assert_eq!(
             Committee::committee_stake(committee4),

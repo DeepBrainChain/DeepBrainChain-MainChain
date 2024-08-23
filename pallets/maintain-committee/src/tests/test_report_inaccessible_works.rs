@@ -1,7 +1,7 @@
 use super::super::{mock::*, Error};
 use crate::{MTOrderStatus, ReportStatus};
 use dbc_support::{
-    live_machine::LiveMachine, machine_type::MachineStatus, verify_slash::OPSlashReason,
+    live_machine::LiveMachine, machine_type::MachineStatus, verify_slash::OPSlashReason, ONE_DAY,
 };
 use frame_support::{assert_noop, assert_ok};
 use once_cell::sync::Lazy;
@@ -301,7 +301,7 @@ fn report_machine_inaccessible_works1() {
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
                     slash_time: 22,
-                    slash_exec_time: 22 + 2880 * 2,
+                    slash_exec_time: 22 + ONE_DAY * 2,
                     report_result: crate::ReportResultType::ReportSucceed,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -332,7 +332,7 @@ fn report_machine_inaccessible_works1() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(22 + 2880 * 2),
+                &MaintainCommittee::unhandled_report_result(22 + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -342,7 +342,7 @@ fn report_machine_inaccessible_works1() {
         }
 
         // TODO: 两天后，根据结果进行惩罚
-        // run_to_block(32 + 2880 * 2);
+        // run_to_block(32 + ONE_DAY * 2);
         // TODO: 机器在举报成功后会立即被下线
         // 检查online_profile模块的状态
         {
@@ -482,7 +482,7 @@ fn report_machine_inaccessible_works2() {
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
                     slash_time: 22,
-                    slash_exec_time: 22 + 2880 * 2,
+                    slash_exec_time: 22 + ONE_DAY * 2,
                     report_result: crate::ReportResultType::ReportRefused,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -513,7 +513,7 @@ fn report_machine_inaccessible_works2() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(22 + 2880 * 2),
+                &MaintainCommittee::unhandled_report_result(22 + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -597,7 +597,7 @@ fn report_machine_inaccessible_works3() {
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
                     slash_time: 31,
-                    slash_exec_time: 31 + 2880 * 2,
+                    slash_exec_time: 31 + ONE_DAY * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -624,7 +624,7 @@ fn report_machine_inaccessible_works3() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(31 + 2880 * 2),
+                &MaintainCommittee::unhandled_report_result(31 + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -744,7 +744,7 @@ fn report_machine_inaccessible_works4() {
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
                     slash_time: 22,
-                    slash_exec_time: 22 + 2880 * 2,
+                    slash_exec_time: 22 + ONE_DAY * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -771,7 +771,7 @@ fn report_machine_inaccessible_works4() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(22 + 2880 * 2),
+                &MaintainCommittee::unhandled_report_result(22 + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -1075,7 +1075,7 @@ fn report_machine_inaccessible_works5() {
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
                     slash_time: 11,
-                    slash_exec_time: 11 + 2880 * 2,
+                    slash_exec_time: 11 + ONE_DAY * 2,
                     report_result: crate::ReportResultType::ReportSucceed,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -1106,7 +1106,7 @@ fn report_machine_inaccessible_works5() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(11 + 2880 * 2),
+                &MaintainCommittee::unhandled_report_result(11 + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -1276,7 +1276,7 @@ fn report_machine_inaccessible_works8() {
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
                     slash_time: 11,
-                    slash_exec_time: 11 + 2880 * 2,
+                    slash_exec_time: 11 + ONE_DAY * 2,
                     report_result: crate::ReportResultType::ReportRefused,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -1307,7 +1307,7 @@ fn report_machine_inaccessible_works8() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(11 + 2880 * 2),
+                &MaintainCommittee::unhandled_report_result(11 + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(

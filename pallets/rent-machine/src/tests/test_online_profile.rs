@@ -227,7 +227,7 @@ fn machine_exit_works() {
         let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert_eq!(machine_info.reward_deadline, 1 + 365 * 2);
 
-        // run_to_block(366 * 2880 + 1);
+        // run_to_block(366 * ONE_DAY + 1);
         // assert_ok!(OnlineProfile::machine_exit(RuntimeOrigin::signed(controller), machine_id.clone()));
         assert_ok!(OnlineProfile::do_machine_exit(machine_id.clone(), machine_info));
 

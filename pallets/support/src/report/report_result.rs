@@ -1,6 +1,6 @@
 use crate::{
     report::{MTReportInfoDetail, ReportConfirmStatus},
-    ItemList, MachineId, ReportId, TWO_DAY,
+    ItemList, MachineId, ReportId, TWO_DAYS,
 };
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -79,7 +79,7 @@ where
             report_id,
             reporter: report_info.reporter.clone(),
             slash_time: now,
-            slash_exec_time: now + TWO_DAY.into(),
+            slash_exec_time: now + TWO_DAYS.into(),
             slash_result: MCSlashResult::Pending,
             machine_stash: Some(machine_stash),
             machine_id: report_info.machine_id.clone(),
@@ -157,7 +157,7 @@ where
                 report_id,
                 slash_result: MCSlashResult::Pending,
                 slash_time: now,
-                slash_exec_time: now + TWO_DAY.into(),
+                slash_exec_time: now + TWO_DAYS.into(),
                 reporter: report_info.reporter.clone(),
                 committee_stake: committee_order_stake,
                 ..current_result
@@ -166,7 +166,7 @@ where
                 report_id,
                 slash_result: MCSlashResult::Pending,
                 slash_time: now,
-                slash_exec_time: now + TWO_DAY.into(),
+                slash_exec_time: now + TWO_DAYS.into(),
                 reporter: report_info.reporter.clone(),
                 committee_stake: committee_order_stake,
 

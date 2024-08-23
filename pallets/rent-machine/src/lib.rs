@@ -15,7 +15,7 @@ pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, RTOps},
-    EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY,
+    EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY, ONE_MINUTE,
 };
 use frame_support::{
     dispatch::DispatchResult,
@@ -30,8 +30,8 @@ use sp_std::{prelude::*, str, vec::Vec};
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// 等待30个块(15min)，用户确认是否租用成功
-pub const WAITING_CONFIRMING_DELAY: u32 = 30;
+/// 等待15min，用户确认是否租用成功
+pub const WAITING_CONFIRMING_DELAY: u32 = ONE_MINUTE * 15;
 
 pub use pallet::*;
 
@@ -443,7 +443,7 @@ impl<T: Config> Pallet<T> {
         let rent_fee_value = machine_price
             .checked_mul(add_duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
-            .checked_div(2880)
+            .checked_div(ONE_DAY.into())
             .ok_or(Error::<T>::Overflow)?;
         let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
             .ok_or(Error::<T>::Overflow)?;

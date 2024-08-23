@@ -177,7 +177,7 @@ pub mod pallet {
     #[pallet::getter(fn live_machines)]
     pub type LiveMachines<T: Config> = StorageValue<_, LiveMachine, ValueQuery>;
 
-    /// 2880 Block/Era
+    /// Block/Era
     #[pallet::storage]
     #[pallet::getter(fn current_era)]
     pub type CurrentEra<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
@@ -349,7 +349,7 @@ pub mod pallet {
 
             if block_number.saturated_into::<u64>() % (ONE_DAY as u64) == 1 {
                 // Era开始时，生成当前Era和下一个Era的快照
-                // 每个Era(2880个块)执行一次
+                // 每天执行一次
                 Self::update_snap_for_new_era();
             }
             Self::exec_pending_slash();
@@ -882,10 +882,10 @@ pub mod pallet {
 
             // NOTE: 如果机器上线超过一年，空闲超过10天，下线后上线不添加惩罚
             if now >= machine_info.online_height &&
-                now.saturating_sub(machine_info.online_height) > (365 * 2880u32).into() &&
+                now.saturating_sub(machine_info.online_height) > (365 * ONE_DAY).into() &&
                 offline_time >= machine_info.last_online_height &&
                 offline_time.saturating_sub(machine_info.last_online_height) >=
-                    (10 * 2880u32).into() &&
+                    (10 * ONE_DAY).into() &&
                 matches!(&machine_info.machine_status, &MachineStatus::StakerReportOffline(..))
             {
                 slash_info.slash_amount = Zero::zero();
@@ -960,7 +960,7 @@ pub mod pallet {
             ensure!(machine_info.reward_deadline <= current_era + 365, Error::<T>::TimeNotAllowed);
             // 确保机器距离上次租用超过10天
             ensure!(
-                now.saturating_sub(machine_info.last_online_height) >= 28800u32.into(),
+                now.saturating_sub(machine_info.last_online_height) >= (ONE_DAY * 10).into(),
                 Error::<T>::TimeNotAllowed
             );
 

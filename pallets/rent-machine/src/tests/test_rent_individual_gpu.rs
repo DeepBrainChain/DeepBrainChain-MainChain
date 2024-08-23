@@ -1,7 +1,8 @@
 use super::super::mock::*;
 use crate::{ConfirmingOrder, MachineGPUOrder, RentInfo, RentOrderDetail, RentOrderId, RentStatus};
 use dbc_support::{
-    live_machine::LiveMachine, machine_type::MachineStatus, verify_online::StashMachine,
+    live_machine::LiveMachine, machine_type::MachineStatus, verify_online::StashMachine, ONE_DAY,
+    ONE_HOUR,
 };
 use frame_support::{assert_ok, traits::ReservableCurrency};
 use online_profile::{EraStashPoints, MachinesInfo, SysInfoDetail};
@@ -30,7 +31,7 @@ fn report_individual_gpu() {
             RuntimeOrigin::signed(renter1),
             machine_id.clone(),
             2,
-            1 * 2880
+            1 * ONE_DAY
         ));
         // 检查 renter1 状态
         {
@@ -52,7 +53,7 @@ fn report_individual_gpu() {
                     renter: renter1,
                     rent_start: 11,
                     confirm_rent: 0,
-                    rent_end: 11 + 2880,
+                    rent_end: 11 + ONE_DAY,
                     stake_amount: 12477083333333333333,
                     rent_status: RentStatus::WaitingVerifying,
                     gpu_num: 2,
@@ -60,7 +61,7 @@ fn report_individual_gpu() {
                 })
             );
             assert_eq!(RentMachine::user_order(&renter1), vec![0]);
-            assert_eq!(RentMachine::rent_ending(11 + 2880), vec![0]);
+            assert_eq!(RentMachine::rent_ending(11 + ONE_DAY), vec![0]);
             assert_eq!(RentMachine::confirming_order(11 + 30), vec![0]);
             assert_eq!(
                 RentMachine::machine_rent_order(&machine_id),
@@ -79,7 +80,7 @@ fn report_individual_gpu() {
             RuntimeOrigin::signed(renter2),
             machine_id.clone(),
             2,
-            1 * 2880
+            1 * ONE_DAY
         ));
         // 检查状态
         {
@@ -96,7 +97,7 @@ fn report_individual_gpu() {
                     renter: renter2,
                     rent_start: 11,
                     confirm_rent: 0,
-                    rent_end: 11 + 2880,
+                    rent_end: 11 + ONE_DAY,
                     stake_amount: 12477083333333333333,
                     rent_status: RentStatus::WaitingVerifying,
                     gpu_num: 2,
@@ -104,7 +105,7 @@ fn report_individual_gpu() {
                 })
             );
             assert_eq!(RentMachine::user_order(&renter1), vec![0]);
-            assert_eq!(RentMachine::rent_ending(11 + 2880), vec![0, 1]);
+            assert_eq!(RentMachine::rent_ending(11 + ONE_DAY), vec![0, 1]);
             assert_eq!(RentMachine::confirming_order(11 + 30), vec![0, 1]);
             assert_eq!(
                 RentMachine::machine_rent_order(&machine_id),
@@ -130,7 +131,7 @@ fn report_individual_gpu() {
                     renter: renter1,
                     rent_start: 11,
                     confirm_rent: 11,
-                    rent_end: 11 + 2880,
+                    rent_end: 11 + ONE_DAY,
                     stake_amount: 0,
                     rent_status: RentStatus::Renting,
                     gpu_num: 2,
@@ -195,7 +196,7 @@ fn report_individual_gpu() {
                     renter: renter2,
                     rent_start: 11,
                     confirm_rent: 11,
-                    rent_end: 11 + 2880,
+                    rent_end: 11 + ONE_DAY,
                     stake_amount: 0,
                     rent_status: RentStatus::Renting,
                     gpu_num: 2,
@@ -251,7 +252,7 @@ fn report_individual_gpu() {
         }
 
         // 租用人1续租1天
-        assert_ok!(RentMachine::relet_machine(RuntimeOrigin::signed(renter1), 0, 1 * 2880));
+        assert_ok!(RentMachine::relet_machine(RuntimeOrigin::signed(renter1), 0, 1 * ONE_DAY));
         {
             // relet_machine:
             // - Writes: OrderInfo, Balance, RentEnding,
@@ -265,7 +266,7 @@ fn report_individual_gpu() {
                     renter: renter1,
                     rent_start: 11,
                     confirm_rent: 11,
-                    rent_end: 11 + 2880 * 2,
+                    rent_end: 11 + ONE_DAY * 2,
                     stake_amount: 0,
                     rent_status: RentStatus::Renting,
                     gpu_num: 2,
@@ -273,8 +274,8 @@ fn report_individual_gpu() {
                 })
             );
 
-            assert_eq!(RentMachine::rent_ending(11 + 2880), vec![1]);
-            assert_eq!(RentMachine::rent_ending(11 + 2880 * 2), vec![0]);
+            assert_eq!(RentMachine::rent_ending(11 + ONE_DAY), vec![1]);
+            assert_eq!(RentMachine::rent_ending(11 + ONE_DAY * 2), vec![0]);
 
             assert_eq!(
                 OnlineProfile::sys_info(),
@@ -310,7 +311,7 @@ fn report_individual_gpu() {
         assert!(live_machines.rented_machine.binary_search(&machine_id).is_ok());
 
         // 过一天，租用人2到期
-        run_to_block(12 + 2880);
+        run_to_block(12 + ONE_DAY);
         {
             // TODO: 确保机器得分不改变
             // change_machine_status_on_rent_end
@@ -321,10 +322,10 @@ fn report_individual_gpu() {
             assert!(live_machines.rented_machine.binary_search(&machine_id).is_ok());
             let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
             assert_eq!(machine_info.machine_status, MachineStatus::Rented);
-            assert_eq!(machine_info.total_rented_duration, 1440);
+            assert_eq!(machine_info.total_rented_duration, 12 * ONE_HOUR);
             assert_eq!(machine_info.renters, vec![renter1]);
 
-            // clean_order
+            // clean_orderq
             // -Write: MachineRentOrder, RentEnding, RentInfo,
             // UserOrder, ConfirmingOrder
             assert_eq!(
@@ -333,7 +334,7 @@ fn report_individual_gpu() {
             );
 
             let user_order: Vec<RentOrderId> = vec![];
-            assert_eq!(RentMachine::rent_ending(12 + 2880), user_order.clone());
+            assert_eq!(RentMachine::rent_ending(12 + ONE_DAY), user_order.clone());
             assert!(!<RentInfo::<TestRuntime>>::contains_key(&1));
             assert_eq!(RentMachine::user_order(renter2), user_order);
             assert!(!<ConfirmingOrder::<TestRuntime>>::contains_key(&1));
@@ -342,7 +343,7 @@ fn report_individual_gpu() {
         // TODO: 租用人1进行举报
 
         // 再过了一天，租用人1到期
-        run_to_block(12 + 2880 * 2);
+        run_to_block(12 + ONE_DAY * 2);
         {
             // TODO: 确保得分，等一些信息被还原
             // change_machine_status_on_rent_end
@@ -362,7 +363,7 @@ fn report_individual_gpu() {
             assert_eq!(RentMachine::machine_rent_order(&machine_id), MachineGPUOrder::default());
 
             let user_order: Vec<RentOrderId> = vec![];
-            assert_eq!(RentMachine::rent_ending(12 + 2880), user_order.clone());
+            assert_eq!(RentMachine::rent_ending(12 + ONE_DAY), user_order.clone());
             assert!(!<RentInfo::<TestRuntime>>::contains_key(&1));
             assert_eq!(RentMachine::user_order(renter2), user_order);
             assert!(!<ConfirmingOrder::<TestRuntime>>::contains_key(&1));

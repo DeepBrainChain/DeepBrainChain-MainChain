@@ -3,6 +3,7 @@ use dbc_support::{
     live_machine::LiveMachine,
     machine_type::MachineStatus,
     verify_slash::{OPPendingSlashInfo, OPPendingSlashReviewInfo, OPSlashReason},
+    ONE_DAY,
 };
 use frame_support::assert_ok;
 use std::convert::TryInto;
@@ -151,7 +152,7 @@ fn apply_slash_review_case1() {
                     machine_id: machine_id.clone(),
                     slash_time: 24,
                     slash_amount: 16000 * ONE_DBC, // 掉线13个块，惩罚4%: 4000000 * 4% = 16000
-                    slash_exec_time: 24 + 2880 * 2,
+                    slash_exec_time: 24 + ONE_DAY * 2,
                     reporter: None, // 这种不奖励验证人
                     renters: vec![reporter],
                     reward_to_committee: Some(vec![committee]),
@@ -168,7 +169,7 @@ fn apply_slash_review_case1() {
                     applicant: controller,
                     staked_amount: 1000 * ONE_DBC,
                     apply_time: 24,
-                    expire_time: 24 + 2880 * 2,
+                    expire_time: 24 + ONE_DAY * 2,
                     reason: Default::default()
                 })
             );
@@ -212,7 +213,7 @@ fn apply_slash_review_case1_1() {
         assert_ok!(OnlineProfile::apply_slash_review(RuntimeOrigin::signed(controller), 0, vec![]));
 
         // TODO: 没有执行取消，则两天后被执行
-        run_to_block(25 + 2880 * 2);
+        run_to_block(25 + ONE_DAY * 2);
 
         // assert_eq!(<online_profile::PendingSlashReview<TestRuntime>>::contains_key(0), true);
         assert_eq!(OnlineProfile::pending_slash_review(0), None);
@@ -248,7 +249,7 @@ fn apply_slash_review_case1_2() {
             &LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
-        run_to_block(2880 * 2 + 11);
+        run_to_block(ONE_DAY * 2 + 11);
 
         // Stash apply reonline
         assert_ok!(OnlineProfile::controller_report_online(

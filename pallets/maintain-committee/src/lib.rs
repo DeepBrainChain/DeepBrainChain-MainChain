@@ -23,8 +23,8 @@ use dbc_support::{
     traits::{GNOps, MTOps, ManageCommittee},
     utils::get_hash,
     verify_slash::OPSlashReason,
-    ItemList, MachineId, RentOrderId, ReportHash, ReportId, FIVE_MINUTE, HALF_HOUR, ONE_HOUR,
-    THREE_HOUR, TWO_DAY,
+    ItemList, MachineId, RentOrderId, ReportHash, ReportId, FIVE_MINUTES, HALF_HOUR, ONE_HOUR,
+    THREE_HOURS, TWO_DAYS,
 };
 use frame_support::{
     pallet_prelude::*,
@@ -863,7 +863,7 @@ impl<T: Config> Pallet<T> {
         if matches!(report_info.report_status, ReportStatus::WaitingBook | ReportStatus::Verifying)
         {
             // 当大于等于5分钟或者hashed的委员会已经达到3人，则更改报告状态，允许提交原始值
-            if now.saturating_sub(report_info.first_book_time) >= FIVE_MINUTE.into() ||
+            if now.saturating_sub(report_info.first_book_time) >= FIVE_MINUTES.into() ||
                 report_info.hashed_committee.len() == 3
             {
                 live_report.time_to_submit_raw(report_id);
@@ -1029,7 +1029,7 @@ impl<T: Config> Pallet<T> {
             reporter_stake: report_info.reporter_stake,
             committee_stake: committee_order_stake,
             slash_time: now,
-            slash_exec_time: now + TWO_DAY.into(),
+            slash_exec_time: now + TWO_DAYS.into(),
             slash_result: MCSlashResult::Pending,
 
             inconsistent_committee: vec![],
@@ -1040,7 +1040,7 @@ impl<T: Config> Pallet<T> {
             report_result: ReportResultType::default(),
         };
 
-        if now.saturating_sub(report_info.first_book_time) < THREE_HOUR.into() {
+        if now.saturating_sub(report_info.first_book_time) < THREE_HOURS.into() {
             // 处理三小时之前的问题，报告人/委员会不按时提交信息的情况
             Self::summary_before_submit_raw(
                 report_id,
@@ -1252,7 +1252,7 @@ impl<T: Config> Pallet<T> {
             },
         }
 
-        Self::update_unhandled_report(report_id, true, now + TWO_DAY.into());
+        Self::update_unhandled_report(report_id, true, now + TWO_DAYS.into());
 
         if report_info.report_status != ReportStatus::Reported {
             report_info.report_status = ReportStatus::CommitteeConfirmed;

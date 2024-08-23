@@ -1,5 +1,5 @@
 use super::super::{mock::*, ReporterStakeInfo};
-use dbc_support::report::ReportStatus;
+use dbc_support::{report::ReportStatus, ONE_DAY};
 use frame_support::assert_ok;
 use once_cell::sync::Lazy;
 use std::convert::TryInto;
@@ -268,10 +268,10 @@ fn report_machine_fault_works_case1() {
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
             // NOTE: 没有任何反对的成功举报，同样需要记录
-            assert_eq!(MaintainCommittee::unhandled_report_result(374 + 2880 * 2), vec![0]);
+            assert_eq!(MaintainCommittee::unhandled_report_result(374 + ONE_DAY * 2), vec![0]);
         }
 
-        run_to_block(2880 * 2 + 374);
+        run_to_block(ONE_DAY * 2 + 374);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),
@@ -614,7 +614,7 @@ fn report_machine_fault_works_case2() {
             );
         }
 
-        run_to_block(2880 + 400);
+        run_to_block(ONE_DAY + 400);
 
         // 报告人上线机器
         assert_ok!(OnlineProfile::controller_report_online(
@@ -949,11 +949,11 @@ fn report_machine_fault_works_case3() {
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
 
-            assert_eq!(MaintainCommittee::unhandled_report_result(11 + 2880 * 2), vec![0]);
+            assert_eq!(MaintainCommittee::unhandled_report_result(11 + ONE_DAY * 2), vec![0]);
         }
 
         // 将退还质押
-        run_to_block(2880 * 2 + 11);
+        run_to_block(ONE_DAY * 2 + 11);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),
@@ -1137,7 +1137,7 @@ fn report_machine_fault_works_case4() {
                     unruly_committee: vec![*committee1],
                     committee_stake: 1000 * ONE_DBC,
                     slash_time: 11 + 480,
-                    slash_exec_time: 11 + 480 + 2880 * 2,
+                    slash_exec_time: 11 + 480 + ONE_DAY * 2,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -1150,7 +1150,7 @@ fn report_machine_fault_works_case4() {
 
         // 不退还报告人第一次质押
         // 惩罚掉委员会的质押
-        run_to_block(2880 * 2 + 11 + 4880);
+        run_to_block(ONE_DAY * 2 + 11 + 4880);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),

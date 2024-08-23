@@ -3,6 +3,7 @@ use dbc_support::verify_slash::{OPPendingSlashInfo, OPSlashReason};
 use frame_support::assert_ok;
 use once_cell::sync::Lazy;
 use std::convert::TryInto;
+use dbc_support::ONE_DAY;
 
 const controller: Lazy<sp_core::sr25519::Public> =
     Lazy::new(|| sr25519::Public::from(Sr25519Keyring::Eve));
@@ -85,7 +86,7 @@ fn report_machine_fault_fulfilling_works() {
 
         run_to_block(360 + 14);
 
-        run_to_block(2880 * 2 + 374);
+        run_to_block(ONE_DAY * 2 + 374);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),
@@ -101,15 +102,15 @@ fn report_machine_fault_fulfilling_works() {
             machine_id.clone()
         ));
         {
-            assert_eq!(OnlineProfile::pending_exec_slash(2880 * 4 + 375), vec![0],);
+            assert_eq!(OnlineProfile::pending_exec_slash(ONE_DAY * 4 + 375), vec![0],);
             assert_eq!(
                 OnlineProfile::pending_slash(0),
                 OPPendingSlashInfo {
                     slash_who: stash,
                     machine_id,
-                    slash_time: 2880 * 2 + 375,
+                    slash_time: ONE_DAY * 2 + 375,
                     slash_amount: 240000 * ONE_DBC,
-                    slash_exec_time: 2880 * 4 + 375,
+                    slash_exec_time: ONE_DAY * 4 + 375,
                     reporter: Some(*reporter),
                     renters: vec![],
                     reward_to_committee: Some(vec![*committee1]),
@@ -117,6 +118,6 @@ fn report_machine_fault_fulfilling_works() {
                 }
             );
         }
-        run_to_block(2880 * 4 + 376);
+        run_to_block(ONE_DAY * 4 + 376);
     })
 }

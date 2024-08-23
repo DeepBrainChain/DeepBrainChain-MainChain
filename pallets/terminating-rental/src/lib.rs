@@ -33,7 +33,8 @@ use dbc_support::{
         OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, StashMachine, Summary,
         VerifyResult, VerifySequence,
     },
-    BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId, TWO_DAY,
+    BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId, ONE_DAY,
+    ONE_HOUR, ONE_MINUTE, TWO_DAYS,
 };
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -50,13 +51,13 @@ use sp_std::{prelude::*, str, vec::Vec};
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_HASH_END: u32 = 4320;
+pub const SUBMIT_HASH_END: u32 = ONE_HOUR * 36;
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_RAW_START: u32 = 4320;
+pub const SUBMIT_RAW_START: u32 = ONE_HOUR * 36;
 /// Summary committee's opinion after 48 hours
-pub const SUBMIT_RAW_END: u32 = 5760;
-/// 等待30个块(15min)，用户确认是否租用成功
-pub const WAITING_CONFIRMING_DELAY: u32 = 30;
+pub const SUBMIT_RAW_END: u32 = ONE_HOUR * 48;
+/// 等待15min，用户确认是否租用成功
+pub const WAITING_CONFIRMING_DELAY: u32 = ONE_MINUTE * 15;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -822,14 +823,13 @@ pub mod pallet {
             // 确保租用时间不超过设定的限制，计算最多续费租用到
             let now = <frame_system::Pallet<T>>::block_number();
             // 最大结束块高为 今天租用开始的时间 + 60天
-            // 2880 块/天 * 60 days
             let max_rent_end =
-                now.checked_add(&(2880u32 * 60).into()).ok_or(Error::<T>::Overflow)?;
+                now.checked_add(&(ONE_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
             let wanted_rent_end = pre_rent_end + duration;
 
             // 计算实际续租了多久 (块高)
             let add_duration: T::BlockNumber =
-                if max_rent_end >= wanted_rent_end { duration } else { (2880u32 * 60).into() };
+                if max_rent_end >= wanted_rent_end { duration } else { (ONE_DAY * 60).into() };
 
             if add_duration == Zero::zero() {
                 return Ok(().into())
@@ -842,7 +842,7 @@ pub mod pallet {
             let rent_fee_value = machine_price
                 .checked_mul(add_duration.saturated_into::<u64>())
                 .ok_or(Error::<T>::Overflow)?
-                .checked_div(2880)
+                .checked_div(ONE_DAY.into())
                 .ok_or(Error::<T>::Overflow)?;
             let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
@@ -940,7 +940,7 @@ pub mod pallet {
 
             let now = <frame_system::Pallet<T>>::block_number();
             ensure!(
-                machine_info.last_online_height.saturating_add(2880u32.into()) <= now,
+                machine_info.last_online_height.saturating_add(ONE_DAY.into()) <= now,
                 Error::<T>::OfflineNotYetAllowed
             );
 
@@ -969,7 +969,7 @@ pub mod pallet {
             MachineRentOrder::<T>::remove(&machine_id);
 
             // 记录到一个变量中，检查是否已经连续下线超过了10天
-            OfflineMachines::<T>::mutate(now + 28800u32.into(), |offline_machines| {
+            OfflineMachines::<T>::mutate(now + (ONE_DAY * 10).into(), |offline_machines| {
                 ItemList::add_item(offline_machines, machine_id.clone());
             });
 
@@ -1025,7 +1025,7 @@ pub mod pallet {
 
             let now = <frame_system::Pallet<T>>::block_number();
             ensure!(
-                now.saturating_sub(machine_info.online_height) >= (365 * 2880u32).into(),
+                now.saturating_sub(machine_info.online_height) >= (365 * ONE_DAY).into(),
                 Error::<T>::TimeNotAllow
             );
 
@@ -1760,7 +1760,7 @@ impl<T: Config> Pallet<T> {
                 committee_stake: stake_per_order,
 
                 slash_time: now,
-                slash_exec_time: now + TWO_DAY.into(),
+                slash_exec_time: now + TWO_DAYS.into(),
 
                 book_result: summary.into_book_result(),
                 slash_result: OCSlashResult::Pending,

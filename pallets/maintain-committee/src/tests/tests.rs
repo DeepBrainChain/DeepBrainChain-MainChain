@@ -1,4 +1,5 @@
 use super::super::mock::*;
+use dbc_support::ONE_DAY;
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -92,7 +93,7 @@ fn test_heart_beat1() {
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 11 + 60,
-                slash_exec_time: 11 + 60 + 2880 * 2,
+                slash_exec_time: 11 + 60 + ONE_DAY * 2,
                 report_result: crate::ReportResultType::ReporterNotSubmitEncryptedInfo,
                 slash_result: crate::MCSlashResult::Pending,
                 machine_stash: None,
@@ -218,7 +219,7 @@ fn test_heart_beat2() {
         );
 
         // 惩罚
-        run_to_block(132 + 2880 * 2 + 1);
+        run_to_block(132 + ONE_DAY * 2 + 1);
     })
 }
 
@@ -504,7 +505,7 @@ fn test_apply_slash_review() {
                 reward_committee: vec![committee1],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 374,
-                slash_exec_time: 374 + 2880 * 2,
+                slash_exec_time: 374 + ONE_DAY * 2,
                 report_result: crate::ReportResultType::ReportSucceed,
                 slash_result: crate::MCSlashResult::Pending,
                 machine_stash: None,
