@@ -960,7 +960,7 @@ pub mod pallet {
             ensure!(machine_info.reward_deadline <= current_era + 365, Error::<T>::TimeNotAllowed);
             // 确保机器距离上次租用超过10天
             ensure!(
-                now.saturating_sub(machine_info.last_online_height) >= (ONE_DAY * 10).into(),
+                now.saturating_sub(machine_info.last_online_height) >= (10 * ONE_DAY).into(),
                 Error::<T>::TimeNotAllowed
             );
 

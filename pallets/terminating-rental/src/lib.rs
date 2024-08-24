@@ -51,13 +51,13 @@ use sp_std::{prelude::*, str, vec::Vec};
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_HASH_END: u32 = ONE_HOUR * 36;
+pub const SUBMIT_HASH_END: u32 = 36 * ONE_HOUR;
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_RAW_START: u32 = ONE_HOUR * 36;
+pub const SUBMIT_RAW_START: u32 = 36 * ONE_HOUR;
 /// Summary committee's opinion after 48 hours
-pub const SUBMIT_RAW_END: u32 = ONE_HOUR * 48;
+pub const SUBMIT_RAW_END: u32 = 48 * ONE_HOUR;
 /// 等待15min，用户确认是否租用成功
-pub const WAITING_CONFIRMING_DELAY: u32 = ONE_MINUTE * 15;
+pub const WAITING_CONFIRMING_DELAY: u32 = 15 * ONE_MINUTE;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -969,7 +969,7 @@ pub mod pallet {
             MachineRentOrder::<T>::remove(&machine_id);
 
             // 记录到一个变量中，检查是否已经连续下线超过了10天
-            OfflineMachines::<T>::mutate(now + (ONE_DAY * 10).into(), |offline_machines| {
+            OfflineMachines::<T>::mutate(now + (10 * ONE_DAY).into(), |offline_machines| {
                 ItemList::add_item(offline_machines, machine_id.clone());
             });
 

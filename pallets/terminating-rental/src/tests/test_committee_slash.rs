@@ -65,7 +65,7 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
                 OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee3, committee2, committee1],
-                    confirm_start_time: 36 * ONE_HOUR + 2,
+                    confirm_start_time: 2 + 36 * ONE_HOUR,
                     hashed_committee: vec![],
                     confirmed_committee: vec![],
                     onlined_committee: vec![],
@@ -120,7 +120,7 @@ fn committee_not_submit_slash_works() {
                     book_time: 2,
                     booked_committee: vec![committee3, committee2, committee1],
                     hashed_committee: vec![committee3, committee2],
-                    confirm_start_time: 36 * ONE_HOUR + 2,
+                    confirm_start_time: 2 + 36 * ONE_HOUR,
                     status: OCVerifyStatus::SubmittingRaw,
                     confirmed_committee: vec![],
                     onlined_committee: vec![]

@@ -328,7 +328,7 @@ fn report_individual_gpu() {
             assert_eq!(machine_info.total_rented_duration, 12 * ONE_HOUR);
             assert_eq!(machine_info.renters, vec![renter1]);
 
-            // clean_orderq
+            // clean_order
             // -Write: MachineRentOrder, RentEnding, RentInfo,
             // UserOrder, ConfirmingOrder
             assert_eq!(

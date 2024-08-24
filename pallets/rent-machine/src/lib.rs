@@ -31,7 +31,7 @@ type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// 等待15min，用户确认是否租用成功
-pub const WAITING_CONFIRMING_DELAY: u32 = ONE_MINUTE * 15;
+pub const WAITING_CONFIRMING_DELAY: u32 = 15 * ONE_MINUTE;
 
 pub use pallet::*;
 

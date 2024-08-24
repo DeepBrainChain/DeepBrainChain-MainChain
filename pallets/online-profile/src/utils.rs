@@ -181,12 +181,12 @@ pub fn reach_max_slash<BlockNumber>(
     };
 
     match slash_reason {
-        OPSlashReason::RentedReportOffline(_) => max_slash(120 * ONE_HOUR as u64),
+        OPSlashReason::RentedReportOffline(_) => max_slash(5 * ONE_DAY as u64),
         OPSlashReason::OnlineReportOffline(_) => max_slash(10 * ONE_DAY as u64),
-        OPSlashReason::RentedInaccessible(_) => max_slash(120 * ONE_HOUR as u64),
-        OPSlashReason::RentedHardwareMalfunction(_) => max_slash(120 * ONE_HOUR as u64),
-        OPSlashReason::RentedHardwareCounterfeit(_) => max_slash(120 * ONE_HOUR as u64),
-        OPSlashReason::OnlineRentFailed(_) => max_slash(120 * ONE_HOUR as u64),
+        OPSlashReason::RentedInaccessible(_) => max_slash(5 * ONE_DAY as u64),
+        OPSlashReason::RentedHardwareMalfunction(_) => max_slash(5 * ONE_DAY as u64),
+        OPSlashReason::RentedHardwareCounterfeit(_) => max_slash(5 * ONE_DAY as u64),
+        OPSlashReason::OnlineRentFailed(_) => max_slash(5 * ONE_DAY as u64),
         _ => false,
     }
 }

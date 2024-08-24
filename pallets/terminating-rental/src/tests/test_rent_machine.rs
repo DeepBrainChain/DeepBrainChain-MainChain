@@ -341,21 +341,21 @@ fn machine_offline_10more_days_slash_works() {
             .as_bytes()
             .to_vec();
 
-        assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + ONE_DAY * 10));
+        assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 10 * ONE_DAY));
         run_to_block(4 + ONE_DAY);
         assert_ok!(IRMachine::machine_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
         assert_eq!(
-            IRMachine::offline_machines(5 + ONE_DAY + ONE_DAY * 10),
+            IRMachine::offline_machines(5 + ONE_DAY + 10 * ONE_DAY),
             vec![machine_id.clone()]
         );
 
-        run_to_block(6 + ONE_DAY * 10 + ONE_DAY);
+        run_to_block(6 + 10 * ONE_DAY + ONE_DAY);
         {
             assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(
-                &5 + ONE_DAY * 10 + ONE_DAY
+                &5 + 10 * ONE_DAY + ONE_DAY
             ));
             let machine_info = IRMachine::machines_info(&machine_id).unwrap();
             assert_eq!(machine_info.stake_amount, 0);

@@ -1,18 +1,18 @@
 use sp_std::vec::Vec;
 
 pub const ONE_MINUTE: u32 = 10;
-pub const FIVE_MINUTES: u32 = ONE_MINUTE * 5;
-pub const SEVEN_MINUTES: u32 = ONE_MINUTE * 7;
+pub const FIVE_MINUTES: u32 = 5 * ONE_MINUTE;
+pub const SEVEN_MINUTES: u32 = 7 * ONE_MINUTE;
 
-pub const HALF_HOUR: u32 = ONE_MINUTE * 30;
-pub const ONE_HOUR: u32 = ONE_MINUTE * 60;
-pub const THREE_HOURS: u32 = ONE_HOUR * 3;
-pub const FOUR_HOURS: u32 = ONE_HOUR * 4;
+pub const HALF_HOUR: u32 = 30 * ONE_MINUTE;
+pub const ONE_HOUR: u32 = 60 * ONE_MINUTE;
+pub const THREE_HOURS: u32 = 3 * ONE_HOUR;
+pub const FOUR_HOURS: u32 = 4 * ONE_HOUR;
 
-pub const ONE_DAY: u32 = ONE_HOUR * 24;
-pub const TWO_DAYS: u32 = ONE_DAY * 2;
-pub const FIVE_DAYS: u32 = ONE_DAY * 5;
-pub const TEN_DAYS: u32 = ONE_DAY * 10;
+pub const ONE_DAY: u32 = 24 * ONE_HOUR;
+pub const TWO_DAYS: u32 = 2 * ONE_DAY;
+pub const FIVE_DAYS: u32 = 5 * ONE_DAY;
+pub const TEN_DAYS: u32 = 10 * ONE_DAY;
 
 pub type SlashId = u64;
 pub type MachineId = Vec<u8>;
