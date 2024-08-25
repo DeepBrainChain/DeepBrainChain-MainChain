@@ -452,7 +452,7 @@ fn test_apply_slash_review() {
         ));
 
         // 3个小时之后才能提交：
-        run_to_block(3 * ONE_HOUR + 13);
+        run_to_block(13 + 3 * ONE_HOUR);
 
         assert_ok!(MaintainCommittee::committee_submit_verify_raw(
             RuntimeOrigin::signed(committee1),
@@ -466,7 +466,7 @@ fn test_apply_slash_review() {
             true
         ));
 
-        run_to_block(3 * ONE_HOUR + 14);
+        run_to_block(14 + 3 * ONE_HOUR);
 
         assert_eq!(
             MaintainCommittee::report_info(0),

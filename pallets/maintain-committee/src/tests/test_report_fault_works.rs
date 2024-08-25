@@ -956,7 +956,7 @@ fn report_machine_fault_works_case3() {
         }
 
         // 将退还质押
-        run_to_block(2 * ONE_DAY + 11);
+        run_to_block(11 + 2 * ONE_DAY);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),
@@ -1153,7 +1153,7 @@ fn report_machine_fault_works_case4() {
 
         // 不退还报告人第一次质押
         // 惩罚掉委员会的质押
-        run_to_block(13 + 4 * ONE_HOUR + 2 * ONE_DAY);
+        run_to_block(11 + 4 * ONE_HOUR + 2 * ONE_DAY);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),

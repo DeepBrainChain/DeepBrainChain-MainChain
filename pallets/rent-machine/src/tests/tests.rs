@@ -350,7 +350,7 @@ fn controller_report_offline_mutiple_times_should_work() {
             machine_id.clone()
         ));
 
-        run_to_block(ONE_DAY + 20);
+        run_to_block(20 + ONE_DAY);
         assert_ok!(OnlineProfile::controller_report_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
@@ -377,7 +377,7 @@ fn controller_report_offline_mutiple_times_should_work() {
             machine_id.clone()
         ));
 
-        run_to_block(2 * ONE_DAY + 20);
+        run_to_block(20 + 2 * ONE_DAY);
         assert_ok!(OnlineProfile::controller_report_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()

@@ -249,7 +249,7 @@ fn apply_slash_review_case1_2() {
             &LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
-        run_to_block(2 * ONE_DAY + 11);
+        run_to_block(11 + 2 * ONE_DAY);
 
         // Stash apply reonline
         assert_ok!(OnlineProfile::controller_report_online(

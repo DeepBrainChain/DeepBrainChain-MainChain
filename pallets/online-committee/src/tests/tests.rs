@@ -381,7 +381,7 @@ fn machine_online_works() {
         assert_eq!(OnlineProfile::eras_machine_points(2), era_machine_points);
 
         // 过一个Era
-        run_to_block(2 * ONE_DAY + 2);
+        run_to_block(2 + 2 * ONE_DAY);
 
         // do distribute_reward
         // - Writes:
