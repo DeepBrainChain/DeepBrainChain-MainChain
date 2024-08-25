@@ -4,7 +4,7 @@ use dbc_support::{
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
     verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
     verify_online::{OCBookResultType, OCMachineCommitteeList, OCVerifyStatus, StashMachine},
-    ONE_HOUR,
+    ONE_DAY, ONE_HOUR,
 };
 
 use super::super::mock::{TerminatingRental as IRMachine, INIT_BALANCE, *};
