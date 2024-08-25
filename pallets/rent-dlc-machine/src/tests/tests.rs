@@ -100,7 +100,7 @@ fn rent_dlc_machine_should_works() {
         let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
         assert_eq!(dlc_machines_online.contains(&machine_id), false);
         assert_err!(
-            RentDlcMachine::rent_dlc_machine(
+            RentDlcMachine::
                 RuntimeOrigin::signed(*renter_dave),
                 machine_id.clone(),
                 4,
@@ -127,7 +127,7 @@ fn rent_dlc_machine_should_works() {
         //  dlc total_supply should be 10000000*ONE_DLC before rent dlc machine
         assert_eq!(Assets::total_supply(asset_id.into()), 10000000 * ONE_DLC);
 
-        assert_ok!(RentDlcMachine::rent_dlc_machine(
+        assert_ok!(RentDlcMachine::
             RuntimeOrigin::signed(*renter_dave),
             machine_id.clone(),
             4,

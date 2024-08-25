@@ -97,9 +97,9 @@ where
                 })?;
 
                 let machine_id_str =
-                    param[3].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
-                        output: "decode param[3] failed".into(),
+                        output: "decode param[0] failed".into(),
                     })?;
 
                 let report_id  = <maintain_committee::Pallet<T> as DLCMachineSlashInfoTrait>::get_dlc_machine_slashed_report_id(machine_id_str.clone().as_bytes().to_vec());

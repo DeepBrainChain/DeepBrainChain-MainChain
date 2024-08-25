@@ -243,7 +243,16 @@ pub mod pallet {
                     ItemList::rm_item(pending_confirming, &rent_id);
                 },
             );
-            RentInfo::<T>::insert(&rent_id, rent_info);
+            RentInfo::<T>::insert(&rent_id, rent_info.clone());
+
+            MachineRentedOrders::<T>::mutate(&machine_id, |machine_rented_orders| {
+                machine_rented_orders.push(MachineRentedOrderDetail {
+                    renter: renter.clone(),
+                    rent_start:rent_info.rent_start,
+                    rent_end:rent_info.rent_end,
+                    rent_id: rent_id.clone(),
+                });
+            });
 
             Self::deposit_event(Event::ConfirmRent(
                 rent_id,
@@ -385,15 +394,6 @@ impl<T: Config> Pallet<T> {
                 rentable_gpu_index,
             ),
         );
-
-        MachineRentedOrders::<T>::mutate(&machine_id, |machine_rented_orders| {
-            machine_rented_orders.push(MachineRentedOrderDetail {
-                renter: renter.clone(),
-                rent_start: now,
-                rent_end,
-                rent_id: rent_id.clone(),
-            });
-        });
 
         UserOrder::<T>::mutate(&renter, |user_order| {
             ItemList::add_item(user_order, rent_id);
