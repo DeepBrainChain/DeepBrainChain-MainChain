@@ -143,7 +143,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::from_parts(10000, 0))]
-        pub fn (
+        pub fn rent_dlc_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
             rent_gpu_num: u32,
@@ -170,7 +170,6 @@ pub mod pallet {
         GPUNotEnough,
         MachineNotFound,
 
-        DBCMachineNotRentedByOwner,
         DBCMachineRenterNotOwner,
         MachineOwnerNotRentAllGPU,
         DBCMachineNotRentedByOwner,

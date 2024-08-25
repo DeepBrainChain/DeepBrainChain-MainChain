@@ -2,6 +2,7 @@ use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 use Config;
 
 use crate::*;
+use sp_runtime::TryRuntimeError;
 use sp_std::prelude::*;
 
 const TARGET: &'static str = "online-profile-migration";
@@ -195,7 +196,7 @@ pub mod v1 {
                 );
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
                 if old.online_machine.len() as u64 != old.total_gpu_num {
-                    return Some(StashMachine { total_gpu_num: total_online_gpu_num, ..old });
+                    return Some(StashMachine { total_gpu_num: total_online_gpu_num, ..old })
                 }
             }
             Some(old)

@@ -52,8 +52,6 @@ members = [
   "pallets/rent-dlc-machine",
   "pallets/rent-dlc-machine/rpc",
   "pallets/rent-dlc-machine/rpc/runtime-api",
-
-  "runtime/src/precompiles/macro",
 ]
 
 [workspace.dependencies]
