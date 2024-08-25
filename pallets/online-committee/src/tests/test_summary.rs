@@ -581,7 +581,7 @@ fn test_machine_online_succeed_slash_execed() {
                 reward_committee: vec![*committee3, *committee1],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 11,
-                slash_exec_time: 11 + ONE_DAY * 2,
+                slash_exec_time: 11 + 2 * ONE_DAY,
                 book_result: crate::OCBookResultType::OnlineSucceed,
                 slash_result: crate::OCSlashResult::Pending,
                 machine_stash: None,
@@ -638,7 +638,7 @@ fn test_machine_online_succeed_slash_execed() {
         assert_eq!(Balances::reserved_balance(&*committee4), 20000 * ONE_DBC);
 
         // 测试执行惩罚
-        run_to_block(12 + ONE_DAY * 2);
+        run_to_block(12 + 2 * ONE_DAY);
 
         // 检查三个委员会的质押
         assert_eq!(
@@ -777,7 +777,7 @@ fn test_machine_online_failed_slash_execed() {
                 committee_stake: 1000 * ONE_DBC,
 
                 slash_time: 11,
-                slash_exec_time: 11 + ONE_DAY * 2,
+                slash_exec_time: 11 + 2 * ONE_DAY,
 
                 book_result: crate::OCBookResultType::OnlineRefused,
                 slash_result: crate::OCSlashResult::Pending,
@@ -829,7 +829,7 @@ fn test_machine_online_failed_slash_execed() {
         assert_eq!(Balances::free_balance(&*stash), (10000000 - 50) * ONE_DBC);
 
         // 测试执行惩罚
-        run_to_block(12 + ONE_DAY * 2);
+        run_to_block(12 + 2 * ONE_DAY);
         assert_eq!(
             Committee::committee_stake(&*committee1),
             committee::CommitteeStakeInfo {
@@ -978,7 +978,7 @@ fn test_machine_online_succeed_against_committee_apply_review() {
                 applicant: *committee4,
                 staked_amount: 1000 * ONE_DBC,
                 apply_time: 13,
-                expire_time: 11 + ONE_DAY * 2,
+                expire_time: 11 + 2 * ONE_DAY,
                 reason: slash_reason,
             })
         );
@@ -1049,7 +1049,7 @@ fn test_machine_noconsensus_works() {
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 12 + ONE_DAY + 12 * ONE_HOUR,
-                slash_exec_time: 12 + ONE_DAY + 12 * ONE_HOUR + ONE_DAY * 2,
+                slash_exec_time: 12 + ONE_DAY + 12 * ONE_HOUR + 2 * ONE_DAY,
                 book_result: crate::OCBookResultType::NoConsensus,
                 slash_result: crate::OCSlashResult::Pending,
                 machine_stash: None,

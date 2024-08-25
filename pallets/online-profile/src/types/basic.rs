@@ -14,7 +14,7 @@ pub const REWARD_DURATION: u32 = 365 * 2;
 /// Rebond frequency, 1 year
 pub const REBOND_FREQUENCY: u32 = 365 * ONE_DAY;
 /// Max Slash Threshold: 120h, 5 era
-pub const MAX_SLASH_THRESHOLD: u32 = ONE_DAY * 5;
+pub const MAX_SLASH_THRESHOLD: u32 = 5 * ONE_DAY;
 // PendingSlash will be exec in two days
 
 use dbc_support::custom_err::OnlineErr;

@@ -93,7 +93,7 @@ fn test_heart_beat1() {
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 11 + 30 * ONE_MINUTE,
-                slash_exec_time: 11 + 30 * ONE_MINUTE + ONE_DAY * 2,
+                slash_exec_time: 11 + 30 * ONE_MINUTE + 2 * ONE_DAY,
                 report_result: crate::ReportResultType::ReporterNotSubmitEncryptedInfo,
                 slash_result: crate::MCSlashResult::Pending,
                 machine_stash: None,
@@ -210,7 +210,7 @@ fn test_heart_beat2() {
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 11 + ONE_HOUR,
-                slash_exec_time: 11 + ONE_HOUR + ONE_DAY * 2,
+                slash_exec_time: 11 + ONE_HOUR + 2 * ONE_DAY,
                 report_result: crate::ReportResultType::ReportRefused,
                 slash_result: crate::MCSlashResult::Pending,
                 machine_stash: None,
@@ -219,7 +219,7 @@ fn test_heart_beat2() {
         );
 
         // 惩罚
-        run_to_block(11 + ONE_HOUR + ONE_DAY * 2 + 1);
+        run_to_block(11 + ONE_HOUR + 2 * ONE_DAY + 1);
     })
 }
 
@@ -505,7 +505,7 @@ fn test_apply_slash_review() {
                 reward_committee: vec![committee1],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 14 + 3 * ONE_HOUR,
-                slash_exec_time: 14 + 3 * ONE_HOUR + ONE_DAY * 2,
+                slash_exec_time: 14 + 3 * ONE_HOUR + 2 * ONE_DAY,
                 report_result: crate::ReportResultType::ReportSucceed,
                 slash_result: crate::MCSlashResult::Pending,
                 machine_stash: None,

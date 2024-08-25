@@ -127,14 +127,14 @@ fn test_machine_online_refused_after_some_online() {
                 reward_committee: vec![*committee3, *committee2, *committee4],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 14,
-                slash_exec_time: 14 + ONE_DAY * 2,
+                slash_exec_time: 14 + 2 * ONE_DAY,
                 book_result: OCBookResultType::OnlineRefused,
                 slash_result: OCSlashResult::Pending,
             })
         );
 
         // on_initialize will do slash
-        run_to_block(15 + ONE_DAY * 2);
+        run_to_block(15 + 2 * ONE_DAY);
 
         assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 4000 * ONE_DBC - 50 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 4000 * ONE_DBC);
@@ -245,14 +245,14 @@ fn test_machine_online_refused_claim_reserved() {
                 reward_committee: vec![*committee3, *committee1, *committee4],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 11,
-                slash_exec_time: 11 + ONE_DAY * 2,
+                slash_exec_time: 11 + 2 * ONE_DAY,
                 book_result: OCBookResultType::OnlineRefused,
                 slash_result: OCSlashResult::Pending,
             })
         );
 
         // 5771 on_initialize will do slash
-        run_to_block(11 + ONE_DAY * 2);
+        run_to_block(11 + 2 * ONE_DAY);
 
         assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 50 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 0);
@@ -361,11 +361,11 @@ fn test_online_refused_apply_review_ignored_works() {
                 applicant: *stash,
                 staked_amount: 1000 * ONE_DBC,
                 apply_time: 12,
-                expire_time: 11 + ONE_DAY * 2,
+                expire_time: 11 + 2 * ONE_DAY,
                 reason: vec![],
             })
         );
-        run_to_block(11 + ONE_DAY * 2);
+        run_to_block(11 + 2 * ONE_DAY);
         assert_eq!(Balances::reserved_balance(*stash), 0);
         assert_eq!(Balances::free_balance(*stash), INIT_BALANCE - 1050 * ONE_DBC);
 
@@ -473,7 +473,7 @@ fn test_online_refused_apply_review_succeed_works() {
                     applicant: *stash,
                     staked_amount: 1000 * ONE_DBC,
                     apply_time: 12,
-                    expire_time: 11 + ONE_DAY * 2,
+                    expire_time: 11 + 2 * ONE_DAY,
                     reason: vec![],
                 })
             );

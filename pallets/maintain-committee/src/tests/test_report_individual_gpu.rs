@@ -98,7 +98,7 @@ fn report_individual_gpu_inaccessible() {
         // TODO: 两个订单都是结束的状态
         {}
 
-        // run_to_block(ONE_DAY * 5);
+        // run_to_block(5 * ONE_DAY);
         // assert_eq!(1, 2);
     })
 }
@@ -106,7 +106,7 @@ fn report_individual_gpu_inaccessible() {
 #[test]
 fn report_individual_gpu_fault() {
     new_test_with_machine_two_renter().execute_with(|| {
-        run_to_block(ONE_DAY * 5);
+        run_to_block(5 * ONE_DAY);
         // assert_eq!(1, 2);
     })
 }

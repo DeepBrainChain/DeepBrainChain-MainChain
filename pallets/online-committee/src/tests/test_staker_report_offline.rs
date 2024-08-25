@@ -235,7 +235,7 @@ fn test_staker_report_offline4() {
             RuntimeOrigin::signed(*controller),
             machine_id.clone()
         ));
-        assert_eq!(OnlineProfile::pending_exec_slash(51 + ONE_DAY * (10 + 2)), vec![0]);
+        assert_eq!(OnlineProfile::pending_exec_slash(51 + (10 + 2) * ONE_DAY), vec![0]);
 
         assert_eq!(
             OnlineProfile::live_machines(),

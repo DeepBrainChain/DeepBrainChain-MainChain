@@ -141,7 +141,7 @@ fn controller_report_offline_when_online_should_work() {
                 machine_id: machine_id.clone(),
                 slash_time: 21,
                 slash_amount: 80 * ONE_DBC,
-                slash_exec_time: 21 + ONE_DAY * 2,
+                slash_exec_time: 21 + 2 * ONE_DAY,
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
@@ -155,7 +155,7 @@ fn controller_report_offline_when_online_should_work() {
         // check reserve balance
         assert_eq!(Balances::reserved_balance(*stash), 4080 * ONE_DBC);
 
-        run_to_block(22 + ONE_DAY * 2);
+        run_to_block(22 + 2 * ONE_DAY);
         assert_eq!(OnlineProfile::pending_slash(0), None);
         assert_eq!(Balances::reserved_balance(*stash), 4000 * ONE_DBC);
     })
@@ -245,7 +245,7 @@ fn controller_report_offline_when_rented_should_work() {
                 machine_id: machine_id.clone(),
                 slash_time: 21,
                 slash_amount: 8000 * ONE_DBC,
-                slash_exec_time: 21 + ONE_DAY * 2,
+                slash_exec_time: 21 + 2 * ONE_DAY,
                 reporter: None,
                 renters: vec![*renter_dave],
                 reward_to_committee: None,
@@ -258,7 +258,7 @@ fn controller_report_offline_when_rented_should_work() {
 
         assert_eq!(Balances::reserved_balance(*stash), (400000 + 8000) * ONE_DBC);
 
-        run_to_block(22 + ONE_DAY * 2);
+        run_to_block(22 + 2 * ONE_DAY);
         assert_eq!(OnlineProfile::pending_slash(0), None);
         assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
     })
@@ -308,7 +308,7 @@ fn rented_report_offline_rented_end_report_online() {
                 machine_id: machine_id.clone(),
                 slash_time: 12 + ONE_DAY + ONE_HOUR,
                 slash_amount: 16000 * ONE_DBC,
-                slash_exec_time: 12 + ONE_DAY + ONE_HOUR + ONE_DAY * 2,
+                slash_exec_time: 12 + ONE_DAY + ONE_HOUR + 2 * ONE_DAY,
                 reporter: None,
                 renters: vec![],
                 reward_to_committee: None,
@@ -377,7 +377,7 @@ fn controller_report_offline_mutiple_times_should_work() {
             machine_id.clone()
         ));
 
-        run_to_block(ONE_DAY * 2 + 20);
+        run_to_block(2 * ONE_DAY + 20);
         assert_ok!(OnlineProfile::controller_report_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
@@ -410,7 +410,7 @@ fn rent_limit_should_works() {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
-                rent_end: 11 + ONE_DAY * 60,
+                rent_end: 11 + 60 * ONE_DAY,
                 confirm_rent: 0,
                 rent_status: RentStatus::WaitingVerifying,
                 stake_amount: 1497250 * ONE_DBC,
@@ -429,7 +429,7 @@ fn rent_limit_should_works() {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
-                rent_end: 11 + ONE_DAY * 60,
+                rent_end: 11 + 60 * ONE_DAY,
                 confirm_rent: 16,
                 rent_status: RentStatus::Renting,
                 stake_amount: 0 * ONE_DBC,
@@ -446,7 +446,7 @@ fn rent_limit_should_works() {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
-                rent_end: 21 + ONE_DAY * 60,
+                rent_end: 21 + 60 * ONE_DAY,
                 confirm_rent: 16,
                 rent_status: RentStatus::Renting,
                 stake_amount: 0 * ONE_DBC,
@@ -464,7 +464,7 @@ fn rent_limit_should_works() {
                 machine_id: machine_id.clone(),
                 renter: *renter_dave,
                 rent_start: 11,
-                rent_end: 21 + ONE_DAY + ONE_DAY * 60,
+                rent_end: 21 + ONE_DAY + 60 * ONE_DAY,
                 confirm_rent: 16,
                 rent_status: RentStatus::Renting,
                 stake_amount: 0 * ONE_DBC,

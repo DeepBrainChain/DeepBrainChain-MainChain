@@ -269,12 +269,12 @@ fn report_machine_fault_works_case1() {
             );
             // NOTE: 没有任何反对的成功举报，同样需要记录
             assert_eq!(
-                MaintainCommittee::unhandled_report_result(14 + 3 * ONE_HOUR + ONE_DAY * 2),
+                MaintainCommittee::unhandled_report_result(14 + 3 * ONE_HOUR + 2 * ONE_DAY),
                 vec![0]
             );
         }
 
-        run_to_block(14 + 3 * ONE_HOUR + ONE_DAY * 2);
+        run_to_block(14 + 3 * ONE_HOUR + 2 * ONE_DAY);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),
@@ -952,11 +952,11 @@ fn report_machine_fault_works_case3() {
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
 
-            assert_eq!(MaintainCommittee::unhandled_report_result(11 + ONE_DAY * 2), vec![0]);
+            assert_eq!(MaintainCommittee::unhandled_report_result(11 + 2 * ONE_DAY), vec![0]);
         }
 
         // 将退还质押
-        run_to_block(ONE_DAY * 2 + 11);
+        run_to_block(2 * ONE_DAY + 11);
         {
             assert_eq!(
                 MaintainCommittee::reporter_stake(&*reporter),
@@ -1140,7 +1140,7 @@ fn report_machine_fault_works_case4() {
                     unruly_committee: vec![*committee1],
                     committee_stake: 1000 * ONE_DBC,
                     slash_time: 11 + 4 * ONE_HOUR,
-                    slash_exec_time: 11 + 4 * ONE_HOUR + ONE_DAY * 2,
+                    slash_exec_time: 11 + 4 * ONE_HOUR + 2 * ONE_DAY,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],

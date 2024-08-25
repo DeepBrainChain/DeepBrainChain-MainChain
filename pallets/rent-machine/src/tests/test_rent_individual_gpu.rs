@@ -269,7 +269,7 @@ fn report_individual_gpu() {
                     renter: renter1,
                     rent_start: 11,
                     confirm_rent: 11,
-                    rent_end: 11 + ONE_DAY * 2,
+                    rent_end: 11 + 2 * ONE_DAY,
                     stake_amount: 0,
                     rent_status: RentStatus::Renting,
                     gpu_num: 2,
@@ -278,7 +278,7 @@ fn report_individual_gpu() {
             );
 
             assert_eq!(RentMachine::rent_ending(11 + ONE_DAY), vec![1]);
-            assert_eq!(RentMachine::rent_ending(11 + ONE_DAY * 2), vec![0]);
+            assert_eq!(RentMachine::rent_ending(11 + 2 * ONE_DAY), vec![0]);
 
             assert_eq!(
                 OnlineProfile::sys_info(),
@@ -346,7 +346,7 @@ fn report_individual_gpu() {
         // TODO: 租用人1进行举报
 
         // 再过了一天，租用人1到期
-        run_to_block(12 + ONE_DAY * 2);
+        run_to_block(12 + 2 * ONE_DAY);
         {
             // TODO: 确保得分，等一些信息被还原
             // change_machine_status_on_rent_end

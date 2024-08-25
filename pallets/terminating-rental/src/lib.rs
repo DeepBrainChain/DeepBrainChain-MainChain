@@ -824,12 +824,12 @@ pub mod pallet {
             let now = <frame_system::Pallet<T>>::block_number();
             // 最大结束块高为 今天租用开始的时间 + 60天
             let max_rent_end =
-                now.checked_add(&(ONE_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
+                now.checked_add(&(60 * ONE_DAY).into()).ok_or(Error::<T>::Overflow)?;
             let wanted_rent_end = pre_rent_end + duration;
 
             // 计算实际续租了多久 (块高)
             let add_duration: T::BlockNumber =
-                if max_rent_end >= wanted_rent_end { duration } else { (ONE_DAY * 60).into() };
+                if max_rent_end >= wanted_rent_end { duration } else { (60 * ONE_DAY).into() };
 
             if add_duration == Zero::zero() {
                 return Ok(().into())
