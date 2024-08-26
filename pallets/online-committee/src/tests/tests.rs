@@ -597,7 +597,6 @@ fn machine_online_works() {
             OnlineProfile::live_machines(),
             LiveMachine { booked_machine: vec![machine_id.clone()], ..Default::default() }
         );
-        let x = OnlineProfile::machines_info(&machine_id);
         machine_info.machine_status = MachineStatus::CommitteeVerifying;
         assert_eq!(OnlineProfile::machines_info(&machine_id), Some(machine_info.clone()));
         assert_eq!(

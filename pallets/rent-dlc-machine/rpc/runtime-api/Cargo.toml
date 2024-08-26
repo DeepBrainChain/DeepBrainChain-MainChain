@@ -1,0 +1,23 @@
+[package]
+name = "rent-dlc-machine-runtime-api"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+
+[dependencies]
+parity-scale-codec = { workspace = true }
+sp-api = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+dbc-support = { path = "../../../support", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+  "parity-scale-codec/std",
+  "sp-api/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "dbc-support/std",
+]

@@ -46,8 +46,12 @@ members = [
   "pallets/terminating-rental/rpc/runtime-api",
   "pallets/council-reward",
   "pallets/nfts",
-
   "runtime/src/precompiles/macro",
+  "pallets/ai-project-register",
+  "pallets/dlc-machine",
+  "pallets/rent-dlc-machine",
+  "pallets/rent-dlc-machine/rpc",
+  "pallets/rent-dlc-machine/rpc/runtime-api",
 ]
 
 [workspace.dependencies]
@@ -239,6 +243,7 @@ fp-consensus = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "po
 fp-storage = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.43" }
 
 ethabi = { version = "18.0.0", default-features = false }
+env_logger = { version = "0.11.5", default-features = false }
 
 # Other (wasm)
 affix = "0.1.2"

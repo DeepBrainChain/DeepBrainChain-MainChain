@@ -117,6 +117,8 @@ where
     C::Api: online_committee_rpc::OcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: rent_machine_rpc::RmStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: terminating_rental_rpc::IrStorageRuntimeApi<Block, AccountId, Balance, BlockNumber>,
+    C::Api: rent_dlc_machine_rpc::RmDlcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
+
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     C::Api: fp_rpc::ConvertTransactionRuntimeApi<Block>,
     P: TransactionPool<Block = Block> + Sync + Send + 'static,
@@ -135,6 +137,7 @@ where
     use dbc_finality_rpc::{DbcFinality, DbcFinalityApiServer};
     use online_committee_rpc::{OcRpcApiServer, OcStorage};
     use online_profile_rpc::{OpRpcApiServer, OpStorage};
+    use rent_dlc_machine_rpc::{DlcRmRpcApiServer, DlcRmStorage};
     use rent_machine_rpc::{RmRpcApiServer, RmStorage};
     use simple_rpc_rpc::{SimpleRpcApiServer, SrStorage};
     use terminating_rental_rpc::{IrRpcApiServer, IrStorage};
@@ -186,6 +189,7 @@ where
     io.merge(OpStorage::new(client.clone()).into_rpc())?;
     io.merge(RmStorage::new(client.clone()).into_rpc())?;
     io.merge(IrStorage::new(client.clone()).into_rpc())?;
+    io.merge(DlcRmStorage::new(client.clone()).into_rpc())?;
 
     io.merge(DbcFinality::new(client.clone(), eth.frontier_backend.clone()).into_rpc())?;
 

@@ -105,6 +105,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai-project-register"
+version = "4.0.0-dev"
+dependencies = [
+ "committee",
+ "dbc-price-ocw",
+ "dbc-support",
+ "env_logger 0.11.5",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "online-profile",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-insecure-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rent-machine",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1644,6 +1671,7 @@ dependencies = [
  "online-committee-rpc",
  "online-profile-rpc",
  "pallet-transaction-payment-rpc",
+ "rent-dlc-machine-rpc",
  "rent-machine-rpc",
  "sc-chain-spec",
  "sc-client-api",
@@ -1676,6 +1704,7 @@ dependencies = [
 name = "dbc-runtime"
 version = "4.0.0-dev"
 dependencies = [
+ "ai-project-register",
  "array-bytes 4.2.0",
  "committee",
  "committee-runtime-api",
@@ -1683,6 +1712,7 @@ dependencies = [
  "dbc-price-ocw",
  "dbc-primitives",
  "dbc-support",
+ "dlc-machine",
  "ethabi",
  "evm-macro",
  "fp-evm",
@@ -1697,6 +1727,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "generic-func",
+ "hex",
  "log",
  "maintain-committee",
  "num_enum 0.5.11",
@@ -1758,6 +1789,8 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
+ "rent-dlc-machine",
+ "rent-dlc-machine-runtime-api",
  "rent-machine",
  "rent-machine-runtime-api",
  "scale-info",
@@ -1797,6 +1830,7 @@ version = "4.0.0-dev"
 dependencies = [
  "bs58",
  "frame-support",
+ "frame-system",
  "hex",
  "parity-scale-codec",
  "scale-info",
@@ -1958,6 +1992,33 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.48",
+]
+
+[[package]]
+name = "dlc-machine"
+version = "4.0.0-dev"
+dependencies = [
+ "committee",
+ "dbc-price-ocw",
+ "dbc-support",
+ "env_logger 0.11.5",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "online-profile",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-insecure-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rent-machine",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2181,6 +2242,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "env_filter"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f2c92ceda6ceec50f43169f9ee8424fe2db276791afde7b2cd8bc084cb376ab"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2191,6 +2261,16 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e13fa619b91fb2381732789fc5de83b45675e882f66623b7d8cb4f643017018d"
+dependencies = [
+ "env_filter",
+ "log",
 ]
 
 [[package]]
@@ -2588,7 +2668,7 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84f2e425d9790201ba4af4630191feac6dcc98765b118d4d18e91d23c2353866"
 dependencies = [
- "env_logger",
+ "env_logger 0.10.2",
  "log",
 ]
 
@@ -4704,9 +4784,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.20"
+version = "0.4.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
+checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 
 [[package]]
 name = "lru"
@@ -4771,6 +4851,7 @@ dependencies = [
  "committee",
  "dbc-price-ocw",
  "dbc-support",
+ "dlc-machine",
  "frame-support",
  "frame-system",
  "generic-func",
@@ -4778,12 +4859,14 @@ dependencies = [
  "once_cell",
  "online-committee",
  "online-profile",
+ "pallet-assets",
  "pallet-balances",
  "pallet-collective",
  "pallet-insecure-randomness-collective-flip",
  "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec",
+ "rent-dlc-machine",
  "rent-machine",
  "scale-info",
  "sp-core",
@@ -7410,6 +7493,62 @@ name = "regex-syntax"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
+
+[[package]]
+name = "rent-dlc-machine"
+version = "4.0.0-dev"
+dependencies = [
+ "committee",
+ "dbc-price-ocw",
+ "dbc-primitives",
+ "dbc-support",
+ "dlc-machine",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "hex",
+ "once_cell",
+ "online-committee",
+ "online-profile",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-insecure-randomness-collective-flip",
+ "pallet-timestamp",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "rent-machine",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "rent-dlc-machine-rpc"
+version = "4.0.0-dev"
+dependencies = [
+ "dbc-support",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "rent-dlc-machine-runtime-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "rent-dlc-machine-runtime-api"
+version = "4.0.0-dev"
+dependencies = [
+ "dbc-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
 
 [[package]]
 name = "rent-machine"

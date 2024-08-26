@@ -6,3 +6,4 @@
 nohup.out
 .local
 *.log
+.cargo/config.toml
