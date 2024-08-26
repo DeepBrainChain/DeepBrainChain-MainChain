@@ -67,7 +67,7 @@ where
             vec![]
         };
         let total_rented_duration =
-            ((info.total_rented_duration as u32).saturating_mul(2880)).saturated_into();
+            ((info.total_rented_duration as u32).saturating_mul(ONE_DAY)).saturated_into();
         let machine_status = match info.machine_status {
             MachineStatus::Creating => MachineStatus::Rented,
             _ => info.machine_status,

@@ -2,6 +2,7 @@ use super::super::mock::*;
 use dbc_support::{
     machine_type::MachineStatus,
     rental_type::{RentOrderDetail, RentStatus},
+    ONE_MINUTE,
 };
 use frame_support::assert_ok;
 
@@ -19,13 +20,13 @@ fn test_renters_change_works() {
             RuntimeOrigin::signed(renter1),
             machine_id.clone(),
             2,
-            60
+            30 * ONE_MINUTE
         ));
         assert_ok!(RentMachine::rent_machine(
             RuntimeOrigin::signed(renter1),
             machine_id.clone(),
             2,
-            120
+            60 * ONE_MINUTE
         ));
 
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
@@ -41,7 +42,7 @@ fn test_renters_change_works() {
                 renter: renter1,
                 rent_start: 11,
                 confirm_rent: 11,
-                rent_end: 11 + 60,
+                rent_end: 11 + 30 * ONE_MINUTE,
                 stake_amount: 0,
                 rent_status: RentStatus::Renting,
                 gpu_num: 2,
@@ -49,13 +50,13 @@ fn test_renters_change_works() {
             })
         );
 
-        run_to_block(80);
+        run_to_block(40 * ONE_MINUTE);
 
         let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Rented);
         assert_eq!(machine_info.renters, vec![renter1]);
 
-        run_to_block(140);
+        run_to_block(70 * ONE_MINUTE);
 
         let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert!(machine_info.renters.is_empty());
@@ -75,14 +76,14 @@ fn test_renters_change_works2() {
             RuntimeOrigin::signed(renter1),
             machine_id.clone(),
             2,
-            60
+            30 * ONE_MINUTE
         ));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
 
         let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert_eq!(machine_info.renters, vec![renter1]);
 
-        run_to_block(80);
+        run_to_block(40 * ONE_MINUTE);
 
         let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Online);

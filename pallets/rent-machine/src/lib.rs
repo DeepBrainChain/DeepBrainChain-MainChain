@@ -15,7 +15,7 @@ pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
     rental_type::{MachineGPUOrder, RentOrderDetail, RentStatus},
     traits::{DbcPrice, RTOps},
-    EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY,
+    EraIndex, ItemList, MachineId, RentOrderId, HALF_HOUR, ONE_DAY, ONE_MINUTE,
 };
 use frame_support::{
     dispatch::DispatchResult,
@@ -30,8 +30,8 @@ use sp_std::{prelude::*, str, vec::Vec};
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// 等待30个块(15min)，用户确认是否租用成功
-pub const WAITING_CONFIRMING_DELAY: u32 = 30;
+/// 等待15min，用户确认是否租用成功
+pub const WAITING_CONFIRMING_DELAY: u32 = 15 * ONE_MINUTE;
 
 pub use pallet::*;
 
@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
         ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
         // 租用必须是30min的整数倍
-        ensure!(duration % 60u32.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
+        ensure!(duration % HALF_HOUR.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
 
         // 检查machine_id状态是否可以租用
         ensure!(
@@ -339,7 +339,7 @@ impl<T: Config> Pallet<T> {
         let rent_fee_value = machine_price
             .checked_mul(duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
-            .checked_div(ONE_DAY as u64)
+            .checked_div(ONE_DAY.into())
             .ok_or(Error::<T>::Overflow)?;
         let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
             .ok_or(Error::<T>::Overflow)?;
@@ -422,7 +422,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
         // 最大结束块高为 今天租用开始的时间 + 60天
         // 60 days * 24 hour/day * 60 min/hour * 2 block/min
-        let max_rent_end = now.checked_add(&(ONE_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
+        let max_rent_end = now.checked_add(&(60 * ONE_DAY).into()).ok_or(Error::<T>::Overflow)?;
         let wanted_rent_end = old_rent_end + duration;
 
         // 计算实际可续租时间 (块高)
@@ -443,7 +443,7 @@ impl<T: Config> Pallet<T> {
         let rent_fee_value = machine_price
             .checked_mul(add_duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
-            .checked_div(2880)
+            .checked_div(ONE_DAY.into())
             .ok_or(Error::<T>::Overflow)?;
         let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
             .ok_or(Error::<T>::Overflow)?;

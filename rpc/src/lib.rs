@@ -67,6 +67,7 @@ pub struct FullDeps<C, P, SC, B, A: ChainApi, CT> {
     pub eth: EthDeps<C, P, A, CT, Block>,
 }
 
+/// The default eth config
 pub struct DefaultEthConfig<C, BE>(std::marker::PhantomData<(C, BE)>);
 
 impl<C, BE> fc_rpc::EthConfig<Block, C> for DefaultEthConfig<C, BE>

@@ -1,6 +1,6 @@
 use crate::{
     custom_err::ReportErr, report::ReportConfirmStatus, BoxPubkey, ItemList, MachineId,
-    RentOrderId, ReportHash, FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
+    RentOrderId, ReportHash, FIVE_MINUTES, FOUR_HOURS, ONE_MINUTE, THREE_HOURS,
 };
 use frame_support::ensure;
 use parity_scale_codec::{Decode, Encode};
@@ -184,7 +184,7 @@ where
         }
 
         // 未全部提交了原始信息且未达到了四个小时，需要继续等待
-        if now.saturating_sub(self.first_book_time) < FOUR_HOUR.into() &&
+        if now.saturating_sub(self.first_book_time) < FOUR_HOURS.into() &&
             self.hashed_committee.len() != self.confirmed_committee.len()
         {
             return false
@@ -221,9 +221,9 @@ where
             self.first_book_time = now;
             self.confirm_start = match self.machine_fault_type {
                 // 将在5分钟后开始提交委员会的验证结果
-                MachineFaultType::RentedInaccessible(..) => now + 10u32.into(),
+                MachineFaultType::RentedInaccessible(..) => now + FIVE_MINUTES.into(),
                 // 将在三个小时之后开始提交委员会的验证结果
-                _ => now + THREE_HOUR.into(),
+                _ => now + THREE_HOURS.into(),
             };
         }
 
@@ -313,7 +313,7 @@ where
 
         if matches!(self.report_status, ReportStatus::SubmittingRaw) {
             // 不到10分钟，且没全部提交确认，允许继续提交
-            if now.saturating_sub(self.first_book_time) < TEN_MINUTE.into() &&
+            if now.saturating_sub(self.first_book_time) < (10 * ONE_MINUTE).into() &&
                 self.confirmed_committee.len() < self.hashed_committee.len()
             {
                 return Err(())

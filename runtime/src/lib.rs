@@ -1322,12 +1322,7 @@ impl pallet_nfts::Config for Runtime {
     type Locker = ();
 }
 
-parameter_types! {
-    pub const BlockPerEra: u32 = 3600 * 24 / 30;
-}
-
 impl generic_func::Config for Runtime {
-    type BlockPerEra = BlockPerEra;
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
@@ -2573,5 +2568,10 @@ mod tests {
 			If the limit is too strong, maybe consider increase the limit.",
 			size,
 		);
+    }
+
+    #[test]
+    fn check_block_time() {
+        assert_eq!(DAYS, dbc_support::ONE_DAY, "make sure DAYS is equal to ONE_DAY");
     }
 }

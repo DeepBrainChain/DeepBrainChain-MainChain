@@ -1,4 +1,6 @@
-use crate::{custom_err::VerifyErr, machine_type::CommitteeUploadInfo, ItemList, MachineId};
+use crate::{
+    custom_err::VerifyErr, machine_type::CommitteeUploadInfo, ItemList, MachineId, ONE_HOUR,
+};
 use frame_support::ensure;
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -11,11 +13,11 @@ use sp_runtime::{
 use sp_std::{ops, vec, vec::Vec};
 
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_RAW_START: u32 = 4320;
+pub const SUBMIT_RAW_START: u32 = 36 * ONE_HOUR;
 /// Summary committee's opinion after 48 hours
-pub const SUBMIT_RAW_END: u32 = 5760;
+pub const SUBMIT_RAW_END: u32 = 48 * ONE_HOUR;
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_HASH_END: u32 = 4320;
+pub const SUBMIT_HASH_END: u32 = 36 * ONE_HOUR;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub struct Summary<AccountId> {

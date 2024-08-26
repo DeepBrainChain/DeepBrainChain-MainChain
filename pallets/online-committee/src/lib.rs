@@ -24,7 +24,7 @@ use dbc_support::{
         OCBookResultType, OCCommitteeMachineList, OCCommitteeOps, OCMachineCommitteeList,
         OCMachineStatus, OCVerifyStatus, Summary, VerifyResult, VerifySequence, SUBMIT_RAW_START,
     },
-    ItemList, MachineId, SlashId, TWO_DAY,
+    ItemList, MachineId, SlashId, TWO_DAYS,
 };
 use frame_support::{
     ensure,
@@ -542,7 +542,7 @@ impl<T: Config> Pallet<T> {
                 committee_stake: stake_per_order,
 
                 slash_time: now,
-                slash_exec_time: now + TWO_DAY.into(),
+                slash_exec_time: now + TWO_DAYS.into(),
 
                 book_result: summary.into_book_result(),
                 slash_result: OCSlashResult::Pending,

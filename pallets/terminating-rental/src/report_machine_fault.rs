@@ -6,13 +6,11 @@ use dbc_support::{
         ReportConfirmStatus, ReportResultType, ReportStatus, ReporterReportList,
     },
     traits::{GNOps, ManageCommittee},
-    ItemList, ReportId, ONE_HOUR, THREE_HOUR,
+    ItemList, ReportId, HALF_HOUR, ONE_HOUR, THREE_HOURS,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::ReservableCurrency};
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{vec, vec::Vec};
-
-pub const HALF_HOUR: u32 = 60;
 
 impl<T: Config> Pallet<T> {
     // Warp for SlashAndReward::slash_and_reward
@@ -319,7 +317,7 @@ impl<T: Config> Pallet<T> {
             reporter_stake: report_info.reporter_stake,
             committee_stake: committee_order_stake,
             slash_time: now,
-            slash_exec_time: now + TWO_DAY.into(),
+            slash_exec_time: now + TWO_DAYS.into(),
             slash_result: MCSlashResult::Pending,
 
             inconsistent_committee: vec![],
@@ -330,7 +328,7 @@ impl<T: Config> Pallet<T> {
             report_result: ReportResultType::default(),
         };
 
-        if now.saturating_sub(report_info.first_book_time) < THREE_HOUR.into() {
+        if now.saturating_sub(report_info.first_book_time) < THREE_HOURS.into() {
             // 处理三小时之前的问题，报告人/委员会不按时提交信息的情况
             Self::summary_before_submit_raw(
                 report_id,
@@ -505,7 +503,7 @@ impl<T: Config> Pallet<T> {
             },
         }
 
-        Self::update_unhandled_report(report_id, true, now + TWO_DAY.into());
+        Self::update_unhandled_report(report_id, true, now + TWO_DAYS.into());
 
         if report_info.report_status != ReportStatus::Reported {
             report_info.report_status = ReportStatus::CommitteeConfirmed;

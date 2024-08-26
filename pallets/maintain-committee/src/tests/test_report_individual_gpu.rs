@@ -1,5 +1,6 @@
 use super::super::mock::*;
 use crate::MachineFaultType;
+use dbc_support::{ONE_DAY, ONE_MINUTE};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -31,13 +32,13 @@ pub fn new_test_with_machine_two_renter() -> sp_io::TestExternalities {
             RuntimeOrigin::signed(renter1),
             machine_id.clone(),
             2,
-            1 * 2880
+            1 * ONE_DAY
         ));
         assert_ok!(RentMachine::rent_machine(
             RuntimeOrigin::signed(renter2),
             machine_id.clone(),
             2,
-            1 * 2880
+            1 * ONE_DAY
         ));
 
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
@@ -80,7 +81,7 @@ fn report_individual_gpu_inaccessible() {
             offline_committee_hash.clone()
         ));
 
-        run_to_block(21);
+        run_to_block(11 + 5 * ONE_MINUTE);
 
         // - Writes:
         // ReportInfo, committee_ops,
@@ -91,13 +92,13 @@ fn report_individual_gpu_inaccessible() {
             true
         ));
 
-        run_to_block(23);
+        run_to_block(13 + 5 * ONE_MINUTE);
 
         // 检查summary结果
         // TODO: 两个订单都是结束的状态
         {}
 
-        // run_to_block(2880 * 5);
+        // run_to_block(5 * ONE_DAY);
         // assert_eq!(1, 2);
     })
 }
@@ -105,7 +106,7 @@ fn report_individual_gpu_inaccessible() {
 #[test]
 fn report_individual_gpu_fault() {
     new_test_with_machine_two_renter().execute_with(|| {
-        run_to_block(2880 * 5);
+        run_to_block(5 * ONE_DAY);
         // assert_eq!(1, 2);
     })
 }

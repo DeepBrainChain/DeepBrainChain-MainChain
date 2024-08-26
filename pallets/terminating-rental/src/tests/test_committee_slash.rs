@@ -4,6 +4,7 @@ use dbc_support::{
     machine_type::{CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo},
     verify_committee_slash::{OCPendingSlashInfo, OCSlashResult},
     verify_online::{OCBookResultType, OCMachineCommitteeList, OCVerifyStatus, StashMachine},
+    ONE_DAY, ONE_HOUR,
 };
 
 use super::super::mock::{TerminatingRental as IRMachine, INIT_BALANCE, *};
@@ -64,7 +65,7 @@ pub fn new_test_after_machine_distribute() -> sp_io::TestExternalities {
                 OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee3, committee2, committee1],
-                    confirm_start_time: 4320 + 2,
+                    confirm_start_time: 2 + 36 * ONE_HOUR,
                     hashed_committee: vec![],
                     confirmed_committee: vec![],
                     onlined_committee: vec![],
@@ -109,7 +110,7 @@ fn committee_not_submit_slash_works() {
             hash2
         ));
 
-        run_to_block(3 + 4320);
+        run_to_block(3 + 36 * ONE_HOUR);
 
         // 现在机器状态将变成SubmittingRaw以允许提交原始值
         {
@@ -119,7 +120,7 @@ fn committee_not_submit_slash_works() {
                     book_time: 2,
                     booked_committee: vec![committee3, committee2, committee1],
                     hashed_committee: vec![committee3, committee2],
-                    confirm_start_time: 4320 + 2,
+                    confirm_start_time: 2 + 36 * ONE_HOUR,
                     status: OCVerifyStatus::SubmittingRaw,
                     confirmed_committee: vec![],
                     onlined_committee: vec![]
@@ -157,7 +158,7 @@ fn committee_not_submit_slash_works() {
         ));
 
         // 现在应该添加了惩罚，并且状态变为可提交原始值
-        run_to_block(4 + 4320);
+        run_to_block(4 + 36 * ONE_HOUR);
         {
             // 机器成功上线
             assert_eq!(
@@ -172,8 +173,8 @@ fn committee_not_submit_slash_works() {
                     unruly_committee: vec![committee1],
                     reward_committee: vec![committee3, committee2],
                     committee_stake: 1000 * ONE_DBC,
-                    slash_time: 4 + 4320,
-                    slash_exec_time: 4 + 4320 + 2880 * 2,
+                    slash_time: 4 + 36 * ONE_HOUR,
+                    slash_exec_time: 4 + 36 * ONE_HOUR + 2 * ONE_DAY,
                     book_result: OCBookResultType::OnlineSucceed,
                     slash_result: OCSlashResult::Pending,
                     machine_stash: None,
@@ -188,7 +189,7 @@ fn committee_not_submit_slash_works() {
         }
 
         // 自动执行惩罚: committee4 被惩罚，惩罚到国库
-        run_to_block(4 + 4320 + 2880 * 2 + 1);
+        run_to_block(4 + 36 * ONE_HOUR + 2 * ONE_DAY + 1);
         {
             assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC);
             assert_eq!(Balances::free_balance(committee2), INIT_BALANCE - 20000 * ONE_DBC);
@@ -314,7 +315,7 @@ fn machine_refused_slash_works() {
                     committee_stake: 1000 * ONE_DBC,
                     reward_committee: vec![committee3, committee2, committee1],
                     slash_time: 4,
-                    slash_exec_time: 4 + 2880 * 2,
+                    slash_exec_time: 4 + 2 * ONE_DAY,
                     book_result: OCBookResultType::OnlineRefused,
                     slash_result: OCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -323,7 +324,7 @@ fn machine_refused_slash_works() {
             );
         }
 
-        run_to_block(4 + 2880 * 2 + 1);
+        run_to_block(4 + 2 * ONE_DAY + 1);
         {
             assert_eq!(Balances::free_balance(stash), INIT_BALANCE - 10000 * ONE_DBC);
             assert_eq!(Balances::reserved_balance(stash), 0);
