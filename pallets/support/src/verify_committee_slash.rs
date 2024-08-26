@@ -31,9 +31,9 @@ impl<AccountId: PartialEq + cmp::Ord, BlockNumber, Balance>
     OCPendingSlashInfo<AccountId, BlockNumber, Balance>
 {
     pub fn applicant_is_stash(&self, stash: AccountId) -> bool {
-        self.machine_stash.is_some()
-            && self.book_result == OCBookResultType::OnlineRefused
-            && self.machine_stash == Some(stash)
+        self.machine_stash.is_some() &&
+            self.book_result == OCBookResultType::OnlineRefused &&
+            self.machine_stash == Some(stash)
     }
 
     pub fn applicant_is_committee(&self, applicant: &AccountId) -> bool {

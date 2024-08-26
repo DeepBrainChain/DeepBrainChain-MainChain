@@ -16,7 +16,7 @@ use dbc_support::{
     rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
     traits::{DbcPrice, MachineInfoTrait, RTOps},
     utils::{account_id, verify_signature},
-    EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY,
+    EraIndex, ItemList, MachineId, RentOrderId, HALF_HOUR, ONE_DAY, ONE_MINUTE,
 };
 use frame_support::{
     dispatch::DispatchResult,
@@ -31,8 +31,8 @@ use sp_std::{prelude::*, str, vec::Vec};
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// 等待30个块(15min)，用户确认是否租用成功
-pub const WAITING_CONFIRMING_DELAY: u32 = 30;
+/// 等待15min，用户确认是否租用成功
+pub const WAITING_CONFIRMING_DELAY: u32 = 15 * ONE_MINUTE;
 
 pub use pallet::*;
 
@@ -100,7 +100,6 @@ pub mod pallet {
         Vec<MachineRentedOrderDetail<T::AccountId, T::BlockNumber>>,
         ValueQuery,
     >;
-
     #[pallet::storage]
     #[pallet::getter(fn next_rent_id)]
     pub(super) type NextRentId<T: Config> = StorageValue<_, RentOrderId, ValueQuery>;
@@ -248,11 +247,12 @@ pub mod pallet {
             MachineRentedOrders::<T>::mutate(&machine_id, |machine_rented_orders| {
                 machine_rented_orders.push(MachineRentedOrderDetail {
                     renter: renter.clone(),
-                    rent_start:rent_info.rent_start,
-                    rent_end:rent_info.rent_end,
+                    rent_start: rent_info.rent_start,
+                    rent_end: rent_info.rent_end,
                     rent_id: rent_id.clone(),
                 });
             });
+            RentInfo::<T>::insert(&rent_id, rent_info);
 
             Self::deposit_event(Event::ConfirmRent(
                 rent_id,
@@ -326,19 +326,19 @@ impl<T: Config> Pallet<T> {
         let gpu_num = machine_info.gpu_num();
 
         if gpu_num == 0 || duration == Zero::zero() {
-            return Ok(().into());
+            return Ok(().into())
         }
 
         // 检查还有空闲的GPU
         ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
         // 租用必须是30min的整数倍
-        ensure!(duration % 60u32.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
+        ensure!(duration % HALF_HOUR.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
 
         // 检查machine_id状态是否可以租用
         ensure!(
-            machine_info.machine_status == MachineStatus::Online
-                || machine_info.machine_status == MachineStatus::Rented,
+            machine_info.machine_status == MachineStatus::Online ||
+                machine_info.machine_status == MachineStatus::Rented,
             Error::<T>::MachineNotRentable
         );
 
@@ -360,7 +360,7 @@ impl<T: Config> Pallet<T> {
         let rent_fee_value = machine_price
             .checked_mul(duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
-            .checked_div(ONE_DAY as u64)
+            .checked_div(ONE_DAY.into())
             .ok_or(Error::<T>::Overflow)?;
         let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
             .ok_or(Error::<T>::Overflow)?;
@@ -443,7 +443,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
         // 最大结束块高为 今天租用开始的时间 + 60天
         // 60 days * 24 hour/day * 60 min/hour * 2 block/min
-        let max_rent_end = now.checked_add(&(ONE_DAY * 60).into()).ok_or(Error::<T>::Overflow)?;
+        let max_rent_end = now.checked_add(&(60 * ONE_DAY).into()).ok_or(Error::<T>::Overflow)?;
         let wanted_rent_end = old_rent_end + duration;
 
         // 计算实际可续租时间 (块高)
@@ -454,7 +454,7 @@ impl<T: Config> Pallet<T> {
         };
 
         if add_duration == 0u32.into() {
-            return Ok(().into());
+            return Ok(().into())
         }
 
         // 计算rent_fee
@@ -464,7 +464,7 @@ impl<T: Config> Pallet<T> {
         let rent_fee_value = machine_price
             .checked_mul(add_duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
-            .checked_div(2880)
+            .checked_div(ONE_DAY.into())
             .ok_or(Error::<T>::Overflow)?;
         let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
             .ok_or(Error::<T>::Overflow)?;
@@ -506,7 +506,7 @@ impl<T: Config> Pallet<T> {
         let new_rent_id = loop {
             let new_rent_id = if rent_id == u64::MAX { 0 } else { rent_id + 1 };
             if !RentInfo::<T>::contains_key(new_rent_id) {
-                break new_rent_id;
+                break new_rent_id
             }
         };
 
@@ -551,7 +551,7 @@ impl<T: Config> Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
 
         if !<ConfirmingOrder<T>>::contains_key(now) {
-            return Ok(());
+            return Ok(())
         }
 
         let pending_confirming = Self::confirming_order(now);
@@ -637,7 +637,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_rent_finished() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<RentEnding<T>>::contains_key(now) {
-            return Ok(());
+            return Ok(())
         }
         let pending_ending = Self::rent_ending(now);
 
@@ -682,7 +682,6 @@ impl<T: Config> Pallet<T> {
         }
         Ok((machine_order_count < 2, renter_order_count < 2))
     }
-
     pub fn get_rent_ids(machine_id: MachineId, renter: &T::AccountId) -> Vec<RentOrderId> {
         let machine_orders = Self::machine_rent_order(machine_id);
 
@@ -705,10 +704,10 @@ impl<T: Config> Pallet<T> {
             if machine_order.rent_order.len() == 1 {
                 let rent_id = machine_order.rent_order[0];
                 if let Some(rent_info) = Self::rent_info(machine_order.rent_order[0]) {
-                    if rent_info.rent_status == RentStatus::Renting
-                        && rent_info.renter == machine_info.controller
+                    if rent_info.rent_status == RentStatus::Renting &&
+                        rent_info.renter == machine_info.controller
                     {
-                        return Some(rent_id);
+                        return Some(rent_id)
                     }
                 }
             }
@@ -723,7 +722,7 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
     fn get_machine_calc_point(machine_id: MachineId) -> u64 {
         let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id);
         if let Some(machine_info) = machine_info_result {
-            return machine_info.calc_point();
+            return machine_info.calc_point()
         }
         0
     }
@@ -738,7 +737,7 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
     ) -> Result<T::BlockNumber, &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed");
+            return Err("signature verify failed")
         };
 
         let renter = account_id::<T>(from.clone())?;
@@ -760,8 +759,8 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
                 if renter == rented_order.renter && rented_order.rent_end >= last_claim_at {
                     if rented_order.rent_end >= slash_at && slash_at >= last_claim_at {
                         rent_duration += slash_at - last_claim_at;
-                    } else if rented_order.rent_end < slash_at
-                        && rented_order.rent_end >= last_claim_at
+                    } else if rented_order.rent_end < slash_at &&
+                        rented_order.rent_end >= last_claim_at
                     {
                         rent_duration += rented_order.rent_end - last_claim_at
                     }
@@ -780,29 +779,29 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
     ) -> Result<bool, &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed");
+            return Err("signature verify failed")
         };
 
         let renter = account_id::<T>(from.clone())?;
         let machine_info =
             online_profile::Pallet::<T>::machines_info(machine_id).ok_or("machine not found")?;
         if machine_info.machine_status != MachineStatus::Rented {
-            return Err("machine not rented");
+            return Err("machine not rented")
         };
 
         if machine_info.controller != renter {
-            return Err("not machine owner");
+            return Err("not machine owner")
         }
 
         if machine_info.renters.len() != 1 {
-            return Err("machine renters more than one");
+            return Err("machine renters more than one")
         }
 
         if machine_info.renters.iter().find(|&r| r == &renter).is_some() {
-            return Ok(true);
+            return Ok(true)
         }
 
-        return Err("not machine renter");
+        return Err("not machine renter")
     }
 
     fn is_machine_owner(
@@ -813,13 +812,13 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
     ) -> Result<bool, &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed");
+            return Err("signature verify failed")
         };
 
         let renter = account_id::<T>(from.clone())?;
         let machine_info =
             online_profile::Pallet::<T>::machines_info(machine_id).ok_or("machine not found")?;
 
-        return Ok(machine_info.controller == renter);
+        return Ok(machine_info.controller == renter)
     }
 }

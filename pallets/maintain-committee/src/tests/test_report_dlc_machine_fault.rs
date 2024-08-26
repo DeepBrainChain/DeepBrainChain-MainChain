@@ -1,12 +1,13 @@
 use super::super::mock::*;
 use crate::{Error, MTOrderStatus, ReportStatus, ONE_DLC};
 use dbc_support::{
-    live_machine::LiveMachine, machine_type::MachineStatus, verify_slash::OPSlashReason,
+    live_machine::LiveMachine, machine_type::MachineStatus, verify_slash::OPSlashReason, ONE_DAY,
+    ONE_MINUTE,
 };
 use frame_support::{assert_err, assert_ok};
 use once_cell::sync::Lazy;
+use sp_core::H160;
 use std::convert::TryInto;
-
 // 报告机器被租用，但是无法访问
 // case1: 只有1委员会预订，同意报告
 // case2: 只有1委员会预订，拒绝报告
@@ -51,12 +52,14 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
         let rent_dlc_machine_id = rent_order_infos.rent_order[0];
         assert_eq!(RentDlcMachine::rent_info(rent_dlc_machine_id).is_some(), true);
 
+        let evm_address = H160::default();
+
         assert_err!(
             MaintainCommittee::report_dlc_machine_fault(
                 RuntimeOrigin::signed(owner),
                 machine_id.clone(),
                 rent_dlc_machine_id,
-                "xxx".as_bytes().to_vec(),
+                evm_address,
             ),
             Error::<TestRuntime>::NotDLCMachineRenter
         );
@@ -75,7 +78,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
             RuntimeOrigin::signed(dlc_renter.clone()),
             machine_id.clone(),
             rent_dlc_machine_id,
-            "xxx".as_bytes().to_vec(),
+            evm_address,
         ));
 
         assert_eq!(
@@ -116,7 +119,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
                     booked_committee: vec![],
                     get_encrypted_info_committee: vec![],
                     hashed_committee: vec![],
-                    confirm_start: 0,
+                    confirm_start: BlockNumber::default(),
                     confirmed_committee: vec![],
                     support_committee: vec![],
                     against_committee: vec![]
@@ -155,7 +158,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
                     booked_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -218,7 +221,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
                     verifying_committee: None,
                     booked_committee: vec![*committee],
                     hashed_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -252,7 +255,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
             );
         }
 
-        run_to_block(21);
+        run_to_block(11 + 5 * ONE_MINUTE);
         // - Writes:
         // ReportInfo, committee_ops,
         assert_ok!(MaintainCommittee::committee_submit_inaccessible_raw(
@@ -277,7 +280,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
                     hashed_committee: vec![*committee],
                     confirmed_committee: vec![*committee],
                     support_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -295,7 +298,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
                     hash_time: 11,
-                    confirm_time: 22,
+                    confirm_time: 12 + 5 * ONE_MINUTE,
                     confirm_result: true,
                     order_status: MTOrderStatus::Finished,
                     ..Default::default()
@@ -303,7 +306,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
             );
         }
 
-        run_to_block(23);
+        run_to_block(12 + 5 * ONE_MINUTE);
 
         // 检查summary的结果
         // summary_a_inaccessible
@@ -324,7 +327,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
                     hashed_committee: vec![*committee],
                     confirmed_committee: vec![*committee],
                     support_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -345,8 +348,8 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
                     reward_committee: vec![*committee],
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
-                    slash_time: 22,
-                    slash_exec_time: 22 + 2880 * 2,
+                    slash_time: 12 + 5 * ONE_MINUTE,
+                    slash_exec_time: 12 + 5 * ONE_MINUTE + ONE_DAY * 2,
                     report_result: crate::ReportResultType::ReportSucceed,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -364,7 +367,7 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
                     hash_time: 11,
-                    confirm_time: 22,
+                    confirm_time: 12 + 5 * ONE_MINUTE,
                     confirm_result: true,
                     order_status: crate::MTOrderStatus::Finished,
 
@@ -376,8 +379,9 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
                 &crate::MTLiveReportList { finished_report: vec![0], ..Default::default() }
             );
             let unhandled_report_result: Vec<u64> = vec![0];
+
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(22 + 2880 * 2),
+                &MaintainCommittee::unhandled_report_result(12 + 5 * ONE_MINUTE + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -403,7 +407,8 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
             );
         }
 
-        run_to_block(32 + 2880 * 2);
+        // run_to_block(1200+(12 + 5 * ONE_MINUTE) + ONE_DAY * 2);
+        run_to_block(10 + 12 + 5 * ONE_MINUTE + ONE_DAY * 2);
 
         assert_eq!(MaintainCommittee::account_id_2_reserve_dlc(dlc_renter), 0);
 
@@ -427,13 +432,14 @@ fn report_dlc_machine_refused_by_committees_should_works() {
 
         let rent_dlc_machine_id = rent_order_infos.rent_order[0];
         assert_eq!(RentDlcMachine::rent_info(rent_dlc_machine_id).is_some(), true);
+        let evm_address = H160::default();
 
         assert_err!(
             MaintainCommittee::report_dlc_machine_fault(
                 RuntimeOrigin::signed(owner),
                 machine_id.clone(),
                 rent_dlc_machine_id,
-                "xxx".as_bytes().to_vec(),
+                evm_address,
             ),
             Error::<TestRuntime>::NotDLCMachineRenter
         );
@@ -452,7 +458,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
             RuntimeOrigin::signed(dlc_renter.clone()),
             machine_id.clone(),
             rent_dlc_machine_id,
-            "xxx".as_bytes().to_vec(),
+            evm_address,
         ));
 
         assert_eq!(
@@ -527,7 +533,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
                     machine_id: machine_id.clone(),
                     verifying_committee: None,
                     booked_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -593,7 +599,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
                     verifying_committee: None,
                     booked_committee: vec![*committee],
                     hashed_committee: vec![*committee],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -628,7 +634,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
             );
         }
 
-        run_to_block(21);
+        run_to_block(11 + 5 * ONE_MINUTE);
         // - Writes:
         // ReportInfo, committee_ops,
         assert_ok!(MaintainCommittee::committee_submit_inaccessible_raw(
@@ -653,7 +659,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
                     hashed_committee: vec![*committee],
                     confirmed_committee: vec![*committee],
                     support_committee: vec![],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -671,7 +677,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
                     hash_time: 11,
-                    confirm_time: 22,
+                    confirm_time: 12 + 5 * ONE_MINUTE,
                     confirm_result: false,
                     order_status: MTOrderStatus::Finished,
                     ..Default::default()
@@ -679,7 +685,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
             );
         }
 
-        run_to_block(23);
+        run_to_block(12 + 5 * ONE_MINUTE);
 
         // 检查summary的结果
         // summary_a_inaccessible
@@ -700,7 +706,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
                     hashed_committee: vec![*committee],
                     confirmed_committee: vec![*committee],
                     support_committee: vec![],
-                    confirm_start: 11 + 10,
+                    confirm_start: 11 + 5 * ONE_MINUTE,
                     machine_fault_type: crate::MachineFaultType::RentedInaccessible(
                         machine_id.clone(),
                         0
@@ -721,8 +727,8 @@ fn report_dlc_machine_refused_by_committees_should_works() {
                     reward_committee: vec![*committee],
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
-                    slash_time: 22,
-                    slash_exec_time: 22 + 2880 * 2,
+                    slash_time: 12 + 5 * ONE_MINUTE,
+                    slash_exec_time: 12 + 5 * ONE_MINUTE + ONE_DAY * 2,
                     report_result: crate::ReportResultType::ReportRefused,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -740,7 +746,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
                     booked_time: 11,
                     confirm_hash: offline_committee_hash,
                     hash_time: 11,
-                    confirm_time: 22,
+                    confirm_time: 12 + 5 * ONE_MINUTE,
                     confirm_result: false,
                     order_status: crate::MTOrderStatus::Finished,
 
@@ -753,7 +759,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(22 + 2880 * 2),
+                &MaintainCommittee::unhandled_report_result(12 + 5 * ONE_MINUTE + ONE_DAY * 2),
                 &unhandled_report_result
             );
             assert_eq!(
@@ -771,7 +777,7 @@ fn report_dlc_machine_refused_by_committees_should_works() {
             assert_eq!(machine_info.machine_status, MachineStatus::Rented);
         }
 
-        run_to_block(32 + 2880 * 2);
+        run_to_block(10 + 12 + 5 * ONE_MINUTE + ONE_DAY * 2);
 
         assert_eq!(MaintainCommittee::account_id_2_reserve_dlc(dlc_renter), 0);
 

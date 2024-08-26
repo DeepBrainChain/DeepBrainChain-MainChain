@@ -51,7 +51,7 @@ std = [
     "pallet-balances/std",
     "pallet-insecure-randomness-collective-flip/std",
     "pallet-collective/std",
-    "sp-runtime/std"
-
+    "sp-runtime/std",
+    "online-profile/std"
 ]
 try-runtime = ["frame-support/try-runtime"]

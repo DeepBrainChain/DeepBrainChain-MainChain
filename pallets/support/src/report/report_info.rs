@@ -1,6 +1,6 @@
 use crate::{
     custom_err::ReportErr, report::ReportConfirmStatus, BoxPubkey, ItemList, MachineId,
-    RentOrderId, ReportHash, FOUR_HOUR, TEN_MINUTE, THREE_HOUR,
+    RentOrderId, ReportHash, FIVE_MINUTES, FOUR_HOURS, ONE_MINUTE, THREE_HOURS,
 };
 use frame_support::ensure;
 use parity_scale_codec::{Decode, Encode};
@@ -163,10 +163,10 @@ where
 
     pub fn can_summary_fault(&self) -> Result<(), ()> {
         // 忽略掉线的类型
-        if self.first_book_time == Zero::zero()
-            || matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..))
+        if self.first_book_time == Zero::zero() ||
+            matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..))
         {
-            return Err(());
+            return Err(())
         }
 
         Ok(())
@@ -175,19 +175,19 @@ where
     // Other fault type
     pub fn can_summary(&self, now: BlockNumber) -> bool {
         if self.first_book_time == Zero::zero() {
-            return false;
+            return false
         }
 
         // 禁止对快速报告进行检查，快速报告会处理这种情况
         if matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)) {
-            return false;
+            return false
         }
 
         // 未全部提交了原始信息且未达到了四个小时，需要继续等待
-        if now.saturating_sub(self.first_book_time) < FOUR_HOUR.into()
-            && self.hashed_committee.len() != self.confirmed_committee.len()
+        if now.saturating_sub(self.first_book_time) < FOUR_HOURS.into() &&
+            self.hashed_committee.len() != self.confirmed_committee.len()
         {
-            return false;
+            return false
         }
 
         true
@@ -196,7 +196,7 @@ where
     // Summary committee's handle result depend on support & against votes
     pub fn summary(&self) -> ReportConfirmStatus<Account> {
         if self.confirmed_committee.is_empty() {
-            return ReportConfirmStatus::NoConsensus;
+            return ReportConfirmStatus::NoConsensus
         }
 
         if self.support_committee.len() >= self.against_committee.len() {
@@ -204,7 +204,7 @@ where
                 self.support_committee.clone(),
                 self.against_committee.clone(),
                 self.err_info.clone(),
-            );
+            )
         }
         ReportConfirmStatus::Refuse(self.support_committee.clone(), self.against_committee.clone())
     }
@@ -221,20 +221,19 @@ where
             self.first_book_time = now;
             self.confirm_start = match self.machine_fault_type {
                 // 将在5分钟后开始提交委员会的验证结果
-                MachineFaultType::RentedInaccessible(..) => now + 10u32.into(),
+                MachineFaultType::RentedInaccessible(..) => now + FIVE_MINUTES.into(),
                 // 将在三个小时之后开始提交委员会的验证结果
-                _ => now + THREE_HOUR.into(),
+                _ => now + THREE_HOURS.into(),
             };
         }
 
         self.report_status = match self.machine_fault_type {
-            MachineFaultType::RentedInaccessible(..) => {
+            MachineFaultType::RentedInaccessible(..) =>
                 if self.booked_committee.len() == 3 {
                     ReportStatus::Verifying
                 } else {
                     ReportStatus::WaitingBook
-                }
-            },
+                },
             _ => {
                 // 仅在不是RentedInaccessible时进行记录，因为这些情况只能一次有一个验证委员会
                 self.verifying_committee = Some(committee);
@@ -300,24 +299,24 @@ where
     pub fn can_summary_inaccessible(&self, now: BlockNumber) -> Result<(), ()> {
         // 仅处理被抢单的报告
         if self.first_book_time == Zero::zero() {
-            return Err(());
+            return Err(())
         }
         // 仅处理Inaccessible的情况
         if !matches!(self.machine_fault_type, MachineFaultType::RentedInaccessible(..)) {
-            return Err(());
+            return Err(())
         }
 
         // 忽略未被抢单的报告或已完成的报告
         if matches!(self.report_status, ReportStatus::Reported | ReportStatus::CommitteeConfirmed) {
-            return Err(());
+            return Err(())
         }
 
         if matches!(self.report_status, ReportStatus::SubmittingRaw) {
             // 不到10分钟，且没全部提交确认，允许继续提交
-            if now.saturating_sub(self.first_book_time) < TEN_MINUTE.into()
-                && self.confirmed_committee.len() < self.hashed_committee.len()
+            if now.saturating_sub(self.first_book_time) < (10 * ONE_MINUTE).into() &&
+                self.confirmed_committee.len() < self.hashed_committee.len()
             {
-                return Err(());
+                return Err(())
             }
         }
 
@@ -381,9 +380,9 @@ impl Default for MachineFaultType {
 impl MachineFaultType {
     pub fn get_hash(self) -> Option<ReportHash> {
         match self {
-            MachineFaultType::RentedHardwareMalfunction(hash, ..)
-            | MachineFaultType::RentedHardwareCounterfeit(hash, ..)
-            | MachineFaultType::OnlineRentFailed(hash, ..) => Some(hash),
+            MachineFaultType::RentedHardwareMalfunction(hash, ..) |
+            MachineFaultType::RentedHardwareCounterfeit(hash, ..) |
+            MachineFaultType::OnlineRentFailed(hash, ..) => Some(hash),
             MachineFaultType::RentedInaccessible(..) => None,
         }
     }

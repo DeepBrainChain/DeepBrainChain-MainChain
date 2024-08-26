@@ -7,8 +7,10 @@ use dbc_support::{
     traits::MTOps,
     ReportId,
 };
-use frame_support::traits::tokens::Preservation;
-use frame_support::{traits::fungibles::Mutate, IterableStorageMap};
+use frame_support::{
+    traits::{fungibles::Mutate, tokens::Preservation},
+    IterableStorageMap,
+};
 use sp_runtime::{SaturatedConversion, Saturating};
 use sp_std::{vec, vec::Vec};
 
@@ -58,7 +60,7 @@ impl<T: Config> Pallet<T> {
                             &account_id_for_reserve_dlc,
                             &reporter,
                             reserve_amount,
-                            Preservation::Protect,
+                            Preservation::Expendable,
                         )
                         .map_err(|_| ())?;
 
@@ -73,8 +75,8 @@ impl<T: Config> Pallet<T> {
                 },
                 // NoConsensus means no committee confirm confirmation, should be slashed all
                 ReportResultType::NoConsensus => {},
-                ReportResultType::ReportRefused
-                | ReportResultType::ReporterNotSubmitEncryptedInfo => {
+                ReportResultType::ReportRefused |
+                ReportResultType::ReporterNotSubmitEncryptedInfo => {
                     if !Self::is_dlc_machine_fault_report(report_result_info.report_id) {
                         // 惩罚报告人
                         let _ = Self::slash_and_reward(
@@ -114,7 +116,7 @@ impl<T: Config> Pallet<T> {
                             report_id.clone(),
                             reporter_evm_address.clone(),
                             report_result_info.slash_exec_time.saturated_into::<u64>(),
-                        ));
+                        ))
                     };
                     None
                 });
@@ -140,7 +142,7 @@ impl<T: Config> Pallet<T> {
             let report_result_info = Self::report_result(&a_pending_review).ok_or(())?;
 
             if review_info.expire_time < now {
-                continue;
+                continue
             }
 
             let is_slashed_reporter =
@@ -180,8 +182,8 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_dlc_machine_fault_report(report_id: ReportId) -> bool {
         if let Some(report_info) = Self::report_info(report_id) {
-            return report_info.reporter_stake == 0u32.into();
+            return report_info.reporter_stake == 0u32.into()
         }
-        return false;
+        return false
     }
 }

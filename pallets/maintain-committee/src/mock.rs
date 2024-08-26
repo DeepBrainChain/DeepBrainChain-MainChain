@@ -1,26 +1,33 @@
 use crate as maintain_committee;
+use crate::ONE_DLC;
 use dbc_price_ocw::MAX_LEN;
-use dbc_support::machine_type::{
-    CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
+use dbc_support::{
+    machine_type::{
+        CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
+    },
+    traits::DLCMachineReportStakingTrait,
+    ONE_DAY,
 };
 use frame_support::{
     assert_ok,
     pallet_prelude::Weight,
     parameter_types,
-    traits::{ConstU32, OnFinalize, OnInitialize},
+    traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, OnFinalize, OnInitialize},
     PalletId,
 };
 pub use frame_system::RawOrigin;
-use frame_system::{EnsureRoot, EnsureWithSuccess};
+use frame_system::{EnsureRoot, EnsureSigned, EnsureWithSuccess};
+use parity_scale_codec::Compact;
+use sp_core::Pair;
 pub use sp_core::{
     sr25519::{self, Signature},
     H256,
 };
-pub use sp_keyring::{
-    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
-};
+pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
+use sp_keyring::AccountKeyring::Eve;
 use sp_runtime::{
-    testing::{Header, TestXt},
+    generic::Header,
+    testing::TestXt,
     traits::{BlakeTwo256, IdentityLookup, Verify},
     Perbill, Permill,
 };
@@ -34,12 +41,12 @@ type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub const ONE_DBC: u128 = 1_000_000_000_000_000;
 // 初始1000WDBC
 pub const INIT_BALANCE: u128 = 10_000_000 * ONE_DBC;
-pub type BlockNumber = u64;
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 30_000;
+pub type BlockNumber = u32;
 
 parameter_types! {
-    pub const BlockHashCount: u64 = 250;
+    pub const BlockHashCount: BlockNumber = 250;
     pub const SS58Prefix: u8 = 42;
 }
 
@@ -51,12 +58,12 @@ impl frame_system::Config for TestRuntime {
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Index = u64;
-    type BlockNumber = u64;
+    type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = sr25519::Public;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Header = Header<BlockNumber, BlakeTwo256>;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -129,12 +136,7 @@ where
     type Extrinsic = TestExtrinsic;
 }
 
-parameter_types! {
-    pub const BlockPerEra: u32 = 3600 * 24 / 30;
-}
-
 impl generic_func::Config for TestRuntime {
-    type BlockPerEra = BlockPerEra;
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
@@ -145,7 +147,7 @@ impl generic_func::Config for TestRuntime {
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub const ProposalBondMinimum: u64 = 1;
-    pub const SpendPeriod: u64 = 2;
+    pub const SpendPeriod: BlockNumber = 2;
     pub const Burn: Permill = Permill::from_percent(50);
     pub const DataDepositPerByte: u64 = 1;
     pub const TreasuryModuleId: PalletId = PalletId(*b"py/trsry");
@@ -173,13 +175,16 @@ impl pallet_treasury::Config for TestRuntime {
 }
 
 parameter_types! {
-    pub const CouncilMotionDuration: u32 = 5 * 2880;
+    pub const CouncilMotionDuration: u32 = 5 * ONE_DAY;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 100;
     pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights::simple_max(Weight::MAX);
     pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 
+impl dlc_machine::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
+}
 type TechnicalCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
     type RuntimeOrigin = RuntimeOrigin;
@@ -246,6 +251,8 @@ impl maintain_committee::Config for TestRuntime {
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<Self::AccountId, TechnicalCollective, 2, 3>;
     type SlashAndReward = GenericFunc;
+    type AssetId = u32;
+    type DLCAssetId = ConstU32<88>;
 }
 
 impl rent_machine::Config for TestRuntime {
@@ -253,6 +260,50 @@ impl rent_machine::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RTOps = OnlineProfile;
     type DbcPrice = DBCPriceOCW;
+}
+
+impl rent_dlc_machine::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
+    type RTOps = OnlineProfile;
+    type DbcPrice = DBCPriceOCW;
+    type AssetId = u32;
+    type DLCAssetId = ConstU32<88>;
+}
+
+pub const DBCS: Balance = 1_000_000_000_000_000;
+pub const DOLLARS: Balance = DBCS / 100;
+
+parameter_types! {
+    pub const AssetDeposit: Balance = 100 * DOLLARS;
+    pub const ApprovalDeposit: Balance = 1 * DOLLARS;
+    pub const StringLimit: u32 = 50;
+    pub const MetadataDepositBase: Balance = 10 * DOLLARS;
+    pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
+
+    pub const AssetLockLimit: u32 = 1000;
+}
+impl pallet_assets::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
+    type Balance = u128;
+    type AssetId = u32;
+    type AssetIdParameter = Compact<u32>;
+    type Currency = Balances;
+    type CreateOrigin =
+        AsEnsureOriginWithArg<EnsureSigned<<TestRuntime as frame_system::Config>::AccountId>>;
+    type ForceOrigin = EnsureRoot<<TestRuntime as frame_system::Config>::AccountId>;
+    type AssetDeposit = AssetDeposit;
+    type AssetAccountDeposit = ConstU128<DOLLARS>;
+    type MetadataDepositBase = MetadataDepositBase;
+    type MetadataDepositPerByte = MetadataDepositPerByte;
+    type ApprovalDeposit = ApprovalDeposit;
+    type StringLimit = StringLimit;
+    type Freezer = ();
+    type Extra = ();
+    type CallbackHandle = ();
+    type WeightInfo = pallet_assets::weights::SubstrateWeight<TestRuntime>;
+    type RemoveItemsLimit = ConstU32<1000>;
+    // #[cfg(feature = "runtime-benchmarks")]
+    // type BenchmarkHelper = ();
 }
 
 // Configure a mock runtime to test the pallet.
@@ -275,6 +326,9 @@ frame_support::construct_runtime!(
         MaintainCommittee: maintain_committee,
         TechnicalCommittee: pallet_collective::<Instance2>,
         RentMachine: rent_machine,
+        RentDlcMachine: rent_dlc_machine,
+        DlcMachine: dlc_machine,
+        Assets: pallet_assets,
     }
 );
 
@@ -287,7 +341,7 @@ pub fn run_to_block(n: BlockNumber) {
         MaintainCommittee::on_finalize(b);
         System::on_finalize(b);
         RandomnessCollectiveFlip::on_finalize(b);
-        Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
+        Timestamp::set_timestamp(System::block_number() as u64 * BLOCK_TIME + INIT_TIMESTAMP);
 
         System::set_block_number(b + 1);
 
@@ -325,7 +379,7 @@ pub fn new_test_with_init_machine_online() -> sp_io::TestExternalities {
 
     let mut ext = sp_io::TestExternalities::from(storage);
     ext.execute_with(|| {
-        Timestamp::set_timestamp(System::block_number() * 30000 + INIT_TIMESTAMP);
+        Timestamp::set_timestamp(System::block_number() as u64 * BLOCK_TIME + INIT_TIMESTAMP);
 
         // 初始化设置参数
         // 委员会每次抢单质押数量 (15$)
@@ -553,7 +607,7 @@ pub fn new_test_with_init_params_ext() -> sp_io::TestExternalities {
             RuntimeOrigin::signed(reporter),
             machine_id.clone(),
             4,
-            1 * 2880
+            1 * ONE_DAY
         ));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter), 0));
     });
@@ -577,17 +631,73 @@ pub fn new_test_with_init_params_ext_1() -> sp_io::TestExternalities {
             RuntimeOrigin::signed(reporter),
             machine_id.clone(),
             2,
-            1 * 2880
+            1 * ONE_DAY
         ));
 
         assert_ok!(RentMachine::rent_machine(
             RuntimeOrigin::signed(reporter1),
             machine_id.clone(),
             2,
-            2 * 2880
+            2 * ONE_DAY
         ));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter), 0));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter1), 1));
+    });
+
+    ext
+}
+
+pub fn new_test_with_init_dlc_rent_params_ext() -> sp_io::TestExternalities {
+    let eve = sp_core::sr25519::Pair::from(Eve);
+    let msg: Vec<u8> = b"abc".to_vec();
+    let eve_sig = eve.sign(&msg[..]);
+
+    let mut ext = new_test_with_init_machine_online();
+    ext.execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        let reporter = sr25519::Public::from(Sr25519Keyring::Eve);
+        // rent machine for 1 days
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(reporter),
+            machine_id.clone(),
+            4,
+            1 * ONE_DAY
+        ));
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(reporter), 0));
+
+        let dlc_renter = sr25519::Public::from(Sr25519Keyring::Two);
+
+        let asset_id = RentDlcMachine::get_dlc_asset_id_parameter();
+        assert_ok!(Assets::create(RuntimeOrigin::signed(dlc_renter), asset_id, dlc_renter, 1));
+        assert_ok!(Assets::mint(
+            RuntimeOrigin::signed(dlc_renter),
+            asset_id,
+            dlc_renter,
+            10_000_000 * ONE_DLC
+        ));
+
+        assert_eq!(Assets::balance(asset_id.into(), dlc_renter), 10_000_000 * ONE_DLC);
+
+        assert_ok!(
+            <dlc_machine::Pallet<TestRuntime> as DLCMachineReportStakingTrait>::report_dlc_staking(
+                msg,
+                eve_sig,
+                Eve.public(),
+                machine_id.clone()
+            )
+        );
+        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
+        assert_eq!(dlc_machines_online.contains(&machine_id), true);
+
+        assert_ok!(RentDlcMachine::rent_dlc_machine(
+            RuntimeOrigin::signed(dlc_renter),
+            machine_id.clone(),
+            4,
+            1 * ONE_DAY * 2
+        ));
     });
 
     ext

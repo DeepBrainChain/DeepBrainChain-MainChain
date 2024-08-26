@@ -1,6 +1,5 @@
 use crate as rent_dlc_machine;
 use dbc_price_ocw::MAX_LEN;
-pub use dbc_primitives::AccountId;
 use dbc_support::machine_type::{
     CommitteeUploadInfo, Latitude, Longitude, StakerCustomizeInfo, StandardGpuPointPrice,
 };
@@ -8,6 +7,7 @@ use dbc_support::machine_type::{
 use frame_support::{
     assert_ok, parameter_types,
     traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, OnFinalize, OnInitialize},
+    weights::Weight,
     PalletId,
 };
 use frame_system::{EnsureRoot, EnsureSigned, EnsureWithSuccess, RawOrigin};
@@ -16,9 +16,7 @@ pub use sp_core::{
     sr25519::{self, Signature},
     H256,
 };
-pub use sp_keyring::{
-    ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
-};
+pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, Verify},
@@ -87,6 +85,11 @@ impl pallet_balances::Config for TestRuntime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type HoldIdentifier = ();
+    type MaxHolds = ConstU32<2>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for TestRuntime {}
@@ -131,6 +134,8 @@ parameter_types! {
     pub const CouncilMotionDuration: u32 = 5 * 2880;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 100;
+    pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights::simple_max(Weight::MAX);
+    pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 
 type TechnicalCollective = pallet_collective::Instance2;
@@ -144,6 +149,8 @@ impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<TestRuntime>;
     type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+
+    type MaxProposalWeight = MaxProposalWeight;
 }
 
 parameter_types! {
@@ -233,7 +240,6 @@ where
 }
 
 impl generic_func::Config for TestRuntime {
-    type BlockPerEra = BlockPerEra;
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
@@ -284,7 +290,6 @@ impl pallet_assets::Config for TestRuntime {
     type CallbackHandle = ();
     type WeightInfo = pallet_assets::weights::SubstrateWeight<TestRuntime>;
     type RemoveItemsLimit = ConstU32<1000>;
-    type AssetLockLimit = AssetLockLimit;
     // #[cfg(feature = "runtime-benchmarks")]
     // type BenchmarkHelper = ();
 }

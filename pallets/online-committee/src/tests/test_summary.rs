@@ -1,7 +1,9 @@
 use super::super::{mock::*, *};
 use crate::tests::{committee1, committee2, committee3, committee4, stash};
 use committee::CommitteeStakeInfo;
-use dbc_support::{live_machine::LiveMachine, machine_type::CommitteeUploadInfo};
+use dbc_support::{
+    live_machine::LiveMachine, machine_type::CommitteeUploadInfo, ONE_DAY, ONE_HOUR,
+};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -579,7 +581,7 @@ fn test_machine_online_succeed_slash_execed() {
                 reward_committee: vec![*committee3, *committee1],
                 committee_stake: 1000 * ONE_DBC,
                 slash_time: 11,
-                slash_exec_time: 11 + 2880 * 2,
+                slash_exec_time: 11 + 2 * ONE_DAY,
                 book_result: crate::OCBookResultType::OnlineSucceed,
                 slash_result: crate::OCSlashResult::Pending,
                 machine_stash: None,
@@ -636,7 +638,7 @@ fn test_machine_online_succeed_slash_execed() {
         assert_eq!(Balances::reserved_balance(&*committee4), 20000 * ONE_DBC);
 
         // 测试执行惩罚
-        run_to_block(12 + 2880 * 2);
+        run_to_block(12 + 2 * ONE_DAY);
 
         // 检查三个委员会的质押
         assert_eq!(
@@ -775,7 +777,7 @@ fn test_machine_online_failed_slash_execed() {
                 committee_stake: 1000 * ONE_DBC,
 
                 slash_time: 11,
-                slash_exec_time: 11 + 2880 * 2,
+                slash_exec_time: 11 + 2 * ONE_DAY,
 
                 book_result: crate::OCBookResultType::OnlineRefused,
                 slash_result: crate::OCSlashResult::Pending,
@@ -827,7 +829,7 @@ fn test_machine_online_failed_slash_execed() {
         assert_eq!(Balances::free_balance(&*stash), (10000000 - 50) * ONE_DBC);
 
         // 测试执行惩罚
-        run_to_block(12 + 2880 * 2);
+        run_to_block(12 + 2 * ONE_DAY);
         assert_eq!(
             Committee::committee_stake(&*committee1),
             committee::CommitteeStakeInfo {
@@ -976,7 +978,7 @@ fn test_machine_online_succeed_against_committee_apply_review() {
                 applicant: *committee4,
                 staked_amount: 1000 * ONE_DBC,
                 apply_time: 13,
-                expire_time: 11 + 2880 * 2,
+                expire_time: 11 + 2 * ONE_DAY,
                 reason: slash_reason,
             })
         );
@@ -1023,7 +1025,7 @@ fn test_machine_noconsensus_works() {
         ));
 
         // 无共识，机器将重新分派，并惩罚未完成工作的委员会
-        run_to_block(11 + 2880 + 1440); // 4331
+        run_to_block(11 + ONE_DAY + 12 * ONE_HOUR); // 4331
 
         // 委员会提交原始信息
         assert_ok!(OnlineCommittee::submit_confirm_raw(
@@ -1036,7 +1038,7 @@ fn test_machine_noconsensus_works() {
         ));
 
         // 这个块高时，既发放奖励，又重新分派
-        run_to_block(11 + 2880 + 1440 + 1);
+        run_to_block(11 + ONE_DAY + 12 * ONE_HOUR + 1);
 
         assert_eq!(
             OnlineCommittee::pending_slash(0),
@@ -1046,8 +1048,8 @@ fn test_machine_noconsensus_works() {
                 unruly_committee: vec![*committee4],
                 reward_committee: vec![],
                 committee_stake: 1000 * ONE_DBC,
-                slash_time: 4332,
-                slash_exec_time: 4332 + 2880 * 2,
+                slash_time: 12 + ONE_DAY + 12 * ONE_HOUR,
+                slash_exec_time: 12 + ONE_DAY + 12 * ONE_HOUR + 2 * ONE_DAY,
                 book_result: crate::OCBookResultType::NoConsensus,
                 slash_result: crate::OCSlashResult::Pending,
                 machine_stash: None,
@@ -1058,10 +1060,10 @@ fn test_machine_noconsensus_works() {
         assert_eq!(
             OnlineCommittee::machine_committee(&machine_id),
             OCMachineCommitteeList {
-                book_time: 4332,
+                book_time: 12 + ONE_DAY + 12 * ONE_HOUR,
                 booked_committee: vec![*committee3, *committee2, *committee4],
                 hashed_committee: vec![],
-                confirm_start_time: 8652,
+                confirm_start_time: 12 + ONE_DAY + 12 * ONE_HOUR + 36 * ONE_HOUR,
                 confirmed_committee: vec![],
                 onlined_committee: vec![],
                 status: OCVerifyStatus::default(),

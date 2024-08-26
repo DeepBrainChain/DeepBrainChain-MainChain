@@ -21,7 +21,7 @@ impl<T: Config> Pallet<T> {
         for order_id in machine_order.rent_order {
             if let Some(rent_info) = Self::rent_info(order_id) {
                 if rent_info.renter == renter {
-                    return true;
+                    return true
                 }
             }
         }

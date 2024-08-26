@@ -1,4 +1,6 @@
-use crate::{custom_err::VerifyErr, machine_type::CommitteeUploadInfo, ItemList, MachineId};
+use crate::{
+    custom_err::VerifyErr, machine_type::CommitteeUploadInfo, ItemList, MachineId, ONE_HOUR,
+};
 use frame_support::ensure;
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -11,11 +13,11 @@ use sp_runtime::{
 use sp_std::{ops, vec, vec::Vec};
 
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_RAW_START: u32 = 4320;
+pub const SUBMIT_RAW_START: u32 = 36 * ONE_HOUR;
 /// Summary committee's opinion after 48 hours
-pub const SUBMIT_RAW_END: u32 = 5760;
+pub const SUBMIT_RAW_END: u32 = 48 * ONE_HOUR;
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_HASH_END: u32 = 4320;
+pub const SUBMIT_HASH_END: u32 = 36 * ONE_HOUR;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 pub struct Summary<AccountId> {
@@ -63,7 +65,7 @@ impl Default for VerifyResult {
 impl<AccountId: Clone + Ord> Summary<AccountId> {
     pub fn should_slash_committee(&self) -> bool {
         if !self.unruly.is_empty() {
-            return true;
+            return true
         }
         match self.verify_result {
             VerifyResult::NoConsensus => false,
@@ -277,8 +279,8 @@ where
     }
 
     pub fn can_submit_raw(&self, now: BlockNumber) -> bool {
-        matches!(self.status, OCVerifyStatus::SubmittingHash)
-            && now >= self.book_time + SUBMIT_RAW_START.into()
+        matches!(self.status, OCVerifyStatus::SubmittingHash) &&
+            now >= self.book_time + SUBMIT_RAW_START.into()
     }
 
     pub fn submit_raw(&mut self, time: BlockNumber, committee: AccountId) -> Result<(), VerifyErr> {
@@ -297,9 +299,9 @@ where
 
     // 是Summarizing的状态或 是SummitingRaw 且在有效时间内
     pub fn can_summary(&mut self, now: BlockNumber) -> bool {
-        matches!(self.status, OCVerifyStatus::Summarizing)
-            || matches!(self.status, OCVerifyStatus::SubmittingRaw)
-                && now >= self.book_time + SUBMIT_RAW_END.into()
+        matches!(self.status, OCVerifyStatus::Summarizing) ||
+            matches!(self.status, OCVerifyStatus::SubmittingRaw) &&
+                now >= self.book_time + SUBMIT_RAW_END.into()
     }
 
     // 记录没有提交原始信息的委员会

@@ -45,5 +45,6 @@ std = [
     "frame-system/std",
     "sp-std/std",
     "sp-core/std",
+    "online-profile/std"
 ]
 try-runtime = ["frame-support/try-runtime"]

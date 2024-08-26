@@ -256,9 +256,8 @@ impl StaticLookup for EvmAddressMapping {
 
     fn lookup(a: Self::Source) -> Result<Self::Target, LookupError> {
         match a {
-            MultiAddress::Address20(i) => {
-                Ok(HashedAddressMapping::<BlakeTwo256>::into_account_id(H160::from(&i)).into())
-            },
+            MultiAddress::Address20(i) =>
+                Ok(HashedAddressMapping::<BlakeTwo256>::into_account_id(H160::from(&i)).into()),
             _ => Err(LookupError),
         }
     }
@@ -361,10 +360,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::Any => true,
             ProxyType::NonTransfer => !matches!(
                 c,
-                RuntimeCall::Balances(..)
-                    | RuntimeCall::Assets(..)
-                    | RuntimeCall::Nfts(..)
-                    | RuntimeCall::Indices(pallet_indices::Call::transfer { .. })
+                RuntimeCall::Balances(..) |
+                    RuntimeCall::Assets(..) |
+                    RuntimeCall::Nfts(..) |
+                    RuntimeCall::Indices(pallet_indices::Call::transfer { .. })
             ),
             ProxyType::Governance => matches!(
                 c,
@@ -721,8 +720,8 @@ impl Get<Option<BalancingConfig>> for OffchainRandomBalancing {
             max => {
                 let seed = sp_io::offchain::random_seed();
                 let random = <u32>::decode(&mut TrailingZeroInput::new(&seed))
-                    .expect("input is padded with zeroes; qed")
-                    % max.saturating_add(1);
+                    .expect("input is padded with zeroes; qed") %
+                    max.saturating_add(1);
                 random as usize
             },
         };
@@ -1323,12 +1322,7 @@ impl pallet_nfts::Config for Runtime {
     type Locker = ();
 }
 
-parameter_types! {
-    pub const BlockPerEra: u32 = 3600 * 24 / 30;
-}
-
 impl generic_func::Config for Runtime {
-    type BlockPerEra = BlockPerEra;
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
@@ -1797,9 +1791,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         len: usize,
     ) -> Option<TransactionValidity> {
         match self {
-            RuntimeCall::Ethereum(call) => {
-                call.validate_self_contained(signed_info, dispatch_info, len)
-            },
+            RuntimeCall::Ethereum(call) =>
+                call.validate_self_contained(signed_info, dispatch_info, len),
             _ => None,
         }
     }
@@ -1811,9 +1804,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         len: usize,
     ) -> Option<Result<(), TransactionValidityError>> {
         match self {
-            RuntimeCall::Ethereum(call) => {
-                call.pre_dispatch_self_contained(info, dispatch_info, len)
-            },
+            RuntimeCall::Ethereum(call) =>
+                call.pre_dispatch_self_contained(info, dispatch_info, len),
             _ => None,
         }
     }
@@ -1823,11 +1815,10 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         info: Self::SignedInfo,
     ) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
         match self {
-            call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) => {
+            call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) =>
                 Some(call.dispatch(RuntimeOrigin::from(
                     pallet_ethereum::RawOrigin::EthereumTransaction(info),
-                )))
-            },
+                ))),
             _ => None,
         }
     }
@@ -2616,5 +2607,10 @@ mod tests {
 			If the limit is too strong, maybe consider increase the limit.",
 			size,
 		);
+    }
+
+    #[test]
+    fn check_block_time() {
+        assert_eq!(DAYS, dbc_support::ONE_DAY, "make sure DAYS is equal to ONE_DAY");
     }
 }

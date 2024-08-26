@@ -34,7 +34,6 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type Currency: ReservableCurrency<Self::AccountId>;
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-        type BlockPerEra: Get<u32>;
         type RandomnessSource: Randomness<H256, BlockNumberFor<Self>>;
         type FixedTxFee: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -78,7 +77,7 @@ pub mod pallet {
             match frequency {
                 Some(frequency) => {
                     if frequency.1 == 0u32.into() {
-                        return weight;
+                        return weight
                     }
                     if block_number % frequency.1 == 0u32.into() {
                         Self::auto_destroy(frequency.0);
@@ -250,7 +249,7 @@ impl<T: Config> Pallet<T> {
         let free_balance = T::Currency::free_balance(&who);
         let fixed_tx_fee = Self::fixed_tx_fee().ok_or(Error::<T>::UnknownFixedTxFee)?;
         if free_balance <= fixed_tx_fee {
-            return Ok(().into());
+            return Ok(().into())
         }
 
         let max_burn_amount = free_balance.saturating_sub(fixed_tx_fee);

@@ -140,7 +140,7 @@ pub mod pallet {
                 ItemList::add_item(&mut committee_list.normal, committee.clone());
                 Committee::<T>::put(committee_list);
             } else if !committee_list.is_normal(&committee) {
-                return Err(Error::<T>::StatusNotAllowed.into());
+                return Err(Error::<T>::StatusNotAllowed.into())
             }
 
             CommitteeStake::<T>::mutate(&committee, |committee_stake| {
@@ -231,7 +231,7 @@ pub mod pallet {
 
             ensure!(committee_list.is_committee(&committee), Error::<T>::NotCommittee);
             if committee_list.is_chill(&committee) {
-                return Ok(().into());
+                return Ok(().into())
             }
             // waiting_box_pubkey不能执行该操作
             ensure!(!committee_list.is_waiting_puk(&committee), Error::<T>::PubkeyNotSet);
@@ -348,8 +348,8 @@ impl<T: Config> Pallet<T> {
 
         ensure!(committee_stake.staked_amount >= committee_stake_params.stake_baseline, ());
         ensure!(
-            committee_stake.staked_amount.saturating_sub(committee_stake.used_stake)
-                >= committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
+            committee_stake.staked_amount.saturating_sub(committee_stake.used_stake) >=
+                committee_stake_params.min_free_stake_percent * committee_stake.staked_amount,
             ()
         );
 
@@ -422,10 +422,10 @@ impl<T: Config> Pallet<T> {
         committee_stake: &CommitteeStakeInfo<BalanceOf<T>>,
     ) -> bool {
         let committee_stake_params = Self::committee_stake_params().unwrap_or_default();
-        let is_free_stake_enough = committee_stake.staked_amount
-            >= committee_stake_params.stake_baseline
-            && committee_stake.staked_amount.saturating_sub(committee_stake.used_stake)
-                >= committee_stake_params.min_free_stake_percent * committee_stake.staked_amount;
+        let is_free_stake_enough = committee_stake.staked_amount >=
+            committee_stake_params.stake_baseline &&
+            committee_stake.staked_amount.saturating_sub(committee_stake.used_stake) >=
+                committee_stake_params.min_free_stake_percent * committee_stake.staked_amount;
         let mut is_status_changed = false;
 
         if is_free_stake_enough && committee_list.is_fulfilling(&committee) {

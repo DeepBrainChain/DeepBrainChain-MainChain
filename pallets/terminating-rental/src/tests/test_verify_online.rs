@@ -8,6 +8,7 @@ use dbc_support::{
         OCCommitteeMachineList, OCMachineCommitteeList, OCMachineStatus as VerifyMachineStatus,
         OCVerifyStatus, StashMachine,
     },
+    ONE_DAY, ONE_HOUR,
 };
 use frame_support::assert_ok;
 use std::convert::TryInto;
@@ -96,7 +97,7 @@ fn verify_machine_works() {
                 OCMachineCommitteeList {
                     book_time: 2,
                     booked_committee: vec![committee3, committee1, committee4],
-                    confirm_start_time: 2 + 4320,
+                    confirm_start_time: 2 + 36 * ONE_HOUR,
                     status: OCVerifyStatus::SubmittingHash,
                     hashed_committee: vec![],
                     confirmed_committee: vec![],
@@ -114,7 +115,7 @@ fn verify_machine_works() {
                 IRMachine::committee_online_ops(&committee1, &machine_id),
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
-                    verify_time: vec![2, 1442, 2882], // 2 + 320 * 3
+                    verify_time: vec![2, 2 + 12 * ONE_HOUR, 2 + 24 * ONE_HOUR],
                     machine_status: VerifyMachineStatus::Booked,
                     ..Default::default()
                 }
@@ -148,7 +149,7 @@ fn verify_machine_works() {
                     book_time: 2,
                     booked_committee: vec![committee3, committee1, committee4],
                     hashed_committee: vec![committee1],
-                    confirm_start_time: 2 + 2880 + 1440,
+                    confirm_start_time: 2 + ONE_DAY + 12 * ONE_HOUR,
                     status: OCVerifyStatus::SubmittingHash,
                     confirmed_committee: vec![],
                     onlined_committee: vec![]
@@ -165,7 +166,7 @@ fn verify_machine_works() {
                 IRMachine::committee_online_ops(&committee1, &machine_id),
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
-                    verify_time: vec![2, 1442, 2882],
+                    verify_time: vec![2, 2 + 12 * ONE_HOUR, 2 + 24 * ONE_HOUR],
                     confirm_hash: hash1,
                     hash_time: 4,
                     machine_status: VerifyMachineStatus::Hashed,
@@ -195,7 +196,7 @@ fn verify_machine_works() {
                     book_time: 2,
                     booked_committee: vec![committee3, committee1, committee4],
                     hashed_committee: vec![committee3, committee1, committee4],
-                    confirm_start_time: 2 + 2880 + 1440,
+                    confirm_start_time: 2 + ONE_DAY + 12 * ONE_HOUR,
                     status: OCVerifyStatus::SubmittingRaw,
                     confirmed_committee: vec![],
                     onlined_committee: vec![]
@@ -234,7 +235,7 @@ fn verify_machine_works() {
                     book_time: 2,
                     booked_committee: vec![committee3, committee1, committee4],
                     hashed_committee: vec![committee3, committee1, committee4],
-                    confirm_start_time: 2 + 2880 + 1440,
+                    confirm_start_time: 2 + ONE_DAY + 12 * ONE_HOUR,
                     confirmed_committee: vec![committee1],
                     status: OCVerifyStatus::SubmittingRaw,
                     onlined_committee: vec![]
@@ -251,7 +252,7 @@ fn verify_machine_works() {
                 IRMachine::committee_online_ops(&committee1, &machine_id),
                 IRCommitteeOnlineOps {
                     staked_dbc: 1000 * ONE_DBC,
-                    verify_time: vec![2, 1442, 2882],
+                    verify_time: vec![2, 2 + 12 * ONE_HOUR, 2 + 24 * ONE_HOUR],
                     confirm_hash: hash1,
                     hash_time: 4,
                     confirm_time: 4,
@@ -275,7 +276,7 @@ fn verify_machine_works() {
                     book_time: 2,
                     booked_committee: vec![committee3, committee1, committee4],
                     hashed_committee: vec![committee3, committee1, committee4],
-                    confirm_start_time: 2 + 2880 + 1440,
+                    confirm_start_time: 2 + ONE_DAY + 12 * ONE_HOUR,
                     confirmed_committee: vec![committee3, committee1, committee4],
                     status: OCVerifyStatus::Summarizing,
                     onlined_committee: vec![]
@@ -324,7 +325,7 @@ fn verify_machine_works() {
                     book_time: 2,
                     booked_committee: vec![committee3, committee1, committee4],
                     hashed_committee: vec![committee3, committee1, committee4],
-                    confirm_start_time: 2 + 2880 + 1440,
+                    confirm_start_time: 2 + ONE_DAY + 12 * ONE_HOUR,
                     confirmed_committee: vec![committee3, committee1, committee4],
                     status: OCVerifyStatus::Finished,
                     onlined_committee: vec![committee3, committee1, committee4],

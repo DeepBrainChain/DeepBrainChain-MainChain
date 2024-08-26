@@ -107,14 +107,14 @@ impl<T: Config> ProjectRegister for Pallet<T> {
     ) -> Result<(), &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed");
+            return Err("signature verify failed")
         };
 
         let who = account_id::<T>(from.clone())?;
 
         let rent_ids = <rent_machine::Pallet<T>>::get_rent_ids(machine_id.clone(), &who);
         if rent_ids.len() == 0 {
-            return Err("machine not rented");
+            return Err("machine not rented")
         }
 
         if !MachineId2AIProjectName::<T>::contains_key(&machine_id) {
@@ -123,11 +123,11 @@ impl<T: Config> ProjectRegister for Pallet<T> {
             let mut project_names = Self::machine_id_to_ai_project_name(&machine_id);
             let projects_num = project_names.len() as u32;
             if projects_num >= Self::max_limit_per_machine_id_can_register() {
-                return Err("over max limit per machine id can register");
+                return Err("over max limit per machine id can register")
             }
 
             if project_names.contains(&project_name) {
-                return Ok(().into());
+                return Ok(().into())
             }
             project_names.push(project_name.clone());
             MachineId2AIProjectName::<T>::insert(&machine_id, project_names);
@@ -146,22 +146,22 @@ impl<T: Config> ProjectRegister for Pallet<T> {
     ) -> Result<(), &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed");
+            return Err("signature verify failed")
         };
 
         let who = account_id::<T>(from.clone())?;
         let owner =
             Self::registered_info_to_owner(&machine_id, &project_name).ok_or("not registered")?;
         if who != owner {
-            return Err("not registered info owner");
+            return Err("not registered info owner")
         }
 
         if !MachineId2AIProjectName::<T>::contains_key(&machine_id) {
-            return Err("machine not registered");
+            return Err("machine not registered")
         }
         let project_names = Self::machine_id_to_ai_project_name(&machine_id);
         if !project_names.contains(&project_name) {
-            return Err("project not registered");
+            return Err("project not registered")
         }
 
         MachineId2AIProjectName::<T>::mutate(&machine_id, |project_names| {
@@ -187,7 +187,7 @@ impl<T: Config> ProjectRegister for Pallet<T> {
     ) -> Result<bool, &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed");
+            return Err("signature verify failed")
         };
         let owner =
             Self::registered_info_to_owner(machine_id, project_name).ok_or("not registered")?;

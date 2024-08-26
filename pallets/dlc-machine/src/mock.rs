@@ -1,6 +1,6 @@
 use crate as ai_project_register;
 
-use frame_support::{pallet_prelude::ConstU32, parameter_types};
+use frame_support::{pallet_prelude::ConstU32, parameter_types, weights::Weight};
 use frame_system::EnsureRoot;
 use sp_core::{sr25519, sr25519::Signature, H256};
 use sp_runtime::{
@@ -20,7 +20,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system,
         Timestamp: pallet_timestamp,
-        AiProjectRegister: ai_project_register::{Pallet, Call, Storage, Event<T>},
+        AiProjectRegister: ai_project_register,
         Balances: pallet_balances,
         OnlineProfile: online_profile,
         DBCPriceOCW: dbc_price_ocw,
@@ -65,7 +65,6 @@ parameter_types! {
 }
 
 impl generic_func::Config for Test {
-    type BlockPerEra = BlockPerEra;
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     type RandomnessSource = RandomnessCollectiveFlip;
@@ -93,6 +92,8 @@ parameter_types! {
     pub const CouncilMotionDuration: u32 = 5 * 2880;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 100;
+    pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights::simple_max(Weight::MAX);
+    pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 
 impl pallet_collective::Config<TechnicalCollective> for Test {
@@ -105,6 +106,8 @@ impl pallet_collective::Config<TechnicalCollective> for Test {
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
     type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+
+    type MaxProposalWeight = MaxProposalWeight;
 }
 
 impl online_profile::Config for Test {
@@ -162,6 +165,11 @@ impl pallet_balances::Config for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
+
+    type HoldIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 type TestExtrinsic = TestXt<RuntimeCall, ()>;

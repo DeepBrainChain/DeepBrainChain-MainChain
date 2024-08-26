@@ -15,7 +15,7 @@ pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
     rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
     traits::{DLCMachineInfoTrait, DbcPrice, RTOps},
-    EraIndex, ItemList, MachineId, RentOrderId, ONE_DAY,
+    EraIndex, ItemList, MachineId, RentOrderId, HALF_HOUR, ONE_DAY,
 };
 use frame_support::{
     ensure,
@@ -23,9 +23,8 @@ use frame_support::{
     traits::tokens::fungibles::{Inspect, Mutate},
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
-use sp_runtime::traits::{CheckedDiv, CheckedMul};
 use sp_runtime::{
-    traits::{CheckedAdd, SaturatedConversion, Saturating, Zero},
+    traits::{CheckedAdd, CheckedDiv, CheckedMul, SaturatedConversion, Saturating, Zero},
     Perbill,
 };
 use sp_std::{prelude::*, vec::Vec};
@@ -199,7 +198,7 @@ impl<T: Config> Pallet<T> {
         let gpu_num = machine_info.gpu_num();
 
         if gpu_num == 0 || duration == Zero::zero() {
-            return Ok(().into());
+            return Ok(().into())
         }
 
         let dbc_machine_rent_order_info =
@@ -226,7 +225,7 @@ impl<T: Config> Pallet<T> {
         ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
 
         // rent duration must be 30min * n
-        ensure!(duration % 60u32.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
+        ensure!(duration % HALF_HOUR.into() == Zero::zero(), Error::<T>::OnlyHalfHourAllowed);
 
         // 检查machine_id状态是否可以租用
         ensure!(
@@ -362,7 +361,7 @@ impl<T: Config> Pallet<T> {
         let new_rent_id = loop {
             let new_rent_id = if rent_id == u64::MAX { 0 } else { rent_id + 1 };
             if !RentInfo::<T>::contains_key(new_rent_id) {
-                break new_rent_id;
+                break new_rent_id
             }
         };
 
@@ -410,7 +409,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_rent_finished() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<RentEnding<T>>::contains_key(now) {
-            return Ok(());
+            return Ok(())
         }
         let pending_ending = Self::rent_ending(now);
 
@@ -451,7 +450,7 @@ impl<T: Config> Pallet<T> {
             rent_machine::Pallet::<T>::get_rent_id_of_renting_dbc_machine_by_owner(machine_id)
         {
             DlcRentId2ParentDbcRentId::<T>::insert(rent_id, parent_dbc_rent_id);
-            return Ok(());
+            return Ok(())
         }
         Err(())
     }
@@ -505,8 +504,8 @@ impl<T: Config> DLCMachineInfoTrait for Pallet<T> {
                 if rented_order.rent_end >= last_claim_at {
                     if rented_order.rent_end >= slash_at && slash_at >= last_claim_at {
                         rent_duration += slash_at - last_claim_at;
-                    } else if rented_order.rent_end < slash_at
-                        && rented_order.rent_end >= last_claim_at
+                    } else if rented_order.rent_end < slash_at &&
+                        rented_order.rent_end >= last_claim_at
                     {
                         rent_duration += rented_order.rent_end - last_claim_at
                     }

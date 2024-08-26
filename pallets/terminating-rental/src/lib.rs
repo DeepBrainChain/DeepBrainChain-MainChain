@@ -33,7 +33,8 @@ use dbc_support::{
         OCMachineStatus as VerifyMachineStatus, OCVerifyStatus, StashMachine, Summary,
         VerifyResult, VerifySequence,
     },
-    BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId, TWO_DAY,
+    BoxPubkey, EraIndex, ItemList, MachineId, RentOrderId, ReportHash, ReportId, SlashId,
+    HALF_HOUR, ONE_DAY, ONE_HOUR, ONE_MINUTE, TWO_DAYS,
 };
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -50,13 +51,13 @@ use sp_std::{prelude::*, str, vec::Vec};
 /// 36 hours divide into 9 intervals for verification
 pub const DISTRIBUTION: u32 = 9;
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_HASH_END: u32 = 4320;
+pub const SUBMIT_HASH_END: u32 = 36 * ONE_HOUR;
 /// After order distribution 36 hours, allow committee submit raw info
-pub const SUBMIT_RAW_START: u32 = 4320;
+pub const SUBMIT_RAW_START: u32 = 36 * ONE_HOUR;
 /// Summary committee's opinion after 48 hours
-pub const SUBMIT_RAW_END: u32 = 5760;
-/// 等待30个块(15min)，用户确认是否租用成功
-pub const WAITING_CONFIRMING_DELAY: u32 = 30;
+pub const SUBMIT_RAW_END: u32 = 48 * ONE_HOUR;
+/// 等待15min，用户确认是否租用成功
+pub const WAITING_CONFIRMING_DELAY: u32 = 15 * ONE_MINUTE;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -646,14 +647,14 @@ pub mod pallet {
             let gpu_num = machine_info.gpu_num();
 
             if gpu_num == 0 || duration == Zero::zero() {
-                return Ok(().into());
+                return Ok(().into())
             }
 
             // 检查还有空闲的GPU
             ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
             // 只允许半小时整数倍的租用
             ensure!(
-                duration % 60u32.into() == Zero::zero(),
+                duration % HALF_HOUR.into() == Zero::zero(),
                 Error::<T>::OnlyAllowIntegerMultipleOfHour
             );
 
@@ -662,7 +663,7 @@ pub mod pallet {
 
             // 最大租用时间限制MaximumRentalDuration
             let duration =
-                duration.min((Self::maximum_rental_duration().saturating_mul(24 * 60)).into());
+                duration.min((Self::maximum_rental_duration().saturating_mul(ONE_DAY)).into());
 
             // NOTE: 用户提交订单，需要扣除10个DBC
             Self::pay_fixed_tx_fee(renter.clone())?;
@@ -677,7 +678,7 @@ pub mod pallet {
             let rent_fee_value = machine_price
                 .checked_mul(duration.saturated_into::<u64>())
                 .ok_or(Error::<T>::Overflow)?
-                .checked_div(24 * 60 * 2)
+                .checked_div(ONE_DAY.into())
                 .ok_or(Error::<T>::Overflow)?;
             let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
@@ -737,7 +738,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// 用户在租用15min(30个块)内确认机器租用成功
+        /// 用户在租用15min内确认机器租用成功
         #[pallet::call_index(11)]
         #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn confirm_rent(
@@ -812,7 +813,7 @@ pub mod pallet {
             let gpu_num = order_info.gpu_num;
 
             // 续租允许10分钟及以上
-            ensure!(duration >= 20u32.into(), Error::<T>::ReletTooShort);
+            ensure!(duration >= (10 * ONE_MINUTE).into(), Error::<T>::ReletTooShort);
             ensure!(order_info.renter == renter, Error::<T>::NoOrderExist);
             ensure!(order_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 
@@ -822,17 +823,16 @@ pub mod pallet {
             // 确保租用时间不超过设定的限制，计算最多续费租用到
             let now = <frame_system::Pallet<T>>::block_number();
             // 最大结束块高为 今天租用开始的时间 + 60天
-            // 2880 块/天 * 60 days
             let max_rent_end =
-                now.checked_add(&(2880u32 * 60).into()).ok_or(Error::<T>::Overflow)?;
+                now.checked_add(&(60 * ONE_DAY).into()).ok_or(Error::<T>::Overflow)?;
             let wanted_rent_end = pre_rent_end + duration;
 
             // 计算实际续租了多久 (块高)
             let add_duration: T::BlockNumber =
-                if max_rent_end >= wanted_rent_end { duration } else { (2880u32 * 60).into() };
+                if max_rent_end >= wanted_rent_end { duration } else { (60 * ONE_DAY).into() };
 
             if add_duration == Zero::zero() {
-                return Ok(().into());
+                return Ok(().into())
             }
 
             // 计算rent_fee
@@ -842,7 +842,7 @@ pub mod pallet {
             let rent_fee_value = machine_price
                 .checked_mul(add_duration.saturated_into::<u64>())
                 .ok_or(Error::<T>::Overflow)?
-                .checked_div(2880)
+                .checked_div(ONE_DAY.into())
                 .ok_or(Error::<T>::Overflow)?;
             let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
                 .ok_or(Error::<T>::Overflow)?;
@@ -908,7 +908,7 @@ pub mod pallet {
             for rent_id in &machine_rent_order.rent_order {
                 let rent_order = Self::rent_order(rent_id).ok_or(Error::<T>::Unknown)?;
                 if rent_order.renter == renter {
-                    break;
+                    break
                 }
                 MachinesInfo::<T>::try_mutate(&rent_order.machine_id, |machine_info| {
                     let machine_info = machine_info.as_mut().ok_or(Error::<T>::Unknown)?;
@@ -940,7 +940,7 @@ pub mod pallet {
 
             let now = <frame_system::Pallet<T>>::block_number();
             ensure!(
-                machine_info.last_online_height.saturating_add(2880u32.into()) <= now,
+                machine_info.last_online_height.saturating_add(ONE_DAY.into()) <= now,
                 Error::<T>::OfflineNotYetAllowed
             );
 
@@ -955,7 +955,7 @@ pub mod pallet {
 
                 // 根据时间(小时向下取整)计算需要的租金
                 let rent_duration =
-                    now.saturating_sub(rent_order.rent_start) / 120u32.into() * 120u32.into();
+                    now.saturating_sub(rent_order.rent_start) / ONE_HOUR.into() * ONE_HOUR.into();
                 let rent_fee = Perbill::from_rational(
                     rent_duration,
                     rent_order.rent_end.saturating_sub(rent_order.rent_start),
@@ -969,7 +969,7 @@ pub mod pallet {
             MachineRentOrder::<T>::remove(&machine_id);
 
             // 记录到一个变量中，检查是否已经连续下线超过了10天
-            OfflineMachines::<T>::mutate(now + 28800u32.into(), |offline_machines| {
+            OfflineMachines::<T>::mutate(now + (10 * ONE_DAY).into(), |offline_machines| {
                 ItemList::add_item(offline_machines, machine_id.clone());
             });
 
@@ -1005,7 +1005,7 @@ pub mod pallet {
                 MachinesInfo::<T>::insert(machine_id, machine_info);
                 Ok(().into())
             } else {
-                return Err(Error::<T>::StatusNotAllowed.into());
+                return Err(Error::<T>::StatusNotAllowed.into())
             }
         }
 
@@ -1025,7 +1025,7 @@ pub mod pallet {
 
             let now = <frame_system::Pallet<T>>::block_number();
             ensure!(
-                now.saturating_sub(machine_info.online_height) >= (365 * 2880u32).into(),
+                now.saturating_sub(machine_info.online_height) >= (365 * ONE_DAY).into(),
                 Error::<T>::TimeNotAllow
             );
 
@@ -1036,7 +1036,7 @@ pub mod pallet {
 
                 // 根据时间(小时向下取整)计算需要的租金
                 let rent_duration =
-                    now.saturating_sub(rent_order.rent_start) / 120u32.into() * 120u32.into();
+                    now.saturating_sub(rent_order.rent_start) / ONE_HOUR.into() * ONE_HOUR.into();
                 let rent_fee = Perbill::from_rational(
                     rent_duration,
                     rent_order.rent_end.saturating_sub(rent_order.rent_start),
@@ -1471,7 +1471,7 @@ impl<T: Config> Pallet<T> {
         for a_committee in &report_info.hashed_committee {
             let committee_ops = Self::committee_report_ops(a_committee, report_id);
             if committee_ops.confirm_hash == hash {
-                return Err(Error::<T>::DuplicateHash.into());
+                return Err(Error::<T>::DuplicateHash.into())
             }
         }
         Ok(().into())
@@ -1554,7 +1554,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_work_index() -> Option<Vec<VerifySequence<T::AccountId>>> {
         let mut committee = <committee::Pallet<T>>::available_committee()?;
         if committee.len() < 3 {
-            return None;
+            return None
         };
 
         let mut verify_sequence = Vec::new();
@@ -1649,10 +1649,10 @@ impl<T: Config> Pallet<T> {
         if machine_committee.can_submit_raw(now) {
             machine_committee.status = OCVerifyStatus::SubmittingRaw;
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            return Ok(());
+            return Ok(())
         }
         if !machine_committee.can_summary(now) {
-            return Ok(());
+            return Ok(())
         }
 
         let mut submit_info = vec![];
@@ -1760,7 +1760,7 @@ impl<T: Config> Pallet<T> {
                 committee_stake: stake_per_order,
 
                 slash_time: now,
-                slash_exec_time: now + TWO_DAY.into(),
+                slash_exec_time: now + TWO_DAYS.into(),
 
                 book_result: summary.into_book_result(),
                 slash_result: OCSlashResult::Pending,
@@ -1860,7 +1860,7 @@ impl<T: Config> Pallet<T> {
     // machine_price = standard_price * machine_point / standard_point
     fn get_machine_price(machine_point: u64, need_gpu: u32, total_gpu: u32) -> Option<u64> {
         if total_gpu == 0 {
-            return None;
+            return None
         }
         let standard_gpu_point_price = Self::standard_gpu_point_price()?;
         standard_gpu_point_price
@@ -1901,7 +1901,7 @@ impl<T: Config> Pallet<T> {
         let new_rent_id = loop {
             let new_rent_id = if rent_id == u64::MAX { 0 } else { rent_id + 1 };
             if !RentOrder::<T>::contains_key(new_rent_id) {
-                break new_rent_id;
+                break new_rent_id
             }
         };
 
@@ -1976,8 +1976,8 @@ impl<T: Config> Pallet<T> {
             rent_fee = rent_fee.saturating_sub(burn_amount);
         }
         let committee_each_get =
-            Perbill::from_rational(1u32, machine_info.reward_committee.len() as u32)
-                * reward_to_committee;
+            Perbill::from_rational(1u32, machine_info.reward_committee.len() as u32) *
+                reward_to_committee;
         for a_committee in machine_info.reward_committee.clone() {
             let _ = <T as Config>::Currency::transfer(
                 &rent_order.renter,
@@ -2018,7 +2018,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_rent_finished() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<PendingRentEnding<T>>::contains_key(now) {
-            return Ok(());
+            return Ok(())
         }
         let pending_ending = Self::pending_rent_ending(now);
 
@@ -2058,7 +2058,7 @@ impl<T: Config> Pallet<T> {
         // 租用结束
         let gpu_num = machine_info.gpu_num();
         if gpu_num == 0 {
-            return Ok(());
+            return Ok(())
         }
         machine_info.total_rented_duration +=
             Perbill::from_rational(rented_gpu_num, gpu_num) * rent_duration;
@@ -2155,7 +2155,7 @@ impl<T: Config> Pallet<T> {
     fn check_if_offline_timeout() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !<OfflineMachines<T>>::contains_key(now) {
-            return Ok(());
+            return Ok(())
         }
         let offline_machines = Self::offline_machines(now);
 

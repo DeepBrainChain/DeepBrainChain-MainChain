@@ -1,6 +1,6 @@
 use crate::mock::*;
+use dbc_support::ONE_DAY;
 use frame_support::assert_ok;
-pub use frame_system::{self as system, RawOrigin};
 use pallet_elections_phragmen::SeatHolder;
 
 pub const MAX_LEN: usize = 64;
@@ -86,7 +86,7 @@ fn test_reward_works() {
         let treasury = CouncilReward::treasury();
         if treasury.is_none() {
             // TODO: should set treasury first.
-            return;
+            return
         }
         let treasury = treasury.unwrap();
         // assert_ok!(Balances::set_balance(RawOrigin::Root.into(), treasury, 10000000 * ONE_DBC, 0));
@@ -98,9 +98,9 @@ fn test_reward_works() {
         assert_eq!(Balances::free_balance(treasury), 1000_0000 * ONE_DBC);
 
         // 模拟从0 -> 30 Day
-        let reward_frequency = 30 * 2880;
-        // NOTE: 议会当选后顺延15天(43200 blocks)发放奖励
-        if 15 * 2880 % reward_frequency == 43200 {
+        let reward_frequency = 30 * ONE_DAY;
+        // NOTE: 议会当选后顺延15天发放奖励
+        if 15 * ONE_DAY % reward_frequency == 15 * ONE_DAY {
             CouncilReward::reward_council(prime, &mut members);
         }
         assert_eq!(Balances::free_balance(treasury), 1000_0000 * ONE_DBC - 450_000 * ONE_DBC);

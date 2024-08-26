@@ -79,7 +79,7 @@ fn is_block_finalized_inner<B: Block<Hash = H256>, C: HeaderBackend<B> + 'static
 
     // First check whether the block is in the best chain
     if !is_canon(client, substrate_hash) {
-        return Ok(false);
+        return Ok(false)
     }
 
     // At this point we know the block in question is in the current best chain.

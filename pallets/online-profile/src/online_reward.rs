@@ -82,8 +82,8 @@ impl<T: Config> Pallet<T> {
             phase_reward_info.phase_2_reward_per_era
         };
 
-        if phase_reward_info.galaxy_on_era != 0
-            && current_era < phase_reward_info.galaxy_on_era as u64 + 60
+        if phase_reward_info.galaxy_on_era != 0 &&
+            current_era < phase_reward_info.galaxy_on_era as u64 + 60
         {
             Some(era_reward.checked_mul(&2u32.saturated_into::<BalanceOf<T>>())?)
         } else {
@@ -134,7 +134,7 @@ impl<T: Config> Pallet<T> {
                         );
                     } else {
                         AllMachineIdSnap::<T>::put(all_machine);
-                        return;
+                        return
                     }
                 }
 
@@ -190,7 +190,7 @@ impl<T: Config> Pallet<T> {
 
         if machine_reward_info.recent_reward_sum == Zero::zero() {
             MachineRecentReward::<T>::insert(&machine_id, machine_reward_info);
-            return Ok(());
+            return Ok(())
         }
 
         let latest_reward = if !machine_reward_info.recent_machine_reward.is_empty() {
@@ -202,8 +202,8 @@ impl<T: Config> Pallet<T> {
 
         // total released reward = sum(1..n-1) * (1/200) + n * (50/200) = 49/200*n + 1/200 *
         // sum(1..n)
-        let released_reward = Perbill::from_rational(49u32, 200u32) * latest_reward
-            + Perbill::from_rational(1u32, 200u32) * machine_reward_info.recent_reward_sum;
+        let released_reward = Perbill::from_rational(49u32, 200u32) * latest_reward +
+            Perbill::from_rational(1u32, 200u32) * machine_reward_info.recent_reward_sum;
 
         // if should reward to committee
         let (reward_to_stash, reward_to_committee) =
@@ -218,15 +218,15 @@ impl<T: Config> Pallet<T> {
             };
 
         let committee_each_get =
-            Perbill::from_rational(1u32, machine_reward_info.reward_committee.len() as u32)
-                * reward_to_committee;
+            Perbill::from_rational(1u32, machine_reward_info.reward_committee.len() as u32) *
+                reward_to_committee;
         for a_committee in machine_reward_info.reward_committee.clone() {
             T::ManageCommittee::add_reward(a_committee, committee_each_get);
         }
 
         // NOTE: reward of actual get will change depend on how much days left
-        let machine_actual_total_reward = if release_era
-            > machine_reward_info.reward_committee_deadline
+        let machine_actual_total_reward = if release_era >
+            machine_reward_info.reward_committee_deadline
         {
             machine_total_reward
         } else if release_era > machine_reward_info.reward_committee_deadline.saturating_sub(150) {
@@ -241,8 +241,8 @@ impl<T: Config> Pallet<T> {
             let release_day =
                 machine_reward_info.reward_committee_deadline.saturating_sub(release_era);
 
-            machine_total_reward
-                - total_committee_release * release_day.saturated_into::<BalanceOf<T>>()
+            machine_total_reward -
+                total_committee_release * release_day.saturated_into::<BalanceOf<T>>()
         } else {
             Perbill::from_rational(99u32, 100u32) * machine_total_reward
         };

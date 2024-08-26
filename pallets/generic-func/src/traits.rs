@@ -1,6 +1,5 @@
 use crate::{BalanceOf, Config, Pallet};
 use dbc_support::traits::GNOps;
-pub use dbc_support::ItemList;
 use frame_support::traits::{BalanceStatus, OnUnbalanced, ReservableCurrency};
 use sp_runtime::{
     traits::{CheckedSub, Zero},
@@ -21,7 +20,7 @@ impl<T: Config> GNOps for Pallet<T> {
         let reward_to_num = reward_who.len() as u32;
 
         if slash_who.is_empty() || each_slash == Zero::zero() {
-            return Ok(());
+            return Ok(())
         }
 
         if reward_to_num == 0 {
@@ -33,7 +32,7 @@ impl<T: Config> GNOps for Pallet<T> {
                     T::Slash::on_unbalanced(imbalance);
                 }
             }
-            return Ok(());
+            return Ok(())
         }
 
         for a_slash_person in slash_who {

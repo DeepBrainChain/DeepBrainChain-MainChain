@@ -1,8 +1,9 @@
 use super::super::mock::{TerminatingRental as IRMachine, *};
 use crate::{
     tests::test_verify_online::new_test_with_machine_bonding_ext, Error, RentOrderDetail,
-    RentStatus,
+    RentStatus, WAITING_CONFIRMING_DELAY,
 };
+use dbc_support::ONE_MINUTE;
 // use committee::CommitteeStakeInfo;
 use dbc_support::{
     live_machine::LiveMachine,
@@ -13,7 +14,7 @@ use dbc_support::{
         MTReportInfoDetail, MachineFaultType, ReportStatus, ReporterReportList, ReporterStakeInfo,
     },
     verify_online::StashMachine,
-    BoxPubkey, ReportHash,
+    BoxPubkey, ReportHash, ONE_DAY, ONE_HOUR,
 };
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::Perbill;
@@ -112,7 +113,7 @@ fn rent_machine_works() {
             RuntimeOrigin::signed(renter1),
             machine_id.clone(),
             8,
-            60
+            30 * ONE_MINUTE
         ));
         {
             // - Writes: MachineRentOrder, RentOrder, machine_status, UserRented, PendingRentEnding,
@@ -125,16 +126,16 @@ fn rent_machine_works() {
                     renter: renter1,
                     rent_start: 5,
                     confirm_rent: 0,
-                    rent_end: 5 + 60,
-                    // 租金: 119780 / 1000 * 5000000 / 12000 * (60 / 2880)
+                    rent_end: 5 + 30 * ONE_MINUTE,
+                    // 租金: 119780 / 1000 * 5000000 / 12000 * (0.5h / 24h)
                     stake_amount: 1039756916666666666,
                     rent_status: crate::RentStatus::WaitingVerifying,
                     gpu_num: 8,
                     gpu_index: vec![0, 1, 2, 3, 4, 5, 6, 7]
                 })
             );
-            assert_eq!(IRMachine::pending_rent_ending(5 + 60), vec![0]);
-            assert_eq!(IRMachine::pending_confirming(5 + 30), vec![0]);
+            assert_eq!(IRMachine::pending_rent_ending(5 + 30 * ONE_MINUTE), vec![0]);
+            assert_eq!(IRMachine::pending_confirming(5 + WAITING_CONFIRMING_DELAY), vec![0]);
             assert_eq!(IRMachine::renter_total_stake(renter1), 1039756916666666666);
             assert_eq!(
                 IRMachine::machine_rent_order(&machine_id),
@@ -191,7 +192,7 @@ fn rent_machine_works() {
                     renter: renter1,
                     rent_start: 5,
                     confirm_rent: 5,
-                    rent_end: 65,
+                    rent_end: 5 + 30 * ONE_MINUTE,
                     stake_amount: 1039756916666666666,
                     rent_status: RentStatus::Renting,
                     gpu_num: 8,
@@ -212,7 +213,7 @@ fn rent_machine_works() {
             assert_eq!(Balances::free_balance(committee1), INIT_BALANCE - 20000 * ONE_DBC);
         }
 
-        run_to_block(100);
+        run_to_block(5 + 30 * ONE_MINUTE);
         {
             // 结束租用: 将租金99%转给stash,1%转给几个委员会
 
@@ -261,12 +262,12 @@ fn machine_offline_works() {
             RuntimeOrigin::signed(renter1),
             machine_id.clone(),
             8,
-            360
+            3 * ONE_HOUR
         ));
         assert_ok!(IRMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
 
-        // NOTE: 使用了130个块（将按一小时收费）
-        run_to_block(4 + 130);
+        // NOTE: 使用了65分钟（将按一小时收费）
+        run_to_block(4 + 65 * ONE_MINUTE);
 
         {
             assert_eq!(
@@ -283,7 +284,7 @@ fn machine_offline_works() {
                     renter: renter1,
                     rent_start: 5,
                     confirm_rent: 5,
-                    rent_end: 365,
+                    rent_end: 5 + 3 * ONE_HOUR,
                     stake_amount: 6238541666666666666,
                     rent_status: RentStatus::Renting,
                     gpu_num: 8,
@@ -295,7 +296,7 @@ fn machine_offline_works() {
             IRMachine::machine_offline(RuntimeOrigin::signed(controller), machine_id.clone()),
             Error::<TestRuntime>::OfflineNotYetAllowed,
         );
-        run_to_block(4 + 2880);
+        run_to_block(4 + ONE_DAY);
         assert_ok!(IRMachine::machine_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
@@ -308,11 +309,14 @@ fn machine_offline_works() {
             assert_eq!(
                 machine_info.machine_status,
                 MachineStatus::StakerReportOffline(
-                    2885,
+                    5 + ONE_DAY,
                     Box::new(MachineStatus::AddingCustomizeInfo)
                 )
             );
-            assert_eq!(IRMachine::offline_machines(2885 + 28800), vec![machine_id.clone()]);
+            assert_eq!(
+                IRMachine::offline_machines(5 + ONE_DAY + 10 * ONE_DAY),
+                vec![machine_id.clone()]
+            );
             assert!(!<crate::RentOrder<TestRuntime>>::contains_key(0));
             assert!(!<crate::MachineRentOrder<TestRuntime>>::contains_key(&machine_id));
             // 租金： 6238541666666666666 / 3 = 2079513888888888888
@@ -337,17 +341,22 @@ fn machine_offline_10more_days_slash_works() {
             .as_bytes()
             .to_vec();
 
-        assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800));
-        run_to_block(4 + 2880);
+        assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 10 * ONE_DAY));
+        run_to_block(4 + ONE_DAY);
         assert_ok!(IRMachine::machine_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
-        assert_eq!(IRMachine::offline_machines(5 + 2880 + 28800), vec![machine_id.clone()]);
+        assert_eq!(
+            IRMachine::offline_machines(5 + ONE_DAY + 10 * ONE_DAY),
+            vec![machine_id.clone()]
+        );
 
-        run_to_block(6 + 28800 + 2880);
+        run_to_block(6 + 10 * ONE_DAY + ONE_DAY);
         {
-            assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(&5 + 28800 + 2880));
+            assert!(!<crate::OfflineMachines<TestRuntime>>::contains_key(
+                &5 + 10 * ONE_DAY + ONE_DAY
+            ));
             let machine_info = IRMachine::machines_info(&machine_id).unwrap();
             assert_eq!(machine_info.stake_amount, 0);
         }
@@ -433,7 +442,7 @@ fn machine_online_inaccessible_slash_works() {
                     report_status: ReportStatus::Verifying,
                     verifying_committee: Some(committee1),
                     booked_committee: vec![committee1],
-                    confirm_start: 365,
+                    confirm_start: 5 + 3 * ONE_HOUR,
                     machine_fault_type: MachineFaultType::RentedHardwareCounterfeit(
                         Default::default(),
                         Default::default()
@@ -484,7 +493,7 @@ fn machine_online_inaccessible_slash_works() {
                     verifying_committee: Some(committee1),
                     booked_committee: vec![committee1],
                     get_encrypted_info_committee: vec![committee1],
-                    confirm_start: 365,
+                    confirm_start: 5 + 3 * ONE_HOUR,
                     machine_fault_type: MachineFaultType::RentedHardwareCounterfeit(
                         Default::default(),
                         Default::default()
@@ -510,7 +519,7 @@ fn machine_online_inaccessible_slash_works() {
                 }
             );
         }
-        run_to_block(366);
+        run_to_block(5 + 3 * ONE_HOUR + 1);
         // assert_ok!(IRMachine::committee_submit_verify_hash(
         //     RuntimeOrigin::signed(committee1),
         //     1,

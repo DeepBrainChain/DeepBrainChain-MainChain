@@ -24,7 +24,7 @@ use dbc_support::{
         OCBookResultType, OCCommitteeMachineList, OCCommitteeOps, OCMachineCommitteeList,
         OCMachineStatus, OCVerifyStatus, Summary, VerifyResult, VerifySequence, SUBMIT_RAW_START,
     },
-    ItemList, MachineId, SlashId, TWO_DAY,
+    ItemList, MachineId, SlashId, TWO_DAYS,
 };
 use frame_support::{
     ensure,
@@ -354,7 +354,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_work_index() -> Option<Vec<VerifySequence<T::AccountId>>> {
         let mut committee = <committee::Pallet<T>>::available_committee()?;
         if committee.len() < 3 {
-            return None;
+            return None
         };
 
         let mut verify_sequence = Vec::new();
@@ -437,10 +437,10 @@ impl<T: Config> Pallet<T> {
         if machine_committee.can_submit_raw(now) {
             machine_committee.status = OCVerifyStatus::SubmittingRaw;
             MachineCommittee::<T>::insert(&machine_id, machine_committee);
-            return Ok(());
+            return Ok(())
         }
         if !machine_committee.can_summary(now) {
-            return Ok(());
+            return Ok(())
         }
 
         let mut submit_info = vec![];
@@ -542,7 +542,7 @@ impl<T: Config> Pallet<T> {
                 committee_stake: stake_per_order,
 
                 slash_time: now,
-                slash_exec_time: now + TWO_DAY.into(),
+                slash_exec_time: now + TWO_DAYS.into(),
 
                 book_result: summary.into_book_result(),
                 slash_result: OCSlashResult::Pending,
@@ -581,8 +581,8 @@ impl<T: Config> Pallet<T> {
         ensure!(slash_review_info.expire_time > now, Error::<T>::ExpiredApply);
 
         let is_applicant_slashed_stash =
-            matches!(slash_info.book_result, OCBookResultType::OnlineRefused)
-                && slash_info.machine_stash == Some(slash_review_info.applicant.clone());
+            matches!(slash_info.book_result, OCBookResultType::OnlineRefused) &&
+                slash_info.machine_stash == Some(slash_review_info.applicant.clone());
 
         // Return reserved balance when apply for review
         if is_applicant_slashed_stash {

@@ -7,7 +7,7 @@ use dbc_support::{
     machine_type::MachineStatus,
     traits::GNOps,
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
-    MachineId, TWO_DAY,
+    MachineId, TWO_DAYS,
 };
 use frame_support::traits::ReservableCurrency;
 use sp_runtime::{
@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
     pub fn check_pending_slash() -> Result<(), ()> {
         let now = <frame_system::Pallet<T>>::block_number();
         if !PendingSlashReviewChecking::<T>::contains_key(now) {
-            return Ok(());
+            return Ok(())
         }
 
         let pending_slash_checking = Self::pending_slash_review_checking(now);
@@ -110,13 +110,13 @@ impl<T: Config> Pallet<T> {
         committee: Option<Vec<T::AccountId>>,
         duration: T::BlockNumber,
     ) -> Result<OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>, ()> {
-        let percent = crate::utils::slash_percent(&slash_reason, duration.saturated_into::<u64>());
+        let percent = Self::slash_percent(&slash_reason, duration);
 
         let (reporter, renters, committee) = match slash_reason {
             // 算工主动报告被租用的机器，主动下线
             OPSlashReason::RentedReportOffline(_) => {
-                let reporter = match duration.saturated_into::<u64>() {
-                    0..=5760 => None,
+                let reporter = match duration.saturated_into::<u32>() {
+                    0..=TWO_DAYS => None,
                     _ => reporter,
                 };
                 (reporter, renters, None)
@@ -125,8 +125,8 @@ impl<T: Config> Pallet<T> {
             OPSlashReason::OnlineReportOffline(_) => (None, vec![], None),
             // 机器处于租用状态，无法访问，这种情况下，reporter == renter
             OPSlashReason::RentedInaccessible(_) => {
-                let reporter = match duration.saturated_into::<u64>() {
-                    0..=5760 => None,
+                let reporter = match duration.saturated_into::<u32>() {
+                    0..=TWO_DAYS => None,
                     _ => reporter,
                 };
 
@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
             machine_id,
             slash_time: now,
             slash_amount,
-            slash_exec_time: now + TWO_DAY.into(),
+            slash_exec_time: now + TWO_DAYS.into(),
             reporter,
             renters,
             reward_to_committee: committee,
@@ -176,10 +176,10 @@ impl<T: Config> Pallet<T> {
         slash_info: &OPPendingSlashInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
     ) -> Result<(), ()> {
         let machine_info = Self::machines_info(&slash_info.machine_id).ok_or(())?;
-        if <T as Config>::Currency::reserved_balance(&machine_info.machine_stash)
-            < slash_info.slash_amount
+        if <T as Config>::Currency::reserved_balance(&machine_info.machine_stash) <
+            slash_info.slash_amount
         {
-            return Ok(());
+            return Ok(())
         }
 
         let (mut reward_to_reporter, mut reward_to_committee) = (Zero::zero(), Zero::zero());
@@ -216,7 +216,7 @@ impl<T: Config> Pallet<T> {
 
         Self::try_to_change_machine_status_to_fulfill(&slash_info.slash_who, machine_info)?;
 
-        return Ok(());
+        return Ok(())
     }
 
     // 检查已质押资金是否满足单GPU质押金额*gpu数量 若不满足则变更机器状态为fulfill

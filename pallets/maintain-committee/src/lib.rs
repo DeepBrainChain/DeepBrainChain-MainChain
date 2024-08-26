@@ -25,36 +25,34 @@ use dbc_support::{
     traits::{GNOps, MTOps, ManageCommittee},
     utils::get_hash,
     verify_slash::OPSlashReason,
-    ItemList, MachineId, RentOrderId, ReportHash, ReportId, FIVE_MINUTE, HALF_HOUR, ONE_HOUR,
-    THREE_HOUR, TWO_DAY,
+    ItemList, MachineId, RentOrderId, ReportHash, ReportId, FIVE_MINUTES, HALF_HOUR, ONE_HOUR,
+    THREE_HOURS, TWO_DAYS,
 };
-use frame_support::traits::tokens::Preservation;
 use frame_support::{
     pallet_prelude::*,
-    traits::{fungibles::Mutate, Currency, OnUnbalanced, ReservableCurrency},
+    traits::{fungibles::Mutate, tokens::Preservation, Currency, OnUnbalanced, ReservableCurrency},
     PalletId,
 };
 use frame_system::pallet_prelude::*;
-pub use pallet::*;
 use parity_scale_codec::alloc::string::ToString;
 use sp_runtime::{
     traits::{AccountIdConversion, CheckedSub, Saturating, Zero},
     Perbill,
 };
-use sp_std::{prelude::*, vec, vec::Vec};
-use types::*;
+use sp_std::{str, vec, vec::Vec};
 
-pub const ONE_DLC: u128 = 100_000_000;
-const PALLET_ID: PalletId = PalletId(*b"dlc_lock");
+pub use pallet::*;
+use types::*;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
 type DLCBalanceOf<T> = <T as pallet_assets::Config>::Balance;
-
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
+
+pub const ONE_DLC: u128 = 100_000_000;
+const PALLET_ID: PalletId = PalletId(*b"dlc_lock");
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -250,14 +248,13 @@ pub mod pallet {
 
                 let result = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id);
                 match result {
-                    Some(machine_info) => {
+                    Some(machine_info) =>
                         if machine_info.machine_status == MachineStatus::Rented {
                             <online_profile::Pallet<T>>::add_offline_machine_to_renters(
                                 rent_info.machine_id,
                                 machine_info.renters,
                             );
-                        }
-                    },
+                        },
                     None => {},
                 }
 
@@ -533,8 +530,8 @@ pub mod pallet {
             // 检查Hash是否一致
             let is_support_u8 = if is_support { "1".into() } else { "0".into() };
             ensure!(
-                get_hash(vec![report_id.to_string().into(), committee_rand_str, is_support_u8])
-                    == committee_ops.confirm_hash,
+                get_hash(vec![report_id.to_string().into(), committee_rand_str, is_support_u8]) ==
+                    committee_ops.confirm_hash,
                 Error::<T>::NotEqualCommitteeSubmit
             );
 
@@ -563,10 +560,6 @@ pub mod pallet {
             reason: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let applicant = ensure_signed(origin)?;
-            ensure!(
-                !Self::is_dlc_machine_fault_report(report_result_id),
-                Error::<T>::DlcReportNotAllowed
-            );
             let now = <frame_system::Pallet<T>>::block_number();
             let reporter_stake_params =
                 Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
@@ -747,7 +740,7 @@ pub mod pallet {
 
                 let result = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id);
                 match result {
-                    Some(machine_info) => {
+                    Some(machine_info) =>
                         if machine_info.machine_status == MachineStatus::Rented {
                             let renters =
                                 <rent_dlc_machine::Pallet<T>>::get_renters(&rent_info.machine_id);
@@ -755,8 +748,7 @@ pub mod pallet {
                                 rent_info.machine_id,
                                 renters,
                             );
-                        }
-                    },
+                        },
                     None => {},
                 }
             }
@@ -773,7 +765,7 @@ pub mod pallet {
                 &reporter,
                 &account_id_for_reserve_dlc,
                 reserve_amount,
-                Preservation::Protect,
+                Preservation::Expendable,
             )?;
 
             AccountId2ReserveDLC::<T>::mutate(&reporter, |reserve_dlc| {
@@ -876,8 +868,8 @@ impl<T: Config> Pallet<T> {
             );
 
             ensure!(
-                reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake)
-                    >= stake_params.min_free_stake_percent * reporter_stake.staked_amount,
+                reporter_stake.staked_amount.saturating_sub(reporter_stake.used_stake) >=
+                    stake_params.min_free_stake_percent * reporter_stake.staked_amount,
                 Error::<T>::StakeNotEnough
             );
         }
@@ -1013,14 +1005,14 @@ impl<T: Config> Pallet<T> {
         if matches!(report_info.report_status, ReportStatus::WaitingBook | ReportStatus::Verifying)
         {
             // 当大于等于5分钟或者hashed的委员会已经达到3人，则更改报告状态，允许提交原始值
-            if now.saturating_sub(report_info.first_book_time) >= FIVE_MINUTE.into()
-                || report_info.hashed_committee.len() == 3
+            if now.saturating_sub(report_info.first_book_time) >= FIVE_MINUTES.into() ||
+                report_info.hashed_committee.len() == 3
             {
                 live_report.time_to_submit_raw(report_id);
                 report_info.report_status = ReportStatus::SubmittingRaw;
                 ReportInfo::<T>::insert(report_id, report_info);
             }
-            return Ok(());
+            return Ok(())
         }
 
         // 初始化报告结果
@@ -1080,7 +1072,7 @@ impl<T: Config> Pallet<T> {
 
             ItemList::add_item(&mut reporter_report.failed_report, report_id);
             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
-            return Ok(());
+            return Ok(())
         }
 
         // 处理支持报告人的情况
@@ -1179,7 +1171,7 @@ impl<T: Config> Pallet<T> {
             reporter_stake: report_info.reporter_stake,
             committee_stake: committee_order_stake,
             slash_time: now,
-            slash_exec_time: now + TWO_DAY.into(),
+            slash_exec_time: now + TWO_DAYS.into(),
             slash_result: MCSlashResult::Pending,
 
             inconsistent_committee: vec![],
@@ -1190,7 +1182,7 @@ impl<T: Config> Pallet<T> {
             report_result: ReportResultType::default(),
         };
 
-        if now.saturating_sub(report_info.first_book_time) < THREE_HOUR.into() {
+        if now.saturating_sub(report_info.first_book_time) < THREE_HOURS.into() {
             // 处理三小时之前的问题，报告人/委员会不按时提交信息的情况
             Self::summary_before_submit_raw(
                 report_id,
@@ -1220,15 +1212,15 @@ impl<T: Config> Pallet<T> {
 
         // Reported, WaitingBook, CommitteeConfirmed, SubmittingRaw
         if !matches!(report_info.report_status, ReportStatus::Verifying) {
-            return Ok(());
+            return Ok(())
         }
 
         let verifying_committee = report_info.verifying_committee.clone().ok_or(())?;
         let committee_ops = Self::committee_ops(&verifying_committee, &report_id);
 
         // 报告人没有在规定时间内提交给加密信息，则惩罚报告人到国库，不进行奖励
-        if now.saturating_sub(committee_ops.booked_time) >= HALF_HOUR.into()
-            && committee_ops.encrypted_err_info.is_none()
+        if now.saturating_sub(committee_ops.booked_time) >= HALF_HOUR.into() &&
+            committee_ops.encrypted_err_info.is_none()
         {
             reporter_report.clean_not_submit_encrypted_report(report_id);
             ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
@@ -1253,7 +1245,7 @@ impl<T: Config> Pallet<T> {
             Self::update_unhandled_report(report_id, true, report_result.slash_exec_time);
             ReportResult::<T>::insert(report_id, report_result);
 
-            return Ok(());
+            return Ok(())
         }
 
         // 委员会没有提交Hash，删除该委员会，并惩罚
@@ -1291,7 +1283,7 @@ impl<T: Config> Pallet<T> {
         if matches!(report_info.report_status, ReportStatus::WaitingBook) {
             report_info.report_status = ReportStatus::SubmittingRaw;
             ReportInfo::<T>::insert(report_id, report_info);
-            return Ok(());
+            return Ok(())
         }
 
         // 但是最后一个委员会订阅时间小于1个小时
@@ -1332,7 +1324,7 @@ impl<T: Config> Pallet<T> {
 
         let mut report_info = Self::report_info(&report_id).ok_or(())?;
         if !report_info.can_summary(now) {
-            return Ok(());
+            return Ok(())
         }
 
         let fault_report_result = report_info.summary();
@@ -1402,7 +1394,7 @@ impl<T: Config> Pallet<T> {
             },
         }
 
-        Self::update_unhandled_report(report_id, true, now + TWO_DAY.into());
+        Self::update_unhandled_report(report_id, true, now + TWO_DAYS.into());
 
         if report_info.report_status != ReportStatus::Reported {
             report_info.report_status = ReportStatus::CommitteeConfirmed;
@@ -1450,7 +1442,7 @@ impl<T: Config> Pallet<T> {
                 &account_id_for_reserve_dlc,
                 &treasury_account,
                 reporter_staked_dlc_amount,
-                Preservation::Protect,
+                Preservation::Expendable,
             )
             .map_err(|_| ())?;
 
@@ -1458,7 +1450,7 @@ impl<T: Config> Pallet<T> {
                 *reserve_dlc = reserve_dlc.saturating_sub(reporter_staked_dlc_amount)
             });
 
-            return Ok(());
+            return Ok(())
         }
 
         let reward_each_get =
@@ -1472,7 +1464,7 @@ impl<T: Config> Pallet<T> {
                     &account_id_for_reserve_dlc,
                     a_committee,
                     reward_each_get,
-                    Preservation::Protect,
+                    Preservation::Expendable,
                 )
                 .map_err(|_| ())?;
 
@@ -1487,7 +1479,7 @@ impl<T: Config> Pallet<T> {
                     &account_id_for_reserve_dlc,
                     a_committee,
                     left_reward,
-                    Preservation::Protect,
+                    Preservation::Expendable,
                 )
                 .map_err(|_| ())?;
 
@@ -1503,7 +1495,7 @@ impl<T: Config> Pallet<T> {
                 &account_id_for_reserve_dlc,
                 &treasury_account,
                 left_reward,
-                Preservation::Protect,
+                Preservation::Expendable,
             )
             .map_err(|_| ())?;
         }

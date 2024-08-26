@@ -5,9 +5,9 @@ extern crate core;
 
 #[cfg(test)]
 mod mock;
-// #[allow(non_upper_case_globals)]
-// #[cfg(test)]
-// mod tests;
+#[allow(non_upper_case_globals)]
+#[cfg(test)]
+mod tests;
 
 pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
@@ -63,7 +63,7 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             )?;
 
         if !result {
-            return Err("renter not owner");
+            return Err("renter not owner")
         }
 
         DLCMachineIdsInStaking::<T>::mutate(|ids| ids.push(machine_id.clone()));
@@ -85,7 +85,7 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             machine_id.clone(),
         )?;
         if !result {
-            return Err("not owner");
+            return Err("not owner")
         }
         DLCMachineIdsInStaking::<T>::mutate(|ids| ids.retain(|id| id != &machine_id));
         Ok(())
