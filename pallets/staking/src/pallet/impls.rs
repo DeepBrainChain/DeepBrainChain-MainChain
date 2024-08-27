@@ -507,7 +507,8 @@ impl<T: Config> Pallet<T> {
             return Ok(())
         }
         for (dest_account, amount) in Self::committee_team_reward_per_year().ok_or(())? {
-            T::Currency::deposit_creating(&dest_account, amount);
+            let im_balance = T::Currency::deposit_creating(&dest_account, amount);
+            drop(im_balance);
         }
         RewardTimes::<T>::put(reward_times - 1);
         Ok(())
@@ -528,7 +529,9 @@ impl<T: Config> Pallet<T> {
                 0
         {
             for a_foundation in foundation_reward.who.clone() {
-                T::Currency::deposit_creating(&a_foundation, foundation_reward.reward_amount);
+                let im_balance =
+                    T::Currency::deposit_creating(&a_foundation, foundation_reward.reward_amount);
+                drop(im_balance);
             }
 
             foundation_reward.left_reward_times -= 1;
@@ -539,10 +542,11 @@ impl<T: Config> Pallet<T> {
             era_index >= treasury_reward.first_reward_era &&
             (era_index - treasury_reward.first_reward_era) % treasury_reward.reward_interval == 0
         {
-            T::Currency::deposit_creating(
+            let im_balance = T::Currency::deposit_creating(
                 &treasury_reward.treasury_account,
                 treasury_reward.reward_amount,
             );
+            drop(im_balance);
 
             treasury_reward.left_reward_times -= 1;
             <TreasuryReward<T>>::put(treasury_reward);
