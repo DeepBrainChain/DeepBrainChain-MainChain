@@ -11,7 +11,7 @@ impl<T: Config> DLCMachineSlashInfoTrait for Pallet<T> {
     fn get_dlc_machine_slashed_report_id(machine_id: MachineId) -> i64 {
         if let Some((report_id, _, slash_at)) = Self::dlc_machine_2_report_info(&machine_id) {
             if slash_at > 0 {
-                let report_id :u64 =  report_id.into();
+                let report_id: u64 = report_id.into();
                 return report_id as i64
             }
         }

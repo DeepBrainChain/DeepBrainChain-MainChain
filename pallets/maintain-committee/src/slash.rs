@@ -15,7 +15,7 @@ use sp_runtime::{SaturatedConversion, Saturating};
 use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {
-    pub fn exec_slash_now(now : <T as frame_system::Config>::BlockNumber) -> Result<(), ()> {
+    pub fn exec_slash_now(now: <T as frame_system::Config>::BlockNumber) -> Result<(), ()> {
         for slashed_report_id in Self::unhandled_report_result(now) {
             let mut report_result_info = Self::report_result(&slashed_report_id).ok_or(())?;
 
@@ -60,7 +60,7 @@ impl<T: Config> Pallet<T> {
                             reserve_amount,
                             Preservation::Expendable,
                         )
-                            .map_err(|_| ())?;
+                        .map_err(|_| ())?;
 
                         AccountId2ReserveDLC::<T>::mutate(&reporter, |reserve_dlc| {
                             *reserve_dlc = reserve_dlc.saturating_sub(reserve_amount)

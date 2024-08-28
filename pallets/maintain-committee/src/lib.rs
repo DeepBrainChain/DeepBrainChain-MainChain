@@ -219,7 +219,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn account_for_reserve_dlc)]
     pub(super) type AccountForReserveDLC<T: Config> =
-    StorageValue<_,  T::AccountId, ValueQuery, PalletAccount<T>>;
+        StorageValue<_, T::AccountId, ValueQuery, PalletAccount<T>>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -743,7 +743,9 @@ pub mod pallet {
             let mut reporter_report = Self::reporter_report(&reporter);
 
             // 支付
-            if let MachineFaultType::RentedInaccessible(_, dbc_rent_order_id) = report_reason.clone() {
+            if let MachineFaultType::RentedInaccessible(_, dbc_rent_order_id) =
+                report_reason.clone()
+            {
                 let rent_info = <rent_machine::Pallet<T>>::rent_info(&dbc_rent_order_id)
                     .ok_or(Error::<T>::Unknown)?;
 

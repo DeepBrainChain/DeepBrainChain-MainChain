@@ -746,11 +746,13 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         let rented_orders = Self::machine_rented_orders(machine_id);
         rented_orders.iter().for_each(|rented_order| {
             if renter == rented_order.renter && rented_order.rent_end >= last_claim_at {
-               if slash_at == T::BlockNumber::default() {
-                   rent_duration += now.min(rented_order.rent_end)-last_claim_at.max(rented_order.rent_start)
-               }else{
-                   rent_duration += now.min(rented_order.rent_end).min(slash_at)-last_claim_at.max(rented_order.rent_start)
-               }
+                if slash_at == T::BlockNumber::default() {
+                    rent_duration +=
+                        now.min(rented_order.rent_end) - last_claim_at.max(rented_order.rent_start)
+                } else {
+                    rent_duration += now.min(rented_order.rent_end).min(slash_at) -
+                        last_claim_at.max(rented_order.rent_start)
+                }
             }
         });
         Ok(rent_duration)

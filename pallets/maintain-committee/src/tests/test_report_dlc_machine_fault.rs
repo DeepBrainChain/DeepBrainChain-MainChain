@@ -410,7 +410,8 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
         // run_to_block(1200+(12 + 5 * ONE_MINUTE) + ONE_DAY * 2);
         run_to_block(10 + 12 + 5 * ONE_MINUTE + ONE_DAY * 2);
 
-        let (report_id,evm_address,slash_at) = MaintainCommittee::dlc_machine_2_report_info(machine_id.clone()).unwrap();
+        let (report_id, evm_address, slash_at) =
+            MaintainCommittee::dlc_machine_2_report_info(machine_id.clone()).unwrap();
 
         assert_eq!(report_id, 0);
         assert_eq!(evm_address, H160::default());

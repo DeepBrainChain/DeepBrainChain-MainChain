@@ -20,9 +20,11 @@ use dbc_support::{
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::tokens::fungibles::{Inspect, Mutate},
+    traits::tokens::{
+        fungibles::{Inspect, Mutate},
+        Fortitude, Precision,
+    },
 };
-use frame_support::traits::tokens::{Fortitude, Precision};
 use frame_system::{ensure_signed, pallet_prelude::*};
 use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, SaturatedConversion, Saturating, Zero},
@@ -152,7 +154,6 @@ pub mod pallet {
             let renter = ensure_signed(origin.clone())?;
             Self::rent_machine_by_block(renter, machine_id, rent_gpu_num, duration)
         }
-
     }
 
     #[pallet::event]
@@ -256,9 +257,7 @@ impl<T: Config> Pallet<T> {
             .checked_div(ONE_DAY as u64)
             .ok_or(Error::<T>::Overflow)?;
 
-        Self::deposit_event(Event::RentFeeValue(
-            rent_fee_value.clone(),
-        ));
+        Self::deposit_event(Event::RentFeeValue(rent_fee_value.clone()));
 
         // let dbc_rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
         //     .ok_or(Error::<T>::Overflow)?;
@@ -501,11 +500,13 @@ impl<T: Config> DLCMachineInfoTrait for Pallet<T> {
         let rented_orders = Self::machine_rented_orders(machine_id);
 
         rented_orders.iter().for_each(|rented_order| {
-            if  rented_order.rent_end >= last_claim_at {
-                if slash_at == T::BlockNumber::default(){
-                    rent_duration += now.min(rented_order.rent_end)-last_claim_at.max(rented_order.rent_start)
-                }else{
-                    rent_duration += now.min(rented_order.rent_end).min(slash_at)-last_claim_at.max(rented_order.rent_start)
+            if rented_order.rent_end >= last_claim_at {
+                if slash_at == T::BlockNumber::default() {
+                    rent_duration +=
+                        now.min(rented_order.rent_end) - last_claim_at.max(rented_order.rent_start)
+                } else {
+                    rent_duration += now.min(rented_order.rent_end).min(slash_at) -
+                        last_claim_at.max(rented_order.rent_start)
                 }
             }
         });
