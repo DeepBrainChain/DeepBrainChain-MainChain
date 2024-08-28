@@ -214,8 +214,10 @@ pub mod pallet {
             committee_stake.claimed_reward += can_claim_reward;
             committee_stake.can_claim_reward = Zero::zero();
 
-            <T as Config>::Currency::deposit_into_existing(&committee, can_claim_reward)
-                .map_err(|_| Error::<T>::ClaimRewardFailed)?;
+            let im_balance =
+                <T as Config>::Currency::deposit_into_existing(&committee, can_claim_reward)
+                    .map_err(|_| Error::<T>::ClaimRewardFailed)?;
+            drop(im_balance);
 
             CommitteeStake::<T>::insert(&committee, committee_stake);
             Self::deposit_event(Event::ClaimReward(committee, can_claim_reward));
