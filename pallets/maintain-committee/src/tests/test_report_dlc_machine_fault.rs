@@ -410,6 +410,11 @@ fn report_dlc_machine_agreed_by_committees_should_works() {
         // run_to_block(1200+(12 + 5 * ONE_MINUTE) + ONE_DAY * 2);
         run_to_block(10 + 12 + 5 * ONE_MINUTE + ONE_DAY * 2);
 
+        let (report_id,evm_address,slash_at) = MaintainCommittee::dlc_machine_2_report_info(machine_id.clone()).unwrap();
+
+        assert_eq!(report_id, 0);
+        assert_eq!(evm_address, H160::default());
+        assert_eq!(slash_at, (12 + 5 * ONE_MINUTE + ONE_DAY * 2) as u64);
         assert_eq!(MaintainCommittee::account_id_2_reserve_dlc(dlc_renter), 0);
 
         assert_eq!(Assets::balance(asset_id.into(), dlc_renter), dlc_balance_before_report);

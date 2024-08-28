@@ -113,7 +113,7 @@ where
 
                 Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
-                    output: ethabi::encode(&[ethabi::Token::Uint(report_id.into())]),
+                    output: ethabi::encode(&[ethabi::Token::Int(report_id.into())]),
                 })
             },
             Selector::GetDlcMachineSlashedReporter => {

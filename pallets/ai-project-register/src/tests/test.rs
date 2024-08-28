@@ -423,7 +423,7 @@ fn test_get_machine_valid_stake_duration_should_works() {
             rent_id: 1,
             renter: sr25519::Public::from(Sr25519Keyring::Alice),
             rent_start: 1,
-            rent_end: 1,
+            rent_end: 2,
         };
 
         MachineRentedOrders::<Test>::insert(machine_id.clone(), vec![order]);
@@ -474,6 +474,6 @@ fn test_get_machine_valid_stake_duration_should_works() {
             0,
             machine_id,
         );
-        assert_eq!(r.unwrap(), 10);
+        assert_eq!(r.unwrap(), 9);
     });
 }

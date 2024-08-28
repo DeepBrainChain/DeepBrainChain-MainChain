@@ -212,6 +212,15 @@ pub mod pallet {
     pub(super) type DLCMachine2ReportInfo<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, (ReportId, H160, u64)>;
 
+    #[pallet::type_value]
+    pub(super) fn PalletAccount<T: Config>() -> T::AccountId {
+        PALLET_ID.try_into_account().unwrap()
+    }
+    #[pallet::storage]
+    #[pallet::getter(fn account_for_reserve_dlc)]
+    pub(super) type AccountForReserveDLC<T: Config> =
+    StorageValue<_,  T::AccountId, ValueQuery, PalletAccount<T>>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
@@ -722,20 +731,20 @@ pub mod pallet {
             reporter_evm_address: H160,
         ) -> DispatchResultWithPostInfo {
             let reporter = ensure_signed(origin)?;
-            let rent_order_id =
+            let dbc_rent_order_id =
                 <rent_dlc_machine::Pallet<T>>::get_parent_dbc_rent_order_id(rent_order_id.clone())?;
-            let dlc_rent_info = <rent_dlc_machine::Pallet<T>>::rent_info(&rent_order_id)
+            let dlc_rent_info = <rent_dlc_machine::Pallet<T>>::rent_info(rent_order_id.clone())
                 .ok_or(Error::<T>::DlcRentOrderNotExist)?;
             ensure!(dlc_rent_info.renter == reporter, Error::<T>::NotDLCMachineRenter);
 
             let report_reason =
-                MachineFaultType::RentedInaccessible(machine_id.clone(), rent_order_id);
+                MachineFaultType::RentedInaccessible(machine_id.clone(), dbc_rent_order_id);
             let mut live_report = Self::live_report();
             let mut reporter_report = Self::reporter_report(&reporter);
 
             // 支付
-            if let MachineFaultType::RentedInaccessible(_, rent_order_id) = report_reason.clone() {
-                let rent_info = <rent_machine::Pallet<T>>::rent_info(&rent_order_id)
+            if let MachineFaultType::RentedInaccessible(_, dbc_rent_order_id) = report_reason.clone() {
+                let rent_info = <rent_machine::Pallet<T>>::rent_info(&dbc_rent_order_id)
                     .ok_or(Error::<T>::Unknown)?;
 
                 let result = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id);
@@ -784,6 +793,17 @@ pub mod pallet {
             DLCMachine2ReportInfo::<T>::insert(machine_id, (report_id, reporter_evm_address, 0));
             LiveReport::<T>::put(live_report);
             ReporterReport::<T>::insert(&reporter, reporter_report);
+            Ok(().into())
+        }
+
+        #[pallet::call_index(13)]
+        #[pallet::weight(Weight::from_parts(10000, 0))]
+        pub fn exec_slash_at(
+            origin: OriginFor<T>,
+            slash_at: T::BlockNumber,
+        ) -> DispatchResultWithPostInfo {
+            let reporter = ensure_signed(origin)?;
+            Self::exec_slash_now(slash_at);
             Ok(().into())
         }
     }
