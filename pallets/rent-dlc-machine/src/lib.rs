@@ -20,7 +20,10 @@ use dbc_support::{
 use frame_support::{
     ensure,
     pallet_prelude::*,
-    traits::tokens::fungibles::{Inspect, Mutate},
+    traits::tokens::{
+        fungibles::{Inspect, Mutate},
+        Fortitude, Precision,
+    },
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use sp_runtime::{
@@ -158,6 +161,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         PayTxFeeAndBurn(RentOrderId, T::AccountId, BalanceOf<T>),
         DLCRent(RentOrderId, T::AccountId, MachineId, u32, T::BlockNumber, BalanceOf<T>),
+        RentFeeValue(u64),
     }
 
     #[pallet::error]
@@ -252,6 +256,9 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::Overflow)?
             .checked_div(ONE_DAY as u64)
             .ok_or(Error::<T>::Overflow)?;
+
+        Self::deposit_event(Event::RentFeeValue(rent_fee_value.clone()));
+
         // let dbc_rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
         //     .ok_or(Error::<T>::Overflow)?;
         let dlc_price: u64 = 3000;
@@ -287,10 +294,12 @@ impl<T: Config> Pallet<T> {
         )
         .into_result(false)?;
 
-        <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::shelve(
+        <pallet_assets::Pallet<T> as Mutate<T::AccountId>>::burn_from(
             asset_id,
             &renter,
             rent_fee.clone(),
+            Precision::Exact,
+            Fortitude::Polite,
         )?;
 
         BurnRecords::<T>::mutate(|records| {
@@ -489,29 +498,18 @@ impl<T: Config> DLCMachineInfoTrait for Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
         let rented_orders = Self::machine_rented_orders(machine_id);
-        if slash_at == T::BlockNumber::default() {
-            rented_orders.iter().for_each(|rented_order| {
-                if rented_order.rent_end >= last_claim_at {
-                    if rented_order.rent_end >= now {
-                        rent_duration += now - last_claim_at
-                    } else {
-                        rent_duration += rented_order.rent_end - last_claim_at
-                    }
+
+        rented_orders.iter().for_each(|rented_order| {
+            if rented_order.rent_end >= last_claim_at {
+                if slash_at == T::BlockNumber::default() {
+                    rent_duration +=
+                        now.min(rented_order.rent_end) - last_claim_at.max(rented_order.rent_start)
+                } else {
+                    rent_duration += now.min(rented_order.rent_end).min(slash_at) -
+                        last_claim_at.max(rented_order.rent_start)
                 }
-            });
-        } else {
-            rented_orders.iter().for_each(|rented_order| {
-                if rented_order.rent_end >= last_claim_at {
-                    if rented_order.rent_end >= slash_at && slash_at >= last_claim_at {
-                        rent_duration += slash_at - last_claim_at;
-                    } else if rented_order.rent_end < slash_at &&
-                        rented_order.rent_end >= last_claim_at
-                    {
-                        rent_duration += rented_order.rent_end - last_claim_at
-                    }
-                }
-            });
-        }
+            }
+        });
 
         Ok(rent_duration)
     }

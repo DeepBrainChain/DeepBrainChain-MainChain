@@ -744,30 +744,17 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
         let rented_orders = Self::machine_rented_orders(machine_id);
-        if slash_at == T::BlockNumber::default() {
-            rented_orders.iter().for_each(|rented_order| {
-                if renter == rented_order.renter && rented_order.rent_end >= last_claim_at {
-                    if rented_order.rent_end >= now {
-                        rent_duration += now - last_claim_at
-                    } else {
-                        rent_duration += rented_order.rent_end - last_claim_at
-                    }
+        rented_orders.iter().for_each(|rented_order| {
+            if renter == rented_order.renter && rented_order.rent_end >= last_claim_at {
+                if slash_at == T::BlockNumber::default() {
+                    rent_duration +=
+                        now.min(rented_order.rent_end) - last_claim_at.max(rented_order.rent_start)
+                } else {
+                    rent_duration += now.min(rented_order.rent_end).min(slash_at) -
+                        last_claim_at.max(rented_order.rent_start)
                 }
-            });
-        } else {
-            rented_orders.iter().for_each(|rented_order| {
-                if renter == rented_order.renter && rented_order.rent_end >= last_claim_at {
-                    if rented_order.rent_end >= slash_at && slash_at >= last_claim_at {
-                        rent_duration += slash_at - last_claim_at;
-                    } else if rented_order.rent_end < slash_at &&
-                        rented_order.rent_end >= last_claim_at
-                    {
-                        rent_duration += rented_order.rent_end - last_claim_at
-                    }
-                }
-            });
-        }
-
+            }
+        });
         Ok(rent_duration)
     }
 
