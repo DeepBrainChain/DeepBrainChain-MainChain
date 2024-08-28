@@ -753,8 +753,9 @@ pub mod pallet {
                 let can_claim =
                     stash_machine.claim_reward().map_err(|_| Error::<T>::ClaimRewardFailed)?;
 
-                <T as Config>::Currency::deposit_into_existing(&stash, can_claim)
+                let im_balance = <T as Config>::Currency::deposit_into_existing(&stash, can_claim)
                     .map_err(|_| Error::<T>::ClaimRewardFailed)?;
+                drop(im_balance);
 
                 Self::fulfill_machine_stake(stash.clone(), can_claim)
                     .map_err(|_| Error::<T>::ClaimThenFulfillFailed)?;
