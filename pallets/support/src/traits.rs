@@ -201,7 +201,10 @@ pub trait DLCMachineReportStakingTrait {
 
 pub trait DLCMachineSlashInfoTrait {
     fn get_dlc_machine_slashed_at(machine_id: MachineId) -> u64;
-    fn get_dlc_machine_slashed_report_id(machine_id: MachineId) -> i64;
+    fn get_dlc_machine_slashed_report_id(machine_id: MachineId) -> u64;
+
+    fn is_slashed(machine_id: MachineId) -> bool;
+
     fn get_dlc_machine_slashed_reporter(machine_id: MachineId) -> H160;
 }
 

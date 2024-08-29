@@ -8,15 +8,20 @@ impl<T: Config> DLCMachineSlashInfoTrait for Pallet<T> {
         };
         0
     }
-    fn get_dlc_machine_slashed_report_id(machine_id: MachineId) -> i64 {
+    fn get_dlc_machine_slashed_report_id(machine_id: MachineId) -> u64 {
         if let Some((report_id, _, slash_at)) = Self::dlc_machine_2_report_info(&machine_id) {
             if slash_at > 0 {
-                let report_id: u64 = report_id.into();
-                return report_id as i64
+                return report_id
             }
         }
+        return 0
+    }
 
-        return -1
+    fn is_slashed(machine_id: MachineId) -> bool {
+        if let Some((_, _, slash_at)) = Self::dlc_machine_2_report_info(&machine_id) {
+            return slash_at > 0
+        }
+        return false
     }
 
     fn get_dlc_machine_slashed_reporter(machine_id: MachineId) -> H160 {
