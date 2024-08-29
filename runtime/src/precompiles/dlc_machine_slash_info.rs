@@ -22,6 +22,7 @@ pub enum Selector {
     GetDlcMachineSlashedAt = "getDlcMachineSlashedAt(string)",
     GetDlcMachineSlashedReportId = "getDlcMachineSlashedReportId(string)",
     GetDlcMachineSlashedReporter = "getDlcMachineSlashedReporter(string)",
+    IsSlashed = "isSlashed(string)",
 }
 
 impl<T> Precompile for DLCMachineSlashInfo<T>
@@ -152,6 +153,42 @@ where
                 Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
                     output: ethabi::encode(&[ethabi::Token::Address(reporter.into())]),
+                })
+            },
+
+            Selector::IsSlashed => {
+                let param = ethabi::decode(
+                    &[
+                        ethabi::ParamType::String, // machine_id
+                    ],
+                    &input[4..],
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
+
+                let machine_id_str =
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+
+                let slashed =
+                    <maintain_committee::Pallet<T> as DLCMachineSlashInfoTrait>::is_slashed(
+                        machine_id_str.clone().as_bytes().to_vec(),
+                    );
+
+                log::debug!(target: LOG_TARGET, " machine_id : {:?}", machine_id_str);
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Bool(slashed)]),
                 })
             },
         }
