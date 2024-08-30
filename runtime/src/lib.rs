@@ -1325,6 +1325,10 @@ parameter_types! {
     pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
 
     pub const AssetLockLimit: u32 = 1000;
+
+    pub const MinLockAmount: Balance = 100 * ONE_DLC;
+
+    pub const MaxLockDuration: BlockNumber  = 365 * DAYS;
 }
 
 impl pallet_assets::Config for Runtime {
@@ -1349,6 +1353,9 @@ impl pallet_assets::Config for Runtime {
     type AssetLockLimit = AssetLockLimit;
     // #[cfg(feature = "runtime-benchmarks")]
     // type BenchmarkHelper = ();
+    type MinLockAmount = MinLockAmount;
+
+    type MaxLockDuration = MaxLockDuration;
 }
 
 parameter_types! {

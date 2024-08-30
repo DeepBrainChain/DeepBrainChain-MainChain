@@ -277,6 +277,12 @@ pub mod pallet {
         /// The maximum locks an item could have.
         #[pallet::constant]
         type AssetLockLimit: Get<u32>;
+
+        #[pallet::constant]
+        type MinLockAmount: Get<Self::Balance>;
+
+        #[pallet::constant]
+        type MaxLockDuration: Get<Self::BlockNumber>;
     }
 
     #[pallet::storage]
@@ -564,6 +570,13 @@ pub mod pallet {
             to: T::AccountId,
             amount: T::Balance,
         },
+
+        RemovedLock {
+            asset_id: T::AssetId,
+            lock_index: u32,
+            who: T::AccountId,
+            amount: T::Balance,
+        },
     }
 
     #[pallet::error]
@@ -612,6 +625,9 @@ pub mod pallet {
         AmountZero,
         TooManyLocks,
         TimeNowAllowed,
+
+        LockAmountTooSmall,
+        LockDurationTooLong
     }
 
     #[pallet::call]
@@ -1575,6 +1591,9 @@ pub mod pallet {
             lock_duration: <T as frame_system::Config>::BlockNumber,
         ) -> DispatchResult {
             let origin = ensure_signed(origin)?;
+
+            ensure!(lock_duration <= T::MaxLockDuration::get(), Error::<T, I>::LockDurationTooLong);
+
             let dest = T::Lookup::lookup(target)?;
             let id: T::AssetId = id.into();
 
@@ -1587,6 +1606,8 @@ pub mod pallet {
         pub fn unlock(origin: OriginFor<T>, id: T::AssetId, lock_index: u32) -> DispatchResult {
             let origin = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
+            let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+            ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 
             let mut locks = match Self::asset_locks(id, &origin) {
                 None => BoundedBTreeMap::new(),
@@ -1596,6 +1617,10 @@ pub mod pallet {
             let lock = locks.get(&lock_index).cloned().ok_or(Error::<T, I>::Unknown)?;
 
             ensure!(now >= lock.unlock_time, Error::<T, I>::TimeNowAllowed);
+
+            Self::can_increase(id.clone(), &origin, lock.balance, true).into_result()?;
+
+
 
             Asset::<T, I>::try_mutate(id, |maybe_details| -> DispatchResult {
                 let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
@@ -1643,6 +1668,63 @@ pub mod pallet {
                 amount: lock.balance,
             });
             Ok(().into())
+        }
+
+        #[pallet::call_index(30)]
+        #[pallet::weight(T::WeightInfo::transfer())]
+        pub fn force_remove_lock(
+            origin: OriginFor<T>,
+            id: T::AssetId,
+            who: AccountIdLookupOf<T>,
+            lock_index: u32,
+        ) -> DispatchResult {
+            T::ForceOrigin::ensure_origin(origin)?;
+            let dest = T::Lookup::lookup(who)?;
+            let mut locks = match AssetLocks::<T, I>::get(id.clone(), &dest) {
+                None => BoundedBTreeMap::new(),
+                Some(locks) => locks,
+            };
+            // Implementation details...
+            let lock = locks.get(&lock_index).cloned().ok_or(Error::<T, I>::Unknown)?;
+            locks.remove(&lock_index);
+
+            if locks.is_empty() {
+                AssetLocks::<T, I>::remove(id.clone(), &dest);
+                Locked::<T, I>::remove(id.clone(), &dest);
+            } else {
+                AssetLocks::<T, I>::insert(id.clone(), &dest, locks);
+                Locked::<T, I>::mutate(id.clone(), &dest, |locked| {
+                    *locked = locked.saturating_sub(lock.balance)
+                });
+            }
+            Self::deposit_event(Event::RemovedLock {
+                asset_id: id,
+                lock_index: lock_index,
+                who:dest,
+                amount: lock.balance,
+            });
+
+            Ok(().into())
+        }
+
+        #[pallet::call_index(31)]
+        #[pallet::weight(T::WeightInfo::transfer())]
+        pub fn transfer_and_lock_keep_alive(
+            origin: OriginFor<T>,
+            id: T::AssetId,
+            target: AccountIdLookupOf<T>,
+            amount: T::Balance,
+            lock_duration: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            let origin = ensure_signed(origin)?;
+
+            ensure!(lock_duration <= T::MaxLockDuration::get(), Error::<T, I>::LockDurationTooLong);
+
+            let dest = T::Lookup::lookup(target)?;
+            let id: T::AssetId = id.into();
+
+            let f = TransferFlags { keep_alive: true, best_effort: false, burn_dust: false };
+            Self::do_transfer2(id, &origin, &dest, amount, lock_duration, None, f).map(|_| ())
         }
     }
 }

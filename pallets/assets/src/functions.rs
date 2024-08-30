@@ -553,6 +553,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         }
         let details = Asset::<T, I>::get(id).ok_or(Error::<T, I>::Unknown)?;
         ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+        ensure!(amount >= T::MinLockAmount::get(), Error::<T, I>::LockAmountTooSmall);
 
         // Figure out the debit and credit, together with side-effects.
         let debit = Self::prep_debit(id, source, amount, f.into())?;
@@ -809,6 +810,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
                 for (who, v) in Account::<T, I>::drain_prefix(id) {
                     let _ = Self::dead_account(&who, &mut details, &v.reason, true);
+                    AssetLocks::<T, I>::remove(&id, &who);
+                    Locked::<T, I>::remove(&id, &who);
                     dead_accounts.push(who);
                     if dead_accounts.len() >= (max_items as usize) {
                         break
@@ -874,6 +877,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             ensure!(details.status == AssetStatus::Destroying, Error::<T, I>::IncorrectStatus);
             ensure!(details.accounts == 0, Error::<T, I>::InUse);
             ensure!(details.approvals == 0, Error::<T, I>::InUse);
+
+            Self::remove_asset_locks(&id);
 
             let metadata = Metadata::<T, I>::take(&id);
             T::Currency::unreserve(
@@ -1047,5 +1052,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             }
         }
         None
+    }
+
+    pub fn remove_asset_locks(asset_id : &T::AssetId) {
+        let _ = AssetLocks::<T, I>::clear_prefix(asset_id,0,None);
+        let _ = Locked::<T, I>::clear_prefix(asset_id,0,None);
     }
 }
