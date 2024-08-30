@@ -16,6 +16,7 @@ sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 # Needed for type-safe access to storage DB.
 frame-support = { workspace = true }
+frame-benchmarking = { workspace = true }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
 frame-system = { workspace = true }
 sp-core = { workspace = true }
@@ -42,3 +43,7 @@ std = [
 	"frame-benchmarking/std"
 ]
 try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = [
+        "frame-benchmarking/runtime-benchmarks",
+        "frame-support/runtime-benchmarks",
+]

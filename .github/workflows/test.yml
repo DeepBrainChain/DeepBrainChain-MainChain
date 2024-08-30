@@ -58,5 +58,8 @@ jobs:
       - name: Check try-runtime
         run: cargo check --features try-runtime
 
+      - name: Check runtime-benchmarks
+        run: cargo check --features runtime-benchmarks
+
       - name: Run tests
         run: cargo test --all
