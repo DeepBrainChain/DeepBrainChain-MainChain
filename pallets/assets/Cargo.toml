@@ -20,9 +20,6 @@ frame-benchmarking = { workspace = true }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
 frame-system = { workspace = true }
 sp-core = { workspace = true }
-
-frame-benchmarking = { workspace = true, optional = true }
-
 [dev-dependencies]
 sp-std = { workspace = true, features = ["std"] }
 sp-io = { workspace = true, features = ["std"] }
@@ -30,7 +27,6 @@ pallet-balances = { workspace = true, features = ["std"] }
 
 [features]
 default = ["std"]
-runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 
 std = [
 	"codec/std",
