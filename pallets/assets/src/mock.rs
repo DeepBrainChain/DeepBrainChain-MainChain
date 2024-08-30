@@ -136,6 +136,18 @@ impl AssetsCallbackHandle {
     }
 }
 
+pub type BlockNumber = u32;
+pub type Balance = u64;
+
+pub type Moment = u64;
+
+
+parameter_types! {
+    pub const MinLockAmount: Balance = 1 * 100_000_000;
+    pub const MaxLockDuration: BlockNumber  = 10 *60 *24 *365;
+}
+
+
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Balance = u64;
@@ -155,6 +167,10 @@ impl Config for Test {
     type CallbackHandle = AssetsCallbackHandle;
     type Extra = ();
     type RemoveItemsLimit = ConstU32<5>;
+
+    type MinLockAmount = MinLockAmount;
+
+    type MaxLockDuration = MaxLockDuration;
     #[cfg(feature = "runtime-benchmarks")]
     type BenchmarkHelper = ();
 }
