@@ -415,7 +415,10 @@ impl pallet_scheduler::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type MaximumWeight = MaximumSchedulerWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
+    #[cfg(feature = "runtime-benchmarks")]
     type MaxScheduledPerBlock = ConstU32<512>;
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    type MaxScheduledPerBlock = ConstU32<50>;
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
     type Preimages = Preimage;
@@ -1703,7 +1706,6 @@ extern crate frame_benchmarking;
 mod benches {
     frame_benchmarking::define_benchmarks!(
         [frame_benchmarking, BaselineBench::<Runtime>]
-        [pallet_alliance, Alliance]
         [pallet_assets, Assets]
         [pallet_babe, Babe]
         [pallet_bags_list, VoterList]
@@ -1715,33 +1717,26 @@ mod benches {
         [pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
         [pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
         [pallet_elections_phragmen, Elections]
-        [pallet_fast_unstake, FastUnstake]
-        [pallet_nis, Nis]
         [pallet_grandpa, Grandpa]
         [pallet_identity, Identity]
         [pallet_im_online, ImOnline]
         [pallet_indices, Indices]
         [pallet_membership, TechnicalMembership]
-        [pallet_message_queue, MessageQueue]
         [pallet_multisig, Multisig]
-        [pallet_nomination_pools, NominationPoolsBench::<Runtime>]
-        [pallet_offences, OffencesBench::<Runtime>]
+        //[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
+        //[pallet_offences, OffencesBench::<Runtime>]
         [pallet_preimage, Preimage]
         [pallet_proxy, Proxy]
         [pallet_recovery, Recovery]
-        [pallet_remark, Remark]
         [pallet_scheduler, Scheduler]
-        [pallet_session, SessionBench::<Runtime>]
+        //[pallet_session, SessionBench::<Runtime>]
         [pallet_staking, Staking]
-        [pallet_state_trie_migration, StateTrieMigration]
         [frame_system, SystemBench::<Runtime>]
         [pallet_timestamp, Timestamp]
         [pallet_tips, Tips]
-        [pallet_transaction_storage, TransactionStorage]
         [pallet_treasury, Treasury]
         [pallet_nfts, Nfts]
         [pallet_utility, Utility]
-        [pallet_whitelist, Whitelist]
     );
 }
 
@@ -2322,12 +2317,12 @@ impl_runtime_apis! {
             // Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
             // issues. To get around that, we separated the Session benchmarks into its own crate,
             // which is why we need these two lines below.
-            use pallet_session_benchmarking::Pallet as SessionBench;
-            use pallet_offences_benchmarking::Pallet as OffencesBench;
+            // use pallet_session_benchmarking::Pallet as SessionBench;
+            // use pallet_offences_benchmarking::Pallet as OffencesBench;
             use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
-            use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
+            // use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
             let mut list = Vec::<BenchmarkList>::new();
             list_benchmarks!(list, extra);
@@ -2345,19 +2340,19 @@ impl_runtime_apis! {
             // Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
             // issues. To get around that, we separated the Session benchmarks into its own crate,
             // which is why we need these two lines below.
-            use pallet_session_benchmarking::Pallet as SessionBench;
-            use pallet_offences_benchmarking::Pallet as OffencesBench;
+            // use pallet_session_benchmarking::Pallet as SessionBench;
+            // use pallet_offences_benchmarking::Pallet as OffencesBench;
             use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
-            use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
+            // use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
-            impl pallet_session_benchmarking::Config for Runtime {}
-            impl pallet_offences_benchmarking::Config for Runtime {}
+            // impl pallet_session_benchmarking::Config for Runtime {}
+            // impl pallet_offences_benchmarking::Config for Runtime {}
             impl pallet_election_provider_support_benchmarking::Config for Runtime {}
             impl frame_system_benchmarking::Config for Runtime {}
             impl baseline::Config for Runtime {}
-            impl pallet_nomination_pools_benchmarking::Config for Runtime {}
+            // impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
             let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

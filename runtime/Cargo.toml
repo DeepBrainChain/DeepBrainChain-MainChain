@@ -271,7 +271,7 @@ runtime-benchmarks = [
   "frame-system/runtime-benchmarks",
   "sp-runtime/runtime-benchmarks",
   # "pallet-alliance/runtime-benchmarks",
-  # "pallet-assets/runtime-benchmarks",
+  "pallet-assets/runtime-benchmarks",
   "pallet-babe/runtime-benchmarks",
   "pallet-bags-list/runtime-benchmarks",
   "pallet-balances/runtime-benchmarks",
@@ -296,7 +296,7 @@ runtime-benchmarks = [
   "pallet-offences-benchmarking/runtime-benchmarks",
   "pallet-preimage/runtime-benchmarks",
   "pallet-proxy/runtime-benchmarks",
-  # "pallet-scheduler/runtime-benchmarks",
+  "pallet-scheduler/runtime-benchmarks",
   "pallet-recovery/runtime-benchmarks",
   # "pallet-remark/runtime-benchmarks",
   "pallet-session-benchmarking/runtime-benchmarks",
@@ -306,9 +306,11 @@ runtime-benchmarks = [
   # "pallet-transaction-storage/runtime-benchmarks",
   "pallet-treasury/runtime-benchmarks",
   "pallet-utility/runtime-benchmarks",
-  # "pallet-nfts/runtime-benchmarks",
+  "pallet-nfts/runtime-benchmarks",
   # "pallet-whitelist/runtime-benchmarks",
   "frame-system-benchmarking/runtime-benchmarks",
+  "pallet-evm/runtime-benchmarks",
+  "pallet-ethereum/runtime-benchmarks",
 ]
 
 try-runtime = [
