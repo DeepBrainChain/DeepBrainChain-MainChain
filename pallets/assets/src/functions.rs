@@ -1160,8 +1160,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             })
             .collect::<Vec<_>>()
     }
-    pub fn remove_asset_locks(asset_id : &T::AssetId) {
-        let _ = AssetLocks::<T, I>::clear_prefix(asset_id,0,None);
-        let _ = Locked::<T, I>::clear_prefix(asset_id,0,None);
+    pub fn remove_asset_locks(asset_id: &T::AssetId) {
+        let _ = AssetLocks::<T, I>::clear_prefix(asset_id, 0, None);
+        let _ = Locked::<T, I>::clear_prefix(asset_id, 0, None);
     }
 }

@@ -1259,7 +1259,6 @@ parameter_types! {
     pub const MaxLockDuration: BlockNumber  = 365 * DAYS;
 }
 
-
 impl pallet_assets::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Balance = u128;

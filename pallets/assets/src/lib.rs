@@ -681,7 +681,7 @@ pub mod pallet {
         TimeNowAllowed,
 
         LockAmountTooSmall,
-        LockDurationTooLong
+        LockDurationTooLong,
     }
 
     #[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1868,8 +1868,8 @@ pub mod pallet {
             }
             Self::deposit_event(Event::RemovedLock {
                 asset_id: id,
-                lock_index: lock_index,
-                who:dest,
+                lock_index,
+                who: dest,
                 amount: lock.balance,
             });
 
