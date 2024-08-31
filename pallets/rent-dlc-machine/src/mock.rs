@@ -269,6 +269,8 @@ parameter_types! {
     pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
 
     pub const AssetLockLimit: u32 = 1000;
+    pub const MinLockAmount: Balance = 1 * 100_000_000;
+    pub const MaxLockDuration: BlockNumber  = 10 *60 *24 *365;
 }
 impl pallet_assets::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
@@ -290,6 +292,10 @@ impl pallet_assets::Config for TestRuntime {
     type CallbackHandle = ();
     type WeightInfo = pallet_assets::weights::SubstrateWeight<TestRuntime>;
     type RemoveItemsLimit = ConstU32<1000>;
+
+    type MinLockAmount = MinLockAmount;
+
+    type MaxLockDuration = MaxLockDuration;
     // #[cfg(feature = "runtime-benchmarks")]
     // type BenchmarkHelper = ();
 }
