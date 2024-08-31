@@ -754,7 +754,6 @@ parameter_types! {
     pub const MaxPointsToBalance: u8 = 10;
 }
 
-use crate::migrations::DemocracyV1Migration;
 use sp_runtime::traits::Convert;
 
 pub struct BalanceToU256;

@@ -1582,7 +1582,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(28)]
-        #[pallet::weight(T::WeightInfo::transfer())]
+        #[pallet::weight(T::WeightInfo::transfer_and_lock())]
         pub fn transfer_and_lock(
             origin: OriginFor<T>,
             id: T::AssetId,
@@ -1602,7 +1602,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(29)]
-        #[pallet::weight(T::WeightInfo::transfer())]
+        #[pallet::weight(T::WeightInfo::unlock())]
         pub fn unlock(origin: OriginFor<T>, id: T::AssetId, lock_index: u32) -> DispatchResult {
             let origin = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
@@ -1671,7 +1671,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(30)]
-        #[pallet::weight(T::WeightInfo::transfer())]
+        #[pallet::weight(T::WeightInfo::force_remove_lock())]
         pub fn force_remove_lock(
             origin: OriginFor<T>,
             id: T::AssetId,
@@ -1708,7 +1708,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(31)]
-        #[pallet::weight(T::WeightInfo::transfer())]
+        #[pallet::weight(T::WeightInfo::transfer_and_lock_keep_alive())]
         pub fn transfer_and_lock_keep_alive(
             origin: OriginFor<T>,
             id: T::AssetId,
