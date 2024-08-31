@@ -261,6 +261,9 @@ impl dlc_machine::Config for TestRuntime {
 pub const DBCS: Balance = 1_000_000_000_000_000;
 pub const DOLLARS: Balance = DBCS / 100;
 
+pub const ONE_DAY: BlockNumber = 10 * 60 * 24;
+pub const ONE_DLC: Balance = 100_000_000;
+
 parameter_types! {
     pub const AssetDeposit: Balance = 100 * DOLLARS;
     pub const ApprovalDeposit: Balance = 1 * DOLLARS;
@@ -269,8 +272,8 @@ parameter_types! {
     pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
 
     pub const AssetLockLimit: u32 = 1000;
-    pub const MinLockAmount: Balance = 1 * 100_000_000;
-    pub const MaxLockDuration: BlockNumber  = 10 *60 *24 *365;
+    pub const MinLockAmount: Balance = 1 * ONE_DLC;
+    pub const MaxLockDuration: BlockNumber  = 365 * ONE_DAY;
 }
 impl pallet_assets::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
