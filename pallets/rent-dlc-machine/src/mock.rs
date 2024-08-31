@@ -262,8 +262,6 @@ pub const DBCS: Balance = 1_000_000_000_000_000;
 pub const DOLLARS: Balance = DBCS / 100;
 
 pub const ONE_DAY: BlockNumber = 10 * 60 * 24;
-pub const ONE_DLC: Balance = 100_000_000;
-
 parameter_types! {
     pub const AssetDeposit: Balance = 100 * DOLLARS;
     pub const ApprovalDeposit: Balance = 1 * DOLLARS;

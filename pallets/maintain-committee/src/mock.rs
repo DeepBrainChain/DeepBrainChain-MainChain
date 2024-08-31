@@ -44,8 +44,6 @@ pub const INIT_BALANCE: u128 = 10_000_000 * ONE_DBC;
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 30_000;
 
-pub const ONE_DAY: BlockNumber = 10 * 60 * 24;
-pub const ONE_DLC: Balance = 100_000_000;
 pub type BlockNumber = u32;
 
 parameter_types! {
