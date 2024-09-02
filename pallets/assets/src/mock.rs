@@ -143,7 +143,7 @@ pub type Moment = u64;
 
 parameter_types! {
     pub const MinLockAmount: Balance = 1 * 100_000_000;
-    pub const MaxLockDuration: BlockNumber  = 10 *60 *24 *365;
+    pub const MaxLockDuration: BlockNumber  = 10 *60 *24 *1800;
 }
 
 impl Config for Test {

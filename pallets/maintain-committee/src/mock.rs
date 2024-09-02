@@ -283,7 +283,7 @@ parameter_types! {
 
     pub const AssetLockLimit: u32 = 1000;
     pub const MinLockAmount: Balance = 1 * ONE_DLC;
-    pub const MaxLockDuration: BlockNumber  = 365 * ONE_DAY;
+    pub const MaxLockDuration: BlockNumber  = 1800 * ONE_DAY;
 }
 impl pallet_assets::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;

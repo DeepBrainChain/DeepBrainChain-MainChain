@@ -1256,7 +1256,7 @@ parameter_types! {
     pub const MetadataDepositBase: Balance = 10 * DOLLARS;
     pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
     pub const MinLockAmount: Balance = 100 * ONE_DLC;
-    pub const MaxLockDuration: BlockNumber  = 365 * DAYS;
+    pub const MaxLockDuration: BlockNumber  = 1800 * DAYS;
 }
 
 impl pallet_assets::Config for Runtime {
