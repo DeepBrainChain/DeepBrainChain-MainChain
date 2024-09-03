@@ -551,5 +551,75 @@ benchmarks_instance_pallet! {
         assert_last_event::<T, I>(Event::Blocked { asset_id: asset_id.into(), who: caller }.into());
     }
 
+     transfer_and_lock {
+        let duration = T::BlockNumber::from(1000u32);
+        let amount = T::Balance::from(2*100_000_000u32);
+        let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
+        let target: T::AccountId = account("target", 0, SEED);
+        let target_lookup = T::Lookup::unlookup(target.clone());
+    }: _(SystemOrigin::Signed(caller.clone()), asset_id.into(), target_lookup, amount, duration)
+    verify {
+        assert_last_event::<T, I>(Event::TransferLocked { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+    }
+
+    transfer_and_lock_keep_alive {
+        let duration = T::BlockNumber::from(1000u32);
+
+        let mint_amount = T::Balance::from(2*100_000_000u32+1);
+        let amount = T::Balance::from(2*100_000_000u32);
+        let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, mint_amount);
+        let target: T::AccountId = account("target", 0, SEED);
+        let target_lookup = T::Lookup::unlookup(target.clone());
+    }: _(SystemOrigin::Signed(caller.clone()), asset_id.into(), target_lookup, amount, duration)
+    verify {
+        assert_last_event::<T, I>(Event::TransferLocked { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+    }
+
+
+    unlock {
+        let duration = T::BlockNumber::from(1000u32);
+        let amount = T::Balance::from(2*100_000_000u32);
+        let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
+        let target: T::AccountId = account("target", 0, SEED);
+        let target_lookup = T::Lookup::unlookup(target.clone());
+
+        assert!(Assets::<T, I>::transfer_and_lock(
+            SystemOrigin::Signed(caller.clone()).into(),
+            asset_id.into(),
+            target_lookup.clone(),
+            amount,
+            duration
+        ).is_ok());
+
+        frame_system::Pallet::<T>::set_block_number(T::BlockNumber::from(1001u32));
+
+        let lock_index = 0u32;
+    }: _(SystemOrigin::Signed(target.clone()), asset_id.into(), lock_index)
+    verify {
+        assert_last_event::<T, I>(Event::Unlocked { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+    }
+
+
+    force_remove_lock {
+        let duration = T::BlockNumber::from(1000u32);
+        let amount = T::Balance::from(2*100_000_000u32);
+        let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
+        let target: T::AccountId = account("target", 0, SEED);
+        let target_lookup = T::Lookup::unlookup(target.clone());
+
+        assert!(Assets::<T, I>::transfer_and_lock(
+            SystemOrigin::Signed(caller.clone()).into(),
+            asset_id.into(),
+            target_lookup.clone(),
+            amount,
+            duration
+        ).is_ok());
+
+        let lock_index = 0u32;
+    }: _(SystemOrigin::Root, asset_id.into(), target_lookup, lock_index)
+    verify {
+        assert_last_event::<T, I>(Event::RemovedLock { asset_id: asset_id.into(), lock_index: lock_index, who: target, amount }.into());
+    }
+
     impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)
 }

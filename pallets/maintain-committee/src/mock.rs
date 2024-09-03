@@ -43,6 +43,7 @@ pub const ONE_DBC: u128 = 1_000_000_000_000_000;
 pub const INIT_BALANCE: u128 = 10_000_000 * ONE_DBC;
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 30_000;
+
 pub type BlockNumber = u32;
 
 parameter_types! {
@@ -281,6 +282,8 @@ parameter_types! {
     pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
 
     pub const AssetLockLimit: u32 = 1000;
+    pub const MinLockAmount: Balance = 1 * ONE_DLC;
+    pub const MaxLockDuration: BlockNumber  = 1800 * ONE_DAY;
 }
 impl pallet_assets::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
@@ -302,6 +305,10 @@ impl pallet_assets::Config for TestRuntime {
     type CallbackHandle = ();
     type WeightInfo = pallet_assets::weights::SubstrateWeight<TestRuntime>;
     type RemoveItemsLimit = ConstU32<1000>;
+
+    type MinLockAmount = MinLockAmount;
+
+    type MaxLockDuration = MaxLockDuration;
     // #[cfg(feature = "runtime-benchmarks")]
     // type BenchmarkHelper = ();
 }

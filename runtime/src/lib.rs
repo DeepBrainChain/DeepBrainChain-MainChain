@@ -1255,6 +1255,8 @@ parameter_types! {
     pub const StringLimit: u32 = 50;
     pub const MetadataDepositBase: Balance = 10 * DOLLARS;
     pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
+    pub const MinLockAmount: Balance = 100 * ONE_DLC;
+    pub const MaxLockDuration: BlockNumber  = 1800 * DAYS;
 }
 
 impl pallet_assets::Config for Runtime {
@@ -1278,6 +1280,10 @@ impl pallet_assets::Config for Runtime {
     type RemoveItemsLimit = ConstU32<1000>;
     #[cfg(feature = "runtime-benchmarks")]
     type BenchmarkHelper = ();
+
+    type MinLockAmount = MinLockAmount;
+
+    type MaxLockDuration = MaxLockDuration;
 }
 
 parameter_types! {

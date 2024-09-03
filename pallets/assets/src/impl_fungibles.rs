@@ -46,7 +46,9 @@ impl<T: Config<I>, I: 'static> fungibles::Inspect<<T as SystemConfig>::AccountId
     }
 
     fn total_balance(asset: Self::AssetId, who: &<T as SystemConfig>::AccountId) -> Self::Balance {
-        Pallet::<T, I>::balance(asset, who)
+        let free_balance = Pallet::<T, I>::balance(asset.clone(), who);
+        let locked_balance = Locked::<T, I>::get(asset, who);
+        free_balance.saturating_add(locked_balance)
     }
 
     fn reducible_balance(
