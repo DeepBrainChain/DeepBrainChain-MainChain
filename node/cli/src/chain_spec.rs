@@ -564,87 +564,135 @@ fn generate_mainnet_config() -> ChainSpec {
 }
 
 fn mainnet_config_genesis() -> GenesisConfig {
-	let initial_authorities: Vec<(
-		AccountId,
-		AccountId,
-		GrandpaId,
-		BabeId,
-		ImOnlineId,
-		AuthorityDiscoveryId,
-	)> = vec![
-		(
-			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
-			array_bytes::hex_n_into_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06"),
-			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
-			array_bytes::hex_n_into_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06"),
-			// 5DTnCRbvg6XjP9NQZ1HP7au6MB4MryBQaJ6bXcWL5WLwf2ES
-			array_bytes::hex2array_unchecked("3dd57d565c0cb2cd33e9b46bdac6fc7bd8ff2b9ab7566929ddead33d92d48bc9")
-				.unchecked_into(),
-			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
-			array_bytes::hex2array_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06")
-				.unchecked_into(),
-			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
-			array_bytes::hex2array_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06")
-				.unchecked_into(),
-			// 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
-			array_bytes::hex2array_unchecked("e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06")
-				.unchecked_into(),
-		),
-		(
-			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
-			array_bytes::hex_n_into_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033"),
-			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
-			array_bytes::hex_n_into_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033"),
-			// 5DPbnyUcazqLRY5U1p9VrM1Eqh8sZx8nQQRNui5sVcNRcYXX
-			array_bytes::hex2array_unchecked("3aa57be27e4f53363fb2884bc24a90796f020a956b71030032ccf698ea0dcd69")
-				.unchecked_into(),
-			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
-			array_bytes::hex2array_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033")
-				.unchecked_into(),
-			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
-			array_bytes::hex2array_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033")
-				.unchecked_into(),
-			// 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
-			array_bytes::hex2array_unchecked("4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033")
-				.unchecked_into(),
-		),
-		(
-			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
-			array_bytes::hex_n_into_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508"),
-			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
-			array_bytes::hex_n_into_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508"),
-			// 5Gp6iEgoXC9TTVKEexuZuDn8czrDLQNTUXKtFCzTBTpV2Ghe
-			array_bytes::hex2array_unchecked("d2096bf55f3c5d3df37525cef5bd7de93a8013d1fa9fa771ab3900a428a36dc8")
-				.unchecked_into(),
-			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
-			array_bytes::hex2array_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508")
-				.unchecked_into(),
-			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
-			array_bytes::hex2array_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508")
-				.unchecked_into(),
-			// 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
-			array_bytes::hex2array_unchecked("34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508")
-				.unchecked_into(),
-		),
-		(
-			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
-			array_bytes::hex_n_into_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d"),
-			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
-			array_bytes::hex_n_into_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d"),
-			// 5HfHDMQWYPjjXJcS31sPtEAmdFSvrWCwiyPTaEg1kgFeYH8h
-			array_bytes::hex2array_unchecked("f78bcca58bb837ae03106d5bb7b9b0c71e10673458d350cc3de74902e9ec6b15")
-				.unchecked_into(),
-			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
-			array_bytes::hex2array_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d")
-				.unchecked_into(),
-			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
-			array_bytes::hex2array_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d")
-				.unchecked_into(),
-			// 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
-			array_bytes::hex2array_unchecked("8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d")
-				.unchecked_into(),
-		),
-	];
+    let initial_authorities: Vec<(
+        AccountId,
+        AccountId,
+        GrandpaId,
+        BabeId,
+        ImOnlineId,
+        AuthorityDiscoveryId,
+    )> = vec![
+        (
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex_n_into_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            ),
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex_n_into_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            ),
+            // 5DTnCRbvg6XjP9NQZ1HP7au6MB4MryBQaJ6bXcWL5WLwf2ES
+            array_bytes::hex2array_unchecked(
+                "3dd57d565c0cb2cd33e9b46bdac6fc7bd8ff2b9ab7566929ddead33d92d48bc9",
+            )
+            .unchecked_into(),
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex2array_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            )
+            .unchecked_into(),
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex2array_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            )
+            .unchecked_into(),
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex2array_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            )
+            .unchecked_into(),
+        ),
+        (
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex_n_into_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            ),
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex_n_into_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            ),
+            // 5DPbnyUcazqLRY5U1p9VrM1Eqh8sZx8nQQRNui5sVcNRcYXX
+            array_bytes::hex2array_unchecked(
+                "3aa57be27e4f53363fb2884bc24a90796f020a956b71030032ccf698ea0dcd69",
+            )
+            .unchecked_into(),
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex2array_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            )
+            .unchecked_into(),
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex2array_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            )
+            .unchecked_into(),
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex2array_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            )
+            .unchecked_into(),
+        ),
+        (
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex_n_into_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            ),
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex_n_into_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            ),
+            // 5Gp6iEgoXC9TTVKEexuZuDn8czrDLQNTUXKtFCzTBTpV2Ghe
+            array_bytes::hex2array_unchecked(
+                "d2096bf55f3c5d3df37525cef5bd7de93a8013d1fa9fa771ab3900a428a36dc8",
+            )
+            .unchecked_into(),
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex2array_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            )
+            .unchecked_into(),
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex2array_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            )
+            .unchecked_into(),
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex2array_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            )
+            .unchecked_into(),
+        ),
+        (
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex_n_into_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            ),
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex_n_into_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            ),
+            // 5HfHDMQWYPjjXJcS31sPtEAmdFSvrWCwiyPTaEg1kgFeYH8h
+            array_bytes::hex2array_unchecked(
+                "f78bcca58bb837ae03106d5bb7b9b0c71e10673458d350cc3de74902e9ec6b15",
+            )
+            .unchecked_into(),
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex2array_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            )
+            .unchecked_into(),
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex2array_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            )
+            .unchecked_into(),
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex2array_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            )
+            .unchecked_into(),
+        ),
+    ];
 
     // generated with secret: subkey inspect "$secret"/fir
     let root_key: AccountId = array_bytes::hex_n_into_unchecked(
