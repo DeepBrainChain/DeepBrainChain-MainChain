@@ -81,10 +81,10 @@ pub fn flaming_fir_config() -> Result<ChainSpec, String> {
 }
 /// DBC Mainnet spec config
 pub fn mainnet_config() -> Result<ChainSpec, String> {
-    // ChainSpec::from_json_bytes(&include_bytes!("../res/dbc-specs-raw-v4.json")[..])
+    ChainSpec::from_json_bytes(&include_bytes!("../res/dbc-spec-v4.json")[..])
 
     // generate_mainnet_config
-    Ok(generate_mainnet_config())
+    // Ok(generate_mainnet_config())
 }
 
 fn session_keys(
