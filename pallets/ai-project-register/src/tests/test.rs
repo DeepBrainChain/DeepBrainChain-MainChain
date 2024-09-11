@@ -5,7 +5,7 @@ use dbc_support::{
     traits::MachineInfoTrait,
 };
 use frame_support::{assert_err, assert_ok, traits::Currency};
-use rent_machine::{MachineRentOrder,  RentInfo, MachineRenterRentedOrders};
+use rent_machine::{MachineRentOrder, MachineRenterRentedOrders, RentInfo};
 use sp_core::{sr25519, Pair};
 pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 
@@ -416,15 +416,14 @@ fn test_get_machine_valid_stake_duration_should_works() {
 
         RentInfo::<Test>::insert(1, rent_info_renting.clone());
 
-        let order: MachineRenterRentedOrderDetail<
-            <Test as frame_system::Config>::BlockNumber,
-        > = MachineRenterRentedOrderDetail {
-            rent_id: 1,
-            rent_start: 1,
-            rent_end: 2,
-        };
+        let order: MachineRenterRentedOrderDetail<<Test as frame_system::Config>::BlockNumber> =
+            MachineRenterRentedOrderDetail { rent_id: 1, rent_start: 1, rent_end: 2 };
 
-        MachineRenterRentedOrders::<Test>::insert(machine_id.clone(),rent_info_renting.renter, vec![order]);
+        MachineRenterRentedOrders::<Test>::insert(
+            machine_id.clone(),
+            rent_info_renting.renter,
+            vec![order],
+        );
 
         System::set_block_number(10);
         let r = RentMachine::get_machine_valid_stake_duration(
@@ -453,14 +452,13 @@ fn test_get_machine_valid_stake_duration_should_works() {
             gpu_index: vec![],
         };
         RentInfo::<Test>::insert(2, rent_info_renting.clone());
-        let order: MachineRenterRentedOrderDetail<
-            <Test as frame_system::Config>::BlockNumber,
-        > = MachineRenterRentedOrderDetail {
-            rent_id: 2,
-            rent_start: 1,
-            rent_end: 20,
-        };
-        MachineRenterRentedOrders::<Test>::insert(machine_id.clone(),rent_info_renting.renter, vec![order]);
+        let order: MachineRenterRentedOrderDetail<<Test as frame_system::Config>::BlockNumber> =
+            MachineRenterRentedOrderDetail { rent_id: 2, rent_start: 1, rent_end: 20 };
+        MachineRenterRentedOrders::<Test>::insert(
+            machine_id.clone(),
+            rent_info_renting.renter,
+            vec![order],
+        );
 
         let r = RentMachine::get_machine_valid_stake_duration(
             msg,
