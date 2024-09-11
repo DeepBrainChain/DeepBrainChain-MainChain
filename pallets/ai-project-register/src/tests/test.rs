@@ -1,11 +1,11 @@
 use super::super::{mock::*, *};
 use crate::mock::new_test_ext;
 use dbc_support::{
-    rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
+    rental_type::{MachineGPUOrder, MachineRenterRentedOrderDetail, RentOrderDetail, RentStatus},
     traits::MachineInfoTrait,
 };
 use frame_support::{assert_err, assert_ok, traits::Currency};
-use rent_machine::{MachineRentOrder, MachineRentedOrders, RentInfo};
+use rent_machine::{MachineRentOrder,  RentInfo, MachineRenterRentedOrders};
 use sp_core::{sr25519, Pair};
 pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 
@@ -414,19 +414,17 @@ fn test_get_machine_valid_stake_duration_should_works() {
             gpu_index: vec![],
         };
 
-        RentInfo::<Test>::insert(1, rent_info_renting);
+        RentInfo::<Test>::insert(1, rent_info_renting.clone());
 
-        let order: MachineRentedOrderDetail<
-            <Test as frame_system::Config>::AccountId,
+        let order: MachineRenterRentedOrderDetail<
             <Test as frame_system::Config>::BlockNumber,
-        > = MachineRentedOrderDetail {
+        > = MachineRenterRentedOrderDetail {
             rent_id: 1,
-            renter: sr25519::Public::from(Sr25519Keyring::Alice),
             rent_start: 1,
             rent_end: 2,
         };
 
-        MachineRentedOrders::<Test>::insert(machine_id.clone(), vec![order]);
+        MachineRenterRentedOrders::<Test>::insert(machine_id.clone(),rent_info_renting.renter, vec![order]);
 
         System::set_block_number(10);
         let r = RentMachine::get_machine_valid_stake_duration(
@@ -454,17 +452,15 @@ fn test_get_machine_valid_stake_duration_should_works() {
             gpu_num: 1,
             gpu_index: vec![],
         };
-        RentInfo::<Test>::insert(2, rent_info_renting);
-        let order: MachineRentedOrderDetail<
-            <Test as frame_system::Config>::AccountId,
+        RentInfo::<Test>::insert(2, rent_info_renting.clone());
+        let order: MachineRenterRentedOrderDetail<
             <Test as frame_system::Config>::BlockNumber,
-        > = MachineRentedOrderDetail {
+        > = MachineRenterRentedOrderDetail {
             rent_id: 2,
-            renter: sr25519::Public::from(Sr25519Keyring::Alice),
             rent_start: 1,
             rent_end: 20,
         };
-        MachineRentedOrders::<Test>::insert(machine_id.clone(), vec![order]);
+        MachineRenterRentedOrders::<Test>::insert(machine_id.clone(),rent_info_renting.renter, vec![order]);
 
         let r = RentMachine::get_machine_valid_stake_duration(
             msg,

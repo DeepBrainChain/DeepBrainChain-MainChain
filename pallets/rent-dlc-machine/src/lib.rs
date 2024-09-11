@@ -13,7 +13,7 @@ mod tests;
 
 pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
-    rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
+    rental_type::{MachineGPUOrder, MachineRenterRentedOrderDetail, RentOrderDetail, RentStatus},
     traits::{DLCMachineInfoTrait, DbcPrice, RTOps},
     EraIndex, ItemList, MachineId, RentOrderId, HALF_HOUR, ONE_DAY,
 };
@@ -132,12 +132,12 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, RentOrderId, RentOrderId>;
 
     #[pallet::storage]
-    #[pallet::getter(fn machine_rented_orders)]
-    pub type MachineRentedOrders<T: Config> = StorageMap<
+    #[pallet::getter(fn dlc_machine_rented_orders)]
+    pub type DlcMachineRentedOrders<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         MachineId,
-        Vec<MachineRentedOrderDetail<T::AccountId, T::BlockNumber>>,
+        Vec<MachineRenterRentedOrderDetail<T::BlockNumber>>,
         ValueQuery,
     >;
 
@@ -182,7 +182,7 @@ pub mod pallet {
         DBCRentIdNotFound,
     }
 
-    use dbc_support::rental_type::MachineRentedOrderDetail;
+    use dbc_support::rental_type::MachineRenterRentedOrderDetail;
 }
 
 impl<T: Config> Pallet<T> {
@@ -344,9 +344,8 @@ impl<T: Config> Pallet<T> {
 
         MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
-        MachineRentedOrders::<T>::mutate(&machine_id, |machine_rented_orders| {
-            machine_rented_orders.push(MachineRentedOrderDetail {
-                renter: renter.clone(),
+        DlcMachineRentedOrders::<T>::mutate(&machine_id, |dlc_machine_rented_orders| {
+            dlc_machine_rented_orders.push(MachineRenterRentedOrderDetail {
                 rent_start: now,
                 rent_end,
                 rent_id: rent_id.clone(),
@@ -474,7 +473,8 @@ impl<T: Config> Pallet<T> {
         let dbc_rent_info =
             rent_machine::Pallet::<T>::rent_info(rent_id).ok_or(Error::<T>::DBCRentIdNotFound)?;
 
-        Ok(dbc_rent_info.rent_end.saturating_sub(dbc_rent_info.rent_start))
+        let now = <frame_system::Pallet<T>>::block_number();
+        Ok(now.saturating_sub(dbc_rent_info.rent_start))
     }
 
     pub fn get_parent_dbc_rent_order_id(
@@ -497,7 +497,7 @@ impl<T: Config> DLCMachineInfoTrait for Pallet<T> {
     ) -> Result<T::BlockNumber, &'static str> {
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
-        let rented_orders = Self::machine_rented_orders(machine_id);
+        let rented_orders = Self::dlc_machine_rented_orders(machine_id);
 
         rented_orders.iter().for_each(|rented_order| {
             if rented_order.rent_end >= last_claim_at {

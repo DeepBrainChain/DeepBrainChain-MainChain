@@ -13,7 +13,7 @@ mod tests;
 
 pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
-    rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
+    rental_type::{MachineGPUOrder, MachineRenterRentedOrderDetail, RentOrderDetail, RentStatus},
     traits::{DbcPrice, MachineInfoTrait, RTOps},
     utils::{account_id, verify_signature},
     EraIndex, ItemList, MachineId, RentOrderId, HALF_HOUR, ONE_DAY, ONE_MINUTE,
@@ -92,12 +92,14 @@ pub mod pallet {
 
     //Vec(renter,rent_start,rent_end)
     #[pallet::storage]
-    #[pallet::getter(fn machine_rented_orders)]
-    pub type MachineRentedOrders<T: Config> = StorageMap<
+    #[pallet::getter(fn machine_renter_rented_orders)]
+    pub type MachineRenterRentedOrders<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         MachineId,
-        Vec<MachineRentedOrderDetail<T::AccountId, T::BlockNumber>>,
+        Blake2_128Concat,
+        T::AccountId,
+        Vec<MachineRenterRentedOrderDetail<T::BlockNumber>>,
         ValueQuery,
     >;
     #[pallet::storage]
@@ -244,9 +246,8 @@ pub mod pallet {
             );
             RentInfo::<T>::insert(&rent_id, rent_info.clone());
 
-            MachineRentedOrders::<T>::mutate(&machine_id, |machine_rented_orders| {
-                machine_rented_orders.push(MachineRentedOrderDetail {
-                    renter: renter.clone(),
+            MachineRenterRentedOrders::<T>::mutate(&machine_id, &renter, |details| {
+                details.push(MachineRenterRentedOrderDetail {
                     rent_start: rent_info.rent_start,
                     rent_end: rent_info.rent_end,
                     rent_id: rent_id.clone(),
@@ -476,6 +477,7 @@ impl<T: Config> Pallet<T> {
         Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_fee)?;
 
         // 获取用户租用的结束时间
+        let rent_end_before_relet = rent_info.rent_end;
         rent_info.rent_end =
             rent_info.rent_end.checked_add(&add_duration).ok_or(Error::<T>::Overflow)?;
 
@@ -484,6 +486,14 @@ impl<T: Config> Pallet<T> {
         });
         RentEnding::<T>::mutate(rent_info.rent_end, |rent_ending| {
             ItemList::add_item(rent_ending, rent_id);
+        });
+
+        MachineRenterRentedOrders::<T>::mutate(&machine_id, &renter, |details| {
+            details.push(MachineRenterRentedOrderDetail {
+                rent_start: rent_info.rent_start,
+                rent_end: rent_info.rent_end,
+                rent_id: rent_id.clone(),
+            });
         });
 
         RentInfo::<T>::insert(&rent_id, rent_info);
@@ -743,9 +753,9 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         let renter = account_id::<T>(from.clone())?;
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
-        let rented_orders = Self::machine_rented_orders(machine_id);
+        let rented_orders = Self::machine_renter_rented_orders(machine_id, renter);
         rented_orders.iter().for_each(|rented_order| {
-            if renter == rented_order.renter && rented_order.rent_end >= last_claim_at {
+            if rented_order.rent_end >= last_claim_at {
                 if slash_at == T::BlockNumber::default() {
                     rent_duration +=
                         now.min(rented_order.rent_end) - last_claim_at.max(rented_order.rent_start)
