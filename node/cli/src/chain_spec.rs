@@ -81,7 +81,10 @@ pub fn flaming_fir_config() -> Result<ChainSpec, String> {
 }
 /// DBC Mainnet spec config
 pub fn mainnet_config() -> Result<ChainSpec, String> {
-    ChainSpec::from_json_bytes(&include_bytes!("../res/dbcSpecRaw.json")[..])
+    // ChainSpec::from_json_bytes(&include_bytes!("../res/dbc-specs-raw-v4.json")[..])
+
+    // generate_mainnet_config
+    Ok(generate_mainnet_config())
 }
 
 fn session_keys(
@@ -537,6 +540,289 @@ pub fn testnet_genesis(
         ethereum: Default::default(),
         evm: Default::default(),
         evm_chain_id: EVMChainIdConfig { chain_id: 19850818u64 },
+        base_fee: BaseFeeConfig::new(DefaultBaseFeePerGas::get(), DefaultElasticity::get()),
+    }
+}
+
+/// Mainnet config
+fn generate_mainnet_config() -> ChainSpec {
+    ChainSpec::from_genesis(
+        "DBC Mainnet",
+        "dbc_network_mainnet",
+        ChainType::Live,
+        mainnet_config_genesis,
+        vec![], // boot_nodes
+        Some(
+            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+                .expect("Staging telemetry url is valid; qed"),
+        ),
+        None,
+        None,
+        Some(serde_json::from_str(DEFAULT_PROPS).unwrap()),
+        Default::default(),
+    )
+}
+
+fn mainnet_config_genesis() -> GenesisConfig {
+    let initial_authorities: Vec<(
+        AccountId,
+        AccountId,
+        GrandpaId,
+        BabeId,
+        ImOnlineId,
+        AuthorityDiscoveryId,
+    )> = vec![
+        (
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex_n_into_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            ),
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex_n_into_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            ),
+            // 5DTnCRbvg6XjP9NQZ1HP7au6MB4MryBQaJ6bXcWL5WLwf2ES
+            array_bytes::hex2array_unchecked(
+                "3dd57d565c0cb2cd33e9b46bdac6fc7bd8ff2b9ab7566929ddead33d92d48bc9",
+            )
+            .unchecked_into(),
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex2array_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            )
+            .unchecked_into(),
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex2array_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            )
+            .unchecked_into(),
+            // 5HEeqb1BG4MbEqgjWhEADcachLFxyymX6kCRefA2ou5CJETy
+            array_bytes::hex2array_unchecked(
+                "e4c375aa31c6ef7c6d16fce4bad2cb5415e794ad813c4aff6e02cd1205b12b06",
+            )
+            .unchecked_into(),
+        ),
+        (
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex_n_into_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            ),
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex_n_into_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            ),
+            // 5DPbnyUcazqLRY5U1p9VrM1Eqh8sZx8nQQRNui5sVcNRcYXX
+            array_bytes::hex2array_unchecked(
+                "3aa57be27e4f53363fb2884bc24a90796f020a956b71030032ccf698ea0dcd69",
+            )
+            .unchecked_into(),
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex2array_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            )
+            .unchecked_into(),
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex2array_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            )
+            .unchecked_into(),
+            // 5Dq2mjgaM9eSUmMZGu3ArYjLj7DUyr5irZ19rLgYqvVqeGsx
+            array_bytes::hex2array_unchecked(
+                "4e0ab466bfd7f78c4bd7930b0fd9c840f0f9d55169fcdb1eec336e7166343033",
+            )
+            .unchecked_into(),
+        ),
+        (
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex_n_into_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            ),
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex_n_into_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            ),
+            // 5Gp6iEgoXC9TTVKEexuZuDn8czrDLQNTUXKtFCzTBTpV2Ghe
+            array_bytes::hex2array_unchecked(
+                "d2096bf55f3c5d3df37525cef5bd7de93a8013d1fa9fa771ab3900a428a36dc8",
+            )
+            .unchecked_into(),
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex2array_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            )
+            .unchecked_into(),
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex2array_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            )
+            .unchecked_into(),
+            // 5DG4KYvuvfgUYt4b2CfVRNprZpFDW3jkELUnKZgYzt5xmrvx
+            array_bytes::hex2array_unchecked(
+                "34e4d1b453c02158162e52a530e55ab254a3b60480b517dd224986b2d9b97508",
+            )
+            .unchecked_into(),
+        ),
+        (
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex_n_into_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            ),
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex_n_into_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            ),
+            // 5HfHDMQWYPjjXJcS31sPtEAmdFSvrWCwiyPTaEg1kgFeYH8h
+            array_bytes::hex2array_unchecked(
+                "f78bcca58bb837ae03106d5bb7b9b0c71e10673458d350cc3de74902e9ec6b15",
+            )
+            .unchecked_into(),
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex2array_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            )
+            .unchecked_into(),
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex2array_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            )
+            .unchecked_into(),
+            // 5FEmxL86rj2av2X1p7bVvLWZx7CSdFDUmhmWMF1EjUeoB9wg
+            array_bytes::hex2array_unchecked(
+                "8c62f2bddcf1aaf61668b3225657ac075ba82595066ba3243b899ff6b695443d",
+            )
+            .unchecked_into(),
+        ),
+    ];
+
+    // generated with secret: subkey inspect "$secret"/fir
+    let root_key: AccountId = array_bytes::hex_n_into_unchecked(
+        // 5G4Tx92gWuzdfWRqhX5UyywmPn4Zj1VR4mJARmywo2cD2KkU
+        "b0c21f849124c82d6ebcd1ed2cce15dba356ea6670c13e6a7bf3815fae1ce53b",
+    );
+
+    let endowed_accounts: Vec<AccountId> = vec![root_key.clone()];
+
+    mainnet_genesis(initial_authorities, vec![], root_key, Some(endowed_accounts))
+}
+
+/// Helper function to create GenesisConfig for mainnet
+pub fn mainnet_genesis(
+    initial_authorities: Vec<(
+        AccountId,
+        AccountId,
+        GrandpaId,
+        BabeId,
+        ImOnlineId,
+        AuthorityDiscoveryId,
+    )>,
+    initial_nominators: Vec<AccountId>,
+    root_key: AccountId,
+    endowed_accounts: Option<Vec<AccountId>>,
+) -> GenesisConfig {
+    let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_default();
+    // endow all authorities and nominators.
+    initial_authorities
+        .iter()
+        .map(|x| &x.0)
+        .chain(initial_nominators.iter())
+        .for_each(|x| {
+            if !endowed_accounts.contains(x) {
+                endowed_accounts.push(x.clone())
+            }
+        });
+
+    // stakers: all validators and nominators.
+    let mut rng = rand::thread_rng();
+    let stakers = initial_authorities
+        .iter()
+        .map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
+        .chain(initial_nominators.iter().map(|x| {
+            use rand::{seq::SliceRandom, Rng};
+            let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
+            let count = rng.gen::<usize>() % limit;
+            let nominations = initial_authorities
+                .as_slice()
+                .choose_multiple(&mut rng, count)
+                .into_iter()
+                .map(|choice| choice.0.clone())
+                .collect::<Vec<_>>();
+            (x.clone(), x.clone(), STASH, StakerStatus::Nominator(nominations))
+        }))
+        .collect::<Vec<_>>();
+
+    let num_endowed_accounts = endowed_accounts.len();
+
+    const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
+    const STASH: Balance = ENDOWMENT / 1000;
+
+    GenesisConfig {
+        system: SystemConfig { code: wasm_binary_unwrap().to_vec() },
+        balances: BalancesConfig {
+            balances: endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect(),
+        },
+        indices: IndicesConfig { indices: vec![] },
+        session: SessionConfig {
+            keys: initial_authorities
+                .iter()
+                .map(|x| {
+                    (
+                        x.0.clone(),
+                        x.0.clone(),
+                        session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
+                    )
+                })
+                .collect::<Vec<_>>(),
+        },
+        staking: StakingConfig {
+            validator_count: initial_authorities.len() as u32,
+            minimum_validator_count: initial_authorities.len() as u32,
+            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+            slash_reward_fraction: Perbill::from_percent(10),
+            stakers,
+            ..Default::default()
+        },
+        democracy: DemocracyConfig::default(),
+        elections: ElectionsConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .map(|member| (member, STASH))
+                .collect(),
+        },
+        council: CouncilConfig::default(),
+        technical_committee: TechnicalCommitteeConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .collect(),
+            phantom: Default::default(),
+        },
+        sudo: SudoConfig { key: Some(root_key) },
+        babe: BabeConfig {
+            authorities: vec![],
+            epoch_config: Some(dbc_runtime::BABE_GENESIS_EPOCH_CONFIG),
+        },
+        im_online: ImOnlineConfig { keys: vec![] },
+        authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+        grandpa: GrandpaConfig { authorities: vec![] },
+        technical_membership: Default::default(),
+        treasury: Default::default(),
+        // vesting: Default::default(),
+        assets: Default::default(),
+        // transaction_storage: Default::default(),
+        transaction_payment: Default::default(),
+        // alliance: Default::default(),
+        // alliance_motion: Default::default(),
+        nomination_pools: NominationPoolsConfig {
+            min_create_bond: 10 * DOLLARS,
+            min_join_bond: 1 * DOLLARS,
+            ..Default::default()
+        },
+        ethereum: Default::default(),
+        evm: Default::default(),
+        evm_chain_id: EVMChainIdConfig { chain_id: 19880818u64 },
         base_fee: BaseFeeConfig::new(DefaultBaseFeePerGas::get(), DefaultElasticity::get()),
     }
 }
