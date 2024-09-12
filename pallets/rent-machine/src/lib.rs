@@ -786,7 +786,7 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
             return Err("machine not rented")
         };
 
-        if machine_info.controller != renter {
+        if machine_info.controller != renter && machine_info.machine_stash != renter {
             return Err("not machine owner")
         }
 
@@ -816,6 +816,6 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         let machine_info =
             online_profile::Pallet::<T>::machines_info(machine_id).ok_or("machine not found")?;
 
-        return Ok(machine_info.controller == renter)
+        return Ok(machine_info.controller == renter || machine_info.machine_stash == renter)
     }
 }
