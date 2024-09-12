@@ -474,7 +474,7 @@ impl<T: Config> Pallet<T> {
             rent_machine::Pallet::<T>::rent_info(rent_id).ok_or(Error::<T>::DBCRentIdNotFound)?;
 
         let now = <frame_system::Pallet<T>>::block_number();
-        Ok(now.saturating_sub(dbc_rent_info.rent_start))
+        Ok(dbc_rent_info.rent_end.saturating_sub(now))
     }
 
     pub fn get_parent_dbc_rent_order_id(
