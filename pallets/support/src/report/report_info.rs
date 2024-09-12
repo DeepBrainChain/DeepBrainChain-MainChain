@@ -313,10 +313,14 @@ where
 
         if matches!(self.report_status, ReportStatus::SubmittingRaw) {
             // 不到10分钟，且没全部提交确认，允许继续提交
-            if now.saturating_sub(self.first_book_time) < (10 * ONE_MINUTE).into() &&
-                self.confirmed_committee.len() < self.hashed_committee.len()
-            {
-                return Err(())
+            if now.saturating_sub(self.first_book_time) < (10 * ONE_MINUTE).into() {
+                if self.confirmed_committee.len() < self.hashed_committee.len() {
+                    return Err(())
+                }
+
+                if self.hashed_committee.len() == 0 {
+                    return Err(())
+                }
             }
         }
 

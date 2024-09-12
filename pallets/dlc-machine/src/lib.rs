@@ -66,7 +66,14 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             return Err("renter not owner")
         }
 
-        DLCMachineIdsInStaking::<T>::mutate(|ids| ids.push(machine_id.clone()));
+        DLCMachineIdsInStaking::<T>::mutate(|ids| {
+            if ids.contains(&machine_id) {
+                return Err("already in dlc staking")
+            };
+            ids.push(machine_id.clone());
+            Ok(())
+        })?;
+
         let stakeholder = account_id::<T>(from)?;
         Self::deposit_event(Event::ReportDLCStaking(stakeholder, machine_id));
         Ok(())

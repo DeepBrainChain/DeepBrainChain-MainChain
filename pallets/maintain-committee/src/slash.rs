@@ -108,17 +108,24 @@ impl<T: Config> Pallet<T> {
             ReportResult::<T>::insert(slashed_report_id, report_result_info.clone());
 
             if Self::is_dlc_machine_fault_report(report_result_info.report_id) {
-                DLCMachine2ReportInfo::<T>::mutate(report_result_info.machine_id, |report_info| {
-                    if let Some((report_id, reporter_evm_address, _)) = *report_info {
-                        *report_info = Some((
-                            report_id.clone(),
-                            reporter_evm_address.clone(),
-                            report_result_info.slash_exec_time.saturated_into::<u64>(),
-                        ));
-                        return *report_info
-                    };
-                    *report_info
-                });
+                if report_result == ReportResultType::ReportSucceed {
+                    DLCMachine2ReportInfo::<T>::mutate(
+                        report_result_info.machine_id,
+                        |report_info| {
+                            if let Some((report_id, reporter_evm_address, _)) = *report_info {
+                                *report_info = Some((
+                                    report_id.clone(),
+                                    reporter_evm_address.clone(),
+                                    report_result_info.slash_exec_time.saturated_into::<u64>(),
+                                ));
+                                return *report_info
+                            };
+                            *report_info
+                        },
+                    );
+                } else {
+                    DLCMachine2ReportInfo::<T>::remove(report_result_info.machine_id);
+                }
             }
         }
 
@@ -224,17 +231,24 @@ impl<T: Config> Pallet<T> {
             ReportResult::<T>::insert(slashed_report_id, report_result_info.clone());
 
             if Self::is_dlc_machine_fault_report(report_result_info.report_id) {
-                DLCMachine2ReportInfo::<T>::mutate(report_result_info.machine_id, |report_info| {
-                    if let Some((report_id, reporter_evm_address, _)) = *report_info {
-                        *report_info = Some((
-                            report_id.clone(),
-                            reporter_evm_address.clone(),
-                            report_result_info.slash_exec_time.saturated_into::<u64>(),
-                        ));
-                        return *report_info
-                    };
-                    *report_info
-                });
+                if report_result == ReportResultType::ReportSucceed {
+                    DLCMachine2ReportInfo::<T>::mutate(
+                        report_result_info.machine_id,
+                        |report_info| {
+                            if let Some((report_id, reporter_evm_address, _)) = *report_info {
+                                *report_info = Some((
+                                    report_id.clone(),
+                                    reporter_evm_address.clone(),
+                                    report_result_info.slash_exec_time.saturated_into::<u64>(),
+                                ));
+                                return *report_info
+                            };
+                            *report_info
+                        },
+                    );
+                } else {
+                    DLCMachine2ReportInfo::<T>::remove(report_result_info.machine_id);
+                }
             }
         }
 
