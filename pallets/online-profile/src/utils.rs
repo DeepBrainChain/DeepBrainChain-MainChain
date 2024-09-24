@@ -1,7 +1,7 @@
 use crate::{BalanceOf, Config, Error, MachineId, Pallet, PosGPUInfo};
 use dbc_support::{
     machine_info::MachineInfo, verify_slash::OPSlashReason, FIVE_DAYS, FOUR_HOURS, ONE_DAY,
-    ONE_HOUR, SEVEN_MINUTES, TEN_DAYS, TWO_DAYS,
+    SEVEN_MINUTES, TEN_DAYS, TWO_DAYS,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure};
 use sp_core::crypto::ByteArray;

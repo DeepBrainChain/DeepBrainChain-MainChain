@@ -20,8 +20,6 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
-use crate::Cli;
-use dbc_executor::DBCExecutorDispatch;
 use dbc_primitives::Block;
 
 use codec::Encode;
@@ -30,14 +28,13 @@ use fc_db::DatabaseSource;
 use fc_mapping_sync::{kv::MappingSyncWorker, SyncStrategy};
 use fc_rpc::EthTask;
 use fc_rpc_core::types::{FeeHistoryCache, FilterPool};
-use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use sc_client_api::{
     AuxStore, Backend, BlockBackend, BlockchainEvents, StateBackend, StorageProvider,
 };
 use sc_consensus_babe::{self, SlotProportion};
-use sc_executor::NativeElseWasmExecutor;
+use sc_executor::{NativeElseWasmExecutor, WasmExecutor};
 use sc_network::{
     config::FullNetworkConfiguration, event::Event, NetworkEventStream, NetworkService,
 };
@@ -56,9 +53,29 @@ use std::{
     time::Duration,
 };
 
+/// Our native executor instance.
+pub struct ExecutorDispatch;
+
+impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
+    /// Only enable the benchmarking host functions when we actually want to benchmark.
+    #[cfg(feature = "runtime-benchmarks")]
+    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+    /// Otherwise we only use the default Substrate host functions.
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    type ExtendHostFunctions = ();
+
+    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+        dbc_runtime::api::dispatch(method, data)
+    }
+
+    fn native_version() -> sc_executor::NativeVersion {
+        dbc_runtime::native_version()
+    }
+}
+
 /// The full client type definition.
 pub type FullClient =
-    sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<DBCExecutorDispatch>>;
+    sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
@@ -218,11 +235,12 @@ pub fn new_partial(
         })
         .transpose()?;
 
-    let executor = NativeElseWasmExecutor::<DBCExecutorDispatch>::new(
-        config.wasm_method,
-        config.default_heap_pages,
-        config.max_runtime_instances,
-        config.runtime_cache_size,
+    let executor = NativeElseWasmExecutor::new_with_wasm_executor(
+        WasmExecutor::builder()
+            .with_execution_method(config.wasm_method)
+            .with_max_runtime_instances(config.max_runtime_instances)
+            .with_runtime_cache_size(config.runtime_cache_size)
+            .build(),
     );
 
     let (client, backend, keystore_container, task_manager) =
@@ -321,19 +339,11 @@ pub struct NewFullBase {
 /// Creates a full service from the configuration.
 pub fn new_full_base(
     mut config: Configuration,
-    disable_hardware_benchmarks: bool,
     with_startup_data: impl FnOnce(
         &sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
         &sc_consensus_babe::BabeLink<Block>,
     ),
 ) -> Result<NewFullBase, ServiceError> {
-    let hwbench = (!disable_hardware_benchmarks)
-        .then_some(config.database.path().map(|database_path| {
-            let _ = std::fs::create_dir_all(&database_path);
-            sc_sysinfo::gather_hwbench(Some(database_path))
-        }))
-        .flatten();
-
     let sc_service::PartialComponents {
         client,
         backend,
@@ -498,24 +508,6 @@ pub fn new_full_base(
         sync_service: sync_service.clone(),
         telemetry: telemetry.as_mut(),
     })?;
-
-    if let Some(hwbench) = hwbench {
-        sc_sysinfo::print_hwbench(&hwbench);
-        if !SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) && role.is_authority() {
-            log::warn!(
-                "⚠️  The hardware does not meet the minimal requirements for role 'Authority'."
-            );
-        }
-
-        if let Some(ref mut telemetry) = telemetry {
-            let telemetry_handle = telemetry.handle();
-            task_manager.spawn_handle().spawn(
-                "telemetry_hwbench",
-                None,
-                sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
-            );
-        }
-    }
 
     (with_startup_data)(&babe_block_import, &babe_link);
 
@@ -699,17 +691,9 @@ pub fn new_full_base(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceError> {
-    let database_source = config.database.clone();
-    let task_manager = new_full_base(config, cli.no_hardware_benchmarks, |_, _| ())
-        .map(|NewFullBase { task_manager, .. }| task_manager)?;
-
-    sc_storage_monitor::StorageMonitorService::try_spawn(
-        cli.storage_monitor,
-        database_source,
-        &task_manager.spawn_essential_handle(),
-    )
-    .map_err(|e| ServiceError::Application(e.into()))?;
+pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
+    let task_manager =
+        new_full_base(config, |_, _| ()).map(|NewFullBase { task_manager, .. }| task_manager)?;
 
     Ok(task_manager)
 }

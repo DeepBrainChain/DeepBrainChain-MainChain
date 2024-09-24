@@ -1517,7 +1517,6 @@ dependencies = [
  "clap_complete",
  "coins-bip32",
  "coins-bip39",
- "dbc-executor",
  "dbc-primitives",
  "dbc-rpc",
  "dbc-runtime",
@@ -1528,6 +1527,7 @@ dependencies = [
  "fc-rpc-core",
  "fp-evm",
  "fp-rpc",
+ "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
  "frame-system-rpc-runtime-api",
@@ -1597,15 +1597,6 @@ dependencies = [
  "tokio-util",
  "try-runtime-cli",
  "wait-timeout",
-]
-
-[[package]]
-name = "dbc-executor"
-version = "4.0.0-dev"
-dependencies = [
- "dbc-runtime",
- "frame-benchmarking",
- "sc-executor",
 ]
 
 [[package]]
@@ -1815,13 +1806,6 @@ dependencies = [
  "substrate-wasm-builder",
  "terminating-rental",
  "terminating-rental-runtime-api",
-]
-
-[[package]]
-name = "dbc-runtime-interface"
-version = "4.0.0-dev"
-dependencies = [
- "sp-runtime-interface",
 ]
 
 [[package]]
