@@ -41,7 +41,6 @@ use sp_std::{
 };
 
 pub use pallet::*;
-pub use traits::*;
 pub use types::*;
 
 type BalanceOf<T> =

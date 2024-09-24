@@ -1528,6 +1528,7 @@ dependencies = [
  "fc-rpc-core",
  "fp-evm",
  "fp-rpc",
+ "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
  "frame-system-rpc-runtime-api",
