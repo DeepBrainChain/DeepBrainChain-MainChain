@@ -768,6 +768,30 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         Ok(rent_duration)
     }
 
+    fn get_renting_duration(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+        rent_id: RentOrderId,
+    ) -> Result<T::BlockNumber, &'static str> {
+        let ok = verify_signature(data, sig, from.clone());
+        if !ok {
+            return Err("signature verify failed")
+        };
+
+        let who = account_id::<T>(from.clone())?;
+        let rent_info = Self::rent_info(rent_id).ok_or("machine not rented")?;
+        if rent_info.renter != who {
+            return Err("not renting machine")
+        }
+        if rent_info.machine_id != machine_id {
+            return Err("machine id not match")
+        }
+        Ok(rent_info.rent_end.saturating_sub(<frame_system::Pallet<T>>::block_number()))
+
+    }
+
     fn is_both_machine_renter_and_owner(
         data: Vec<u8>,
         sig: sp_core::sr25519::Signature,
@@ -785,6 +809,8 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         if machine_info.machine_status != MachineStatus::Rented {
             return Err("machine not rented")
         };
+
+
 
         if machine_info.controller != renter && machine_info.machine_stash != renter {
             return Err("not machine owner")

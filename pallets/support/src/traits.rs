@@ -1,4 +1,4 @@
-use crate::MachineId;
+use crate::{MachineId, RentOrderId};
 use sp_core::H160;
 use sp_std::vec::Vec;
 
@@ -158,6 +158,14 @@ pub trait MachineInfoTrait {
         machine_id: MachineId,
     ) -> Result<Self::BlockNumber, &'static str>;
 
+    fn get_renting_duration(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+        rent_id: RentOrderId,
+    ) -> Result<Self::BlockNumber, &'static str>;
+
     fn is_both_machine_renter_and_owner(
         data: Vec<u8>,
         sig: sp_core::sr25519::Signature,
@@ -184,6 +192,8 @@ pub trait DLCMachineInfoTrait {
 }
 
 pub trait DLCMachineReportStakingTrait {
+    type BlockNumber;
+
     fn report_dlc_staking(
         data: Vec<u8>,
         sig: sp_core::sr25519::Signature,
@@ -197,6 +207,28 @@ pub trait DLCMachineReportStakingTrait {
         from: sp_core::sr25519::Public,
         machine_id: MachineId,
     ) -> Result<(), &'static str>;
+
+    fn report_phase_one_dlc_nft_staking(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+    ) -> Result<(), &'static str>;
+
+    fn report_phase_one_dlc_nft_end_staking(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+    ) -> Result<(), &'static str>;
+
+    fn get_valid_reward_duration(
+        last_claim_at: Self::BlockNumber,
+        total_stake_duration: Self::BlockNumber,
+        phase_number: u64,
+    ) -> Self::BlockNumber;
+
+    fn get_phase_one_reward_start_at() -> Self::BlockNumber;
 }
 
 pub trait DLCMachineSlashInfoTrait {

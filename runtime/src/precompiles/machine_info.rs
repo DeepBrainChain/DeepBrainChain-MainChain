@@ -23,6 +23,7 @@ pub enum Selector {
     GetMachineCalcPoint = "getMachineCalcPoint(string)",
     GetRentDuration = "getRentDuration(string,string,string,uint256,uint256,string)",
     GetDlcMachineRentDuration = "getDlcMachineRentDuration(uint256,uint256,string)",
+    GetRentingDuration = "getRentingDuration(string,string,string,string,uint256)",
 }
 
 impl<T> Precompile for MachineInfo<T>
@@ -244,6 +245,92 @@ where
                     )]),
                 })
             },
+            Selector::GetRentingDuration => {
+                let param = ethabi::decode(
+                    &[
+                        ethabi::ParamType::String,    // msg
+                        ethabi::ParamType::String,    // sig
+                        ethabi::ParamType::String,    // public
+                        ethabi::ParamType::String,    // machine_id
+                        ethabi::ParamType::Uint(256), // rent_id
+
+                    ],
+                    &input[4..],
+                )
+                    .map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode param failed: {:?}", e).into(),
+                    })?;
+
+                let msg =
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+
+                let sig_str =
+                    param[1].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[1] failed".into(),
+                    })?;
+
+                let sig =
+                    hex::decode(sig_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode sig failed: {:?}", e).into(),
+                    })?;
+
+                let mut b = [0u8; 64];
+                b.copy_from_slice(&sig[..]);
+                let sig = sp_core::sr25519::Signature(b);
+
+                let public_str =
+                    param[2].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[2] failed".into(),
+                    })?;
+
+                let public =
+                    hex::decode(public_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("decode pub key failed: {:?}", e).into(),
+                    })?;
+
+                let mut b = [0u8; 32];
+                b.copy_from_slice(&public[..]);
+                let public = sp_core::sr25519::Public(b);
+
+                let machine_id_str =
+                    param[3].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[4] failed".into(),
+                    })?;
+                let rent_id_uint =
+                    param[4].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[4] failed".into(),
+                    })?;
+                let rent_id: u64 = rent_id_uint.as_u64();
+                let duration  = <rent_machine::Pallet<T> as MachineInfoTrait>::get_renting_duration(msg.clone().into_bytes(),sig.clone(),public.clone(), machine_id_str.clone().as_bytes().to_vec(),rent_id).map_err( |e| {
+                    PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!("err: {}, msg: {}, sig: {:?}, public: {:?}, machine_id: {}, rent_id: {}",e,msg,sig,public,machine_id_str,rent_id).into(),
+                    }
+                })?;
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Uint(
+                        duration.saturated_into::<u64>().into(),
+                    )]),
+                })
+
+            }
         }
     }
 }

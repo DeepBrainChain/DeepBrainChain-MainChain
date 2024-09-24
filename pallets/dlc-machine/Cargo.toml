@@ -19,6 +19,7 @@ sp-std = { workspace = true }
 sp-core = { workspace = true }
 
 rent-machine = { path = "../rent-machine", default-features = false }
+online-profile = { path = "../online-profile", default-features = false }
 
 [dev-dependencies]
 sp-std = { workspace = true, features = ["std"] }
