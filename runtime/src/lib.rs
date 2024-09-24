@@ -23,8 +23,9 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 512.
 #![recursion_limit = "512"]
 
-pub use dbc_primitives::{AccountId, Signature};
-use dbc_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
+pub use dbc_primitives::{
+    AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, Moment, Signature,
+};
 use dbc_support::{rental_type::MachineGPUOrder, EraIndex, MachineId, RentOrderId};
 use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;

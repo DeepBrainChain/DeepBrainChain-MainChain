@@ -30,7 +30,6 @@ type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub use pallet::*;
-pub use traits::*;
 pub use types::*;
 // pub use weights::WeightInfo;
 

@@ -94,11 +94,11 @@ pallet-im-online = { workspace = true }
 # node-specific dependencies
 dbc-rpc = { path = "../../rpc" }
 dbc-primitives = { path = "../../primitives" }
-dbc-executor = { path = "../executor" }
 dbc-runtime = { path = "../../runtime" }
 
 # CLI-specific dependencies
 sc-cli = { workspace = true, optional = true }
+frame-benchmarking = { workspace = true, optional = true }
 frame-benchmarking-cli = { workspace = true, optional = true }
 try-runtime-cli = { workspace = true, optional = true }
 serde_json = { workspace = true }
@@ -151,6 +151,7 @@ cli = [
 ]
 runtime-benchmarks = [
 	"dbc-runtime/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks"
 ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
