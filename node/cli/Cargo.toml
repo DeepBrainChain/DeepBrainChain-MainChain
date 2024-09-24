@@ -94,7 +94,6 @@ pallet-im-online = { workspace = true }
 # node-specific dependencies
 dbc-rpc = { path = "../../rpc" }
 dbc-primitives = { path = "../../primitives" }
-dbc-executor = { path = "../executor" }
 dbc-runtime = { path = "../../runtime" }
 
 # CLI-specific dependencies
