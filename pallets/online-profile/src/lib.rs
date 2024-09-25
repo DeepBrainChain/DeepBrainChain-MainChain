@@ -367,17 +367,17 @@ pub mod pallet {
         // }
 
         // From 800 USD -> 300 USD
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            let mut online_stake_params = match Self::online_stake_params() {
-                Some(params) => params,
-                None => return Weight::zero(),
-            };
-            let online_stake_usd_limit =
-                Perbill::from_rational(3u32, 8u32) * online_stake_params.online_stake_usd_limit;
-            online_stake_params.online_stake_usd_limit = online_stake_usd_limit;
-            OnlineStakeParams::<T>::put(online_stake_params);
-            Weight::zero()
-        }
+        // fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        //     let mut online_stake_params = match Self::online_stake_params() {
+        //         Some(params) => params,
+        //         None => return Weight::zero(),
+        //     };
+        //     let online_stake_usd_limit =
+        //         Perbill::from_rational(3u32, 8u32) * online_stake_params.online_stake_usd_limit;
+        //     online_stake_params.online_stake_usd_limit = online_stake_usd_limit;
+        //     OnlineStakeParams::<T>::put(online_stake_params);
+        //     Weight::zero()
+        // }
     }
 
     #[pallet::call]
