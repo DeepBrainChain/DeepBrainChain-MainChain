@@ -167,7 +167,6 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             }else{
                 PhaseOneGPUType2NumberInStaking::<T>::insert(gpu_type, 1);
             }
-
         }
 
         PhaseOneDLCMachineIdsInStaking::<T>::mutate(|ids| {
@@ -178,18 +177,20 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             Ok(())
         })?;
         if PhaseOneGPUType2NumberInStaking::<T>::iter().count() as u64 >=
-            Self::pahse_one_start_threshold()
+            Self::pahse_one_start_threshold() && Self::get_phase_one_reward_start_at().saturated_into::<u64>() == 0
         {
             PhaseOneRewardStartAt::<T>::put(<frame_system::Pallet<T>>::block_number());
         }
 
         let mut details = Self::pahse_one_reward_paused_details();
         if details.len() > 0 {
-            if let Some((_, recovered_at)) = details.last_mut() {
-                if (*recovered_at).saturated_into::<u64>() == 0 {
-                    *recovered_at = <frame_system::Pallet<T>>::block_number();
+            PhaseOneRewardPausedDetails::<T>::mutate(|paused_details: &mut Vec<(RewardPausedAt<T>, RewardRecoveredAt<T>)>| {
+                if let Some((_, recovered_at)) = paused_details.last_mut() {
+                    if (*recovered_at).saturated_into::<u64>() == 0 {
+                        *recovered_at = <frame_system::Pallet<T>>::block_number();
+                    }
                 }
-            }
+            })
         }
 
         let stakeholder = account_id::<T>(from)?;
@@ -217,26 +218,31 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             return Ok(())
         }
 
+
+
         let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id.clone());
         if let Some(machine_info) = machine_info_result {
             let gpu_type = machine_info.machine_info_detail.committee_upload_info.gpu_type;
-            let gpu_number = Self::pahse_one_gpu_type_2_number_in_staking(gpu_type.clone());
-            if gpu_number == 1 {
+            let gpu_number_before = Self::pahse_one_gpu_type_2_number_in_staking(gpu_type.clone());
+            if gpu_number_before == 1 {
                 PhaseOneGPUType2NumberInStaking::<T>::remove(gpu_type);
             }else{
-                PhaseOneGPUType2NumberInStaking::<T>::insert(gpu_type, gpu_number.saturating_sub(1));
+                PhaseOneGPUType2NumberInStaking::<T>::insert(gpu_type, gpu_number_before.saturating_sub(1));
+            }
+
+            if Self::get_phase_one_reward_start_at().saturated_into::<u64>() > 0 {
+                let gpu_number = PhaseOneGPUType2NumberInStaking::<T>::iter().count() as u64;
+                let phase_one_start_threshold = Self::pahse_one_start_threshold();
+                if gpu_number < phase_one_start_threshold && gpu_number_before >= phase_one_start_threshold {
+                    PhaseOneRewardPausedDetails::<T>::mutate(|details| {
+                        details
+                            .push((<frame_system::Pallet<T>>::block_number(), T::BlockNumber::default()));
+                    })
+                }
             }
         }
 
-        if Self::get_phase_one_reward_start_at().saturated_into::<u64>() > 0 {
-            let gpu_number = PhaseOneGPUType2NumberInStaking::<T>::iter().count() as u64;
-            if gpu_number < Self::pahse_one_start_threshold() {
-                PhaseOneRewardPausedDetails::<T>::mutate(|details| {
-                    details
-                        .push((<frame_system::Pallet<T>>::block_number(), T::BlockNumber::default()));
-                })
-            }
-        }
+
 
         PhaseOneDLCMachineIdsInStaking::<T>::mutate(|ids| ids.retain(|id| id != &machine_id));
         Ok(())
