@@ -27,9 +27,12 @@ type RewardRecoveredAt<T> = <T as frame_system::Config>::BlockNumber;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use frame_system::ensure_root;
-    use frame_system::pallet_prelude::OriginFor;
     use super::*;
+    use dbc_support::ONE_HOUR;
+    use frame_system::{
+        ensure_root,
+        pallet_prelude::{BlockNumberFor, OriginFor},
+    };
 
     #[pallet::config]
     pub trait Config: frame_system::Config + rent_machine::Config + online_profile::Config {
@@ -41,7 +44,7 @@ pub mod pallet {
     pub type DLCMachineIdsInStaking<T: Config> = StorageValue<_, Vec<MachineId>, ValueQuery>;
 
     #[pallet::type_value]
-    pub(super) fn PhaseOneStartThresholdDefault<T: Config>() -> u64 {
+    pub fn PhaseOneStartThresholdDefault<T: Config>() -> u64 {
         500
     }
     #[pallet::storage]
@@ -78,6 +81,62 @@ pub mod pallet {
         ReportDLCStaking(T::AccountId, MachineId),
     }
 
+    #[pallet::error]
+    pub enum Error<T> {
+        InvalidValue,
+        RenterNotOwner,
+        AlreadyInStaking,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(block_number: T::BlockNumber) -> Weight {
+            if block_number.saturated_into::<u64>() % ONE_HOUR as u64 == 0 {
+                DLCMachineIdsInStaking::<T>::mutate(|machine_ids| {
+                    machine_ids.retain(|machine_id| {
+                        let mut should_retain = true;
+                        let machine_info_result =
+                            online_profile::Pallet::<T>::machines_info(machine_id);
+                        if let Some(machine_info) = machine_info_result {
+                            // must be rented
+                            if machine_info.machine_status != MachineStatus::Rented {
+                                should_retain = false
+                            };
+
+                            // must be rented by owner
+                            if machine_info.renters.len() != 1 {
+                                should_retain = false
+                            }
+
+                            let renter_result = machine_info.renters.last();
+                            if renter_result.is_none() {
+                                should_retain = false
+                            }
+
+                            let renter = renter_result.unwrap().clone();
+
+                            if machine_info.controller != renter &&
+                                machine_info.machine_stash != renter
+                            {
+                                should_retain = false
+                            }
+                        } else {
+                            should_retain = false
+                        }
+                        if !should_retain {
+                            frame_support::log::info!(
+                                "remove machine_id : {}",
+                                str::from_utf8(&machine_id).unwrap()
+                            );
+                        }
+                        return should_retain
+                    });
+                });
+            }
+            Weight::zero()
+        }
+    }
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
@@ -87,21 +146,19 @@ pub mod pallet {
             value: u64,
         ) -> DispatchResultWithPostInfo {
             let _who = ensure_root(origin)?;
-            ensure!(value > 0, "value should be greater than 0");
+            ensure!(value > 0, Error::<T>::InvalidValue);
             PhaseOneStartThreshold::<T>::put(value);
             Ok(().into())
         }
 
         #[pallet::call_index(1)]
         #[pallet::weight(Weight::from_parts(10000, 0))]
-        pub fn reset_phase_one(
-            origin: OriginFor<T>,
-        ) -> DispatchResultWithPostInfo {
-            let _who = ensure_root(origin)?;
-            PhaseOneDLCMachineIdsInStaking::<T>::kill();
+        pub fn reset_phase_one(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            // PhaseOneDLCMachineIdsInStaking::<T>::kill();
             PhaseOneRewardStartAt::<T>::kill();
             PhaseOneRewardPausedDetails::<T>::kill();
-            PhaseOneGPUType2NumberInStaking::<T>::clear(100,None);
+            let _ = PhaseOneGPUType2NumberInStaking::<T>::clear(100, None);
             Ok(().into())
         }
     }
@@ -124,12 +181,12 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             )?;
 
         if !result {
-            return Err("renter not owner")
+            return Err(Error::<T>::RenterNotOwner.as_str())
         }
 
         DLCMachineIdsInStaking::<T>::mutate(|ids| {
             if ids.contains(&machine_id) {
-                return Err("already in dlc staking")
+                return Err(Error::<T>::AlreadyInStaking.as_str())
             };
             ids.push(machine_id.clone());
             Ok(())
@@ -155,42 +212,48 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             )?;
 
         if !result {
-            return Err("renter not owner")
+            return Err(Error::<T>::RenterNotOwner.as_str())
         }
 
         let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id.clone());
         if let Some(machine_info) = machine_info_result {
             let gpu_type = machine_info.machine_info_detail.committee_upload_info.gpu_type;
-            if PhaseOneGPUType2NumberInStaking::<T>::contains_key(gpu_type.clone()){
+            if PhaseOneGPUType2NumberInStaking::<T>::contains_key(gpu_type.clone()) {
                 let gpu_number = Self::pahse_one_gpu_type_2_number_in_staking(gpu_type.clone());
-                PhaseOneGPUType2NumberInStaking::<T>::insert(gpu_type, gpu_number.saturating_add(1));
-            }else{
+                PhaseOneGPUType2NumberInStaking::<T>::insert(
+                    gpu_type,
+                    gpu_number.saturating_add(1),
+                );
+            } else {
                 PhaseOneGPUType2NumberInStaking::<T>::insert(gpu_type, 1);
             }
         }
 
-        PhaseOneDLCMachineIdsInStaking::<T>::mutate(|ids| {
+        DLCMachineIdsInStaking::<T>::mutate(|ids| {
             if ids.contains(&machine_id) {
-                return Err("already in dlc staking")
+                return Err(Error::<T>::AlreadyInStaking.as_str())
             };
             ids.push(machine_id.clone());
             Ok(())
         })?;
         if PhaseOneGPUType2NumberInStaking::<T>::iter().count() as u64 >=
-            Self::pahse_one_start_threshold() && Self::get_phase_one_reward_start_at().saturated_into::<u64>() == 0
+            Self::pahse_one_start_threshold() &&
+            Self::get_phase_one_reward_start_at().saturated_into::<u64>() == 0
         {
             PhaseOneRewardStartAt::<T>::put(<frame_system::Pallet<T>>::block_number());
         }
 
-        let mut details = Self::pahse_one_reward_paused_details();
+        let details = Self::pahse_one_reward_paused_details();
         if details.len() > 0 {
-            PhaseOneRewardPausedDetails::<T>::mutate(|paused_details: &mut Vec<(RewardPausedAt<T>, RewardRecoveredAt<T>)>| {
-                if let Some((_, recovered_at)) = paused_details.last_mut() {
-                    if (*recovered_at).saturated_into::<u64>() == 0 {
-                        *recovered_at = <frame_system::Pallet<T>>::block_number();
+            PhaseOneRewardPausedDetails::<T>::mutate(
+                |paused_details: &mut Vec<(RewardPausedAt<T>, RewardRecoveredAt<T>)>| {
+                    if let Some((_, recovered_at)) = paused_details.last_mut() {
+                        if (*recovered_at).saturated_into::<u64>() == 0 {
+                            *recovered_at = <frame_system::Pallet<T>>::block_number();
+                        }
                     }
-                }
-            })
+                },
+            )
         }
 
         let stakeholder = account_id::<T>(from)?;
@@ -211,14 +274,12 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             machine_id.clone(),
         )?;
         if !result {
-            return Err("not owner")
+            return Err(Error::<T>::RenterNotOwner.as_str())
         }
 
-        if !Self::phase_one_dlc_machine_ids_in_staking().contains(&machine_id) {
+        if !Self::dlc_machine_ids_in_staking().contains(&machine_id) {
             return Ok(())
         }
-
-
 
         let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id.clone());
         if let Some(machine_info) = machine_info_result {
@@ -226,25 +287,30 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             let gpu_number_before = Self::pahse_one_gpu_type_2_number_in_staking(gpu_type.clone());
             if gpu_number_before == 1 {
                 PhaseOneGPUType2NumberInStaking::<T>::remove(gpu_type);
-            }else{
-                PhaseOneGPUType2NumberInStaking::<T>::insert(gpu_type, gpu_number_before.saturating_sub(1));
+            } else {
+                PhaseOneGPUType2NumberInStaking::<T>::insert(
+                    gpu_type,
+                    gpu_number_before.saturating_sub(1),
+                );
             }
 
             if Self::get_phase_one_reward_start_at().saturated_into::<u64>() > 0 {
                 let gpu_number = PhaseOneGPUType2NumberInStaking::<T>::iter().count() as u64;
                 let phase_one_start_threshold = Self::pahse_one_start_threshold();
-                if gpu_number < phase_one_start_threshold && gpu_number_before >= phase_one_start_threshold {
+                if gpu_number < phase_one_start_threshold &&
+                    gpu_number_before >= phase_one_start_threshold
+                {
                     PhaseOneRewardPausedDetails::<T>::mutate(|details| {
-                        details
-                            .push((<frame_system::Pallet<T>>::block_number(), T::BlockNumber::default()));
+                        details.push((
+                            <frame_system::Pallet<T>>::block_number(),
+                            T::BlockNumber::default(),
+                        ));
                     })
                 }
             }
         }
 
-
-
-        PhaseOneDLCMachineIdsInStaking::<T>::mutate(|ids| ids.retain(|id| id != &machine_id));
+        DLCMachineIdsInStaking::<T>::mutate(|ids| ids.retain(|id| id != &machine_id));
         Ok(())
     }
 
@@ -261,7 +327,7 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             machine_id.clone(),
         )?;
         if !result {
-            return Err("not owner")
+            return Err(Error::<T>::RenterNotOwner.as_str())
         }
 
         if Self::dlc_machine_ids_in_staking().contains(&machine_id) {
@@ -315,10 +381,9 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
         total_stake_duration
     }
 
-    fn get_phase_one_reward_start_at() -> Self::BlockNumber{
+    fn get_phase_one_reward_start_at() -> Self::BlockNumber {
         Self::pahse_one_reward_start_at()
     }
-
 }
 
 impl<T: Config> Pallet<T> {

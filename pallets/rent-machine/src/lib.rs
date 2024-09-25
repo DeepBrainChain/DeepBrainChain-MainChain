@@ -477,7 +477,6 @@ impl<T: Config> Pallet<T> {
         Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_fee)?;
 
         // 获取用户租用的结束时间
-        let rent_end_before_relet = rent_info.rent_end;
         rent_info.rent_end =
             rent_info.rent_end.checked_add(&add_duration).ok_or(Error::<T>::Overflow)?;
 
@@ -789,7 +788,6 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
             return Err("machine id not match")
         }
         Ok(rent_info.rent_end.saturating_sub(<frame_system::Pallet<T>>::block_number()))
-
     }
 
     fn is_both_machine_renter_and_owner(
@@ -809,8 +807,6 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         if machine_info.machine_status != MachineStatus::Rented {
             return Err("machine not rented")
         };
-
-
 
         if machine_info.controller != renter && machine_info.machine_stash != renter {
             return Err("not machine owner")

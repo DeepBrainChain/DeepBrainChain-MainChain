@@ -805,8 +805,8 @@ pub mod pallet {
             origin: OriginFor<T>,
             slash_at: T::BlockNumber,
         ) -> DispatchResultWithPostInfo {
-            let reporter = ensure_signed(origin)?;
-            Self::exec_slash_now(slash_at);
+            ensure_root(origin)?;
+            let _ = Self::exec_slash_now(slash_at);
             Ok(().into())
         }
     }

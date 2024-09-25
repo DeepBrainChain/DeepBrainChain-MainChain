@@ -461,7 +461,7 @@ where
                         phase_one_reward_start_at.saturated_into::<u64>().into(),
                     )]),
                 })
-            }
+            },
         }
     }
 }

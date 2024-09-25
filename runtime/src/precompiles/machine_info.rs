@@ -253,14 +253,13 @@ where
                         ethabi::ParamType::String,    // public
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Uint(256), // rent_id
-
                     ],
                     &input[4..],
                 )
-                    .map_err(|e| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: format!("decode param failed: {:?}", e).into(),
-                    })?;
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
 
                 let msg =
                     param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
@@ -311,11 +310,20 @@ where
                         output: "decode param[4] failed".into(),
                     })?;
                 let rent_id: u64 = rent_id_uint.as_u64();
-                let duration  = <rent_machine::Pallet<T> as MachineInfoTrait>::get_renting_duration(msg.clone().into_bytes(),sig.clone(),public.clone(), machine_id_str.clone().as_bytes().to_vec(),rent_id).map_err( |e| {
-                    PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: format!("err: {}, msg: {}, sig: {:?}, public: {:?}, machine_id: {}, rent_id: {}",e,msg,sig,public,machine_id_str,rent_id).into(),
-                    }
+                let duration = <rent_machine::Pallet<T> as MachineInfoTrait>::get_renting_duration(
+                    msg.clone().into_bytes(),
+                    sig.clone(),
+                    public.clone(),
+                    machine_id_str.clone().as_bytes().to_vec(),
+                    rent_id,
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!(
+                        "err: {}, msg: {}, sig: {:?}, public: {:?}, machine_id: {}, rent_id: {}",
+                        e, msg, sig, public, machine_id_str, rent_id
+                    )
+                    .into(),
                 })?;
 
                 let weight = Weight::default()
@@ -329,8 +337,7 @@ where
                         duration.saturated_into::<u64>().into(),
                     )]),
                 })
-
-            }
+            },
         }
     }
 }
