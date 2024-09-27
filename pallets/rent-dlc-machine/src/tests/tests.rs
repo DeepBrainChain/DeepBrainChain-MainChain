@@ -44,8 +44,11 @@ fn report_dlc_staking_should_works() {
         ));
 
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_owner), 0));
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), false);
+
+        assert_eq!(
+            dlc_machine::DLCMachinesInStaking::<TestRuntime>::contains_key(machine_id.clone()),
+            false
+        );
 
         assert_ok!(
             <dlc_machine::Pallet<TestRuntime> as DLCMachineReportStakingTrait>::report_dlc_staking(
@@ -55,8 +58,10 @@ fn report_dlc_staking_should_works() {
                 machine_id.clone()
             )
         );
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), true)
+        assert_eq!(
+            dlc_machine::DLCMachinesInStaking::<TestRuntime>::contains_key(machine_id.clone()),
+            true
+        )
     })
 }
 
@@ -89,8 +94,10 @@ fn rent_dlc_machine_should_works() {
         ));
 
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_owner), 0));
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), false);
+        assert_eq!(
+            dlc_machine::DLCMachinesInStaking::<TestRuntime>::contains_key(machine_id.clone()),
+            false
+        );
         assert_err!(
             RentDlcMachine::rent_dlc_machine(
                 RuntimeOrigin::signed(*renter_dave),
@@ -109,8 +116,10 @@ fn rent_dlc_machine_should_works() {
                 machine_id.clone()
             )
         );
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), true);
+        assert_eq!(
+            dlc_machine::DLCMachinesInStaking::<TestRuntime>::contains_key(machine_id.clone()),
+            true
+        );
 
         // renter's dlc balance should be 10000000*ONE_DLC before rent dlc machine
         let asset_id = RentDlcMachine::get_dlc_asset_id_parameter();

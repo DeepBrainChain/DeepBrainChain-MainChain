@@ -1,4 +1,8 @@
 use crate::{MachineId, RentOrderId};
+use frame_support::{
+    dispatch::{Decode, Encode, TypeInfo},
+    RuntimeDebug,
+};
 use sp_core::H160;
 use sp_std::vec::Vec;
 
@@ -191,8 +195,47 @@ pub trait DLCMachineInfoTrait {
     ) -> Result<Self::BlockNumber, &'static str>;
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum PhaseLevel {
+    PhaseOne,
+    PhaseTwo,
+    PhaseThree,
+    PhaseNone,
+}
+
+impl From<u64> for PhaseLevel {
+    fn from(value: u64) -> Self {
+        if value == 1 {
+            return PhaseLevel::PhaseOne
+        };
+        if value == 2 {
+            return PhaseLevel::PhaseTwo
+        }
+        if value == 3 {
+            return PhaseLevel::PhaseThree
+        }
+        return PhaseLevel::PhaseNone
+    }
+}
+
 pub trait DLCMachineReportStakingTrait {
     type BlockNumber;
+
+    fn report_dlc_nft_staking(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+        phase_level: PhaseLevel,
+    ) -> Result<(), &'static str>;
+
+    fn report_dlc_nft_end_staking(
+        data: Vec<u8>,
+        sig: sp_core::sr25519::Signature,
+        from: sp_core::sr25519::Public,
+        machine_id: MachineId,
+        phase_level: PhaseLevel,
+    ) -> Result<(), &'static str>;
 
     fn report_dlc_staking(
         data: Vec<u8>,
@@ -208,27 +251,13 @@ pub trait DLCMachineReportStakingTrait {
         machine_id: MachineId,
     ) -> Result<(), &'static str>;
 
-    fn report_phase_one_dlc_nft_staking(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
-        machine_id: MachineId,
-    ) -> Result<(), &'static str>;
-
-    fn report_phase_one_dlc_nft_end_staking(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
-        machine_id: MachineId,
-    ) -> Result<(), &'static str>;
-
-    fn get_valid_reward_duration(
+    fn get_nft_staking_valid_reward_duration(
         last_claim_at: Self::BlockNumber,
         total_stake_duration: Self::BlockNumber,
-        phase_number: u64,
+        phase_level: PhaseLevel,
     ) -> Self::BlockNumber;
 
-    fn get_phase_one_reward_start_at() -> Self::BlockNumber;
+    fn get_nft_staking_reward_start_at(phase_level: &PhaseLevel) -> Self::BlockNumber;
 }
 
 pub trait DLCMachineSlashInfoTrait {
