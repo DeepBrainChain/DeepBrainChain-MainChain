@@ -4,10 +4,9 @@ use dbc_support::{rental_type::RentStatus, traits::DLCMachineReportStakingTrait,
 use frame_support::{assert_err, assert_ok};
 use once_cell::sync::Lazy;
 
+use rent_machine::Error as RentMachineError;
 use sp_core::Pair;
 use sp_keyring::AccountKeyring::{Dave, Eve};
-use rent_machine::{
-    Error as RentMachineError};
 const renter_dave: Lazy<sr25519::Public> = Lazy::new(|| sr25519::Public::from(Dave));
 
 const renter_owner: Lazy<sr25519::Public> = Lazy::new(|| sr25519::Public::from(Eve));
