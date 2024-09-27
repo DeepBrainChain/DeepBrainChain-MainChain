@@ -6,7 +6,8 @@ use once_cell::sync::Lazy;
 
 use sp_core::Pair;
 use sp_keyring::AccountKeyring::{Dave, Eve};
-
+use rent_machine::{
+    Error as RentMachineError};
 const renter_dave: Lazy<sr25519::Public> = Lazy::new(|| sr25519::Public::from(Dave));
 
 const renter_owner: Lazy<sr25519::Public> = Lazy::new(|| sr25519::Public::from(Eve));
@@ -33,7 +34,7 @@ fn report_dlc_staking_should_works() {
                 Eve.public(),
                 machine_id.clone()
             ),
-            "machine not rented"
+            RentMachineError::<TestRuntime>::MachineNotRented
         );
 
         assert_ok!(RentMachine::rent_machine(
@@ -83,7 +84,7 @@ fn rent_dlc_machine_should_works() {
                 eve.public(),
                 machine_id.clone()
             ),
-            "machine not rented"
+            RentMachineError::<TestRuntime>::MachineNotRented
         );
 
         assert_ok!(RentMachine::rent_machine(
