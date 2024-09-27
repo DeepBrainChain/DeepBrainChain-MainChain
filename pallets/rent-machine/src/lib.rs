@@ -310,6 +310,11 @@ pub mod pallet {
         NotMachineRenter,
         Unknown,
         ReletTooShort,
+
+        SignVerifiedFailed,
+        MachineNotRented,
+        MachineNotFound,
+        MoreThanOneRenter,
     }
 }
 
@@ -746,7 +751,7 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
     ) -> Result<T::BlockNumber, &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed")
+            return Err(Error::<T>::SignVerifiedFailed.as_str())
         };
 
         let renter = account_id::<T>(from.clone())?;
@@ -776,16 +781,16 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
     ) -> Result<T::BlockNumber, &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed")
+            return Err(Error::<T>::SignVerifiedFailed.as_str())
         };
 
         let who = account_id::<T>(from.clone())?;
-        let rent_info = Self::rent_info(rent_id).ok_or("machine not rented")?;
+        let rent_info = Self::rent_info(rent_id).ok_or(Error::<T>::MachineNotRented.as_str())?;
         if rent_info.renter != who {
-            return Err("not renting machine")
+            return Err(Error::<T>::NotMachineRenter.as_str())
         }
         if rent_info.machine_id != machine_id {
-            return Err("machine id not match")
+            return Err(Error::<T>::NotMachineRenter.as_str())
         }
         Ok(rent_info.rent_end.saturating_sub(<frame_system::Pallet<T>>::block_number()))
     }
@@ -798,29 +803,28 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
     ) -> Result<bool, &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed")
+            return Err(Error::<T>::SignVerifiedFailed.as_str())
         };
 
         let renter = account_id::<T>(from.clone())?;
-        let machine_info =
-            online_profile::Pallet::<T>::machines_info(machine_id).ok_or("machine not found")?;
+        let machine_info = online_profile::Pallet::<T>::machines_info(machine_id)
+            .ok_or(Error::<T>::MachineNotFound.as_str())?;
         if machine_info.machine_status != MachineStatus::Rented {
-            return Err("machine not rented")
+            return Err(Error::<T>::MachineNotRented.as_str())
         };
 
         if machine_info.controller != renter && machine_info.machine_stash != renter {
-            return Err("not machine owner")
+            return Err(Error::<T>::NotMachineRenter.as_str())
         }
-
         if machine_info.renters.len() != 1 {
-            return Err("machine renters more than one")
+            return Err(Error::<T>::MoreThanOneRenter.as_str())
         }
 
         if machine_info.renters.iter().find(|&r| r == &renter).is_some() {
             return Ok(true)
         }
 
-        return Err("not machine renter")
+        return Err(Error::<T>::NotMachineRenter.as_str())
     }
 
     fn is_machine_owner(
@@ -831,12 +835,12 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
     ) -> Result<bool, &'static str> {
         let ok = verify_signature(data, sig, from.clone());
         if !ok {
-            return Err("signature verify failed")
+            return Err(Error::<T>::SignVerifiedFailed.as_str())
         };
 
         let renter = account_id::<T>(from.clone())?;
-        let machine_info =
-            online_profile::Pallet::<T>::machines_info(machine_id).ok_or("machine not found")?;
+        let machine_info = online_profile::Pallet::<T>::machines_info(machine_id)
+            .ok_or(Error::<T>::MachineNotFound.as_str())?;
 
         return Ok(machine_info.controller == renter || machine_info.machine_stash == renter)
     }

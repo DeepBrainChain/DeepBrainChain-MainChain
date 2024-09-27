@@ -89,6 +89,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub (super) fn deposit_event)]
     pub enum Event<T: Config> {
         ReportDLCStaking(T::AccountId, MachineId),
+        DLCMachinesOwnerRentEnded(MachineId),
     }
 
     #[pallet::error]
@@ -142,8 +143,8 @@ pub mod pallet {
                         "remove machine_id : {}",
                         str::from_utf8(&machine_id).unwrap()
                     );
-                    DLCMachinesOwnerRentEnded::<T>::insert(machine_id, ());
-
+                    DLCMachinesOwnerRentEnded::<T>::insert(&machine_id, ());
+                    Self::deposit_event(Event::DLCMachinesOwnerRentEnded(machine_id))
                     // DLCMachinesInStaking::<T>::remove(machine_id);
                     // MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::remove(&PhaseLevel::PhaseOne, &machine_id);
                     // MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::remove(&PhaseLevel::PhaseTwo, &machine_id);
