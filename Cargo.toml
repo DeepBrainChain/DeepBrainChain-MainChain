@@ -12,7 +12,6 @@ resolver = "2"
 members = [
   "node",
   "node/cli",
-  "client/rpc/finality",
   "primitives",
   "rpc",
   "runtime",

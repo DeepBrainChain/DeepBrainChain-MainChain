@@ -133,7 +133,6 @@ where
     use substrate_frame_rpc_system::{System, SystemApiServer};
 
     use committee_rpc::{CmRpcApiServer, CmStorage};
-    use dbc_finality_rpc::{DbcFinality, DbcFinalityApiServer};
     use online_committee_rpc::{OcRpcApiServer, OcStorage};
     use online_profile_rpc::{OpRpcApiServer, OpStorage};
     use rent_dlc_machine_rpc::{DlcRmRpcApiServer, DlcRmStorage};
@@ -189,8 +188,6 @@ where
     io.merge(RmStorage::new(client.clone()).into_rpc())?;
     io.merge(IrStorage::new(client.clone()).into_rpc())?;
     io.merge(DlcRmStorage::new(client.clone()).into_rpc())?;
-
-    io.merge(DbcFinality::new(client.clone(), eth.frontier_backend.clone()).into_rpc())?;
 
     // Ethereum compatibility RPCs
     let io = create_eth::<_, _, _, _, _, _, DefaultEthConfig<C, BE>>(
