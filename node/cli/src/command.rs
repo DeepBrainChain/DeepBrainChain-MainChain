@@ -149,32 +149,8 @@ pub fn run() -> sc_cli::Result<()> {
 
                         cmd.run(config, client, db, storage)
                     },
-                    BenchmarkCmd::Overhead(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&mut config)?;
-                        let ext_builder = RemarkBuilder::new(client.clone());
-
-                        cmd.run(
-                            config,
-                            client,
-                            inherent_benchmark_data()?,
-                            Vec::new(),
-                            &ext_builder,
-                        )
-                    },
-                    BenchmarkCmd::Extrinsic(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&mut config)?;
-                        // Register the *Remark* and *TKA* builders.
-                        let ext_factory = ExtrinsicFactory(vec![
-                            Box::new(RemarkBuilder::new(client.clone())),
-                            Box::new(TransferKeepAliveBuilder::new(
-                                client.clone(),
-                                Sr25519Keyring::Alice.to_account_id(),
-                                ExistentialDeposit::get(),
-                            )),
-                        ]);
-
-                        cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
-                    },
+                    BenchmarkCmd::Overhead(_) => Err("Unsupported benchmarking command".into()),
+                    BenchmarkCmd::Extrinsic(_) => Err("Unsupported benchmarking command".into()),
                     BenchmarkCmd::Machine(cmd) =>
                         cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()),
                 }
