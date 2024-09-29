@@ -34,12 +34,9 @@ pub mod chain_spec;
 
 #[macro_use]
 pub mod service;
-#[cfg(feature = "cli")]
 mod cli;
-#[cfg(feature = "cli")]
+mod cli_opt;
 mod command;
 
-#[cfg(feature = "cli")]
 pub use cli::*;
-#[cfg(feature = "cli")]
 pub use command::*;

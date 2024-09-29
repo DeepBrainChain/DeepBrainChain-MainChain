@@ -1,6 +1,7 @@
 use crate::{
     chain_spec,
     cli::{Cli, Subcommand},
+    cli_opt::{BackendType, BackendTypeConfig, EthApi, RpcConfig},
     service,
 };
 use dbc_runtime::Block;
@@ -56,6 +57,28 @@ impl SubstrateCli for Cli {
 /// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
     let cli = Cli::from_args();
+
+    let rpc_config = RpcConfig {
+        ethapi: cli.ethapi.clone(),
+        ethapi_max_permits: cli.ethapi_max_permits,
+        ethapi_trace_max_count: cli.ethapi_trace_max_count,
+        ethapi_trace_cache_duration: cli.ethapi_trace_cache_duration,
+        eth_log_block_cache: cli.eth_log_block_cache,
+        eth_statuses_cache: cli.eth_statuses_cache,
+        fee_history_limit: cli.fee_history_limit,
+        max_past_logs: cli.max_past_logs,
+        logs_request_timeout: cli.logs_request_timeout,
+        tracing_raw_max_memory_usage: cli.tracing_raw_max_memory_usage,
+        frontier_backend_type: match cli.frontier_backend_type {
+            BackendType::KeyValue => BackendTypeConfig::KeyValue,
+            BackendType::Sql => BackendTypeConfig::Sql {
+                pool_size: cli.frontier_sql_backend_pool_size,
+                num_ops_timeout: cli.frontier_sql_backend_num_ops_timeout,
+                thread_count: cli.frontier_sql_backend_thread_count,
+                cache_size: cli.frontier_sql_backend_cache_size,
+            },
+        },
+    };
 
     match &cli.subcommand {
         Some(Subcommand::Key(cmd)) => cmd.run(&cli),
