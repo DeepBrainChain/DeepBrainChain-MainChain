@@ -22,6 +22,7 @@ coins-bip39 = { workspace = true }
 k256 = { workspace = true }
 
 # Substrate
+frame-benchmarking = { workspace = true, optional = true }
 frame-benchmarking-cli = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
@@ -85,6 +86,8 @@ substrate-build-script-utils = { workspace = true }
 default = []
 runtime-benchmarks = [
 	"dbc-runtime/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-benchmarking-cli/runtime-benchmarks",
 ]
 try-runtime = [
 	"dbc-runtime/try-runtime",
