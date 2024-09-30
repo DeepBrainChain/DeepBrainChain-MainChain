@@ -35,7 +35,7 @@ use frame_support::{
     pallet_prelude::Get,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, Currency, EitherOfDiverse,
+        AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, Contains, Currency, EitherOfDiverse,
         EqualPrivilegeOnly, Everything, Imbalance, InstanceFilter, KeyOwnerProofSystem,
         LockIdentifier, OnUnbalanced, U128CurrencyToVote,
     },
@@ -208,8 +208,34 @@ parameter_types! {
 }
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
+
+pub struct BaseCallFilter;
+impl Contains<RuntimeCall> for BaseCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        let is_core_call = matches!(call, RuntimeCall::System(_) | RuntimeCall::Timestamp(_));
+        if is_core_call {
+            return true
+        }
+
+        let is_whitelisted = matches!(
+            call,
+            RuntimeCall::Sudo(_) | // sudo
+			RuntimeCall::Scheduler(_) | RuntimeCall::Utility(_) | RuntimeCall::Multisig(_) | RuntimeCall::Proxy(_) | // utility
+			RuntimeCall::Treasury(_) | RuntimeCall::Bounties(_) | RuntimeCall::Tips(_) | // treasury
+			RuntimeCall::Council(_) |
+			RuntimeCall::TechnicalCommittee(_) |
+			RuntimeCall::Democracy(_) // democracy
+        );
+        if is_whitelisted {
+            return true
+        }
+
+        false
+    }
+}
+
 impl frame_system::Config for Runtime {
-    type BaseCallFilter = Everything;
+    type BaseCallFilter = BaseCallFilter;
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
     type DbWeight = RocksDbWeight;
