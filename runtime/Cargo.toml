@@ -21,6 +21,9 @@ evm-macro = { path = "src/precompiles/macro" }
 ethabi = { workspace = true }
 array-bytes = { workspace = true }
 num_enum = { workspace = true }
+hex = { workspace = true }
+rlp = { workspace = true, optional = true }
+sha3 = { workspace = true, optional = true }
 
 # primitives
 sp-authority-discovery = { workspace = true }
@@ -126,6 +129,11 @@ rent-dlc-machine = { path = "../pallets/rent-dlc-machine", default-features = fa
 rent-dlc-machine-runtime-api = { path = "../pallets/rent-dlc-machine/rpc/runtime-api", default-features = false }
 dlc-machine = { path = "../pallets/dlc-machine", default-features = false }
 
+dbc-primitives-rpc-debug = { workspace = true }
+dbc-primitives-rpc-txpool = { workspace = true }
+dbc-primitives-rpc-evm-tracing-events = { workspace = true, optional = true }
+dbc-evm-tracer = { workspace = true, default-features = false, optional = true }
+
 # Frontier
 fp-evm = { workspace = true }
 fp-rpc = { workspace = true }
@@ -140,8 +148,6 @@ pallet-evm-precompile-dispatch = { workspace = true }
 pallet-evm-precompile-modexp = { workspace = true }
 pallet-evm-precompile-sha3fips = { workspace = true }
 pallet-evm-precompile-simple = { workspace = true }
-hex = {version = "0.4.3", default-features = false}
-
 
 [features]
 default = ["std"]
@@ -248,6 +254,7 @@ std = [
   "simple-rpc-runtime-api/std",
   "terminating-rental-runtime-api/std",
   "rent-dlc-machine/std",
+  "rent-dlc-machine-runtime-api/std",
   "dlc-machine/std",
 
   # Evm
@@ -264,6 +271,11 @@ std = [
   "pallet-evm-precompile-modexp/std",
   "pallet-evm-precompile-sha3fips/std",
   "pallet-evm-precompile-simple/std",
+
+  "dbc-primitives-rpc-debug/std",
+  "dbc-primitives-rpc-txpool/std",
+  "dbc-primitives-rpc-evm-tracing-events/std",
+  "dbc-evm-tracer/std",
 ]
 runtime-benchmarks = [
   "frame-benchmarking/runtime-benchmarks",
@@ -382,3 +394,5 @@ try-runtime = [
   "rent-dlc-machine/try-runtime",
   "dlc-machine/try-runtime"
 ]
+
+evm-tracing = [ "dbc-primitives-rpc-evm-tracing-events", "dbc-evm-tracer", "rlp", "sha3" ]

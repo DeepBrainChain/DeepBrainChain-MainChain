@@ -6,6 +6,7 @@ edition = "2021"
 repository = { workspace = true }
 
 [dependencies]
+tokio = { workspace = true, features = ["macros", "sync"] }
 clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
 log = { workspace = true }
@@ -27,6 +28,7 @@ frame-benchmarking-cli = { workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-asset-tx-payment = { workspace = true }
+pallet-transaction-payment-rpc = { workspace = true }
 pallet-im-online = { workspace = true }
 sc-authority-discovery = { workspace = true }
 sc-basic-authorship = { workspace = true }
@@ -35,7 +37,9 @@ sc-cli = { workspace = true }
 sc-client-api = { workspace = true }
 sc-consensus = { workspace = true }
 sc-consensus-babe = { workspace = true }
+sc-consensus-babe-rpc = { workspace = true }
 sc-consensus-grandpa = { workspace = true }
+sc-consensus-grandpa-rpc = { workspace = true }
 sc-consensus-slots = { workspace = true }
 sc-executor = { workspace = true }
 sc-network = { workspace = true }
@@ -50,34 +54,60 @@ sc-telemetry = { workspace = true }
 sc-tracing = { workspace = true }
 sc-transaction-pool = { workspace = true }
 sc-transaction-pool-api = { workspace = true }
+sc-rpc-api = { workspace = true }
+substrate-frame-rpc-system = { workspace = true }
 
 sp-api = { workspace = true, features = ["std"] }
 sp-authority-discovery = { workspace = true }
 sp-blockchain = { workspace = true }
+sp-consensus = { workspace = true }
 sp-consensus-babe = { workspace = true }
 sp-consensus-grandpa = { workspace = true }
+sc-consensus-manual-seal = { workspace = true }
 sp-core = { workspace = true, features = ["std"] }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true, features = ["std"] }
 sp-timestamp = { workspace = true }
 sp-transaction-storage-proof = { workspace = true }
 sp-wasm-interface = { workspace = true }
+sp-block-builder = { workspace = true }
 substrate-prometheus-endpoint = { workspace = true }
 
 try-runtime-cli = { workspace = true }
 
-fc-db = { workspace = true }
-fc-mapping-sync = { workspace = true }
-fc-rpc = { workspace = true }
+# Frontier dependencies
+fc-db = { workspace = true, features = ["rocksdb"] }
+fc-mapping-sync = { workspace = true, features = ["sql"] }
 fc-rpc-core = { workspace = true }
-fp-evm = { workspace = true }
-fp-rpc = { workspace = true }
+dbc-client-rpc-txpool = { workspace = true }
+dbc-client-rpc-debug = { workspace = true }
+dbc-client-rpc-trace = { workspace = true }
+fc-rpc = { workspace = true, features = ["rpc-binary-search-estimate"] }
+
+fp-storage = { workspace = true }
+dbc-primitives-ext = { workspace = true, features = ["std"] }
+fp-evm = { workspace = true, features = ["std"] }
+fp-rpc = { workspace = true, features = ["std"] }
+dbc-primitives-rpc-txpool = { workspace = true, features = ["std"] }
+pallet-evm = { workspace = true, features = ["std"] }
+
+pallet-ethereum = { workspace = true, features = ["forbid-evm-reentrancy"] }
 
 pallet-assets = { path = "../../pallets/assets" }
 
-dbc-rpc = { path = "../../rpc" }
 dbc-primitives = { path = "../../primitives" }
-dbc-runtime = { path = "../../runtime" }
+dbc-runtime = { path = "../../runtime", features = ["std"] }
+
+committee-rpc = { path = "../../pallets/committee/rpc" }
+online-committee-rpc = { path = "../../pallets/online-committee/rpc" }
+online-profile-rpc = { path = "../../pallets/online-profile/rpc" }
+rent-machine-rpc = { path = "../../pallets/rent-machine/rpc" }
+rent-dlc-machine-rpc = { path = "../../pallets/rent-dlc-machine/rpc" }
+
+simple-rpc-rpc = { path = "../../pallets/simple-rpc/rpc" }
+terminating-rental-rpc = { path = "../../pallets/terminating-rental/rpc" }
+
+dbc-node-common = { path = "../common" }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }

@@ -1,4 +1,4 @@
-use crate::cli_opt::{BackendType, EthApi};
+use dbc_node_common::cli_opt::{BackendType, EthApi};
 use sc_cli::RunCmd;
 
 #[derive(Debug, clap::Parser)]

@@ -21,11 +21,11 @@
 use coins_bip32::ecdsa::{SigningKey, VerifyingKey};
 use coins_bip39::{English, Mnemonic, Wordlist};
 use dbc_runtime::{
-    constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
-    BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DefaultElasticity,
-    DemocracyConfig, EVMChainIdConfig, EVMConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig,
-    IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus,
-    StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+    constants::currency::*, opaque::SessionKeys, wasm_binary_unwrap, AuthorityDiscoveryConfig,
+    BabeConfig, BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas,
+    DefaultElasticity, DemocracyConfig, EVMChainIdConfig, EVMConfig, ElectionsConfig,
+    GrandpaConfig, ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig,
+    SessionConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
 use fp_evm::GenesisAccount;
 use k256::{elliptic_curve::sec1::ToEncodedPoint, EncodedPoint};

@@ -23,9 +23,14 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 512.
 #![recursion_limit = "512"]
 
+// Fix `unused_crate_dependencies` warnings.
+use dbc_evm_tracer as _;
 pub use dbc_primitives::{
     AccountId, AccountIndex, Balance, BlockNumber, Hash, Index, Moment, Signature,
 };
+// Fix `unused_crate_dependencies` warnings.
+use dbc_primitives_rpc_evm_tracing_events as _;
+use dbc_primitives_rpc_txpool::TxPoolResponse;
 use dbc_support::{rental_type::MachineGPUOrder, EraIndex, MachineId, RentOrderId};
 use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
@@ -559,12 +564,24 @@ impl pallet_authorship::Config for Runtime {
     type EventHandler = (Staking, ImOnline);
 }
 
-impl_opaque_keys! {
-    pub struct SessionKeys {
-        pub grandpa: Grandpa,
-        pub babe: Babe,
-        pub im_online: ImOnline,
-        pub authority_discovery: AuthorityDiscovery,
+/// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
+/// the specifics of the runtime. They can then be made to be agnostic over specific formats
+/// of data like extrinsics, allowing for them to continue syncing the network through upgrades
+/// to even the core data structures.
+pub mod opaque {
+    use super::*;
+    pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+
+    /// Opaque block type.
+    pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+
+    impl_opaque_keys! {
+        pub struct SessionKeys {
+            pub babe: Babe,
+            pub grandpa: Grandpa,
+            pub im_online: ImOnline,
+            pub authority_discovery: AuthorityDiscovery,
+        }
     }
 }
 
@@ -575,8 +592,8 @@ impl pallet_session::Config for Runtime {
     type ShouldEndSession = Babe;
     type NextSessionRotation = Babe;
     type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
-    type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
-    type Keys = SessionKeys;
+    type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+    type Keys = opaque::SessionKeys;
     type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
@@ -2035,13 +2052,109 @@ impl_runtime_apis! {
 
     impl sp_session::SessionKeys<Block> for Runtime {
         fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-            SessionKeys::generate(seed)
+            opaque::SessionKeys::generate(seed)
         }
 
         fn decode_session_keys(
             encoded: Vec<u8>,
         ) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
-            SessionKeys::decode_into_raw_public_keys(&encoded)
+            opaque::SessionKeys::decode_into_raw_public_keys(&encoded)
+        }
+    }
+
+    impl dbc_primitives_rpc_debug::DebugRuntimeApi<Block> for Runtime {
+        fn trace_transaction(
+            _extrinsics: Vec<<Block as BlockT>::Extrinsic>,
+            _traced_transaction: &EthereumTransaction,
+        ) -> Result<
+            (),
+            sp_runtime::DispatchError,
+        > {
+            #[cfg(feature = "evm-tracing")]
+            {
+                use dbc_evm_tracer::tracer::EvmTracer;
+                // Apply the a subset of extrinsics: all the substrate-specific or ethereum
+                // transactions that preceded the requested transaction.
+                for ext in _extrinsics.into_iter() {
+                    let _ = match &ext.0.function {
+                        RuntimeCall::Ethereum(transact { transaction }) => {
+                            if transaction == _traced_transaction {
+                                EvmTracer::new().trace(|| Executive::apply_extrinsic(ext));
+                                return Ok(());
+                            } else {
+                                Executive::apply_extrinsic(ext)
+                            }
+                        }
+                        _ => Executive::apply_extrinsic(ext),
+                    };
+                }
+                Err(sp_runtime::DispatchError::Other(
+                    "Failed to find Ethereum transaction among the extrinsics.",
+                ))
+            }
+            #[cfg(not(feature = "evm-tracing"))]
+            Err(sp_runtime::DispatchError::Other(
+                "Missing `evm-tracing` compile time feature flag.",
+            ))
+        }
+        fn trace_block(
+            _extrinsics: Vec<<Block as BlockT>::Extrinsic>,
+            _known_transactions: Vec<H256>,
+        ) -> Result<
+            (),
+            sp_runtime::DispatchError,
+        > {
+            #[cfg(feature = "evm-tracing")]
+            {
+                use dbc_evm_tracer::tracer::EvmTracer;
+                let mut config = <Runtime as pallet_evm::Config>::config().clone();
+                config.estimate = true;
+                // Apply all extrinsics. Ethereum extrinsics are traced.
+                for ext in _extrinsics.into_iter() {
+                    match &ext.0.function {
+                        RuntimeCall::Ethereum(transact { transaction }) => {
+                            if _known_transactions.contains(&transaction.hash()) {
+                                // Each known extrinsic is a new call stack.
+                                EvmTracer::emit_new();
+                                EvmTracer::new().trace(|| Executive::apply_extrinsic(ext));
+                            } else {
+                                let _ = Executive::apply_extrinsic(ext);
+                            }
+                        }
+                        _ => {
+                            let _ = Executive::apply_extrinsic(ext);
+                        }
+                    };
+                }
+                Ok(())
+            }
+            #[cfg(not(feature = "evm-tracing"))]
+            Err(sp_runtime::DispatchError::Other(
+                "Missing `evm-tracing` compile time feature flag.",
+            ))
+        }
+    }
+    impl dbc_primitives_rpc_txpool::TxPoolRuntimeApi<Block> for Runtime {
+        fn extrinsic_filter(
+            xts_ready: Vec<<Block as BlockT>::Extrinsic>,
+            xts_future: Vec<<Block as BlockT>::Extrinsic>,
+        ) -> TxPoolResponse {
+            TxPoolResponse {
+                ready: xts_ready
+                .into_iter()
+                .filter_map(|xt| match xt.0.function {
+                    RuntimeCall::Ethereum(transact { transaction }) => Some(transaction),
+                    _ => None,
+                })
+                .collect(),
+                future: xts_future
+                .into_iter()
+                .filter_map(|xt| match xt.0.function {
+                    RuntimeCall::Ethereum(transact { transaction }) => Some(transaction),
+                    _ => None,
+                })
+                .collect(),
+            }
         }
     }
 

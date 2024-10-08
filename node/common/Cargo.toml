@@ -1,0 +1,51 @@
+[package]
+name = "dbc-node-common"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+repository = { workspace = true }
+
+[dependencies]
+# third-party dependencies
+clap = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true, features = ["macros", "sync"] }
+
+# substrate client dependencies
+sc-client-api = { workspace = true }
+sc-rpc = { workspace = true }
+sc-rpc-api = { workspace = true }
+sc-transaction-pool = { workspace = true }
+sc-chain-spec = { workspace = true }
+sc-consensus-babe = { workspace = true }
+sc-consensus-grandpa = { workspace = true }
+sc-consensus-manual-seal = { workspace = true }
+sc-network = { workspace = true }
+sc-network-sync = { workspace = true }
+sc-service = { workspace = true }
+substrate-prometheus-endpoint = { workspace = true }
+
+# substrate primitives dependencies
+sp-core = { workspace = true, features = ["std"] }
+sp-runtime = { workspace = true, features = ["std"] }
+sp-api = { workspace = true, features = ["std"] }
+sp-blockchain = { workspace = true }
+sp-block-builder = { workspace = true, features = ["std"] }
+sp-keystore = { workspace = true }
+
+# Frontier dependencies
+fc-db = { workspace = true }
+fc-rpc = { workspace = true, features = ["rpc-binary-search-estimate"] }
+fc-rpc-core = { workspace = true }
+fp-storage = { workspace = true }
+fp-rpc = { workspace = true }
+dbc-client-rpc-debug = { workspace = true }
+dbc-client-rpc-trace = { workspace = true }
+dbc-primitives-rpc-debug = { workspace = true }
+
+# Local Dependencies
+dbc-primitives = { path = "../../primitives" }
+
+[features]
+default = []
+runtime-benchmarks = []

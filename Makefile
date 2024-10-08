@@ -13,6 +13,10 @@ build:
 build-runtime:
 	cargo build --release -p dbc-runtime
 
+.PHONY: build-evm-tracing-runtime
+build-evm-tracing-runtime:
+	cargo build --features evm-tracing --release -p dbc-runtime
+
 .PHONY: build-try-runtime
 build-try-runtime:
 	cargo build --features try-runtime --release -p dbc-runtime

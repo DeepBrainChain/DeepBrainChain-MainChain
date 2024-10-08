@@ -1,9 +1,9 @@
 use crate::{
     chain_spec,
     cli::{Cli, Subcommand},
-    cli_opt::{BackendType, BackendTypeConfig, EthApi, RpcConfig},
     service,
 };
+use dbc_node_common::cli_opt::{BackendType, BackendTypeConfig, RpcConfig};
 use dbc_runtime::Block;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
@@ -90,7 +90,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, import_queue, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         },
@@ -98,7 +98,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         },
@@ -106,7 +106,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         },
@@ -114,7 +114,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, import_queue, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         },
@@ -126,7 +126,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, backend, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 let aux_revert = Box::new(|client, _, blocks| {
                     sc_consensus_grandpa::revert(client, blocks)?;
                     Ok(())
@@ -153,7 +153,8 @@ pub fn run() -> sc_cli::Result<()> {
                         cmd.run::<Block, service::ExecutorDispatch>(config)
                     },
                     BenchmarkCmd::Block(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&mut config)?;
+                        let PartialComponents { client, .. } =
+                            service::new_partial(&mut config, &rpc_config)?;
                         cmd.run(client)
                     },
                     #[cfg(not(feature = "runtime-benchmarks"))]
@@ -164,7 +165,7 @@ pub fn run() -> sc_cli::Result<()> {
                     #[cfg(feature = "runtime-benchmarks")]
                     BenchmarkCmd::Storage(cmd) => {
                         let PartialComponents { client, backend, .. } =
-                            service::new_partial(&mut config)?;
+                            service::new_partial(&mut config, &rpc_config)?;
                         let db = backend.expose_db();
                         let storage = backend.expose_storage();
 
@@ -211,7 +212,7 @@ pub fn run() -> sc_cli::Result<()> {
         None => {
             let runner = cli.create_runner(&cli.run)?;
             runner.run_node_until_exit(|config| async move {
-                service::new_full(config).map_err(sc_cli::Error::Service)
+                service::new_full(config, rpc_config).map_err(sc_cli::Error::Service)
             })
         },
     }
