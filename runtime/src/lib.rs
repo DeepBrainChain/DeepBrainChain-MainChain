@@ -257,8 +257,9 @@ impl StaticLookup for EvmAddressMapping {
 
     fn lookup(a: Self::Source) -> Result<Self::Target, LookupError> {
         match a {
-            MultiAddress::Address20(i) =>
-                Ok(HashedAddressMapping::<BlakeTwo256>::into_account_id(H160::from(&i)).into()),
+            MultiAddress::Address20(i) => {
+                Ok(HashedAddressMapping::<BlakeTwo256>::into_account_id(H160::from(&i)).into())
+            },
             _ => Err(LookupError),
         }
     }
@@ -1793,8 +1794,9 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         len: usize,
     ) -> Option<TransactionValidity> {
         match self {
-            RuntimeCall::Ethereum(call) =>
-                call.validate_self_contained(signed_info, dispatch_info, len),
+            RuntimeCall::Ethereum(call) => {
+                call.validate_self_contained(signed_info, dispatch_info, len)
+            },
             _ => None,
         }
     }
@@ -1806,8 +1808,9 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         len: usize,
     ) -> Option<Result<(), TransactionValidityError>> {
         match self {
-            RuntimeCall::Ethereum(call) =>
-                call.pre_dispatch_self_contained(info, dispatch_info, len),
+            RuntimeCall::Ethereum(call) => {
+                call.pre_dispatch_self_contained(info, dispatch_info, len)
+            },
             _ => None,
         }
     }
@@ -1817,10 +1820,11 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         info: Self::SignedInfo,
     ) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
         match self {
-            call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) =>
+            call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) => {
                 Some(call.dispatch(RuntimeOrigin::from(
                     pallet_ethereum::RawOrigin::EthereumTransaction(info),
-                ))),
+                )))
+            },
             _ => None,
         }
     }
