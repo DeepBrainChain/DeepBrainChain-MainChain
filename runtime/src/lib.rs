@@ -2080,21 +2080,14 @@ impl_runtime_apis! {
                 for ext in extrinsics.into_iter() {
                     let _ = match &ext.0.function {
                         RuntimeCall::Ethereum(transact { transaction }) => {
-                            log::warn!(target: TARGET,"222222");
-
                             if transaction == traced_transaction {
-                                log::warn!(target: TARGET,"333333");
-
                                 EvmTracer::new().trace(|| Executive::apply_extrinsic(ext));
                                 return Ok(());
                             } else {
-                                log::warn!(target: TARGET,"444444");
-
                                 Executive::apply_extrinsic(ext)
                             }
                         }
                         _ => {
-                            log::warn!(target: TARGET,"55555");
                             Executive::apply_extrinsic(ext)
                         }
                     };
