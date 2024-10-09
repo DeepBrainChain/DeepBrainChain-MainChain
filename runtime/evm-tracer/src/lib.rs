@@ -44,7 +44,7 @@ pub mod tracer {
 
     impl EvmTracer {
         pub fn new() -> Self {
-            Self { step_event_filter: dbc_primitives_ext::dbc_ext::step_event_filter() }
+            Self { step_event_filter: dbc_primitives_ext::tracing_ext::step_event_filter() }
         }
 
         /// Setup event listeners and execute provided closure.
@@ -68,7 +68,7 @@ pub mod tracer {
         }
 
         pub fn emit_new() {
-            dbc_primitives_ext::dbc_ext::call_list_new();
+            dbc_primitives_ext::tracing_ext::call_list_new();
         }
     }
 
@@ -77,7 +77,7 @@ pub mod tracer {
         fn event(&mut self, event: evm::tracing::Event) {
             let event: EvmEvent = event.into();
             let message = event.encode();
-            dbc_primitives_ext::dbc_ext::evm_event(message);
+            dbc_primitives_ext::tracing_ext::evm_event(message);
         }
     }
 
@@ -86,7 +86,7 @@ pub mod tracer {
         fn event(&mut self, event: evm_gasometer::tracing::Event) {
             let event: GasometerEvent = event.into();
             let message = event.encode();
-            dbc_primitives_ext::dbc_ext::gasometer_event(message);
+            dbc_primitives_ext::tracing_ext::gasometer_event(message);
         }
     }
 
@@ -95,7 +95,7 @@ pub mod tracer {
         fn event(&mut self, event: evm_runtime::tracing::Event) {
             let event = RuntimeEvent::from_evm_event(event, self.step_event_filter);
             let message = event.encode();
-            dbc_primitives_ext::dbc_ext::runtime_event(message);
+            dbc_primitives_ext::tracing_ext::runtime_event(message);
         }
     }
 }

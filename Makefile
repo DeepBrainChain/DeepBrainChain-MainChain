@@ -27,7 +27,18 @@ fmt:
 
 .PHONY: run
 run:
-	cargo run -- --dev -lruntime=debug,evm=debug --rpc-port=9944 --rpc-external --rpc-cors=all --rpc-methods=unsafe --pruning=archive
+	cargo run \
+		--features evm-tracing \
+		-- \
+		--dev \
+		-lruntime=debug,evm=trace \
+		--rpc-port=9944 \
+		--rpc-external \
+		--rpc-cors=all \
+		--rpc-methods=unsafe \
+		--pruning=archive \
+		--ethapi=debug,trace,txpool
+		#--wasm-runtime-overrides=./runtime-overrides
 
 NODE_URI ?=wss://info1.dbcwallet.io:443
 BLOCK_HASH ?=0xc4d4e9b1a2b8c44d7859a6004c43ad6eebb61c57b6173a53fe794a6aa479a49b

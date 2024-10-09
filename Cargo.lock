@@ -1643,7 +1643,7 @@ dependencies = [
 name = "dbc-client-rpc-core-txpool"
 version = "4.0.0-dev"
 dependencies = [
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
  "fc-rpc-core",
  "jsonrpsee",
@@ -1668,7 +1668,7 @@ dependencies = [
  "dbc-client-rpc-core-debug",
  "dbc-client-rpc-core-types",
  "dbc-primitives-rpc-debug",
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
  "fc-consensus",
  "fc-db",
@@ -1697,7 +1697,7 @@ dependencies = [
  "dbc-client-rpc-core-trace",
  "dbc-client-rpc-core-types",
  "dbc-primitives-rpc-debug",
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
  "fc-consensus",
  "fc-rpc",
@@ -1753,9 +1753,9 @@ dependencies = [
  "dbc-primitives-ext",
  "dbc-primitives-rpc-evm-tracing-events",
  "ethereum-types",
- "evm 0.41.2",
- "evm-gasometer 0.41.0",
- "evm-runtime 0.41.0",
+ "evm",
+ "evm-gasometer",
+ "evm-runtime",
  "fp-evm",
  "pallet-evm",
  "parity-scale-codec",
@@ -1848,7 +1848,7 @@ name = "dbc-primitives-rpc-debug"
 version = "4.0.0-dev"
 dependencies = [
  "environmental",
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
  "hex",
  "parity-scale-codec",
@@ -1865,11 +1865,11 @@ name = "dbc-primitives-rpc-evm-tracing-events"
 version = "4.0.0-dev"
 dependencies = [
  "environmental",
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
- "evm 0.41.2",
- "evm-gasometer 0.41.0",
- "evm-runtime 0.41.0",
+ "evm",
+ "evm-gasometer",
+ "evm-runtime",
  "parity-scale-codec",
  "sp-runtime-interface",
 ]
@@ -1878,7 +1878,7 @@ dependencies = [
 name = "dbc-primitives-rpc-txpool"
 version = "4.0.0-dev"
 dependencies = [
- "ethereum 0.14.0",
+ "ethereum",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -1984,9 +1984,7 @@ dependencies = [
  "rent-dlc-machine-runtime-api",
  "rent-machine",
  "rent-machine-runtime-api",
- "rlp",
  "scale-info",
- "sha3",
  "simple-rpc",
  "simple-rpc-runtime-api",
  "sp-api",
@@ -2532,24 +2530,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e04d24d20b8ff2235cffbf242d5092de3aa45f77c5270ddbfadd2778ca13fea"
-dependencies = [
- "bytes",
- "ethereum-types",
- "hash-db 0.16.0",
- "hash256-std-hasher",
- "parity-scale-codec",
- "rlp",
- "scale-info",
- "serde",
- "sha3",
- "trie-root",
-]
-
-[[package]]
 name = "ethereum-types"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2599,30 +2579,10 @@ source = "git+https://github.com/rust-blockchain/evm?rev=b7b82c7e1fc57b7449d6dfa
 dependencies = [
  "auto_impl",
  "environmental",
- "ethereum 0.14.0",
- "evm-core 0.39.0",
- "evm-gasometer 0.39.0",
- "evm-runtime 0.39.0",
- "log",
- "parity-scale-codec",
- "primitive-types",
- "rlp",
- "scale-info",
- "serde",
- "sha3",
-]
-
-[[package]]
-name = "evm"
-version = "0.41.2"
-source = "git+https://github.com/rust-ethereum/evm?rev=879ffe209fbdaa0e3fdfa68a7cd48c0743841e0a#879ffe209fbdaa0e3fdfa68a7cd48c0743841e0a"
-dependencies = [
- "auto_impl",
- "environmental",
- "ethereum 0.15.0",
- "evm-core 0.41.0",
- "evm-gasometer 0.41.0",
- "evm-runtime 0.41.0",
+ "ethereum",
+ "evm-core",
+ "evm-gasometer",
+ "evm-runtime",
  "log",
  "parity-scale-codec",
  "primitive-types",
@@ -2644,35 +2604,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "evm-core"
-version = "0.41.0"
-source = "git+https://github.com/rust-ethereum/evm?rev=879ffe209fbdaa0e3fdfa68a7cd48c0743841e0a#879ffe209fbdaa0e3fdfa68a7cd48c0743841e0a"
-dependencies = [
- "parity-scale-codec",
- "primitive-types",
- "scale-info",
- "serde",
-]
-
-[[package]]
 name = "evm-gasometer"
 version = "0.39.0"
 source = "git+https://github.com/rust-blockchain/evm?rev=b7b82c7e1fc57b7449d6dfa6826600de37cc1e65#b7b82c7e1fc57b7449d6dfa6826600de37cc1e65"
 dependencies = [
  "environmental",
- "evm-core 0.39.0",
- "evm-runtime 0.39.0",
- "primitive-types",
-]
-
-[[package]]
-name = "evm-gasometer"
-version = "0.41.0"
-source = "git+https://github.com/rust-ethereum/evm?rev=879ffe209fbdaa0e3fdfa68a7cd48c0743841e0a#879ffe209fbdaa0e3fdfa68a7cd48c0743841e0a"
-dependencies = [
- "environmental",
- "evm-core 0.41.0",
- "evm-runtime 0.41.0",
+ "evm-core",
+ "evm-runtime",
  "primitive-types",
 ]
 
@@ -2693,19 +2631,7 @@ source = "git+https://github.com/rust-blockchain/evm?rev=b7b82c7e1fc57b7449d6dfa
 dependencies = [
  "auto_impl",
  "environmental",
- "evm-core 0.39.0",
- "primitive-types",
- "sha3",
-]
-
-[[package]]
-name = "evm-runtime"
-version = "0.41.0"
-source = "git+https://github.com/rust-ethereum/evm?rev=879ffe209fbdaa0e3fdfa68a7cd48c0743841e0a#879ffe209fbdaa0e3fdfa68a7cd48c0743841e0a"
-dependencies = [
- "auto_impl",
- "environmental",
- "evm-core 0.41.0",
+ "evm-core",
  "primitive-types",
  "sha3",
 ]
@@ -2772,7 +2698,7 @@ version = "2.0.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
  "async-trait",
- "ethereum 0.14.0",
+ "ethereum",
  "fc-storage",
  "fp-consensus",
  "fp-rpc",
@@ -2824,9 +2750,9 @@ name = "fc-rpc"
 version = "2.0.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
- "evm 0.39.1",
+ "evm",
  "fc-db",
  "fc-mapping-sync",
  "fc-rpc-core",
@@ -2874,7 +2800,7 @@ name = "fc-rpc-core"
 version = "1.1.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
  "jsonrpsee",
  "rustc-hex",
@@ -2887,7 +2813,7 @@ name = "fc-storage"
 version = "1.0.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
  "fp-rpc",
  "fp-storage",
@@ -3084,7 +3010,7 @@ name = "fp-consensus"
 version = "2.0.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
- "ethereum 0.14.0",
+ "ethereum",
  "parity-scale-codec",
  "sp-core",
  "sp-runtime",
@@ -3096,7 +3022,7 @@ name = "fp-ethereum"
 version = "1.0.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
  "fp-evm",
  "frame-support",
@@ -3110,7 +3036,7 @@ name = "fp-evm"
 version = "3.0.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
- "evm 0.39.1",
+ "evm",
  "frame-support",
  "parity-scale-codec",
  "scale-info",
@@ -3125,7 +3051,7 @@ name = "fp-rpc"
 version = "3.0.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
  "fp-evm",
  "parity-scale-codec",
@@ -6254,9 +6180,9 @@ name = "pallet-ethereum"
 version = "4.0.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
- "ethereum 0.14.0",
+ "ethereum",
  "ethereum-types",
- "evm 0.39.1",
+ "evm",
  "fp-consensus",
  "fp-ethereum",
  "fp-evm",
@@ -6278,7 +6204,7 @@ version = "6.0.0-dev"
 source = "git+https://github.com/DeepBrainChain/DBC-EVM?branch=polkadot-v0.9.43#d631b4e2f2a2da77747ba200b012075d608a1291"
 dependencies = [
  "environmental",
- "evm 0.39.1",
+ "evm",
  "fp-account",
  "fp-evm",
  "frame-benchmarking",

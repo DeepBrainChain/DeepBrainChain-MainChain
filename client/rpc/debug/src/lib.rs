@@ -471,16 +471,19 @@ where
                     } else {
                         // Pre-london update, legacy transactions.
                         let _result = match transaction {
-                            //ethereum::TransactionV2::Legacy(tx) =>
-                            //    #[allow(deprecated)]
-                            //    api.trace_transaction_before_version_4(parent_block_hash, exts, &tx)
-                            //        .map_err(|e| {
-                            //            internal_err(format!(
-                            //                "Runtime api access error (legacy): {:?}",
-                            //                e
-                            //            ))
-                            //        })?
-                            //        .map_err(|e| internal_err(format!("DispatchError: {:?}", e)))?,
+                            ethereum::TransactionV2::Legacy(tx) =>
+                            #[rustfmt::skip]
+                            {
+                                #[allow(deprecated)]
+                                api.trace_transaction_before_version_4(parent_block_hash, exts, &tx)
+                                    .map_err(|e| {
+                                        internal_err(format!(
+                                            "Runtime api access error (legacy): {:?}",
+                                            e
+                                        ))
+                                    })?
+                                    .map_err(|e| internal_err(format!("DispatchError: {:?}", e)))?
+                            },
                             _ =>
                                 return Err(internal_err(
                                     "Bug: pre-london runtime expects legacy transactions"
