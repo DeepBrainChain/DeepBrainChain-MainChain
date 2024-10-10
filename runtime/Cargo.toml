@@ -66,7 +66,6 @@ pallet-grandpa = { workspace = true }
 pallet-im-online = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-identity = { workspace = true }
-pallet-membership = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-benchmarking = { workspace = true, optional = true }
@@ -172,7 +171,6 @@ std = [
   "pallet-im-online/std",
   "pallet-indices/std",
   "sp-inherents/std",
-  "pallet-membership/std",
   "pallet-multisig/std",
   "pallet-nomination-pools/std",
   "pallet-nomination-pools-runtime-api/std",
@@ -279,7 +277,6 @@ runtime-benchmarks = [
   "pallet-identity/runtime-benchmarks",
   "pallet-im-online/runtime-benchmarks",
   "pallet-indices/runtime-benchmarks",
-  "pallet-membership/runtime-benchmarks",
   "pallet-multisig/runtime-benchmarks",
   "pallet-nomination-pools-benchmarking/runtime-benchmarks",
   "pallet-offences-benchmarking/runtime-benchmarks",
@@ -320,7 +317,6 @@ try-runtime = [
   "pallet-im-online/try-runtime",
   "pallet-indices/try-runtime",
   "pallet-identity/try-runtime",
-  "pallet-membership/try-runtime",
   "pallet-multisig/try-runtime",
   "pallet-nomination-pools/try-runtime",
   "pallet-offences/try-runtime",

@@ -789,6 +789,11 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
     }
 }
 
+type EnsureRootOrHalfCouncil = EitherOfDiverse<
+    EnsureRoot<AccountId>,
+    pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
+>;
+
 impl pallet_election_provider_multi_phase::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
@@ -1013,23 +1018,6 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
     type SetMembersOrigin = EnsureRoot<Self::AccountId>;
     type MaxProposalWeight = MaxCollectivesProposalWeight;
-}
-
-type EnsureRootOrHalfCouncil = EitherOfDiverse<
-    EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
->;
-impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRootOrHalfCouncil;
-    type RemoveOrigin = EnsureRootOrHalfCouncil;
-    type SwapOrigin = EnsureRootOrHalfCouncil;
-    type ResetOrigin = EnsureRootOrHalfCouncil;
-    type PrimeOrigin = EnsureRootOrHalfCouncil;
-    type MembershipInitialized = TechnicalCommittee;
-    type MembershipChanged = TechnicalCommittee;
-    type MaxMembers = TechnicalMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1632,7 +1620,6 @@ construct_runtime!(
         TechnicalCommittee: pallet_collective::<Instance2> = 14,
         Elections: pallet_elections_phragmen = 15,
         ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 16,
-        TechnicalMembership: pallet_membership::<Instance1> = 17,
         Treasury: pallet_treasury = 18,
         ImOnline: pallet_im_online = 19,
         AuthorityDiscovery: pallet_authority_discovery = 20,
@@ -1748,7 +1735,6 @@ mod benches {
         [pallet_identity, Identity]
         [pallet_im_online, ImOnline]
         [pallet_indices, Indices]
-        [pallet_membership, TechnicalMembership]
         [pallet_multisig, Multisig]
         //[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
         //[pallet_offences, OffencesBench::<Runtime>]
