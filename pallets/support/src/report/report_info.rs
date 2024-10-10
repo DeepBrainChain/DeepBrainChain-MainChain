@@ -228,12 +228,13 @@ where
         }
 
         self.report_status = match self.machine_fault_type {
-            MachineFaultType::RentedInaccessible(..) =>
+            MachineFaultType::RentedInaccessible(..) => {
                 if self.booked_committee.len() == 3 {
                     ReportStatus::Verifying
                 } else {
                     ReportStatus::WaitingBook
-                },
+                }
+            },
             _ => {
                 // 仅在不是RentedInaccessible时进行记录，因为这些情况只能一次有一个验证委员会
                 self.verifying_committee = Some(committee);
