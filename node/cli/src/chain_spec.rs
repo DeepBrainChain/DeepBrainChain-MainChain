@@ -917,7 +917,6 @@ fn get_evm_accounts(mnemonic: Option<&str>) -> Vec<H160> {
 pub(crate) mod tests {
     use super::*;
     use crate::service::{new_full_base, NewFullBase};
-    use sc_service_test;
     use sp_runtime::BuildStorage;
 
     fn local_testnet_genesis_instant_single() -> GenesisConfig {

@@ -472,7 +472,6 @@ where
                         // Pre-london update, legacy transactions.
                         let _result = match transaction {
                             ethereum::TransactionV2::Legacy(tx) =>
-                            #[rustfmt::skip]
                             {
                                 #[allow(deprecated)]
                                 api.trace_transaction_before_version_4(parent_block_hash, exts, &tx)
