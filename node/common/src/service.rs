@@ -41,17 +41,19 @@ where
                         path: frontier_database_dir(config, "db"),
                         cache_size: 0,
                     },
-                    DatabaseSource::ParityDb { .. } =>
-                        DatabaseSource::ParityDb { path: frontier_database_dir(config, "paritydb") },
+                    DatabaseSource::ParityDb { .. } => {
+                        DatabaseSource::ParityDb { path: frontier_database_dir(config, "paritydb") }
+                    },
                     DatabaseSource::Auto { .. } => DatabaseSource::Auto {
                         rocksdb_path: frontier_database_dir(config, "db"),
                         paritydb_path: frontier_database_dir(config, "paritydb"),
                         cache_size: 0,
                     },
-                    _ =>
+                    _ => {
                         return Err(
                             "Supported db sources: `rocksdb` | `paritydb` | `auto`".to_string()
-                        ),
+                        )
+                    },
                 },
             },
         )?),
