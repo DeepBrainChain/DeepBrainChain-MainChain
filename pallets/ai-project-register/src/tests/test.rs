@@ -5,7 +5,9 @@ use dbc_support::{
     traits::MachineInfoTrait,
 };
 use frame_support::{assert_err, assert_ok, traits::Currency};
-use rent_machine::{MachineRentOrder, MachineRenterRentedOrders, RentInfo};
+use rent_machine::{
+    Error as RentMachineError, MachineRentOrder, MachineRenterRentedOrders, RentInfo,
+};
 use sp_core::{sr25519, Pair};
 pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 
@@ -43,7 +45,7 @@ fn test_add_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone().clone()
             ),
-            "machine not rented"
+            RentMachineError::<Test>::MachineNotRented.as_str()
         );
 
         let rent_info: RentOrderDetail<
@@ -75,7 +77,7 @@ fn test_add_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "machine not rented"
+            RentMachineError::<Test>::MachineNotRented.as_str()
         );
 
         RentInfo::<Test>::remove(1);
@@ -109,7 +111,7 @@ fn test_add_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "machine not rented"
+            RentMachineError::<Test>::MachineNotRented.as_str()
         );
 
         let rent_info_renting: RentOrderDetail<
@@ -140,7 +142,7 @@ fn test_add_machine_registered_project_should_work() {
                 fake_machine_id.clone(),
                 project_name.clone()
             ),
-            "machine not rented"
+            RentMachineError::<Test>::MachineNotRented.as_str()
         );
         assert_ok!(AiProjectRegister::add_machine_registered_project(
             msg.clone(),
@@ -202,7 +204,7 @@ fn test_add_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name3.clone()
             ),
-            "over max limit per machine id can register"
+            Error::<Test>::OverLimitPerMachineIdCanRegister.as_str()
         );
     });
 }
@@ -251,7 +253,7 @@ fn test_remove_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "not registered"
+            Error::<Test>::MachineNotRegistered.as_str()
         );
         assert_ok!(AiProjectRegister::add_machine_registered_project(
             msg.clone(),
@@ -292,7 +294,7 @@ fn test_remove_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "not registered"
+            Error::<Test>::MachineNotRegistered.as_str()
         );
         assert_ok!(AiProjectRegister::remove_machine_registered_project(
             msg.clone(),

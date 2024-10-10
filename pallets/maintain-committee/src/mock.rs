@@ -696,8 +696,11 @@ pub fn new_test_with_init_dlc_rent_params_ext() -> sp_io::TestExternalities {
                 machine_id.clone()
             )
         );
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), true);
+
+        assert_eq!(
+            dlc_machine::DLCMachinesInStaking::<TestRuntime>::contains_key(&machine_id),
+            true
+        );
 
         assert_ok!(RentDlcMachine::rent_dlc_machine(
             RuntimeOrigin::signed(dlc_renter),
