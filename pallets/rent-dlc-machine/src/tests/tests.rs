@@ -152,13 +152,13 @@ fn rent_dlc_machine_should_works() {
         let rent_duration = rent_info.rent_end.saturating_sub(rent_info.rent_start);
         assert_eq!(rent_duration, 10 * ONE_DAY as u64);
 
-        let records = RentDlcMachine::burn_records();
+        let records = RentDlcMachine::burn_details();
         assert_eq!(records.len(), 1);
-        let (burn_amount, burn_at, renter, rent_id) = records[0];
-        assert_eq!(burn_amount, burn_total);
-        assert_ne!(burn_at, 0);
-        assert_eq!(rent_id, rent_dlc_machine_id);
-        assert_eq!(renter, Dave.public());
+        let detail = records.first().unwrap();
+        assert_eq!(detail.burned_amount, burn_total);
+        assert_ne!(detail.at, 0);
+        assert_eq!(detail.rent_id, rent_dlc_machine_id);
+        assert_eq!(detail.renter, Dave.public());
 
         let dbc_rent_order_infos = RentMachine::machine_rent_order(machine_id.clone());
         let rent_dbc_machine_id = dbc_rent_order_infos.rent_order[0];

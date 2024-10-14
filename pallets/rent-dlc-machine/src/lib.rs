@@ -32,7 +32,7 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, SaturatedConversion, Saturating, Zero},
     Perbill,
 };
-use sp_std::{prelude::*, vec::Vec};
+use sp_std::{prelude::*, vec, vec::Vec};
 
 type BalanceOf<T> = <T as pallet_assets::Config>::Balance;
 pub use pallet::*;
@@ -564,7 +564,6 @@ impl<T: Config> DLCMachineInfoTrait for Pallet<T> {
     }
 
     fn get_rented_gpu_count_of_machine_in_dlc_nft_staking(
-        phase_level: PhaseLevel,
         machine_id: MachineId,
     ) -> u64 {
         let mut count = 0u64;

@@ -768,9 +768,9 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         let stash_rented_orders = Self::machine_renter_rented_orders(&machine_id, &renter_stash);
         controller_rented_orders.extend(stash_rented_orders);
         controller_rented_orders.iter().for_each(|rented_order| {
-            let end_time = rented_order.rent_end;
+            let mut end_time = rented_order.rent_end;
             if end_at.saturated_into::<u64>() > 0 {
-                let end_time = rented_order.rent_end.min(end_at);
+                end_time = rented_order.rent_end.min(end_at);
             }
             if end_time >= last_claim_at {
                 if slash_at == T::BlockNumber::default() {

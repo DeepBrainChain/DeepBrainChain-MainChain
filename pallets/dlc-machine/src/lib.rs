@@ -334,6 +334,18 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
             return Err(Error::<T>::RenterNotOwner.as_str())
         }
 
+        DLCMachinesOwnerRentEnded::<T>::remove(&machine_id);
+
+        if phase_level == PhaseLevel::PhaseOne {
+            DLCMachinesInNftStakingPhaseOne::<T>::remove(machine_id.clone());
+        }
+        if phase_level == PhaseLevel::PhaseTwo {
+            DLCMachinesInNftStakingPhaseTwo::<T>::remove(machine_id.clone());
+        }
+        if phase_level == PhaseLevel::PhaseThree {
+            DLCMachinesInNftStakingPhaseThree::<T>::remove(machine_id.clone());
+        }
+
         if !DLCMachinesInStaking::<T>::contains_key(&machine_id) {
             return Ok(())
         }
@@ -472,6 +484,6 @@ impl<T: Config> Pallet<T> {
         if phase_level == PhaseLevel::PhaseThree {
             return DLCMachinesInNftStakingPhaseThree::<T>::iter_keys().collect()
         }
-        vec![]
+        Vec::new()
     }
 }

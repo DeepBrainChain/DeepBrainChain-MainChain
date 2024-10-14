@@ -485,7 +485,7 @@ where
 
                 let machine_id = machine_id_str.as_bytes().to_vec();
 
-                let rented_gpu_count = <rent_dlc_machine::Pallet<T> as DLCMachineInfoTrait>::get_rented_gpu_count_of_machine_in_dlc_nft_staking(phase_level.into(),machine_id);
+                let rented_gpu_count = <rent_dlc_machine::Pallet<T> as DLCMachineInfoTrait>::get_rented_gpu_count_of_machine_in_dlc_nft_staking(machine_id);
 
                 let weight = Weight::default()
                     .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
