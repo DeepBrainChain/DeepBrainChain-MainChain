@@ -28,20 +28,13 @@
 //! Despite its name the produced WASM can theoretically also be used from NodeJS, although this
 //! hasn't been tested.
 
-#![warn(missing_docs)]
-
 pub mod chain_spec;
 
 #[macro_use]
 pub mod service;
-#[cfg(feature = "cli")]
-mod benchmarking;
-#[cfg(feature = "cli")]
 mod cli;
-#[cfg(feature = "cli")]
 mod command;
+mod rpc;
 
-#[cfg(feature = "cli")]
 pub use cli::*;
-#[cfg(feature = "cli")]
 pub use command::*;
