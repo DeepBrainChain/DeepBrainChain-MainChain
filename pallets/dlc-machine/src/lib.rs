@@ -159,11 +159,20 @@ pub mod pallet {
                         str::from_utf8(&machine_id).unwrap()
                     );
                     DLCMachinesOwnerRentEnded::<T>::insert(&machine_id, ());
+                    DLCMachinesInStaking::<T>::remove(&machine_id);
+                    MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::remove(
+                        &PhaseLevel::PhaseOne,
+                        &machine_id,
+                    );
+                    MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::remove(
+                        &PhaseLevel::PhaseTwo,
+                        &machine_id,
+                    );
+                    MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::remove(
+                        &PhaseLevel::PhaseThree,
+                        &machine_id,
+                    );
                     Self::deposit_event(Event::DLCMachinesOwnerRentEnded(machine_id))
-                    // DLCMachinesInStaking::<T>::remove(machine_id);
-                    // MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::remove(&PhaseLevel::PhaseOne, &machine_id);
-                    // MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::remove(&PhaseLevel::PhaseTwo, &machine_id);
-                    // MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::remove(&PhaseLevel::PhaseThree, &machine_id);
                 }
             }
             Weight::zero()
