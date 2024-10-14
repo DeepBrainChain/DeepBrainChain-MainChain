@@ -69,7 +69,6 @@ pallet-im-online = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-identity = { workspace = true }
 # pallet-lottery = { workspace = true }
-pallet-membership = { workspace = true }
 # pallet-message-queue = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nomination-pools = { workspace = true }
@@ -180,7 +179,6 @@ std = [
   "pallet-indices/std",
   "sp-inherents/std",
   # "pallet-lottery/std",
-  "pallet-membership/std",
   # "pallet-message-queue/std",
   "pallet-multisig/std",
   "pallet-nomination-pools/std",
@@ -289,7 +287,6 @@ runtime-benchmarks = [
   "pallet-im-online/runtime-benchmarks",
   "pallet-indices/runtime-benchmarks",
   # "pallet-lottery/runtime-benchmarks",
-  "pallet-membership/runtime-benchmarks",
   # "pallet-message-queue/runtime-benchmarks",
   "pallet-multisig/runtime-benchmarks",
   "pallet-nomination-pools-benchmarking/runtime-benchmarks",
@@ -338,7 +335,6 @@ try-runtime = [
   "pallet-indices/try-runtime",
   "pallet-identity/try-runtime",
   # "pallet-lottery/try-runtime",
-  "pallet-membership/try-runtime",
   # "pallet-message-queue/try-runtime",
   "pallet-multisig/try-runtime",
   "pallet-nomination-pools/try-runtime",

@@ -437,7 +437,7 @@ impl<T: Config> Pallet<T> {
         let gpu_num = rent_info.gpu_num;
 
         // 续租允许10分钟及以上
-        ensure!(duration >= 20u32.into(), Error::<T>::ReletTooShort);
+        ensure!(duration >= (10 * ONE_MINUTE).into(), Error::<T>::ReletTooShort);
         ensure!(rent_info.renter == renter, Error::<T>::NotMachineRenter);
         ensure!(rent_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
 

@@ -1076,8 +1076,9 @@ pub mod pallet {
             let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
 
             let offline_time = match machine_info.machine_status.clone() {
-                MachineStatus::StakerReportOffline(_offline_time, _) =>
-                    return Err(Error::<T>::MachineStatusNotAllowed.into()),
+                MachineStatus::StakerReportOffline(_offline_time, _) => {
+                    return Err(Error::<T>::MachineStatusNotAllowed.into())
+                },
                 MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
                     OPSlashReason::RentedInaccessible(report_time) |
                     OPSlashReason::RentedHardwareMalfunction(report_time) |

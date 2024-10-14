@@ -368,7 +368,6 @@ pub fn dev_testnet_genesis(
         im_online: ImOnlineConfig { keys: vec![] },
         authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
         grandpa: GrandpaConfig { authorities: vec![] },
-        technical_membership: Default::default(),
         treasury: Default::default(),
         // vesting: Default::default(),
         assets: pallet_assets::GenesisConfig {
@@ -524,7 +523,6 @@ pub fn testnet_genesis(
         im_online: ImOnlineConfig { keys: vec![] },
         authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
         grandpa: GrandpaConfig { authorities: vec![] },
-        technical_membership: Default::default(),
         treasury: Default::default(),
         // vesting: Default::default(),
         assets: Default::default(),
@@ -807,7 +805,6 @@ pub fn mainnet_genesis(
         im_online: ImOnlineConfig { keys: vec![] },
         authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
         grandpa: GrandpaConfig { authorities: vec![] },
-        technical_membership: Default::default(),
         treasury: Default::default(),
         // vesting: Default::default(),
         assets: Default::default(),
