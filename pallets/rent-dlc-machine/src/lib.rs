@@ -563,9 +563,7 @@ impl<T: Config> DLCMachineInfoTrait for Pallet<T> {
         count
     }
 
-    fn get_rented_gpu_count_of_machine_in_dlc_nft_staking(
-        machine_id: MachineId,
-    ) -> u64 {
+    fn get_rented_gpu_count_of_machine_in_dlc_nft_staking(machine_id: MachineId) -> u64 {
         let mut count = 0u64;
         let result = Self::machine_rent_order(machine_id);
         count = count.saturating_add(result.used_gpu.len() as u64);

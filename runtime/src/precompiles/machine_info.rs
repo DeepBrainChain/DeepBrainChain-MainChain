@@ -470,13 +470,6 @@ where
                     output: format!("decode param failed: {:?}", e).into(),
                 })?;
 
-                let phase_level_uint =
-                    param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[0] failed".into(),
-                    })?;
-                let phase_level: u64 = phase_level_uint.as_u64();
-
                 let machine_id_str =
                     param[1].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,

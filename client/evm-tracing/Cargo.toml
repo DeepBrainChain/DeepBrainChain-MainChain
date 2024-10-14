@@ -1,0 +1,18 @@
+[package]
+name = "dbc-client-evm-tracing"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+
+[dependencies]
+ethereum-types = { workspace = true, features = [ "std" ] }
+hex = { workspace = true, features = [ "serde" ] }
+serde = { workspace = true, features = [ "derive", "std" ] }
+serde_json = { workspace = true }
+
+dbc-primitives-rpc-evm-tracing-events = { workspace = true, features = [ "std" ] }
+dbc-primitives-rpc-debug = { workspace = true, features = [ "std" ] }
+
+# Substrate
+parity-scale-codec = { workspace = true, features = [ "std" ] }
+sp-std = { workspace = true, features = [ "std" ] }

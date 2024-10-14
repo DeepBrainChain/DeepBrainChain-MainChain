@@ -195,9 +195,7 @@ pub trait DLCMachineInfoTrait {
 
     fn get_rented_gpu_count_in_dlc_nft_staking(phase_level: PhaseLevel) -> u64;
 
-    fn get_rented_gpu_count_of_machine_in_dlc_nft_staking(
-        machine_id: MachineId,
-    ) -> u64;
+    fn get_rented_gpu_count_of_machine_in_dlc_nft_staking(machine_id: MachineId) -> u64;
     fn get_total_dlc_nft_staking_burned_rent_fee(phase_level: PhaseLevel) -> u64;
 
     fn get_dlc_nft_staking_burned_rent_fee_by_machine_id(

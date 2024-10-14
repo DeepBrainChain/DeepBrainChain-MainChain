@@ -1,14 +1,13 @@
 use crate::{
-    benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
     chain_spec,
     cli::{Cli, Subcommand},
     service,
 };
-use dbc_runtime::{Block, ExistentialDeposit};
-use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
+use dbc_node_common::cli_opt::{BackendType, BackendTypeConfig, RpcConfig};
+use dbc_runtime::Block;
+use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
-use sp_keyring::Sr25519Keyring;
 
 #[cfg(feature = "try-runtime")]
 use try_runtime_cli::block_building_info::timestamp_with_babe_info;
@@ -60,6 +59,28 @@ impl SubstrateCli for Cli {
 pub fn run() -> sc_cli::Result<()> {
     let cli = Cli::from_args();
 
+    let rpc_config = RpcConfig {
+        ethapi: cli.ethapi.clone(),
+        ethapi_max_permits: cli.ethapi_max_permits,
+        ethapi_trace_max_count: cli.ethapi_trace_max_count,
+        ethapi_trace_cache_duration: cli.ethapi_trace_cache_duration,
+        eth_log_block_cache: cli.eth_log_block_cache,
+        eth_statuses_cache: cli.eth_statuses_cache,
+        fee_history_limit: cli.fee_history_limit,
+        max_past_logs: cli.max_past_logs,
+        logs_request_timeout: cli.logs_request_timeout,
+        tracing_raw_max_memory_usage: cli.tracing_raw_max_memory_usage,
+        frontier_backend_type: match cli.frontier_backend_type {
+            BackendType::KeyValue => BackendTypeConfig::KeyValue,
+            BackendType::Sql => BackendTypeConfig::Sql {
+                pool_size: cli.frontier_sql_backend_pool_size,
+                num_ops_timeout: cli.frontier_sql_backend_num_ops_timeout,
+                thread_count: cli.frontier_sql_backend_thread_count,
+                cache_size: cli.frontier_sql_backend_cache_size,
+            },
+        },
+    };
+
     match &cli.subcommand {
         Some(Subcommand::Key(cmd)) => cmd.run(&cli),
         Some(Subcommand::BuildSpec(cmd)) => {
@@ -70,7 +91,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, import_queue, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         },
@@ -78,7 +99,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         },
@@ -86,7 +107,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         },
@@ -94,7 +115,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, import_queue, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         },
@@ -106,7 +127,7 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
                 let PartialComponents { client, task_manager, backend, .. } =
-                    service::new_partial(&mut config)?;
+                    service::new_partial(&mut config, &rpc_config)?;
                 let aux_revert = Box::new(|client, _, blocks| {
                     sc_consensus_grandpa::revert(client, blocks)?;
                     Ok(())
@@ -133,7 +154,8 @@ pub fn run() -> sc_cli::Result<()> {
                         cmd.run::<Block, service::ExecutorDispatch>(config)
                     },
                     BenchmarkCmd::Block(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&mut config)?;
+                        let PartialComponents { client, .. } =
+                            service::new_partial(&mut config, &rpc_config)?;
                         cmd.run(client)
                     },
                     #[cfg(not(feature = "runtime-benchmarks"))]
@@ -144,38 +166,14 @@ pub fn run() -> sc_cli::Result<()> {
                     #[cfg(feature = "runtime-benchmarks")]
                     BenchmarkCmd::Storage(cmd) => {
                         let PartialComponents { client, backend, .. } =
-                            service::new_partial(&mut config)?;
+                            service::new_partial(&mut config, &rpc_config)?;
                         let db = backend.expose_db();
                         let storage = backend.expose_storage();
 
                         cmd.run(config, client, db, storage)
                     },
-                    BenchmarkCmd::Overhead(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&mut config)?;
-                        let ext_builder = RemarkBuilder::new(client.clone());
-
-                        cmd.run(
-                            config,
-                            client,
-                            inherent_benchmark_data()?,
-                            Vec::new(),
-                            &ext_builder,
-                        )
-                    },
-                    BenchmarkCmd::Extrinsic(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&mut config)?;
-                        // Register the *Remark* and *TKA* builders.
-                        let ext_factory = ExtrinsicFactory(vec![
-                            Box::new(RemarkBuilder::new(client.clone())),
-                            Box::new(TransferKeepAliveBuilder::new(
-                                client.clone(),
-                                Sr25519Keyring::Alice.to_account_id(),
-                                ExistentialDeposit::get(),
-                            )),
-                        ]);
-
-                        cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
-                    },
+                    BenchmarkCmd::Overhead(_) => Err("Unsupported benchmarking command".into()),
+                    BenchmarkCmd::Extrinsic(_) => Err("Unsupported benchmarking command".into()),
                     BenchmarkCmd::Machine(cmd) => {
                         cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())
                     },
@@ -216,7 +214,7 @@ pub fn run() -> sc_cli::Result<()> {
         None => {
             let runner = cli.create_runner(&cli.run)?;
             runner.run_node_until_exit(|config| async move {
-                service::new_full(config).map_err(sc_cli::Error::Service)
+                service::new_full(config, rpc_config).map_err(sc_cli::Error::Service)
             })
         },
     }

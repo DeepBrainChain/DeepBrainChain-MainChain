@@ -18,7 +18,8 @@
 
 //! Substrate Node CLI
 
-#![warn(missing_docs)]
+#![warn(unused_crate_dependencies)]
+#![warn(unused_extern_crates)]
 
 fn main() -> sc_cli::Result<()> {
     dbc_cli::run()
