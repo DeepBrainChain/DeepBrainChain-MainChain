@@ -741,31 +741,43 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         0
     }
 
+    fn get_machine_gpu_num(machine_id: MachineId) -> u64 {
+        let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id);
+        if let Some(machine_info) = machine_info_result {
+            return machine_info.gpu_num() as u64
+        }
+        0
+    }
+
     fn get_machine_valid_stake_duration(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
         last_claim_at: T::BlockNumber,
         slash_at: T::BlockNumber,
+        end_at: T::BlockNumber,
         machine_id: MachineId,
     ) -> Result<T::BlockNumber, &'static str> {
-        let ok = verify_signature(data, sig, from.clone());
-        if !ok {
-            return Err(Error::<T>::SignVerifiedFailed.as_str())
-        };
+        let machine_info = online_profile::Pallet::<T>::machines_info(&machine_id)
+            .ok_or(Error::<T>::MachineNotFound.as_str())?;
 
-        let renter = account_id::<T>(from.clone())?;
+        let renter_controller = machine_info.controller;
+        let renter_stash = machine_info.machine_stash;
+
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
-        let rented_orders = Self::machine_renter_rented_orders(machine_id, renter);
-        rented_orders.iter().for_each(|rented_order| {
-            if rented_order.rent_end >= last_claim_at {
+        let mut controller_rented_orders =
+            Self::machine_renter_rented_orders(&machine_id, &renter_controller);
+        let stash_rented_orders = Self::machine_renter_rented_orders(&machine_id, &renter_stash);
+        controller_rented_orders.extend(stash_rented_orders);
+        controller_rented_orders.iter().for_each(|rented_order| {
+            let end_time = rented_order.rent_end;
+            if end_at.saturated_into::<u64>() > 0 {
+                let end_time = rented_order.rent_end.min(end_at);
+            }
+            if end_time >= last_claim_at {
                 if slash_at == T::BlockNumber::default() {
-                    rent_duration +=
-                        now.min(rented_order.rent_end) - last_claim_at.max(rented_order.rent_start)
+                    rent_duration += now.min(end_time) - last_claim_at.max(rented_order.rent_start)
                 } else {
-                    rent_duration += now.min(rented_order.rent_end).min(slash_at) -
-                        last_claim_at.max(rented_order.rent_start)
+                    rent_duration +=
+                        now.min(end_at).min(slash_at) - last_claim_at.max(rented_order.rent_start)
                 }
             }
         });

@@ -8,6 +8,9 @@ use frame_support::{assert_err, assert_ok, traits::Currency};
 use rent_machine::{
     Error as RentMachineError, MachineRentOrder, MachineRenterRentedOrders, RentInfo,
 };
+
+use dbc_support::{machine_info::MachineInfo, machine_type::MachineStatus};
+use online_profile::MachinesInfo;
 use sp_core::{sr25519, Pair};
 pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 
@@ -427,15 +430,34 @@ fn test_get_machine_valid_stake_duration_should_works() {
             vec![order],
         );
 
+        let machine_info: MachineInfo<
+            <Test as frame_system::Config>::AccountId,
+            <Test as frame_system::Config>::BlockNumber,
+            BalanceOf<Test>,
+        > = MachineInfo {
+            controller: sr25519::Public::from(Sr25519Keyring::Alice),
+            machine_stash: sr25519::Public::from(Sr25519Keyring::Bob),
+            renters: vec![sr25519::Public::from(Sr25519Keyring::Alice)],
+            last_machine_restake: 1,
+            bonding_height: 1,
+            online_height: 1,
+            last_online_height: 1,
+            init_stake_per_gpu: 1,
+            stake_amount: 1,
+            machine_status: MachineStatus::Rented,
+            total_rented_duration: 1,
+            total_rented_times: 0,
+            total_rent_fee: 1,
+            total_burn_fee: 1,
+            machine_info_detail: Default::default(),
+            reward_committee: vec![],
+            reward_deadline: 0,
+        };
+
+        MachinesInfo::<Test>::insert(machine_id.clone(), machine_info.clone());
+
         System::set_block_number(10);
-        let r = RentMachine::get_machine_valid_stake_duration(
-            msg.clone(),
-            sig.clone(),
-            alice.public(),
-            0,
-            0,
-            machine_id.clone(),
-        );
+        let r = RentMachine::get_machine_valid_stake_duration(0, 0, 0, machine_id.clone());
         assert_eq!(r.unwrap(), 1);
 
         let rent_info_renting: RentOrderDetail<
@@ -462,14 +484,7 @@ fn test_get_machine_valid_stake_duration_should_works() {
             vec![order],
         );
 
-        let r = RentMachine::get_machine_valid_stake_duration(
-            msg,
-            sig,
-            alice.public(),
-            0,
-            0,
-            machine_id,
-        );
+        let r = RentMachine::get_machine_valid_stake_duration(0, 0, 0, machine_id);
         assert_eq!(r.unwrap(), 9);
     });
 }

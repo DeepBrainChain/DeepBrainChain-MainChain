@@ -153,12 +153,11 @@ pub trait MachineInfoTrait {
     type BlockNumber;
     fn get_machine_calc_point(machine_id: MachineId) -> u64;
 
+    fn get_machine_gpu_num(machine_id: MachineId) -> u64;
     fn get_machine_valid_stake_duration(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
         last_claim_at: Self::BlockNumber,
         slash_at: Self::BlockNumber,
+        end_at: Self::BlockNumber,
         machine_id: MachineId,
     ) -> Result<Self::BlockNumber, &'static str>;
 
@@ -193,8 +192,20 @@ pub trait DLCMachineInfoTrait {
         slash_at: Self::BlockNumber,
         machine_id: MachineId,
     ) -> Result<Self::BlockNumber, &'static str>;
-}
 
+    fn get_rented_gpu_count_in_dlc_nft_staking(phase_level: PhaseLevel) -> u64;
+
+    fn get_rented_gpu_count_of_machine_in_dlc_nft_staking(
+        phase_level: PhaseLevel,
+        machine_id: MachineId,
+    ) -> u64;
+    fn get_total_dlc_nft_staking_burned_rent_fee(phase_level: PhaseLevel) -> u64;
+
+    fn get_dlc_nft_staking_burned_rent_fee_by_machine_id(
+        phase_level: PhaseLevel,
+        machine_id: MachineId,
+    ) -> u64;
+}
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum PhaseLevel {
     PhaseOne,
@@ -258,6 +269,8 @@ pub trait DLCMachineReportStakingTrait {
     ) -> Self::BlockNumber;
 
     fn get_nft_staking_reward_start_at(phase_level: &PhaseLevel) -> Self::BlockNumber;
+
+    fn get_nft_staking_gpu_count(phase_level: &PhaseLevel) -> (u64, u64);
 }
 
 pub trait DLCMachineSlashInfoTrait {

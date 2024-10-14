@@ -1,6 +1,7 @@
 #[cfg(feature = "std")]
 use super::rpc_types::serde_text;
 use super::{ItemList, MachineId, RentOrderId};
+use crate::traits::PhaseLevel;
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
@@ -124,4 +125,14 @@ pub struct MachineRenterRentedOrderDetail<BlockNumber> {
     pub rent_id: RentOrderId,
     pub rent_start: BlockNumber,
     pub rent_end: BlockNumber,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct DlcBurnDetail<AccountId, Balance, BlockNumber> {
+    pub rent_id: RentOrderId,
+    pub renter: AccountId,
+    pub burned_amount: Balance,
+    pub at: BlockNumber,
 }

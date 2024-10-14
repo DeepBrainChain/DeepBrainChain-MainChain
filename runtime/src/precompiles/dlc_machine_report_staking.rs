@@ -12,7 +12,7 @@ use dbc_support::traits::DLCMachineReportStakingTrait;
 use frame_support::{ensure, pallet_prelude::Weight};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pallet_evm::GasWeightMapping;
-
+use sp_std::vec;
 pub struct DLCMachineReportStaking<T>(PhantomData<T>);
 
 #[evm_macro::generate_function_selector]
@@ -26,6 +26,7 @@ pub enum Selector {
     ReportDlcNftEndStaking = "reportDlcNftEndStaking(string,string,string,string,uint256)",
     GetValidRewardDuration = "getValidRewardDuration(uint256,uint256,uint256)",
     GetDlcNftStakingRewardStartAt = "getDlcNftStakingRewardStartAt(uint256)",
+    GetDlcStakingGPUCount = "getDlcStakingGPUCount(uint256)",
 }
 
 impl<T> Precompile for DLCMachineReportStaking<T>
@@ -496,6 +497,41 @@ where
                     output: ethabi::encode(&[ethabi::Token::Uint(
                         phase_one_reward_start_at.saturated_into::<u64>().into(),
                     )]),
+                })
+            },
+            Selector::GetDlcStakingGPUCount => {
+                let param = ethabi::decode(
+                    &[
+                        ethabi::ParamType::Uint(256), // phase_level
+                    ],
+                    &input[4..],
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
+
+                let phase_level_uint =
+                    param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+                let phase_level: u64 = phase_level_uint.as_u64();
+
+                let (gpu_count,gpu_count_before_reward_start)  = <dlc_machine::Pallet<T> as DLCMachineReportStakingTrait>::get_nft_staking_gpu_count(&phase_level.into());
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Tuple(vec![
+                        ethabi::Token::Uint(gpu_count.saturated_into::<u64>().into()),
+                        ethabi::Token::Uint(
+                            gpu_count_before_reward_start.saturated_into::<u64>().into(),
+                        ),
+                    ])]),
                 })
             },
         }

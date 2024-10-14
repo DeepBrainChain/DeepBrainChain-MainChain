@@ -45,6 +45,21 @@ pub mod pallet {
         StorageMap<_, Twox64Concat, MachineId, (), ValueQuery>;
 
     #[pallet::storage]
+    #[pallet::getter(fn dlc_machines_in_nft_staking_phase_one)]
+    pub type DLCMachinesInNftStakingPhaseOne<T: Config> =
+        StorageMap<_, Twox64Concat, MachineId, (), ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn dlc_machines_in_nft_staking_phase_two)]
+    pub type DLCMachinesInNftStakingPhaseTwo<T: Config> =
+        StorageMap<_, Twox64Concat, MachineId, (), ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn dlc_machines_in_nft_staking_phase_three)]
+    pub type DLCMachinesInNftStakingPhaseThree<T: Config> =
+        StorageMap<_, Twox64Concat, MachineId, (), ValueQuery>;
+
+    #[pallet::storage]
     #[pallet::getter(fn dlc_machines_owner_rent_ended)]
     pub type DLCMachinesOwnerRentEnded<T: Config> =
         StorageMap<_, Twox64Concat, MachineId, (), ValueQuery>;
@@ -251,12 +266,19 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
 
         let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id.clone());
         if let Some(machine_info) = machine_info_result {
-            {
-                MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::insert(
-                    phase_level.clone(),
-                    &machine_id,
-                    machine_info.machine_info_detail.committee_upload_info.gpu_num,
-                );
+            MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::insert(
+                phase_level.clone(),
+                &machine_id,
+                machine_info.machine_info_detail.committee_upload_info.gpu_num,
+            );
+            if phase_level == PhaseLevel::PhaseOne {
+                DLCMachinesInNftStakingPhaseOne::<T>::insert(machine_id.clone(), ());
+            }
+            if phase_level == PhaseLevel::PhaseTwo {
+                DLCMachinesInNftStakingPhaseTwo::<T>::insert(machine_id.clone(), ());
+            }
+            if phase_level == PhaseLevel::PhaseThree {
+                DLCMachinesInNftStakingPhaseThree::<T>::insert(machine_id.clone(), ());
             }
         }
 
@@ -413,6 +435,22 @@ impl<T: Config> DLCMachineReportStakingTrait for Pallet<T> {
     fn get_nft_staking_reward_start_at(phase_level: &PhaseLevel) -> Self::BlockNumber {
         Self::nft_staking_reward_start_at(phase_level)
     }
+
+    fn get_nft_staking_gpu_count(phase_level: &PhaseLevel) -> (u64, u64) {
+        let mut gpu_count = 0u32;
+        for (_, gpu_count_of_one_machine) in
+            MachineId2GPUCountInStakingOfIDCMachineNFTStaking::<T>::iter_prefix(&phase_level)
+        {
+            gpu_count = gpu_count.saturating_add(gpu_count_of_one_machine);
+        }
+        let threshold = Self::nft_staking_reward_start_threshold(phase_level);
+        let mut gpu_count_before_reward_start = 0u64;
+        if (gpu_count as u64) < threshold {
+            gpu_count_before_reward_start = threshold - (gpu_count as u64);
+        };
+
+        (gpu_count as u64, gpu_count_before_reward_start)
+    }
 }
 
 impl<T: Config> Pallet<T> {
@@ -422,5 +460,18 @@ impl<T: Config> Pallet<T> {
 
     pub fn report_dlc_machine_slashed(machine_id: MachineId) {
         DLCMachinesInStaking::<T>::remove(&machine_id);
+    }
+
+    pub fn get_machine_ids_in_dlc_nft_staking(phase_level: PhaseLevel) -> Vec<MachineId> {
+        if phase_level == PhaseLevel::PhaseOne {
+            return DLCMachinesInNftStakingPhaseOne::<T>::iter_keys().collect()
+        }
+        if phase_level == PhaseLevel::PhaseTwo {
+            return DLCMachinesInNftStakingPhaseTwo::<T>::iter_keys().collect()
+        }
+        if phase_level == PhaseLevel::PhaseThree {
+            return DLCMachinesInNftStakingPhaseThree::<T>::iter_keys().collect()
+        }
+        vec![]
     }
 }
