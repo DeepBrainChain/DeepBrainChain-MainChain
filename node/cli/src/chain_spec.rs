@@ -75,10 +75,7 @@ pub struct Extensions {
 
 /// Specialized `ChainSpec`.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
-/// Flaming Fir testnet generator
-pub fn flaming_fir_config() -> Result<ChainSpec, String> {
-    ChainSpec::from_json_bytes(&include_bytes!("../res/flaming-fir.json")[..])
-}
+
 /// DBC Mainnet spec config
 pub fn mainnet_config() -> Result<ChainSpec, String> {
     // ChainSpec::from_json_bytes(&include_bytes!("../res/dbc-specs-raw-v4.json")[..])
