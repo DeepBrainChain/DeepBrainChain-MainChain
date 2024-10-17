@@ -1,0 +1,59 @@
+services:
+  node-0:
+    ports:
+      - 9944:9944
+      - 30333:30333
+    volumes:
+      - dbc-data-0:/data
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command:
+      - --name=dbc-node-0
+      - --alice
+      - --base-path=/data
+      - --chain=local
+      - --rpc-port=9944
+      - --rpc-external
+      - --rpc-cors=all
+      - --rpc-methods=unsafe
+      - --validator 
+      - --pruning=archive
+      - --node-key=b56e0838dee596709f885765a4afbdacf7a2c2f2c3b60befeb1e2e9101d7fb76
+      - --listen-addr=/ip4/0.0.0.0/tcp/30333
+    environment:
+      RUST_LOG: evm=debug
+    ulimits: &a1
+      nofile:
+        soft: 65536
+        hard: 65536
+  node-1:
+    ports:
+      - 9945:9944
+      - 30334:30333
+    volumes:
+      - dbc-data-1:/data
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command:
+      - --name=dbc-node-1
+      - --bob
+      - --base-path=/data
+      - --chain=local
+      - --rpc-port=9944
+      - --rpc-external
+      - --rpc-cors=all
+      - --rpc-methods=unsafe
+      - --validator 
+      - --pruning=archive
+      - --bootnodes=/dns/node-0/tcp/30333/p2p/12D3KooWLQf1r1PQKNGSqRvuwkBqSaPAsUkA3W5VzYKpkgahMywT
+      - --listen-addr=/ip4/0.0.0.0/tcp/30333
+    environment:
+      RUST_LOG: evm=debug
+    ulimits: *a1
+
+volumes:
+  dbc-data-0: null
+  dbc-data-1: null
+
