@@ -125,3 +125,13 @@ pub struct MachineRenterRentedOrderDetail<BlockNumber> {
     pub rent_start: BlockNumber,
     pub rent_end: BlockNumber,
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, Default, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub struct DlcBurnDetail<AccountId, Balance, BlockNumber> {
+    pub rent_id: RentOrderId,
+    pub renter: AccountId,
+    pub burned_amount: Balance,
+    pub at: BlockNumber,
+}
