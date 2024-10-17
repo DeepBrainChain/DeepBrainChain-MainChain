@@ -700,7 +700,7 @@ fn report_machine_inaccessible_works4() {
         // 委员会订阅机器故障报告
         assert_ok!(MaintainCommittee::committee_book_report(RuntimeOrigin::signed(*committee), 0));
 
-        run_to_block(14 + 10 * ONE_MINUTE);
+        run_to_block(14 + 10 * ONE_MINUTE + 1);
 
         // 检查summary的结果
 
@@ -745,8 +745,8 @@ fn report_machine_inaccessible_works4() {
                     unruly_committee: vec![*committee],
                     machine_id: machine_id.clone(),
                     machine_stash: Some(*machine_stash),
-                    slash_time: 12 + 5 * ONE_MINUTE,
-                    slash_exec_time: 12 + 5 * ONE_MINUTE + 2 * ONE_DAY,
+                    slash_time: 11 + 10 * ONE_MINUTE,
+                    slash_exec_time: 11 + 10 * ONE_MINUTE + 2 * ONE_DAY,
                     report_result: crate::ReportResultType::NoConsensus,
                     slash_result: crate::MCSlashResult::Pending,
                     inconsistent_committee: vec![],
@@ -773,7 +773,7 @@ fn report_machine_inaccessible_works4() {
             );
             let unhandled_report_result: Vec<u64> = vec![0];
             assert_eq!(
-                &MaintainCommittee::unhandled_report_result(12 + 5 * ONE_MINUTE + 2 * ONE_DAY),
+                &MaintainCommittee::unhandled_report_result(11 + 10 * ONE_MINUTE + 2 * ONE_DAY),
                 &unhandled_report_result
             );
             assert_eq!(

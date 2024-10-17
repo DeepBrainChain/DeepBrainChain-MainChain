@@ -4,9 +4,9 @@ use dbc_support::{rental_type::RentStatus, traits::DLCMachineReportStakingTrait,
 use frame_support::{assert_err, assert_ok};
 use once_cell::sync::Lazy;
 
+use rent_machine::Error as RentMachineError;
 use sp_core::Pair;
 use sp_keyring::AccountKeyring::{Dave, Eve};
-
 const renter_dave: Lazy<sr25519::Public> = Lazy::new(|| sr25519::Public::from(Dave));
 
 const renter_owner: Lazy<sr25519::Public> = Lazy::new(|| sr25519::Public::from(Eve));
@@ -33,7 +33,7 @@ fn report_dlc_staking_should_works() {
                 Eve.public(),
                 machine_id.clone()
             ),
-            "machine not rented"
+            RentMachineError::<TestRuntime>::MachineNotRented
         );
 
         assert_ok!(RentMachine::rent_machine(
@@ -44,8 +44,11 @@ fn report_dlc_staking_should_works() {
         ));
 
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_owner), 0));
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), false);
+
+        assert_eq!(
+            dlc_machine::DLCMachinesInStaking::<TestRuntime>::contains_key(machine_id.clone()),
+            false
+        );
 
         assert_ok!(
             <dlc_machine::Pallet<TestRuntime> as DLCMachineReportStakingTrait>::report_dlc_staking(
@@ -55,8 +58,10 @@ fn report_dlc_staking_should_works() {
                 machine_id.clone()
             )
         );
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), true)
+        assert_eq!(
+            dlc_machine::DLCMachinesInStaking::<TestRuntime>::contains_key(machine_id.clone()),
+            true
+        )
     })
 }
 
@@ -78,7 +83,7 @@ fn rent_dlc_machine_should_works() {
                 eve.public(),
                 machine_id.clone()
             ),
-            "machine not rented"
+            RentMachineError::<TestRuntime>::MachineNotRented
         );
 
         assert_ok!(RentMachine::rent_machine(
@@ -89,8 +94,10 @@ fn rent_dlc_machine_should_works() {
         ));
 
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_owner), 0));
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), false);
+        assert_eq!(
+            dlc_machine::DLCMachinesInStaking::<TestRuntime>::contains_key(machine_id.clone()),
+            false
+        );
         assert_err!(
             RentDlcMachine::rent_dlc_machine(
                 RuntimeOrigin::signed(*renter_dave),
@@ -109,8 +116,10 @@ fn rent_dlc_machine_should_works() {
                 machine_id.clone()
             )
         );
-        let dlc_machines_online = <dlc_machine::Pallet<TestRuntime>>::dlc_machine_ids_in_staking();
-        assert_eq!(dlc_machines_online.contains(&machine_id), true);
+        assert_eq!(
+            dlc_machine::DLCMachinesInStaking::<TestRuntime>::contains_key(machine_id.clone()),
+            true
+        );
 
         // renter's dlc balance should be 10000000*ONE_DLC before rent dlc machine
         let asset_id = RentDlcMachine::get_dlc_asset_id_parameter();
@@ -143,13 +152,13 @@ fn rent_dlc_machine_should_works() {
         let rent_duration = rent_info.rent_end.saturating_sub(rent_info.rent_start);
         assert_eq!(rent_duration, 10 * ONE_DAY as u64);
 
-        let records = RentDlcMachine::burn_records();
+        let records = RentDlcMachine::burn_details();
         assert_eq!(records.len(), 1);
-        let (burn_amount, burn_at, renter, rent_id) = records[0];
-        assert_eq!(burn_amount, burn_total);
-        assert_ne!(burn_at, 0);
-        assert_eq!(rent_id, rent_dlc_machine_id);
-        assert_eq!(renter, Dave.public());
+        let detail = records.first().unwrap();
+        assert_eq!(detail.burned_amount, burn_total);
+        assert_ne!(detail.at, 0);
+        assert_eq!(detail.rent_id, rent_dlc_machine_id);
+        assert_eq!(detail.renter, Dave.public());
 
         let dbc_rent_order_infos = RentMachine::machine_rent_order(machine_id.clone());
         let rent_dbc_machine_id = dbc_rent_order_infos.rent_order[0];

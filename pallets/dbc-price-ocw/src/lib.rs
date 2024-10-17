@@ -186,8 +186,9 @@ pub mod pallet {
             };
 
             match call {
-                Call::submit_price_unsigned { price: _ } =>
-                    valid_tx(b"submit_price_unsigned".to_vec()),
+                Call::submit_price_unsigned { price: _ } => {
+                    valid_tx(b"submit_price_unsigned".to_vec())
+                },
                 _ => InvalidTransaction::Call.into(),
             }
         }

@@ -257,13 +257,14 @@ pub mod pallet {
 
                 let result = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id);
                 match result {
-                    Some(machine_info) =>
+                    Some(machine_info) => {
                         if machine_info.machine_status == MachineStatus::Rented {
                             <online_profile::Pallet<T>>::add_offline_machine_to_renters(
                                 rent_info.machine_id,
                                 machine_info.renters,
                             );
-                        },
+                        }
+                    },
                     None => {},
                 }
 
@@ -278,6 +279,7 @@ pub mod pallet {
                 None,
                 &mut live_report,
                 &mut reporter_report,
+                false,
             )?;
 
             LiveReport::<T>::put(live_report);
@@ -751,7 +753,7 @@ pub mod pallet {
 
                 let result = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id);
                 match result {
-                    Some(machine_info) =>
+                    Some(machine_info) => {
                         if machine_info.machine_status == MachineStatus::Rented {
                             let renters =
                                 <rent_dlc_machine::Pallet<T>>::get_renters(&rent_info.machine_id);
@@ -759,7 +761,8 @@ pub mod pallet {
                                 rent_info.machine_id,
                                 renters,
                             );
-                        },
+                        }
+                    },
                     None => {},
                 }
             }
@@ -804,8 +807,8 @@ pub mod pallet {
             origin: OriginFor<T>,
             slash_at: T::BlockNumber,
         ) -> DispatchResultWithPostInfo {
-            let reporter = ensure_signed(origin)?;
-            Self::exec_slash_now(slash_at);
+            ensure_root(origin)?;
+            let _ = Self::exec_slash_now(slash_at);
             Ok(().into())
         }
     }
@@ -918,12 +921,28 @@ impl<T: Config> Pallet<T> {
         report_time: Option<T::BlockNumber>,
         live_report: &mut MTLiveReportList,
         reporter_report: &mut ReporterReportList,
+        is_dlc_machine_report: bool,
     ) -> DispatchResultWithPostInfo {
         // 获取处理报告需要的信息
         let stake_params = Self::reporter_stake_params().ok_or(Error::<T>::GetStakeAmountFailed)?;
         let report_id = Self::get_new_report_id();
         let report_time = report_time.unwrap_or_else(|| <frame_system::Pallet<T>>::block_number());
 
+        let mut stake_amount = stake_params.stake_per_report;
+        if is_dlc_machine_report {
+            stake_amount = BalanceOf::<T>::zero();
+
+            if let MachineFaultType::RentedInaccessible(machine_id, _) = machine_fault_type.clone()
+            {
+                DLCMachine2ReportInfo::<T>::mutate(machine_id, |report_info| {
+                    if let Some((_, reporter_evm_address, exec_time)) = *report_info {
+                        *report_info = Some((report_id.clone(), reporter_evm_address, exec_time));
+                        return *report_info
+                    };
+                    *report_info
+                });
+            }
+        }
         // 记录到 live_report & reporter_report
         live_report.new_report(report_id);
         reporter_report.new_report(report_id);
@@ -934,7 +953,7 @@ impl<T: Config> Pallet<T> {
                 reporter.clone(),
                 report_time,
                 machine_fault_type.clone(),
-                stake_params.stake_per_report,
+                stake_amount,
             ),
         );
 
@@ -1080,6 +1099,7 @@ impl<T: Config> Pallet<T> {
                 Some(report_info.report_time),
                 live_report,
                 &mut reporter_report,
+                report_info.reporter_stake == BalanceOf::<T>::zero(),
             )
             .map_err(|_| ())?;
 
@@ -1411,6 +1431,7 @@ impl<T: Config> Pallet<T> {
                     Some(report_info.report_time),
                     live_report,
                     &mut reporter_report,
+                    report_info.reporter_stake == BalanceOf::<T>::zero(),
                 );
                 ReporterReport::<T>::insert(&report_info.reporter, reporter_report);
             },

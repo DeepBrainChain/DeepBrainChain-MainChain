@@ -1,0 +1,28 @@
+[package]
+name = "dbc-primitives-ext"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+
+[dependencies]
+ethereum-types = { workspace = true }
+
+# DBC
+dbc-primitives-rpc-evm-tracing-events = { workspace = true }
+
+# Substrate
+parity-scale-codec = { workspace = true }
+sp-externalities = { workspace = true }
+sp-runtime-interface = { workspace = true }
+sp-std = { workspace = true }
+
+[features]
+default = [ "std" ]
+std = [
+	"ethereum-types/std",
+	"dbc-primitives-rpc-evm-tracing-events/std",
+	"parity-scale-codec/std",
+	"sp-externalities/std",
+	"sp-runtime-interface/std",
+	"sp-std/std",
+]

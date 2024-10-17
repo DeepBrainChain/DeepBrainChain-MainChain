@@ -1,0 +1,16 @@
+[package]
+name = "dbc-client-rpc-core-debug"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+
+[dependencies]
+ethereum-types = { workspace = true, features = [ "std" ] }
+futures = { workspace = true, features = [ "compat" ] }
+jsonrpsee = { workspace = true, features = [ "macros", "server" ] }
+dbc-client-evm-tracing = { workspace = true }
+dbc-client-rpc-core-types = { workspace = true }
+serde = { workspace = true, features = [ "derive" ] }
+serde_json = { workspace = true }
+
+sp-core = { workspace = true, features = [ "std" ] }

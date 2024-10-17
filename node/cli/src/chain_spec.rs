@@ -21,11 +21,11 @@
 use coins_bip32::ecdsa::{SigningKey, VerifyingKey};
 use coins_bip39::{English, Mnemonic, Wordlist};
 use dbc_runtime::{
-    constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
-    BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas, DefaultElasticity,
-    DemocracyConfig, EVMChainIdConfig, EVMConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig,
-    IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig, SessionKeys, StakerStatus,
-    StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+    constants::currency::*, opaque::SessionKeys, wasm_binary_unwrap, AuthorityDiscoveryConfig,
+    BabeConfig, BalancesConfig, BaseFeeConfig, Block, CouncilConfig, DefaultBaseFeePerGas,
+    DefaultElasticity, DemocracyConfig, EVMChainIdConfig, EVMConfig, ElectionsConfig,
+    GrandpaConfig, ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig,
+    SessionConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
 use fp_evm::GenesisAccount;
 use k256::{elliptic_curve::sec1::ToEncodedPoint, EncodedPoint};
@@ -368,7 +368,6 @@ pub fn dev_testnet_genesis(
         im_online: ImOnlineConfig { keys: vec![] },
         authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
         grandpa: GrandpaConfig { authorities: vec![] },
-        technical_membership: Default::default(),
         treasury: Default::default(),
         // vesting: Default::default(),
         assets: pallet_assets::GenesisConfig {
@@ -524,7 +523,6 @@ pub fn testnet_genesis(
         im_online: ImOnlineConfig { keys: vec![] },
         authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
         grandpa: GrandpaConfig { authorities: vec![] },
-        technical_membership: Default::default(),
         treasury: Default::default(),
         // vesting: Default::default(),
         assets: Default::default(),
@@ -807,7 +805,6 @@ pub fn mainnet_genesis(
         im_online: ImOnlineConfig { keys: vec![] },
         authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
         grandpa: GrandpaConfig { authorities: vec![] },
-        technical_membership: Default::default(),
         treasury: Default::default(),
         // vesting: Default::default(),
         assets: Default::default(),
@@ -917,7 +914,6 @@ fn get_evm_accounts(mnemonic: Option<&str>) -> Vec<H160> {
 pub(crate) mod tests {
     use super::*;
     use crate::service::{new_full_base, NewFullBase};
-    use sc_service_test;
     use sp_runtime::BuildStorage;
 
     fn local_testnet_genesis_instant_single() -> GenesisConfig {

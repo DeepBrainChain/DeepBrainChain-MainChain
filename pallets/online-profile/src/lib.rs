@@ -41,7 +41,6 @@ use sp_std::{
 };
 
 pub use pallet::*;
-pub use traits::*;
 pub use types::*;
 
 type BalanceOf<T> =
@@ -368,17 +367,17 @@ pub mod pallet {
         // }
 
         // From 800 USD -> 300 USD
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            let mut online_stake_params = match Self::online_stake_params() {
-                Some(params) => params,
-                None => return Weight::zero(),
-            };
-            let online_stake_usd_limit =
-                Perbill::from_rational(3u32, 8u32) * online_stake_params.online_stake_usd_limit;
-            online_stake_params.online_stake_usd_limit = online_stake_usd_limit;
-            OnlineStakeParams::<T>::put(online_stake_params);
-            Weight::zero()
-        }
+        // fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        //     let mut online_stake_params = match Self::online_stake_params() {
+        //         Some(params) => params,
+        //         None => return Weight::zero(),
+        //     };
+        //     let online_stake_usd_limit =
+        //         Perbill::from_rational(3u32, 8u32) * online_stake_params.online_stake_usd_limit;
+        //     online_stake_params.online_stake_usd_limit = online_stake_usd_limit;
+        //     OnlineStakeParams::<T>::put(online_stake_params);
+        //     Weight::zero()
+        // }
     }
 
     #[pallet::call]
@@ -1077,8 +1076,9 @@ pub mod pallet {
             let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
 
             let offline_time = match machine_info.machine_status.clone() {
-                MachineStatus::StakerReportOffline(_offline_time, _) =>
-                    return Err(Error::<T>::MachineStatusNotAllowed.into()),
+                MachineStatus::StakerReportOffline(_offline_time, _) => {
+                    return Err(Error::<T>::MachineStatusNotAllowed.into())
+                },
                 MachineStatus::ReporterReportOffline(slash_reason, ..) => match slash_reason {
                     OPSlashReason::RentedInaccessible(report_time) |
                     OPSlashReason::RentedHardwareMalfunction(report_time) |

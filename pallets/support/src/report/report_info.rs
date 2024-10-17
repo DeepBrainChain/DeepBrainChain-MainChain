@@ -228,12 +228,13 @@ where
         }
 
         self.report_status = match self.machine_fault_type {
-            MachineFaultType::RentedInaccessible(..) =>
+            MachineFaultType::RentedInaccessible(..) => {
                 if self.booked_committee.len() == 3 {
                     ReportStatus::Verifying
                 } else {
                     ReportStatus::WaitingBook
-                },
+                }
+            },
             _ => {
                 // 仅在不是RentedInaccessible时进行记录，因为这些情况只能一次有一个验证委员会
                 self.verifying_committee = Some(committee);
@@ -313,10 +314,14 @@ where
 
         if matches!(self.report_status, ReportStatus::SubmittingRaw) {
             // 不到10分钟，且没全部提交确认，允许继续提交
-            if now.saturating_sub(self.first_book_time) < (10 * ONE_MINUTE).into() &&
-                self.confirmed_committee.len() < self.hashed_committee.len()
-            {
-                return Err(())
+            if now.saturating_sub(self.first_book_time) < (10 * ONE_MINUTE).into() {
+                if self.confirmed_committee.len() < self.hashed_committee.len() {
+                    return Err(())
+                }
+
+                if self.hashed_committee.len() == 0 {
+                    return Err(())
+                }
             }
         }
 

@@ -12,7 +12,7 @@ newline_style = "Unix"
 # Misc
 chain_width = 80
 binop_separator = "Back"
-match_arm_blocks = false
+match_arm_blocks = true
 match_arm_leading_pipes = "Preserve"
 match_block_trailing_comma = true
 use_field_init_shorthand = true

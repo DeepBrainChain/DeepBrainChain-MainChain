@@ -13,8 +13,10 @@ mod tests;
 
 pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
-    rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
-    traits::{DLCMachineInfoTrait, DbcPrice, RTOps},
+    rental_type::{
+        DlcBurnDetail, MachineGPUOrder, MachineRenterRentedOrderDetail, RentOrderDetail, RentStatus,
+    },
+    traits::{DLCMachineInfoTrait, DbcPrice, PhaseLevel, RTOps},
     EraIndex, ItemList, MachineId, RentOrderId, HALF_HOUR, ONE_DAY,
 };
 use frame_support::{
@@ -30,7 +32,7 @@ use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedMul, SaturatedConversion, Saturating, Zero},
     Perbill,
 };
-use sp_std::{prelude::*, vec::Vec};
+use sp_std::{prelude::*, vec, vec::Vec};
 
 type BalanceOf<T> = <T as pallet_assets::Config>::Balance;
 pub use pallet::*;
@@ -73,7 +75,6 @@ pub mod pallet {
         }
     }
 
-    // 存储用户当前租用的机器列表
     #[pallet::storage]
     #[pallet::getter(fn user_order)]
     pub(super) type UserOrder<T: Config> =
@@ -122,9 +123,21 @@ pub mod pallet {
     pub(super) type BurnTotalAmount<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn burn_records)]
-    pub(super) type BurnRecords<T: Config> =
-        StorageValue<_, Vec<(BalanceOf<T>, T::BlockNumber, T::AccountId, RentOrderId)>, ValueQuery>;
+    #[pallet::getter(fn burn_details)]
+    pub(super) type BurnDetails<T: Config> =
+        StorageValue<_, Vec<DlcBurnDetail<T::AccountId, BalanceOf<T>, T::BlockNumber>>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn machine_id_2_burn_record)]
+    pub(super) type MachineId2BurnRecord<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        PhaseLevel,
+        Blake2_128Concat,
+        MachineId,
+        Vec<DlcBurnDetail<T::AccountId, BalanceOf<T>, T::BlockNumber>>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn dlc_rent_id_2_parent_dbc_rent_id)]
@@ -132,12 +145,12 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, RentOrderId, RentOrderId>;
 
     #[pallet::storage]
-    #[pallet::getter(fn machine_rented_orders)]
-    pub type MachineRentedOrders<T: Config> = StorageMap<
+    #[pallet::getter(fn dlc_machine_rented_orders)]
+    pub type DlcMachineRentedOrders<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         MachineId,
-        Vec<MachineRentedOrderDetail<T::AccountId, T::BlockNumber>>,
+        Vec<MachineRenterRentedOrderDetail<T::BlockNumber>>,
         ValueQuery,
     >;
 
@@ -182,7 +195,7 @@ pub mod pallet {
         DBCRentIdNotFound,
     }
 
-    use dbc_support::rental_type::MachineRentedOrderDetail;
+    use dbc_support::rental_type::{DlcBurnDetail, MachineRenterRentedOrderDetail};
 }
 
 impl<T: Config> Pallet<T> {
@@ -302,16 +315,40 @@ impl<T: Config> Pallet<T> {
             Fortitude::Polite,
         )?;
 
-        BurnRecords::<T>::mutate(|records| {
-            records.push((
-                rent_fee.clone(),
-                <frame_system::Pallet<T>>::block_number(),
-                renter.clone(),
-                rent_id.clone(),
-            ));
+        let now = <frame_system::Pallet<T>>::block_number();
+
+        BurnDetails::<T>::mutate(|details| {
+            details.push(DlcBurnDetail {
+                rent_id,
+                renter: renter.clone(),
+                burned_amount: rent_fee.clone(),
+                at: now,
+            })
         });
+
         BurnTotalAmount::<T>::mutate(|total_amount| {
             *total_amount = total_amount.saturating_add(rent_fee.clone())
+        });
+
+        let phase_all = vec![PhaseLevel::PhaseOne, PhaseLevel::PhaseTwo, PhaseLevel::PhaseThree];
+
+        phase_all.iter().for_each(|phase_level| {
+            if dlc_machine::Pallet::<T>::get_machine_ids_in_dlc_nft_staking(phase_level.clone())
+                .contains(&machine_id)
+            {
+                MachineId2BurnRecord::<T>::mutate(
+                    phase_level,
+                    machine_id.clone(),
+                    |burn_records| {
+                        burn_records.push(DlcBurnDetail {
+                            rent_id,
+                            renter: renter.clone(),
+                            burned_amount: rent_fee.clone(),
+                            at: now,
+                        });
+                    },
+                );
+            }
         });
 
         Self::deposit_event(Event::PayTxFeeAndBurn(rent_id, renter.clone(), rent_fee.clone()));
@@ -344,9 +381,8 @@ impl<T: Config> Pallet<T> {
 
         MachineRentOrder::<T>::insert(&machine_id, machine_rent_order);
 
-        MachineRentedOrders::<T>::mutate(&machine_id, |machine_rented_orders| {
-            machine_rented_orders.push(MachineRentedOrderDetail {
-                renter: renter.clone(),
+        DlcMachineRentedOrders::<T>::mutate(&machine_id, |dlc_machine_rented_orders| {
+            dlc_machine_rented_orders.push(MachineRenterRentedOrderDetail {
                 rent_start: now,
                 rent_end,
                 rent_id: rent_id.clone(),
@@ -474,7 +510,8 @@ impl<T: Config> Pallet<T> {
         let dbc_rent_info =
             rent_machine::Pallet::<T>::rent_info(rent_id).ok_or(Error::<T>::DBCRentIdNotFound)?;
 
-        Ok(dbc_rent_info.rent_end.saturating_sub(dbc_rent_info.rent_start))
+        let now = <frame_system::Pallet<T>>::block_number();
+        Ok(dbc_rent_info.rent_end.saturating_sub(now))
     }
 
     pub fn get_parent_dbc_rent_order_id(
@@ -497,7 +534,7 @@ impl<T: Config> DLCMachineInfoTrait for Pallet<T> {
     ) -> Result<T::BlockNumber, &'static str> {
         let now = <frame_system::Pallet<T>>::block_number();
         let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
-        let rented_orders = Self::machine_rented_orders(machine_id);
+        let rented_orders = Self::dlc_machine_rented_orders(machine_id);
 
         rented_orders.iter().for_each(|rented_order| {
             if rented_order.rent_end >= last_claim_at {
@@ -512,5 +549,48 @@ impl<T: Config> DLCMachineInfoTrait for Pallet<T> {
         });
 
         Ok(rent_duration)
+    }
+
+    fn get_rented_gpu_count_in_dlc_nft_staking(phase_level: PhaseLevel) -> u64 {
+        let machine_ids_dlc_nft_staking =
+            dlc_machine::Pallet::<T>::get_machine_ids_in_dlc_nft_staking(phase_level);
+        let mut count = 0u64;
+        machine_ids_dlc_nft_staking.iter().for_each(|machine_id| {
+            let result = Self::machine_rent_order(machine_id);
+            count = count.saturating_add(result.used_gpu.len() as u64);
+        });
+
+        count
+    }
+
+    fn get_rented_gpu_count_of_machine_in_dlc_nft_staking(machine_id: MachineId) -> u64 {
+        let mut count = 0u64;
+        let result = Self::machine_rent_order(machine_id);
+        count = count.saturating_add(result.used_gpu.len() as u64);
+
+        count
+    }
+
+    fn get_total_dlc_nft_staking_burned_rent_fee(phase_level: PhaseLevel) -> u64 {
+        MachineId2BurnRecord::<T>::iter_prefix(phase_level)
+            .map(|(_, burn_records)| {
+                let mut total_burned_amount = 0u64;
+                burn_records.iter().for_each(|burn_record| {
+                    total_burned_amount = total_burned_amount
+                        .saturating_add(burn_record.burned_amount.saturated_into());
+                });
+                total_burned_amount
+            })
+            .sum()
+    }
+
+    fn get_dlc_nft_staking_burned_rent_fee_by_machine_id(
+        phase_level: PhaseLevel,
+        machine_id: MachineId,
+    ) -> u64 {
+        Self::machine_id_2_burn_record(phase_level, machine_id)
+            .iter()
+            .map(|burn_record| burn_record.burned_amount.saturated_into::<u64>())
+            .sum()
     }
 }

@@ -1,0 +1,28 @@
+[package]
+name = "dbc-client-rpc-txpool"
+version = { workspace = true }
+authors = { workspace = true }
+edition = "2021"
+
+[dependencies]
+jsonrpsee = { workspace = true, features = [ "macros", "server" ] }
+rlp = { workspace = true }
+serde = { workspace = true, features = [ "derive" ] }
+sha3 = { workspace = true }
+
+dbc-client-rpc-core-txpool = { workspace = true }
+dbc-primitives-rpc-txpool = { workspace = true, features = [ "std" ] }
+
+# Substrate
+frame-system = { workspace = true }
+sc-transaction-pool = { workspace = true }
+sc-transaction-pool-api = { workspace = true }
+sp-api = { workspace = true }
+sp-blockchain = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+# Frontier
+ethereum-types = { workspace = true, features = [ "std" ] }
+fc-rpc = { workspace = true }

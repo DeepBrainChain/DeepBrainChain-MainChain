@@ -12,11 +12,7 @@ resolver = "2"
 members = [
   "node",
   "node/cli",
-  "node/executor",
-  "node/runtime-interface",
-  "client/rpc/finality",
   "primitives",
-  "rpc",
   "runtime",
 
   "pallets/assets",
@@ -213,9 +209,6 @@ node-primitives = { git = "https://github.com/paritytech/substrate", branch = "p
 # Frontier (wasm)
 ethereum = { version = "0.14.0", default-features = false, features = ["with-codec"] }
 ethereum-types = { version = "0.14", default-features = false }
-evm = { git = "https://github.com/paritytech/evm", branch = "tgm-record-external-cost", default-features = false }
-evm-gasometer = { git = "https://github.com/paritytech/evm", branch = "tgm-record-external-cost", default-features = false }
-evm-runtime = { git = "https://github.com/paritytech/evm", branch = "tgm-record-external-cost", default-features = false }
 fp-ethereum = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.43", default-features = false }
 fp-evm = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.43", default-features = false }
 fp-rpc = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.43", default-features = false }
@@ -241,6 +234,29 @@ fc-rpc-core = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "pol
 fc-storage = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.43" }
 fp-consensus = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.43" }
 fp-storage = { git = "https://github.com/DeepBrainChain/DBC-EVM", branch = "polkadot-v0.9.43" }
+
+# DBC (client)
+dbc-primitives = { path = "primitives", default-features = false }
+dbc-primitives-ext = { path = "primitives/ext", default-features = false }
+dbc-primitives-rpc-debug = { path = "primitives/rpc/debug", default-features = false }
+dbc-primitives-rpc-evm-tracing-events = { path = "primitives/rpc/evm-tracing-events", default-features = false }
+dbc-primitives-rpc-trace = { path = "primitives/rpc/trace", default-features = false }
+dbc-primitives-rpc-txpool = { path = "primitives/rpc/txpool", default-features = false }
+
+dbc-client-evm-tracing = { path = "client/evm-tracing" }
+dbc-client-rpc-core-debug = { path = "client/rpc-core/debug" }
+dbc-client-rpc-core-trace = { path = "client/rpc-core/trace" }
+dbc-client-rpc-core-txpool = { path = "client/rpc-core/txpool" }
+dbc-client-rpc-core-types = { path = "client/rpc-core/types" }
+dbc-client-rpc-debug = { path = "client/rpc/debug" }
+dbc-client-rpc-trace = { path = "client/rpc/trace" }
+dbc-client-rpc-txpool = { path = "client/rpc/txpool" }
+
+dbc-evm-tracer = { path = "runtime/evm-tracer", default-features = false }
+
+evm = { git = "https://github.com/rust-blockchain/evm", rev = "b7b82c7e1fc57b7449d6dfa6826600de37cc1e65", default-features = false }
+evm-gasometer = { git = "https://github.com/rust-blockchain/evm", rev = "b7b82c7e1fc57b7449d6dfa6826600de37cc1e65", default-features = false }
+evm-runtime = { git = "https://github.com/rust-blockchain/evm", rev = "b7b82c7e1fc57b7449d6dfa6826600de37cc1e65", default-features = false }
 
 ethabi = { version = "18.0.0", default-features = false }
 env_logger = { version = "0.11.5", default-features = false }

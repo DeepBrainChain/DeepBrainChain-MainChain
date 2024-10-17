@@ -171,9 +171,10 @@ impl<T: Config> Pallet<T> {
             .retain(|&x| x >= current_era.saturating_sub(history_depth));
 
         match ledger.claimed_rewards.binary_search(&era) {
-            Ok(_) =>
+            Ok(_) => {
                 return Err(Error::<T>::AlreadyClaimed
-                    .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))),
+                    .with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
+            },
             Err(pos) => ledger
                 .claimed_rewards
                 .try_insert(pos, era)
@@ -306,8 +307,9 @@ impl<T: Config> Pallet<T> {
                     Self::update_ledger(&controller, &l);
                     r
                 }),
-            RewardDestination::Account(dest_account) =>
-                Some(T::Currency::deposit_creating(&dest_account, amount)),
+            RewardDestination::Account(dest_account) => {
+                Some(T::Currency::deposit_creating(&dest_account, amount))
+            },
             RewardDestination::None => None,
         }
     }
@@ -1908,10 +1910,11 @@ impl<T: Config> Pallet<T> {
                         match len {
                             0 => { /* not supporting this validator at all. */ },
                             1 => sum += individual[0].value,
-                            _ =>
+                            _ => {
                                 return Err(
                                     "nominator cannot back a validator more than once.".into()
-                                ),
+                                )
+                            },
                         };
                         Ok(())
                     })

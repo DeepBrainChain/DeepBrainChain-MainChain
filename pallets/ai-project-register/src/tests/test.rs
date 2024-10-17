@@ -1,11 +1,16 @@
 use super::super::{mock::*, *};
 use crate::mock::new_test_ext;
 use dbc_support::{
-    rental_type::{MachineGPUOrder, MachineRentedOrderDetail, RentOrderDetail, RentStatus},
+    rental_type::{MachineGPUOrder, MachineRenterRentedOrderDetail, RentOrderDetail, RentStatus},
     traits::MachineInfoTrait,
 };
 use frame_support::{assert_err, assert_ok, traits::Currency};
-use rent_machine::{MachineRentOrder, MachineRentedOrders, RentInfo};
+use rent_machine::{
+    Error as RentMachineError, MachineRentOrder, MachineRenterRentedOrders, RentInfo,
+};
+
+use dbc_support::{machine_info::MachineInfo, machine_type::MachineStatus};
+use online_profile::MachinesInfo;
 use sp_core::{sr25519, Pair};
 pub use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 
@@ -43,7 +48,7 @@ fn test_add_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone().clone()
             ),
-            "machine not rented"
+            RentMachineError::<Test>::MachineNotRented.as_str()
         );
 
         let rent_info: RentOrderDetail<
@@ -75,7 +80,7 @@ fn test_add_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "machine not rented"
+            RentMachineError::<Test>::MachineNotRented.as_str()
         );
 
         RentInfo::<Test>::remove(1);
@@ -109,7 +114,7 @@ fn test_add_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "machine not rented"
+            RentMachineError::<Test>::MachineNotRented.as_str()
         );
 
         let rent_info_renting: RentOrderDetail<
@@ -140,7 +145,7 @@ fn test_add_machine_registered_project_should_work() {
                 fake_machine_id.clone(),
                 project_name.clone()
             ),
-            "machine not rented"
+            RentMachineError::<Test>::MachineNotRented.as_str()
         );
         assert_ok!(AiProjectRegister::add_machine_registered_project(
             msg.clone(),
@@ -202,7 +207,7 @@ fn test_add_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name3.clone()
             ),
-            "over max limit per machine id can register"
+            Error::<Test>::OverLimitPerMachineIdCanRegister.as_str()
         );
     });
 }
@@ -251,7 +256,7 @@ fn test_remove_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "not registered"
+            Error::<Test>::MachineNotRegistered.as_str()
         );
         assert_ok!(AiProjectRegister::add_machine_registered_project(
             msg.clone(),
@@ -292,7 +297,7 @@ fn test_remove_machine_registered_project_should_work() {
                 machine_id.clone(),
                 project_name.clone()
             ),
-            "not registered"
+            Error::<Test>::MachineNotRegistered.as_str()
         );
         assert_ok!(AiProjectRegister::remove_machine_registered_project(
             msg.clone(),
@@ -414,29 +419,45 @@ fn test_get_machine_valid_stake_duration_should_works() {
             gpu_index: vec![],
         };
 
-        RentInfo::<Test>::insert(1, rent_info_renting);
+        RentInfo::<Test>::insert(1, rent_info_renting.clone());
 
-        let order: MachineRentedOrderDetail<
+        let order: MachineRenterRentedOrderDetail<<Test as frame_system::Config>::BlockNumber> =
+            MachineRenterRentedOrderDetail { rent_id: 1, rent_start: 1, rent_end: 2 };
+
+        MachineRenterRentedOrders::<Test>::insert(
+            machine_id.clone(),
+            rent_info_renting.renter,
+            vec![order],
+        );
+
+        let machine_info: MachineInfo<
             <Test as frame_system::Config>::AccountId,
             <Test as frame_system::Config>::BlockNumber,
-        > = MachineRentedOrderDetail {
-            rent_id: 1,
-            renter: sr25519::Public::from(Sr25519Keyring::Alice),
-            rent_start: 1,
-            rent_end: 2,
+            BalanceOf<Test>,
+        > = MachineInfo {
+            controller: sr25519::Public::from(Sr25519Keyring::Alice),
+            machine_stash: sr25519::Public::from(Sr25519Keyring::Bob),
+            renters: vec![sr25519::Public::from(Sr25519Keyring::Alice)],
+            last_machine_restake: 1,
+            bonding_height: 1,
+            online_height: 1,
+            last_online_height: 1,
+            init_stake_per_gpu: 1,
+            stake_amount: 1,
+            machine_status: MachineStatus::Rented,
+            total_rented_duration: 1,
+            total_rented_times: 0,
+            total_rent_fee: 1,
+            total_burn_fee: 1,
+            machine_info_detail: Default::default(),
+            reward_committee: vec![],
+            reward_deadline: 0,
         };
 
-        MachineRentedOrders::<Test>::insert(machine_id.clone(), vec![order]);
+        MachinesInfo::<Test>::insert(machine_id.clone(), machine_info.clone());
 
         System::set_block_number(10);
-        let r = RentMachine::get_machine_valid_stake_duration(
-            msg.clone(),
-            sig.clone(),
-            alice.public(),
-            0,
-            0,
-            machine_id.clone(),
-        );
+        let r = RentMachine::get_machine_valid_stake_duration(0, 0, 0, machine_id.clone());
         assert_eq!(r.unwrap(), 1);
 
         let rent_info_renting: RentOrderDetail<
@@ -454,26 +475,16 @@ fn test_get_machine_valid_stake_duration_should_works() {
             gpu_num: 1,
             gpu_index: vec![],
         };
-        RentInfo::<Test>::insert(2, rent_info_renting);
-        let order: MachineRentedOrderDetail<
-            <Test as frame_system::Config>::AccountId,
-            <Test as frame_system::Config>::BlockNumber,
-        > = MachineRentedOrderDetail {
-            rent_id: 2,
-            renter: sr25519::Public::from(Sr25519Keyring::Alice),
-            rent_start: 1,
-            rent_end: 20,
-        };
-        MachineRentedOrders::<Test>::insert(machine_id.clone(), vec![order]);
-
-        let r = RentMachine::get_machine_valid_stake_duration(
-            msg,
-            sig,
-            alice.public(),
-            0,
-            0,
-            machine_id,
+        RentInfo::<Test>::insert(2, rent_info_renting.clone());
+        let order: MachineRenterRentedOrderDetail<<Test as frame_system::Config>::BlockNumber> =
+            MachineRenterRentedOrderDetail { rent_id: 2, rent_start: 1, rent_end: 20 };
+        MachineRenterRentedOrders::<Test>::insert(
+            machine_id.clone(),
+            rent_info_renting.renter,
+            vec![order],
         );
+
+        let r = RentMachine::get_machine_valid_stake_duration(0, 0, 0, machine_id);
         assert_eq!(r.unwrap(), 9);
     });
 }
