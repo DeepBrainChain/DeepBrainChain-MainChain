@@ -580,8 +580,8 @@ pub mod opaque {
 
     impl_opaque_keys! {
         pub struct SessionKeys {
-            pub babe: Babe,
             pub grandpa: Grandpa,
+            pub babe: Babe,
             pub im_online: ImOnline,
             pub authority_discovery: AuthorityDiscovery,
         }
