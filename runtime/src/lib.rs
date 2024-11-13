@@ -1567,11 +1567,6 @@ impl pallet_base_fee::Config for Runtime {
     type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
     type DefaultElasticity = DefaultElasticity;
 }
-
-impl ai_project_register::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-}
-
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
 parameter_types! {
@@ -1644,7 +1639,6 @@ construct_runtime!(
         RentMachine: rent_machine = 111,
         MaintainCommittee: maintain_committee = 112,
         TerminatingRental: terminating_rental = 113,
-        AiProjectRegister: ai_project_register = 114,
     }
 );
 

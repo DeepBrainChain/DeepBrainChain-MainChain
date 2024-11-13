@@ -43,7 +43,6 @@ members = [
   "pallets/council-reward",
   "pallets/nfts",
   "runtime/src/precompiles/macro",
-  "pallets/ai-project-register",
 ]
 
 [workspace.dependencies]
