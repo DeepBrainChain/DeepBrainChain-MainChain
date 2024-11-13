@@ -1546,7 +1546,6 @@ dependencies = [
  "pallet-transaction-payment-rpc",
  "parity-scale-codec",
  "rand 0.7.3",
- "rent-dlc-machine-rpc",
  "rent-machine-rpc",
  "sc-authority-discovery",
  "sc-basic-authorship",
@@ -1903,7 +1902,6 @@ dependencies = [
  "dbc-primitives-rpc-evm-tracing-events",
  "dbc-primitives-rpc-txpool",
  "dbc-support",
- "dlc-machine",
  "ethabi",
  "evm-macro",
  "fp-evm",
@@ -1979,8 +1977,6 @@ dependencies = [
  "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
- "rent-dlc-machine",
- "rent-dlc-machine-runtime-api",
  "rent-machine",
  "rent-machine-runtime-api",
  "scale-info",
@@ -2175,33 +2171,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.79",
-]
-
-[[package]]
-name = "dlc-machine"
-version = "4.0.0-dev"
-dependencies = [
- "committee",
- "dbc-price-ocw",
- "dbc-support",
- "env_logger 0.11.5",
- "frame-support",
- "frame-system",
- "generic-func",
- "hex",
- "online-profile",
- "pallet-balances",
- "pallet-collective",
- "pallet-insecure-randomness-collective-flip",
- "pallet-timestamp",
- "parity-scale-codec",
- "rent-machine",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -5142,7 +5111,6 @@ dependencies = [
  "committee",
  "dbc-price-ocw",
  "dbc-support",
- "dlc-machine",
  "frame-support",
  "frame-system",
  "generic-func",
@@ -5150,14 +5118,12 @@ dependencies = [
  "once_cell",
  "online-committee",
  "online-profile",
- "pallet-assets",
  "pallet-balances",
  "pallet-collective",
  "pallet-insecure-randomness-collective-flip",
  "pallet-timestamp",
  "pallet-treasury",
  "parity-scale-codec",
- "rent-dlc-machine",
  "rent-machine",
  "scale-info",
  "sp-core",
@@ -7730,62 +7696,6 @@ name = "regex-syntax"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
-
-[[package]]
-name = "rent-dlc-machine"
-version = "4.0.0-dev"
-dependencies = [
- "committee",
- "dbc-price-ocw",
- "dbc-primitives",
- "dbc-support",
- "dlc-machine",
- "frame-support",
- "frame-system",
- "generic-func",
- "hex",
- "once_cell",
- "online-committee",
- "online-profile",
- "pallet-assets",
- "pallet-balances",
- "pallet-collective",
- "pallet-insecure-randomness-collective-flip",
- "pallet-timestamp",
- "pallet-treasury",
- "parity-scale-codec",
- "rent-machine",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "rent-dlc-machine-rpc"
-version = "4.0.0-dev"
-dependencies = [
- "dbc-support",
- "jsonrpsee",
- "parity-scale-codec",
- "rent-dlc-machine-runtime-api",
- "sp-api",
- "sp-blockchain",
- "sp-runtime",
-]
-
-[[package]]
-name = "rent-dlc-machine-runtime-api"
-version = "4.0.0-dev"
-dependencies = [
- "dbc-support",
- "parity-scale-codec",
- "sp-api",
- "sp-runtime",
- "sp-std",
-]
 
 [[package]]
 name = "rent-machine"

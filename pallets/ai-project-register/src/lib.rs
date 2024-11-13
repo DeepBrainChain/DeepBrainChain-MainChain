@@ -120,7 +120,6 @@ impl<T: Config> ProjectRegister for Pallet<T> {
         };
 
         let who = account_id::<T>(from.clone())?;
-
         let rent_ids = <rent_machine::Pallet<T>>::get_rent_ids(machine_id.clone(), &who);
         if rent_ids.len() == 0 {
             return Err(RentMachineError::<T>::MachineNotRented.as_str())
