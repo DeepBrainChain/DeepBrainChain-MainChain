@@ -113,7 +113,7 @@ where
                     <rent_machine::Pallet<T> as MachineInfoTrait>::get_machine_cpu_rate(
                         machine_id.clone(),
                     )
-                        .into();
+                    .into();
 
                 log::debug!(
                     target: LOG_TARGET,
@@ -132,7 +132,6 @@ where
                     output: ethabi::encode(&[ethabi::Token::Uint(cpu_rate)]),
                 })
             },
-
 
             Selector::GetMachineGPUCount => {
                 let param =
