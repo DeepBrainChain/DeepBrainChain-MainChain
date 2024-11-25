@@ -154,7 +154,7 @@ pub trait ProjectRegister {
 pub trait MachineInfoTrait {
     type BlockNumber;
     fn get_machine_calc_point(machine_id: MachineId) -> u64;
-
+    fn get_machine_cpu_rate(machine_id: MachineId) -> u64;
     fn get_machine_gpu_num(machine_id: MachineId) -> u64;
     fn get_rent_end_at(
         machine_id: MachineId,

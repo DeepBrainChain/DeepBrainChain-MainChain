@@ -772,6 +772,14 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         0
     }
 
+    fn get_machine_cpu_rate(machine_id: MachineId) -> u64 {
+        let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id);
+        if let Some(machine_info) = machine_info_result {
+            return machine_info.cpu_rate()
+        }
+        0
+    }
+
     fn get_machine_gpu_num(machine_id: MachineId) -> u64 {
         let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id);
         if let Some(machine_info) = machine_info_result {

@@ -21,6 +21,7 @@ pub struct MachineInfo<T>(PhantomData<T>);
 #[repr(u32)]
 pub enum Selector {
     GetMachineCalcPoint = "getMachineCalcPoint(string)",
+    GetMachineCPURate = "getMachineCPURate(string)",
     GetMachineGPUCount = "getMachineGPUCount(string)",
     GetRentEndAt = "getRentEndAt(string,uint256)",
     IsMachineOwner = "isMachineOwner(string,address)",
@@ -90,6 +91,48 @@ where
                     output: ethabi::encode(&[ethabi::Token::Uint(calc_point)]),
                 })
             },
+
+            Selector::GetMachineCPURate => {
+                let param =
+                    ethabi::decode(&[ethabi::ParamType::String], &input[4..]).map_err(|e| {
+                        PrecompileFailure::Revert {
+                            exit_status: ExitRevert::Reverted,
+                            output: format!("decode param failed: {:?}", e).into(),
+                        }
+                    })?;
+
+                let machine_id_str =
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+
+                let machine_id = machine_id_str.as_bytes().to_vec();
+
+                let cpu_rate: U256 =
+                    <rent_machine::Pallet<T> as MachineInfoTrait>::get_machine_cpu_rate(
+                        machine_id.clone(),
+                    )
+                        .into();
+
+                log::debug!(
+                    target: LOG_TARGET,
+                    "get_machine_cpu_rate: machine_id: {:?}, cpu_rate: {:?}",
+                    machine_id,
+                    cpu_rate
+                );
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Uint(cpu_rate)]),
+                })
+            },
+
 
             Selector::GetMachineGPUCount => {
                 let param =
