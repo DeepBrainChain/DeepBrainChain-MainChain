@@ -36,7 +36,10 @@ pub mod v1 {
     }
 
     impl<AccountId, DepositBalance> OldCollectionDetails<AccountId, DepositBalance> {
-        fn migrate_to_v1(self, item_configs: u32) -> CollectionDetails<AccountId, DepositBalance> {
+        pub fn migrate_to_v1(
+            self,
+            item_configs: u32,
+        ) -> CollectionDetails<AccountId, DepositBalance> {
             CollectionDetails {
                 owner: self.owner,
                 owner_deposit: self.owner_deposit,
