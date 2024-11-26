@@ -15,7 +15,6 @@ pub use dbc_support::machine_type::MachineStatus;
 use dbc_support::{
     rental_type::{MachineGPUOrder, MachineRenterRentedOrderDetail, RentOrderDetail, RentStatus},
     traits::{DbcPrice, MachineInfoTrait, RTOps},
-    utils::{account_id, verify_signature},
     EraIndex, ItemList, MachineId, RentOrderId, HALF_HOUR, ONE_DAY, ONE_MINUTE,
 };
 use frame_support::{
@@ -25,7 +24,11 @@ use frame_support::{
     traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use sp_runtime::traits::{CheckedAdd, CheckedSub, SaturatedConversion, Saturating, Zero};
+use sp_core::H160;
+use sp_runtime::{
+    traits::{CheckedAdd, CheckedSub, SaturatedConversion, Saturating, Zero},
+    Perbill,
+};
 use sp_std::{prelude::*, str, vec::Vec};
 
 type BalanceOf<T> =
@@ -150,6 +153,11 @@ pub mod pallet {
     #[pallet::getter(fn maximum_rental_duration)]
     pub(super) type MaximumRentalDuration<T: Config> =
         StorageValue<_, EraIndex, ValueQuery, MaximumRentalDurationDefault<T>>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn evm_address_to_account)]
+    pub(super) type EvmAddress2Account<T: Config> =
+        StorageMap<_, Blake2_128Concat, H160, T::AccountId>;
 
     // The current storage version.
     #[pallet::storage]
@@ -277,6 +285,26 @@ pub mod pallet {
             let renter = ensure_signed(origin)?;
             Self::relet_machine_by_block(renter, rent_id, relet_duration)
         }
+
+        #[pallet::call_index(4)]
+        #[pallet::weight(Weight::from_parts(10000, 0))]
+        pub fn bond_evm_address(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            evm_address: H160,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            let machine_info = online_profile::Pallet::<T>::machines_info(machine_id)
+                .ok_or(Error::<T>::MachineNotFound.as_str())?;
+            ensure!(
+                machine_info.controller == who || machine_info.machine_stash == who,
+                Error::<T>::NotMachineOwner
+            );
+            EvmAddress2Account::<T>::insert(evm_address, who.clone());
+            Self::deposit_event(Event::SetEvmAddress(evm_address, who));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -290,6 +318,8 @@ pub mod pallet {
         Rent(RentOrderId, T::AccountId, MachineId, u32, T::BlockNumber, BalanceOf<T>),
         // rent_id, renter, MachineId, gpu_num, duration, balance
         Relet(RentOrderId, T::AccountId, MachineId, u32, T::BlockNumber, BalanceOf<T>),
+
+        SetEvmAddress(H160, T::AccountId),
     }
 
     #[pallet::error]
@@ -311,6 +341,7 @@ pub mod pallet {
         Unknown,
         ReletTooShort,
 
+        NotMachineOwner,
         SignVerifiedFailed,
         MachineNotRented,
         MachineNotFound,
@@ -741,6 +772,14 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         0
     }
 
+    fn get_machine_cpu_rate(machine_id: MachineId) -> u64 {
+        let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id);
+        if let Some(machine_info) = machine_info_result {
+            return machine_info.cpu_rate()
+        }
+        0
+    }
+
     fn get_machine_gpu_num(machine_id: MachineId) -> u64 {
         let machine_info_result = online_profile::Pallet::<T>::machines_info(machine_id);
         if let Some(machine_info) = machine_info_result {
@@ -749,11 +788,10 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         0
     }
 
-    fn get_machine_valid_stake_duration(
-        last_claim_at: T::BlockNumber,
-        slash_at: T::BlockNumber,
-        end_at: T::BlockNumber,
+    // get machine rent end block number by owner
+    fn get_rent_end_at(
         machine_id: MachineId,
+        rent_id: RentOrderId,
     ) -> Result<T::BlockNumber, &'static str> {
         let machine_info = online_profile::Pallet::<T>::machines_info(&machine_id)
             .ok_or(Error::<T>::MachineNotFound.as_str())?;
@@ -761,99 +799,104 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         let renter_controller = machine_info.controller;
         let renter_stash = machine_info.machine_stash;
 
-        let now = <frame_system::Pallet<T>>::block_number();
-        let mut rent_duration: T::BlockNumber = T::BlockNumber::default();
-        let mut controller_rented_orders =
-            Self::machine_renter_rented_orders(&machine_id, &renter_controller);
-        let stash_rented_orders = Self::machine_renter_rented_orders(&machine_id, &renter_stash);
-        controller_rented_orders.extend(stash_rented_orders);
-        controller_rented_orders.iter().for_each(|rented_order| {
-            let mut end_time = rented_order.rent_end;
-            if end_at.saturated_into::<u64>() > 0 {
-                end_time = rented_order.rent_end.min(end_at);
-            }
-            if end_time >= last_claim_at {
-                if slash_at == T::BlockNumber::default() {
-                    rent_duration += now.min(end_time) - last_claim_at.max(rented_order.rent_start)
-                } else {
-                    rent_duration +=
-                        now.min(end_at).min(slash_at) - last_claim_at.max(rented_order.rent_start)
-                }
-            }
-        });
-        Ok(rent_duration)
-    }
-
-    fn get_renting_duration(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
-        machine_id: MachineId,
-        rent_id: RentOrderId,
-    ) -> Result<T::BlockNumber, &'static str> {
-        let ok = verify_signature(data, sig, from.clone());
-        if !ok {
-            return Err(Error::<T>::SignVerifiedFailed.as_str())
-        };
-
-        let who = account_id::<T>(from.clone())?;
         let rent_info = Self::rent_info(rent_id).ok_or(Error::<T>::MachineNotRented.as_str())?;
-        if rent_info.renter != who {
-            return Err(Error::<T>::NotMachineRenter.as_str())
-        }
+
         if rent_info.machine_id != machine_id {
             return Err(Error::<T>::NotMachineRenter.as_str())
         }
-        Ok(rent_info.rent_end.saturating_sub(<frame_system::Pallet<T>>::block_number()))
-    }
 
-    fn is_both_machine_renter_and_owner(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
-        machine_id: MachineId,
-    ) -> Result<bool, &'static str> {
-        let ok = verify_signature(data, sig, from.clone());
-        if !ok {
-            return Err(Error::<T>::SignVerifiedFailed.as_str())
-        };
-
-        let renter = account_id::<T>(from.clone())?;
-        let machine_info = online_profile::Pallet::<T>::machines_info(machine_id)
-            .ok_or(Error::<T>::MachineNotFound.as_str())?;
-        if machine_info.machine_status != MachineStatus::Rented {
-            return Err(Error::<T>::MachineNotRented.as_str())
-        };
-
-        if machine_info.controller != renter && machine_info.machine_stash != renter {
+        if rent_info.renter != renter_controller && rent_info.renter != renter_stash {
             return Err(Error::<T>::NotMachineRenter.as_str())
         }
-        if machine_info.renters.len() != 1 {
-            return Err(Error::<T>::MoreThanOneRenter.as_str())
-        }
 
-        if machine_info.renters.iter().find(|&r| r == &renter).is_some() {
-            return Ok(true)
-        }
-
-        return Err(Error::<T>::NotMachineRenter.as_str())
+        Ok(rent_info.rent_end)
     }
 
-    fn is_machine_owner(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
-        machine_id: MachineId,
-    ) -> Result<bool, &'static str> {
-        let ok = verify_signature(data, sig, from.clone());
-        if !ok {
-            return Err(Error::<T>::SignVerifiedFailed.as_str())
-        };
+    fn is_machine_owner(machine_id: MachineId, evm_address: H160) -> Result<bool, &'static str> {
+        let account = Self::evm_address_to_account(evm_address)
+            .ok_or(Error::<T>::NotMachineOwner.as_str())?;
 
-        let renter = account_id::<T>(from.clone())?;
         let machine_info = online_profile::Pallet::<T>::machines_info(machine_id)
             .ok_or(Error::<T>::MachineNotFound.as_str())?;
 
-        return Ok(machine_info.controller == renter || machine_info.machine_stash == renter)
+        return Ok(machine_info.controller == account || machine_info.machine_stash == account)
+    }
+
+    fn get_usdt_machine_rent_fee(
+        machine_id: MachineId,
+        duration: T::BlockNumber,
+        rent_gpu_num: u32,
+    ) -> Result<u64, &'static str> {
+        let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id)
+            .ok_or(Error::<T>::Unknown.as_str())?;
+
+        let machine_price = T::RTOps::get_machine_price(
+            machine_info.calc_point(),
+            rent_gpu_num,
+            machine_info.gpu_num(),
+        )
+        .ok_or(Error::<T>::GetMachinePriceFailed)?;
+
+        // 根据租用时长计算rent_fee
+        let rent_fee_value = machine_price
+            .checked_mul(duration.saturated_into::<u64>())
+            .ok_or(Error::<T>::Overflow)?
+            .checked_div(ONE_DAY.into())
+            .ok_or(Error::<T>::Overflow)?;
+        Ok(rent_fee_value.saturated_into::<u64>())
+    }
+    fn get_dlc_machine_rent_fee(
+        machine_id: MachineId,
+        duration: T::BlockNumber,
+        rent_gpu_num: u32,
+    ) -> Result<u64, &'static str> {
+        let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id)
+            .ok_or(Error::<T>::Unknown.as_str())?;
+
+        let machine_price = T::RTOps::get_machine_price(
+            machine_info.calc_point(),
+            rent_gpu_num,
+            machine_info.gpu_num(),
+        )
+        .ok_or(Error::<T>::GetMachinePriceFailed)?;
+
+        // 根据租用时长计算rent_fee
+        let rent_fee_value = machine_price
+            .checked_mul(duration.saturated_into::<u64>())
+            .ok_or(Error::<T>::Overflow)?
+            .checked_div(ONE_DAY.into())
+            .ok_or(Error::<T>::Overflow)?;
+        let rent_fee_value =
+            Perbill::from_rational(25u32, 100u32) * rent_fee_value + rent_fee_value;
+
+        let rent_fee = <T as Config>::DbcPrice::get_dlc_amount_by_value(rent_fee_value)
+            .ok_or(Error::<T>::Overflow)?;
+        Ok(rent_fee.saturated_into::<u64>())
+    }
+
+    fn get_dbc_machine_rent_fee(
+        machine_id: MachineId,
+        duration: T::BlockNumber,
+        rent_gpu_num: u32,
+    ) -> Result<u64, &'static str> {
+        let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id)
+            .ok_or(Error::<T>::Unknown.as_str())?;
+
+        let machine_price = T::RTOps::get_machine_price(
+            machine_info.calc_point(),
+            rent_gpu_num,
+            machine_info.gpu_num(),
+        )
+        .ok_or(Error::<T>::GetMachinePriceFailed)?;
+
+        // 根据租用时长计算rent_fee
+        let rent_fee_value = machine_price
+            .checked_mul(duration.saturated_into::<u64>())
+            .ok_or(Error::<T>::Overflow)?
+            .checked_div(ONE_DAY.into())
+            .ok_or(Error::<T>::Overflow)?;
+        let rent_fee = <T as Config>::DbcPrice::get_dbc_amount_by_value(rent_fee_value)
+            .ok_or(Error::<T>::Overflow)?;
+        Ok(rent_fee.saturated_into::<u64>())
     }
 }

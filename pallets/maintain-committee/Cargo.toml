@@ -12,16 +12,11 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-std = { workspace = true }
 sp-runtime = { workspace = true }
-pallet-treasury = { workspace = true }
-sp-core = { workspace = true }
 
 dbc-support = { path = "../support", default-features = false }
 generic-func = { path = "../generic-func", default-features = false }
 online-profile = { path = "../online-profile", default-features = false }
 rent-machine = { path = "../rent-machine", default-features = false }
-pallet-assets = { path = "../assets", default-features = false }
-rent-dlc-machine = { path = "../rent-dlc-machine", default-features = false }
-dlc-machine = { path = "../dlc-machine",default-features = false}
 
 [dev-dependencies]
 once_cell = { workspace = true }
@@ -40,7 +35,6 @@ online-committee = { path = "../online-committee" }
 committee = { path = "../committee" }
 online-profile = { path = "../online-profile" }
 dbc-price-ocw = { path = "../dbc-price-ocw" }
-dlc-machine = { path = "../dlc-machine"}
 
 
 [features]
@@ -52,9 +46,7 @@ std = [
   "frame-system/std",
   "sp-runtime/std",
   "sp-std/std",
-  "sp-core/std",
   "dbc-support/std",
-  "pallet-assets/std",
   "online-profile/std"
 ]
 try-runtime = ["frame-support/try-runtime"]
