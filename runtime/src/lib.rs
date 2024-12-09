@@ -580,8 +580,8 @@ pub mod opaque {
 
     impl_opaque_keys! {
         pub struct SessionKeys {
-            pub babe: Babe,
             pub grandpa: Grandpa,
+            pub babe: Babe,
             pub im_online: ImOnline,
             pub authority_discovery: AuthorityDiscovery,
         }
@@ -1419,8 +1419,6 @@ impl maintain_committee::Config for Runtime {
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 5>;
     type SlashAndReward = GenericFunc;
-    type AssetId = u32;
-    type DLCAssetId = ConstU32<88>;
 }
 
 impl terminating_rental::Config for Runtime {
@@ -1569,23 +1567,6 @@ impl pallet_base_fee::Config for Runtime {
     type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
     type DefaultElasticity = DefaultElasticity;
 }
-
-impl ai_project_register::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-}
-
-impl rent_dlc_machine::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type RTOps = OnlineProfile;
-    type DbcPrice = DBCPriceOCW;
-    type AssetId = u32;
-    type DLCAssetId = ConstU32<88>;
-}
-
-impl dlc_machine::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-}
-
 const ALLIANCE_MOTION_DURATION_IN_BLOCKS: BlockNumber = 5 * DAYS;
 
 parameter_types! {
@@ -1658,9 +1639,6 @@ construct_runtime!(
         RentMachine: rent_machine = 111,
         MaintainCommittee: maintain_committee = 112,
         TerminatingRental: terminating_rental = 113,
-        AiProjectRegister: ai_project_register = 114,
-        RentDLCMachine:rent_dlc_machine = 115,
-        DLCMachine: dlc_machine = 116,
     }
 );
 
@@ -2056,8 +2034,8 @@ impl_runtime_apis! {
 
     impl dbc_primitives_rpc_debug::DebugRuntimeApi<Block> for Runtime {
         fn trace_transaction(
-            extrinsics: Vec<<Block as BlockT>::Extrinsic>,
-            traced_transaction: &EthereumTransaction,
+            _extrinsics: Vec<<Block as BlockT>::Extrinsic>,
+            _traced_transaction: &EthereumTransaction,
         ) -> Result<
             (),
             sp_runtime::DispatchError,
@@ -2067,10 +2045,10 @@ impl_runtime_apis! {
                 use dbc_evm_tracer::tracer::EvmTracer;
                 // Apply the a subset of extrinsics: all the substrate-specific or ethereum
                 // transactions that preceded the requested transaction.
-                for ext in extrinsics.into_iter() {
+                for ext in _extrinsics.into_iter() {
                     let _ = match &ext.0.function {
                         RuntimeCall::Ethereum(transact { transaction }) => {
-                            if transaction == traced_transaction {
+                            if transaction == _traced_transaction {
                                 EvmTracer::new().trace(|| Executive::apply_extrinsic(ext));
                                 return Ok(());
                             } else {
@@ -2092,8 +2070,8 @@ impl_runtime_apis! {
             ))
         }
         fn trace_block(
-            extrinsics: Vec<<Block as BlockT>::Extrinsic>,
-            known_transactions: Vec<H256>,
+            _extrinsics: Vec<<Block as BlockT>::Extrinsic>,
+            _known_transactions: Vec<H256>,
         ) -> Result<
             (),
             sp_runtime::DispatchError,
@@ -2104,10 +2082,10 @@ impl_runtime_apis! {
                 let mut config = <Runtime as pallet_evm::Config>::config().clone();
                 config.estimate = true;
                 // Apply all extrinsics. Ethereum extrinsics are traced.
-                for ext in extrinsics.into_iter() {
+                for ext in _extrinsics.into_iter() {
                     match &ext.0.function {
                         RuntimeCall::Ethereum(transact { transaction }) => {
-                            if known_transactions.contains(&transaction.hash()) {
+                            if _known_transactions.contains(&transaction.hash()) {
                                 // Each known extrinsic is a new call stack.
                                 EvmTracer::emit_new();
                                 EvmTracer::new().trace(|| Executive::apply_extrinsic(ext));
@@ -2567,24 +2545,6 @@ impl_runtime_apis! {
         }
 
         fn get_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
-            RentMachine::get_machine_rent_id(machine_id)
-        }
-    }
-
-     impl rent_dlc_machine_runtime_api::DlcRmRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {
-        fn get_dlc_rent_order(rent_id: RentOrderId) -> Option<dbc_support::rental_type::RentOrderDetail<AccountId, BlockNumber, Balance>> {
-            RentMachine::get_rent_order(rent_id)
-        }
-
-        fn get_dlc_rent_list(renter: AccountId) -> Vec<RentOrderId> {
-            RentMachine::get_rent_list(renter)
-        }
-
-        fn is_dlc_machine_renter(machine_id: MachineId, renter: AccountId) -> bool {
-            RentMachine::is_machine_renter(machine_id, renter)
-        }
-
-        fn get_dlc_machine_rent_id(machine_id: MachineId) -> MachineGPUOrder {
             RentMachine::get_machine_rent_id(machine_id)
         }
     }

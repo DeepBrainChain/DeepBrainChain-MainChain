@@ -8,7 +8,7 @@ extern crate alloc;
 use crate::precompiles::LOG_TARGET;
 use alloc::format;
 use core::marker::PhantomData;
-use dbc_support::traits::{DLCMachineInfoTrait, MachineInfoTrait};
+use dbc_support::traits::MachineInfoTrait;
 use frame_support::{ensure, pallet_prelude::Weight};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pallet_evm::GasWeightMapping;
@@ -21,24 +21,18 @@ pub struct MachineInfo<T>(PhantomData<T>);
 #[repr(u32)]
 pub enum Selector {
     GetMachineCalcPoint = "getMachineCalcPoint(string)",
+    GetMachineCPURate = "getMachineCPURate(string)",
     GetMachineGPUCount = "getMachineGPUCount(string)",
-    GetRentDuration = "getRentDuration(uint256,uint256,uint256,string)",
-    GetDlcMachineRentDuration = "getDlcMachineRentDuration(uint256,uint256,string)",
-    GetRentingDuration = "getRentingDuration(string,string,string,string,uint256)",
-    GetRentedGPUCountInDlcNftStaking = "getRentedGPUCountInDlcNftStaking(uint256)",
-    GetRentedGPUCountOfMachineInDlcNftStaking =
-        "getRentedGPUCountOfMachineInDlcNftStaking(uint256,string)",
-    GetTotalDlcNftStakingBurnedRentFee = "getTotalDlcNftStakingBurnedRentFee(uint256)",
-    GetDlcNftStakingBurnedRentFeeByMachine =
-        "getDlcNftStakingBurnedRentFeeByMachine(uint256,string)",
+    GetRentEndAt = "getRentEndAt(string,uint256)",
+    IsMachineOwner = "isMachineOwner(string,address)",
+    GetDLCMachineRentFee = "getDLCMachineRentFee(string,uint256,uint256)",
+    GetDBCMachineRentFee = "getDBCMachineRentFee(string,uint256,uint256)",
+    GetUSDTMachineRentFee = "getUSDTMachineRentFee(string,uint256,uint256)",
 }
 
 impl<T> Precompile for MachineInfo<T>
 where
-    T: pallet_evm::Config
-        + pallet_balances::Config
-        + rent_machine::Config
-        + rent_dlc_machine::Config,
+    T: pallet_evm::Config + pallet_balances::Config + rent_machine::Config,
 {
     fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
         let input = handle.input();
@@ -98,6 +92,47 @@ where
                 })
             },
 
+            Selector::GetMachineCPURate => {
+                let param =
+                    ethabi::decode(&[ethabi::ParamType::String], &input[4..]).map_err(|e| {
+                        PrecompileFailure::Revert {
+                            exit_status: ExitRevert::Reverted,
+                            output: format!("decode param failed: {:?}", e).into(),
+                        }
+                    })?;
+
+                let machine_id_str =
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+
+                let machine_id = machine_id_str.as_bytes().to_vec();
+
+                let cpu_rate: U256 =
+                    <rent_machine::Pallet<T> as MachineInfoTrait>::get_machine_cpu_rate(
+                        machine_id.clone(),
+                    )
+                    .into();
+
+                log::debug!(
+                    target: LOG_TARGET,
+                    "get_machine_cpu_rate: machine_id: {:?}, cpu_rate: {:?}",
+                    machine_id,
+                    cpu_rate
+                );
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Uint(cpu_rate)]),
+                })
+            },
+
             Selector::GetMachineGPUCount => {
                 let param =
                     ethabi::decode(&[ethabi::ParamType::String], &input[4..]).map_err(|e| {
@@ -132,134 +167,9 @@ where
                 })
             },
 
-            Selector::GetRentDuration => {
+            Selector::GetRentEndAt => {
                 let param = ethabi::decode(
                     &[
-                        ethabi::ParamType::Uint(256), // last_claim_at
-                        ethabi::ParamType::Uint(256), // slash_at
-                        ethabi::ParamType::Uint(256), // end_at
-                        ethabi::ParamType::String,    // machine_id
-                    ],
-                    &input[4..],
-                )
-                .map_err(|e| PrecompileFailure::Revert {
-                    exit_status: ExitRevert::Reverted,
-                    output: format!("decode param failed: {:?}", e).into(),
-                })?;
-
-                let last_claim_at_block_number_uint =
-                    param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[0] failed".into(),
-                    })?;
-
-                let last_claim_at_block_number: u64 = last_claim_at_block_number_uint.as_u64();
-
-                let slash_at_block_number_uint =
-                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[1] failed".into(),
-                    })?;
-
-                let slash_at_block_number: u64 = slash_at_block_number_uint.as_u64();
-
-                let end_at_block_number_uint =
-                    param[2].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[2] failed".into(),
-                    })?;
-
-                let end_at_block_number: u64 = end_at_block_number_uint.as_u64();
-
-                let machine_id_str =
-                    param[3].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[3] failed".into(),
-                    })?;
-
-                let duration  = <rent_machine::Pallet<T> as MachineInfoTrait>::get_machine_valid_stake_duration(T::BlockNumber::saturated_from(last_claim_at_block_number.clone()),T::BlockNumber::saturated_from(slash_at_block_number.clone()),T::BlockNumber::saturated_from(end_at_block_number.clone()), machine_id_str.clone().as_bytes().to_vec()).map_err( |e| {
-                    PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: format!("err: {}, last_claim_at: {},slash_at: {}, machine_id: {}",e,last_claim_at_block_number,slash_at_block_number,machine_id_str).into(),
-                    }
-                })?;
-                log::debug!(target: LOG_TARGET, " last_claim_at: {},slash_at: {}, machine_id : {:?},  get_machine_valid_stake_duration: duration: {:?}",last_claim_at_block_number,slash_at_block_number,machine_id_str,duration);
-
-                let weight = Weight::default()
-                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
-
-                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
-
-                Ok(PrecompileOutput {
-                    exit_status: ExitSucceed::Returned,
-                    output: ethabi::encode(&[ethabi::Token::Uint(
-                        duration.saturated_into::<u64>().into(),
-                    )]),
-                })
-            },
-
-            Selector::GetDlcMachineRentDuration => {
-                let param = ethabi::decode(
-                    &[
-                        ethabi::ParamType::Uint(256), // last_claim_at
-                        ethabi::ParamType::Uint(256), // slash_at
-                        ethabi::ParamType::String,    // machine_id
-                    ],
-                    &input[4..],
-                )
-                .map_err(|e| PrecompileFailure::Revert {
-                    exit_status: ExitRevert::Reverted,
-                    output: format!("decode param failed: {:?}", e).into(),
-                })?;
-
-                let last_claim_at_block_number_uint =
-                    param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[0] failed".into(),
-                    })?;
-
-                let last_claim_at_block_number: u64 = last_claim_at_block_number_uint.as_u64();
-
-                let slash_at_block_number_uint =
-                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[1] failed".into(),
-                    })?;
-
-                let slash_at_block_number: u64 = slash_at_block_number_uint.as_u64();
-
-                let machine_id_str =
-                    param[2].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[2] failed".into(),
-                    })?;
-
-                let duration  = <rent_dlc_machine::Pallet<T> as DLCMachineInfoTrait>::get_dlc_machine_rent_duration( T::BlockNumber::saturated_from(last_claim_at_block_number.clone()),T::BlockNumber::saturated_from(slash_at_block_number.clone()), machine_id_str.clone().as_bytes().to_vec()).map_err( |e| {
-                    PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: format!("err: {},  last_claim_at: {},slash_at: {}, machine_id: {}",e,last_claim_at_block_number,slash_at_block_number,machine_id_str).into(),
-                    }
-                })?;
-                log::debug!(target: LOG_TARGET, "last_claim_at: {},slash_at: {}, machine_id : {:?},  get_machine_valid_stake_duration: duration: {:?}",last_claim_at_block_number,slash_at_block_number,machine_id_str,duration);
-
-                let weight = Weight::default()
-                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
-
-                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
-
-                Ok(PrecompileOutput {
-                    exit_status: ExitSucceed::Returned,
-                    output: ethabi::encode(&[ethabi::Token::Uint(
-                        duration.saturated_into::<u64>().into(),
-                    )]),
-                })
-            },
-            Selector::GetRentingDuration => {
-                let param = ethabi::decode(
-                    &[
-                        ethabi::ParamType::String,    // msg
-                        ethabi::ParamType::String,    // sig
-                        ethabi::ParamType::String,    // public
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Uint(256), // rent_id
                     ],
@@ -270,67 +180,26 @@ where
                     output: format!("decode param failed: {:?}", e).into(),
                 })?;
 
-                let msg =
+                let machine_id_str =
                     param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[0] failed".into(),
                     })?;
-
-                let sig_str =
-                    param[1].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                let rent_id_uint =
+                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[1] failed".into(),
                     })?;
-
-                let sig =
-                    hex::decode(sig_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: format!("decode sig failed: {:?}", e).into(),
-                    })?;
-
-                let mut b = [0u8; 64];
-                b.copy_from_slice(&sig[..]);
-                let sig = sp_core::sr25519::Signature(b);
-
-                let public_str =
-                    param[2].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[2] failed".into(),
-                    })?;
-
-                let public =
-                    hex::decode(public_str.as_bytes()).map_err(|e| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: format!("decode pub key failed: {:?}", e).into(),
-                    })?;
-
-                let mut b = [0u8; 32];
-                b.copy_from_slice(&public[..]);
-                let public = sp_core::sr25519::Public(b);
-
-                let machine_id_str =
-                    param[3].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[3] failed".into(),
-                    })?;
-                let rent_id_uint =
-                    param[4].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[4] failed".into(),
-                    })?;
                 let rent_id: u64 = rent_id_uint.as_u64();
-                let duration = <rent_machine::Pallet<T> as MachineInfoTrait>::get_renting_duration(
-                    msg.clone().into_bytes(),
-                    sig.clone(),
-                    public.clone(),
+                let end_at = <rent_machine::Pallet<T> as MachineInfoTrait>::get_rent_end_at(
                     machine_id_str.clone().as_bytes().to_vec(),
                     rent_id,
                 )
                 .map_err(|e| PrecompileFailure::Revert {
                     exit_status: ExitRevert::Reverted,
                     output: format!(
-                        "err: {}, msg: {}, sig: {:?}, public: {:?}, machine_id: {}, rent_id: {}",
-                        e, msg, sig, public, machine_id_str, rent_id
+                        "err: {}, machine_id: {}, rent_id: {}",
+                        e, machine_id_str, rent_id
                     )
                     .into(),
                 })?;
@@ -343,14 +212,16 @@ where
                 Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
                     output: ethabi::encode(&[ethabi::Token::Uint(
-                        duration.saturated_into::<u64>().into(),
+                        end_at.saturated_into::<u64>().into(),
                     )]),
                 })
             },
-            Selector::GetRentedGPUCountInDlcNftStaking => {
+
+            Selector::IsMachineOwner => {
                 let param = ethabi::decode(
                     &[
-                        ethabi::ParamType::Uint(256), // phase_level
+                        ethabi::ParamType::String,  // machine_id
+                        ethabi::ParamType::Address, // evm_address
                     ],
                     &input[4..],
                 )
@@ -358,91 +229,94 @@ where
                     exit_status: ExitRevert::Reverted,
                     output: format!("decode param failed: {:?}", e).into(),
                 })?;
-
-                let phase_level_uint =
-                    param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[0] failed".into(),
-                    })?;
-                let phase_level: u64 = phase_level_uint.as_u64();
-
-                let rented_gpu_count = <rent_dlc_machine::Pallet<T> as DLCMachineInfoTrait>::get_rented_gpu_count_in_dlc_nft_staking(phase_level.into());
-
-                let weight = Weight::default()
-                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
-
-                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
-
-                Ok(PrecompileOutput {
-                    exit_status: ExitSucceed::Returned,
-                    output: ethabi::encode(&[ethabi::Token::Uint(
-                        rented_gpu_count.saturated_into::<u64>().into(),
-                    )]),
-                })
-            },
-
-            Selector::GetTotalDlcNftStakingBurnedRentFee => {
-                let param = ethabi::decode(
-                    &[
-                        ethabi::ParamType::Uint(256), // phase_level
-                    ],
-                    &input[4..],
-                )
-                .map_err(|e| PrecompileFailure::Revert {
-                    exit_status: ExitRevert::Reverted,
-                    output: format!("decode param failed: {:?}", e).into(),
-                })?;
-
-                let phase_level_uint =
-                    param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[0] failed".into(),
-                    })?;
-                let phase_level: u64 = phase_level_uint.as_u64();
-
-                let burned_rent_fee = <rent_dlc_machine::Pallet<T> as DLCMachineInfoTrait>::get_total_dlc_nft_staking_burned_rent_fee(phase_level.into());
-
-                let weight = Weight::default()
-                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
-
-                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
-
-                Ok(PrecompileOutput {
-                    exit_status: ExitSucceed::Returned,
-                    output: ethabi::encode(&[ethabi::Token::Uint(
-                        burned_rent_fee.saturated_into::<u64>().into(),
-                    )]),
-                })
-            },
-
-            Selector::GetDlcNftStakingBurnedRentFeeByMachine => {
-                let param = ethabi::decode(
-                    &[
-                        ethabi::ParamType::Uint(256), // phase_level
-                        ethabi::ParamType::String,    // machine_id
-                    ],
-                    &input[4..],
-                )
-                .map_err(|e| PrecompileFailure::Revert {
-                    exit_status: ExitRevert::Reverted,
-                    output: format!("decode param failed: {:?}", e).into(),
-                })?;
-
-                let phase_level_uint =
-                    param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
-                        exit_status: ExitRevert::Reverted,
-                        output: "decode param[0] failed".into(),
-                    })?;
-                let phase_level: u64 = phase_level_uint.as_u64();
 
                 let machine_id_str =
-                    param[1].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+                let machine_id = machine_id_str.clone().as_bytes().to_vec();
+                let evm_address =
+                    param[1].clone().into_address().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[1] failed".into(),
+                    })?;
+
+                let is_owner = <rent_machine::Pallet<T> as MachineInfoTrait>::is_machine_owner(
+                    machine_id.clone(),
+                    evm_address,
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!(
+                        "err: {}, machine_id: {}, evm_address: {}",
+                        e, machine_id_str, evm_address
+                    )
+                    .into(),
+                })?;
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Bool(is_owner)]),
+                })
+            },
+
+            Selector::GetDLCMachineRentFee => {
+                let param = ethabi::decode(
+                    &[
+                        ethabi::ParamType::String,    // machine_id
+                        ethabi::ParamType::Uint(256), // rent_block_numbers
+                        ethabi::ParamType::Uint(8),   // rent_gpu_count
+                    ],
+                    &input[4..],
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
+
+                let machine_id_str =
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
                     })?;
                 let machine_id = machine_id_str.clone().as_bytes().to_vec();
 
-                let burned_rent_fee = <rent_dlc_machine::Pallet<T> as DLCMachineInfoTrait>::get_dlc_nft_staking_burned_rent_fee_by_machine_id(phase_level.into(), machine_id);
+                let rent_duration_uint =
+                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[1] failed".into(),
+                    })?;
+
+                let rent_duration: u64 = rent_duration_uint.as_u64();
+
+                let rent_gpu_count_uint =
+                    param[2].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[2] failed".into(),
+                    })?;
+
+                let rent_gpu_count: u32 = rent_gpu_count_uint.as_u32();
+
+                let rent_fee =
+                    <rent_machine::Pallet<T> as MachineInfoTrait>::get_dlc_machine_rent_fee(
+                        machine_id.clone(),
+                        rent_duration.saturated_into(),
+                        rent_gpu_count,
+                    )
+                    .map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!(
+                            " err: {}, machine_id: {}, rent_duration: {}, rent_gpu_count: {}",
+                            e, machine_id_str, rent_duration, rent_gpu_count
+                        )
+                        .into(),
+                    })?;
 
                 let weight = Weight::default()
                     .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
@@ -451,17 +325,16 @@ where
 
                 Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
-                    output: ethabi::encode(&[ethabi::Token::Uint(
-                        burned_rent_fee.saturated_into::<u64>().into(),
-                    )]),
+                    output: ethabi::encode(&[ethabi::Token::Uint(rent_fee.into())]),
                 })
             },
 
-            Selector::GetRentedGPUCountOfMachineInDlcNftStaking => {
+            Selector::GetDBCMachineRentFee => {
                 let param = ethabi::decode(
                     &[
-                        ethabi::ParamType::Uint(256), // phase_level
                         ethabi::ParamType::String,    // machine_id
+                        ethabi::ParamType::Uint(256), // rent_block_numbers
+                        ethabi::ParamType::Uint(8),   // rent_gpu_count
                     ],
                     &input[4..],
                 )
@@ -471,14 +344,42 @@ where
                 })?;
 
                 let machine_id_str =
-                    param[1].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+                let machine_id = machine_id_str.clone().as_bytes().to_vec();
+
+                let rent_duration_uint =
+                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[1] failed".into(),
                     })?;
 
-                let machine_id = machine_id_str.as_bytes().to_vec();
+                let rent_duration: u64 = rent_duration_uint.as_u64();
 
-                let rented_gpu_count = <rent_dlc_machine::Pallet<T> as DLCMachineInfoTrait>::get_rented_gpu_count_of_machine_in_dlc_nft_staking(machine_id);
+                let rent_gpu_count_uint =
+                    param[2].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[2] failed".into(),
+                    })?;
+
+                let rent_gpu_count: u32 = rent_gpu_count_uint.as_u32();
+
+                let rent_fee =
+                    <rent_machine::Pallet<T> as MachineInfoTrait>::get_dbc_machine_rent_fee(
+                        machine_id.clone(),
+                        rent_duration.saturated_into(),
+                        rent_gpu_count,
+                    )
+                    .map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!(
+                            " err: {}, machine_id: {}, rent_duration: {}, rent_gpu_count: {}",
+                            e, machine_id_str, rent_duration, rent_gpu_count
+                        )
+                        .into(),
+                    })?;
 
                 let weight = Weight::default()
                     .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
@@ -487,9 +388,70 @@ where
 
                 Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
-                    output: ethabi::encode(&[ethabi::Token::Uint(
-                        rented_gpu_count.saturated_into::<u64>().into(),
-                    )]),
+                    output: ethabi::encode(&[ethabi::Token::Uint(rent_fee.into())]),
+                })
+            },
+
+            Selector::GetUSDTMachineRentFee => {
+                let param = ethabi::decode(
+                    &[
+                        ethabi::ParamType::String,    // machine_id
+                        ethabi::ParamType::Uint(256), // rent_block_numbers
+                        ethabi::ParamType::Uint(8),   // rent_gpu_count
+                    ],
+                    &input[4..],
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
+
+                let machine_id_str =
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+                let machine_id = machine_id_str.clone().as_bytes().to_vec();
+
+                let rent_duration_uint =
+                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[1] failed".into(),
+                    })?;
+
+                let rent_duration: u64 = rent_duration_uint.as_u64();
+
+                let rent_gpu_count_uint =
+                    param[2].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[2] failed".into(),
+                    })?;
+
+                let rent_gpu_count: u32 = rent_gpu_count_uint.as_u32();
+
+                let rent_fee =
+                    <rent_machine::Pallet<T> as MachineInfoTrait>::get_usdt_machine_rent_fee(
+                        machine_id.clone(),
+                        rent_duration.saturated_into(),
+                        rent_gpu_count,
+                    )
+                    .map_err(|e| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: format!(
+                            " err: {}, machine_id: {}, rent_duration: {}, rent_gpu_count: {}",
+                            e, machine_id_str, rent_duration, rent_gpu_count
+                        )
+                        .into(),
+                    })?;
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Uint(rent_fee.into())]),
                 })
             },
         }

@@ -260,4 +260,8 @@ where
     pub fn can_rent(&self) -> bool {
         matches!(self.machine_status, MachineStatus::Online | MachineStatus::Rented)
     }
+
+    pub fn cpu_rate(&self) -> u64 {
+        self.machine_info_detail.committee_upload_info.cpu_rate
+    }
 }

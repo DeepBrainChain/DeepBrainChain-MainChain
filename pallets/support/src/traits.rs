@@ -118,6 +118,8 @@ pub trait DbcPrice {
 
     fn get_dbc_price() -> Option<Self::Balance>;
     fn get_dbc_amount_by_value(value: u64) -> Option<Self::Balance>;
+
+    fn get_dlc_amount_by_value(value: u64) -> Option<Self::Balance>;
 }
 
 pub trait ProjectRegister {
@@ -152,56 +154,32 @@ pub trait ProjectRegister {
 pub trait MachineInfoTrait {
     type BlockNumber;
     fn get_machine_calc_point(machine_id: MachineId) -> u64;
-
+    fn get_machine_cpu_rate(machine_id: MachineId) -> u64;
     fn get_machine_gpu_num(machine_id: MachineId) -> u64;
-    fn get_machine_valid_stake_duration(
-        last_claim_at: Self::BlockNumber,
-        slash_at: Self::BlockNumber,
-        end_at: Self::BlockNumber,
-        machine_id: MachineId,
-    ) -> Result<Self::BlockNumber, &'static str>;
-
-    fn get_renting_duration(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
+    fn get_rent_end_at(
         machine_id: MachineId,
         rent_id: RentOrderId,
     ) -> Result<Self::BlockNumber, &'static str>;
 
-    fn is_both_machine_renter_and_owner(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
+    fn is_machine_owner(machine_id: MachineId, evm_address: H160) -> Result<bool, &'static str>;
+
+    fn get_dlc_machine_rent_fee(
         machine_id: MachineId,
-    ) -> Result<bool, &'static str>;
+        duration: Self::BlockNumber,
+        rent_gpu_num: u32,
+    ) -> Result<u64, &'static str>;
 
-    fn is_machine_owner(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
+    fn get_dbc_machine_rent_fee(
         machine_id: MachineId,
-    ) -> Result<bool, &'static str>;
-}
+        duration: Self::BlockNumber,
+        rent_gpu_num: u32,
+    ) -> Result<u64, &'static str>;
 
-pub trait DLCMachineInfoTrait {
-    type BlockNumber;
-
-    fn get_dlc_machine_rent_duration(
-        last_claim_at: Self::BlockNumber,
-        slash_at: Self::BlockNumber,
+    fn get_usdt_machine_rent_fee(
         machine_id: MachineId,
-    ) -> Result<Self::BlockNumber, &'static str>;
-
-    fn get_rented_gpu_count_in_dlc_nft_staking(phase_level: PhaseLevel) -> u64;
-
-    fn get_rented_gpu_count_of_machine_in_dlc_nft_staking(machine_id: MachineId) -> u64;
-    fn get_total_dlc_nft_staking_burned_rent_fee(phase_level: PhaseLevel) -> u64;
-
-    fn get_dlc_nft_staking_burned_rent_fee_by_machine_id(
-        phase_level: PhaseLevel,
-        machine_id: MachineId,
-    ) -> u64;
+        duration: Self::BlockNumber,
+        rent_gpu_num: u32,
+    ) -> Result<u64, &'static str>;
 }
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum PhaseLevel {
@@ -224,59 +202,6 @@ impl From<u64> for PhaseLevel {
         }
         return PhaseLevel::PhaseNone
     }
-}
-
-pub trait DLCMachineReportStakingTrait {
-    type BlockNumber;
-
-    fn report_dlc_nft_staking(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
-        machine_id: MachineId,
-        phase_level: PhaseLevel,
-    ) -> Result<(), &'static str>;
-
-    fn report_dlc_nft_end_staking(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
-        machine_id: MachineId,
-        phase_level: PhaseLevel,
-    ) -> Result<(), &'static str>;
-
-    fn report_dlc_staking(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
-        machine_id: MachineId,
-    ) -> Result<(), &'static str>;
-
-    fn report_dlc_end_staking(
-        data: Vec<u8>,
-        sig: sp_core::sr25519::Signature,
-        from: sp_core::sr25519::Public,
-        machine_id: MachineId,
-    ) -> Result<(), &'static str>;
-
-    fn get_nft_staking_valid_reward_duration(
-        last_claim_at: Self::BlockNumber,
-        total_stake_duration: Self::BlockNumber,
-        phase_level: PhaseLevel,
-    ) -> Self::BlockNumber;
-
-    fn get_nft_staking_reward_start_at(phase_level: &PhaseLevel) -> Self::BlockNumber;
-
-    fn get_nft_staking_gpu_count(phase_level: &PhaseLevel) -> (u64, u64);
-}
-
-pub trait DLCMachineSlashInfoTrait {
-    fn get_dlc_machine_slashed_at(machine_id: MachineId) -> u64;
-    fn get_dlc_machine_slashed_report_id(machine_id: MachineId) -> u64;
-
-    fn is_slashed(machine_id: MachineId) -> bool;
-
-    fn get_dlc_machine_slashed_reporter(machine_id: MachineId) -> H160;
 }
 
 pub trait MTOps {

@@ -65,7 +65,6 @@ where
     C::Api: online_committee_rpc::OcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: rent_machine_rpc::RmStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: terminating_rental_rpc::IrStorageRuntimeApi<Block, AccountId, Balance, BlockNumber>,
-    C::Api: rent_dlc_machine_rpc::RmDlcStorageRuntimeApi<Block, AccountId, BlockNumber, Balance>,
 {
     use dbc_client_rpc_debug::{Debug, DebugServer};
     use dbc_client_rpc_trace::{Trace, TraceServer};
@@ -82,7 +81,6 @@ where
     use committee_rpc::{CmRpcApiServer, CmStorage};
     use online_committee_rpc::{OcRpcApiServer, OcStorage};
     use online_profile_rpc::{OpRpcApiServer, OpStorage};
-    use rent_dlc_machine_rpc::{DlcRmRpcApiServer, DlcRmStorage};
     use rent_machine_rpc::{RmRpcApiServer, RmStorage};
     use simple_rpc_rpc::{SimpleRpcApiServer, SrStorage};
     use terminating_rental_rpc::{IrRpcApiServer, IrStorage};
@@ -148,8 +146,6 @@ where
     io.merge(OpStorage::new(client.clone()).into_rpc()).ok();
     io.merge(RmStorage::new(client.clone()).into_rpc()).ok();
     io.merge(IrStorage::new(client.clone()).into_rpc()).ok();
-    io.merge(DlcRmStorage::new(client.clone()).into_rpc()).ok();
-
     io.merge(
         EthFilter::new(
             client.clone(),

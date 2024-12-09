@@ -281,4 +281,13 @@ impl<T: Config> DbcPrice for Pallet<T> {
             .checked_mul(&one_dbc)?
             .checked_div(&dbc_price)
     }
+
+    fn get_dlc_amount_by_value(value: u64) -> Option<Self::Balance> {
+        let one_dlc: Self::Balance = 1_000_000_000_000_000_u64.saturated_into();
+        let dlc_price = 3000u64.saturated_into();
+        value
+            .saturated_into::<Self::Balance>()
+            .checked_mul(&one_dlc)?
+            .checked_div(&dlc_price)
+    }
 }
