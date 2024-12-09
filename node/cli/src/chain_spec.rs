@@ -540,6 +540,7 @@ pub fn testnet_genesis(
 }
 
 /// Mainnet config
+#[allow(dead_code)]
 fn generate_mainnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "DBC Mainnet",
