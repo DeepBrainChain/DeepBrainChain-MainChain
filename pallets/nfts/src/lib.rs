@@ -639,54 +639,6 @@ pub mod pallet {
         CollectionNotEmpty,
     }
 
-    #[pallet::hooks]
-    impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-        fn on_initialize(_block_number: T::BlockNumber) -> Weight {
-            use crate::migration::v1::OldCollectionDetails;
-            use frame_support::log;
-
-            let current_version = Self::current_storage_version();
-            let onchain_version = Self::on_chain_storage_version();
-
-            // log::info!(
-            //     target: LOG_TARGET,
-            //     "Running migration with current storage version {:?} / onchain {:?}",
-            //     current_version,
-            //     onchain_version
-            // );
-
-            if onchain_version == 0 && current_version == 1 {
-                let mut translated = 0u64;
-                let mut configs_iterated = 0u64;
-                Collection::<T, I>::translate::<
-                    OldCollectionDetails<T::AccountId, DepositBalanceOf<T, I>>,
-                    _,
-                >(|key, old_value| {
-                    let item_configs = ItemConfigOf::<T, I>::iter_prefix(&key).count() as u32;
-                    configs_iterated += item_configs as u64;
-                    translated.saturating_inc();
-                    Some(old_value.migrate_to_v1(item_configs))
-                });
-
-                current_version.put::<Self>();
-
-                //log::info!(
-                //    target: LOG_TARGET,
-                //    "Upgraded {} records, storage to version {:?}",
-                //    translated,
-                //    current_version
-                //);
-                T::DbWeight::get().reads_writes(translated + configs_iterated + 1, translated + 1)
-            } else {
-                //log::info!(
-                //    target: LOG_TARGET,
-                //    "Migration did not execute. This probably should be removed"
-                //);
-                T::DbWeight::get().reads(1)
-            }
-        }
-    }
-
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         /// Issue a new collection of non-fungible items from a public origin.
