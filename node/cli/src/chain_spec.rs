@@ -78,10 +78,10 @@ pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
 /// DBC Mainnet spec config
 pub fn mainnet_config() -> Result<ChainSpec, String> {
-    // ChainSpec::from_json_bytes(&include_bytes!("../res/dbc-specs-raw-v4.json")[..])
+    ChainSpec::from_json_bytes(&include_bytes!("../res/dbc-spec-v4.json")[..])
 
     // generate_mainnet_config
-    Ok(generate_mainnet_config())
+    // Ok(generate_mainnet_config())
 }
 
 fn session_keys(
@@ -540,6 +540,7 @@ pub fn testnet_genesis(
 }
 
 /// Mainnet config
+#[allow(dead_code)]
 fn generate_mainnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "DBC Mainnet",
