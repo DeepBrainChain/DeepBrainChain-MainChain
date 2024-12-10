@@ -648,12 +648,12 @@ pub mod pallet {
             let current_version = Self::current_storage_version();
             let onchain_version = Self::on_chain_storage_version();
 
-            log::info!(
-                target: LOG_TARGET,
-                "Running migration with current storage version {:?} / onchain {:?}",
-                current_version,
-                onchain_version
-            );
+            // log::info!(
+            //     target: LOG_TARGET,
+            //     "Running migration with current storage version {:?} / onchain {:?}",
+            //     current_version,
+            //     onchain_version
+            // );
 
             if onchain_version == 0 && current_version == 1 {
                 let mut translated = 0u64;
@@ -670,18 +670,18 @@ pub mod pallet {
 
                 current_version.put::<Self>();
 
-                log::info!(
-                    target: LOG_TARGET,
-                    "Upgraded {} records, storage to version {:?}",
-                    translated,
-                    current_version
-                );
+                //log::info!(
+                //    target: LOG_TARGET,
+                //    "Upgraded {} records, storage to version {:?}",
+                //    translated,
+                //    current_version
+                //);
                 T::DbWeight::get().reads_writes(translated + configs_iterated + 1, translated + 1)
             } else {
-                log::info!(
-                    target: LOG_TARGET,
-                    "Migration did not execute. This probably should be removed"
-                );
+                //log::info!(
+                //    target: LOG_TARGET,
+                //    "Migration did not execute. This probably should be removed"
+                //);
                 T::DbWeight::get().reads(1)
             }
         }
