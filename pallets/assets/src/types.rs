@@ -26,7 +26,7 @@ use sp_runtime::{traits::Convert, FixedPointNumber, FixedPointOperand, FixedU128
 
 pub(super) type DepositBalanceOf<T, I = ()> =
     <<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
-pub(super) type AssetAccountOf<T, I> = AssetAccount<
+pub type AssetAccountOf<T, I> = AssetAccount<
     <T as Config<I>>::Balance,
     DepositBalanceOf<T, I>,
     <T as Config<I>>::Extra,
@@ -175,13 +175,13 @@ impl AccountStatus {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
     /// The balance.
-    pub(super) balance: Balance,
+    pub balance: Balance,
     /// The status of the account.
-    pub(super) status: AccountStatus,
+    pub status: AccountStatus,
     /// The reason for the existence of the account.
-    pub(super) reason: ExistenceReason<DepositBalance, AccountId>,
+    pub reason: ExistenceReason<DepositBalance, AccountId>,
     /// Additional "sidecar" data, in case some other pallet wants to use this storage item.
-    pub(super) extra: Extra,
+    pub extra: Extra,
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
@@ -332,7 +332,7 @@ pub(super) type ApprovalsOf<T, I = ()> = BoundedBTreeMap<
 >;
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, MaxEncodedLen, TypeInfo)]
-pub(super) struct AssetLock<
+pub struct AssetLock<
     AccountId: Encode + Decode + Clone + Eq + PartialEq,
     Balance: Encode + Decode + Clone + Eq + PartialEq,
     BlockNumber: Encode + Decode + Clone + Eq + PartialEq,

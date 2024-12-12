@@ -123,7 +123,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// - `amount`: The amount by which the balance should be increased.
     /// - `increase_supply`: Will the supply of the asset be increased by `amount` at the same time
     ///   as crediting the `account`.
-    pub(super) fn can_increase(
+    pub fn can_increase(
         id: T::AssetId,
         who: &T::AccountId,
         amount: T::Balance,
