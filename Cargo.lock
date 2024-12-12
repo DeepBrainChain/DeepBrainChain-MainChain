@@ -1888,6 +1888,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "generic-func",
+ "hex",
  "log",
  "maintain-committee",
  "num_enum 0.5.11",

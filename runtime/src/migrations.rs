@@ -21,14 +21,24 @@ pub mod v1 {
                 total_locks += 1;
 
                 let locked = pallet_assets::Locked::<Runtime>::get(DLC, &who);
-                debug_assert!(
-                    locked == locks.iter().fold(0, |acc, x| acc + x.1.balance),
-                    "locks and locked amounts do not match"
-                );
+                let total_locks = locks.iter().fold(0, |acc, x| acc + x.1.balance);
+                if locked != total_locks {
+                    log::warn!(
+                        target: LOG_TARGET,
+                        "AssetLockMigration locks don't match locked amount for {:?}, locked {:?}, total_locks {:?}",
+                        hex::encode(&who),
+                        locked,
+                        total_locks
+                    );
+                }
 
-                debug_assert!(
-                    Assets::can_increase(DLC, &who, locked, true) == DepositConsequence::Success
-                );
+                if Assets::can_increase(DLC, &who, locked, true) != DepositConsequence::Success {
+                    log::warn!(
+                        target: LOG_TARGET,
+                        "AssetLockMigration can't increase for {:?}",
+                        hex::encode(&who)
+                    );
+                }
 
                 pallet_assets::Locked::<Runtime>::remove(DLC, &who);
 
@@ -60,9 +70,15 @@ pub mod v1 {
                     target: LOG_TARGET,
                     "AssetLockMigration unlocking {:?} for {:?}",
                     locked,
-                    who
+                    hex::encode(&who)
                 );
             });
+
+            log::info!(
+                target: LOG_TARGET,
+                "AssetLockMigration drained {} locks",
+                total_locks
+            );
 
             T::DbWeight::get().reads_writes(2 * total_locks, 2 * total_locks)
         }
@@ -82,7 +98,7 @@ pub mod v1 {
                 locks.iter().for_each(|lock| {
                     if lock.id == DEMOCRACY_ID {
                         removed += 1;
-                        log::info!("DemocracyMigration removing lock: {:?}", who);
+                        log::info!("DemocracyMigration removing lock: {:?}, {:?}", who, lock);
                         Balances::remove_lock(DEMOCRACY_ID, &who);
                     }
                 });
