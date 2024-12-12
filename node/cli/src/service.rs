@@ -484,7 +484,7 @@ pub fn new_full_base(
             telemetry: telemetry.as_ref().map(|x| x.handle()),
             voting_rule: sc_consensus_grandpa::VotingRulesBuilder::default().build(),
             prometheus_registry,
-            shared_voter_state: sc_consensus_grandpa::SharedVoterState::empty(),
+            shared_voter_state,
         };
 
         // the GRANDPA voter task is considered infallible, i.e.
