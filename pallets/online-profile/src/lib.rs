@@ -357,39 +357,39 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> Weight {
-            // let now = <frame_system::Pallet<T>>::block_number();
+            let now = <frame_system::Pallet<T>>::block_number();
 
-            // let machine_id = "f2ed83f9fe6d26ae802fd26e021588ed3f33cd953dc5b208e627d69387336151"
-            //     .as_bytes()
-            //     .to_vec();
+            let machine_id = "f2ed83f9fe6d26ae802fd26e021588ed3f33cd953dc5b208e627d69387336151"
+                .as_bytes()
+                .to_vec();
 
-            // let machine_info_result = Self::machines_info(&machine_id);
-            // match machine_info_result {
-            //     Some(mut machine_info) => {
-            //         if machine_info.reward_deadline > 0 {
-            //             return Weight::zero()
-            //         }
+            let machine_info_result = Self::machines_info(&machine_id);
+            match machine_info_result {
+                Some(mut machine_info) => {
+                    if machine_info.reward_deadline > 0 {
+                        return Weight::zero()
+                    }
 
-            //         machine_info.online_height = now;
-            //         let current_era = Self::current_era();
-            //         machine_info.reward_deadline = current_era + REWARD_DURATION;
+                    machine_info.online_height = now;
+                    let current_era = Self::current_era();
+                    machine_info.reward_deadline = current_era + REWARD_DURATION;
 
-            //         MachineRecentReward::<T>::insert(
-            //             &machine_id,
-            //             MachineRecentRewardInfo {
-            //                 machine_stash: machine_info.machine_stash.clone(),
-            //                 reward_committee_deadline: machine_info.reward_deadline,
-            //                 reward_committee: machine_info.reward_committee.clone(),
-            //                 recent_machine_reward: VecDeque::new(),
-            //                 recent_reward_sum: 0u32.into(),
-            //             },
-            //         );
+                    MachineRecentReward::<T>::insert(
+                        &machine_id,
+                        MachineRecentRewardInfo {
+                            machine_stash: machine_info.machine_stash.clone(),
+                            reward_committee_deadline: machine_info.reward_deadline,
+                            reward_committee: machine_info.reward_committee.clone(),
+                            recent_machine_reward: VecDeque::new(),
+                            recent_reward_sum: 0u32.into(),
+                        },
+                    );
 
-            //         machine_info.last_online_height = now;
-            //         machine_info.last_machine_restake = now;
-            //     },
-            //     None => {},
-            // }
+                    machine_info.last_online_height = now;
+                    machine_info.last_machine_restake = now;
+                },
+                None => {},
+            }
 
             Weight::zero()
         }
