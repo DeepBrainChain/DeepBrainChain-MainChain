@@ -127,7 +127,7 @@ mod precompiles;
 use precompiles::DBCPrecompiles;
 
 mod migrations;
-use crate::migrations::v1::{AssetLockMigration, DemocracyMigration};
+use crate::migrations::v1::DemocracyMigration;
 
 /// Generated voter bag information.
 mod voter_bags;
@@ -1691,7 +1691,7 @@ pub type Executive = frame_executive::Executive<
 
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
 // `OnRuntimeUpgrade`.
-type Migrations = (AssetLockMigration<Runtime>, DemocracyMigration<Runtime>);
+type Migrations = (DemocracyMigration<Runtime>,);
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]

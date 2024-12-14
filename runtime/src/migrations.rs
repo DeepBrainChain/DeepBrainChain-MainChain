@@ -11,27 +11,17 @@ pub mod v1 {
     use frame_support::traits::{tokens::DepositConsequence, LockableCurrency};
     use sp_runtime::traits::Saturating;
 
+    #[allow(dead_code)]
     pub struct AssetLockMigration<T>(sp_std::marker::PhantomData<T>);
     impl<T: frame_system::Config> OnRuntimeUpgrade for AssetLockMigration<T> {
         fn on_runtime_upgrade() -> Weight {
             const DLC: u32 = 88;
             let mut total_locks = 0;
 
-            pallet_assets::AssetLocks::<Runtime>::drain_prefix(DLC).for_each(|(who, locks)| {
+            let _ = pallet_assets::AssetLocks::<Runtime>::clear_prefix(DLC, u32::MAX, None);
+
+            pallet_assets::Locked::<Runtime>::iter_prefix(DLC).for_each(|(who, locked)| {
                 total_locks += 1;
-
-                let locked = pallet_assets::Locked::<Runtime>::get(DLC, &who);
-                let total_locks = locks.iter().fold(0, |acc, x| acc + x.1.balance);
-                if locked != total_locks {
-                    log::debug!(
-                        target: LOG_TARGET,
-                        "AssetLockMigration locks don't match locked amount for {:?}, locked {:?}, total_locks {:?}",
-                        hex::encode(&who),
-                        locked,
-                        total_locks
-                    );
-                }
-
                 if Assets::can_increase(DLC, &who, locked, true) != DepositConsequence::Success {
                     log::debug!(
                         target: LOG_TARGET,
