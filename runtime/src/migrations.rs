@@ -23,7 +23,7 @@ pub mod v1 {
                 let locked = pallet_assets::Locked::<Runtime>::get(DLC, &who);
                 let total_locks = locks.iter().fold(0, |acc, x| acc + x.1.balance);
                 if locked != total_locks {
-                    log::warn!(
+                    log::debug!(
                         target: LOG_TARGET,
                         "AssetLockMigration locks don't match locked amount for {:?}, locked {:?}, total_locks {:?}",
                         hex::encode(&who),
@@ -33,7 +33,7 @@ pub mod v1 {
                 }
 
                 if Assets::can_increase(DLC, &who, locked, true) != DepositConsequence::Success {
-                    log::warn!(
+                    log::debug!(
                         target: LOG_TARGET,
                         "AssetLockMigration can't increase for {:?}",
                         hex::encode(&who)
@@ -66,7 +66,7 @@ pub mod v1 {
                     }
                 });
 
-                log::info!(
+                log::debug!(
                     target: LOG_TARGET,
                     "AssetLockMigration unlocking {:?} for {:?}",
                     locked,
@@ -98,7 +98,7 @@ pub mod v1 {
                 locks.iter().for_each(|lock| {
                     if lock.id == DEMOCRACY_ID {
                         removed += 1;
-                        log::info!("DemocracyMigration removing lock: {:?}, {:?}", who, lock);
+                        log::debug!("DemocracyMigration removing lock: {:?}, {:?}", who, lock);
                         Balances::remove_lock(DEMOCRACY_ID, &who);
                     }
                 });
