@@ -741,8 +741,7 @@ pub mod pallet {
                                 account.balance.saturating_accrue(locked);
                             },
                             maybe_account @ None => {
-                                // TODO: check
-                                // frame_system::Pallet::<T>::inc_consumers(who);
+                                let _ = frame_system::Pallet::<T>::inc_consumers(&who);
                                 *maybe_account = Some(AssetAccountOf::<T, I> {
                                     balance: locked,
                                     reason: ExistenceReason::Consumer,
