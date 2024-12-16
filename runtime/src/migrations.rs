@@ -74,6 +74,7 @@ pub mod v1 {
         }
     }
 
+    #[allow(dead_code)]
     pub struct DemocracyMigration<T>(sp_std::marker::PhantomData<T>);
     impl<T: frame_system::Config> OnRuntimeUpgrade for DemocracyMigration<T> {
         fn on_runtime_upgrade() -> Weight {

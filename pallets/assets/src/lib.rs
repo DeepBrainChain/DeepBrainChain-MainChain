@@ -166,7 +166,7 @@ use sp_std::prelude::*;
 
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, log,
+    ensure,
     pallet_prelude::{ConstU32, DispatchResultWithPostInfo},
     storage::KeyPrefixIterator,
     traits::{
@@ -212,7 +212,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     /// The current storage version.
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -687,101 +687,6 @@ pub mod pallet {
 
         LockAmountTooSmall,
         LockDurationTooLong,
-    }
-
-    #[pallet::hooks]
-    impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
-            let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
-
-            const LIMIT: u32 = 1000;
-            let dlc: T::AssetId = 88u32.into();
-
-            if on_chain_version == 1 {
-                let multi_removal_results = AssetLocks::<T, I>::clear_prefix(&dlc, LIMIT, None);
-                let keys_removed = multi_removal_results.backend as u64;
-
-                if keys_removed > 0 {
-                    log::debug!(
-                        target: LOG_TARGET,
-                        "🚀 Assets on_initialize on chain_version 1, keys_removed: {}",
-                        keys_removed
-                    );
-                } else {
-                    log::debug!(
-                        target: LOG_TARGET,
-                        "🚀 Assets on_initialize on chain_version 1, set storage_version to 2"
-                    );
-                    StorageVersion::new(2).put::<Self>();
-                }
-                return T::DbWeight::get().reads_writes(keys_removed, keys_removed)
-            } else if on_chain_version == 2 {
-                let mut total_locks = 0u64;
-
-                for (who, locked) in Locked::<T, I>::iter_prefix(&dlc) {
-                    total_locks += 1;
-
-                    debug_assert!(
-                        Self::can_increase(dlc.clone(), &who, locked, true) ==
-                            DepositConsequence::Success,
-                        "can_increase failed"
-                    );
-
-                    Locked::<T, I>::remove(&dlc, &who);
-
-                    Account::<T, I>::mutate(&dlc, &who, |maybe_account| {
-                        match maybe_account {
-                            Some(ref mut account) => {
-                                // Calculate new balance; this will not saturate since it's already checked
-                                // in prep.
-                                debug_assert!(
-                                    account.balance.checked_add(&locked).is_some(),
-                                    "checked in prep; qed"
-                                );
-                                account.balance.saturating_accrue(locked);
-                            },
-                            maybe_account @ None => {
-                                let _ = frame_system::Pallet::<T>::inc_consumers(&who);
-                                *maybe_account = Some(AssetAccountOf::<T, I> {
-                                    balance: locked,
-                                    reason: ExistenceReason::Consumer,
-                                    status: AccountStatus::Liquid,
-                                    extra: T::Extra::default(),
-                                });
-                            },
-                        }
-                    });
-
-                    // log::debug!(
-                    //     target: LOG_TARGET,
-                    //     "AssetLockMigration unlocking {:?} for {:?}",
-                    //     locked,
-                    //     hex::encode(&who)
-                    // );
-                    if total_locks >= LIMIT as u64 {
-                        break
-                    }
-                }
-
-                log::debug!(
-                    target: LOG_TARGET,
-                    "Assets on_initialize drained {} locks",
-                    total_locks
-                );
-
-                if total_locks == 0 {
-                    log::debug!(
-                        target: LOG_TARGET,
-                        "🚀 Assets on_initialize on chain_version 2, set storage_version to 3"
-                    );
-                    StorageVersion::new(3).put::<Self>();
-                }
-
-                return T::DbWeight::get().reads_writes(2 * total_locks, 2 * total_locks)
-            }
-
-            T::DbWeight::get().reads_writes(1, 0)
-        }
     }
 
     #[pallet::call(weight(<T as Config<I>>::WeightInfo))]
