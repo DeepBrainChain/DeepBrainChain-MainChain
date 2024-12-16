@@ -166,7 +166,7 @@ use sp_std::prelude::*;
 
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure,
+    ensure, log,
     pallet_prelude::{ConstU32, DispatchResultWithPostInfo},
     storage::KeyPrefixIterator,
     traits::{
@@ -253,7 +253,12 @@ pub mod pallet {
         type RemoveItemsLimit: Get<u32>;
 
         /// Identifier for the class of asset.
-        type AssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
+        type AssetId: Member
+            + Parameter
+            + Clone
+            + MaybeSerializeDeserialize
+            + MaxEncodedLen
+            + From<u32>;
 
         /// Wrapper around `Self::AssetId` to use in dispatchable call signatures. Allows the use
         /// of compact encoding in instances of the pallet, which will prevent breaking changes
@@ -344,7 +349,7 @@ pub mod pallet {
 
     #[pallet::storage]
     /// The holdings of a specific account for a specific asset.
-    pub(super) type Account<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+    pub type Account<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AssetId,
@@ -378,7 +383,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub(super) type AssetLocks<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+    pub type AssetLocks<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AssetId,
@@ -388,7 +393,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub(super) type Locked<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+    pub type Locked<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AssetId,
@@ -682,6 +687,101 @@ pub mod pallet {
 
         LockAmountTooSmall,
         LockDurationTooLong,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+
+            const LIMIT: u32 = 1000;
+            let dlc: T::AssetId = 88u32.into();
+
+            if on_chain_version == 1 {
+                let multi_removal_results = AssetLocks::<T, I>::clear_prefix(&dlc, LIMIT, None);
+                let keys_removed = multi_removal_results.backend as u64;
+
+                if keys_removed > 0 {
+                    log::debug!(
+                        target: LOG_TARGET,
+                        "🚀 Assets on_initialize on chain_version 1, keys_removed: {}",
+                        keys_removed
+                    );
+                } else {
+                    log::debug!(
+                        target: LOG_TARGET,
+                        "🚀 Assets on_initialize on chain_version 1, set storage_version to 2"
+                    );
+                    StorageVersion::new(2).put::<Self>();
+                }
+                return T::DbWeight::get().reads_writes(keys_removed, keys_removed)
+            } else if on_chain_version == 2 {
+                let mut total_locks = 0u64;
+
+                for (who, locked) in Locked::<T, I>::iter_prefix(&dlc) {
+                    total_locks += 1;
+
+                    debug_assert!(
+                        Self::can_increase(dlc.clone(), &who, locked, true) ==
+                            DepositConsequence::Success,
+                        "can_increase failed"
+                    );
+
+                    Locked::<T, I>::remove(&dlc, &who);
+
+                    Account::<T, I>::mutate(&dlc, &who, |maybe_account| {
+                        match maybe_account {
+                            Some(ref mut account) => {
+                                // Calculate new balance; this will not saturate since it's already checked
+                                // in prep.
+                                debug_assert!(
+                                    account.balance.checked_add(&locked).is_some(),
+                                    "checked in prep; qed"
+                                );
+                                account.balance.saturating_accrue(locked);
+                            },
+                            maybe_account @ None => {
+                                let _ = frame_system::Pallet::<T>::inc_consumers(&who);
+                                *maybe_account = Some(AssetAccountOf::<T, I> {
+                                    balance: locked,
+                                    reason: ExistenceReason::Consumer,
+                                    status: AccountStatus::Liquid,
+                                    extra: T::Extra::default(),
+                                });
+                            },
+                        }
+                    });
+
+                    // log::debug!(
+                    //     target: LOG_TARGET,
+                    //     "AssetLockMigration unlocking {:?} for {:?}",
+                    //     locked,
+                    //     hex::encode(&who)
+                    // );
+                    if total_locks >= LIMIT as u64 {
+                        break
+                    }
+                }
+
+                log::debug!(
+                    target: LOG_TARGET,
+                    "Assets on_initialize drained {} locks",
+                    total_locks
+                );
+
+                if total_locks == 0 {
+                    log::debug!(
+                        target: LOG_TARGET,
+                        "🚀 Assets on_initialize on chain_version 2, set storage_version to 3"
+                    );
+                    StorageVersion::new(3).put::<Self>();
+                }
+
+                return T::DbWeight::get().reads_writes(2 * total_locks, 2 * total_locks)
+            }
+
+            T::DbWeight::get().reads_writes(1, 0)
+        }
     }
 
     #[pallet::call(weight(<T as Config<I>>::WeightInfo))]

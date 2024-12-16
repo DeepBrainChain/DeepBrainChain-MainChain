@@ -53,7 +53,7 @@ try-runtime-live: build-try-runtime
 		--uri ${NODE_URI} \
 		--at ${BLOCK_HASH}
 
-.PHONY: try-runtime-snap
+.PHONY: try-runtime-create-snap
 try-runtime-create-snap:
 	cargo run --features try-runtime -- \
 		try-runtime \
