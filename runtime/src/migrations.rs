@@ -144,7 +144,7 @@ pub mod v2 {
                     //     id, info.rent_end, new_rent_end
                     // );
 
-                    // NOTE: If the machine rent end time is less than the current block height, 
+                    // NOTE: If the machine rent end time is less than the current block height,
                     // it will be deleted after 100 blocks.
                     if now > new_rent_end {
                         let delay_rent_end = now + 100;
@@ -155,9 +155,12 @@ pub mod v2 {
                         // );
 
                         write_times += 1;
-                        rent_machine::RentEnding::<Runtime>::mutate(delay_rent_end, |rent_ending| {
-                            ItemList::add_item(rent_ending, id);
-                        });
+                        rent_machine::RentEnding::<Runtime>::mutate(
+                            delay_rent_end,
+                            |rent_ending| {
+                                ItemList::add_item(rent_ending, id);
+                            },
+                        );
                     } else {
                         // log::debug!(
                         //     target: LOG_TARGET,
