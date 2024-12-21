@@ -129,7 +129,7 @@ pub mod pallet {
     // 记录每个区块将要结束租用的机器
     #[pallet::storage]
     #[pallet::getter(fn rent_ending)]
-    pub(super) type RentEnding<T: Config> =
+    pub type RentEnding<T: Config> =
         StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<RentOrderId>, ValueQuery>;
 
     // 存储每个用户在该模块中的总质押量
@@ -689,7 +689,7 @@ impl<T: Config> Pallet<T> {
         for rent_id in pending_ending {
             let rent_info = Self::rent_info(&rent_id).ok_or(())?;
             let machine_id = rent_info.machine_id.clone();
-            let rent_duration = now.saturating_sub(rent_info.rent_start);
+            let rent_duration = rent_info.rent_end.saturating_sub(rent_info.rent_start);
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
             let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter)?;

@@ -2025,7 +2025,7 @@ impl<T: Config> Pallet<T> {
         for rent_id in pending_ending {
             let rent_order = Self::rent_order(&rent_id).ok_or(())?;
             let machine_id = rent_order.machine_id.clone();
-            let rent_duration = now.saturating_sub(rent_order.rent_start);
+            let rent_duration = rent_order.rent_end.saturating_sub(rent_order.rent_start);
 
             let _ = Self::pay_rent_fee(&rent_order, rent_order.stake_amount, machine_id.clone());
 
