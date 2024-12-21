@@ -117,8 +117,27 @@ pub mod v2 {
             const FORK_BLOCK: u32 = 3683563;
             let mut total = 0;
             let now = <frame_system::Pallet<Runtime>>::block_number();
+            let mut read_times = 0;
+            let mut write_times = 0;
+
+            // Remove invalid data
+            rent_machine::RentEnding::<Runtime>::iter().for_each(|(rent_end, _rent_order)| {
+                read_times += 1;
+                if rent_end < FORK_BLOCK {
+                    write_times += 1;
+                    rent_machine::RentEnding::<Runtime>::remove(rent_end);
+                }
+            });
+            rent_machine::ConfirmingOrder::<Runtime>::iter().for_each(|(rent_end, _rent_order)| {
+                read_times += 1;
+                if rent_end < FORK_BLOCK {
+                    write_times += 1;
+                    rent_machine::RentEnding::<Runtime>::remove(rent_end);
+                }
+            });
 
             rent_machine::RentInfo::<Runtime>::iter().for_each(|(id, info)| {
+                read_times += 1;
                 total += 1;
 
                 if info.rent_end > FORK_BLOCK {
@@ -132,25 +151,28 @@ pub mod v2 {
                     // NOTE: If the machine rent end time is less than the current block height, 
                     // it will be deleted after 100 blocks.
                     if now > new_rent_end {
-                        let rent_end = now + 100;
-                        log::info!(
+                        let delay_rent_end = now + 100;
+                        log::debug!(
                             target: LOG_TARGET,
                             "RentMachineMigration migrate id {:?} new_rent_end {:?}, now {:?}, remove it on {:?}",
-                            id, new_rent_end, now, rent_end
+                            id, new_rent_end, now, delay_rent_end
                         );
 
+                        write_times += 1;
                         rent_machine::RentEnding::<Runtime>::mutate(info.rent_end, |rent_ending| {
                             ItemList::rm_item(rent_ending, &id);
                         });
-                        rent_machine::RentEnding::<Runtime>::mutate(rent_end, |rent_ending| {
+                        rent_machine::RentEnding::<Runtime>::mutate(delay_rent_end, |rent_ending| {
                             ItemList::add_item(rent_ending, id);
                         });
                     } else {
-                        log::info!(
+                        log::debug!(
                             target: LOG_TARGET,
                             "RentMachineMigration migrate id {:?} new_rent_end {:?}, now {:?}, remove it on {:?}",
                             id, new_rent_end, now, new_rent_end
                         );
+
+                        write_times += 1;
                         rent_machine::RentEnding::<Runtime>::mutate(info.rent_end, |rent_ending| {
                             ItemList::rm_item(rent_ending, &id);
                         });
@@ -173,7 +195,7 @@ pub mod v2 {
                 total
             );
 
-            T::DbWeight::get().reads_writes(2 * total, 2 * total)
+            T::DbWeight::get().reads_writes(read_times, write_times)
         }
     }
 }
