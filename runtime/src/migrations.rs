@@ -105,3 +105,75 @@ pub mod v1 {
         }
     }
 }
+
+pub mod v2 {
+    use super::*;
+    use dbc_support::ItemList;
+
+    #[allow(dead_code)]
+    pub struct RentMachineMigration<T>(sp_std::marker::PhantomData<T>);
+    impl<T: frame_system::Config> OnRuntimeUpgrade for RentMachineMigration<T> {
+        fn on_runtime_upgrade() -> Weight {
+            const FORK_BLOCK: u32 = 3683563;
+            let mut total = 0;
+            let now = <frame_system::Pallet<Runtime>>::block_number();
+
+            rent_machine::RentInfo::<Runtime>::iter().for_each(|(id, info)| {
+                total += 1;
+
+                if info.rent_end > FORK_BLOCK {
+                    let new_rent_end = (info.rent_end - FORK_BLOCK) * 5;
+                    // log::info!(
+                    //     target: LOG_TARGET,
+                    //     "RentMachineMigration migrate id {:?} rent_end {:?} to {:?}",
+                    //     id, info.rent_end, new_rent_end
+                    // );
+
+                    // NOTE: If the machine rent end time is less than the current block height, 
+                    // it will be deleted after 100 blocks.
+                    if now > new_rent_end {
+                        let rent_end = now + 100;
+                        log::info!(
+                            target: LOG_TARGET,
+                            "RentMachineMigration migrate id {:?} new_rent_end {:?}, now {:?}, remove it on {:?}",
+                            id, new_rent_end, now, rent_end
+                        );
+
+                        rent_machine::RentEnding::<Runtime>::mutate(info.rent_end, |rent_ending| {
+                            ItemList::rm_item(rent_ending, &id);
+                        });
+                        rent_machine::RentEnding::<Runtime>::mutate(rent_end, |rent_ending| {
+                            ItemList::add_item(rent_ending, id);
+                        });
+                    } else {
+                        log::info!(
+                            target: LOG_TARGET,
+                            "RentMachineMigration migrate id {:?} new_rent_end {:?}, now {:?}, remove it on {:?}",
+                            id, new_rent_end, now, new_rent_end
+                        );
+                        rent_machine::RentEnding::<Runtime>::mutate(info.rent_end, |rent_ending| {
+                            ItemList::rm_item(rent_ending, &id);
+                        });
+                        rent_machine::RentEnding::<Runtime>::mutate(new_rent_end, |rent_ending| {
+                            ItemList::add_item(rent_ending, id);
+                        });
+                    }
+                } else {
+                    log::warn!(
+                        target: LOG_TARGET,
+                        "RentMachineMigration should remove {:?}, {:?}, but keep it to check",
+                        id, info
+                    );
+                }
+            });
+
+            log::info!(
+                target: LOG_TARGET,
+                "RentMachineMigration migrate {} rent order",
+                total
+            );
+
+            T::DbWeight::get().reads_writes(2 * total, 2 * total)
+        }
+    }
+}
