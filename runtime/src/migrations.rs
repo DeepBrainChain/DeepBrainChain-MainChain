@@ -148,30 +148,24 @@ pub mod v2 {
                     // it will be deleted after 100 blocks.
                     if now > new_rent_end {
                         let delay_rent_end = now + 100;
-                        log::debug!(
-                            target: LOG_TARGET,
-                            "RentMachineMigration migrate id {:?} new_rent_end {:?}, now {:?}, remove it on {:?}",
-                            id, new_rent_end, now, delay_rent_end
-                        );
+                        // log::debug!(
+                        //     target: LOG_TARGET,
+                        //     "RentMachineMigration migrate id {:?} new_rent_end {:?}, now {:?}, remove it on {:?}",
+                        //     id, new_rent_end, now, delay_rent_end
+                        // );
 
                         write_times += 1;
-                        rent_machine::RentEnding::<Runtime>::mutate(info.rent_end, |rent_ending| {
-                            ItemList::rm_item(rent_ending, &id);
-                        });
                         rent_machine::RentEnding::<Runtime>::mutate(delay_rent_end, |rent_ending| {
                             ItemList::add_item(rent_ending, id);
                         });
                     } else {
-                        log::debug!(
-                            target: LOG_TARGET,
-                            "RentMachineMigration migrate id {:?} new_rent_end {:?}, now {:?}, remove it on {:?}",
-                            id, new_rent_end, now, new_rent_end
-                        );
+                        // log::debug!(
+                        //     target: LOG_TARGET,
+                        //     "RentMachineMigration migrate id {:?} new_rent_end {:?}, now {:?}, remove it on {:?}",
+                        //     id, new_rent_end, now, new_rent_end
+                        // );
 
                         write_times += 1;
-                        rent_machine::RentEnding::<Runtime>::mutate(info.rent_end, |rent_ending| {
-                            ItemList::rm_item(rent_ending, &id);
-                        });
                         rent_machine::RentEnding::<Runtime>::mutate(new_rent_end, |rent_ending| {
                             ItemList::add_item(rent_ending, id);
                         });
