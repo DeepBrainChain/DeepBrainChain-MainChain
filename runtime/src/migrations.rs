@@ -123,17 +123,13 @@ pub mod v2 {
             // Remove invalid data
             rent_machine::RentEnding::<Runtime>::iter().for_each(|(rent_end, _rent_order)| {
                 read_times += 1;
-                if rent_end < FORK_BLOCK {
-                    write_times += 1;
-                    rent_machine::RentEnding::<Runtime>::remove(rent_end);
-                }
+                write_times += 1;
+                rent_machine::RentEnding::<Runtime>::remove(rent_end);
             });
             rent_machine::ConfirmingOrder::<Runtime>::iter().for_each(|(rent_end, _rent_order)| {
                 read_times += 1;
-                if rent_end < FORK_BLOCK {
-                    write_times += 1;
-                    rent_machine::RentEnding::<Runtime>::remove(rent_end);
-                }
+                write_times += 1;
+                rent_machine::ConfirmingOrder::<Runtime>::remove(rent_end);
             });
 
             rent_machine::RentInfo::<Runtime>::iter().for_each(|(id, info)| {
