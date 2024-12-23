@@ -63,9 +63,9 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_finalize(_block_number: T::BlockNumber) {
-            let _ = Self::check_machine_starting_status();
-            let _ = Self::check_if_rent_finished();
+        fn on_finalize(block_number: T::BlockNumber) {
+            let _ = Self::check_machine_starting_status(block_number);
+            let _ = Self::check_if_rent_finished(block_number);
         }
 
         // fn on_runtime_upgrade() -> Weight {
@@ -592,18 +592,16 @@ impl<T: Config> Pallet<T> {
     }
 
     // 定时检查机器是否30分钟没有上线
-    fn check_machine_starting_status() -> Result<(), ()> {
-        let now = <frame_system::Pallet<T>>::block_number();
-
-        if !<ConfirmingOrder<T>>::contains_key(now) {
+    fn check_machine_starting_status(block_number: T::BlockNumber) -> Result<(), ()> {
+        if !<ConfirmingOrder<T>>::contains_key(block_number) {
             return Ok(())
         }
 
-        let pending_confirming = Self::confirming_order(now);
+        let pending_confirming = Self::confirming_order(block_number);
         for rent_id in pending_confirming {
             let rent_info = Self::rent_info(&rent_id).ok_or(())?;
 
-            Self::clean_order(&rent_info.renter, rent_id)?;
+            Self::clean_order(&rent_info.renter, rent_id, block_number)?;
             T::RTOps::change_machine_status_on_confirm_expired(
                 &rent_info.machine_id,
                 rent_info.gpu_num,
@@ -614,7 +612,7 @@ impl<T: Config> Pallet<T> {
 
     // -Write: MachineRentOrder, RentEnding, RentOrder,
     // UserOrder, ConfirmingOrder
-    fn clean_order(who: &T::AccountId, rent_order_id: RentOrderId) -> Result<(), ()> {
+    fn clean_order(who: &T::AccountId, rent_order_id: RentOrderId, block_number: T::BlockNumber) -> Result<(), ()> {
         let mut user_order = Self::user_order(who);
         ItemList::rm_item(&mut user_order, &rent_order_id);
 
@@ -625,7 +623,7 @@ impl<T: Config> Pallet<T> {
             let _ = Self::change_renter_total_stake(who, rent_info.stake_amount, false);
         }
 
-        let mut rent_ending = Self::rent_ending(rent_info.rent_end);
+        let mut rent_ending = Self::rent_ending(block_number);
         ItemList::rm_item(&mut rent_ending, &rent_order_id);
 
         let pending_confirming_deadline = rent_info.rent_start + WAITING_CONFIRMING_DELAY.into();
@@ -637,9 +635,9 @@ impl<T: Config> Pallet<T> {
 
         MachineRentOrder::<T>::insert(&rent_info.machine_id, machine_rent_order);
         if rent_ending.is_empty() {
-            RentEnding::<T>::remove(rent_info.rent_end);
+            RentEnding::<T>::remove(block_number);
         } else {
-            RentEnding::<T>::insert(rent_info.rent_end, rent_ending);
+            RentEnding::<T>::insert(block_number, rent_ending);
         }
         RentInfo::<T>::remove(rent_order_id);
         if user_order.is_empty() {
@@ -679,12 +677,11 @@ impl<T: Config> Pallet<T> {
     // 这里修rentMachine模块通知onlineProfile机器已经租用完成，
     // onlineProfile判断机器是否需要变成online状态，或者记录下之前是租用状态，
     // 以便机器再次上线时进行正确的惩罚
-    fn check_if_rent_finished() -> Result<(), ()> {
-        let now = <frame_system::Pallet<T>>::block_number();
-        if !<RentEnding<T>>::contains_key(now) {
+    fn check_if_rent_finished(block_number: T::BlockNumber) -> Result<(), ()> {
+        if !<RentEnding<T>>::contains_key(block_number) {
             return Ok(())
         }
-        let pending_ending = Self::rent_ending(now);
+        let pending_ending = Self::rent_ending(block_number);
 
         for rent_id in pending_ending {
             let rent_info = Self::rent_info(&rent_id).ok_or(())?;
@@ -702,7 +699,7 @@ impl<T: Config> Pallet<T> {
                 rent_info.renter.clone(),
             );
 
-            let _ = Self::clean_order(&rent_info.renter, rent_id);
+            let _ = Self::clean_order(&rent_info.renter, rent_id, block_number);
         }
         Ok(())
     }
