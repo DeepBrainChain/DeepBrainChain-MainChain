@@ -612,7 +612,11 @@ impl<T: Config> Pallet<T> {
 
     // -Write: MachineRentOrder, RentEnding, RentOrder,
     // UserOrder, ConfirmingOrder
-    fn clean_order(who: &T::AccountId, rent_order_id: RentOrderId, block_number: T::BlockNumber) -> Result<(), ()> {
+    fn clean_order(
+        who: &T::AccountId,
+        rent_order_id: RentOrderId,
+        block_number: T::BlockNumber,
+    ) -> Result<(), ()> {
         let mut user_order = Self::user_order(who);
         ItemList::rm_item(&mut user_order, &rent_order_id);
 
