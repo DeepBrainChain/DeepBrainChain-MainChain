@@ -246,12 +246,14 @@ pub mod pallet {
             T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone())
                 .map_err(|_| Error::<T>::Unknown)?;
 
-            ConfirmingOrder::<T>::mutate(
-                rent_info.rent_start + WAITING_CONFIRMING_DELAY.into(),
-                |pending_confirming| {
-                    ItemList::rm_item(pending_confirming, &rent_id);
-                },
-            );
+            let confirming_order_block = rent_info.rent_start + WAITING_CONFIRMING_DELAY.into();
+            let mut confirming_order = ConfirmingOrder::<T>::get(confirming_order_block);
+            ItemList::rm_item(&mut confirming_order, &rent_id);
+            if confirming_order.is_empty() {
+                ConfirmingOrder::<T>::remove(confirming_order_block);
+            } else {
+                ConfirmingOrder::<T>::insert(confirming_order_block, confirming_order);
+            }
             RentInfo::<T>::insert(&rent_id, rent_info.clone());
 
             MachineRenterRentedOrders::<T>::mutate(&machine_id, &renter, |details| {
@@ -516,9 +518,13 @@ impl<T: Config> Pallet<T> {
         rent_info.rent_end =
             rent_info.rent_end.checked_add(&add_duration).ok_or(Error::<T>::Overflow)?;
 
-        RentEnding::<T>::mutate(old_rent_end, |old_rent_ending| {
-            ItemList::rm_item(old_rent_ending, &rent_id);
-        });
+        let mut old_rent_ending = RentEnding::<T>::get(old_rent_end);
+        ItemList::rm_item(&mut old_rent_ending, &rent_id);
+        if old_rent_ending.is_empty() {
+            RentEnding::<T>::remove(old_rent_end);
+        } else {
+            RentEnding::<T>::insert(old_rent_end, old_rent_ending);
+        }
         RentEnding::<T>::mutate(rent_info.rent_end, |rent_ending| {
             ItemList::add_item(rent_ending, rent_id);
         });
@@ -601,58 +607,49 @@ impl<T: Config> Pallet<T> {
         for rent_id in pending_confirming {
             let rent_info = Self::rent_info(&rent_id).ok_or(())?;
 
-            Self::clean_order(&rent_info.renter, rent_id, block_number)?;
+            // return back staked money!
+            if !rent_info.stake_amount.is_zero() {
+                let _ = Self::change_renter_total_stake(
+                    &rent_info.renter,
+                    rent_info.stake_amount,
+                    false,
+                );
+            }
+
+            let mut user_order = Self::user_order(&rent_info.renter);
+            ItemList::rm_item(&mut user_order, &rent_id);
+            if user_order.is_empty() {
+                UserOrder::<T>::remove(&rent_info.renter);
+            } else {
+                UserOrder::<T>::insert(&rent_info.renter, user_order);
+            }
+
+            let mut confirming_order = Self::confirming_order(block_number);
+            ItemList::rm_item(&mut confirming_order, &rent_id);
+            if confirming_order.is_empty() {
+                ConfirmingOrder::<T>::remove(block_number);
+            } else {
+                ConfirmingOrder::<T>::insert(block_number, confirming_order);
+            }
+
+            let mut rent_ending = Self::rent_ending(rent_info.rent_end);
+            ItemList::rm_item(&mut rent_ending, &rent_id);
+            if rent_ending.is_empty() {
+                RentEnding::<T>::remove(rent_info.rent_end);
+            } else {
+                RentEnding::<T>::insert(rent_info.rent_end, rent_ending);
+            }
+
+            let mut machine_rent_order = Self::machine_rent_order(&rent_info.machine_id);
+            machine_rent_order.clean_expired_order(rent_id, rent_info.gpu_index);
+            MachineRentOrder::<T>::insert(&rent_info.machine_id, machine_rent_order);
+
+            RentInfo::<T>::remove(rent_id);
+
             T::RTOps::change_machine_status_on_confirm_expired(
                 &rent_info.machine_id,
                 rent_info.gpu_num,
             )?;
-        }
-        Ok(())
-    }
-
-    // -Write: MachineRentOrder, RentEnding, RentOrder,
-    // UserOrder, ConfirmingOrder
-    fn clean_order(
-        who: &T::AccountId,
-        rent_order_id: RentOrderId,
-        block_number: T::BlockNumber,
-    ) -> Result<(), ()> {
-        let mut user_order = Self::user_order(who);
-        ItemList::rm_item(&mut user_order, &rent_order_id);
-
-        let rent_info = Self::rent_info(rent_order_id).ok_or(())?;
-
-        // return back staked money!
-        if !rent_info.stake_amount.is_zero() {
-            let _ = Self::change_renter_total_stake(who, rent_info.stake_amount, false);
-        }
-
-        let mut rent_ending = Self::rent_ending(block_number);
-        ItemList::rm_item(&mut rent_ending, &rent_order_id);
-
-        let pending_confirming_deadline = rent_info.rent_start + WAITING_CONFIRMING_DELAY.into();
-        let mut pending_confirming = Self::confirming_order(pending_confirming_deadline);
-        ItemList::rm_item(&mut pending_confirming, &rent_order_id);
-
-        let mut machine_rent_order = Self::machine_rent_order(&rent_info.machine_id);
-        machine_rent_order.clean_expired_order(rent_order_id, rent_info.gpu_index);
-
-        MachineRentOrder::<T>::insert(&rent_info.machine_id, machine_rent_order);
-        if rent_ending.is_empty() {
-            RentEnding::<T>::remove(block_number);
-        } else {
-            RentEnding::<T>::insert(block_number, rent_ending);
-        }
-        RentInfo::<T>::remove(rent_order_id);
-        if user_order.is_empty() {
-            UserOrder::<T>::remove(who);
-        } else {
-            UserOrder::<T>::insert(who, user_order);
-        }
-        if pending_confirming.is_empty() {
-            ConfirmingOrder::<T>::remove(pending_confirming_deadline);
-        } else {
-            ConfirmingOrder::<T>::insert(pending_confirming_deadline, pending_confirming);
         }
         Ok(())
     }
@@ -685,8 +682,8 @@ impl<T: Config> Pallet<T> {
         if !<RentEnding<T>>::contains_key(block_number) {
             return Ok(())
         }
-        let pending_ending = Self::rent_ending(block_number);
 
+        let pending_ending = Self::rent_ending(block_number);
         for rent_id in pending_ending {
             let rent_info = Self::rent_info(&rent_id).ok_or(())?;
             let machine_id = rent_info.machine_id.clone();
@@ -703,7 +700,36 @@ impl<T: Config> Pallet<T> {
                 rent_info.renter.clone(),
             );
 
-            let _ = Self::clean_order(&rent_info.renter, rent_id, block_number);
+            // return back staked money!
+            if !rent_info.stake_amount.is_zero() {
+                let _ = Self::change_renter_total_stake(
+                    &rent_info.renter,
+                    rent_info.stake_amount,
+                    false,
+                );
+            }
+
+            let mut user_order = Self::user_order(&rent_info.renter);
+            ItemList::rm_item(&mut user_order, &rent_id);
+            if user_order.is_empty() {
+                UserOrder::<T>::remove(&rent_info.renter);
+            } else {
+                UserOrder::<T>::insert(&rent_info.renter, user_order);
+            }
+
+            let mut rent_ending = Self::rent_ending(block_number);
+            ItemList::rm_item(&mut rent_ending, &rent_id);
+            if rent_ending.is_empty() {
+                RentEnding::<T>::remove(block_number);
+            } else {
+                RentEnding::<T>::insert(block_number, rent_ending);
+            }
+
+            let mut machine_rent_order = Self::machine_rent_order(&rent_info.machine_id);
+            machine_rent_order.clean_expired_order(rent_id, rent_info.gpu_index);
+            MachineRentOrder::<T>::insert(&rent_info.machine_id, machine_rent_order);
+
+            RentInfo::<T>::remove(rent_id);
         }
         Ok(())
     }
