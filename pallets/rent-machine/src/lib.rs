@@ -246,12 +246,14 @@ pub mod pallet {
             T::RTOps::change_machine_status_on_confirmed(&machine_id, renter.clone())
                 .map_err(|_| Error::<T>::Unknown)?;
 
-            ConfirmingOrder::<T>::mutate(
-                rent_info.rent_start + WAITING_CONFIRMING_DELAY.into(),
-                |pending_confirming| {
-                    ItemList::rm_item(pending_confirming, &rent_id);
-                },
-            );
+            let confirming_order_block = rent_info.rent_start + WAITING_CONFIRMING_DELAY.into();
+            let mut confirming_order = ConfirmingOrder::<T>::get(confirming_order_block);
+            ItemList::rm_item(&mut confirming_order, &rent_id);
+            if confirming_order.is_empty() {
+                ConfirmingOrder::<T>::remove(confirming_order_block);
+            } else {
+                ConfirmingOrder::<T>::insert(confirming_order_block, confirming_order);
+            }
             RentInfo::<T>::insert(&rent_id, rent_info.clone());
 
             MachineRenterRentedOrders::<T>::mutate(&machine_id, &renter, |details| {
@@ -516,9 +518,13 @@ impl<T: Config> Pallet<T> {
         rent_info.rent_end =
             rent_info.rent_end.checked_add(&add_duration).ok_or(Error::<T>::Overflow)?;
 
-        RentEnding::<T>::mutate(old_rent_end, |old_rent_ending| {
-            ItemList::rm_item(old_rent_ending, &rent_id);
-        });
+        let mut old_rent_ending = RentEnding::<T>::get(old_rent_end);
+        ItemList::rm_item(&mut old_rent_ending, &rent_id);
+        if old_rent_ending.is_empty() {
+            RentEnding::<T>::remove(old_rent_end);
+        } else {
+            RentEnding::<T>::insert(old_rent_end, old_rent_ending);
+        }
         RentEnding::<T>::mutate(rent_info.rent_end, |rent_ending| {
             ItemList::add_item(rent_ending, rent_id);
         });
