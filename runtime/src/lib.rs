@@ -127,7 +127,6 @@ mod precompiles;
 use precompiles::DBCPrecompiles;
 
 mod migrations;
-use migrations::v2::RentMachineMigration;
 
 /// Generated voter bag information.
 mod voter_bags;
@@ -1691,7 +1690,7 @@ pub type Executive = frame_executive::Executive<
 
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
 // `OnRuntimeUpgrade`.
-type Migrations = (RentMachineMigration<Runtime>,);
+type Migrations = ();
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
