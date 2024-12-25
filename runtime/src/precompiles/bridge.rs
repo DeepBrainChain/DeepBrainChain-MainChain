@@ -23,7 +23,7 @@ pub struct Bridge<T>(PhantomData<T>);
 #[derive(RuntimeDebug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u32)]
 pub enum Selector {
-    Transfer = "transfer(string,uint256)",
+    Transfer = "transfer(address,string,uint256)",
 }
 
 type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
@@ -36,7 +36,6 @@ where
 {
     fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
         let input = handle.input();
-        let context = handle.context();
 
         ensure!(
             input.len() >= 4,
@@ -54,10 +53,12 @@ where
 
         match selector {
             Selector::Transfer => {
-                let from = T::AddressMapping::into_account_id(context.caller);
-
                 let param = ethabi::decode(
-                    &[ethabi::ParamType::String, ethabi::ParamType::Uint(256)],
+                    &[
+                        ethabi::ParamType::Address,
+                        ethabi::ParamType::String,
+                        ethabi::ParamType::Uint(256),
+                    ],
                     &input.get(4..).unwrap_or_default(),
                 )
                 .map_err(|e| PrecompileFailure::Revert {
@@ -65,10 +66,17 @@ where
                     output: format!("decode param failed: {:?}", e).into(),
                 })?;
 
-                let to =
-                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                let from_address =
+                    param[0].clone().into_address().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[0] failed".into(),
+                    })?;
+                let from = T::AddressMapping::into_account_id(from_address);
+
+                let to =
+                    param[1].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[1] failed".into(),
                     })?;
 
                 let to = to.strip_prefix("0x").unwrap_or(&to);
@@ -88,7 +96,7 @@ where
                 let to: T::AccountId = T::AccountId::from(to_hex.into());
 
                 let origin_amount =
-                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                    param[2].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[1] failed".into(),
                     })?;

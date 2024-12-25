@@ -1,6 +1,8 @@
+use fp_evm::{ExitRevert, PrecompileFailure};
 use pallet_evm::{
     IsPrecompileResult, Precompile, PrecompileHandle, PrecompileResult, PrecompileSet,
 };
+use scale_info::prelude::format;
 use sp_core::H160;
 use sp_std::marker::PhantomData;
 
@@ -29,7 +31,7 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 9] {
+    pub fn used_addresses() -> [H160; 11] {
         [
             hash(1),
             hash(2),
@@ -40,19 +42,45 @@ where
             hash(1025),
             hash(1026),
             hash(2048),
+            hash(2049),
+            hash(2051),
         ]
     }
 }
 impl<T> PrecompileSet for DBCPrecompiles<T>
 where
-    T: pallet_evm::Config,
+    T: pallet_evm::Config + eth_precompile_whitelist::Config,
     Dispatch<T>: Precompile,
     Bridge<T>: Precompile,
     DBCPrice<T>: Precompile,
     MachineInfo<T>: Precompile,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
-        match handle.code_address() {
+        let address = handle.code_address();
+        log::debug!(target: LOG_TARGET, "PrecompileSet execute address: {:?}, context: {:?}", address, handle.context());
+
+        if let IsPrecompileResult::Answer { is_precompile: true, extra_cost: _ } =
+            self.is_precompile(address, handle.gas_limit().unwrap_or_default())
+        {
+            // check if the context.caller in the precompile whitelist
+            let caller = handle.context().caller;
+            match address {
+                a if a == hash(2048) => {
+                    let precompile_whitelist =
+                        eth_precompile_whitelist::PrecompileWhitelist::<T>::get(address);
+                    if !precompile_whitelist.contains(&caller) {
+                        log::debug!(target: LOG_TARGET, "caller {:?} not in the {:?} whitelist", caller, address);
+                        return Some(Err(PrecompileFailure::Revert {
+                            exit_status: ExitRevert::Reverted,
+                            output: format!("caller {:?} not in the whitelist", caller).into(),
+                        }))
+                    }
+                },
+                _ => {},
+            }
+        }
+
+        match address {
             // Ethereum precompiles :
             a if a == hash(1) => Some(ECRecover::execute(handle)),
             a if a == hash(2) => Some(Sha256::execute(handle)),

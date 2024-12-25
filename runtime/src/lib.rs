@@ -1544,6 +1544,11 @@ impl pallet_ethereum::Config for Runtime {
     type ExtraDataLength = ConstU32<30>;
 }
 
+impl eth_precompile_whitelist::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WhitelistLimit = ConstU32<10>;
+}
+
 parameter_types! {
     pub DefaultBaseFeePerGas: U256 = U256::from(10_000_000_000u128);
     // No gas price adjustment for now. default is 125_000 (12.5%)
@@ -1641,6 +1646,7 @@ construct_runtime!(
         RentMachine: rent_machine = 111,
         MaintainCommittee: maintain_committee = 112,
         TerminatingRental: terminating_rental = 113,
+        EthPrecompileWhitelist: eth_precompile_whitelist = 114,
     }
 );
 

@@ -106,6 +106,7 @@ online-profile = { path = "../pallets/online-profile", default-features = false 
 rent-machine = { path = "../pallets/rent-machine", default-features = false }
 simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-features = false }
 terminating-rental = { path = "../pallets/terminating-rental", default-features = false }
+eth-precompile-whitelist = { path = "../pallets/eth-precompile-whitelist", default-features = false }
 
 committee-runtime-api = { path = "../pallets/committee/rpc/runtime-api", default-features = false }
 online-committee-runtime-api = { path = "../pallets/online-committee/rpc/runtime-api", default-features = false }
@@ -223,6 +224,7 @@ std = [
   "rent-machine/std",
   "simple-rpc/std",
   "terminating-rental/std",
+  "eth-precompile-whitelist/std",
 
   "committee-runtime-api/std",
   "online-committee-runtime-api/std",
@@ -340,6 +342,7 @@ try-runtime = [
   "rent-machine/try-runtime",
   "simple-rpc/try-runtime",
   "terminating-rental/try-runtime",
+  "eth-precompile-whitelist/try-runtime",
   "fp-self-contained/try-runtime",
   "pallet-ethereum/try-runtime",
   "pallet-evm/try-runtime",
