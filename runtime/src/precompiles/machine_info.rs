@@ -5,7 +5,7 @@ use fp_evm::{
 use sp_core::{Get, U256};
 use sp_runtime::RuntimeDebug;
 extern crate alloc;
-use crate::precompiles::LOG_TARGET;
+use crate::precompiles::{ensure_input_len, LOG_TARGET};
 use alloc::format;
 use core::marker::PhantomData;
 use dbc_support::traits::MachineInfoTrait;
@@ -52,6 +52,7 @@ where
 
         match selector {
             Selector::GetMachineCalcPoint => {
+                ensure_input_len(&input)?;
                 let param =
                     ethabi::decode(&[ethabi::ParamType::String], &input[4..]).map_err(|e| {
                         PrecompileFailure::Revert {
@@ -93,6 +94,7 @@ where
             },
 
             Selector::GetMachineCPURate => {
+                ensure_input_len(&input)?;
                 let param =
                     ethabi::decode(&[ethabi::ParamType::String], &input[4..]).map_err(|e| {
                         PrecompileFailure::Revert {
@@ -134,6 +136,7 @@ where
             },
 
             Selector::GetMachineGPUCount => {
+                ensure_input_len(&input)?;
                 let param =
                     ethabi::decode(&[ethabi::ParamType::String], &input[4..]).map_err(|e| {
                         PrecompileFailure::Revert {
@@ -168,6 +171,7 @@ where
             },
 
             Selector::GetRentEndAt => {
+                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,    // machine_id
@@ -218,6 +222,7 @@ where
             },
 
             Selector::IsMachineOwner => {
+                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,  // machine_id
@@ -267,6 +272,7 @@ where
             },
 
             Selector::GetDLCMachineRentFee => {
+                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,    // machine_id
@@ -330,6 +336,7 @@ where
             },
 
             Selector::GetDBCMachineRentFee => {
+                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,    // machine_id
@@ -393,6 +400,7 @@ where
             },
 
             Selector::GetUSDTMachineRentFee => {
+                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,    // machine_id

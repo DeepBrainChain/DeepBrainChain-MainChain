@@ -5,7 +5,7 @@ use fp_evm::{
 use sp_core::{Get, U256};
 use sp_runtime::RuntimeDebug;
 extern crate alloc;
-use crate::precompiles::LOG_TARGET;
+use crate::precompiles::{ensure_input_len, LOG_TARGET};
 use alloc::format;
 use core::marker::PhantomData;
 use dbc_primitives::AccountId;
@@ -56,6 +56,7 @@ where
             Selector::Transfer => {
                 let from = T::AddressMapping::into_account_id(context.caller);
 
+                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[ethabi::ParamType::String, ethabi::ParamType::Uint(256)],
                     &input[4..],
