@@ -4,6 +4,8 @@ use pallet_evm::{
 use sp_core::H160;
 use sp_std::marker::PhantomData;
 
+use fp_evm::{ExitRevert, PrecompileFailure};
+use frame_support::ensure;
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_bn128::{Bn128Add, Bn128Mul, Bn128Pairing};
 use pallet_evm_precompile_dispatch::Dispatch;
@@ -87,4 +89,15 @@ where
 
 fn hash(a: u64) -> H160 {
     H160::from_low_u64_be(a)
+}
+
+fn ensure_input_len(input: &[u8]) -> Result<(), PrecompileFailure> {
+    ensure!(
+        input.len() > 4,
+        PrecompileFailure::Revert {
+            exit_status: ExitRevert::Reverted,
+            output: "invalid input".into(),
+        }
+    );
+    Ok(())
 }
