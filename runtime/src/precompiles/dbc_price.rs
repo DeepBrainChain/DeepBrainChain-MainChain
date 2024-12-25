@@ -5,7 +5,7 @@ use fp_evm::{
 use sp_core::{Get, U256};
 use sp_runtime::RuntimeDebug;
 extern crate alloc;
-use crate::precompiles::{ensure_input_len, LOG_TARGET};
+use crate::precompiles::LOG_TARGET;
 use alloc::format;
 use core::marker::PhantomData;
 use dbc_support::traits::DbcPrice;
@@ -76,14 +76,14 @@ where
                 })
             },
             Selector::GetDBCAmountByValue => {
-                ensure_input_len(&input)?;
-                let param =
-                    ethabi::decode(&[ethabi::ParamType::Uint(256)], &input[4..]).map_err(|e| {
-                        PrecompileFailure::Revert {
-                            exit_status: ExitRevert::Reverted,
-                            output: format!("decode param failed: {:?}", e).into(),
-                        }
-                    })?;
+                let param = ethabi::decode(
+                    &[ethabi::ParamType::Uint(256)],
+                    &input.get(4..).unwrap_or_default(),
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
 
                 let origin_value =
                     param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {

@@ -5,7 +5,7 @@ use fp_evm::{
 use sp_core::{Get, U256};
 use sp_runtime::RuntimeDebug;
 extern crate alloc;
-use crate::precompiles::{ensure_input_len, LOG_TARGET};
+use crate::precompiles::LOG_TARGET;
 use alloc::format;
 use core::marker::PhantomData;
 use dbc_support::traits::MachineInfoTrait;
@@ -52,14 +52,14 @@ where
 
         match selector {
             Selector::GetMachineCalcPoint => {
-                ensure_input_len(&input)?;
-                let param =
-                    ethabi::decode(&[ethabi::ParamType::String], &input[4..]).map_err(|e| {
-                        PrecompileFailure::Revert {
-                            exit_status: ExitRevert::Reverted,
-                            output: format!("decode param failed: {:?}", e).into(),
-                        }
-                    })?;
+                let param = ethabi::decode(
+                    &[ethabi::ParamType::String],
+                    &input.get(4..).unwrap_or_default(),
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
 
                 let machine_id_str =
                     param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
@@ -94,14 +94,14 @@ where
             },
 
             Selector::GetMachineCPURate => {
-                ensure_input_len(&input)?;
-                let param =
-                    ethabi::decode(&[ethabi::ParamType::String], &input[4..]).map_err(|e| {
-                        PrecompileFailure::Revert {
-                            exit_status: ExitRevert::Reverted,
-                            output: format!("decode param failed: {:?}", e).into(),
-                        }
-                    })?;
+                let param = ethabi::decode(
+                    &[ethabi::ParamType::String],
+                    &input.get(4..).unwrap_or_default(),
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
 
                 let machine_id_str =
                     param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
@@ -136,14 +136,14 @@ where
             },
 
             Selector::GetMachineGPUCount => {
-                ensure_input_len(&input)?;
-                let param =
-                    ethabi::decode(&[ethabi::ParamType::String], &input[4..]).map_err(|e| {
-                        PrecompileFailure::Revert {
-                            exit_status: ExitRevert::Reverted,
-                            output: format!("decode param failed: {:?}", e).into(),
-                        }
-                    })?;
+                let param = ethabi::decode(
+                    &[ethabi::ParamType::String],
+                    &input.get(4..).unwrap_or_default(),
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
 
                 let machine_id_str =
                     param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
@@ -171,13 +171,12 @@ where
             },
 
             Selector::GetRentEndAt => {
-                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Uint(256), // rent_id
                     ],
-                    &input[4..],
+                    &input.get(4..).unwrap_or_default(),
                 )
                 .map_err(|e| PrecompileFailure::Revert {
                     exit_status: ExitRevert::Reverted,
@@ -222,13 +221,12 @@ where
             },
 
             Selector::IsMachineOwner => {
-                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,  // machine_id
                         ethabi::ParamType::Address, // evm_address
                     ],
-                    &input[4..],
+                    &input.get(4..).unwrap_or_default(),
                 )
                 .map_err(|e| PrecompileFailure::Revert {
                     exit_status: ExitRevert::Reverted,
@@ -272,14 +270,13 @@ where
             },
 
             Selector::GetDLCMachineRentFee => {
-                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Uint(256), // rent_block_numbers
                         ethabi::ParamType::Uint(8),   // rent_gpu_count
                     ],
-                    &input[4..],
+                    &input.get(4..).unwrap_or_default(),
                 )
                 .map_err(|e| PrecompileFailure::Revert {
                     exit_status: ExitRevert::Reverted,
@@ -336,14 +333,13 @@ where
             },
 
             Selector::GetDBCMachineRentFee => {
-                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Uint(256), // rent_block_numbers
                         ethabi::ParamType::Uint(8),   // rent_gpu_count
                     ],
-                    &input[4..],
+                    &input.get(4..).unwrap_or_default(),
                 )
                 .map_err(|e| PrecompileFailure::Revert {
                     exit_status: ExitRevert::Reverted,
@@ -400,14 +396,13 @@ where
             },
 
             Selector::GetUSDTMachineRentFee => {
-                ensure_input_len(&input)?;
                 let param = ethabi::decode(
                     &[
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Uint(256), // rent_block_numbers
                         ethabi::ParamType::Uint(8),   // rent_gpu_count
                     ],
-                    &input[4..],
+                    &input.get(4..).unwrap_or_default(),
                 )
                 .map_err(|e| PrecompileFailure::Revert {
                     exit_status: ExitRevert::Reverted,
