@@ -127,7 +127,6 @@ mod precompiles;
 use precompiles::DBCPrecompiles;
 
 mod migrations;
-use migrations::v2::RentMachineMigration;
 
 /// Generated voter bag information.
 mod voter_bags;
@@ -156,7 +155,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 402,
+    spec_version: 404,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1691,7 +1690,7 @@ pub type Executive = frame_executive::Executive<
 
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
 // `OnRuntimeUpgrade`.
-type Migrations = (RentMachineMigration<Runtime>,);
+type Migrations = ();
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
