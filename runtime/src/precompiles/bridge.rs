@@ -66,12 +66,12 @@ where
                     output: format!("decode param failed: {:?}", e).into(),
                 })?;
 
-                let from_address =
+                let from =
                     param[0].clone().into_address().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[0] failed".into(),
                     })?;
-                let from = T::AddressMapping::into_account_id(from_address);
+                let from: T::AccountId = T::AddressMapping::into_account_id(from);
 
                 let to =
                     param[1].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
