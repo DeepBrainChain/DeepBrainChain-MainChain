@@ -1874,6 +1874,7 @@ dependencies = [
  "dbc-primitives-rpc-evm-tracing-events",
  "dbc-primitives-rpc-txpool",
  "dbc-support",
+ "eth-precompile-whitelist",
  "ethabi",
  "evm-macro",
  "fp-evm",
@@ -2401,6 +2402,18 @@ checksum = "534c5cf6194dfab3db3242765c03bbe257cf92f22b38f6bc0c58d59108a820ba"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "eth-precompile-whitelist"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-std",
 ]
 
 [[package]]

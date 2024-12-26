@@ -42,6 +42,7 @@ members = [
   "pallets/terminating-rental/rpc/runtime-api",
   "pallets/council-reward",
   "pallets/nfts",
+  "pallets/eth-precompile-whitelist",
   "runtime/src/precompiles/macro",
 ]
 
