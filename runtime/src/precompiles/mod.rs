@@ -57,22 +57,32 @@ where
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         let address = handle.code_address();
+        let context = handle.context();
         log::debug!(target: LOG_TARGET, "PrecompileSet execute address: {:?}, context: {:?}", address, handle.context());
 
         if let IsPrecompileResult::Answer { is_precompile: true, extra_cost: _ } =
-            self.is_precompile(address, handle.gas_limit().unwrap_or_default())
+            self.is_precompile(address, handle.remaining_gas())
         {
+            if address > hash(9) && context.address != address {
+                return Some(Err(PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: "cannot be called with DELEGATECALL or CALLCODE".into(),
+                }))
+            }
+
             // check if the context.caller in the precompile whitelist
-            let caller = handle.context().caller;
+            let precompile_whitelist =
+                eth_precompile_whitelist::PrecompileWhitelist::<T>::get(address);
+
             match address {
                 a if a == hash(2048) => {
-                    let precompile_whitelist =
-                        eth_precompile_whitelist::PrecompileWhitelist::<T>::get(address);
-                    if !precompile_whitelist.contains(&caller) {
-                        log::debug!(target: LOG_TARGET, "caller {:?} not in the {:?} whitelist", caller, address);
+                    if !precompile_whitelist.contains(&context.caller) {
+                        log::debug!(target: LOG_TARGET, "caller {:?} not in the {:?} whitelist", context.caller, address);
+
                         return Some(Err(PrecompileFailure::Revert {
                             exit_status: ExitRevert::Reverted,
-                            output: format!("caller {:?} not in the whitelist", caller).into(),
+                            output: format!("caller {:?} not in the whitelist", context.caller)
+                                .into(),
                         }))
                     }
                 },
