@@ -108,6 +108,8 @@ simple-rpc = { package = "simple-rpc", path = "../pallets/simple-rpc", default-f
 terminating-rental = { path = "../pallets/terminating-rental", default-features = false }
 eth-precompile-whitelist = { path = "../pallets/eth-precompile-whitelist", default-features = false }
 
+free-mode = { path = "../pallets/free-mode", default-features = false}
+
 committee-runtime-api = { path = "../pallets/committee/rpc/runtime-api", default-features = false }
 online-committee-runtime-api = { path = "../pallets/online-committee/rpc/runtime-api", default-features = false }
 online-profile-runtime-api = { path = "../pallets/online-profile/rpc/runtime-api", default-features = false }
@@ -251,6 +253,7 @@ std = [
   "dbc-primitives-rpc-txpool/std",
   "dbc-primitives-rpc-evm-tracing-events/std",
   "dbc-evm-tracer/std",
+  "free-mode/std",
 ]
 runtime-benchmarks = [
   "frame-benchmarking/runtime-benchmarks",

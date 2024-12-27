@@ -135,3 +135,14 @@ pub struct DlcBurnDetail<AccountId, Balance, BlockNumber> {
     pub burned_amount: Balance,
     pub at: BlockNumber,
 }
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode,Default, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+pub  struct ReportItem {
+    pub machine_id:MachineId,
+    pub approve:u32,
+    pub reject:u32,
+    pub  id:u32,
+
+}

@@ -1583,6 +1583,14 @@ parameter_types! {
     pub const RetirementPeriod: BlockNumber = ALLIANCE_MOTION_DURATION_IN_BLOCKS + (1 * DAYS);
 }
 
+impl  free_mode::Config for Runtime {
+    type Currency = Balances;
+    type RuntimeEvent = RuntimeEvent;
+    type RTOps = OnlineProfile;
+    type DbcPrice = DBCPriceOCW;
+		
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1647,6 +1655,7 @@ construct_runtime!(
         MaintainCommittee: maintain_committee = 112,
         TerminatingRental: terminating_rental = 113,
         EthPrecompileWhitelist: eth_precompile_whitelist = 114,
+	 FreeMode : free_mode = 115,
     }
 );
 
