@@ -118,9 +118,18 @@ pub mod pallet {
     
 
     #[pallet::storage]
-    #[pallet::getter(fn is_verified_addr)]
-    pub(super) type IsVerifiedAddr<T: Config> =
-    StorageMap<_, Blake2_128Concat, T::AccountId,bool, ValueQuery>;
+    #[pallet::getter(fn is_report_verified)]
+    pub(super) type IsReportVerified<T: Config> =
+    StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        u32,
+        Blake2_128Concat,
+        T::AccountId,
+        bool,
+        ValueQuery,
+    >;
+    // StorageDoubleMap<_, Blake2_128Concat, T::AccountId,bool, ValueQuery>;
     
 
     #[pallet::storage]
@@ -249,7 +258,7 @@ pub mod pallet {
         //     Self::rent_machine_by_block(renter, machine_id, rent_gpu_num, duration)
         // }
 
-             /// 用户租用机器(按天租用)
+             /// 加入自由模式
              #[pallet::call_index(111)]
              #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
              pub fn join_free_mode(
@@ -275,7 +284,7 @@ pub mod pallet {
 
 
 
-            /// 用户租用机器(按天租用)
+            /// 举报机器
             #[pallet::call_index(113)]
             #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
             pub fn report(
@@ -288,10 +297,10 @@ pub mod pallet {
 
 
             }
-
+/// 设置举报验证人
             #[pallet::call_index(114)]
             #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
-            pub fn set_ntary_addr (
+            pub fn set_notary_addr (
                 origin: OriginFor<T>,
                 pot_addr: T::AccountId,
                 value :bool,
@@ -300,7 +309,7 @@ pub mod pallet {
                 Self::update_notary_addr(pot_addr,value)
                 
             }
-    
+    /// 验证人赞成或反对这个举报事件
             #[pallet::call_index(115)]
             #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
             pub fn verify_report_item(
@@ -968,9 +977,9 @@ ensure!(!is_repotted,Error::<T>::IsReported);
         let item =         Self::report_items(id);
         let verified_count = item.approve + item.reject;
         ensure!(verified_count <3,Error::<T>::Verified);
-let is_verified =         Self::is_verified_addr(&renter);
+let is_verified =         Self::is_report_verified(id,&renter);
 ensure!(!is_verified,Error::<T>::Verified);
-IsVerifiedAddr::<T>::insert(&renter,true);
+IsReportVerified::<T>::insert(id,&renter,true);
 
        if is_approve {
             ReportItems::<T>::insert(id,ReportItem{
