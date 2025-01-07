@@ -28,6 +28,7 @@ pub enum Selector {
     GetDLCMachineRentFee = "getDLCMachineRentFee(string,uint256,uint256)",
     GetDBCMachineRentFee = "getDBCMachineRentFee(string,uint256,uint256)",
     GetUSDTMachineRentFee = "getUSDTMachineRentFee(string,uint256,uint256)",
+    GetDLCRentFeeByCalcPoint = "getDLCRentFeeByCalcPoint(uint256,uint256,uint256,uint256)",
 }
 
 impl<T> Precompile for MachineInfo<T>
@@ -446,6 +447,79 @@ where
                         )
                         .into(),
                     })?;
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[ethabi::Token::Uint(rent_fee.into())]),
+                })
+            },
+            Selector::GetDLCRentFeeByCalcPoint => {
+                let param = ethabi::decode(
+                    &[
+                        ethabi::ParamType::Uint(256), // calc_point
+                        ethabi::ParamType::Uint(256), // rent_block_numbers
+                        ethabi::ParamType::Uint(8),   // rent_gpu_count
+                        ethabi::ParamType::Uint(8),   // total_gpu_count
+                    ],
+                    &input.get(4..).unwrap_or_default(),
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
+
+                let calc_point_uint =
+                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+
+                let calc_point: u64 = calc_point_uint.as_u64();
+
+                let rent_duration_uint =
+                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[1] failed".into(),
+                    })?;
+
+                let rent_duration: u64 = rent_duration_uint.as_u64();
+
+                let rent_gpu_count_uint =
+                    param[2].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[2] failed".into(),
+                    })?;
+
+                let rent_gpu_count: u32 = rent_gpu_count_uint.as_u32();
+
+                let total_gpu_count_uint =
+                    param[3].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[3] failed".into(),
+                    })?;
+
+                let total_gpu_count: u32 = total_gpu_count_uint.as_u32();
+
+                let rent_fee =
+                    <rent_machine::Pallet<T> as MachineInfoTrait>::get_dlc_rent_fee_by_calc_point(
+                        calc_point,
+                        rent_duration.saturated_into(),
+                        rent_gpu_count,
+                        total_gpu_count,
+                    )
+                        .map_err(|e| PrecompileFailure::Revert {
+                            exit_status: ExitRevert::Reverted,
+                            output: format!(
+                                " err: {}, calc_point: {}, rent_duration: {}, rent_gpu_count: {},total_gpu_count: {}",
+                                e, calc_point, rent_duration, rent_gpu_count,total_gpu_count
+                            )
+                                .into(),
+                        })?;
 
                 let weight = Weight::default()
                     .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));

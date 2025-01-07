@@ -169,6 +169,13 @@ pub trait MachineInfoTrait {
         rent_gpu_num: u32,
     ) -> Result<u64, &'static str>;
 
+    fn get_dlc_rent_fee_by_calc_point(
+        calc_point: u64,
+        duration: Self::BlockNumber,
+        rent_gpu_num: u32,
+        total_gpu_num: u32,
+    ) -> Result<u64, &'static str>;
+
     fn get_dbc_machine_rent_fee(
         machine_id: MachineId,
         duration: Self::BlockNumber,

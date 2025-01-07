@@ -901,6 +901,26 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         Ok(rent_fee.saturated_into::<u64>())
     }
 
+    fn get_dlc_rent_fee_by_calc_point(
+        calc_point: u64,
+        duration: T::BlockNumber,
+        rent_gpu_num: u32,
+        total_gpu_num: u32,
+    ) -> Result<u64, &'static str> {
+        let machine_price = T::RTOps::get_machine_price(calc_point, rent_gpu_num, total_gpu_num)
+            .ok_or(Error::<T>::GetMachinePriceFailed)?;
+
+        let rent_fee_value = machine_price
+            .checked_mul(duration.saturated_into::<u64>())
+            .ok_or(Error::<T>::Overflow)?
+            .checked_div(ONE_DAY.into())
+            .ok_or(Error::<T>::Overflow)?;
+
+        let rent_fee = <T as Config>::DbcPrice::get_dlc_amount_by_value(rent_fee_value)
+            .ok_or(Error::<T>::Overflow)?;
+        Ok(rent_fee.saturated_into::<u64>())
+    }
+
     fn get_dbc_machine_rent_fee(
         machine_id: MachineId,
         duration: T::BlockNumber,
