@@ -474,7 +474,7 @@ where
                 })?;
 
                 let calc_point_uint =
-                    param[1].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
+                    param[0].clone().into_uint().ok_or_else(|| PrecompileFailure::Revert {
                         exit_status: ExitRevert::Reverted,
                         output: "decode param[0] failed".into(),
                     })?;
