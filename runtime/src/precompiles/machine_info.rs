@@ -275,7 +275,7 @@ where
                     &[
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Uint(256), // rent_block_numbers
-                        ethabi::ParamType::Uint(256),   // rent_gpu_count
+                        ethabi::ParamType::Uint(256), // rent_gpu_count
                     ],
                     &input.get(4..).unwrap_or_default(),
                 )
@@ -338,7 +338,7 @@ where
                     &[
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Uint(256), // rent_block_numbers
-                        ethabi::ParamType::Uint(256),   // rent_gpu_count
+                        ethabi::ParamType::Uint(256), // rent_gpu_count
                     ],
                     &input.get(4..).unwrap_or_default(),
                 )
@@ -401,7 +401,7 @@ where
                     &[
                         ethabi::ParamType::String,    // machine_id
                         ethabi::ParamType::Uint(256), // rent_block_numbers
-                        ethabi::ParamType::Uint(256),   // rent_gpu_count
+                        ethabi::ParamType::Uint(256), // rent_gpu_count
                     ],
                     &input.get(4..).unwrap_or_default(),
                 )
@@ -463,8 +463,8 @@ where
                     &[
                         ethabi::ParamType::Uint(256), // calc_point
                         ethabi::ParamType::Uint(256), // rent_block_numbers
-                        ethabi::ParamType::Uint(256),   // rent_gpu_count
-                        ethabi::ParamType::Uint(256),   // total_gpu_count
+                        ethabi::ParamType::Uint(256), // rent_gpu_count
+                        ethabi::ParamType::Uint(256), // total_gpu_count
                     ],
                     &input.get(4..).unwrap_or_default(),
                 )
