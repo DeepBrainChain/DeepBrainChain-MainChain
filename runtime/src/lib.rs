@@ -66,7 +66,7 @@ use pallet_election_provider_multi_phase::SolutionAccuracyOf;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{
     Account as EVMAccount, AddressMapping, EVMCurrencyAdapter, EnsureAddressNever,
-    EnsureAddressRoot, FeeCalculator, GasWeightMapping, HashedAddressMapping,
+    EnsureAddressRoot, EvmConfig, FeeCalculator, GasWeightMapping, HashedAddressMapping,
     OnChargeEVMTransaction as OnChargeEVMTransactionT, Runner,
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
@@ -1510,6 +1510,9 @@ where
     }
 }
 
+static DBC_EVM_CONFIG: EvmConfig =
+    EvmConfig { create_contract_limit: Some(0x12000), ..EvmConfig::shanghai() };
+
 impl pallet_evm::Config for Runtime {
     type FeeCalculator = BaseFee;
     type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
@@ -1531,6 +1534,10 @@ impl pallet_evm::Config for Runtime {
     type GasLimitPovSizeRatio = GasLimitPovSizeRatio;
     type Timestamp = Timestamp;
     type WeightInfo = pallet_evm::weights::SubstrateWeight<Self>;
+
+    fn config() -> &'static EvmConfig {
+        &DBC_EVM_CONFIG
+    }
 }
 
 parameter_types! {
