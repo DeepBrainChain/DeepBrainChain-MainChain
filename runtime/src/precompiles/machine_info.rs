@@ -29,6 +29,7 @@ pub enum Selector {
     GetDBCMachineRentFee = "getDBCMachineRentFee(string,uint256,uint256)",
     GetUSDTMachineRentFee = "getUSDTMachineRentFee(string,uint256,uint256)",
     GetDLCRentFeeByCalcPoint = "getDLCRentFeeByCalcPoint(uint256,uint256,uint256,uint256)",
+    GetMachineGPUTypeAndMem = "getMachineGPUTypeAndMem(string)",
 }
 
 impl<T> Precompile for MachineInfo<T>
@@ -91,6 +92,43 @@ where
                 Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
                     output: ethabi::encode(&[ethabi::Token::Uint(calc_point)]),
+                })
+            },
+
+            Selector::GetMachineGPUTypeAndMem => {
+                let param = ethabi::decode(
+                    &[ethabi::ParamType::String],
+                    &input.get(4..).unwrap_or_default(),
+                )
+                .map_err(|e| PrecompileFailure::Revert {
+                    exit_status: ExitRevert::Reverted,
+                    output: format!("decode param failed: {:?}", e).into(),
+                })?;
+
+                let machine_id_str =
+                    param[0].clone().into_string().ok_or_else(|| PrecompileFailure::Revert {
+                        exit_status: ExitRevert::Reverted,
+                        output: "decode param[0] failed".into(),
+                    })?;
+
+                let machine_id = machine_id_str.as_bytes().to_vec();
+                let (gpu_type, gpu_mem) =
+                    <rent_machine::Pallet<T> as MachineInfoTrait>::get_machine_gpu_type_and_mem(
+                        machine_id.clone(),
+                    )
+                    .into();
+
+                let weight = Weight::default()
+                    .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1));
+
+                handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: ethabi::encode(&[
+                        ethabi::Token::Bytes(gpu_type),
+                        ethabi::Token::Uint(gpu_mem.into()),
+                    ]),
                 })
             },
 

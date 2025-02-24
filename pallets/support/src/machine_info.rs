@@ -264,4 +264,10 @@ where
     pub fn cpu_rate(&self) -> u64 {
         self.machine_info_detail.committee_upload_info.cpu_rate
     }
+    pub fn gpu_type_and_mem(&self) -> (Vec<u8>, u64) {
+        (
+            self.machine_info_detail.committee_upload_info.gpu_type.clone(),
+            self.machine_info_detail.committee_upload_info.mem_num,
+        )
+    }
 }
