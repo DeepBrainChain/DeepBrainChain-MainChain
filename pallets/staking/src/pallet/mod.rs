@@ -792,6 +792,11 @@ pub mod pallet {
         Phase2RewardPerYear {
             reward_per_year: BalanceOf<T>,
         },
+        UpdateUnlock {
+            stash: T::AccountId,
+            unlocking_index: u32,
+            unlocking_era: EraIndex,
+        },
     }
 
     #[pallet::error]
@@ -1960,6 +1965,42 @@ pub mod pallet {
             ensure_root(origin)?;
             <TreasuryReward<T>>::put(treasury_reward);
             Ok(())
+        }
+
+        #[pallet::call_index(35)]
+        #[pallet::weight(Weight::from_parts(10000, 0))]
+        pub fn set_unlock_after_eras(
+            origin: OriginFor<T>,
+            account: T::AccountId,
+            unlocking_index: u32,
+            after_eras: EraIndex,
+        ) -> DispatchResultWithPostInfo {
+            let _ = ensure_root(origin)?;
+
+            let unlocking = Self::ledger(&account)
+                .map(|l| l.unlocking.len())
+                .ok_or(crate::pallet::pallet::Error::<T>::NotController)?;
+            if unlocking_index >= unlocking as u32 {
+                return Ok(().into())
+            }
+
+            let mut ledger = Self::ledger(&account).ok_or(Error::<T>::NotController)?;
+
+            let new_unlocking_era = Self::current_era().unwrap_or(0) + after_eras;
+            ledger.unlocking[unlocking_index as usize].era = new_unlocking_era;
+            Self::update_ledger(&account, &ledger);
+
+            if T::VoterList::contains(&ledger.stash) {
+                let _ = T::VoterList::on_update(&ledger.stash, Self::weight_of(&ledger.stash))
+                    .defensive();
+            }
+
+            Self::deposit_event(Event::<T>::UpdateUnlock {
+                stash: ledger.stash,
+                unlocking_index,
+                unlocking_era: new_unlocking_era,
+            });
+            Ok(().into())
         }
     }
 }
