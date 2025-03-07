@@ -1,0 +1,32 @@
+name: Publish Runtime
+
+# The code (like generate-release-body) will be taken from the tag versions, not master
+on:
+  workflow_dispatch:
+    inputs:
+      vsersion:
+        description: runtime version (ex. 400)
+        required: true
+
+jobs:
+  build-runtimes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build runtime
+        id: build
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          COMMIT=`git rev-list -n 1 master`
+          COMMIT_SHA8=sha-${COMMIT::8}
+          make build-runtime
+          cp target/release/wbuild/dbc-runtime/dbc_runtime.compact.compressed.wasm dbc-runtime-$VERSION-$COMMIT_SHA8.wasm
+          make build-evm-tracing-runtime
+          cp target/release/wbuild/dbc-runtime/dbc_runtime.compact.compressed.wasm dbc-runtime-tracing-$VERSION-$COMMIT_SHA8.wasm
+      - name: Archive Artifacts for runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbc-runtime
+          path: |
+            dbc-runtime-$VERSION-$COMMIT_SHA8.wasm
+            dbc-runtime-tracing-$VERSION-$COMMIT_SHA8.wasm
