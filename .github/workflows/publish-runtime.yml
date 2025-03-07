@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set commit SHA
-        run: echo "COMMIT_SHA8=sha-${GITHUB_SHA:0:8}" >> $GITHUB_ENV
+        run: echo "COMMIT_SHA8=${GITHUB_SHA:0:8}" >> $GITHUB_ENV
 
       - name: Add wasm toolchain
         uses: actions-rs/toolchain@v1
