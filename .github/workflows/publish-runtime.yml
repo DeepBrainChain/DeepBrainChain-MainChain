@@ -12,7 +12,32 @@ jobs:
   build-runtimes:
     runs-on: ubuntu-latest
     steps:
+      - name: Add wasm toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: wasm32-unknown-unknown
+
       - uses: actions/checkout@v4
+
+      # https://github.com/jlumbroso/free-disk-space
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          large-packages: false
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+           toolchain: nightly-2023-09-20
+           components: rustfmt
       - name: Build runtime
         id: build
         run: |
