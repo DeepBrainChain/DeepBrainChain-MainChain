@@ -1874,6 +1874,7 @@ dependencies = [
  "dbc-primitives-rpc-evm-tracing-events",
  "dbc-primitives-rpc-txpool",
  "dbc-support",
+ "dlc-price-ocw",
  "eth-precompile-whitelist",
  "ethabi",
  "evm-macro",
@@ -2144,6 +2145,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.79",
+]
+
+[[package]]
+name = "dlc-price-ocw"
+version = "4.0.0-dev"
+dependencies = [
+ "dbc-support",
+ "frame-support",
+ "frame-system",
+ "generic-func",
+ "lite-json",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

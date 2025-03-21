@@ -122,6 +122,13 @@ pub trait DbcPrice {
     fn get_dlc_amount_by_value(value: u64) -> Option<Self::Balance>;
 }
 
+pub trait DlcPrice {
+    type Balance;
+
+    fn get_dlc_price() -> Option<Self::Balance>;
+    fn get_dlc_amount_by_value(value: u64) -> Option<Self::Balance>;
+}
+
 pub trait ProjectRegister {
     // type BlockNumber;
     fn is_registered(machine_id: MachineId, project_name: Vec<u8>) -> bool;

@@ -18,7 +18,10 @@ use bridge::Bridge;
 mod dbc_price;
 use dbc_price::DBCPrice;
 
+mod dlc_price;
 mod machine_info;
+use dlc_price::DLCPrice;
+
 use machine_info::MachineInfo;
 const LOG_TARGET: &str = "evm";
 
@@ -54,6 +57,7 @@ where
     Bridge<T>: Precompile,
     DBCPrice<T>: Precompile,
     MachineInfo<T>: Precompile,
+    DLCPrice<T>: Precompile,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         let address = handle.code_address();
@@ -110,6 +114,7 @@ where
             a if a == hash(2048) => Some(Bridge::<T>::execute(handle)),
             a if a == hash(2049) => Some(DBCPrice::<T>::execute(handle)),
             a if a == hash(2051) => Some(MachineInfo::<T>::execute(handle)),
+            a if a == hash(2050) => Some(DLCPrice::<T>::execute(handle)),
 
             _ => None,
         }
