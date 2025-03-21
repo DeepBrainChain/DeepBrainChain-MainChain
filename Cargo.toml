@@ -20,6 +20,7 @@ members = [
 
   "pallets/generic-func",
   "pallets/dbc-price-ocw",
+  "pallets/dlc-price-ocw",
   "pallets/online-profile",
   "pallets/online-profile/rpc",
   "pallets/online-profile/rpc/runtime-api",
@@ -44,6 +45,7 @@ members = [
   "pallets/nfts",
   "pallets/eth-precompile-whitelist",
   "runtime/src/precompiles/macro",
+
 ]
 
 [workspace.dependencies]

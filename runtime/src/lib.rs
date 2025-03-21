@@ -1377,6 +1377,12 @@ impl dbc_price_ocw::Config for Runtime {
     type RandomnessSource = RandomnessCollectiveFlip;
 }
 
+impl dlc_price_ocw::Config for Runtime {
+    type Currency = Balances;
+    type RuntimeEvent = RuntimeEvent;
+    type RandomnessSource = RandomnessCollectiveFlip;
+}
+
 impl online_profile::Config for Runtime {
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
@@ -1654,6 +1660,8 @@ construct_runtime!(
         MaintainCommittee: maintain_committee = 112,
         TerminatingRental: terminating_rental = 113,
         EthPrecompileWhitelist: eth_precompile_whitelist = 114,
+        DLCPriceOCW: dlc_price_ocw = 115,
+
     }
 );
 

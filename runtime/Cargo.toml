@@ -98,6 +98,8 @@ pallet-nfts = { path = "../pallets/nfts", default-features = false }
 committee = { path = "../pallets/committee", default-features = false }
 council-reward = { path = "../pallets/council-reward", default-features = false }
 dbc-price-ocw = { path = "../pallets/dbc-price-ocw", default-features = false }
+dlc-price-ocw = { path = "../pallets/dlc-price-ocw", default-features = false }
+
 dbc-support = { path = "../pallets/support", default-features = false }
 generic-func = { path = "../pallets/generic-func", default-features = false }
 maintain-committee = { path = "../pallets/maintain-committee", default-features = false }
@@ -216,6 +218,7 @@ std = [
   "committee/std",
   "council-reward/std",
   "dbc-price-ocw/std",
+  "dlc-price-ocw/std",
   "dbc-support/std",
   "generic-func/std",
   "maintain-committee/std",
@@ -336,6 +339,7 @@ try-runtime = [
   "committee/try-runtime",
   "council-reward/try-runtime",
   "dbc-price-ocw/try-runtime",
+  "dlc-price-ocw/try-runtime",
   "maintain-committee/try-runtime",
   "online-committee/try-runtime",
   "online-profile/try-runtime",
