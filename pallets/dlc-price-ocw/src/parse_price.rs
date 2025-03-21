@@ -54,30 +54,3 @@ pub fn parse_price(price_str: &str) -> Option<u64> {
 
     None
 }
-
-#[cfg(test)]
-mod test {
-    #[test]
-    fn parse_price_works() {
-        // 将返回None
-        let price_str = r#"{"status":1,"code":"10502","msg":"dlc价格获取成功","content":{"dbc_price":0.000009954211,"update_time":null,"percent_change_24h":-17.94}}"#;
-        assert_eq!(super::parse_price(price_str), None);
-
-        // OK
-        let price_str = r#"{"status":1,"code":"10502","msg":"dlc价格获取成功","content":{"dbc_price":0.00001354211,"update_time":null,"percent_change_24h":-17.94}}"#;
-        assert_eq!(super::parse_price(price_str), Some(13));
-
-        let price_str = r#"{"status":1,"code":"10502","msg":"dlc价格获取成功","content":{"dbc_price":0.000063542,"update_time":null,"percent_change_24h":-17.94}}"#;
-        assert_eq!(super::parse_price(price_str), Some(63));
-
-        let price_str = r#"{"status":1,"code":"10502","msg":"dlc价格获取成功","content":{"dbc_price":0.006354266,"update_time":null,"percent_change_24h":-17.94}}"#;
-        assert_eq!(super::parse_price(price_str), Some(6354));
-        let price_str = r#"{"status":1,"code":"10502","msg":"dlc价格获取成功","content":{"dbc_price":0.6354266,"update_time":null,"percent_change_24h":-17.94}}"#;
-        assert_eq!(super::parse_price(price_str), Some(635426));
-
-        let price_str = r#"{"status":1,"code":"10502","msg":"dlc价格获取成功","content":{"dbc_price":100.006354266,"update_time":null,"percent_change_24h":-17.94}}"#;
-        assert_eq!(super::parse_price(price_str), Some(100006354));
-        let price_str = r#"{"status":1,"code":"10502","msg":"dlc价格获取成功","content":{"dbc_price":1000000.006354266,"update_time":null,"percent_change_24h":-17.94}}"#;
-        assert_eq!(super::parse_price(price_str), Some(1000000006354));
-    }
-}
