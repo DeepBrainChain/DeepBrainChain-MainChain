@@ -341,6 +341,11 @@ pub mod pallet {
     pub(super) type Machine2PendingSlashIds<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, Vec<SlashId>, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn authorized_force_exit_accounts)]
+    pub(super) type AuthorizedForceExitAccounts<T: Config> =
+        StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
@@ -1212,6 +1217,37 @@ pub mod pallet {
             Self::deposit_event(Event::MachineInfoUpdated(machine_id));
             Ok(().into())
         }
+
+        #[pallet::call_index(20)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn force_machine_exit(
+            origin: OriginFor<T>,
+            machine_ids: Vec<MachineId>,
+        ) -> DispatchResultWithPostInfo {
+            let signer = ensure_signed(origin)?;
+
+            // check authorization
+            let authorized_accounts = Self::authorized_force_exit_accounts();
+            ensure!(authorized_accounts.contains(&signer), Error::<T>::NotAuthorized);
+
+            for machine_id in machine_ids {
+                let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+                Self::do_machine_exit(machine_id, machine_info)?;
+            }
+
+            Ok(().into())
+        }
+
+        #[pallet::call_index(21)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn update_authorized_force_exit_accounts(
+            origin: OriginFor<T>,
+            accounts: Vec<T::AccountId>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            AuthorizedForceExitAccounts::<T>::put(accounts);
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1280,6 +1316,8 @@ pub mod pallet {
         ExpiredSlash,
         Unknown,
         ClaimThenFulfillFailed,
+        /// 账户未被授权执行此操作
+        NotAuthorized,
     }
 }
 
