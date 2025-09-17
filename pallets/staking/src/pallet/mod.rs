@@ -627,6 +627,11 @@ pub mod pallet {
     pub type TreasuryReward<T: Config> =
         StorageValue<_, crate::TreasuryIssueRewards<T::AccountId, BalanceOf<T>>>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn disabled_validators)]
+    pub type DisabledValidators<T: Config> =
+        StorageValue<_, BoundedVec<T::AccountId, ConstU32<100>>, ValueQuery>;
+
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
@@ -796,6 +801,12 @@ pub mod pallet {
             stash: T::AccountId,
             unlocking_index: u32,
             unlocking_era: EraIndex,
+        },
+        DisabledValidator {
+            validator: T::AccountId,
+        },
+        EnabledValidator {
+            validator: T::AccountId,
         },
     }
 
@@ -2001,6 +2012,35 @@ pub mod pallet {
                 unlocking_era: new_unlocking_era,
             });
             Ok(().into())
+        }
+
+        #[pallet::call_index(36)]
+        #[pallet::weight(Weight::from_parts(10000, 0))]
+        pub fn disable_validator(origin: OriginFor<T>, validator: T::AccountId) -> DispatchResult {
+            ensure_root(origin)?;
+
+            DisabledValidators::<T>::try_mutate(|list| -> DispatchResult {
+                if !list.contains(&validator) {
+                    list.try_push(validator.clone()).map_err(|_| Error::<T>::TooManyValidators)?;
+
+                    Self::deposit_event(Event::<T>::DisabledValidator { validator });
+                }
+                Ok(())
+            })
+        }
+
+        #[pallet::call_index(37)]
+        #[pallet::weight(Weight::from_parts(10000, 0))]
+        pub fn enable_validator(origin: OriginFor<T>, validator: T::AccountId) -> DispatchResult {
+            ensure_root(origin)?;
+
+            DisabledValidators::<T>::mutate(|list| {
+                list.retain(|id| id != &validator);
+            });
+
+            Self::deposit_event(Event::<T>::EnabledValidator { validator });
+
+            Ok(())
         }
     }
 }
