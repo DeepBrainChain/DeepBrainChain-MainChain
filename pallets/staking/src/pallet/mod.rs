@@ -867,6 +867,7 @@ pub mod pallet {
         /// Some bound is not met.
         BoundNotMet,
         Unknown,
+        NotDisabledValidator,
     }
 
     #[pallet::hooks]
@@ -2019,6 +2020,8 @@ pub mod pallet {
         pub fn disable_validator(origin: OriginFor<T>, validator: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
 
+            ensure!(Validators::<T>::contains_key(&validator), Error::<T>::NotStash);
+
             DisabledValidators::<T>::try_mutate(|list| -> DispatchResult {
                 if !list.contains(&validator) {
                     list.try_push(validator.clone()).map_err(|_| Error::<T>::TooManyValidators)?;
@@ -2034,13 +2037,13 @@ pub mod pallet {
         pub fn enable_validator(origin: OriginFor<T>, validator: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
 
-            DisabledValidators::<T>::mutate(|list| {
+            DisabledValidators::<T>::try_mutate(|list| -> DispatchResult {
+                ensure!(list.contains(&validator), Error::<T>::NotDisabledValidator);
                 list.retain(|id| id != &validator);
-            });
 
-            Self::deposit_event(Event::<T>::EnabledValidator { validator });
-
-            Ok(())
+                Self::deposit_event(Event::<T>::EnabledValidator { validator });
+                Ok(())
+            })
         }
     }
 }
