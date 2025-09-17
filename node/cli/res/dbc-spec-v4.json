@@ -5,8 +5,7 @@
     "bootNodes": [
         "/ip4/8.214.55.62/tcp/30333/p2p/12D3KooWNKYhbrZuhqxRN6Gb58GXgpVKbfj23wwCZYPBYGgX4XdG",
 	"/ip4/8.214.76.106/tcp/30333/p2p/12D3KooWEqBoakhBZUTsFVL7yy6mUFjup2sVpFaDNiA9ieWcmqPf",
-	"/ip4/149.7.4.15/tcp/30333/p2p/12D3KooWN9cAnx2UD9hwkYAqLr184S2ZD2EJR15diq4MgkMNzX4C",
-	"/ip4/122.99.183.50/tcp/30333/p2p/12D3KooWSr4pfTheuT3Mai8M5fdWp9cLfu7vzGVKR8WwXdHeLsNP"
+	"/ip4/149.7.4.15/tcp/30333/p2p/12D3KooWN9cAnx2UD9hwkYAqLr184S2ZD2EJR15diq4MgkMNzX4C"
     ],
     "telemetryEndpoints": [
         [
