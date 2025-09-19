@@ -1301,7 +1301,6 @@ impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, 
     fn new_session(
         new_index: SessionIndex,
     ) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
-        let disabled = DisabledValidators::<T>::get();
         <Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
             let current_era = Self::current_era()
                 // Must be some as a new era has been created.
@@ -1309,7 +1308,6 @@ impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, 
 
             validators
                 .into_iter()
-                .filter(|v| !disabled.contains(v))
                 .map(|v| {
                     let exposure = Self::eras_stakers(current_era, &v);
                     (v, exposure)

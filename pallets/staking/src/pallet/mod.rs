@@ -867,6 +867,7 @@ pub mod pallet {
         /// Some bound is not met.
         BoundNotMet,
         Unknown,
+        DisabledValidator,
         NotDisabledValidator,
     }
 
@@ -1195,6 +1196,9 @@ pub mod pallet {
 
             // ensure their commission is correct.
             ensure!(prefs.commission >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
+
+            let disabled = DisabledValidators::<T>::get();
+            ensure!(!disabled.contains(stash), Error::<T>::DisabledValidator);
 
             // Only check limits if they are not already a validator.
             if !Validators::<T>::contains_key(stash) {
