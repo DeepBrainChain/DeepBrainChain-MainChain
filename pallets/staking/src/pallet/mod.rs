@@ -2024,8 +2024,6 @@ pub mod pallet {
         pub fn disable_validator(origin: OriginFor<T>, validator: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
 
-            ensure!(Validators::<T>::contains_key(&validator), Error::<T>::NotStash);
-
             DisabledValidators::<T>::try_mutate(|list| -> DispatchResult {
                 if !list.contains(&validator) {
                     list.try_push(validator.clone()).map_err(|_| Error::<T>::TooManyValidators)?;
