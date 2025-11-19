@@ -980,7 +980,7 @@ dependencies = [
 
 [[package]]
 name = "committee"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "frame-benchmarking",
@@ -1000,7 +1000,7 @@ dependencies = [
 
 [[package]]
 name = "committee-rpc"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "committee",
  "committee-runtime-api",
@@ -1013,7 +1013,7 @@ dependencies = [
 
 [[package]]
 name = "committee-runtime-api"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "committee",
  "parity-scale-codec",
@@ -1081,7 +1081,7 @@ dependencies = [
 
 [[package]]
 name = "council-reward"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-price-ocw",
  "dbc-support",
@@ -1471,7 +1471,7 @@ dependencies = [
 
 [[package]]
 name = "dbc"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-cli",
  "sc-cli",
@@ -1479,7 +1479,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-cli"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "array-bytes",
  "clap",
@@ -1572,7 +1572,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-client-evm-tracing"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-primitives-rpc-debug",
  "dbc-primitives-rpc-evm-tracing-events",
@@ -1586,7 +1586,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-client-rpc-core-debug"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-client-evm-tracing",
  "dbc-client-rpc-core-types",
@@ -1600,7 +1600,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-client-rpc-core-trace"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-client-evm-tracing",
  "dbc-client-rpc-core-types",
@@ -1613,7 +1613,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-client-rpc-core-txpool"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -1625,7 +1625,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-client-rpc-core-types"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "ethereum-types",
  "serde",
@@ -1634,7 +1634,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-client-rpc-debug"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-client-evm-tracing",
  "dbc-client-rpc-core-debug",
@@ -1663,7 +1663,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-client-rpc-trace"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-client-evm-tracing",
  "dbc-client-rpc-core-trace",
@@ -1698,7 +1698,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-client-rpc-txpool"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-client-rpc-core-txpool",
  "dbc-primitives-rpc-txpool",
@@ -1720,7 +1720,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-evm-tracer"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-primitives-ext",
  "dbc-primitives-rpc-evm-tracing-events",
@@ -1739,7 +1739,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-node-common"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "clap",
  "dbc-client-rpc-debug",
@@ -1775,7 +1775,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-price-ocw"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "frame-support",
@@ -1794,7 +1794,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-primitives"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "frame-system",
  "parity-scale-codec",
@@ -1805,7 +1805,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-primitives-ext"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-primitives-rpc-evm-tracing-events",
  "ethereum-types",
@@ -1817,7 +1817,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-primitives-rpc-debug"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "environmental",
  "ethereum",
@@ -1834,7 +1834,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-primitives-rpc-evm-tracing-events"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "environmental",
  "ethereum",
@@ -1848,7 +1848,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-primitives-rpc-txpool"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -1861,7 +1861,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-runtime"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "array-bytes",
  "committee",
@@ -1940,8 +1940,8 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
- "pallet-staking 4.0.0-dev",
- "pallet-staking-reward-curve 4.0.0-dev",
+ "pallet-staking 4.0.1-dev",
+ "pallet-staking-reward-curve 4.0.1-dev",
  "pallet-staking-runtime-api",
  "pallet-sudo",
  "pallet-timestamp",
@@ -1979,7 +1979,7 @@ dependencies = [
 
 [[package]]
 name = "dbc-support"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "bs58",
  "frame-support",
@@ -2149,7 +2149,7 @@ dependencies = [
 
 [[package]]
 name = "dlc-price-ocw"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "frame-support",
@@ -2426,7 +2426,7 @@ dependencies = [
 
 [[package]]
 name = "eth-precompile-whitelist"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -2570,7 +2570,7 @@ dependencies = [
 
 [[package]]
 name = "evm-macro"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3522,7 +3522,7 @@ dependencies = [
 
 [[package]]
 name = "generic-func"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "frame-support",
@@ -5092,7 +5092,7 @@ dependencies = [
 
 [[package]]
 name = "maintain-committee"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "committee",
  "dbc-price-ocw",
@@ -5713,7 +5713,7 @@ checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 
 [[package]]
 name = "online-committee"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "committee",
  "dbc-price-ocw",
@@ -5741,7 +5741,7 @@ dependencies = [
 
 [[package]]
 name = "online-committee-rpc"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "jsonrpsee",
@@ -5755,7 +5755,7 @@ dependencies = [
 
 [[package]]
 name = "online-committee-runtime-api"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "online-committee",
@@ -5766,7 +5766,7 @@ dependencies = [
 
 [[package]]
 name = "online-profile"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "frame-support",
@@ -5783,7 +5783,7 @@ dependencies = [
 
 [[package]]
 name = "online-profile-rpc"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "jsonrpsee",
@@ -5797,7 +5797,7 @@ dependencies = [
 
 [[package]]
 name = "online-profile-runtime-api"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "online-profile",
@@ -5883,7 +5883,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6349,7 +6349,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nfts"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -6393,7 +6393,7 @@ dependencies = [
  "frame-system",
  "pallet-bags-list",
  "pallet-nomination-pools",
- "pallet-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.43)",
+ "pallet-staking 4.0.0-dev",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -6446,7 +6446,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-offences",
  "pallet-session",
- "pallet-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.43)",
+ "pallet-staking 4.0.0-dev",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -6548,41 +6548,11 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-session",
- "pallet-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.43)",
+ "pallet-staking 4.0.0-dev",
  "rand 0.8.5",
  "sp-runtime",
  "sp-session",
  "sp-std",
-]
-
-[[package]]
-name = "pallet-staking"
-version = "4.0.0-dev"
-dependencies = [
- "dbc-support",
- "frame-benchmarking",
- "frame-election-provider-support",
- "frame-support",
- "frame-system",
- "log",
- "pallet-authorship",
- "pallet-bags-list",
- "pallet-balances",
- "pallet-session",
- "pallet-staking-reward-curve 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.43)",
- "pallet-timestamp",
- "parity-scale-codec",
- "rand_chacha 0.3.1",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-npos-elections",
- "sp-runtime",
- "sp-staking",
- "sp-std",
- "sp-tracing",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -6609,14 +6579,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-reward-curve"
-version = "4.0.0-dev"
+name = "pallet-staking"
+version = "4.0.1-dev"
 dependencies = [
- "proc-macro-crate 1.1.3",
- "proc-macro2",
- "quote",
+ "dbc-support",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-authorship",
+ "pallet-bags-list",
+ "pallet-balances",
+ "pallet-session",
+ "pallet-staking-reward-curve 4.0.0-dev",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rand_chacha 0.3.1",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
  "sp-runtime",
- "syn 1.0.109",
+ "sp-staking",
+ "sp-std",
+ "sp-tracing",
+ "substrate-test-utils",
 ]
 
 [[package]]
@@ -6631,8 +6620,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-reward-curve"
+version = "4.0.1-dev"
+dependencies = [
+ "proc-macro-crate 1.1.3",
+ "proc-macro2",
+ "quote",
+ "sp-runtime",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "pallet-staking-runtime-api"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -7685,7 +7685,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "rent-machine"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "committee",
  "dbc-price-ocw",
@@ -7713,7 +7713,7 @@ dependencies = [
 
 [[package]]
 name = "rent-machine-rpc"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "jsonrpsee",
@@ -7726,7 +7726,7 @@ dependencies = [
 
 [[package]]
 name = "rent-machine-runtime-api"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "parity-scale-codec",
@@ -9535,7 +9535,7 @@ dependencies = [
 
 [[package]]
 name = "simple-rpc"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "frame-support",
@@ -9550,7 +9550,7 @@ dependencies = [
 
 [[package]]
 name = "simple-rpc-rpc"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "jsonrpsee",
@@ -9564,7 +9564,7 @@ dependencies = [
 
 [[package]]
 name = "simple-rpc-runtime-api"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "parity-scale-codec",
  "simple-rpc",
@@ -10805,7 +10805,7 @@ dependencies = [
 
 [[package]]
 name = "terminating-rental"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "committee",
  "dbc-price-ocw",
@@ -10829,7 +10829,7 @@ dependencies = [
 
 [[package]]
 name = "terminating-rental-rpc"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "jsonrpsee",
@@ -10843,7 +10843,7 @@ dependencies = [
 
 [[package]]
 name = "terminating-rental-runtime-api"
-version = "4.0.0-dev"
+version = "4.0.1-dev"
 dependencies = [
  "dbc-support",
  "parity-scale-codec",
