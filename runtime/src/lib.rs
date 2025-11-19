@@ -69,7 +69,7 @@ use pallet_evm::{
     EnsureAddressRoot, EvmConfig, FeeCalculator, GasWeightMapping, HashedAddressMapping,
     OnChargeEVMTransaction as OnChargeEVMTransactionT, Runner,
 };
-use pallet_grandpa::{AuthorityId as GrandpaId};
+use pallet_grandpa::AuthorityId as GrandpaId;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_session::historical::{self as pallet_session_historical};
