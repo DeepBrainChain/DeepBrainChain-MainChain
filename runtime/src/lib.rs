@@ -69,7 +69,7 @@ use pallet_evm::{
     EnsureAddressRoot, EvmConfig, FeeCalculator, GasWeightMapping, HashedAddressMapping,
     OnChargeEVMTransaction as OnChargeEVMTransactionT, Runner,
 };
-use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
+use pallet_grandpa::{AuthorityId as GrandpaId};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_session::historical::{self as pallet_session_historical};
@@ -1909,23 +1909,27 @@ impl_runtime_apis! {
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
-            _equivocation_proof: sp_consensus_grandpa::EquivocationProof<
+            equivocation_proof: sp_consensus_grandpa::EquivocationProof<
                 <Block as BlockT>::Hash,
                 NumberFor<Block>,
             >,
-            _key_owner_proof: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
+            key_owner_proof: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
         ) -> Option<()> {
-            None
+            let key_owner_proof = key_owner_proof.decode()?;
+
+            Grandpa::submit_unsigned_equivocation_report(
+                equivocation_proof,
+                key_owner_proof,
+            )
         }
 
         fn generate_key_ownership_proof(
             _set_id: sp_consensus_grandpa::SetId,
-            _authority_id: GrandpaId,
-        ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
-            // NOTE: this is the only implementation possible since we've
-            // defined our key owner proof type as a bottom type (i.e. a type
-            // with no values).
-            None
+            authority_id: GrandpaId,
+        ) -> Option<sp_consensus_grandpa::OpaqueKeyOwnershipProof> {
+            Historical::prove((sp_consensus_grandpa::KEY_TYPE, authority_id))
+                .map(|p| p.encode())
+                .map(sp_consensus_grandpa::OpaqueKeyOwnershipProof::new)
         }
     }
 
