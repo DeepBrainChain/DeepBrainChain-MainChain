@@ -109,6 +109,13 @@ pub mod pallet {
         Perbill::from_percent(5)
     }
 
+    /// 卡主自定义额外加价（USD×10^6 per day per GPU），在系统自动定价基础上叠加
+    /// 两个租赁 pallet (rent-machine, terminating-rental) 共享此 Storage
+    #[pallet::storage]
+    #[pallet::getter(fn machine_extra_price)]
+    pub type MachineExtraPrice<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>;
+
     /// Statistics of gpu and stake
     #[pallet::storage]
     #[pallet::getter(fn sys_info)]
@@ -1254,6 +1261,28 @@ pub mod pallet {
             AuthorizedForceExitAccounts::<T>::put(accounts);
             Ok(().into())
         }
+
+        /// 卡主设置机器额外加价（在系统自动定价基础上叠加）
+        /// 单位：USD×10^6 per day per GPU，与 get_machine_price 返回值单位一致
+        /// 设置为 0 表示不额外加价
+        #[pallet::call_index(22)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn set_machine_extra_price(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            extra_price: u64,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            // 只有卡主(stash)或控制者(controller)可以设置
+            ensure!(
+                machine_info.machine_stash == who || machine_info.controller == who,
+                Error::<T>::NotMachineController
+            );
+            MachineExtraPrice::<T>::insert(&machine_id, extra_price);
+            Self::deposit_event(Event::MachineExtraPriceSet(machine_id, extra_price));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1278,6 +1307,8 @@ pub mod pallet {
         SlashCanceled(u64, T::AccountId, BalanceOf<T>),
         // machine_id, old_stake, new_stake
         MachineRestaked(MachineId, BalanceOf<T>, BalanceOf<T>),
+        // machine_id, extra_price (USD×10^6 per day per GPU)
+        MachineExtraPriceSet(MachineId, u64),
         MachineExit(MachineId),
         // Slash_who, reward_who, reward_amount
         SlashAndReward(T::AccountId, T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),

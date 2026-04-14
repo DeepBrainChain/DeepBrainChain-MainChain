@@ -668,11 +668,14 @@ pub mod pallet {
             // NOTE: 用户提交订单，需要扣除10个DBC
             Self::pay_fixed_tx_fee(renter.clone())?;
 
-            // 获得machine_price(每天的价格)
+            // 获得machine_price(每天的价格) = 系统自动定价 + 卡主额外加价
             // 根据租用GPU数量计算价格
-            let machine_price =
+            let system_price =
                 Self::get_machine_price(machine_info.calc_point(), rent_gpu_num, gpu_num)
                     .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let extra_price = <online_profile::Pallet<T>>::machine_extra_price(&machine_id)
+                .checked_mul(rent_gpu_num as u64).unwrap_or(0);
+            let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
 
             // 根据租用时长计算rent_fee
             let rent_fee_value = machine_price
@@ -835,10 +838,13 @@ pub mod pallet {
                 return Ok(().into())
             }
 
-            // 计算rent_fee
-            let machine_price =
+            // 计算rent_fee = 系统自动定价 + 卡主额外加价
+            let system_price =
                 Self::get_machine_price(calc_point, gpu_num, machine_info.gpu_num())
                     .ok_or(Error::<T>::GetMachinePriceFailed)?;
+            let extra_price = <online_profile::Pallet<T>>::machine_extra_price(&machine_id)
+                .checked_mul(gpu_num as u64).unwrap_or(0);
+            let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
             let rent_fee_value = machine_price
                 .checked_mul(add_duration.saturated_into::<u64>())
                 .ok_or(Error::<T>::Overflow)?
@@ -1960,13 +1966,12 @@ impl<T: Config> Pallet<T> {
 
         <T as Config>::Currency::unreserve(&rent_order.renter, rent_order.stake_amount);
 
-        // NOTE: 将租金的1%转给委员会，剩余的转给stash账户
-        // 可能足用人质押数量大于需要支付的租金，因此需要解绑质押，再转对应的租金
-        let reward_to_stash = Perbill::from_rational(99u32, 100u32) * rent_fee;
-        let reward_to_committee = rent_fee.saturating_sub(reward_to_stash);
-        // 将5%转到销毁账户
+        // 使用 online-profile 中可配置的销毁比例（默认5%）
+        let destroy_percent = <online_profile::Pallet<T>>::rent_fee_destroy_percent();
+
+        // 先扣除销毁部分
         if let Some(burn_pot) = Self::rent_fee_pot() {
-            let burn_amount = Perbill::from_rational(5u32, 100u32) * rent_fee;
+            let burn_amount = destroy_percent * rent_fee;
             let _ = <T as Config>::Currency::transfer(
                 &rent_order.renter,
                 &burn_pot,
@@ -1975,9 +1980,15 @@ impl<T: Config> Pallet<T> {
             );
             rent_fee = rent_fee.saturating_sub(burn_amount);
         }
-        let committee_each_get =
+
+        // 剩余租金的1%转给委员会，其余转给stash账户
+        let reward_to_committee = Perbill::from_rational(1u32, 100u32) * rent_fee;
+        let committee_each_get = if machine_info.reward_committee.is_empty() {
+            Zero::zero()
+        } else {
             Perbill::from_rational(1u32, machine_info.reward_committee.len() as u32) *
-                reward_to_committee;
+                reward_to_committee
+        };
         for a_committee in machine_info.reward_committee.clone() {
             let _ = <T as Config>::Currency::transfer(
                 &rent_order.renter,
