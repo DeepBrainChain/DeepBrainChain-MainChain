@@ -36,16 +36,16 @@ fn fulfill_machine_works() {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve);
         let server_room = OnlineProfile::stash_server_rooms(&stash);
 
-        // NOTE: stash把币转走，只剩下 2_000 DBC
-        assert_ok!(Balances::transfer(RuntimeOrigin::signed(stash), controller, 9_994_000 * ONE_DBC));
+        // NOTE: stash把币转走，只剩下 12_000 DBC
+        assert_ok!(Balances::transfer(RuntimeOrigin::signed(stash), controller, 9_948_000 * ONE_DBC));
         {
             assert_eq!(System::account(stash), AccountInfo{
                 nonce: 0,
                 consumers: 1,
                 providers: 1,
                 data: AccountData {
-                    free: 2_000 * ONE_DBC,
-                    reserved: 4_000 * ONE_DBC,
+                    free: 12_000 * ONE_DBC,
+                    reserved: 40_000 * ONE_DBC,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -124,7 +124,7 @@ fn fulfill_machine_works() {
         assert_ok!(OnlineCommittee::submit_confirm_raw(RuntimeOrigin::signed(committee3), committee_upload_info.clone()));
 
         let machine_info = OnlineProfile::machines_info(&machine_id2).unwrap();
-        assert_eq!(machine_info.init_stake_per_gpu, 1_000 * ONE_DBC);
+        assert_eq!(machine_info.init_stake_per_gpu, 10_000 * ONE_DBC);
 
         run_to_block(13);
 
@@ -135,8 +135,8 @@ fn fulfill_machine_works() {
                 consumers: 1,
                 providers: 1,
                 data: AccountData {
-                    free: 1_000 * ONE_DBC,
-                    reserved: 5_000 * ONE_DBC,
+                    free: 2_000 * ONE_DBC,
+                    reserved: 50_000 * ONE_DBC,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -148,23 +148,23 @@ fn fulfill_machine_works() {
             );
         }
 
-        assert_ok!(Balances::transfer(RuntimeOrigin::signed(controller), stash, 4_000 * ONE_DBC));
+        assert_ok!(Balances::transfer(RuntimeOrigin::signed(controller), stash, 30_000 * ONE_DBC));
 
         let machine_info = OnlineProfile::machines_info(&machine_id2).unwrap();
-        assert_eq!(machine_info.init_stake_per_gpu, 1_000 * ONE_DBC);
+        assert_eq!(machine_info.init_stake_per_gpu, 10_000 * ONE_DBC);
         assert_eq!(machine_info.gpu_num(), 4);
 
         // 调用fulfill_machine
         assert_ok!(OnlineProfile::fulfill_machine(RuntimeOrigin::signed(controller), machine_id2.clone()));
         {
-            // NOTE: stash把币转走，只剩下 200_000 DBC
+            // NOTE: stash把币转走，只剩下 2_000 DBC
             assert_eq!(System::account(stash), AccountInfo{
                 nonce: 0,
                 consumers: 1,
                 providers: 1,
                 data: AccountData {
                     free: 2_000 * ONE_DBC,
-                    reserved: 8_000 * ONE_DBC,
+                    reserved: 80_000 * ONE_DBC,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -298,8 +298,8 @@ fn restake_online_machine_works() {
                 consumers: 1,
                 providers: 1,
                 data: AccountData {
-                    free: 9_996_000 * ONE_DBC,
-                    reserved: 4_000 * ONE_DBC,
+                    free: 9_960_000 * ONE_DBC,
+                    reserved: 40_000 * ONE_DBC,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -384,8 +384,8 @@ fn restake_online_machine_works() {
                 consumers: 1,
                 providers: 1,
                 data: AccountData {
-                    free: 9_992_000 * ONE_DBC,
-                    reserved: 8_000 * ONE_DBC,
+                    free: 9_920_000 * ONE_DBC,
+                    reserved: 80_000 * ONE_DBC,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -399,9 +399,9 @@ fn restake_online_machine_works() {
 
 
         let mut machine_info = OnlineProfile::machines_info(&machine_id2).unwrap();
-        assert_eq!(machine_info.init_stake_per_gpu, 1_000 * ONE_DBC);
+        assert_eq!(machine_info.init_stake_per_gpu, 10_000 * ONE_DBC);
         assert_eq!(machine_info.gpu_num(), 4);
-        assert_eq!(machine_info.stake_amount, 4_000 * ONE_DBC);
+        assert_eq!(machine_info.stake_amount, 40_000 * ONE_DBC);
 
 
         assert_err!(
@@ -410,11 +410,11 @@ fn restake_online_machine_works() {
         // skip more than 365 days
         System::set_block_number(365 * ONE_DAY + 100);
 
-        // stake_amount(4000dbc) == need_stake(40Wdbc)
-        assert_err!(
-            OnlineProfile::restake_online_machine(RuntimeOrigin::signed(controller),machine_id2.clone()),
-            OnlineProfileErr::<TestRuntime>::NoStakeToReduce);
-        // 额外质押1000DBC模拟stake_amount > need_stake的情况
+        // stake_amount(4000dbc) < need_stake => 少不补，不报错
+        assert_ok!(
+            OnlineProfile::restake_online_machine(RuntimeOrigin::signed(controller),machine_id2.clone()));
+        // 额外质押400000DBC模拟stake_amount > need_stake的情况
+        let mut machine_info = OnlineProfile::machines_info(&machine_id2).unwrap();
         assert_ok!(Balances::reserve(&stash,400000*ONE_DBC));
         machine_info.stake_amount+=400000*ONE_DBC;
         MachinesInfo::<TestRuntime>::insert(&machine_id2,machine_info);
@@ -423,26 +423,22 @@ fn restake_online_machine_works() {
             consumers: 1,
             providers: 1,
             data: AccountData {
-                free: 9_992_000 * ONE_DBC - 400000*ONE_DBC,
-                reserved: 8_000 * ONE_DBC + 400000*ONE_DBC,
+                free: 9_920_000 * ONE_DBC - 400000*ONE_DBC,
+                reserved: 80_000 * ONE_DBC + 400000*ONE_DBC,
                 ..Default::default()
             },
             ..Default::default()
         });
 
+        // 再跳365天后可以再次restake
+        System::set_block_number(2 * 365 * ONE_DAY + 200);
+
         assert_ok!(OnlineProfile::restake_online_machine(RuntimeOrigin::signed(controller),machine_id2.clone()));
-        // restake_online_machine后 退还多质押的1000DBC
-        assert_eq!(System::account(stash), AccountInfo{
-            nonce: 0,
-            consumers: 1,
-            providers: 1,
-            data: AccountData {
-                free: 9_992_000 * ONE_DBC - 400000*ONE_DBC +4000*ONE_DBC,
-                reserved: 8_000 * ONE_DBC + 400000*ONE_DBC-4000*ONE_DBC,
-                ..Default::default()
-            },
-            ..Default::default()
-        });
+        // restake_online_machine后 退还多质押的部分
+        let machine_info_after = OnlineProfile::machines_info(&machine_id2).unwrap();
+        let stake_per_gpu = OnlineProfile::stake_per_gpu().unwrap();
+        let expected_stake = stake_per_gpu * 4u128;
+        assert_eq!(machine_info_after.stake_amount, expected_stake);
     })
 }
 #[test]
