@@ -44,8 +44,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // DBC单卡质押数量计算：
-    // dbc单卡质押数量 = min(100000, 800 $ 等值数量)
+    // DBC单卡质押数量计算（封顶值）：
+    // dbc单卡质押数量 = min(100000, 300 $ 等值数量)
     pub fn stake_per_gpu() -> Option<BalanceOf<T>> {
         let online_stake_params = Self::online_stake_params()?;
 
@@ -55,11 +55,11 @@ impl<T: Config> Pallet<T> {
         Some(stake_per_gpu_limit_by_num.min(stake_limit_by_value))
     }
 
-    // 起始质押1000 DBC，租金和奖励收益最多质押到300美金/10万个DBC
+    // 起始质押10000 DBC，租金和奖励收益最多质押到300美金/10万个DBC
     pub fn stake_per_gpu_v2() -> Option<BalanceOf<T>> {
         let online_stake_params = Self::online_stake_params()?;
         let stake_per_gpu_limit_by_num =
-            Perbill::from_rational(1_000u32, 100_000u32) * online_stake_params.online_stake_per_gpu;
+            Perbill::from_rational(10_000u32, 100_000u32) * online_stake_params.online_stake_per_gpu;
 
         Some(stake_per_gpu_limit_by_num)
     }

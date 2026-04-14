@@ -106,7 +106,7 @@ pub mod pallet {
 
     #[pallet::type_value]
     pub(super) fn RentFeeDestroyPercentDefault<T: Config>() -> Perbill {
-        Perbill::from_percent(30)
+        Perbill::from_percent(5)
     }
 
     /// Statistics of gpu and stake
@@ -1032,18 +1032,24 @@ pub mod pallet {
             let stake_need = stake_per_gpu
                 .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
                 .ok_or(Error::<T>::CalcStakeAmountFailed)?;
-            ensure!(machine_info.stake_amount > stake_need, Error::<T>::NoStakeToReduce);
 
-            let extra_stake = machine_info
-                .stake_amount
-                .checked_sub(&stake_need)
-                .ok_or(Error::<T>::ReduceStakeFailed)?;
+            // 年度核算：多退少不补
+            if machine_info.stake_amount > stake_need {
+                // 多退：退还多余质押
+                let extra_stake = machine_info
+                    .stake_amount
+                    .checked_sub(&stake_need)
+                    .ok_or(Error::<T>::ReduceStakeFailed)?;
 
-            machine_info.stake_amount = stake_need;
+                Self::change_stake(&machine_info.machine_stash, extra_stake, false)
+                    .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+                machine_info.stake_amount = stake_need;
+            }
+            // 少不补：如果 stake_amount <= stake_need，不要求卡主补差额
+            // 质押不足的部分继续由在线奖励自动填充（fulfill_machine_stake）
+
             machine_info.last_machine_restake = now;
             machine_info.init_stake_per_gpu = stake_per_gpu;
-            Self::change_stake(&machine_info.machine_stash, extra_stake, false)
-                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
 
             MachinesInfo::<T>::insert(&machine_id, machine_info.clone());
 
@@ -1650,17 +1656,8 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        RentFeeDestroyPercent::<T>::mutate(|percent| {
-            let destroy_percent = match gpu_num {
-                0..=4999 => Perbill::from_percent(30),
-                5000..=9999 => Perbill::from_percent(70),
-                _ => Perbill::from_percent(100),
-            };
-
-            if destroy_percent > *percent {
-                *percent = destroy_percent;
-            }
-        });
+        // 租金销毁比例固定5%，不再根据GPU数量动态调整
+        // 可通过 sudo 调用 set_rentfee_destroy_percent 手动修改
     }
 
     // 当租金转给该stash账户，或者领取在线奖励后，会检查机器奖励是否足够

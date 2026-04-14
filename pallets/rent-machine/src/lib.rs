@@ -159,6 +159,12 @@ pub mod pallet {
     pub(super) type EvmAddress2Account<T: Config> =
         StorageMap<_, Blake2_128Concat, H160, T::AccountId>;
 
+    /// 卡主自定义额外加价（USD×10^6 per day per GPU），在系统自动定价基础上叠加
+    #[pallet::storage]
+    #[pallet::getter(fn machine_extra_price)]
+    pub(super) type MachineExtraPrice<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>;
+
     // The current storage version.
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
@@ -175,6 +181,29 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             RentFeePot::<T>::put(pot_addr);
+            Ok(().into())
+        }
+
+        /// 卡主设置机器额外加价（在系统自动定价基础上叠加）
+        /// 单位：USD×10^6 per day per GPU，与 get_machine_price 返回值单位一致
+        /// 设置为 0 表示不额外加价
+        #[pallet::call_index(10)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn set_machine_extra_price(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            extra_price: u64,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id)
+                .ok_or(Error::<T>::Unknown)?;
+            // 只有卡主(stash)或控制者(controller)可以设置
+            ensure!(
+                machine_info.machine_stash == who || machine_info.controller == who,
+                Error::<T>::NoPermission
+            );
+            MachineExtraPrice::<T>::insert(&machine_id, extra_price);
+            Self::deposit_event(Event::MachineExtraPriceSet(machine_id, extra_price));
             Ok(().into())
         }
 
@@ -322,6 +351,8 @@ pub mod pallet {
         Relet(RentOrderId, T::AccountId, MachineId, u32, T::BlockNumber, BalanceOf<T>),
 
         SetEvmAddress(H160, T::AccountId),
+        // machine_id, extra_price (USD×10^6 per day per GPU)
+        MachineExtraPriceSet(MachineId, u64),
     }
 
     #[pallet::error]
@@ -348,6 +379,7 @@ pub mod pallet {
         MachineNotRented,
         MachineNotFound,
         MoreThanOneRenter,
+        NoPermission,
     }
 }
 
@@ -389,11 +421,16 @@ impl<T: Config> Pallet<T> {
         <generic_func::Pallet<T>>::pay_fixed_tx_fee(renter.clone())
             .map_err(|_| Error::<T>::PayTxFeeFailed)?;
 
-        // 获得machine_price(每天的价格)
+        // 获得machine_price(每天的价格) = 系统自动定价 + 卡主额外加价
         // 根据租用GPU数量计算价格
-        let machine_price =
+        let system_price =
             T::RTOps::get_machine_price(machine_info.calc_point(), rent_gpu_num, gpu_num)
                 .ok_or(Error::<T>::GetMachinePriceFailed)?;
+        let extra_price_per_gpu = Self::machine_extra_price(&machine_id);
+        let extra_price = extra_price_per_gpu
+            .checked_mul(rent_gpu_num as u64)
+            .unwrap_or(0);
+        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
 
         // 根据租用时长计算rent_fee
         let rent_fee_value = machine_price
@@ -496,10 +533,13 @@ impl<T: Config> Pallet<T> {
             return Ok(().into())
         }
 
-        // 计算rent_fee
-        let machine_price =
+        // 计算rent_fee = 系统自动定价 + 卡主额外加价
+        let system_price =
             T::RTOps::get_machine_price(calc_point, gpu_num, machine_info.gpu_num())
                 .ok_or(Error::<T>::GetMachinePriceFailed)?;
+        let extra_price = Self::machine_extra_price(&machine_id)
+            .checked_mul(gpu_num as u64).unwrap_or(0);
+        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
         let rent_fee_value = machine_price
             .checked_mul(add_duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
@@ -865,12 +905,15 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id)
             .ok_or(Error::<T>::Unknown.as_str())?;
 
-        let machine_price = T::RTOps::get_machine_price(
+        let system_price = T::RTOps::get_machine_price(
             machine_info.calc_point(),
             rent_gpu_num,
             machine_info.gpu_num(),
         )
         .ok_or(Error::<T>::GetMachinePriceFailed)?;
+        let extra_price = Self::machine_extra_price(&machine_id)
+            .checked_mul(rent_gpu_num as u64).unwrap_or(0);
+        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
 
         // 根据租用时长计算rent_fee
         let rent_fee_value = machine_price
@@ -888,12 +931,15 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id)
             .ok_or(Error::<T>::Unknown.as_str())?;
 
-        let machine_price = T::RTOps::get_machine_price(
+        let system_price = T::RTOps::get_machine_price(
             machine_info.calc_point(),
             rent_gpu_num,
             machine_info.gpu_num(),
         )
         .ok_or(Error::<T>::GetMachinePriceFailed)?;
+        let extra_price = Self::machine_extra_price(&machine_id)
+            .checked_mul(rent_gpu_num as u64).unwrap_or(0);
+        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
 
         // 根据租用时长计算rent_fee
         let rent_fee_value = machine_price
@@ -937,12 +983,15 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         let machine_info = <online_profile::Pallet<T>>::machines_info(&machine_id)
             .ok_or(Error::<T>::Unknown.as_str())?;
 
-        let machine_price = T::RTOps::get_machine_price(
+        let system_price = T::RTOps::get_machine_price(
             machine_info.calc_point(),
             rent_gpu_num,
             machine_info.gpu_num(),
         )
         .ok_or(Error::<T>::GetMachinePriceFailed)?;
+        let extra_price = Self::machine_extra_price(&machine_id)
+            .checked_mul(rent_gpu_num as u64).unwrap_or(0);
+        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
 
         // 根据租用时长计算rent_fee
         let rent_fee_value = machine_price
