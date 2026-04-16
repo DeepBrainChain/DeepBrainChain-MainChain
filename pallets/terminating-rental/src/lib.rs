@@ -77,7 +77,7 @@ pub mod pallet {
     use sp_core::H256;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + generic_func::Config + committee::Config {
+    pub trait Config: frame_system::Config + generic_func::Config + committee::Config + online_profile::Config {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;

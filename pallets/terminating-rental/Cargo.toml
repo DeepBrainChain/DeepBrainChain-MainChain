@@ -18,6 +18,7 @@ sp-runtime = { workspace = true }
 committee = { path = "../committee", default-features = false }
 dbc-support = { path = "../support", default-features = false }
 generic-func = { path = "../generic-func", default-features = false }
+online-profile = { path = "../online-profile", default-features = false }
 
 [dev-dependencies]
 hex = { workspace = true }
@@ -42,5 +43,6 @@ std = [
   "committee/std",
   "dbc-support/std",
   "generic-func/std",
+  "online-profile/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
