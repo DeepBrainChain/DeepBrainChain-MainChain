@@ -77,7 +77,7 @@ pub mod pallet {
     use sp_core::H256;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + generic_func::Config + committee::Config + online_profile::Config {
+    pub trait Config: frame_system::Config + generic_func::Config + committee::Config {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -232,6 +232,23 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn rent_fee_pot)]
     pub(super) type RentFeePot<T: Config> = StorageValue<_, T::AccountId>;
+
+    /// 租金销毁比例（默认5%）
+    #[pallet::storage]
+    #[pallet::getter(fn rent_fee_destroy_percent)]
+    pub(super) type RentFeeDestroyPercent<T: Config> =
+        StorageValue<_, Perbill, ValueQuery, RentFeeDestroyPercentDefault<T>>;
+
+    #[pallet::type_value]
+    pub(super) fn RentFeeDestroyPercentDefault<T: Config>() -> Perbill {
+        Perbill::from_percent(5)
+    }
+
+    /// 卡主自定义额外加价（USD×10^6 per day per GPU）
+    #[pallet::storage]
+    #[pallet::getter(fn machine_extra_price)]
+    pub(super) type MachineExtraPrice<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn MaximumRentalDurationDefault<T: Config>() -> EraIndex {
@@ -673,7 +690,7 @@ pub mod pallet {
             let system_price =
                 Self::get_machine_price(machine_info.calc_point(), rent_gpu_num, gpu_num)
                     .ok_or(Error::<T>::GetMachinePriceFailed)?;
-            let extra_price = <online_profile::Pallet<T>>::machine_extra_price(&machine_id)
+            let extra_price = Self::machine_extra_price(&machine_id)
                 .checked_mul(rent_gpu_num as u64).unwrap_or(0);
             let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
 
@@ -842,7 +859,7 @@ pub mod pallet {
             let system_price =
                 Self::get_machine_price(calc_point, gpu_num, machine_info.gpu_num())
                     .ok_or(Error::<T>::GetMachinePriceFailed)?;
-            let extra_price = <online_profile::Pallet<T>>::machine_extra_price(&machine_id)
+            let extra_price = Self::machine_extra_price(&machine_id)
                 .checked_mul(gpu_num as u64).unwrap_or(0);
             let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
             let rent_fee_value = machine_price
@@ -1967,7 +1984,7 @@ impl<T: Config> Pallet<T> {
         <T as Config>::Currency::unreserve(&rent_order.renter, rent_order.stake_amount);
 
         // 使用 online-profile 中可配置的销毁比例（默认5%）
-        let destroy_percent = <online_profile::Pallet<T>>::rent_fee_destroy_percent();
+        let destroy_percent = Self::rent_fee_destroy_percent();
 
         // 先扣除销毁部分
         if let Some(burn_pot) = Self::rent_fee_pot() {
