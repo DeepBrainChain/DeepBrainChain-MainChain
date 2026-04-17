@@ -1576,7 +1576,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> Pallet<T> {
     // DBC单卡质押数量计算：
-    // dbc单卡质押数量 = min(100000, 800 $ 等值数量)
+    // dbc单卡质押数量 = min(stake_per_gpu, 300 $ 等值数量)
     pub fn stake_per_gpu_limit() -> BalanceOf<T> {
         let stake_per_gpu_limit_by_num = Self::stake_per_gpu();
         let stake_limit_by_value =
@@ -2026,19 +2026,27 @@ impl<T: Config> Pallet<T> {
         // 规则：租金 95% 归卡主，5% 销毁
         // 使用可配置的销毁比例（默认5%）
         let destroy_percent = Self::rent_fee_destroy_percent();
-        let burn_amount = destroy_percent * rent_fee;
-        let stash_amount = rent_fee.saturating_sub(burn_amount);
 
-        // 销毁钱包必须配置，否则拒绝结算（避免静默跳过销毁）
-        let burn_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
-        <T as Config>::Currency::transfer(
-            &rent_order.renter,
-            &burn_pot,
-            burn_amount,
-            KeepAlive,
-        )?;
+        // 若销毁钱包未配置（链上新增 Storage 初始为空），采用安全回退：
+        // 将全部租金转给卡主，暂不销毁（避免 on_finalize 吞掉错误导致资金错乱）。
+        // sudo 通过 setRentFeePot 配置后，后续结算将自动按 95%/5% 执行。
+        let (burn_amount, stash_amount) = match Self::rent_fee_pot() {
+            Some(burn_pot) => {
+                let burn = destroy_percent * rent_fee;
+                let stash = rent_fee.saturating_sub(burn);
+                <T as Config>::Currency::transfer(
+                    &rent_order.renter,
+                    &burn_pot,
+                    burn,
+                    KeepAlive,
+                )?;
+                (burn, stash)
+            },
+            None => (Zero::zero(), rent_fee),
+        };
+        let _ = burn_amount; // 避免 unused 警告
 
-        // 剩余 95% 全部转给卡主 stash
+        // 剩余 95%（或全部）转给卡主 stash
         <T as Config>::Currency::transfer(
             &rent_order.renter,
             &machine_info.machine_stash,
