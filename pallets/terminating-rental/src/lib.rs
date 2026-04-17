@@ -1488,6 +1488,8 @@ pub mod pallet {
         OfflineNotYetAllowed,
         /// 额外加价超过上限
         ExtraPriceTooHigh,
+        /// 租金销毁钱包未设置
+        UndefinedRentPot,
     }
 }
 
