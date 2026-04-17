@@ -1311,8 +1311,6 @@ pub mod pallet {
         SlashCanceled(u64, T::AccountId, BalanceOf<T>),
         // machine_id, old_stake, new_stake
         MachineRestaked(MachineId, BalanceOf<T>, BalanceOf<T>),
-        // machine_id, extra_price (USD×10^6 per day per GPU)
-        MachineExtraPriceSet(MachineId, u64),
         MachineExit(MachineId),
         // Slash_who, reward_who, reward_amount
         SlashAndReward(T::AccountId, T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
@@ -1325,6 +1323,9 @@ pub mod pallet {
         // machine_id, pre_stake, delta_stake
         MachineAddStake(MachineId, BalanceOf<T>, BalanceOf<T>),
         AddSlash(MachineId, SlashId),
+        // NEW in spec 408 - must be at the END to preserve existing event positions
+        // machine_id, extra_price (USD×10^6 per day per GPU)
+        MachineExtraPriceSet(MachineId, u64),
     }
 
     #[pallet::error]

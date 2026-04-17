@@ -2027,15 +2027,14 @@ impl<T: Config> Pallet<T> {
         let burn_amount = destroy_percent * rent_fee;
         let stash_amount = rent_fee.saturating_sub(burn_amount);
 
-        // 转销毁
-        if let Some(burn_pot) = Self::rent_fee_pot() {
-            <T as Config>::Currency::transfer(
-                &rent_order.renter,
-                &burn_pot,
-                burn_amount,
-                KeepAlive,
-            )?;
-        }
+        // 销毁钱包必须配置，否则拒绝结算（避免静默跳过销毁）
+        let burn_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
+        <T as Config>::Currency::transfer(
+            &rent_order.renter,
+            &burn_pot,
+            burn_amount,
+            KeepAlive,
+        )?;
 
         // 剩余 95% 全部转给卡主 stash
         <T as Config>::Currency::transfer(
