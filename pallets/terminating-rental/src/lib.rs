@@ -691,8 +691,8 @@ pub mod pallet {
                 Self::get_machine_price(machine_info.calc_point(), rent_gpu_num, gpu_num)
                     .ok_or(Error::<T>::GetMachinePriceFailed)?;
             let extra_price = Self::machine_extra_price(&machine_id)
-                .checked_mul(rent_gpu_num as u64).unwrap_or(0);
-            let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
+                .checked_mul(rent_gpu_num as u64).ok_or(Error::<T>::Overflow)?;
+            let machine_price = system_price.checked_add(extra_price).ok_or(Error::<T>::Overflow)?;
 
             // 根据租用时长计算rent_fee
             let rent_fee_value = machine_price
@@ -860,8 +860,8 @@ pub mod pallet {
                 Self::get_machine_price(calc_point, gpu_num, machine_info.gpu_num())
                     .ok_or(Error::<T>::GetMachinePriceFailed)?;
             let extra_price = Self::machine_extra_price(&machine_id)
-                .checked_mul(gpu_num as u64).unwrap_or(0);
-            let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
+                .checked_mul(gpu_num as u64).ok_or(Error::<T>::Overflow)?;
+            let machine_price = system_price.checked_add(extra_price).ok_or(Error::<T>::Overflow)?;
             let rent_fee_value = machine_price
                 .checked_mul(add_duration.saturated_into::<u64>())
                 .ok_or(Error::<T>::Overflow)?
@@ -1357,6 +1357,40 @@ pub mod pallet {
             Self::deposit_event(Event::RawInfoSubmited(report_id, committee));
             Ok(().into())
         }
+
+        /// Sudo 设置租金销毁比例
+        #[pallet::call_index(25)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn set_rentfee_destroy_percent(
+            origin: OriginFor<T>,
+            percent: Perbill,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            RentFeeDestroyPercent::<T>::put(percent);
+            Ok(().into())
+        }
+
+        /// 卡主设置机器额外加价
+        /// 上限 $10,000 per day per GPU
+        #[pallet::call_index(26)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn set_machine_extra_price(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            extra_price: u64,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            ensure!(
+                machine_info.machine_stash == who || machine_info.controller == who,
+                Error::<T>::NotMachineController
+            );
+            const MAX_EXTRA_PRICE: u64 = 10_000_000_000;
+            ensure!(extra_price <= MAX_EXTRA_PRICE, Error::<T>::ExtraPriceTooHigh);
+            MachineExtraPrice::<T>::insert(&machine_id, extra_price);
+            Self::deposit_event(Event::MachineExtraPriceSet(machine_id, extra_price));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1388,6 +1422,8 @@ pub mod pallet {
 
         HashSubmited(ReportId, T::AccountId),
         RawInfoSubmited(ReportId, T::AccountId),
+        // machine_id, extra_price (USD×10^6 per day per GPU)
+        MachineExtraPriceSet(MachineId, u64),
     }
 
     #[pallet::error]
@@ -1450,6 +1486,8 @@ pub mod pallet {
         ReletTooShort,
 
         OfflineNotYetAllowed,
+        /// 额外加价超过上限
+        ExtraPriceTooHigh,
     }
 }
 
@@ -1540,7 +1578,7 @@ impl<T: Config> Pallet<T> {
     pub fn stake_per_gpu_limit() -> BalanceOf<T> {
         let stake_per_gpu_limit_by_num = Self::stake_per_gpu();
         let stake_limit_by_value =
-            T::DbcPrice::get_dbc_amount_by_value(800_000_000).unwrap_or(stake_per_gpu_limit_by_num);
+            T::DbcPrice::get_dbc_amount_by_value(300_000_000).unwrap_or(stake_per_gpu_limit_by_num);
         stake_per_gpu_limit_by_num.min(stake_limit_by_value)
     }
 
@@ -1973,64 +2011,49 @@ impl<T: Config> Pallet<T> {
     }
 
     // 当租用结束，或者租用被终止时，将保留的金额支付给stash账户，剩余部分解锁给租用人
-    // NOTE: 租金的1%将分给验证人
+    // 规则：租金 95% 给卡主 stash，5% 销毁
     fn pay_rent_fee(
         rent_order: &RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
-        mut rent_fee: BalanceOf<T>,
+        rent_fee: BalanceOf<T>,
         machine_id: MachineId,
     ) -> DispatchResult {
         let mut machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
 
         <T as Config>::Currency::unreserve(&rent_order.renter, rent_order.stake_amount);
 
-        // 使用 online-profile 中可配置的销毁比例（默认5%）
+        // 规则：租金 95% 归卡主，5% 销毁
+        // 使用可配置的销毁比例（默认5%）
         let destroy_percent = Self::rent_fee_destroy_percent();
+        let burn_amount = destroy_percent * rent_fee;
+        let stash_amount = rent_fee.saturating_sub(burn_amount);
 
-        // 先扣除销毁部分
+        // 转销毁
         if let Some(burn_pot) = Self::rent_fee_pot() {
-            let burn_amount = destroy_percent * rent_fee;
-            let _ = <T as Config>::Currency::transfer(
+            <T as Config>::Currency::transfer(
                 &rent_order.renter,
                 &burn_pot,
                 burn_amount,
                 KeepAlive,
-            );
-            rent_fee = rent_fee.saturating_sub(burn_amount);
+            )?;
         }
 
-        // 剩余租金的1%转给委员会，其余转给stash账户
-        let reward_to_committee = Perbill::from_rational(1u32, 100u32) * rent_fee;
-        let committee_each_get = if machine_info.reward_committee.is_empty() {
-            Zero::zero()
-        } else {
-            Perbill::from_rational(1u32, machine_info.reward_committee.len() as u32) *
-                reward_to_committee
-        };
-        for a_committee in machine_info.reward_committee.clone() {
-            let _ = <T as Config>::Currency::transfer(
-                &rent_order.renter,
-                &a_committee,
-                committee_each_get,
-                KeepAlive,
-            );
-            rent_fee = rent_fee.saturating_sub(committee_each_get);
-        }
-        let _ = <T as Config>::Currency::transfer(
+        // 剩余 95% 全部转给卡主 stash
+        <T as Config>::Currency::transfer(
             &rent_order.renter,
             &machine_info.machine_stash,
-            rent_fee,
+            stash_amount,
             KeepAlive,
-        );
+        )?;
 
-        // 根据机器GPU计算需要多少质押
+        // 根据机器GPU计算需要多少质押，用卡主实际收到的部分（95%）自动补充质押
         let max_stake = Self::stake_per_gpu_limit()
             .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
             .ok_or(Error::<T>::Overflow)?;
         if max_stake > machine_info.stake_amount {
-            // 如果 rent_fee >= max_stake - machine_info.stake_amount,
+            // 如果 stash_amount >= max_stake - machine_info.stake_amount,
             // 则质押 max_stake - machine_info.stake_amount
-            // 如果 rent_fee < max_stake - machine_info.stake_amount, 则质押 rent_fee
-            let stake_amount = rent_fee.min(max_stake.saturating_sub(machine_info.stake_amount));
+            // 如果 stash_amount < max_stake - machine_info.stake_amount, 则质押 stash_amount
+            let stake_amount = stash_amount.min(max_stake.saturating_sub(machine_info.stake_amount));
 
             <T as Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)?;
             machine_info.stake_amount = machine_info.stake_amount.saturating_add(stake_amount);

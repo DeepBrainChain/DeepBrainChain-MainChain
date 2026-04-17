@@ -397,8 +397,8 @@ impl<T: Config> Pallet<T> {
         let extra_price_per_gpu = <online_profile::Pallet<T>>::machine_extra_price(&machine_id);
         let extra_price = extra_price_per_gpu
             .checked_mul(rent_gpu_num as u64)
-            .unwrap_or(0);
-        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
+            .ok_or(Error::<T>::Overflow)?;
+        let machine_price = system_price.checked_add(extra_price).ok_or(Error::<T>::Overflow)?;
 
         // 根据租用时长计算rent_fee
         let rent_fee_value = machine_price
@@ -506,8 +506,8 @@ impl<T: Config> Pallet<T> {
             T::RTOps::get_machine_price(calc_point, gpu_num, machine_info.gpu_num())
                 .ok_or(Error::<T>::GetMachinePriceFailed)?;
         let extra_price = <online_profile::Pallet<T>>::machine_extra_price(&machine_id)
-            .checked_mul(gpu_num as u64).unwrap_or(0);
-        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
+            .checked_mul(gpu_num as u64).ok_or(Error::<T>::Overflow)?;
+        let machine_price = system_price.checked_add(extra_price).ok_or(Error::<T>::Overflow)?;
         let rent_fee_value = machine_price
             .checked_mul(add_duration.saturated_into::<u64>())
             .ok_or(Error::<T>::Overflow)?
@@ -880,8 +880,8 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         )
         .ok_or(Error::<T>::GetMachinePriceFailed)?;
         let extra_price = <online_profile::Pallet<T>>::machine_extra_price(&machine_id)
-            .checked_mul(rent_gpu_num as u64).unwrap_or(0);
-        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
+            .checked_mul(rent_gpu_num as u64).ok_or(Error::<T>::Overflow)?;
+        let machine_price = system_price.checked_add(extra_price).ok_or(Error::<T>::Overflow)?;
 
         // 根据租用时长计算rent_fee
         let rent_fee_value = machine_price
@@ -906,8 +906,8 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         )
         .ok_or(Error::<T>::GetMachinePriceFailed)?;
         let extra_price = <online_profile::Pallet<T>>::machine_extra_price(&machine_id)
-            .checked_mul(rent_gpu_num as u64).unwrap_or(0);
-        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
+            .checked_mul(rent_gpu_num as u64).ok_or(Error::<T>::Overflow)?;
+        let machine_price = system_price.checked_add(extra_price).ok_or(Error::<T>::Overflow)?;
 
         // 根据租用时长计算rent_fee
         let rent_fee_value = machine_price
@@ -958,8 +958,8 @@ impl<T: Config> MachineInfoTrait for Pallet<T> {
         )
         .ok_or(Error::<T>::GetMachinePriceFailed)?;
         let extra_price = <online_profile::Pallet<T>>::machine_extra_price(&machine_id)
-            .checked_mul(rent_gpu_num as u64).unwrap_or(0);
-        let machine_price = system_price.checked_add(extra_price).unwrap_or(system_price);
+            .checked_mul(rent_gpu_num as u64).ok_or(Error::<T>::Overflow)?;
+        let machine_price = system_price.checked_add(extra_price).ok_or(Error::<T>::Overflow)?;
 
         // 根据租用时长计算rent_fee
         let rent_fee_value = machine_price

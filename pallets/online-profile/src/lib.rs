@@ -1265,6 +1265,7 @@ pub mod pallet {
         /// 卡主设置机器额外加价（在系统自动定价基础上叠加）
         /// 单位：USD×10^6 per day per GPU，与 get_machine_price 返回值单位一致
         /// 设置为 0 表示不额外加价
+        /// 上限 10,000 USD per day per GPU，防止设置天价 DoS 租户和计算溢出
         #[pallet::call_index(22)]
         #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_machine_extra_price(
@@ -1279,6 +1280,9 @@ pub mod pallet {
                 machine_info.machine_stash == who || machine_info.controller == who,
                 Error::<T>::NotMachineController
             );
+            // 上限：$10,000 per day per GPU
+            const MAX_EXTRA_PRICE: u64 = 10_000_000_000;
+            ensure!(extra_price <= MAX_EXTRA_PRICE, Error::<T>::ExtraPriceTooHigh);
             MachineExtraPrice::<T>::insert(&machine_id, extra_price);
             Self::deposit_event(Event::MachineExtraPriceSet(machine_id, extra_price));
             Ok(().into())
@@ -1355,6 +1359,8 @@ pub mod pallet {
         ClaimThenFulfillFailed,
         /// 账户未被授权执行此操作
         NotAuthorized,
+        /// 额外加价超过上限
+        ExtraPriceTooHigh,
     }
 }
 
