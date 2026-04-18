@@ -552,6 +552,102 @@ fn rental_just_under_2_hours_rejected() {
     });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// End-to-End Integration Tests (专家审查要求)
+// ═══════════════════════════════════════════════════════════════
+
+#[test]
+fn rent_machine_in_timeslot_mode_rejects_without_schedule() {
+    // 机器切到 TimeSlot 但没设时段 → rent_machine 应返回 OutOfRentalSchedule
+    new_test_ext_after_machine_online().execute_with(|| {
+        assert_ok!(OnlineProfile::set_machine_rental_mode(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            MachineRentalMode::TimeSlot
+        ));
+
+        // 尝试租用 2 小时（TimeSlot 模式最小时长），无时段 → 拒绝
+        // 2 小时 = 2 * 60 * 60 / 6 = 1200 blocks (DBC 主网 6 秒一个块)
+        // 但 rent_machine 要求 duration 是 HALF_HOUR (300 blocks) 的整数倍
+        assert_noop!(
+            RentMachine::rent_machine(
+                RuntimeOrigin::signed(*renter_dave),
+                machine_id.clone(),
+                4,
+                1200u32.into() // 2 hours in blocks
+            ),
+            crate::Error::<TestRuntime>::OutOfRentalSchedule
+        );
+    });
+}
+
+#[test]
+fn rent_machine_in_timeslot_mode_with_valid_schedule_succeeds() {
+    // E2E: 切 TimeSlot → 设全天时段 → 租用 2 小时应成功
+    new_test_ext_after_machine_online().execute_with(|| {
+        assert_ok!(OnlineProfile::set_machine_rental_mode(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            MachineRentalMode::TimeSlot
+        ));
+
+        // 设每天全天可租
+        let all_day = vec![TimeRange { start_hour: 0, end_hour: 24 }];
+        for wd in 0..7u8 {
+            assert_ok!(OnlineProfile::set_weekly_schedule(
+                RuntimeOrigin::signed(*stash),
+                machine_id.clone(),
+                wd,
+                all_day.clone()
+            ));
+        }
+
+        // 2 小时 = 1200 blocks
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            1200u32.into()
+        ));
+    });
+}
+
+#[test]
+fn rent_machine_in_timeslot_mode_rejects_out_of_range() {
+    // E2E: 设时段 0-6，尝试在时段外租用应拒绝
+    new_test_ext_after_machine_online().execute_with(|| {
+        assert_ok!(OnlineProfile::set_machine_rental_mode(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            MachineRentalMode::TimeSlot
+        ));
+
+        // 只允许 0-6（mock 起始时间接近 0，但 rent_machine 起租时间为当前，
+        // 约为 0-1 小时 UTC；rent 2 小时到 2:00 应落在 [0, 6) 内）
+        let morning = vec![TimeRange { start_hour: 0, end_hour: 6 }];
+        for wd in 0..7u8 {
+            assert_ok!(OnlineProfile::set_weekly_schedule(
+                RuntimeOrigin::signed(*stash),
+                machine_id.clone(),
+                wd,
+                morning.clone()
+            ));
+        }
+
+        // 租 10 小时（> 6 小时时段），应超出 → 拒绝
+        // 10 小时 = 6000 blocks
+        assert_noop!(
+            RentMachine::rent_machine(
+                RuntimeOrigin::signed(*renter_dave),
+                machine_id.clone(),
+                4,
+                6000u32.into()
+            ),
+            crate::Error::<TestRuntime>::OutOfRentalSchedule
+        );
+    });
+}
+
 #[test]
 fn clear_nonexistent_date_is_noop() {
     new_test_ext_after_machine_online().execute_with(|| {
