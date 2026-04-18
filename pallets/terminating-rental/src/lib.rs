@@ -1359,8 +1359,9 @@ pub mod pallet {
         }
 
         /// Sudo 设置租金销毁比例
+        /// Weight: 1 write ~ 110_000 ref_time
         #[pallet::call_index(25)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(110_000, 0))]
         pub fn set_rentfee_destroy_percent(
             origin: OriginFor<T>,
             percent: Perbill,
@@ -1372,8 +1373,9 @@ pub mod pallet {
 
         /// 卡主设置机器额外加价
         /// 上限 $10,000 per day per GPU
+        /// Weight: 1 read + 1 write + 1 event ~ 150_000
         #[pallet::call_index(26)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(150_000, 0))]
         pub fn set_machine_extra_price(
             origin: OriginFor<T>,
             machine_id: MachineId,

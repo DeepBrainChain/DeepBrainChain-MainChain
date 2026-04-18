@@ -1293,8 +1293,10 @@ pub mod pallet {
         /// 单位：USD×10^6 per day per GPU，与 get_machine_price 返回值单位一致
         /// 设置为 0 表示不额外加价
         /// 上限 10,000 USD per day per GPU，防止设置天价 DoS 租户和计算溢出
+        /// Weight: 2 reads (machines_info, machine_extra_price) + 1 write + 1 event
+        /// Estimated ~150_000 ref_time; TODO: 运行 runtime-benchmarks 校准实际值
         #[pallet::call_index(22)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(150_000, 0))]
         pub fn set_machine_extra_price(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1318,8 +1320,9 @@ pub mod pallet {
         /// 切换机器租赁模式（全天 / 按时段）
         /// 模式切换不改变已质押数量，但新机器绑定时按模式决定起步质押
         /// 限制：机器正在租用中时不允许切换模式（避免租赁保证被破坏）
+        /// Weight: 1 read (machines_info) + 1 write + 1 event ~ 140_000 ref_time
         #[pallet::call_index(23)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(140_000, 0))]
         pub fn set_machine_rental_mode(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1345,8 +1348,9 @@ pub mod pallet {
         /// 时间为 UTC 小时值；start_hour < end_hour；end_hour 最大 24
         /// 传入空 Vec 表示该天不出租
         /// ranges 上限 10 个；不允许时段重叠
+        /// Weight: 1 read + ranges 校验 O(n²) n≤10 + 1 write [Vec×7 整数组] + 1 event ~ 200_000
         #[pallet::call_index(24)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(200_000, 0))]
         pub fn set_weekly_schedule(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1379,8 +1383,9 @@ pub mod pallet {
         /// date_days: 自 UNIX epoch 起的天数
         /// 传空 Vec → 等同于 clear_specific_date：删除设置，回退到每周循环
         /// ranges 上限 10 个；日期必须是过去 30 天至未来 365 天内
+        /// Weight: 2 reads (machines_info, timestamp) + 校验 + 1 write + 1 event ~ 180_000
         #[pallet::call_index(25)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(180_000, 0))]
         pub fn set_specific_date_schedule(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1424,8 +1429,9 @@ pub mod pallet {
         }
 
         /// 清除机器特定日期的时段（回退到每周循环）
+        /// Weight: 1 read + 1 remove + 1 event ~ 140_000
         #[pallet::call_index(26)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(140_000, 0))]
         pub fn clear_specific_date(
             origin: OriginFor<T>,
             machine_id: MachineId,
