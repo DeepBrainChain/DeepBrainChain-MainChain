@@ -85,8 +85,10 @@ impl TimeRange {
     }
 
     /// 判断给定小时是否在时段内 [start, end)
+    /// 注意：hour 是 0-23，end_hour 可以是 24（表示到次日 00:00）
+    /// 当 hour 在范围 [start, end) 内返回 true
     pub fn contains_hour(&self, hour: u8) -> bool {
-        hour >= self.start_hour && hour < self.end_hour
+        hour >= self.start_hour && (hour as u16) < (self.end_hour as u16)
     }
 
     /// 判断一段时间 [from_hour, to_hour] 是否完全落在本时段内

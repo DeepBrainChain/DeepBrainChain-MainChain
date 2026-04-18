@@ -1317,6 +1317,7 @@ pub mod pallet {
 
         /// 切换机器租赁模式（全天 / 按时段）
         /// 模式切换不改变已质押数量，但新机器绑定时按模式决定起步质押
+        /// 限制：机器正在租用中时不允许切换模式（避免租赁保证被破坏）
         #[pallet::call_index(23)]
         #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_machine_rental_mode(
@@ -1330,6 +1331,11 @@ pub mod pallet {
                 machine_info.machine_stash == who || machine_info.controller == who,
                 Error::<T>::NotMachineController
             );
+            // 机器正在租用时不允许切换模式
+            ensure!(
+                machine_info.machine_status != MachineStatus::Rented,
+                Error::<T>::MachineStatusNotAllowed
+            );
             MachineRentalModeStorage::<T>::insert(&machine_id, mode);
             Self::deposit_event(Event::MachineRentalModeSet(machine_id, mode));
             Ok(().into())
@@ -1338,6 +1344,7 @@ pub mod pallet {
         /// 设置机器某一天的每周循环时段（weekday: 0=周日 .. 6=周六）
         /// 时间为 UTC 小时值；start_hour < end_hour；end_hour 最大 24
         /// 传入空 Vec 表示该天不出租
+        /// ranges 上限 10 个；不允许时段重叠
         #[pallet::call_index(24)]
         #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_weekly_schedule(
@@ -1356,6 +1363,11 @@ pub mod pallet {
             for r in ranges.iter() {
                 ensure!(r.is_valid(), Error::<T>::InvalidScheduleArgs);
             }
+            // 校验 range 数量上限（防止存储膨胀）
+            const MAX_RANGES_PER_DAY: usize = 10;
+            ensure!(ranges.len() <= MAX_RANGES_PER_DAY, Error::<T>::InvalidScheduleArgs);
+            // 校验 range 不重叠
+            ensure!(Self::ranges_are_disjoint(&ranges), Error::<T>::InvalidScheduleArgs);
             WeeklySchedule::<T>::mutate(&machine_id, |schedule| {
                 schedule[weekday as usize] = ranges.clone();
             });
@@ -1364,7 +1376,9 @@ pub mod pallet {
         }
 
         /// 设置机器特定日期的时段（优先级高于每周循环）
-        /// date_days: 自 UNIX epoch 起的天数；传空 Vec 表示该日期不出租
+        /// date_days: 自 UNIX epoch 起的天数
+        /// 传空 Vec → 等同于 clear_specific_date：删除设置，回退到每周循环
+        /// ranges 上限 10 个；日期必须是过去 30 天至未来 365 天内
         #[pallet::call_index(25)]
         #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn set_specific_date_schedule(
@@ -1379,9 +1393,31 @@ pub mod pallet {
                 machine_info.machine_stash == who || machine_info.controller == who,
                 Error::<T>::NotMachineController
             );
+
+            // 空 Vec 表示清除该日期设置（回退到每周循环）
+            if ranges.is_empty() {
+                SpecificDateSchedule::<T>::remove(&machine_id, date_days);
+                Self::deposit_event(Event::SpecificDateCleared(machine_id, date_days));
+                return Ok(().into())
+            }
+
+            // 校验每个 TimeRange
             for r in ranges.iter() {
                 ensure!(r.is_valid(), Error::<T>::InvalidScheduleArgs);
             }
+            // 校验 range 数量上限（防止存储膨胀）
+            const MAX_RANGES_PER_DAY: usize = 10;
+            ensure!(ranges.len() <= MAX_RANGES_PER_DAY, Error::<T>::InvalidScheduleArgs);
+            // 校验 range 不重叠
+            ensure!(Self::ranges_are_disjoint(&ranges), Error::<T>::InvalidScheduleArgs);
+            // 校验日期范围：过去 30 天至未来 365 天（防止设置天数膨胀）
+            let today = (Self::current_time_ms() / 86_400_000) as u32;
+            ensure!(
+                date_days.saturating_add(30) >= today
+                    && date_days <= today.saturating_add(365),
+                Error::<T>::InvalidScheduleArgs
+            );
+
             SpecificDateSchedule::<T>::insert(&machine_id, date_days, ranges);
             Self::deposit_event(Event::SpecificDateScheduleSet(machine_id, date_days));
             Ok(().into())
@@ -1583,6 +1619,21 @@ impl<T: Config> Pallet<T> {
     /// 当前链上时间（毫秒）
     pub fn current_time_ms() -> u64 {
         <pallet_timestamp::Pallet<T>>::get().saturated_into::<u64>()
+    }
+
+    /// 校验时段列表不重叠（两两检查，O(n²)，n 最大 10 无性能问题）
+    pub fn ranges_are_disjoint(ranges: &[TimeRange]) -> bool {
+        for i in 0..ranges.len() {
+            for j in (i + 1)..ranges.len() {
+                let a = ranges[i];
+                let b = ranges[j];
+                // 有交集：a.start < b.end && b.start < a.end
+                if a.start_hour < b.end_hour && b.start_hour < a.end_hour {
+                    return false
+                }
+            }
+        }
+        true
     }
 
     // NOTE: StashMachine.total_machine cannot be removed. Because Machine will be rewarded in 150 eras.

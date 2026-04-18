@@ -174,7 +174,7 @@ fn multiple_time_ranges_in_same_day() {
 #[test]
 fn set_specific_date_schedule_works() {
     new_test_ext_after_machine_online().execute_with(|| {
-        let date_days = 20000u32;
+        let date_days = 100u32; // within test mock's time window
         let ranges = vec![TimeRange { start_hour: 14, end_hour: 18 }];
         assert_ok!(OnlineProfile::set_specific_date_schedule(
             RuntimeOrigin::signed(*stash),
@@ -192,7 +192,7 @@ fn set_specific_date_schedule_works() {
 #[test]
 fn clear_specific_date_works() {
     new_test_ext_after_machine_online().execute_with(|| {
-        let date_days = 20000u32;
+        let date_days = 100u32; // within test mock's time window
         let ranges = vec![TimeRange { start_hour: 14, end_hour: 18 }];
         assert_ok!(OnlineProfile::set_specific_date_schedule(
             RuntimeOrigin::signed(*stash),
@@ -326,17 +326,18 @@ fn specific_date_overrides_weekly_schedule() {
             MachineRentalMode::TimeSlot
         ));
 
-        // 2024-01-01 是周一 (day 19723 since epoch)
-        // UNIX epoch day 19723 = 2024-01-01 周一 (weekday = (19723+4)%7 = 1)
-        let date_days = 19723u32;
+        // 使用测试环境 mock 时间窗口内的日期
+        // 测试 mock 起始时间 INIT_TIMESTAMP = 90_000ms，today ≈ 0
+        // 选 day 100，UNIX epoch day 100 = 1970-04-11 周六 (weekday = (100+4)%7 = 6)
+        let date_days = 100u32;
         let start_ts: u64 = date_days as u64 * 86400 * 1000 + 10 * 3600 * 1000; // 10:00 UTC
 
-        // 周循环：周一只允许 00:00-06:00（不包含 10:00-12:00）
+        // 周循环：周六只允许 00:00-06:00（不包含 10:00-12:00）
         let weekly = vec![TimeRange { start_hour: 0, end_hour: 6 }];
         assert_ok!(OnlineProfile::set_weekly_schedule(
             RuntimeOrigin::signed(*stash),
             machine_id.clone(),
-            1,
+            6, // 周六
             weekly
         ));
 
@@ -355,6 +356,211 @@ fn specific_date_overrides_weekly_schedule() {
 
         // 10:00-12:00 现在应被允许
         assert!(OnlineProfile::is_rental_schedule_allowed(&*machine_id, start_ts, end_ts));
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Additional tests from QA review
+// ═══════════════════════════════════════════════════════════════
+
+#[test]
+fn empty_vec_on_set_specific_date_falls_back_to_weekly() {
+    // 空 Vec 语义：删除特定日期设置，回退到每周循环
+    new_test_ext_after_machine_online().execute_with(|| {
+        assert_ok!(OnlineProfile::set_machine_rental_mode(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            MachineRentalMode::TimeSlot
+        ));
+        let date_days = 100u32;
+        // 先设置特定日期
+        assert_ok!(OnlineProfile::set_specific_date_schedule(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            date_days,
+            vec![TimeRange { start_hour: 10, end_hour: 14 }]
+        ));
+        assert!(!OnlineProfile::specific_date_schedule(&*machine_id, date_days).is_empty());
+
+        // 传空 Vec 应该等同于清除
+        assert_ok!(OnlineProfile::set_specific_date_schedule(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            date_days,
+            vec![]
+        ));
+        assert!(OnlineProfile::specific_date_schedule(&*machine_id, date_days).is_empty());
+    });
+}
+
+#[test]
+fn cannot_switch_mode_while_rented() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        // 先出租机器
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            10 * ONE_DAY
+        ));
+        run_to_block(30);
+        assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_dave), 0));
+
+        // 机器现在是 Rented 状态，切换模式应失败
+        assert_noop!(
+            OnlineProfile::set_machine_rental_mode(
+                RuntimeOrigin::signed(*stash),
+                machine_id.clone(),
+                MachineRentalMode::TimeSlot
+            ),
+            online_profile::Error::<TestRuntime>::MachineStatusNotAllowed
+        );
+    });
+}
+
+#[test]
+fn set_weekly_schedule_enforces_max_ranges() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        // 11 个 range 应被拒绝（上限 10）
+        let too_many: Vec<TimeRange> = (0..11)
+            .map(|i| TimeRange { start_hour: i * 2, end_hour: i * 2 + 1 })
+            .collect();
+        assert_noop!(
+            OnlineProfile::set_weekly_schedule(
+                RuntimeOrigin::signed(*stash),
+                machine_id.clone(),
+                1,
+                too_many
+            ),
+            online_profile::Error::<TestRuntime>::InvalidScheduleArgs
+        );
+
+        // 10 个应接受
+        let ok_ranges: Vec<TimeRange> = (0..10)
+            .map(|i| TimeRange { start_hour: i * 2, end_hour: i * 2 + 1 })
+            .collect();
+        assert_ok!(OnlineProfile::set_weekly_schedule(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            1,
+            ok_ranges
+        ));
+    });
+}
+
+#[test]
+fn set_weekly_schedule_rejects_overlapping_ranges() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        let overlapping = vec![
+            TimeRange { start_hour: 0, end_hour: 12 },
+            TimeRange { start_hour: 6, end_hour: 18 }, // overlaps with above
+        ];
+        assert_noop!(
+            OnlineProfile::set_weekly_schedule(
+                RuntimeOrigin::signed(*stash),
+                machine_id.clone(),
+                1,
+                overlapping
+            ),
+            online_profile::Error::<TestRuntime>::InvalidScheduleArgs
+        );
+    });
+}
+
+#[test]
+fn set_specific_date_rejects_far_future() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        // 超过 365 天的日期应被拒绝
+        let far_future = 1000u32; // way beyond 365 days from today (which is ≈0)
+        assert_noop!(
+            OnlineProfile::set_specific_date_schedule(
+                RuntimeOrigin::signed(*stash),
+                machine_id.clone(),
+                far_future,
+                vec![TimeRange { start_hour: 0, end_hour: 12 }]
+            ),
+            online_profile::Error::<TestRuntime>::InvalidScheduleArgs
+        );
+    });
+}
+
+#[test]
+fn set_weekly_schedule_overwrites_existing() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        // 先设置
+        assert_ok!(OnlineProfile::set_weekly_schedule(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            1,
+            vec![TimeRange { start_hour: 0, end_hour: 12 }]
+        ));
+        // 再设置 - 应完全覆盖
+        assert_ok!(OnlineProfile::set_weekly_schedule(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            1,
+            vec![TimeRange { start_hour: 14, end_hour: 20 }]
+        ));
+        let schedule = OnlineProfile::weekly_schedule(&*machine_id);
+        assert_eq!(schedule[1], vec![TimeRange { start_hour: 14, end_hour: 20 }]);
+    });
+}
+
+#[test]
+fn rental_exactly_2_hours_allowed() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        assert_ok!(OnlineProfile::set_machine_rental_mode(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            MachineRentalMode::TimeSlot
+        ));
+        let ranges = vec![TimeRange { start_hour: 0, end_hour: 24 }];
+        for wd in 0..7u8 {
+            assert_ok!(OnlineProfile::set_weekly_schedule(
+                RuntimeOrigin::signed(*stash),
+                machine_id.clone(),
+                wd,
+                ranges.clone()
+            ));
+        }
+        let start_ts: u64 = 10 * 3600 * 1000;
+        let end_ts = start_ts + 2 * 3600 * 1000; // exactly 2 hours
+        assert!(OnlineProfile::is_rental_schedule_allowed(&*machine_id, start_ts, end_ts));
+    });
+}
+
+#[test]
+fn rental_just_under_2_hours_rejected() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        assert_ok!(OnlineProfile::set_machine_rental_mode(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            MachineRentalMode::TimeSlot
+        ));
+        let ranges = vec![TimeRange { start_hour: 0, end_hour: 24 }];
+        for wd in 0..7u8 {
+            assert_ok!(OnlineProfile::set_weekly_schedule(
+                RuntimeOrigin::signed(*stash),
+                machine_id.clone(),
+                wd,
+                ranges.clone()
+            ));
+        }
+        let start_ts: u64 = 10 * 3600 * 1000;
+        let end_ts = start_ts + 2 * 3600 * 1000 - 1; // 1ms less than 2 hours
+        assert!(!OnlineProfile::is_rental_schedule_allowed(&*machine_id, start_ts, end_ts));
+    });
+}
+
+#[test]
+fn clear_nonexistent_date_is_noop() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        // 清除不存在的日期应成功（幂等）
+        assert_ok!(OnlineProfile::clear_specific_date(
+            RuntimeOrigin::signed(*stash),
+            machine_id.clone(),
+            50u32 // never set
+        ));
     });
 }
 

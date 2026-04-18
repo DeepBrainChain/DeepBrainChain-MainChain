@@ -388,10 +388,11 @@ impl<T: Config> Pallet<T> {
             duration.min((Self::maximum_rental_duration().saturating_mul(ONE_DAY)).into());
 
         // 分时段出租校验（TimeSlot 模式下必须落在允许时段内，且 ≥ 2 小时）
-        // 块时间 6 秒（DBC 主网）
+        // DBC 主网块时间 6 秒 = 6000ms（与 runtime MILLISECS_PER_BLOCK 一致）
+        const MILLISECS_PER_BLOCK: u64 = 6_000;
         let start_ts_ms = <online_profile::Pallet<T>>::current_time_ms();
         let duration_ms: u64 = duration.saturated_into::<u64>()
-            .checked_mul(6_000).ok_or(Error::<T>::Overflow)?;
+            .checked_mul(MILLISECS_PER_BLOCK).ok_or(Error::<T>::Overflow)?;
         let end_ts_ms = start_ts_ms.checked_add(duration_ms).ok_or(Error::<T>::Overflow)?;
         ensure!(
             <online_profile::Pallet<T>>::is_rental_schedule_allowed(
