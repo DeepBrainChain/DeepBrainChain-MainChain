@@ -64,6 +64,24 @@ impl<T: Config> Pallet<T> {
         Some(stake_per_gpu_limit_by_num)
     }
 
+    // 分时段出租模式的起步质押：20000 DBC per GPU（是全天模式的 2 倍）
+    // 封顶仍为 min(100k DBC, $300)
+    pub fn stake_per_gpu_v2_time_slot() -> Option<BalanceOf<T>> {
+        let online_stake_params = Self::online_stake_params()?;
+        let stake_per_gpu_limit_by_num =
+            Perbill::from_rational(20_000u32, 100_000u32) * online_stake_params.online_stake_per_gpu;
+
+        Some(stake_per_gpu_limit_by_num)
+    }
+
+    // 根据机器模式返回起步质押值
+    pub fn stake_per_gpu_v2_by_mode(mode: super::MachineRentalMode) -> Option<BalanceOf<T>> {
+        match mode {
+            super::MachineRentalMode::FullTime => Self::stake_per_gpu_v2(),
+            super::MachineRentalMode::TimeSlot => Self::stake_per_gpu_v2_time_slot(),
+        }
+    }
+
     /// 计算当前Era在线奖励数量
     pub fn current_era_reward() -> Option<BalanceOf<T>> {
         let current_era = Self::current_era() as u64;

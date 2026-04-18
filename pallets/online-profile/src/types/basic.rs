@@ -52,6 +52,50 @@ pub struct PhaseRewardInfoDetail<Balance> {
     pub phase_2_reward_per_era: Balance, // next 5 years
 }
 
+/// 机器租赁模式：全天出租 或 按时段出租
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub enum MachineRentalMode {
+    /// 全天出租（默认）
+    FullTime,
+    /// 按时段出租
+    TimeSlot,
+}
+
+impl Default for MachineRentalMode {
+    fn default() -> Self {
+        MachineRentalMode::FullTime
+    }
+}
+
+/// 一天中的时段（小时级粒度，UTC 时间）
+/// start_hour ∈ [0, 23]，end_hour ∈ [1, 24]，end_hour == 24 表示到午夜 00:00
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct TimeRange {
+    pub start_hour: u8,
+    pub end_hour: u8,
+}
+
+impl TimeRange {
+    /// 校验时段合法性
+    pub fn is_valid(&self) -> bool {
+        self.start_hour < 24 && self.end_hour >= 1 && self.end_hour <= 24
+            && self.start_hour < self.end_hour
+    }
+
+    /// 判断给定小时是否在时段内 [start, end)
+    pub fn contains_hour(&self, hour: u8) -> bool {
+        hour >= self.start_hour && hour < self.end_hour
+    }
+
+    /// 判断一段时间 [from_hour, to_hour] 是否完全落在本时段内
+    /// from/to 都是小时值，to_hour == 24 合法
+    pub fn covers(&self, from_hour: u8, to_hour: u8) -> bool {
+        from_hour >= self.start_hour && to_hour <= self.end_hour
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct OnlineStakeParamsInfo<Balance> {
     /// How much a GPU should stake(DBC).eg. 100_000 DBC

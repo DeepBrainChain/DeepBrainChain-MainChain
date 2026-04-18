@@ -56,7 +56,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + generic_func::Config {
+    pub trait Config: frame_system::Config + generic_func::Config + pallet_timestamp::Config {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type Currency: ReservableCurrency<Self::AccountId>;
         type BondingDuration: Get<EraIndex>;
@@ -115,6 +115,33 @@ pub mod pallet {
     #[pallet::getter(fn machine_extra_price)]
     pub type MachineExtraPrice<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>;
+
+    /// 机器租赁模式：FullTime | TimeSlot（默认 FullTime）
+    #[pallet::storage]
+    #[pallet::getter(fn machine_rental_mode)]
+    pub type MachineRentalModeStorage<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, MachineRentalMode, ValueQuery>;
+
+    /// 每周循环时段表：MachineId → 7 天 × Vec<TimeRange>（索引 0=周日, 1=周一, ..., 6=周六）
+    /// UTC 时间
+    #[pallet::storage]
+    #[pallet::getter(fn weekly_schedule)]
+    pub type WeeklySchedule<T: Config> =
+        StorageMap<_, Blake2_128Concat, MachineId, [Vec<TimeRange>; 7], ValueQuery>;
+
+    /// 特定日期的时段表：优先级高于每周循环
+    /// key2: 自 UNIX epoch (1970-01-01) 起的天数
+    #[pallet::storage]
+    #[pallet::getter(fn specific_date_schedule)]
+    pub type SpecificDateSchedule<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        MachineId,
+        Blake2_128Concat,
+        u32,
+        Vec<TimeRange>,
+        ValueQuery,
+    >;
 
     /// Statistics of gpu and stake
     #[pallet::storage]
@@ -1287,6 +1314,97 @@ pub mod pallet {
             Self::deposit_event(Event::MachineExtraPriceSet(machine_id, extra_price));
             Ok(().into())
         }
+
+        /// 切换机器租赁模式（全天 / 按时段）
+        /// 模式切换不改变已质押数量，但新机器绑定时按模式决定起步质押
+        #[pallet::call_index(23)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn set_machine_rental_mode(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            mode: MachineRentalMode,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            ensure!(
+                machine_info.machine_stash == who || machine_info.controller == who,
+                Error::<T>::NotMachineController
+            );
+            MachineRentalModeStorage::<T>::insert(&machine_id, mode);
+            Self::deposit_event(Event::MachineRentalModeSet(machine_id, mode));
+            Ok(().into())
+        }
+
+        /// 设置机器某一天的每周循环时段（weekday: 0=周日 .. 6=周六）
+        /// 时间为 UTC 小时值；start_hour < end_hour；end_hour 最大 24
+        /// 传入空 Vec 表示该天不出租
+        #[pallet::call_index(24)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn set_weekly_schedule(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            weekday: u8,
+            ranges: Vec<TimeRange>,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            ensure!(
+                machine_info.machine_stash == who || machine_info.controller == who,
+                Error::<T>::NotMachineController
+            );
+            ensure!(weekday < 7, Error::<T>::InvalidScheduleArgs);
+            for r in ranges.iter() {
+                ensure!(r.is_valid(), Error::<T>::InvalidScheduleArgs);
+            }
+            WeeklySchedule::<T>::mutate(&machine_id, |schedule| {
+                schedule[weekday as usize] = ranges.clone();
+            });
+            Self::deposit_event(Event::WeeklyScheduleSet(machine_id, weekday));
+            Ok(().into())
+        }
+
+        /// 设置机器特定日期的时段（优先级高于每周循环）
+        /// date_days: 自 UNIX epoch 起的天数；传空 Vec 表示该日期不出租
+        #[pallet::call_index(25)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn set_specific_date_schedule(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            date_days: u32,
+            ranges: Vec<TimeRange>,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            ensure!(
+                machine_info.machine_stash == who || machine_info.controller == who,
+                Error::<T>::NotMachineController
+            );
+            for r in ranges.iter() {
+                ensure!(r.is_valid(), Error::<T>::InvalidScheduleArgs);
+            }
+            SpecificDateSchedule::<T>::insert(&machine_id, date_days, ranges);
+            Self::deposit_event(Event::SpecificDateScheduleSet(machine_id, date_days));
+            Ok(().into())
+        }
+
+        /// 清除机器特定日期的时段（回退到每周循环）
+        #[pallet::call_index(26)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        pub fn clear_specific_date(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            date_days: u32,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            ensure!(
+                machine_info.machine_stash == who || machine_info.controller == who,
+                Error::<T>::NotMachineController
+            );
+            SpecificDateSchedule::<T>::remove(&machine_id, date_days);
+            Self::deposit_event(Event::SpecificDateCleared(machine_id, date_days));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1326,6 +1444,13 @@ pub mod pallet {
         // NEW in spec 408 - must be at the END to preserve existing event positions
         // machine_id, extra_price (USD×10^6 per day per GPU)
         MachineExtraPriceSet(MachineId, u64),
+        // NEW in spec 409 - time-slot rental (all added at END for ABI compat)
+        MachineRentalModeSet(MachineId, MachineRentalMode),
+        // machine_id, weekday (0-6)
+        WeeklyScheduleSet(MachineId, u8),
+        // machine_id, date_days (since epoch)
+        SpecificDateScheduleSet(MachineId, u32),
+        SpecificDateCleared(MachineId, u32),
     }
 
     #[pallet::error]
@@ -1362,6 +1487,12 @@ pub mod pallet {
         NotAuthorized,
         /// 额外加价超过上限
         ExtraPriceTooHigh,
+        /// 时段参数不合法
+        InvalidScheduleArgs,
+        /// 租用时长不足最小要求（2小时）
+        RentalTooShort,
+        /// 请求时段不在机器允许出租的时段内
+        OutOfRentalSchedule,
     }
 }
 
@@ -1370,6 +1501,88 @@ impl<T: Config> Pallet<T> {
     pub fn cal_mut_hardware_stake() -> Option<BalanceOf<T>> {
         let online_stake_params = Self::online_stake_params()?;
         T::DbcPrice::get_dbc_amount_by_value(online_stake_params.reonline_stake)
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 分时段出租：校验请求时段是否被机器允许
+    // ═══════════════════════════════════════════════════════════════
+
+    /// 把毫秒时间戳拆成 (date_days, weekday, hour_of_day)
+    /// weekday: 0=周日, 1=周一 ... 6=周六（UNIX epoch 1970-01-01 是周四 = 4）
+    fn split_timestamp(ts_ms: u64) -> (u32, u8, u8) {
+        let secs = ts_ms / 1000;
+        let date_days = (secs / 86400) as u32;
+        let weekday = ((date_days + 4) % 7) as u8;
+        let hour_of_day = ((secs % 86400) / 3600) as u8;
+        (date_days, weekday, hour_of_day)
+    }
+
+    /// 返回机器在指定日期（UNIX 天数）的可用时段列表
+    /// 特定日期优先于每周循环
+    fn available_ranges_on_date(
+        machine_id: &MachineId,
+        date_days: u32,
+        weekday: u8,
+    ) -> Vec<TimeRange> {
+        if SpecificDateSchedule::<T>::contains_key(machine_id, date_days) {
+            SpecificDateSchedule::<T>::get(machine_id, date_days)
+        } else {
+            let schedule = WeeklySchedule::<T>::get(machine_id);
+            schedule.get(weekday as usize).cloned().unwrap_or_default()
+        }
+    }
+
+    /// 校验请求的租用时间段 [start_ts_ms, end_ts_ms) 是否在机器的可用时段内
+    /// 仅对 TimeSlot 模式生效。FullTime 模式总是返回 true。
+    /// 要求：
+    /// - 时长至少 2 小时
+    /// - 必须完全落在同一天的某个时段内（不支持跨日）
+    pub fn is_rental_schedule_allowed(
+        machine_id: &MachineId,
+        start_ts_ms: u64,
+        end_ts_ms: u64,
+    ) -> bool {
+        // FullTime 模式不做时段限制
+        if Self::machine_rental_mode(machine_id) == MachineRentalMode::FullTime {
+            return true
+        }
+
+        if end_ts_ms <= start_ts_ms {
+            return false
+        }
+
+        // 最小 2 小时（毫秒）
+        const MIN_DURATION_MS: u64 = 2 * 60 * 60 * 1000;
+        if end_ts_ms - start_ts_ms < MIN_DURATION_MS {
+            return false
+        }
+
+        let (start_date, start_weekday, start_hour) = Self::split_timestamp(start_ts_ms);
+        let end_secs = end_ts_ms / 1000;
+        let end_date = (end_secs / 86400) as u32;
+        let end_hour_in_day = ((end_secs % 86400) / 3600) as u8;
+        // 如果租期跨越 UTC 日（例如 23:00 到次日 01:00），要求严格单日内
+        // 但允许结束正好是 00:00（即 end_hour = 24 当日视角）
+        let end_hour_normalized = if end_date == start_date {
+            end_hour_in_day
+        } else if end_date == start_date + 1 && end_secs % 86400 == 0 {
+            24
+        } else {
+            return false
+        };
+
+        let ranges = Self::available_ranges_on_date(machine_id, start_date, start_weekday);
+        for range in ranges.iter() {
+            if range.covers(start_hour, end_hour_normalized) {
+                return true
+            }
+        }
+        false
+    }
+
+    /// 当前链上时间（毫秒）
+    pub fn current_time_ms() -> u64 {
+        <pallet_timestamp::Pallet<T>>::get().saturated_into::<u64>()
     }
 
     // NOTE: StashMachine.total_machine cannot be removed. Because Machine will be rewarded in 150 eras.

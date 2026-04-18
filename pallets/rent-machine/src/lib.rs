@@ -348,6 +348,8 @@ pub mod pallet {
         MachineNotRented,
         MachineNotFound,
         MoreThanOneRenter,
+        /// 请求时段不在机器允许出租的时段内，或时长不足 2 小时
+        OutOfRentalSchedule,
     }
 }
 
@@ -384,6 +386,19 @@ impl<T: Config> Pallet<T> {
         // 最大租用时间限制MaximumRentalDuration
         let duration =
             duration.min((Self::maximum_rental_duration().saturating_mul(ONE_DAY)).into());
+
+        // 分时段出租校验（TimeSlot 模式下必须落在允许时段内，且 ≥ 2 小时）
+        // 块时间 6 秒（DBC 主网）
+        let start_ts_ms = <online_profile::Pallet<T>>::current_time_ms();
+        let duration_ms: u64 = duration.saturated_into::<u64>()
+            .checked_mul(6_000).ok_or(Error::<T>::Overflow)?;
+        let end_ts_ms = start_ts_ms.checked_add(duration_ms).ok_or(Error::<T>::Overflow)?;
+        ensure!(
+            <online_profile::Pallet<T>>::is_rental_schedule_allowed(
+                &machine_id, start_ts_ms, end_ts_ms
+            ),
+            Error::<T>::OutOfRentalSchedule
+        );
 
         // NOTE: 用户提交订单，需要扣除10个DBC
         <generic_func::Pallet<T>>::pay_fixed_tx_fee(renter.clone())

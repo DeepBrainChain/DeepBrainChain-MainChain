@@ -5773,6 +5773,7 @@ dependencies = [
  "frame-system",
  "generic-func",
  "log",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "serde",
