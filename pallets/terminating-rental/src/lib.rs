@@ -250,6 +250,13 @@ pub mod pallet {
     pub(super) type MachineExtraPrice<T: Config> =
         StorageMap<_, Blake2_128Concat, MachineId, u64, ValueQuery>;
 
+    /// Per-stash 自定义收租钱包（spec 410，短租 pallet 独立副本）
+    /// 若不存在（矿工未配置），则默认租金走 stash 本账户。
+    #[pallet::storage]
+    #[pallet::getter(fn stash_rent_receiver)]
+    pub(super) type StashRentReceiver<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
+
     #[pallet::type_value]
     pub(super) fn MaximumRentalDurationDefault<T: Config>() -> EraIndex {
         60
@@ -1393,6 +1400,30 @@ pub mod pallet {
             Self::deposit_event(Event::MachineExtraPriceSet(machine_id, extra_price));
             Ok(().into())
         }
+
+        /// 矿工设置独立收租钱包（spec 410，短租模式）
+        /// 传 None 恢复默认（租金走 stash 账户）。仅 stash 本人可调用。
+        /// Weight: 1 write + 1 event ~ 140_000
+        #[pallet::call_index(27)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(140_000, 0))]
+        pub fn set_rent_receiver(
+            origin: OriginFor<T>,
+            receiver: Option<T::AccountId>,
+        ) -> DispatchResultWithPostInfo {
+            let stash = ensure_signed(origin)?;
+            // spec 410: 禁止全零地址，防 UX 陷阱
+            if let Some(ref r) = receiver {
+                let zero = T::AccountId::decode(&mut &[0u8; 32][..])
+                    .map_err(|_| Error::<T>::InvalidRentReceiver)?;
+                ensure!(r != &zero, Error::<T>::InvalidRentReceiver);
+            }
+            match receiver.as_ref() {
+                Some(r) => StashRentReceiver::<T>::insert(&stash, r),
+                None => StashRentReceiver::<T>::remove(&stash),
+            }
+            Self::deposit_event(Event::RentReceiverChanged(stash, receiver));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1426,6 +1457,13 @@ pub mod pallet {
         RawInfoSubmited(ReportId, T::AccountId),
         // machine_id, extra_price (USD×10^6 per day per GPU)
         MachineExtraPriceSet(MachineId, u64),
+        // spec 410: 矿工设置独立收租钱包；Some(addr)=切换，None=恢复默认（stash 收）
+        RentReceiverChanged(T::AccountId, Option<T::AccountId>),
+        // S2 修复：租金转给 receiver 失败，自动回退到 stash。(stash, failed_receiver, amount)
+        RentReceiverPayoutFallback(T::AccountId, T::AccountId, BalanceOf<T>),
+        // S2 修复：on_finalize 租金结算彻底失败（即便回退到 stash 也失败）
+        // 不再静默吞错，事件上链方便监控。(rent_id,)
+        RentFeePayoutFailed(RentOrderId),
     }
 
     #[pallet::error]
@@ -1492,6 +1530,8 @@ pub mod pallet {
         ExtraPriceTooHigh,
         /// 租金销毁钱包未设置
         UndefinedRentPot,
+        /// spec 410: receiver 地址非法（如全零）
+        InvalidRentReceiver,
     }
 }
 
@@ -2048,13 +2088,34 @@ impl<T: Config> Pallet<T> {
         };
         let _ = burn_amount; // 避免 unused 警告
 
-        // 剩余 95%（或全部）转给卡主 stash
-        <T as Config>::Currency::transfer(
+        // spec 410: 剩余 95%（或全部）转给矿工设置的收租钱包（未配置则回退 stash）。
+        // S2 修复：若 receiver 转账失败（比如 receiver 账户处于异常状态），
+        // 回退到 stash；若 stash 也失败才 bail。事件可观测，不静默吞错。
+        let rent_receiver = Self::stash_rent_receiver(&machine_info.machine_stash)
+            .unwrap_or_else(|| machine_info.machine_stash.clone());
+        let primary = <T as Config>::Currency::transfer(
             &rent_order.renter,
-            &machine_info.machine_stash,
+            &rent_receiver,
             stash_amount,
             KeepAlive,
-        )?;
+        );
+        if let Err(_) = primary {
+            if rent_receiver != machine_info.machine_stash {
+                Self::deposit_event(Event::RentReceiverPayoutFallback(
+                    machine_info.machine_stash.clone(),
+                    rent_receiver.clone(),
+                    stash_amount,
+                ));
+                <T as Config>::Currency::transfer(
+                    &rent_order.renter,
+                    &machine_info.machine_stash,
+                    stash_amount,
+                    KeepAlive,
+                )?;
+            } else {
+                return primary;
+            }
+        }
 
         // 根据机器GPU计算需要多少质押，用卡主实际收到的部分（95%）自动补充质押
         let max_stake = Self::stake_per_gpu_limit()
@@ -2089,7 +2150,10 @@ impl<T: Config> Pallet<T> {
             let machine_id = rent_order.machine_id.clone();
             let rent_duration = rent_order.rent_end.saturating_sub(rent_order.rent_start);
 
-            let _ = Self::pay_rent_fee(&rent_order, rent_order.stake_amount, machine_id.clone());
+            // S2 修复：显式处理 pay_rent_fee 失败，发事件便于监控；后续 cleanup 仍执行。
+            if let Err(_) = Self::pay_rent_fee(&rent_order, rent_order.stake_amount, machine_id.clone()) {
+                Self::deposit_event(Event::RentFeePayoutFailed(rent_id));
+            }
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
             let is_last_rent = Self::is_last_rent(&machine_id)?;

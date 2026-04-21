@@ -380,6 +380,13 @@ pub mod pallet {
     pub(super) type AuthorizedForceExitAccounts<T: Config> =
         StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
+    /// Per-stash 自定义收租钱包（spec 410）
+    /// 若不存在（矿工未配置），则默认租金走 stash 本账户。
+    #[pallet::storage]
+    #[pallet::getter(fn stash_rent_receiver)]
+    pub(super) type StashRentReceiver<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(block_number: T::BlockNumber) -> Weight {
@@ -1447,6 +1454,30 @@ pub mod pallet {
             Self::deposit_event(Event::SpecificDateCleared(machine_id, date_days));
             Ok(().into())
         }
+
+        /// 矿工设置独立收租钱包（spec 410）
+        /// 传 None 恢复默认（租金走 stash 账户）。仅 stash 本人可调用。
+        /// Weight: 1 write + 1 event ~ 140_000
+        #[pallet::call_index(27)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(140_000, 0))]
+        pub fn set_rent_receiver(
+            origin: OriginFor<T>,
+            receiver: Option<T::AccountId>,
+        ) -> DispatchResultWithPostInfo {
+            let stash = ensure_signed(origin)?;
+            // spec 410: 防止把租金发到全零地址（实际上等于烧钱，UX 陷阱）
+            if let Some(ref r) = receiver {
+                let zero = T::AccountId::decode(&mut &[0u8; 32][..])
+                    .map_err(|_| Error::<T>::InvalidRentReceiver)?;
+                ensure!(r != &zero, Error::<T>::InvalidRentReceiver);
+            }
+            match receiver.as_ref() {
+                Some(r) => StashRentReceiver::<T>::insert(&stash, r),
+                None => StashRentReceiver::<T>::remove(&stash),
+            }
+            Self::deposit_event(Event::RentReceiverChanged(stash, receiver));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1493,6 +1524,8 @@ pub mod pallet {
         // machine_id, date_days (since epoch)
         SpecificDateScheduleSet(MachineId, u32),
         SpecificDateCleared(MachineId, u32),
+        // spec 410: 矿工设置独立收租钱包；Some(addr)=切换，None=恢复默认（stash 收）
+        RentReceiverChanged(T::AccountId, Option<T::AccountId>),
     }
 
     #[pallet::error]
@@ -1535,6 +1568,8 @@ pub mod pallet {
         RentalTooShort,
         /// 请求时段不在机器允许出租的时段内
         OutOfRentalSchedule,
+        /// spec 410: receiver 地址非法（如全零）
+        InvalidRentReceiver,
     }
 }
 
@@ -1543,6 +1578,11 @@ impl<T: Config> Pallet<T> {
     pub fn cal_mut_hardware_stake() -> Option<BalanceOf<T>> {
         let online_stake_params = Self::online_stake_params()?;
         T::DbcPrice::get_dbc_amount_by_value(online_stake_params.reonline_stake)
+    }
+
+    /// spec 410: 获取 stash 的实际收租账户（未配置则回退到 stash 本身）
+    pub fn effective_rent_receiver(stash: &T::AccountId) -> T::AccountId {
+        Self::stash_rent_receiver(stash).unwrap_or_else(|| stash.clone())
     }
 
     // ═══════════════════════════════════════════════════════════════
