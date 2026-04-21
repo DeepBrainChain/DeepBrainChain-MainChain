@@ -143,6 +143,13 @@ pub mod pallet {
     #[pallet::getter(fn rent_fee_pot)]
     pub(super) type RentFeePot<T: Config> = StorageValue<_, T::AccountId>;
 
+    /// spec 410: 订单创建时快照矿工的 receiver，防止 bait-and-switch。
+    /// Absent 等价于「用 stash 自己收」（向后兼容：升级前的旧订单无此快照）。
+    #[pallet::storage]
+    #[pallet::getter(fn rent_order_receiver)]
+    pub(super) type RentOrderReceiver<T: Config> =
+        StorageMap<_, Blake2_128Concat, RentOrderId, T::AccountId>;
+
     #[pallet::type_value]
     pub(super) fn MaximumRentalDurationDefault<T: Config>() -> EraIndex {
         60
@@ -232,6 +239,7 @@ pub mod pallet {
                 &renter,
                 machine_id.clone(),
                 machine_info.machine_stash,
+                rent_id,
                 rent_info.stake_amount,
             )?;
 
@@ -434,6 +442,13 @@ impl<T: Config> Pallet<T> {
 
         let rent_id = Self::get_new_rent_id();
 
+        // spec 410: 快照矿工当前的独立收租钱包，防止 confirm 窗口内 bait-and-switch
+        if let Some(snapshot) =
+            <online_profile::Pallet<T>>::stash_rent_receiver(&machine_info.machine_stash)
+        {
+            RentOrderReceiver::<T>::insert(&rent_id, snapshot);
+        }
+
         let mut machine_rent_order = Self::machine_rent_order(&machine_id);
         let rentable_gpu_index = machine_rent_order.gen_rentable_gpu(rent_gpu_num, gpu_num);
         ItemList::add_item(&mut machine_rent_order.rent_order, rent_id);
@@ -536,7 +551,7 @@ impl<T: Config> Pallet<T> {
         let user_balance = <T as Config>::Currency::free_balance(&renter);
         ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
 
-        Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_fee)?;
+        Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_id, rent_fee)?;
 
         // 获取用户租用的结束时间
         rent_info.rent_end =
@@ -596,6 +611,7 @@ impl<T: Config> Pallet<T> {
         renter: &T::AccountId,
         machine_id: MachineId,
         machine_stash: T::AccountId,
+        rent_id: RentOrderId,
         fee_amount: BalanceOf<T>,
     ) -> DispatchResult {
         let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
@@ -605,7 +621,11 @@ impl<T: Config> Pallet<T> {
         let fee_to_destroy = destroy_percent * fee_amount;
         let fee_to_stash = fee_amount.checked_sub(&fee_to_destroy).ok_or(Error::<T>::Overflow)?;
 
-        <T as pallet::Config>::Currency::transfer(renter, &machine_stash, fee_to_stash, KeepAlive)?;
+        // spec 410: 优先读订单创建时的快照（防 bait-and-switch）；升级前旧订单无快照，
+        // 则回退到矿工当前设置；仍未设置则回退到 stash
+        let rent_receiver = Self::rent_order_receiver(&rent_id)
+            .unwrap_or_else(|| <online_profile::Pallet<T>>::effective_rent_receiver(&machine_stash));
+        <T as pallet::Config>::Currency::transfer(renter, &rent_receiver, fee_to_stash, KeepAlive)?;
         <T as pallet::Config>::Currency::transfer(
             renter,
             &rent_fee_pot,
@@ -669,6 +689,7 @@ impl<T: Config> Pallet<T> {
             MachineRentOrder::<T>::insert(&rent_info.machine_id, machine_rent_order);
 
             RentInfo::<T>::remove(rent_id);
+            RentOrderReceiver::<T>::remove(rent_id);
 
             T::RTOps::change_machine_status_on_confirm_expired(
                 &rent_info.machine_id,
@@ -754,6 +775,7 @@ impl<T: Config> Pallet<T> {
             MachineRentOrder::<T>::insert(&rent_info.machine_id, machine_rent_order);
 
             RentInfo::<T>::remove(rent_id);
+            RentOrderReceiver::<T>::remove(rent_id);
         }
         Ok(())
     }
