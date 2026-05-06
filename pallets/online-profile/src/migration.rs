@@ -226,3 +226,53 @@ pub mod v1 {
         weight
     }
 }
+
+/// Recompute `SysInfo.total_gpu_num` and `SysInfo.total_rented_gpu` directly from
+/// `MachinesInfo` (the source of truth), repairing the drift caused by the
+/// `do_machine_exit` bug (force_machine_exit on a Rented machine decremented
+/// total_gpu_num without decrementing total_rented_gpu, eventually producing
+/// total_rented_gpu > total_gpu_num as observed on mainnet, e.g. 96 > 93).
+///
+/// Also rebuilds per-stash `StashMachines.total_gpu_num`/`total_rented_gpu`
+/// because those have the same drift, and `regenerate_sys_info` reads from there.
+pub fn rebuild_sys_info_from_machines_info<T: Config>() -> Weight {
+    use sp_std::collections::btree_map::BTreeMap;
+    use frame_support::IterableStorageMap;
+    let mut stash_gpu: BTreeMap<T::AccountId, (u64, u64)> = BTreeMap::new(); // (online, rented)
+    let mut total_gpu_num: u64 = 0;
+    let mut total_rented_gpu: u64 = 0;
+
+    for (_, machine_info) in <MachinesInfo<T> as IterableStorageMap<MachineId, _>>::iter() {
+        let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
+        let entry = stash_gpu.entry(machine_info.machine_stash.clone()).or_insert((0, 0));
+        match machine_info.machine_status {
+            MachineStatus::Online => {
+                total_gpu_num = total_gpu_num.saturating_add(gpu_num);
+                entry.0 = entry.0.saturating_add(gpu_num);
+            },
+            MachineStatus::Rented => {
+                total_gpu_num = total_gpu_num.saturating_add(gpu_num);
+                total_rented_gpu = total_rented_gpu.saturating_add(gpu_num);
+                entry.0 = entry.0.saturating_add(gpu_num);
+                entry.1 = entry.1.saturating_add(gpu_num);
+            },
+            // Reported-offline / Exit / AddingCustomizeInfo / etc. machines do
+            // not contribute to the active GPU count.
+            _ => {},
+        }
+    }
+
+    for (stash, (online, rented)) in stash_gpu.iter() {
+        StashMachines::<T>::mutate(stash, |sm| {
+            sm.total_gpu_num = *online;
+            sm.total_rented_gpu = *rented;
+        });
+    }
+
+    SysInfo::<T>::mutate(|sys_info| {
+        sys_info.total_gpu_num = total_gpu_num;
+        sys_info.total_rented_gpu = total_rented_gpu;
+    });
+
+    Weight::zero()
+}

@@ -402,6 +402,16 @@ pub mod pallet {
             Weight::zero()
         }
 
+        fn on_runtime_upgrade() -> Weight {
+            // spec 411: rebuild SysInfo.total_gpu_num / total_rented_gpu from
+            // MachinesInfo (source of truth). Repairs accounting drift produced
+            // by the do_machine_exit bug fixed in this same release (see fix at
+            // do_machine_exit: rented machines being force-exited used to
+            // decrement total_gpu_num without decrementing total_rented_gpu,
+            // resulting in mainnet's totalRentedGpu=96 > totalGpuNum=93).
+            crate::migration::rebuild_sys_info_from_machines_info::<T>()
+        }
+
         // fn on_runtime_upgrade() -> Weight {
         //     let now = <frame_system::Pallet<T>>::block_number();
 
@@ -1690,6 +1700,16 @@ impl<T: Config> Pallet<T> {
         // 下线机器，并退还奖励
         Self::change_stake(&machine_info.machine_stash, machine_info.stake_amount, false)
             .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+
+        // FIX: when force-exiting a Rented machine, total_rented_gpu must be
+        // decremented BEFORE total_gpu_num. Without this, sys_info ends up with
+        // total_rented_gpu > total_gpu_num (structurally impossible) over time
+        // — observed on mainnet as totalRentedGpu=96 > totalGpuNum=93.
+        if matches!(machine_info.machine_status, MachineStatus::Rented) {
+            Self::update_region_on_rent_changed(&machine_info, false);
+            Self::update_snap_on_rent_changed(machine_id.clone(), false)
+                .map_err(|_| Error::<T>::Unknown)?;
+        }
 
         Self::update_region_on_exit(&machine_info);
         Self::update_snap_on_online_changed(machine_id.clone(), false)
