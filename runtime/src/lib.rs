@@ -155,10 +155,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 411,
+    spec_version: 412,
+    // transaction_version bumped 2→3 defensively (new pallet ContainerMode adds 7
+    // extrinsics; offline signers should refresh metadata).
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 2,
+    transaction_version: 3,
     state_version: 1,
 };
 
@@ -1443,6 +1445,14 @@ impl simple_rpc::Config for Runtime {
     type OPRpcQuery = OnlineProfile;
 }
 
+impl container_mode::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    // MVP-1: both committee verification and admin actions go through Root.
+    // Production will move to a dedicated 2-of-3 multisig account.
+    type CommitteeMultisigOrigin = EnsureRoot<AccountId>;
+    type AdminOrigin = EnsureRoot<AccountId>;
+}
+
 impl pallet_evm_chain_id::Config for Runtime {}
 
 /// Current approximation of the gas/s consumption considering
@@ -1661,6 +1671,7 @@ construct_runtime!(
         TerminatingRental: terminating_rental = 113,
         EthPrecompileWhitelist: eth_precompile_whitelist = 114,
         DLCPriceOCW: dlc_price_ocw = 115,
+        ContainerMode: container_mode = 116,
 
     }
 );
