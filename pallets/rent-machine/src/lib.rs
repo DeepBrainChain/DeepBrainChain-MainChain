@@ -175,7 +175,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // 设置机器租金支付目标地址
         #[pallet::call_index(0)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         pub fn set_rent_fee_pot(
             origin: OriginFor<T>,
             pot_addr: T::AccountId,
@@ -187,7 +187,7 @@ pub mod pallet {
 
         /// 用户租用机器(按天租用)
         #[pallet::call_index(1)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn rent_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -200,7 +200,7 @@ pub mod pallet {
 
         /// 用户在租用15min(30个块)内确认机器租用成功
         #[pallet::call_index(2)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn confirm_rent(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -286,7 +286,7 @@ pub mod pallet {
 
         /// 用户续租(按天续租), 通过order_id来续租
         #[pallet::call_index(3)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn relet_machine(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -297,7 +297,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight(Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         pub fn bond_evm_address(
             origin: OriginFor<T>,
             machine_id: MachineId,
