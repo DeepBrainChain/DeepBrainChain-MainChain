@@ -610,8 +610,8 @@ fn restake_still_tops_up_stash_when_no_receiver() {
         // Default path still funds the stake top-up from rent income → reserve non-decreasing.
         let stash_reserved_after = Balances::reserved_balance(&*stash);
         assert!(
-            stash_reserved_after >= stash_reserved_before,
-            "default path: stash stake top-up should still occur (reserved non-decreasing)"
+            stash_reserved_after > stash_reserved_before,
+            "default path: stash stake top-up should still occur (reserved strictly increases)"
         );
     });
 }
