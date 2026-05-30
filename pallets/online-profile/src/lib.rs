@@ -313,7 +313,7 @@ pub mod pallet {
     /// 资金账户的质押总计
     #[pallet::storage]
     #[pallet::getter(fn stash_stake)]
-    pub(super) type StashStake<T: Config> =
+    pub type StashStake<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
@@ -1536,6 +1536,11 @@ pub mod pallet {
         SpecificDateCleared(MachineId, u32),
         // spec 410: 矿工设置独立收租钱包；Some(addr)=切换，None=恢复默认（stash 收）
         RentReceiverChanged(T::AccountId, Option<T::AccountId>),
+        // spec 413: 罚没实际扣减额 < 请求额 (储备不足, best-effort 罚没) 时发出。
+        // (slash_who, requested, actually_slashed)
+        SlashShortfall(T::AccountId, BalanceOf<T>, BalanceOf<T>),
+        // spec 413: confirm_machine 上线快照更新失败 (低概率) 时发出。
+        SnapshotUpdateFailed(MachineId),
     }
 
     #[pallet::error]

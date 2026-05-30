@@ -1,5 +1,5 @@
 use crate::{
-    types::*, BalanceOf, Config, ControllerMachines, LiveMachines, MachineRecentReward,
+    types::*, BalanceOf, Config, ControllerMachines, Event, LiveMachines, MachineRecentReward,
     MachineRentedGPU, MachinesInfo, Pallet, RentedFinished, StashMachines, StashStake, SysInfo,
     UserMutHardwareStake,
 };
@@ -147,7 +147,9 @@ impl<T: Config> OCOps for Pallet<T> {
         // NOTE: Must be after MachinesInfo change, which depend on machine_info
         // if matches!(machine_info.machine_status, MachineStatus::Online) {
         Self::update_region_on_online_changed(&machine_info, true);
-        let _ = Self::update_snap_on_online_changed(machine_id.clone(), true);
+        if Self::update_snap_on_online_changed(machine_id.clone(), true).is_err() {
+            Self::deposit_event(Event::<T>::SnapshotUpdateFailed(machine_id.clone()));
+        }
         return Ok(())
     }
 

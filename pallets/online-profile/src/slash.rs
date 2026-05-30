@@ -34,15 +34,37 @@ impl<T: Config> Pallet<T> {
         slash_amount: BalanceOf<T>,
         reward_to: Vec<T::AccountId>,
     ) -> Result<(), ()> {
+        // Measure the reserve actually moved so the staking aggregates stay
+        // consistent with reality. GNOps::slash_and_reward is best-effort: it
+        // only slashes/repatriates what is currently reserved and returns Ok(())
+        // even when the reserve is short (see generic-func). Decrementing by the
+        // *requested* slash_amount (as before) drifted StashStake / total_stake
+        // low whenever a stash had already been partly unreserved. The guarded
+        // do_slash_deposit path is unaffected; this matters for the unguarded
+        // exec_pending_slash / check_pending_slash paths.
+        // Assumes slash_who is not itself in reward_to (machine stash is not its own
+        // renter/committee); otherwise a repatriate to self would reduce reserve without
+        // being a true slash. This holds for all current callers and matched prior behavior.
+        let reserved_before = <T as Config>::Currency::reserved_balance(&slash_who);
         let _ =
             T::SlashAndReward::slash_and_reward(vec![slash_who.clone()], slash_amount, reward_to);
+        let reserved_after = <T as Config>::Currency::reserved_balance(&slash_who);
+        let actually_slashed = reserved_before.saturating_sub(reserved_after);
 
         StashStake::<T>::mutate(&slash_who, |stash_stake| {
-            *stash_stake = stash_stake.saturating_sub(slash_amount);
+            *stash_stake = stash_stake.saturating_sub(actually_slashed);
         });
         SysInfo::<T>::mutate(|sys_info| {
-            sys_info.total_stake = sys_info.total_stake.saturating_sub(slash_amount);
+            sys_info.total_stake = sys_info.total_stake.saturating_sub(actually_slashed);
         });
+
+        if actually_slashed < slash_amount {
+            Self::deposit_event(Event::<T>::SlashShortfall(
+                slash_who.clone(),
+                slash_amount,
+                actually_slashed,
+            ));
+        }
 
         Ok(())
     }
@@ -219,7 +241,14 @@ impl<T: Config> Pallet<T> {
         return Ok(())
     }
 
-    // 检查已质押资金是否满足单GPU质押金额*gpu数量 若不满足则变更机器状态为fulfill
+    // 检查已质押资金是否满足单GPU质押金额*gpu数量。
+    //
+    // NOTE(spec 413): 历史上这里把质押不足的机器标记为 WaitingFulfill 强制补质押,
+    // 但该写入从未被持久化(machine_info 按值传入后即丢弃), 且强制补质押与既定的
+    // “少退不补” under-collateralization policy A (task #164) 相冲突。
+    // 因此当前刻意不强制补质押(保持既有链上行为, 仅此处补注释说明)。若将来要重新
+    // 启用, 除写回 MachinesInfo 外, 还须同步维护 LiveMachines.fulfilling_machine 列表
+    // (参见 confirm_machine 的处理), 否则机器状态与活跃列表会不一致。
     pub fn try_to_change_machine_status_to_fulfill(
         slash_account: &T::AccountId,
         mut machine_info: MachineInfo<T::AccountId, T::BlockNumber, BalanceOf<T>>,
