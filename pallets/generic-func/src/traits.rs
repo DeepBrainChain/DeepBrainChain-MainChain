@@ -48,15 +48,20 @@ impl<T: Config> GNOps for Pallet<T> {
                     let to_move =
                         if left_reward >= reward_each_get { reward_each_get } else { left_reward };
                     // repatriate_reserved returns Ok(not_moved); moved = to_move - not_moved.
+                    // Decrement left_reward only by what ACTUALLY moved, so any
+                    // un-repatriated remainder (a failed/partial transfer to a reward
+                    // recipient) falls through to the treasury slash below instead of
+                    // being left stuck in the slashed account's reserve.
                     if let Ok(not_moved) = T::Currency::repatriate_reserved(
                         &a_slash_person,
                         a_committee,
                         to_move,
                         BalanceStatus::Free,
                     ) {
-                        total_moved = total_moved.saturating_add(to_move.saturating_sub(not_moved));
+                        let moved = to_move.saturating_sub(not_moved);
+                        total_moved = total_moved.saturating_add(moved);
+                        left_reward = left_reward.saturating_sub(moved);
                     }
-                    left_reward = left_reward.saturating_sub(to_move);
                 }
             }
             if left_reward > Zero::zero() {

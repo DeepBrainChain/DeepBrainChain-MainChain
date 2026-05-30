@@ -241,8 +241,10 @@ pub fn rebuild_sys_info_from_machines_info<T: Config>() -> Weight {
     let mut stash_gpu: BTreeMap<T::AccountId, (u64, u64)> = BTreeMap::new(); // (online, rented)
     let mut total_gpu_num: u64 = 0;
     let mut total_rented_gpu: u64 = 0;
+    let mut machine_count: u64 = 0;
 
     for (_, machine_info) in <MachinesInfo<T> as IterableStorageMap<MachineId, _>>::iter() {
+        machine_count = machine_count.saturating_add(1);
         let gpu_num = machine_info.machine_info_detail.committee_upload_info.gpu_num as u64;
         let entry = stash_gpu.entry(machine_info.machine_stash.clone()).or_insert((0, 0));
         match machine_info.machine_status {
@@ -274,5 +276,8 @@ pub fn rebuild_sys_info_from_machines_info<T: Config>() -> Weight {
         sys_info.total_rented_gpu = total_rented_gpu;
     });
 
-    Weight::zero()
+    // reads: every MachinesInfo entry iterated; writes: one StashMachines per stash + SysInfo.
+    let writes = (stash_gpu.len() as u64).saturating_add(1);
+    <T as frame_system::Config>::DbWeight::get()
+        .reads_writes(machine_count.saturating_add(1), writes)
 }

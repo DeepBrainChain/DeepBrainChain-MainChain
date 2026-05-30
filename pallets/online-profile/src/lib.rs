@@ -50,6 +50,10 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 
 use frame_support::traits::{GetStorageVersion, StorageVersion};
+// FRAME pallet storage version. Gates on_runtime_upgrade (bumped 0 -> 1 in
+// spec 413 so rebuild_sys_info runs once, not every upgrade). Distinct from the
+// legacy custom `StorageVersion<T>` u16 storage item below, which was set by
+// historical migrations and is no longer read by live code.
 const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 #[frame_support::pallet]
 pub mod pallet {
