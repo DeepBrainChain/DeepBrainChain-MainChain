@@ -49,8 +49,8 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
-use frame_support::traits::StorageVersion;
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+use frame_support::traits::{GetStorageVersion, StorageVersion};
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -405,11 +405,18 @@ pub mod pallet {
         fn on_runtime_upgrade() -> Weight {
             // spec 411: rebuild SysInfo.total_gpu_num / total_rented_gpu from
             // MachinesInfo (source of truth). Repairs accounting drift produced
-            // by the do_machine_exit bug fixed in this same release (see fix at
-            // do_machine_exit: rented machines being force-exited used to
-            // decrement total_gpu_num without decrementing total_rented_gpu,
-            // resulting in mainnet's totalRentedGpu=96 > totalGpuNum=93).
-            crate::migration::rebuild_sys_info_from_machines_info::<T>()
+            // by the do_machine_exit bug fixed in that release. spec 413: gate it
+            // behind the pallet storage version so it runs once (on the 0 -> 1
+            // upgrade) instead of re-iterating all machines on every future
+            // runtime upgrade. The rebuild is idempotent, so running it once more
+            // here is harmless; the gate just stops the needless repeat work.
+            let onchain = Pallet::<T>::on_chain_storage_version();
+            if onchain >= 1 {
+                return <T as frame_system::Config>::DbWeight::get().reads(1)
+            }
+            let w = crate::migration::rebuild_sys_info_from_machines_info::<T>();
+            STORAGE_VERSION.put::<Pallet<T>>();
+            w.saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1))
         }
 
         // fn on_runtime_upgrade() -> Weight {

@@ -45,6 +45,7 @@ impl<T: Config> Pallet<T> {
         reward_who: Vec<T::AccountId>,
     ) -> Result<(), ()> {
         <T as Config>::SlashAndReward::slash_and_reward(slash_who, slash_amount, reward_who)
+            .map(|_| ())
     }
 
     pub fn get_new_report_id() -> ReportId {

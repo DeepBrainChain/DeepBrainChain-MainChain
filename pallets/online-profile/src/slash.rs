@@ -9,7 +9,7 @@ use dbc_support::{
     verify_slash::{OPPendingSlashInfo, OPSlashReason},
     MachineId, TWO_DAYS,
 };
-use frame_support::traits::ReservableCurrency;
+use frame_support::traits::{DefensiveSaturating, ReservableCurrency};
 use sp_runtime::{
     traits::{CheckedMul, Saturating, Zero},
     Perbill, SaturatedConversion,
@@ -34,28 +34,24 @@ impl<T: Config> Pallet<T> {
         slash_amount: BalanceOf<T>,
         reward_to: Vec<T::AccountId>,
     ) -> Result<(), ()> {
-        // Measure the reserve actually moved so the staking aggregates stay
-        // consistent with reality. GNOps::slash_and_reward is best-effort: it
-        // only slashes/repatriates what is currently reserved and returns Ok(())
-        // even when the reserve is short (see generic-func). Decrementing by the
-        // *requested* slash_amount (as before) drifted StashStake / total_stake
-        // low whenever a stash had already been partly unreserved. The guarded
-        // do_slash_deposit path is unaffected; this matters for the unguarded
-        // exec_pending_slash / check_pending_slash paths.
-        // Assumes slash_who is not itself in reward_to (machine stash is not its own
-        // renter/committee); otherwise a repatriate to self would reduce reserve without
-        // being a true slash. This holds for all current callers and matched prior behavior.
-        let reserved_before = <T as Config>::Currency::reserved_balance(&slash_who);
-        let _ =
-            T::SlashAndReward::slash_and_reward(vec![slash_who.clone()], slash_amount, reward_to);
-        let reserved_after = <T as Config>::Currency::reserved_balance(&slash_who);
-        let actually_slashed = reserved_before.saturating_sub(reserved_after);
+        // GNOps::slash_and_reward returns the amount ACTUALLY moved out of the
+        // stash reserve. It is best-effort (may move less than requested when the
+        // reserve is short), so decrement the staking aggregates by the real amount
+        // to keep StashStake / total_stake from drifting. defensive_saturating_sub
+        // floors at zero in production and surfaces an error if the aggregates were
+        // ever already inconsistent with the slashed amount.
+        let actually_slashed = T::SlashAndReward::slash_and_reward(
+            vec![slash_who.clone()],
+            slash_amount,
+            reward_to,
+        )
+        .unwrap_or_else(|_| Zero::zero());
 
         StashStake::<T>::mutate(&slash_who, |stash_stake| {
-            *stash_stake = stash_stake.saturating_sub(actually_slashed);
+            *stash_stake = stash_stake.defensive_saturating_sub(actually_slashed);
         });
         SysInfo::<T>::mutate(|sys_info| {
-            sys_info.total_stake = sys_info.total_stake.saturating_sub(actually_slashed);
+            sys_info.total_stake = sys_info.total_stake.defensive_saturating_sub(actually_slashed);
         });
 
         if actually_slashed < slash_amount {

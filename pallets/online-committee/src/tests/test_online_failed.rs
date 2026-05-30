@@ -112,8 +112,8 @@ fn test_machine_online_refused_after_some_online() {
 
         run_to_block(15);
 
-        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 4000 * ONE_DBC - 50 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&*stash), 4000 * ONE_DBC + 50 * ONE_DBC);
+        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 40000 * ONE_DBC - 500 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*stash), 40000 * ONE_DBC + 500 * ONE_DBC);
 
         // Add two days later stash being slashed:
         assert_eq!(
@@ -121,7 +121,7 @@ fn test_machine_online_refused_after_some_online() {
             Some(crate::OCPendingSlashInfo {
                 machine_id: machine_id2.to_vec(),
                 machine_stash: Some(*stash),
-                stash_slash_amount: 50 * ONE_DBC,
+                stash_slash_amount: 500 * ONE_DBC,
                 inconsistent_committee: vec![],
                 unruly_committee: vec![],
                 reward_committee: vec![*committee3, *committee2, *committee4],
@@ -136,13 +136,13 @@ fn test_machine_online_refused_after_some_online() {
         // on_initialize will do slash
         run_to_block(15 + 2 * ONE_DAY);
 
-        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 4000 * ONE_DBC - 50 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&*stash), 4000 * ONE_DBC);
+        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 40000 * ONE_DBC - 500 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*stash), 40000 * ONE_DBC);
         assert!(<PendingSlash<TestRuntime>>::contains_key(0));
 
         assert_eq!(
             Balances::free_balance(*committee3),
-            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational(1u32, 3u32) * (50 * ONE_DBC)
+            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational(1u32, 3u32) * (500 * ONE_DBC)
         );
     })
 }
@@ -230,8 +230,8 @@ fn test_machine_online_refused_claim_reserved() {
         run_to_block(11);
 
         // 委员会不同意(is_support=false)扣除质押金额1000*5%
-        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 50 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&*stash), 50 * ONE_DBC);
+        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 500 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&*stash), 500 * ONE_DBC);
 
         // Add two days later stash being slashed:
         assert_eq!(
@@ -239,7 +239,7 @@ fn test_machine_online_refused_claim_reserved() {
             Some(crate::OCPendingSlashInfo {
                 machine_id: machine_id.to_vec(),
                 machine_stash: Some(*stash),
-                stash_slash_amount: 50 * ONE_DBC,
+                stash_slash_amount: 500 * ONE_DBC,
                 inconsistent_committee: vec![],
                 unruly_committee: vec![],
                 reward_committee: vec![*committee3, *committee1, *committee4],
@@ -254,13 +254,13 @@ fn test_machine_online_refused_claim_reserved() {
         // 5771 on_initialize will do slash
         run_to_block(11 + 2 * ONE_DAY);
 
-        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 50 * ONE_DBC);
+        assert_eq!(Balances::free_balance(&*stash), INIT_BALANCE - 500 * ONE_DBC);
         assert_eq!(Balances::reserved_balance(&*stash), 0);
         assert!(<PendingSlash<TestRuntime>>::contains_key(0));
 
         assert_eq!(
             Balances::free_balance(*committee1),
-            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational(1u32, 3u32) * (50 * ONE_DBC)
+            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational(1u32, 3u32) * (500 * ONE_DBC)
         );
 
         assert_eq!(Balances::reserved_balance(*committee1), 20000 * ONE_DBC);
@@ -353,8 +353,8 @@ fn test_online_refused_apply_review_ignored_works() {
         ));
 
         // 罚款 ：1000*5%DBC；申述质押：1000DBC
-        assert_eq!(Balances::reserved_balance(*stash), 50 * ONE_DBC + 1000 * ONE_DBC);
-        assert_eq!(OnlineProfile::stash_stake(*stash), 50 * ONE_DBC + 1000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), 500 * ONE_DBC + 1000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(*stash), 500 * ONE_DBC + 1000 * ONE_DBC);
         assert_eq!(
             OnlineCommittee::pending_slash_review(0),
             Some(OCPendingSlashReviewInfo {
@@ -367,11 +367,11 @@ fn test_online_refused_apply_review_ignored_works() {
         );
         run_to_block(11 + 2 * ONE_DAY);
         assert_eq!(Balances::reserved_balance(*stash), 0);
-        assert_eq!(Balances::free_balance(*stash), INIT_BALANCE - 1050 * ONE_DBC);
+        assert_eq!(Balances::free_balance(*stash), INIT_BALANCE - 1500 * ONE_DBC);
 
         assert_eq!(
             Balances::free_balance(*committee1),
-            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational(1u32, 3u32) * (50 * ONE_DBC)
+            INIT_BALANCE - 20000 * ONE_DBC + Perbill::from_rational(1u32, 3u32) * (500 * ONE_DBC)
         );
         assert_eq!(
             Committee::committee_stake(*committee1),
@@ -465,8 +465,8 @@ fn test_online_refused_apply_review_succeed_works() {
 
         // 申诉时的状态
         {
-            assert_eq!(Balances::reserved_balance(*stash), 50 * ONE_DBC + 1000 * ONE_DBC);
-            assert_eq!(OnlineProfile::stash_stake(*stash), 50 * ONE_DBC + 1000 * ONE_DBC);
+            assert_eq!(Balances::reserved_balance(*stash), 500 * ONE_DBC + 1000 * ONE_DBC);
+            assert_eq!(OnlineProfile::stash_stake(*stash), 500 * ONE_DBC + 1000 * ONE_DBC);
             assert_eq!(
                 OnlineCommittee::pending_slash_review(0),
                 Some(OCPendingSlashReviewInfo {

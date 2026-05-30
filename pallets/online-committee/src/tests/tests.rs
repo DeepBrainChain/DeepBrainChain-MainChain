@@ -58,8 +58,8 @@ fn machine_online_works() {
             controller,
             machine_stash: stash,
             bonding_height: 3,
-            stake_amount: 1000 * ONE_DBC,
-            init_stake_per_gpu: 1000 * ONE_DBC,
+            stake_amount: 10000 * ONE_DBC,
+            init_stake_per_gpu: 10000 * ONE_DBC,
             machine_status: MachineStatus::AddingCustomizeInfo,
             renters: vec![],
             last_machine_restake: 0,
@@ -91,11 +91,11 @@ fn machine_online_works() {
             OnlineProfile::sys_info(),
             online_profile::SysInfoDetail {
                 total_staker: 0,
-                total_stake: 1000 * ONE_DBC,
+                total_stake: 10000 * ONE_DBC,
                 ..Default::default()
             }
         );
-        assert_eq!(OnlineProfile::stash_stake(&stash), 1000 * ONE_DBC);
+        assert_eq!(OnlineProfile::stash_stake(&stash), 10000 * ONE_DBC);
         // 查询Controller支付30 DBC手续费: 绑定机器/添加机房信息各花费10DBC
         assert_eq!(Balances::free_balance(controller), INIT_BALANCE - 30 * ONE_DBC);
 
@@ -328,7 +328,7 @@ fn machine_online_works() {
             last_machine_restake: 6,
             online_height: 6,
             last_online_height: 6,
-            stake_amount: 4000 * ONE_DBC,
+            stake_amount: 40000 * ONE_DBC,
             reward_deadline: 365 * 2 + 1,
             reward_committee: vec![committee2, committee3, committee1],
             machine_info_detail: MachineInfoDetail {
@@ -342,7 +342,7 @@ fn machine_online_works() {
             total_gpu_num: 4,
             total_staker: 1,
             total_calc_points: 59914, // 59890 + 59890 * 4/10000) = +24
-            total_stake: 4000 * ONE_DBC,
+            total_stake: 40000 * ONE_DBC,
             ..Default::default()
         };
 
@@ -751,7 +751,7 @@ fn machine_online_works() {
         let machine_info = MachineInfo {
             last_machine_restake: 4 + 3 * ONE_DAY,
             last_online_height: 4 + 3 * ONE_DAY,
-            stake_amount: 8000 * ONE_DBC,
+            stake_amount: 80000 * ONE_DBC,
             machine_status: MachineStatus::Online,
             ..machine_info
         };

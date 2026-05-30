@@ -249,9 +249,13 @@ pub trait GNOps {
     type AccountId;
     type Balance;
 
+    /// Best-effort slash. Returns the amount ACTUALLY moved out of the
+    /// slashed account(s) reserve (sum across `slash_who`). May be less than
+    /// requested when a reserve is short; callers that track staking aggregates
+    /// should decrement by this returned amount, not by the requested amount.
     fn slash_and_reward(
         slash_who: Vec<Self::AccountId>,
         each_slash: Self::Balance,
         reward_who: Vec<Self::AccountId>,
-    ) -> Result<(), ()>;
+    ) -> Result<Self::Balance, ()>;
 }
