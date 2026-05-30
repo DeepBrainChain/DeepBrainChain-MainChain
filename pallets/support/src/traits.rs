@@ -74,6 +74,11 @@ pub trait RTOps {
         machine_id: Self::MachineId,
         fee_to_destroy: Self::Balance,
         fee_to_stash: Self::Balance,
+        // The account that actually received `fee_to_stash` for this rent. When it
+        // differs from `machine_stash` (miner redirected rent via setRentReceiver),
+        // the stash did NOT receive the rent income, so its balance must NOT be
+        // auto-reserved for stake top-up. See change_machine_rent_fee impl.
+        rent_receiver: Self::AccountId,
     ) -> Result<(), ()>;
     fn reset_machine_renters(
         machine_id: Self::MachineId,

@@ -1464,6 +1464,8 @@ pub mod pallet {
         // S2 修复：on_finalize 租金结算彻底失败（即便回退到 stash 也失败）
         // 不再静默吞错，事件上链方便监控。(rent_id,)
         RentFeePayoutFailed(RentOrderId),
+        // 补质押失败（租金已支付，仅自动补质押环节失败），best-effort 不回滚。(machine_id)
+        RentFeeTopupFailed(MachineId),
     }
 
     #[pallet::error]
@@ -2093,6 +2095,8 @@ impl<T: Config> Pallet<T> {
         // 回退到 stash；若 stash 也失败才 bail。事件可观测，不静默吞错。
         let rent_receiver = Self::stash_rent_receiver(&machine_info.machine_stash)
             .unwrap_or_else(|| machine_info.machine_stash.clone());
+        // Track where stash_amount ACTUALLY landed (drives the stake-topup gate below).
+        let mut effective_payout_to = rent_receiver.clone();
         let primary = <T as Config>::Currency::transfer(
             &rent_order.renter,
             &rent_receiver,
@@ -2101,35 +2105,50 @@ impl<T: Config> Pallet<T> {
         );
         if let Err(_) = primary {
             if rent_receiver != machine_info.machine_stash {
-                Self::deposit_event(Event::RentReceiverPayoutFallback(
-                    machine_info.machine_stash.clone(),
-                    rent_receiver.clone(),
-                    stash_amount,
-                ));
+                // Transfer to stash first; only emit the fallback event once it succeeds.
                 <T as Config>::Currency::transfer(
                     &rent_order.renter,
                     &machine_info.machine_stash,
                     stash_amount,
                     KeepAlive,
                 )?;
+                // Money ended up in the stash after fallback → eligible for topup.
+                effective_payout_to = machine_info.machine_stash.clone();
+                Self::deposit_event(Event::RentReceiverPayoutFallback(
+                    machine_info.machine_stash.clone(),
+                    rent_receiver.clone(),
+                    stash_amount,
+                ));
             } else {
                 return primary;
             }
         }
 
-        // 根据机器GPU计算需要多少质押，用卡主实际收到的部分（95%）自动补充质押
-        let max_stake = Self::stake_per_gpu_limit()
-            .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
-            .ok_or(Error::<T>::Overflow)?;
-        if max_stake > machine_info.stake_amount {
-            // 如果 stash_amount >= max_stake - machine_info.stake_amount,
-            // 则质押 max_stake - machine_info.stake_amount
-            // 如果 stash_amount < max_stake - machine_info.stake_amount, 则质押 stash_amount
-            let stake_amount = stash_amount.min(max_stake.saturating_sub(machine_info.stake_amount));
-
-            <T as Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)?;
-            machine_info.stake_amount = machine_info.stake_amount.saturating_add(stake_amount);
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
+        // 根据机器GPU计算需要多少质押，用卡主实际收到的部分（95%）自动补充质押。
+        // 仅当租金确实进了 stash（rent_receiver == machine_stash）才自动补质押：
+        // 若矿工通过 setRentReceiver 把租金引到别的钱包，stash 没收到这笔钱，
+        // 再 reserve 它自己的余额就是重复扣款（与 rent-machine 同源 bug）。
+        if effective_payout_to == machine_info.machine_stash {
+            // best-effort 补质押：失败不回滚已完成的租金支付，仅发事件（与 rent-machine 对齐）。
+            match Self::stake_per_gpu_limit()
+                .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
+            {
+                Some(max_stake) if max_stake > machine_info.stake_amount => {
+                    let stake_amount =
+                        stash_amount.min(max_stake.saturating_sub(machine_info.stake_amount));
+                    if <T as Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)
+                        .is_ok()
+                    {
+                        machine_info.stake_amount =
+                            machine_info.stake_amount.saturating_add(stake_amount);
+                        MachinesInfo::<T>::insert(&machine_id, machine_info);
+                    } else {
+                        Self::deposit_event(Event::RentFeeTopupFailed(machine_id.clone()));
+                    }
+                },
+                Some(_) => {},
+                None => Self::deposit_event(Event::RentFeeTopupFailed(machine_id.clone())),
+            }
         }
 
         Ok(())

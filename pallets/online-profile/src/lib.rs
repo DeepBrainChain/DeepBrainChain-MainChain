@@ -2053,10 +2053,12 @@ impl<T: Config> Pallet<T> {
             let pre_stake = machine_info.stake_amount;
 
             if extra_need <= amount_left {
+                // best-effort：若 reserve 失败，停止补质押（保留已完成的部分，不返回 Err，
+                // 避免在非回滚调用方处留下半完成状态）。
+                if Self::change_stake(&machine_info.machine_stash, extra_need, true).is_err() {
+                    break
+                }
                 amount_left = amount_left.saturating_sub(extra_need);
-
-                Self::change_stake(&machine_info.machine_stash, extra_need, true)
-                    .map_err(|_| ())?;
                 machine_info.stake_amount = stake_need;
 
                 MachinesInfo::<T>::insert(&machine_id, machine_info);
@@ -2066,8 +2068,9 @@ impl<T: Config> Pallet<T> {
                     extra_need,
                 ));
             } else {
-                Self::change_stake(&machine_info.machine_stash, amount_left, true)
-                    .map_err(|_| ())?;
+                if Self::change_stake(&machine_info.machine_stash, amount_left, true).is_err() {
+                    return Ok(())
+                }
                 machine_info.stake_amount = machine_info.stake_amount.saturating_add(amount_left);
                 MachinesInfo::<T>::insert(&machine_id, machine_info);
                 Self::deposit_event(Event::MachineAddStake(

@@ -391,9 +391,11 @@ impl<T: Config> RTOps for Pallet<T> {
         machine_id: MachineId,
         fee_to_destroy: BalanceOf<T>,
         fee_to_stash: BalanceOf<T>,
+        rent_receiver: T::AccountId,
     ) -> Result<(), ()> {
-        Self::fulfill_machine_stake(machine_stash, fee_to_stash).map_err(|_| ())?;
-
+        // Lifetime rent-fee accounting FIRST — these counters must always land even if
+        // the best-effort stake top-up below fails (review: prevents counter drift when
+        // fulfill_machine_stake errors and the caller treats it non-fatally).
         let mut machine_info = Self::machines_info(&machine_id).ok_or(())?;
         let mut staker_machine = Self::stash_machines(&machine_info.machine_stash);
         let mut sys_info = Self::sys_info();
@@ -405,6 +407,14 @@ impl<T: Config> RTOps for Pallet<T> {
         SysInfo::<T>::put(sys_info);
         StashMachines::<T>::insert(&machine_info.machine_stash, staker_machine);
         MachinesInfo::<T>::insert(&machine_id, machine_info);
+
+        // Auto stake top-up LAST, and only when rent actually landed in the stash.
+        // Reserves from the stash's OWN balance assuming it received `fee_to_stash`;
+        // when rent was redirected (rent_receiver != machine_stash via setRentReceiver)
+        // the stash got nothing, so reserving it would double-charge — skip it.
+        if rent_receiver == machine_stash {
+            Self::fulfill_machine_stake(machine_stash, fee_to_stash).map_err(|_| ())?;
+        }
         Ok::<(), ()>(())
     }
 

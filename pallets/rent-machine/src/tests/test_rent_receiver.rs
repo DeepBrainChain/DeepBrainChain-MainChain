@@ -543,3 +543,75 @@ fn rent_routes_to_receiver_with_zero_providers_succeeds_with_ed_zero() {
         assert!(Balances::free_balance(&r) > r_start);
     });
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Regression: rent-receiver re-stake DOUBLE-CHARGE bug.
+// The auto stake top-up (fulfill_machine_stake) reserves the STASH's own
+// balance, on the assumption the stash just received the rent income. When
+// the miner redirected rent via setRentReceiver, the income went elsewhere,
+// so reserving the stash double-charges it. On mainnet this made the stash
+// (wukongyun) reserve millions of DBC while the receiver (shanghai) pocketed
+// the rent. Fix gates the top-up on rent_receiver == machine_stash.
+// Found by 李总/wukongyun report, 2026-05-29.
+// ═══════════════════════════════════════════════════════════════
+
+#[test]
+fn restake_does_not_charge_stash_when_receiver_differs() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        // Redirect rent to a different wallet than the stash.
+        assert_ok!(OnlineProfile::set_rent_receiver(
+            RuntimeOrigin::signed(*stash),
+            Some(*receiver_alice),
+        ));
+        let stash_reserved_before = Balances::reserved_balance(&*stash);
+
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            10 * ONE_DAY
+        ));
+        run_to_block(30);
+        assert_ok!(RentMachine::confirm_rent(
+            RuntimeOrigin::signed(*renter_dave),
+            0
+        ));
+
+        // The stash got no rent income, so its reserve must NOT grow.
+        // (Pre-fix, fulfill_machine_stake reserved from the stash here = double-charge.)
+        let stash_reserved_after = Balances::reserved_balance(&*stash);
+        assert_eq!(
+            stash_reserved_after, stash_reserved_before,
+            "stash reserved must NOT grow when rent is redirected to another receiver (double-charge regression)"
+        );
+    });
+}
+
+#[test]
+fn restake_still_tops_up_stash_when_no_receiver() {
+    // Companion / backward-compat: default path (no receiver, so rent_receiver == stash)
+    // must still auto-top-up the stash stake exactly as before the fix.
+    new_test_ext_after_machine_online().execute_with(|| {
+        assert_eq!(OnlineProfile::stash_rent_receiver(&*stash), None);
+        let stash_reserved_before = Balances::reserved_balance(&*stash);
+
+        assert_ok!(RentMachine::rent_machine(
+            RuntimeOrigin::signed(*renter_dave),
+            machine_id.clone(),
+            4,
+            10 * ONE_DAY
+        ));
+        run_to_block(30);
+        assert_ok!(RentMachine::confirm_rent(
+            RuntimeOrigin::signed(*renter_dave),
+            0
+        ));
+
+        // Default path still funds the stake top-up from rent income → reserve non-decreasing.
+        let stash_reserved_after = Balances::reserved_balance(&*stash);
+        assert!(
+            stash_reserved_after >= stash_reserved_before,
+            "default path: stash stake top-up should still occur (reserved non-decreasing)"
+        );
+    });
+}

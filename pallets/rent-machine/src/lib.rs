@@ -330,6 +330,10 @@ pub mod pallet {
         Relet(RentOrderId, T::AccountId, MachineId, u32, T::BlockNumber, BalanceOf<T>),
 
         SetEvmAddress(H160, T::AccountId),
+        // S2: 收租钱包转账失败，已回退到 stash。(machine_stash, intended_receiver, amount)
+        RentReceiverPayoutFallback(T::AccountId, T::AccountId, BalanceOf<T>),
+        // 租金记账/补质押失败（资金已转移，仅记账环节出错），仅用于可观测，不回滚。(rent_id)
+        RentFeeAccountingFailed(RentOrderId),
     }
 
     #[pallet::error]
@@ -614,30 +618,73 @@ impl<T: Config> Pallet<T> {
         rent_id: RentOrderId,
         fee_amount: BalanceOf<T>,
     ) -> DispatchResult {
-        let rent_fee_pot = Self::rent_fee_pot().ok_or(Error::<T>::UndefinedRentPot)?;
+        // 未配置销毁池时优雅回退（对齐 terminating-rental）：不销毁，全额计给卡主，
+        // 避免缺少 RentFeePot 配置时 confirm_rent / relet 直接失败。
+        let maybe_pot = Self::rent_fee_pot();
 
         let destroy_percent = <online_profile::Pallet<T>>::rent_fee_destroy_percent();
 
-        let fee_to_destroy = destroy_percent * fee_amount;
+        let fee_to_destroy =
+            if maybe_pot.is_some() { destroy_percent * fee_amount } else { Zero::zero() };
         let fee_to_stash = fee_amount.checked_sub(&fee_to_destroy).ok_or(Error::<T>::Overflow)?;
 
         // spec 410: 优先读订单创建时的快照（防 bait-and-switch）；升级前旧订单无快照，
         // 则回退到矿工当前设置；仍未设置则回退到 stash
         let rent_receiver = Self::rent_order_receiver(&rent_id)
             .unwrap_or_else(|| <online_profile::Pallet<T>>::effective_rent_receiver(&machine_stash));
-        <T as pallet::Config>::Currency::transfer(renter, &rent_receiver, fee_to_stash, KeepAlive)?;
-        <T as pallet::Config>::Currency::transfer(
-            renter,
-            &rent_fee_pot,
-            fee_to_destroy,
-            KeepAlive,
-        )?;
-        let _ = T::RTOps::change_machine_rent_fee(
+
+        // 问题5 修复（对齐 terminating-rental 的 S2 容错）：
+        // 若矿工设置的收租钱包无法收款（如被冻结 / 低于存活额），回退到把这部分租金转给
+        // stash，避免一个坏的 receiver 配置阻塞 confirm_rent / relet。
+        // effective_payout_to 记录这笔钱真实落到哪，驱动后面的补质押门。
+        let mut effective_payout_to = rent_receiver.clone();
+        // NOTE: no-double-pay relies on Currency::transfer (pallet_balances) being
+        // atomic-on-error (no partial debit). Revisit if the Currency type changes.
+        let primary =
+            <T as pallet::Config>::Currency::transfer(renter, &rent_receiver, fee_to_stash, KeepAlive);
+        if primary.is_err() {
+            if rent_receiver != machine_stash {
+                // Transfer to stash first; only emit the fallback event once it succeeds.
+                <T as pallet::Config>::Currency::transfer(
+                    renter,
+                    &machine_stash,
+                    fee_to_stash,
+                    KeepAlive,
+                )?;
+                effective_payout_to = machine_stash.clone();
+                Self::deposit_event(Event::RentReceiverPayoutFallback(
+                    machine_stash.clone(),
+                    rent_receiver.clone(),
+                    fee_to_stash,
+                ));
+            } else {
+                // receiver 本就是 stash 仍失败 → 真失败，冒泡（外层 extrinsic 会回滚）
+                primary?;
+            }
+        }
+        if let Some(ref rent_fee_pot) = maybe_pot {
+            if !fee_to_destroy.is_zero() {
+                <T as pallet::Config>::Currency::transfer(
+                    renter,
+                    rent_fee_pot,
+                    fee_to_destroy,
+                    KeepAlive,
+                )?;
+            }
+        }
+        // 问题4 修复：不再用 let _ = 静默吞掉记账/补质押错误（资金已转移，记账失败需可观测）。
+        // 不回滚（避免因补质押 reserve 失败阻塞已成功的租金支付），仅发事件。
+        if T::RTOps::change_machine_rent_fee(
             machine_stash,
             machine_id,
             fee_to_destroy,
             fee_to_stash,
-        );
+            effective_payout_to,
+        )
+        .is_err()
+        {
+            Self::deposit_event(Event::RentFeeAccountingFailed(rent_id));
+        }
         Ok(())
     }
 

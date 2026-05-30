@@ -215,14 +215,12 @@ fn rent_machine_works() {
 
         run_to_block(5 + 30 * ONE_MINUTE);
         {
-            // 结束租用: 将租金99%转给stash,1%转给几个委员会
-
+            // 结束租用 (current model, post spec-410): 租金不再分给委员会;
+            // mock 未配置销毁池(rent_fee_pot) → 全额租金转给 stash 并自动质押。
             let rent_fee = 1039756916666666666;
 
-            let reward_to_stash = Perbill::from_rational(99u32, 100u32) * rent_fee;
-            let committee_each_get =
-                Perbill::from_rational(1u32, 3u32) * (rent_fee - reward_to_stash);
-            let stash_get = rent_fee - committee_each_get * 3;
+            let committee_each_get = 0u128; // 当前模型下委员会无租金分成
+            let stash_get = rent_fee; // 全额租金归 stash
             assert_eq!(
                 Balances::free_balance(committee1),
                 INIT_BALANCE - 20000 * ONE_DBC + committee_each_get
@@ -323,8 +321,8 @@ fn machine_offline_works() {
 
             assert_eq!(Balances::free_balance(renter1), 9993751458333333333334);
             assert_eq!(Balances::reserved_balance(renter1), 0);
-            assert_eq!(machine_info.stake_amount, 6176156250062385416);
-            assert_eq!(Balances::reserved_balance(stash), 6176156250062385416);
+            assert_eq!(machine_info.stake_amount, 6238541666666666666);
+            assert_eq!(Balances::reserved_balance(stash), 6238541666666666666);
         }
     })
 }
@@ -537,4 +535,86 @@ fn machine_online_inaccessible_slash_works() {
         //     support_report
         // ));
     })
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Regression: rent-receiver re-stake DOUBLE-CHARGE in terminating-rental.
+// Mirrors the rent-machine regression. terminating-rental has its OWN inline
+// stake top-up (pay_rent_fee) that reserved the stash's balance unconditionally.
+// When the miner redirects rent via set_rent_receiver, the rent leaves to the
+// receiver but the stash was still reserved = double-charge. Fix gates the top-up
+// on effective_payout_to == machine_stash. Found 2026-05-29.
+// ═══════════════════════════════════════════════════════════════
+
+#[test]
+fn restake_does_not_charge_stash_when_receiver_differs_terminating() {
+    new_test_with_machine_online_ext().execute_with(|| {
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let renter1 = sr25519::Public::from(Sr25519Keyring::Bob);
+        let receiver = sr25519::Public::from(Sr25519Keyring::Dave);
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        // Miner redirects rent to a separate wallet.
+        assert_ok!(IRMachine::set_rent_receiver(
+            RuntimeOrigin::signed(stash),
+            Some(receiver)
+        ));
+
+        let stash_reserved_before = Balances::reserved_balance(stash);
+        let receiver_free_before = Balances::free_balance(receiver);
+
+        assert_ok!(IRMachine::rent_machine(
+            RuntimeOrigin::signed(renter1),
+            machine_id.clone(),
+            8,
+            30 * ONE_MINUTE
+        ));
+        assert_ok!(IRMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
+        run_to_block(5 + 30 * ONE_MINUTE); // rent ends -> pay_rent_fee fires
+
+        // The rent income went to `receiver`; the stash must NOT be reserved again.
+        assert_eq!(
+            Balances::reserved_balance(stash),
+            stash_reserved_before,
+            "stash reserved must NOT grow when rent is redirected (terminating-rental double-charge regression)"
+        );
+        // And the receiver actually received the rent.
+        assert!(
+            Balances::free_balance(receiver) > receiver_free_before,
+            "receiver should have received the rent fee"
+        );
+    });
+}
+
+#[test]
+fn restake_tops_up_stash_when_no_receiver_terminating() {
+    // Backward-compat: with no receiver set (rent_receiver == stash), the stash
+    // still gets its stake topped up from rent income exactly as before the fix.
+    new_test_with_machine_online_ext().execute_with(|| {
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let renter1 = sr25519::Public::from(Sr25519Keyring::Bob);
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+
+        assert_eq!(IRMachine::stash_rent_receiver(stash), None);
+        let stash_reserved_before = Balances::reserved_balance(stash);
+
+        assert_ok!(IRMachine::rent_machine(
+            RuntimeOrigin::signed(renter1),
+            machine_id.clone(),
+            8,
+            30 * ONE_MINUTE
+        ));
+        assert_ok!(IRMachine::confirm_rent(RuntimeOrigin::signed(renter1), 0));
+        run_to_block(5 + 30 * ONE_MINUTE);
+
+        // Default path: rent routes to stash and is re-staked -> reserve grows.
+        assert!(
+            Balances::reserved_balance(stash) > stash_reserved_before,
+            "default path: stash stake top-up should still occur"
+        );
+    });
 }
