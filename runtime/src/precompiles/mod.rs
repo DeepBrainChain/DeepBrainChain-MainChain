@@ -17,6 +17,8 @@ mod bridge;
 use bridge::Bridge;
 mod dbc_price;
 use dbc_price::DBCPrice;
+mod rent_bridge;
+use rent_bridge::RentBridge;
 
 mod dlc_price;
 mod machine_info;
@@ -34,7 +36,7 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 11] {
+    pub fn used_addresses() -> [H160; 12] {
         [
             hash(1),
             hash(2),
@@ -47,17 +49,19 @@ where
             hash(2048),
             hash(2049),
             hash(2051),
+            hash(2052), // [+30% 桥] RentBridge
         ]
     }
 }
 impl<T> PrecompileSet for DBCPrecompiles<T>
 where
-    T: pallet_evm::Config + eth_precompile_whitelist::Config,
+    T: pallet_evm::Config + eth_precompile_whitelist::Config + online_profile::Config,
     Dispatch<T>: Precompile,
     Bridge<T>: Precompile,
     DBCPrice<T>: Precompile,
     MachineInfo<T>: Precompile,
     DLCPrice<T>: Precompile,
+    RentBridge<T>: Precompile,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         let address = handle.code_address();
@@ -79,7 +83,8 @@ where
                 eth_precompile_whitelist::PrecompileWhitelist::<T>::get(address);
 
             match address {
-                a if a == hash(2048) => {
+                // 2048=Bridge, 2052=RentBridge(+30% 桥)：仅白名单调用者（RentDBC 合约）可调
+                a if a == hash(2048) || a == hash(2052) => {
                     if !precompile_whitelist.contains(&context.caller) {
                         log::debug!(target: LOG_TARGET, "caller {:?} not in the {:?} whitelist", context.caller, address);
 
@@ -115,6 +120,7 @@ where
             a if a == hash(2049) => Some(DBCPrice::<T>::execute(handle)),
             a if a == hash(2051) => Some(MachineInfo::<T>::execute(handle)),
             a if a == hash(2050) => Some(DLCPrice::<T>::execute(handle)),
+            a if a == hash(2052) => Some(RentBridge::<T>::execute(handle)),
 
             _ => None,
         }

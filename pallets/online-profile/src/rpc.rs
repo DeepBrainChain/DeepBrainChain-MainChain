@@ -90,4 +90,12 @@ impl<T: Config> Pallet<T> {
     pub fn get_stash_era_released_reward(stash: T::AccountId, era_index: EraIndex) -> BalanceOf<T> {
         Self::eras_stash_released_reward(era_index, stash)
     }
+
+    /// 获得某个机器近150个Era的累计挖矿奖励总额(recent_reward_sum)
+    /// 读现有存储 MachineRecentReward，机器不存在时返回 0
+    pub fn get_machine_recent_reward_sum(machine_id: MachineId) -> BalanceOf<T> {
+        Self::machine_recent_reward(&machine_id)
+            .map(|info| info.recent_reward_sum)
+            .unwrap_or_default()
+    }
 }

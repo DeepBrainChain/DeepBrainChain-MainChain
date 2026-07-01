@@ -308,6 +308,12 @@ pub mod pallet {
         MachineRecentRewardInfo<T::AccountId, BalanceOf<T>>,
     >;
 
+    /// [+30% 桥] 机器是否被 DeepLink(EVM RentDBC) 租用。独立于原生 rent-machine 的 is_rented，
+    /// 用于幂等守卫（防 deeplink_set_rented 重复 toggle 导致 total_rented_gpu/grade 会计重复加减）。
+    #[pallet::storage]
+    #[pallet::getter(fn deeplink_rented)]
+    pub(super) type DeepLinkRented<T: Config> = StorageMap<_, Blake2_128Concat, MachineId, bool, ValueQuery>;
+
     /// 将要发放奖励的机器
     #[pallet::storage]
     #[pallet::getter(fn all_machine_id_snap)]
@@ -1033,6 +1039,14 @@ pub mod pallet {
                 Self::update_snap_on_rent_changed(machine_id.clone(), true)
                     .map_err(|_| Error::<T>::Unknown)?;
                 Self::update_region_on_rent_changed(&machine_info, true);
+            } else if Self::deeplink_rented(&machine_id) {
+                // [审计修 #5a] DeepLink 租用：重新上线时恢复 rent 快照(total_rented_gpu/+30%)，与 machine_offline
+                //   的回退对称。⚠️ 但**不**加入 live_machine.rented_machine——DeepLink 不管理该列表(EVM endRent
+                //   只 toggle 快照，进了 rented_machine 没有路径移除会卡死)，仍归 online_machine。
+                ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
+                Self::update_snap_on_rent_changed(machine_id.clone(), true)
+                    .map_err(|_| Error::<T>::Unknown)?;
+                Self::update_region_on_rent_changed(&machine_info, true);
             } else {
                 ItemList::add_item(&mut live_machine.online_machine, machine_id.clone());
             }
@@ -1499,6 +1513,34 @@ pub mod pallet {
             Self::deposit_event(Event::RentReceiverChanged(stash, receiver));
             Ok(().into())
         }
+
+        /// [审计修 H-1] 运维强制设置 DeepLinkRented 应急阀（root only）。
+        /// 解决：EVM endRent 的桥 `deeplink_set_rented(false)` 在机器注销/machine_info 缺失时失败被 try/catch 吞，
+        /// `DeepLinkRented` 卡 true → `change_machine_status_on_rent_start` 守卫永久拒原生租用 + 矿工 +30% 泄漏，
+        /// 而 `deeplink_set_rented` 仅由 EVM 桥调、无任何链上清除手段。本阀强制落标记并尽力对账快照
+        /// （机器已注销时 `update_snap_on_rent_changed` 会 Err，此时本就无 era 快照可回滚→仅清标记，reconciled=false）。
+        /// ⚠️ 共识相关：动挖矿被租会计，须经 DBC 团队评审 + 测试网验证后再上主网。
+        #[pallet::call_index(28)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(200_000, 0))]
+        pub fn force_set_deeplink_rented(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+            is_rented: bool,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            // [评审修] 即使 root 强制路径，强制 is_rented=true 也必须遵守互斥守卫②——否则给一台已被原生
+            //   租用(MachineRentedGPU>0)的机器强打 DeepLink 租用 → is_rented/total_rented_gpu/+30% double-count。
+            //   force-false(清除卡死)永远放行，不受此限。
+            if is_rented {
+                ensure!(MachineRentedGPU::<T>::get(&machine_id) == 0, Error::<T>::MachineNativelyRented);
+            }
+            // [评审修 round2] 复用 apply_deeplink_rented 的离线/注销感知：force-false 时若机器离线(快照已被
+            //   machine_offline 回退)或已注销→只清标记不再回退快照，防 double-减 total_rented_gpu/grade。
+            //   reconciled = 是否成功落标记（false 路径恒 Ok；true 路径机器注销时 update_snap Err → false）。
+            let reconciled = Self::apply_deeplink_rented(&machine_id, is_rented).is_ok();
+            Self::deposit_event(Event::ForceSetDeepLinkRented(machine_id, is_rented, reconciled));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -1552,6 +1594,10 @@ pub mod pallet {
         SlashShortfall(T::AccountId, BalanceOf<T>, BalanceOf<T>),
         // spec 413: confirm_machine 上线快照更新失败 (低概率) 时发出。
         SnapshotUpdateFailed(MachineId),
+        // [审计修 H-1] 运维强制设置 DeepLinkRented 应急阀：(machine_id, is_rented, snapshot_reconciled)。
+        //   ⚠️ 必须放枚举末尾以保留既有事件的 SCALE 判别式位置（链下索引器/dbcscan 按位置解码）。
+        //   放在 spec 413 的 SlashShortfall/SnapshotUpdateFailed 之后，保留 413 事件在主网的位置。
+        ForceSetDeepLinkRented(MachineId, bool, bool),
     }
 
     #[pallet::error]
@@ -1596,6 +1642,8 @@ pub mod pallet {
         OutOfRentalSchedule,
         /// spec 410: receiver 地址非法（如全零）
         InvalidRentReceiver,
+        /// [评审修 H-1] 机器已被原生 rent-machine 租用，禁止 force_set_deeplink_rented 强打 DeepLink 租用（防 double-count）
+        MachineNativelyRented,
     }
 }
 
@@ -1721,11 +1769,18 @@ impl<T: Config> Pallet<T> {
         // decremented BEFORE total_gpu_num. Without this, sys_info ends up with
         // total_rented_gpu > total_gpu_num (structurally impossible) over time
         // — observed on mainnet as totalRentedGpu=96 > totalGpuNum=93.
-        if matches!(machine_info.machine_status, MachineStatus::Rented) {
+        // [审计修 #5a] 同 machine_offline：DeepLink 租用的机器 machine_status 不是 Rented，force-exit 时若不回退
+        //   会留下 total_rented_gpu 多计（正是注释记录的 totalRentedGpu>totalGpuNum 主网症状的 DeepLink 版本）。
+        if matches!(machine_info.machine_status, MachineStatus::Rented)
+            || Self::deeplink_rented(&machine_id)
+        {
             Self::update_region_on_rent_changed(&machine_info, false);
             Self::update_snap_on_rent_changed(machine_id.clone(), false)
                 .map_err(|_| Error::<T>::Unknown)?;
         }
+        // [评审修 round2] 退出时清 DeepLinkRented，防孤儿 true 标记残留（机器注销后无清除入口 → 同 machine_id
+        //   重注册会被守卫①永久拒原生租用 + controller_report_online 误恢复幽灵 +30%）。
+        DeepLinkRented::<T>::remove(&machine_id);
 
         Self::update_region_on_exit(&machine_info);
         Self::update_snap_on_online_changed(machine_id.clone(), false)
@@ -1794,7 +1849,13 @@ impl<T: Config> Pallet<T> {
         });
 
         // 先根据机器当前状态，之后再变更成下线状态
-        if matches!(machine_info.machine_status, MachineStatus::Rented) {
+        // [审计修 #5a] DeepLink(EVM) 租用的机器 machine_status 不是 Rented（DeepLink 不改 machine_status），
+        //   原 `if Rented` 会跳过 → 离线时 total_rented_gpu/+30% 不回退、却移除点数 → 重新上线后失同步、
+        //   total_rented_gpu 多计（曾现 totalRentedGpu>totalGpuNum）。补 `|| deeplink_rented` 让 DeepLink 租用
+        //   也对称回退。与下方 controller_report_online 的对称恢复配套。
+        if matches!(machine_info.machine_status, MachineStatus::Rented)
+            || Self::deeplink_rented(&machine_id)
+        {
             Self::update_region_on_rent_changed(&machine_info, false);
             Self::update_snap_on_rent_changed(machine_id.clone(), false)?;
         }
@@ -1947,6 +2008,50 @@ impl<T: Config> Pallet<T> {
 
     // - Writes:
     // ErasStashPoints, ErasMachinePoints, SysInfo, StashMachines
+    /// [+30% 桥] 供 RentBridge precompile 调用：DeepLink(EVM) 租出/退租中国机器时，
+    /// 标记/取消其原生挖矿 +30% 被租加成。幂等守卫防重复 toggle 破坏会计。
+    /// ⚠️ 共识相关：若机器同时被原生 rent-machine 租用，会与原生 is_rented 叠加（double-count）。
+    ///    用于专供 DeepLink 租用、不参与原生租用的中国机器。须经 DBC 团队评审 + 测试网验证。
+    pub fn deeplink_set_rented(machine_id: MachineId, is_rented: bool) -> Result<(), ()> {
+        // [互斥约束] 一台机器不能同时被原生 rent-machine 与 DeepLink 租用，否则 is_rented/total_rented_gpu/+30%
+        //   会计跨路径叠加 double-count。DeepLink 上租(is_rented=true)时若该机已被原生租用(MachineRentedGPU>0)→拒绝，
+        //   绝不叠加（+30% 已由原生那次施加；EVM 侧 _notifyRentBonus try/catch 会吞此 Err，不阻塞 EVM 退租 toggle false）。
+        if is_rented && MachineRentedGPU::<T>::get(&machine_id) > 0 {
+            return Err(());
+        }
+        Self::apply_deeplink_rented(&machine_id, is_rented)
+    }
+
+    /// 内部：落 DeepLink 租用标记 + **离线/注销感知**的快照对账（进出两个方向都感知）。
+    /// [评审修 round2] is_rented=false 时若机器已离线（快照已被 machine_offline 在下线时回退）或已注销（无 era
+    ///   快照），**跳过** update_snap_on_rent_changed、只落标记——否则会 double-减 total_rented_gpu/stash grade
+    ///   (+30% 误扣同 stash 其它在租机器奖励)。对齐原生 change_machine_status_on_rent_end(traits.rs)：离线分支
+    ///   只记 RentedFinished、绝不回退快照。重新上线由 controller_report_online 的 deeplink_rented 分支对称恢复。
+    /// [审计修 round3] **is_rented=true 时同样感知离线**：若机器当前离线，EVM 侧此刻 setRented(true) 不加快照、
+    ///   只落标记；等 controller_report_online 的 deeplink_rented 分支上线时把 +30%/total_rented_gpu 施加**恰好一次**。
+    ///   否则（旧逻辑 true 路径恒 apply）会与上线恢复分支叠加，出现 total_rented_gpu += 2*gpu_num 的 double-count，
+    ///   触发 totalRentedGpu>totalGpuNum。注销(None)+true 保持 skip_snap=false → update_snap 因 machines_info 缺失 Err
+    ///   → 拒绝给不存在的机器落标记（不造幽灵条目）。
+    /// 幂等：标记未变则 no-op。机器注销时 false 路径也 Ok（顺带让 EVM endRent 自愈清标记，不再 Err 卡死）。
+    fn apply_deeplink_rented(machine_id: &MachineId, is_rented: bool) -> Result<(), ()> {
+        if Self::deeplink_rented(machine_id) == is_rented {
+            return Ok(());
+        }
+        let skip_snap = match Self::machines_info(machine_id) {
+            Some(mi) => matches!(
+                mi.machine_status,
+                MachineStatus::StakerReportOffline(..) | MachineStatus::ReporterReportOffline(..)
+            ),
+            // 注销：false 无快照可回退 → skip；true 保持 false 让 update_snap Err 拒绝幽灵租用。
+            None => !is_rented,
+        };
+        if !skip_snap {
+            Self::update_snap_on_rent_changed(machine_id.clone(), is_rented)?;
+        }
+        DeepLinkRented::<T>::insert(machine_id, is_rented);
+        Ok(())
+    }
+
     fn update_snap_on_rent_changed(machine_id: MachineId, is_rented: bool) -> Result<(), ()> {
         let machine_info = Self::machines_info(&machine_id).ok_or(())?;
         let current_era = Self::current_era();

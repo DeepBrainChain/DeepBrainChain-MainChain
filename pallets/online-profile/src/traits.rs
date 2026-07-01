@@ -271,6 +271,11 @@ impl<T: Config> RTOps for Pallet<T> {
 
     // 在rent_machine; rent_machine_by_minutes中使用, confirm_rent之前
     fn change_machine_status_on_rent_start(machine_id: &MachineId, gpu_num: u32) -> Result<(), ()> {
+        // [互斥约束] 该机已被 DeepLink(EVM RentDBC) 租用则拒绝原生 rent-machine 租用，防跨路径 is_rented/total_rented_gpu/
+        //   +30% double-count。返回 Err 会让 rent_machine extrinsic 失败（中国机器专供 DeepLink 租用、不参与原生租用）。
+        if Self::deeplink_rented(machine_id) {
+            return Err(());
+        }
         MachinesInfo::<T>::try_mutate(machine_id, |machine_info| {
             let machine_info = machine_info.as_mut().ok_or(())?;
             machine_info.machine_status = MachineStatus::Rented;
@@ -373,16 +378,22 @@ impl<T: Config> RTOps for Pallet<T> {
 
         machine_rented_gpu = machine_rented_gpu.saturating_sub(gpu_num);
 
+        // [审计修 F-3] 计数器递减必须先落盘——原代码把 MachineRentedGPU::insert 排在 machines_info 的
+        //   try_mutate(ok_or(())?) 之后，机器若已注销 machine_info 缺失 → 提前 Err → 递减值永不写入 →
+        //   MachineRentedGPU 卡 >0 → online-profile 互斥守卫② 永久拒该机 DeepLink 租用 + 原生计数泄漏。
+        //   （与同文件 change_machine_rent_fee 的「counters must always land」同一教训。）
+        MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
+
         if machine_rented_gpu == 0 {
-            // 已经没有正在租用的机器时，改变机器的状态
-            MachinesInfo::<T>::try_mutate(machine_id, |machine_info| {
+            // 已经没有正在租用的机器时，改变机器的状态。机器若已注销 machines_info 缺失 → best-effort 不阻断
+            //   （计数已落盘；机器都没了 status 无意义）。
+            let _ = MachinesInfo::<T>::try_mutate(machine_id, |machine_info| {
                 let machine_info = machine_info.as_mut().ok_or(())?;
                 machine_info.machine_status = MachineStatus::Online;
                 Ok::<(), ()>(())
-            })?;
+            });
         }
 
-        MachineRentedGPU::<T>::insert(&machine_id, machine_rented_gpu);
         Ok(())
     }
 

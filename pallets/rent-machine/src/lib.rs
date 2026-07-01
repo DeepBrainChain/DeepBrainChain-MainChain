@@ -696,7 +696,22 @@ impl<T: Config> Pallet<T> {
 
         let pending_confirming = Self::confirming_order(block_number);
         for rent_id in pending_confirming {
-            let rent_info = Self::rent_info(&rent_id).ok_or(())?;
+            // [审计修 F-3] 单项容错：原 `ok_or(())?` 在某个 rent_info 缺失(异常态)时 abort 整批 →
+            //   同块后续 rent_id 永不被处理(block 已过、on_finalize 只扫当前块) → 它们的 MachineRentedGPU
+            //   卡 >0 → 守卫② 永久拒 DeepLink。改为：缺失则清掉 ConfirmingOrder 该项并继续，不拖累其他订单。
+            let rent_info = match Self::rent_info(&rent_id) {
+                Some(r) => r,
+                None => {
+                    let mut confirming_order = Self::confirming_order(block_number);
+                    ItemList::rm_item(&mut confirming_order, &rent_id);
+                    if confirming_order.is_empty() {
+                        ConfirmingOrder::<T>::remove(block_number);
+                    } else {
+                        ConfirmingOrder::<T>::insert(block_number, confirming_order);
+                    }
+                    continue
+                },
+            };
 
             // return back staked money!
             if !rent_info.stake_amount.is_zero() {
@@ -738,10 +753,11 @@ impl<T: Config> Pallet<T> {
             RentInfo::<T>::remove(rent_id);
             RentOrderReceiver::<T>::remove(rent_id);
 
-            T::RTOps::change_machine_status_on_confirm_expired(
+            // [审计修 F-3] 单项容错：不让单个机器的状态变更失败 abort 整批（confirm_expired 现已保证计数落盘）
+            let _ = T::RTOps::change_machine_status_on_confirm_expired(
                 &rent_info.machine_id,
                 rent_info.gpu_num,
-            )?;
+            );
         }
         Ok(())
     }

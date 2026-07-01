@@ -32,5 +32,7 @@ sp_api::decl_runtime_apis! {
         fn get_machine_era_released_reward(machine_id: MachineId, era_index: EraIndex) -> Balance;
         fn get_stash_era_reward(stash: AccountId, era_index: EraIndex) -> Balance;
         fn get_stash_era_released_reward(stash: AccountId, era_index: EraIndex) -> Balance;
+        // 某机器近 150 个 era 的累计挖矿奖励总额（DeepLink 客户端展示矿工 DBC 收益用）
+        fn get_machine_recent_reward_sum(machine_id: MachineId) -> Balance;
     }
 }
