@@ -2553,6 +2553,10 @@ impl_runtime_apis! {
             OnlineProfile::get_stash_era_released_reward(stash, era_index)
         }
 
+        fn get_machine_recent_reward_sum(machine_id: MachineId) -> Balance {
+            OnlineProfile::get_machine_recent_reward_sum(machine_id)
+        }
+
     }
 
     impl online_committee_runtime_api::OcRpcApi<Block, AccountId, BlockNumber, Balance> for Runtime {

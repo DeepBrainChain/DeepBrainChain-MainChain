@@ -427,7 +427,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         // 设置每张卡质押数量
         pub fn set_stake_per_gpu(
             origin: OriginFor<T>,
@@ -440,7 +440,7 @@ pub mod pallet {
 
         // 需要质押10000DBC作为保证金，验证通过保证金解锁
         #[pallet::call_index(1)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         pub fn set_online_deposit(
             origin: OriginFor<T>,
             deposit: BalanceOf<T>,
@@ -452,7 +452,7 @@ pub mod pallet {
 
         // 设置特定GPU标准算力与对应的每天租用价格
         #[pallet::call_index(2)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         pub fn set_standard_gpu_point_price(
             origin: OriginFor<T>,
             point_price: dbc_support::machine_type::StandardGpuPointPrice,
@@ -463,7 +463,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         pub fn set_reporter_stake_params(
             origin: OriginFor<T>,
             params: ReporterStakeParamsInfo<BalanceOf<T>>,
@@ -475,7 +475,7 @@ pub mod pallet {
 
         // 资金账户设置控制账户
         #[pallet::call_index(4)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         pub fn set_controller(
             origin: OriginFor<T>,
             controller: T::AccountId,
@@ -498,7 +498,7 @@ pub mod pallet {
 
         // Controller generate new server room id, record to stash account
         #[pallet::call_index(5)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         pub fn gen_server_room(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
             let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
@@ -516,7 +516,7 @@ pub mod pallet {
         // - Writes: LiveMachine, StashMachines, MachineInfo,
         // StashStake, Balance
         #[pallet::call_index(6)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn bond_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -551,7 +551,7 @@ pub mod pallet {
 
         // - Write: LiveMachine, MachinesInfo
         #[pallet::call_index(7)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn add_machine_info(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -588,7 +588,7 @@ pub mod pallet {
 
         // - Writes: CommitteeMachine, CommitteeOps, MachineSubmitedHash, MachineCommittee
         #[pallet::call_index(8)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn submit_confirm_hash(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -621,7 +621,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(9)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn submit_confirm_raw(
             origin: OriginFor<T>,
             machine_info_detail: CommitteeUploadInfo,
@@ -657,7 +657,7 @@ pub mod pallet {
 
         /// 用户租用机器（按分钟租用）
         #[pallet::call_index(10)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn rent_machine(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -767,7 +767,7 @@ pub mod pallet {
 
         /// 用户在租用15min内确认机器租用成功
         #[pallet::call_index(11)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn confirm_rent(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -827,7 +827,7 @@ pub mod pallet {
 
         /// 用户续租(按分钟续租)
         #[pallet::call_index(12)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn relet_machine(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -913,7 +913,7 @@ pub mod pallet {
         // NOTE: confirm_machine, machine_offline, terminate_rent 需要改变 machine_info.renters
         /// 用户终止租用
         #[pallet::call_index(13)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn terminate_rent(
             origin: OriginFor<T>,
             rent_id: RentOrderId,
@@ -956,7 +956,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(14)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn machine_offline(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1007,7 +1007,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(15)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn machine_online(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1041,7 +1041,7 @@ pub mod pallet {
 
         // 满1年，机器可以退出，并退还质押币
         #[pallet::call_index(16)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn machine_exit(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1111,7 +1111,7 @@ pub mod pallet {
         // 如果租用成功发现硬件造假，可以举报。
         // 举报成功，100％没收质押币。50%举报人, 30%验证人, 20％国库
         #[pallet::call_index(17)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn report_machine_fault(
             origin: OriginFor<T>,
             // NOTE: Here only one fault type (RentedHardwareCounterfeit) can be report, so we only
@@ -1140,7 +1140,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(18)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         pub fn reporter_add_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -1150,7 +1150,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(19)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4)))]
         pub fn reporter_reduce_stake(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -1161,7 +1161,7 @@ pub mod pallet {
 
         // 报告人可以在抢单之前取消该报告
         #[pallet::call_index(20)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn reporter_cancel_report(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1196,7 +1196,7 @@ pub mod pallet {
 
         /// 委员会进行抢单
         #[pallet::call_index(21)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn committee_book_report(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1221,7 +1221,7 @@ pub mod pallet {
         // 报告人在委员会完成抢单后，30分钟内用委员会的公钥，提交加密后的故障信息
         // 只有报告机器故障或者无法租用时需要提交加密信息
         #[pallet::call_index(22)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn reporter_add_encrypted_error_info(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1258,7 +1258,7 @@ pub mod pallet {
         // 委员会提交验证之后的Hash
         // 用户必须在自己的Order状态为Verifying时提交Hash
         #[pallet::call_index(23)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn committee_submit_verify_hash(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1300,7 +1300,7 @@ pub mod pallet {
 
         /// 订单状态必须是等待SubmittingRaw: 除了offline之外的所有错误类型
         #[pallet::call_index(24)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(50_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(25, 20)))]
         pub fn committee_submit_verify_raw(
             origin: OriginFor<T>,
             report_id: ReportId,
@@ -1464,6 +1464,8 @@ pub mod pallet {
         // S2 修复：on_finalize 租金结算彻底失败（即便回退到 stash 也失败）
         // 不再静默吞错，事件上链方便监控。(rent_id,)
         RentFeePayoutFailed(RentOrderId),
+        // 补质押失败（租金已支付，仅自动补质押环节失败），best-effort 不回滚。(machine_id)
+        RentFeeTopupFailed(MachineId),
     }
 
     #[pallet::error]
@@ -2093,6 +2095,8 @@ impl<T: Config> Pallet<T> {
         // 回退到 stash；若 stash 也失败才 bail。事件可观测，不静默吞错。
         let rent_receiver = Self::stash_rent_receiver(&machine_info.machine_stash)
             .unwrap_or_else(|| machine_info.machine_stash.clone());
+        // Track where stash_amount ACTUALLY landed (drives the stake-topup gate below).
+        let mut effective_payout_to = rent_receiver.clone();
         let primary = <T as Config>::Currency::transfer(
             &rent_order.renter,
             &rent_receiver,
@@ -2101,35 +2105,50 @@ impl<T: Config> Pallet<T> {
         );
         if let Err(_) = primary {
             if rent_receiver != machine_info.machine_stash {
-                Self::deposit_event(Event::RentReceiverPayoutFallback(
-                    machine_info.machine_stash.clone(),
-                    rent_receiver.clone(),
-                    stash_amount,
-                ));
+                // Transfer to stash first; only emit the fallback event once it succeeds.
                 <T as Config>::Currency::transfer(
                     &rent_order.renter,
                     &machine_info.machine_stash,
                     stash_amount,
                     KeepAlive,
                 )?;
+                // Money ended up in the stash after fallback → eligible for topup.
+                effective_payout_to = machine_info.machine_stash.clone();
+                Self::deposit_event(Event::RentReceiverPayoutFallback(
+                    machine_info.machine_stash.clone(),
+                    rent_receiver.clone(),
+                    stash_amount,
+                ));
             } else {
                 return primary;
             }
         }
 
-        // 根据机器GPU计算需要多少质押，用卡主实际收到的部分（95%）自动补充质押
-        let max_stake = Self::stake_per_gpu_limit()
-            .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
-            .ok_or(Error::<T>::Overflow)?;
-        if max_stake > machine_info.stake_amount {
-            // 如果 stash_amount >= max_stake - machine_info.stake_amount,
-            // 则质押 max_stake - machine_info.stake_amount
-            // 如果 stash_amount < max_stake - machine_info.stake_amount, 则质押 stash_amount
-            let stake_amount = stash_amount.min(max_stake.saturating_sub(machine_info.stake_amount));
-
-            <T as Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)?;
-            machine_info.stake_amount = machine_info.stake_amount.saturating_add(stake_amount);
-            MachinesInfo::<T>::insert(&machine_id, machine_info);
+        // 根据机器GPU计算需要多少质押，用卡主实际收到的部分（95%）自动补充质押。
+        // 仅当租金确实进了 stash（rent_receiver == machine_stash）才自动补质押：
+        // 若矿工通过 setRentReceiver 把租金引到别的钱包，stash 没收到这笔钱，
+        // 再 reserve 它自己的余额就是重复扣款（与 rent-machine 同源 bug）。
+        if effective_payout_to == machine_info.machine_stash {
+            // best-effort 补质押：失败不回滚已完成的租金支付，仅发事件（与 rent-machine 对齐）。
+            match Self::stake_per_gpu_limit()
+                .checked_mul(&machine_info.gpu_num().saturated_into::<BalanceOf<T>>())
+            {
+                Some(max_stake) if max_stake > machine_info.stake_amount => {
+                    let stake_amount =
+                        stash_amount.min(max_stake.saturating_sub(machine_info.stake_amount));
+                    if <T as Config>::Currency::reserve(&machine_info.machine_stash, stake_amount)
+                        .is_ok()
+                    {
+                        machine_info.stake_amount =
+                            machine_info.stake_amount.saturating_add(stake_amount);
+                        MachinesInfo::<T>::insert(&machine_id, machine_info);
+                    } else {
+                        Self::deposit_event(Event::RentFeeTopupFailed(machine_id.clone()));
+                    }
+                },
+                Some(_) => {},
+                None => Self::deposit_event(Event::RentFeeTopupFailed(machine_id.clone())),
+            }
         }
 
         Ok(())

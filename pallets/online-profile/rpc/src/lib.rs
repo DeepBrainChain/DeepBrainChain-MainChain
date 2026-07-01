@@ -89,6 +89,13 @@ where
         era_index: EraIndex,
         at: Option<BlockHash>,
     ) -> RpcResult<RpcBalance<Balance>>;
+
+    #[method(name = "onlineProfile_getMachineRecentRewardSum")]
+    fn get_machine_recent_reward_sum(
+        &self,
+        machine_id: String,
+        at: Option<BlockHash>,
+    ) -> RpcResult<RpcBalance<Balance>>;
 }
 
 pub struct OpStorage<C, M> {
@@ -306,6 +313,29 @@ where
 
         let runtime_api_result = api
             .get_machine_era_released_reward(at_hash, machine_id, era_index)
+            .map(|balance| balance.into())
+            .map_err(|e| {
+                JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+                    ErrorCode::InternalError.code(),
+                    "Something wrong",
+                    Some(e.to_string()),
+                )))
+            })?;
+        Ok(runtime_api_result)
+    }
+
+    fn get_machine_recent_reward_sum(
+        &self,
+        machine_id: String,
+        at: Option<Block::Hash>,
+    ) -> RpcResult<RpcBalance<Balance>> {
+        let api = self.client.runtime_api();
+        let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        let machine_id = machine_id.as_bytes().to_vec();
+
+        let runtime_api_result = api
+            .get_machine_recent_reward_sum(at_hash, machine_id)
             .map(|balance| balance.into())
             .map_err(|e| {
                 JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
