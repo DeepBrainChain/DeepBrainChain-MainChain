@@ -1396,6 +1396,8 @@ impl online_profile::Config for Runtime {
         pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 5>;
     type SlashAndReward = GenericFunc;
     // [+30% 桥·跨系统互斥] deeplink_set_rented 查 terminating-rental 是否正租着该机器，拒绝跨系统双租。
+    // ⚠️ 资金安全 wiring：绝不能改成 () —— () 的 is_machine_rented 恒 false，会静默关掉这道防"凭空 +30%"闸，
+    //    且自动化测不到（单测用桩、正向 fork 不碰这行）。任何改动本行必须人工重核。
     type TerminatingRentalStatus = TerminatingRental;
 }
 
@@ -1441,6 +1443,8 @@ impl terminating_rental::Config for Runtime {
     type DbcPrice = DBCPriceOCW;
     type SlashAndReward = GenericFunc;
     // [+30% 桥·跨系统互斥] rent_machine 查 online-profile 是否已 DeepLink 租用该机器，拒绝跨系统双租。
+    // ⚠️ 资金安全 wiring：绝不能改成 () —— () 的 is_deeplink_rented 恒 false，会静默关掉这道防"凭空 +30%"闸。
+    //    任何改动本行必须人工重核（自动化测不到其退化）。
     type OnlineProfileDeepLink = OnlineProfile;
 }
 
