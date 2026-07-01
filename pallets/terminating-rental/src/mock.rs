@@ -129,6 +129,22 @@ impl committee::Config for TestRuntime {
     // type WeightInfo = ();
 }
 
+// [+30% 桥·跨系统互斥] 可控桩：测试 set_mock_deeplink_rented(true/false) 驱动 terminating-rental
+// rent_machine 里的 DeepLink 互斥 guard 真实执行（() 恒 false 时该分支永不走）。
+thread_local! {
+    static MOCK_DEEPLINK_RENTED: core::cell::RefCell<bool> = core::cell::RefCell::new(false);
+}
+pub fn set_mock_deeplink_rented(v: bool) {
+    MOCK_DEEPLINK_RENTED.with(|c| *c.borrow_mut() = v);
+}
+pub struct MockDeepLinkRental;
+impl dbc_support::traits::DeepLinkRentalStatus for MockDeepLinkRental {
+    type MachineId = dbc_support::MachineId;
+    fn is_deeplink_rented(_machine_id: &dbc_support::MachineId) -> bool {
+        MOCK_DEEPLINK_RENTED.with(|c| *c.borrow())
+    }
+}
+
 impl terminating_rental::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
@@ -136,8 +152,8 @@ impl terminating_rental::Config for TestRuntime {
     type ManageCommittee = Committee;
     type DbcPrice = DBCPriceOCW;
     type SlashAndReward = GenericFunc;
-    // 本 mock 不涉及跨系统互斥测试 → 空实现（恒 false）。跨系统 guard 由 fork 测试真实 runtime 验证。
-    type OnlineProfileDeepLink = ();
+    // [+30% 桥·跨系统互斥] 可控桩，让 rent_machine 的 DeepLink 互斥 guard 在单测里真实执行。
+    type OnlineProfileDeepLink = MockDeepLinkRental;
 }
 
 impl dbc_price_ocw::Config for TestRuntime {

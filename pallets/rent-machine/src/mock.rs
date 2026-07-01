@@ -178,6 +178,22 @@ impl committee::Config for TestRuntime {
     // type WeightInfo = ();
 }
 
+// [+30% 桥·跨系统互斥] 可控桩：测试 set_mock_terminating_rented(true/false) 驱动 online-profile
+// deeplink_set_rented 里的 terminating-rental 互斥 guard 真实执行（() 恒 false 时该分支永不走）。
+thread_local! {
+    static MOCK_TERMINATING_RENTED: core::cell::RefCell<bool> = core::cell::RefCell::new(false);
+}
+pub fn set_mock_terminating_rented(v: bool) {
+    MOCK_TERMINATING_RENTED.with(|c| *c.borrow_mut() = v);
+}
+pub struct MockTerminatingRental;
+impl dbc_support::traits::RentalStatus for MockTerminatingRental {
+    type MachineId = dbc_support::MachineId;
+    fn is_machine_rented(_machine_id: &dbc_support::MachineId) -> bool {
+        MOCK_TERMINATING_RENTED.with(|c| *c.borrow())
+    }
+}
+
 impl online_profile::Config for TestRuntime {
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
@@ -189,8 +205,8 @@ impl online_profile::Config for TestRuntime {
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<Self::AccountId, TechnicalCollective, 2, 3>;
     type SlashAndReward = GenericFunc;
-    // 本 mock 不涉及跨系统互斥测试 → 空实现（恒 false）。跨系统 guard 由 fork 测试真实 runtime 验证。
-    type TerminatingRentalStatus = ();
+    // [+30% 桥·跨系统互斥] 可控桩，让 deeplink_set_rented 的 terminating 互斥 guard 在单测里真实执行。
+    type TerminatingRentalStatus = MockTerminatingRental;
 }
 
 impl dbc_price_ocw::Config for TestRuntime {

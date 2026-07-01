@@ -618,3 +618,35 @@ fn restake_tops_up_stash_when_no_receiver_terminating() {
         );
     });
 }
+
+// ── [spec 414·跨系统互斥·可控桩] 机器已被 DeepLink 租用 → terminating-rental rent_machine 被拒 ──
+// 可控桩真实驱动 rent_machine 里的 OnlineProfileDeepLink::is_deeplink_rented 互斥分支
+// （() 空桩恒 false 时永不执行 → 零覆盖，这个测试把它钉死在 CI）。守卫在所有副作用(pay_fixed_tx_fee/reserve)前 → assert_noop 无状态残留。
+#[test]
+fn rent_machine_rejected_when_deeplink_rented() {
+    new_test_with_machine_online_ext().execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
+            .as_bytes()
+            .to_vec();
+        let renter1 = sr25519::Public::from(Sr25519Keyring::Bob);
+        // 桩：该机已被 DeepLink(EVM) 租用
+        set_mock_deeplink_rented(true);
+        assert_noop!(
+            IRMachine::rent_machine(
+                RuntimeOrigin::signed(renter1),
+                machine_id.clone(),
+                8,
+                30 * ONE_MINUTE
+            ),
+            crate::Error::<TestRuntime>::MachineDeepLinkRented
+        );
+        // 对照：桩置 false → 允许，确认拒绝确实来自该 guard、非其它前置
+        set_mock_deeplink_rented(false);
+        assert_ok!(IRMachine::rent_machine(
+            RuntimeOrigin::signed(renter1),
+            machine_id.clone(),
+            8,
+            30 * ONE_MINUTE
+        ));
+    });
+}

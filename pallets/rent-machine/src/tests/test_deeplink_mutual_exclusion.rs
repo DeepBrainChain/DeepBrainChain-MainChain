@@ -370,6 +370,26 @@ fn deeplink_set_rented_rejects_offline_machine() {
     });
 }
 
+// ── [spec 414·跨系统互斥·可控桩] terminating-rental 正租着该机 → deeplink_set_rented(true) 被拒 ──
+// 用可控桩真实驱动 deeplink_set_rented 里的 TerminatingRentalStatus::is_machine_rented 互斥分支
+// （() 空桩恒 false 时该分支永不执行 → 零覆盖，这个测试把它钉死在 CI）。
+#[test]
+fn deeplink_rejected_when_terminating_rented() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        // 桩：该机在 terminating-rental 有活跃租用
+        set_mock_terminating_rented(true);
+        assert!(
+            OnlineProfile::deeplink_set_rented(machine_id.clone(), true).is_err(),
+            "deeplink rent must be rejected when the machine is rented in terminating-rental (cross-system +30% guard)"
+        );
+        assert_eq!(OnlineProfile::deeplink_rented(&*machine_id), false, "flag must NOT be set");
+        // 对照：桩置 false → 允许，确认拒绝确实来自该 guard、非其它前置
+        set_mock_terminating_rented(false);
+        assert_ok!(OnlineProfile::deeplink_set_rented(machine_id.clone(), true));
+        assert_eq!(OnlineProfile::deeplink_rented(&*machine_id), true);
+    });
+}
+
 // ── F-3：原生 reserve 后机器在 pending-confirm 期间被注销，confirm 超时仍释放 MachineRentedGPU（不泄漏）──
 #[test]
 fn machine_rented_gpu_not_leaked_when_deregistered_during_pending_confirm() {
