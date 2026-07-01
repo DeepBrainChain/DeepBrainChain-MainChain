@@ -105,6 +105,21 @@ pub trait DeepLinkRentalStatus {
     fn is_deeplink_rented(machine_id: &Self::MachineId) -> bool;
 }
 
+// [+30% 桥·跨系统互斥] () 空实现，供不涉及跨系统互斥的 mock 直接接（恒 false = 无租用）。
+// 真实运行时/跨系统 guard 测试接真 pallet；这里只让不相关的单测编译通过。
+impl RentalStatus for () {
+    type MachineId = MachineId;
+    fn is_machine_rented(_machine_id: &MachineId) -> bool {
+        false
+    }
+}
+impl DeepLinkRentalStatus for () {
+    type MachineId = MachineId;
+    fn is_deeplink_rented(_machine_id: &MachineId) -> bool {
+        false
+    }
+}
+
 pub trait OPRPCQuery {
     type AccountId;
     type StashMachine;

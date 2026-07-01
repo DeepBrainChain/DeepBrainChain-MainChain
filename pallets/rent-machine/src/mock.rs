@@ -189,6 +189,8 @@ impl online_profile::Config for TestRuntime {
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<Self::AccountId, TechnicalCollective, 2, 3>;
     type SlashAndReward = GenericFunc;
+    // 本 mock 不涉及跨系统互斥测试 → 空实现（恒 false）。跨系统 guard 由 fork 测试真实 runtime 验证。
+    type TerminatingRentalStatus = ();
 }
 
 impl dbc_price_ocw::Config for TestRuntime {

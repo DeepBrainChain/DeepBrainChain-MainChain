@@ -313,14 +313,20 @@ fn deeplink_rent_while_offline_then_online_applies_once() {
             machine_id.clone()
         ));
         assert_eq!(OnlineProfile::sys_info().total_rented_gpu, base);
-        // EVM 在机器离线时 setRented(true)：round3 修后应跳过快照、只落标记 → total 仍 base
-        //   （修前：is_rented=true 恒 apply → 此处已 = base + gpu_num，第一次误加）
-        assert_ok!(OnlineProfile::deeplink_set_rented(machine_id.clone(), true));
+        // 离线时把 DeepLink 租用标记打上：正常 EVM 桥路径 deeplink_set_rented 现在有在线前置校验、会拒离线机器
+        //   （见 deeplink_set_rented_rejects_offline_machine）。能到达"离线 apply(true)"的只剩 root 应急阀
+        //   force_set_deeplink_rented（绕过在线校验直接 apply）。它同样感知离线：round3 修后跳过快照、只落标记
+        //   → total 仍 base（修前 is_rented=true 恒 apply → 此处已 = base+gpu_num，第一次误加）。
+        assert_ok!(OnlineProfile::force_set_deeplink_rented(
+            RuntimeOrigin::root(),
+            machine_id.clone(),
+            true
+        ));
         assert_eq!(OnlineProfile::deeplink_rented(&*machine_id), true);
         assert_eq!(
             OnlineProfile::sys_info().total_rented_gpu,
             base,
-            "renting while offline must DEFER the snapshot (round3 fix), not apply it"
+            "force-set rented while offline must DEFER the snapshot (round3 fix), not apply it"
         );
         // 重新上线 → 由 controller_report_online 的 deeplink_rented 分支恰好施加一次
         run_to_block(20);
@@ -333,6 +339,34 @@ fn deeplink_rent_while_offline_then_online_applies_once() {
             base + gpu_num,
             "online must apply deeplink rented gpu exactly ONCE (regression: was base + 2*gpu_num)"
         );
+    });
+}
+
+// ── [spec 414] precompile 在线前置校验：deeplink_set_rented(true) 对离线机器直接 Err，不落标记、不加 +30% ──
+#[test]
+fn deeplink_set_rented_rejects_offline_machine() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        let base = OnlineProfile::sys_info().total_rented_gpu;
+        // 机器离线
+        assert_ok!(OnlineProfile::controller_report_offline(
+            RuntimeOrigin::signed(*controller),
+            machine_id.clone()
+        ));
+        // EVM 桥 setRented(true) 对离线机器 → 在线校验拒绝（Err），标记不落、快照不动
+        assert!(
+            OnlineProfile::deeplink_set_rented(machine_id.clone(), true).is_err(),
+            "deeplink_set_rented(true) must reject an offline machine (online precondition)"
+        );
+        assert_eq!(OnlineProfile::deeplink_rented(&*machine_id), false, "flag must NOT be set");
+        assert_eq!(OnlineProfile::sys_info().total_rented_gpu, base, "no +30% applied to offline machine");
+        // 反向：退租(false)不受在线校验影响（离线也能清标记）——先 force 打上再 false 清
+        assert_ok!(OnlineProfile::force_set_deeplink_rented(
+            RuntimeOrigin::root(),
+            machine_id.clone(),
+            true
+        ));
+        assert_ok!(OnlineProfile::deeplink_set_rented(machine_id.clone(), false));
+        assert_eq!(OnlineProfile::deeplink_rented(&*machine_id), false, "un-rent must always clear, even offline");
     });
 }
 

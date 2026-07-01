@@ -136,6 +136,8 @@ impl terminating_rental::Config for TestRuntime {
     type ManageCommittee = Committee;
     type DbcPrice = DBCPriceOCW;
     type SlashAndReward = GenericFunc;
+    // 本 mock 不涉及跨系统互斥测试 → 空实现（恒 false）。跨系统 guard 由 fork 测试真实 runtime 验证。
+    type OnlineProfileDeepLink = ();
 }
 
 impl dbc_price_ocw::Config for TestRuntime {
