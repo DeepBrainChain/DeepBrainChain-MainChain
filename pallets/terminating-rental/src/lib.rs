@@ -87,6 +87,10 @@ pub mod pallet {
         >;
         type DbcPrice: DbcPrice<Balance = BalanceOf<Self>>;
         type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+        /// [+30% 桥·跨系统互斥] 查询 online-profile 的 DeepLink 租用状态；rent_machine 拒绝对已被 DeepLink
+        /// 租用的机器再叠加 terminating-rental 租用（防跨系统 +30% double-count）。runtime 接 OnlineProfile；
+        /// mock 里可接 () 空实现。
+        type OnlineProfileDeepLink: dbc_support::traits::DeepLinkRentalStatus<MachineId = MachineId>;
     }
 
     #[pallet::pallet]
@@ -684,6 +688,14 @@ pub mod pallet {
 
             // 检查machine_id状态是否可以租用
             ensure!(machine_info.can_rent(), Error::<T>::MachineNotRentable);
+
+            // [+30% 桥·跨系统互斥] 拒绝对已被 DeepLink(EVM) 租用的机器再叠加 terminating-rental 租用，
+            //   否则两套系统各给 +30% → 跨系统 double-count。链上强制、不靠运营约定。放在所有副作用(pay_fixed_tx_fee/
+            //   reserve)之前，Err 直接返回不留残留。
+            ensure!(
+                !T::OnlineProfileDeepLink::is_deeplink_rented(&machine_id),
+                Error::<T>::MachineDeepLinkRented
+            );
 
             // 最大租用时间限制MaximumRentalDuration
             let duration =
@@ -1494,6 +1506,8 @@ pub mod pallet {
         NotSubmitHash,
         TimeNotAllow,
         MachineNotRentable,
+        // [+30% 桥·跨系统互斥] 机器已被 DeepLink(EVM) 租用，不能再叠加 terminating-rental 租用（防跨系统 +30% double-count）。
+        MachineDeepLinkRented,
         GetMachinePriceFailed,
         GPUNotEnough,
         OnlyHalfHourAllowed,
@@ -2339,4 +2353,13 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> OnlineCommitteeSummary for Pallet<T> {
     type AccountId = T::AccountId;
     type BlockNumber = T::BlockNumber;
+}
+
+// [+30% 桥·跨系统互斥] terminating-rental 对外暴露自己的租用状态，供 online-profile 的 deeplink_set_rented 查询，
+// 拒绝对已在 terminating-rental 租用的机器上 DeepLink 租（防跨系统 +30% double-count）。
+impl<T: Config> dbc_support::traits::RentalStatus for Pallet<T> {
+    type MachineId = MachineId;
+    fn is_machine_rented(machine_id: &MachineId) -> bool {
+        Self::machine_rented_gpu(machine_id) > 0
+    }
 }

@@ -155,7 +155,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 413,
+    // spec 414: DeepLink +30% rent-bonus bridge (RentBridge precompile 2052 -> online-profile
+    // deeplink_set_rented) + terminating-rental<->DeepLink 双向互斥 guard + precompile 在线前置校验.
+    spec_version: 414,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -1393,6 +1395,8 @@ impl online_profile::Config for Runtime {
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 5>;
     type SlashAndReward = GenericFunc;
+    // [+30% 桥·跨系统互斥] deeplink_set_rented 查 terminating-rental 是否正租着该机器，拒绝跨系统双租。
+    type TerminatingRentalStatus = TerminatingRental;
 }
 
 impl committee::Config for Runtime {
@@ -1436,6 +1440,8 @@ impl terminating_rental::Config for Runtime {
     type ManageCommittee = Committee;
     type DbcPrice = DBCPriceOCW;
     type SlashAndReward = GenericFunc;
+    // [+30% 桥·跨系统互斥] rent_machine 查 online-profile 是否已 DeepLink 租用该机器，拒绝跨系统双租。
+    type OnlineProfileDeepLink = OnlineProfile;
 }
 
 impl simple_rpc::Config for Runtime {

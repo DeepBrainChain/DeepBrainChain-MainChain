@@ -72,6 +72,10 @@ pub mod pallet {
         type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
         type CancelSlashOrigin: EnsureOrigin<Self::RuntimeOrigin>;
         type SlashAndReward: GNOps<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
+        /// [+30% 桥·跨系统互斥] 查询另一套独立租用系统(terminating-rental)的租用状态，用于
+        /// deeplink_set_rented 拒绝对已在 terminating-rental 租用的机器叠加 DeepLink 租（防跨系统 +30% double-count）。
+        /// runtime 里接 TerminatingRental；mock 里可接 () 空实现。
+        type TerminatingRentalStatus: dbc_support::traits::RentalStatus<MachineId = MachineId>;
     }
 
     #[pallet::pallet]
@@ -2013,11 +2017,30 @@ impl<T: Config> Pallet<T> {
     /// ⚠️ 共识相关：若机器同时被原生 rent-machine 租用，会与原生 is_rented 叠加（double-count）。
     ///    用于专供 DeepLink 租用、不参与原生租用的中国机器。须经 DBC 团队评审 + 测试网验证。
     pub fn deeplink_set_rented(machine_id: MachineId, is_rented: bool) -> Result<(), ()> {
-        // [互斥约束] 一台机器不能同时被原生 rent-machine 与 DeepLink 租用，否则 is_rented/total_rented_gpu/+30%
-        //   会计跨路径叠加 double-count。DeepLink 上租(is_rented=true)时若该机已被原生租用(MachineRentedGPU>0)→拒绝，
-        //   绝不叠加（+30% 已由原生那次施加；EVM 侧 _notifyRentBonus try/catch 会吞此 Err，不阻塞 EVM 退租 toggle false）。
-        if is_rented && MachineRentedGPU::<T>::get(&machine_id) > 0 {
-            return Err(());
+        if is_rented {
+            // [互斥守卫②·原生 rent-machine] 一台机器不能同时被原生 rent-machine 与 DeepLink 租用，否则
+            //   is_rented/total_rented_gpu/+30% 会计跨路径叠加 double-count。已被原生租用(MachineRentedGPU>0)→拒绝。
+            //   （+30% 已由原生那次施加；EVM 侧 _notifyRentBonus try/catch 会吞此 Err，不阻塞 EVM 退租 toggle false）。
+            if MachineRentedGPU::<T>::get(&machine_id) > 0 {
+                return Err(());
+            }
+            // [互斥守卫·terminating-rental] terminating-rental 是独立租用系统、独立 +30% 会计，两边同时租同一台机
+            //   会跨系统 double-count。链上强制互斥（不靠运营约定）：该机在 terminating-rental 有活跃租用→拒绝上 DeepLink 租。
+            if T::TerminatingRentalStatus::is_machine_rented(&machine_id) {
+                return Err(());
+            }
+            // [在线前置校验] 只在真实 false->true 转换时要求机器 == Online（对齐原生 rent 可租前置；收窄为仅
+            //   Online——原生 Online||Rented 里的 Rented 已被守卫②拒）。幂等 no-op(已 true) 不重复校验；
+            //   退租(false)永不校验（DeepLink 租用期间机器可能掉线，退租必须永远能清标记，见 apply 的离线感知）。
+            if !Self::deeplink_rented(&machine_id) {
+                let is_online = matches!(
+                    Self::machines_info(&machine_id).map(|mi| mi.machine_status),
+                    Some(MachineStatus::Online)
+                );
+                if !is_online {
+                    return Err(());
+                }
+            }
         }
         Self::apply_deeplink_rented(&machine_id, is_rented)
     }

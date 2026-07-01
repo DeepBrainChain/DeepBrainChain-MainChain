@@ -86,6 +86,25 @@ pub trait RTOps {
     ) -> Result<(), ()>;
 }
 
+// [+30% 桥·跨系统互斥] 两个方向各一个小 trait，放在 dbc-support 让两个 pallet 各 impl/use，
+// 避免 online-profile↔terminating-rental 的 Cargo 循环依赖（terminating-rental 本来零耦合 online-profile）。
+
+/// terminating-rental impl，online-profile 用：deeplink_set_rented 拒绝"已在 terminating-rental 租用"的机器上
+/// DeepLink 租（防跨系统 +30% double-count）。
+pub trait RentalStatus {
+    type MachineId;
+    /// 该机器当前是否在本租用系统(terminating-rental)里有活跃租用。
+    fn is_machine_rented(machine_id: &Self::MachineId) -> bool;
+}
+
+/// online-profile impl，terminating-rental 用：rent_start 拒绝已被 DeepLink 租用(DeepLinkRented)的机器
+/// 再叠加 terminating-rental 租用（防跨系统 +30% double-count）。链上强制互斥，不靠运营约定。
+pub trait DeepLinkRentalStatus {
+    type MachineId;
+    /// 该机器是否被 DeepLink(EVM RentDBC) 租用（online-profile 的 DeepLinkRented 标记）。
+    fn is_deeplink_rented(machine_id: &Self::MachineId) -> bool;
+}
+
 pub trait OPRPCQuery {
     type AccountId;
     type StashMachine;

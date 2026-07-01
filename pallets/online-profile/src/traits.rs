@@ -440,6 +440,15 @@ impl<T: Config> RTOps for Pallet<T> {
     }
 }
 
+// [+30% 桥·跨系统互斥] online-profile 对外暴露 DeepLink 租用状态，供 terminating-rental 的 rent_start 查询，
+// 拒绝对 DeepLink-租用机器再叠加 terminating-rental 租用而跨系统 double-count +30%。
+impl<T: Config> dbc_support::traits::DeepLinkRentalStatus for Pallet<T> {
+    type MachineId = MachineId;
+    fn is_deeplink_rented(machine_id: &MachineId) -> bool {
+        DeepLinkRented::<T>::get(machine_id)
+    }
+}
+
 impl<T: Config> OPRPCQuery for Pallet<T> {
     type AccountId = T::AccountId;
     type StashMachine = StashMachine<BalanceOf<T>>;
