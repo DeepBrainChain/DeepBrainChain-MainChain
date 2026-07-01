@@ -1,7 +1,7 @@
 use crate::{
-    types::*, BalanceOf, Config, ControllerMachines, Event, LiveMachines, MachineRecentReward,
-    MachineRentedGPU, MachinesInfo, Pallet, RentedFinished, StashMachines, StashStake, SysInfo,
-    UserMutHardwareStake,
+    types::*, BalanceOf, Config, ControllerMachines, DeepLinkRented, Event, LiveMachines,
+    MachineRecentReward, MachineRentedGPU, MachinesInfo, Pallet, RentedFinished, StashMachines,
+    StashStake, SysInfo, UserMutHardwareStake,
 };
 use dbc_support::{
     machine_type::{CommitteeUploadInfo, MachineStatus},

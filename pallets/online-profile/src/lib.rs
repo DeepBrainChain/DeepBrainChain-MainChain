@@ -15,7 +15,7 @@ use dbc_support::{
     live_machine::LiveMachine,
     machine_info::MachineInfo,
     machine_type::{Latitude, Longitude, MachineStatus, StakerCustomizeInfo},
-    traits::{DbcPrice, GNOps, ManageCommittee},
+    traits::{DbcPrice, GNOps, ManageCommittee, RentalStatus},
     verify_online::StashMachine,
     verify_slash::{OPPendingSlashInfo, OPPendingSlashReviewInfo, OPSlashReason},
     EraIndex, ItemList, MachineId, SlashId, ONE_DAY,

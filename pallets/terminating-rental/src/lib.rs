@@ -25,7 +25,7 @@ use dbc_support::{
         MTReportInfoDetail, MTReportResultInfo, MachineFaultType, ReportStatus, ReporterReportList,
         ReporterStakeInfo, ReporterStakeParamsInfo,
     },
-    traits::{DbcPrice, GNOps, ManageCommittee},
+    traits::{DbcPrice, DeepLinkRentalStatus, GNOps, ManageCommittee},
     utils::{get_hash, OnlineCommitteeSummary},
     verify_committee_slash::{OCPendingSlashInfo as PendingOnlineSlashInfo, OCSlashResult},
     verify_online::{
