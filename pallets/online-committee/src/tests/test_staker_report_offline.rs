@@ -17,7 +17,7 @@ use frame_support::assert_ok;
 //   租用中离线不受影响（租金惩罚由 ③ 托管改造处理）。
 
 // helper: 闲置机器下线→（duration 后）上线，断言零惩罚、质押不变、机器恢复在线
-fn assert_idle_offline_no_slash(run_to: u64) {
+fn assert_idle_offline_no_slash(run_to: u32) {
     let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
         .as_bytes()
         .to_vec();

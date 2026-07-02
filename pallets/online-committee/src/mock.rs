@@ -232,6 +232,10 @@ impl online_profile::Config for TestRuntime {
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<Self::AccountId, TechnicalCollective, 2, 3>;
     type SlashAndReward = GenericFunc;
+    // [+30% 桥] online-committee 测试运行时不涉及 terminating-rental 跨系统守卫，用 () 桩满足 Config 约束
+    //   （dbc_support::traits::RentalStatus for () 恒返回 false）。与 rent-machine/terminating-rental
+    //   mock 的可控桩不同——那两处需驱动守卫，这里不需要。
+    type TerminatingRentalStatus = ();
 }
 
 #[allow(dead_code)]
