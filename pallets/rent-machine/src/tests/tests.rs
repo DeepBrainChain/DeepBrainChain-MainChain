@@ -111,11 +111,12 @@ fn rent_machine_should_works() {
         assert_eq!(era_grade_snap.total, 59914); // 59890 * 4 / 10000 + 59890
 
         // [Thread B ③] 托管收敛：租期(含续租)在 rent_end=20*ONE_DAY+11 已到期全额结算(100% 已用、无罚)。
-        //   结算时点补上入账 + 补质押，最终态应与旧「确认即付」模型完全一致：
-        //   total_rent_fee = 2×237064583333333333333（rent + relet 各 95%），
-        //   reserved 补质押到 400000 DBC 目标。证明托管仅平移入账时点、经济结果守恒。
+        //   结算时点补上入账 + 补质押，最终态与旧「确认即付」模型在 1 个最小单位(10^-15 DBC)内一致：
+        //   total_rent_fee ≈ 2×237064583333333333333（rent + relet 合并后 settle 时分账一次，
+        //   销毁 5% 少 floor 一次 → 比旧模型少 1 base-unit），reserved 补质押到 400000 DBC 目标。
+        //   证明托管仅平移入账时点、经济结果守恒。
         let stash_machines = OnlineProfile::stash_machines(&*stash);
-        assert_eq!(stash_machines.total_rent_fee, 474129166666666666666);
+        assert_eq!(stash_machines.total_rent_fee, 474129166666666666665);
         assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
     })
 }

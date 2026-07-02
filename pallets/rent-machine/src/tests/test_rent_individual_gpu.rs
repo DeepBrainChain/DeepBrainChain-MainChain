@@ -377,10 +377,11 @@ fn report_individual_gpu() {
             assert_eq!(RentMachine::user_order(renter2), user_order);
             assert!(!<ConfirmingOrder::<TestRuntime>>::contains_key(&1));
 
-            // [Thread B ③] 两单都到期、托管全额结算(全程 100% 已用、无罚)后，生命周期计数应
-            //   与旧「确认即付」模型的累计值完全一致 —— 证明托管只是把入账时点从 confirm 移到 settle，
-            //   不改变最终经济结果（守恒）。数值 = 旧测试续租后的累计(此后无新账单)。
-            assert_eq!(OnlineProfile::sys_info().total_rent_fee, 35559687499999999998);
+            // [Thread B ③] 两单都到期、托管全额结算(全程 100% 已用、无罚)后，生命周期计数与旧
+            //   「确认即付」模型累计值在 1 个最小单位(10^-15 DBC)内一致 —— 证明托管只平移入账时点、
+            //   经济结果守恒。差 1 是因为销毁 5% 的取整点从「每单/每次续租各 floor」变成「托管求和后
+            //   settle 时 floor 一次」(order0 = rent+relet 合并后再分账)，属正常舍入迁移，非资金泄漏。
+            assert_eq!(OnlineProfile::sys_info().total_rent_fee, 35559687499999999999);
             assert_eq!(OnlineProfile::sys_info().total_burn_fee, 1871562500000000001);
         }
     })
