@@ -354,6 +354,23 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// [Thread B ③ · 托管] 租客主动提前退租。按已用时长结算：已用给矿工(减 burn)、未用退租客、
+        /// **不罚**(penalty=0，矿工无过错)。质押 bond 不动。仅本人、仅 Renting 状态可调。
+        #[pallet::call_index(5)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(30_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(15, 12)))]
+        pub fn end_rent(origin: OriginFor<T>, rent_id: RentOrderId) -> DispatchResultWithPostInfo {
+            let renter = ensure_signed(origin)?;
+            let now = <frame_system::Pallet<T>>::block_number();
+            let rent_info = Self::rent_info(&rent_id).ok_or(Error::<T>::NoOrderExist)?;
+            ensure!(rent_info.renter == renter, Error::<T>::NoOrderExist);
+            ensure!(rent_info.rent_status == RentStatus::Renting, Error::<T>::NoOrderExist);
+            // penalty=0（offline=false），结算时点=now
+            Self::settle_and_finalize_rent(rent_id, &rent_info, now, false)
+                .map_err(|_| Error::<T>::Unknown)?;
+            Self::deposit_event(Event::RentEndedByUser(rent_id, renter));
+            Ok(().into())
+        }
+
         /// [Thread B ③ · 托管] 领取因结算直转失败(受款方曾被冻结/低于ED)而暂存的托管退款/付款。
         /// 任何账户领自己名下的 PendingDbcPayout；从托管账户转出。
         #[pallet::call_index(6)]
@@ -398,6 +415,10 @@ pub mod pallet {
         DbcPayoutDeferred(T::AccountId, BalanceOf<T>),
         // [Thread B ③] 受款方领取暂存的托管退款 (recipient, amount)
         DbcPayoutClaimed(T::AccountId, BalanceOf<T>),
+        // [Thread B ③] 租客主动提前退租 (rent_id, renter)
+        RentEndedByUser(RentOrderId, T::AccountId),
+        // [Thread B ③] 机器离线触发的租约提前结算 (rent_id, machine_id)
+        RentSettledOnOffline(RentOrderId, MachineId),
     }
 
     #[pallet::error]
@@ -964,6 +985,68 @@ impl<T: Config> Pallet<T> {
     // 这里修rentMachine模块通知onlineProfile机器已经租用完成，
     // onlineProfile判断机器是否需要变成online状态，或者记录下之前是租用状态，
     // 以便机器再次上线时进行正确的惩罚
+    /// [Thread B ③ · 托管] 结算 + 收尾一个租约订单（正常到期 / 租客主动早退 / 离线早退 三处共用，避免清理逻辑漂移）。
+    /// - `settle_end_time`：结算时点（正常到期=rent_end；主动早退=now；离线早退=offline_time）。
+    /// - `offline`：是否因机器离线提前结算（true 才罚矿工≤24h 租金给租客；主动早退/正常到期均 false=penalty0）。
+    /// settle_escrow 先行（老单 no-op）；随后镜像原到期清理：改机器状态、退租客剩余质押、清 user_order /
+    /// RentEnding[rent_end] / machine_rent_order / RentInfo / RentOrderReceiver。
+    pub(crate) fn settle_and_finalize_rent(
+        rent_id: RentOrderId,
+        rent_info: &RentOrderDetail<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+        settle_end_time: T::BlockNumber,
+        offline: bool,
+    ) -> Result<(), ()> {
+        let machine_id = rent_info.machine_id.clone();
+        let clamped_end =
+            if settle_end_time > rent_info.rent_end { rent_info.rent_end } else { settle_end_time };
+        let rent_duration = clamped_end.saturating_sub(rent_info.rent_start);
+
+        // 托管结算须在 RentInfo/receiver 清除前
+        let _ = Self::settle_escrow(rent_id, settle_end_time, offline);
+
+        // NOTE: 只要机器还有租用订单(>1)，就不修改成 online 状态。
+        let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter)?;
+        let _ = T::RTOps::change_machine_status_on_rent_end(
+            &machine_id,
+            rent_info.gpu_num,
+            rent_duration,
+            is_last_rent.0,
+            is_last_rent.1,
+            rent_info.renter.clone(),
+        );
+
+        // 退还租客剩余质押（confirm 后一般为 0，保险处理）
+        if !rent_info.stake_amount.is_zero() {
+            let _ =
+                Self::change_renter_total_stake(&rent_info.renter, rent_info.stake_amount, false);
+        }
+
+        let mut user_order = Self::user_order(&rent_info.renter);
+        ItemList::rm_item(&mut user_order, &rent_id);
+        if user_order.is_empty() {
+            UserOrder::<T>::remove(&rent_info.renter);
+        } else {
+            UserOrder::<T>::insert(&rent_info.renter, user_order);
+        }
+
+        // 从订单自己的 rent_end 块的 RentEnding 里摘掉（正常到期时 == 当前块；早退时是未来块，摘掉防 on_finalize 重复处理）
+        let mut rent_ending = Self::rent_ending(rent_info.rent_end);
+        ItemList::rm_item(&mut rent_ending, &rent_id);
+        if rent_ending.is_empty() {
+            RentEnding::<T>::remove(rent_info.rent_end);
+        } else {
+            RentEnding::<T>::insert(rent_info.rent_end, rent_ending);
+        }
+
+        let mut machine_rent_order = Self::machine_rent_order(&rent_info.machine_id);
+        machine_rent_order.clean_expired_order(rent_id, rent_info.gpu_index.clone());
+        MachineRentOrder::<T>::insert(&rent_info.machine_id, machine_rent_order);
+
+        RentInfo::<T>::remove(rent_id);
+        RentOrderReceiver::<T>::remove(rent_id);
+        Ok(())
+    }
+
     fn check_if_rent_finished(block_number: T::BlockNumber) -> Result<(), ()> {
         if !<RentEnding<T>>::contains_key(block_number) {
             return Ok(())
@@ -971,56 +1054,13 @@ impl<T: Config> Pallet<T> {
 
         let pending_ending = Self::rent_ending(block_number);
         for rent_id in pending_ending {
-            let rent_info = Self::rent_info(&rent_id).ok_or(())?;
-            let machine_id = rent_info.machine_id.clone();
-            let rent_duration = rent_info.rent_end.saturating_sub(rent_info.rent_start);
-
-            // [Thread B ③ · 托管] 正常到期结算：offline=false、end_time=rent_end → used=100%、penalty=0
-            //   （对已托管订单把托管租金 burn+付矿工；老单 no-op）。须在下方 RentInfo/receiver 清除前调用。
-            let _ = Self::settle_escrow(rent_id, rent_info.rent_end, false);
-
-            // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
-            let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter)?;
-            let _ = T::RTOps::change_machine_status_on_rent_end(
-                &machine_id,
-                rent_info.gpu_num,
-                rent_duration,
-                is_last_rent.0,
-                is_last_rent.1,
-                rent_info.renter.clone(),
-            );
-
-            // return back staked money!
-            if !rent_info.stake_amount.is_zero() {
-                let _ = Self::change_renter_total_stake(
-                    &rent_info.renter,
-                    rent_info.stake_amount,
-                    false,
-                );
-            }
-
-            let mut user_order = Self::user_order(&rent_info.renter);
-            ItemList::rm_item(&mut user_order, &rent_id);
-            if user_order.is_empty() {
-                UserOrder::<T>::remove(&rent_info.renter);
-            } else {
-                UserOrder::<T>::insert(&rent_info.renter, user_order);
-            }
-
-            let mut rent_ending = Self::rent_ending(block_number);
-            ItemList::rm_item(&mut rent_ending, &rent_id);
-            if rent_ending.is_empty() {
-                RentEnding::<T>::remove(block_number);
-            } else {
-                RentEnding::<T>::insert(block_number, rent_ending);
-            }
-
-            let mut machine_rent_order = Self::machine_rent_order(&rent_info.machine_id);
-            machine_rent_order.clean_expired_order(rent_id, rent_info.gpu_index);
-            MachineRentOrder::<T>::insert(&rent_info.machine_id, machine_rent_order);
-
-            RentInfo::<T>::remove(rent_id);
-            RentOrderReceiver::<T>::remove(rent_id);
+            // [审计 F-3 容错] 单个坏 rent_id 不阻断整批（对齐 check_machine_starting_status）
+            let rent_info = match Self::rent_info(&rent_id) {
+                Some(r) => r,
+                None => continue,
+            };
+            // [Thread B ③] 正常到期：offline=false、settle_end=rent_end → used=100%、penalty=0（老单 no-op）
+            let _ = Self::settle_and_finalize_rent(rent_id, &rent_info, rent_info.rent_end, false);
         }
         Ok(())
     }
