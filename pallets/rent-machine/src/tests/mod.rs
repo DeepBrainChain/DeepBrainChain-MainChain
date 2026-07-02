@@ -1,4 +1,5 @@
 pub mod test_deeplink_mutual_exclusion;
+pub mod test_escrow;
 pub mod test_gpu_rental_rules;
 pub mod test_online_profile;
 pub mod test_rent_individual_gpu;

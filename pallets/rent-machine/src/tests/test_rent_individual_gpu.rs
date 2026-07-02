@@ -382,7 +382,8 @@ fn report_individual_gpu() {
             //   经济结果守恒。差 1 是因为销毁 5% 的取整点从「每单/每次续租各 floor」变成「托管求和后
             //   settle 时 floor 一次」(order0 = rent+relet 合并后再分账)，属正常舍入迁移，非资金泄漏。
             assert_eq!(OnlineProfile::sys_info().total_rent_fee, 35559687499999999999);
-            assert_eq!(OnlineProfile::sys_info().total_burn_fee, 1871562500000000001);
+            // 销毁额同理少 floor 一次：旧 …001 → 托管 …000（与 rent_fee 的 +1 互补，总额守恒）
+            assert_eq!(OnlineProfile::sys_info().total_burn_fee, 1871562500000000000);
         }
     })
 }

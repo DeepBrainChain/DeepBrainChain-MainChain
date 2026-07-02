@@ -385,11 +385,13 @@ pub mod pallet {
             ensure!(!amount.is_zero(), Error::<T>::NothingToClaim);
             PendingDbcPayout::<T>::remove(&who);
             TotalPendingDbcPayout::<T>::mutate(|t| *t = t.saturating_sub(amount));
+            // AllowDeath 同 pay_from_escrow_or_defer：托管是过路账户，领走最后一笔可清零；
+            //   若这里用 KeepAlive，当 pending 恰为托管仅剩余额时会拒付 → 资金被永久困住。
             <T as pallet::Config>::Currency::transfer(
                 &Self::escrow_account(),
                 &who,
                 amount,
-                KeepAlive,
+                AllowDeath,
             )?;
             Self::deposit_event(Event::DbcPayoutClaimed(who, amount));
             Ok(().into())
