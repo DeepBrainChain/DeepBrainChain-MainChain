@@ -455,6 +455,7 @@ pub mod pallet {
         OutOfRentalSchedule,
         /// [Thread B ③] claim_dbc_payout：该账户名下无暂存的托管退款
         NothingToClaim,
+        InvalidRentGpuNum,
     }
 }
 
@@ -474,6 +475,10 @@ impl<T: Config> Pallet<T> {
         if gpu_num == 0 || duration == Zero::zero() {
             return Ok(().into())
         }
+
+        // [审计修 H3/round2] 拒绝 0 卡租用：rent_gpu_num==0 会以 ~0 租金创建空订单，可零成本在同一 rent_end 堆
+        //   大量订单放大 on_finalize 强制结算量。要求 ≥1 卡，使订单数受真实租金经济约束（每机订单再受 gpu_num 上限约束）。
+        ensure!(rent_gpu_num > 0, Error::<T>::InvalidRentGpuNum);
 
         // 检查还有空闲的GPU
         ensure!(rent_gpu_num + machine_rented_gpu <= gpu_num, Error::<T>::GPUNotEnough);
@@ -1183,6 +1188,12 @@ impl<T: Config> dbc_support::traits::RentTerminateOnOffline for Pallet<T> {
             };
             // 只终止已确认在租(Renting)的订单：WaitingVerifying 无托管、由 confirm 超时清理，勿在此误结算。
             if rent_info.rent_status != RentStatus::Renting {
+                continue
+            }
+            // [审计修 MED/round2 · grandfather] 跳过升级前老单（无 EscrowedFee）：老单钱已在 confirm 即时付给矿工、
+            //   settle_escrow 是 no-op，若在此强制终止 → 租客白丢剩余预付天数（且矿工可自杀式重租套利）。老单按老
+            //   规则走自然到期(check_if_rent_finished)。对齐 DESIGN_LOCK_3A_escrow.md「legacy 老单 finish under old rules」。
+            if !EscrowedFee::<T>::contains_key(*rent_id) {
                 continue
             }
             // best-effort：单个订单结算失败不冒泡（离线转换已在 online-profile 侧完成，勿因某单拖垮）。

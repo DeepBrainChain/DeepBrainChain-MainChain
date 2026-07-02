@@ -387,9 +387,14 @@ impl<T: Config> RTOps for Pallet<T> {
         if machine_rented_gpu == 0 {
             // 已经没有正在租用的机器时，改变机器的状态。机器若已注销 machines_info 缺失 → best-effort 不阻断
             //   （计数已落盘；机器都没了 status 无意义）。
+            // [审计修 MED/round2] 仅当当前是 Rented 时才转 Online：若机器此刻处于 *ReportOffline（在 WaitingVerifying
+            //   窗口被报离线后 confirm 超时），不能把它 clobber 成 Online——否则「离线机器显示在线」且 controller_report_online
+            //   因状态不符被锁死无法恢复。离线状态留给 report_online 正常恢复。
             let _ = MachinesInfo::<T>::try_mutate(machine_id, |machine_info| {
                 let machine_info = machine_info.as_mut().ok_or(())?;
-                machine_info.machine_status = MachineStatus::Online;
+                if matches!(machine_info.machine_status, MachineStatus::Rented) {
+                    machine_info.machine_status = MachineStatus::Online;
+                }
                 Ok::<(), ()>(())
             });
         }

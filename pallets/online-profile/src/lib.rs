@@ -901,7 +901,9 @@ pub mod pallet {
 
         /// 控制账户报告机器下线:Online/Rented时允许
         #[pallet::call_index(12)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        // [审计修 H2/round2] 在租机器自报离线现在也会触发 machine_offline 快照回退 + 跨 pallet 在租订单终止循环
+        //   （每订单一次 settle_escrow）+ 补质押扫描。原平权重 10_000 严重低估 → 无需授权低价占块。与检测器路径(call30)同量级。
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(40, 32).saturating_add(frame_support::weights::Weight::from_parts(200_000_000, 0)))]
         pub fn controller_report_offline(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1012,7 +1014,9 @@ pub mod pallet {
         // 需要在rentMachine中提供一个查询接口
         /// 控制账户报告机器上线
         #[pallet::call_index(13)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
+        // [审计修 H2/round2] report_online 会做快照恢复 + slash 结算 + RentedFinished 清理，原平权重 10_000 低估；
+        //   与 offline 路径同量级，防离线↔上线廉价来回占块。
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(30, 25).saturating_add(frame_support::weights::Weight::from_parts(150_000_000, 0)))]
         pub fn controller_report_online(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1993,18 +1997,23 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), ()> {
         let mut machine_info = Self::machines_info(&machine_id).ok_or(())?;
 
+        // [审计修 H2/round2] 回退租用快照前，先捕获「该机是否真的在 rented_machine 快照里」。
+        //   原生租用的快照(total_rented_gpu/+30%)只在 confirm 时经 binary_search 加(change_machine_status_on_confirmed)，
+        //   rent_machine→confirm 之间是 WaitingVerifying：machine_status 已是 Rented 但快照【尚未】加。此窗口若被
+        //   报离线，用 `status==Rented` 判定会回退【从未加过】的快照 → total_rented_gpu/+30% 向下漂、跨 era 累积
+        //   (重现历史 totalRentedGpu>totalGpuNum)。改为按真实快照成员判定，与加的那侧(binary_search)对称。
+        let was_rent_snapshotted =
+            Self::live_machines().rented_machine.binary_search(&machine_id).is_ok();
+
         LiveMachines::<T>::mutate(|live_machines| {
             live_machines.on_offline(machine_id.clone());
         });
 
         // 先根据机器当前状态，之后再变更成下线状态
         // [审计修 #5a] DeepLink(EVM) 租用的机器 machine_status 不是 Rented（DeepLink 不改 machine_status），
-        //   原 `if Rented` 会跳过 → 离线时 total_rented_gpu/+30% 不回退、却移除点数 → 重新上线后失同步、
-        //   total_rented_gpu 多计（曾现 totalRentedGpu>totalGpuNum）。补 `|| deeplink_rented` 让 DeepLink 租用
-        //   也对称回退。与下方 controller_report_online 的对称恢复配套。
-        if matches!(machine_info.machine_status, MachineStatus::Rented)
-            || Self::deeplink_rented(&machine_id)
-        {
+        //   其快照在 deeplink_set_rented 时加(不进 rented_machine 列表)，故用 deeplink_rented 判定其回退。
+        //   两者合并：真在原生快照里 || DeepLink 租用 → 才回退，避免 WaitingVerifying 幻影回退。
+        if was_rent_snapshotted || Self::deeplink_rented(&machine_id) {
             Self::update_region_on_rent_changed(&machine_info, false);
             Self::update_snap_on_rent_changed(machine_id.clone(), false)?;
         }
