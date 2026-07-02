@@ -353,6 +353,26 @@ pub mod pallet {
             Self::deposit_event(Event::SetEvmAddress(evm_address, who));
             Ok(().into())
         }
+
+        /// [Thread B ③ · 托管] 领取因结算直转失败(受款方曾被冻结/低于ED)而暂存的托管退款/付款。
+        /// 任何账户领自己名下的 PendingDbcPayout；从托管账户转出。
+        #[pallet::call_index(6)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(20_000_000, 0).saturating_add(<T as frame_system::Config>::DbWeight::get().reads_writes(3, 3)))]
+        pub fn claim_dbc_payout(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            let amount = PendingDbcPayout::<T>::get(&who);
+            ensure!(!amount.is_zero(), Error::<T>::NothingToClaim);
+            PendingDbcPayout::<T>::remove(&who);
+            TotalPendingDbcPayout::<T>::mutate(|t| *t = t.saturating_sub(amount));
+            <T as pallet::Config>::Currency::transfer(
+                &Self::escrow_account(),
+                &who,
+                amount,
+                KeepAlive,
+            )?;
+            Self::deposit_event(Event::DbcPayoutClaimed(who, amount));
+            Ok(().into())
+        }
     }
 
     #[pallet::event]
@@ -406,6 +426,8 @@ pub mod pallet {
         MoreThanOneRenter,
         /// 请求时段不在机器允许出租的时段内，或时长不足 2 小时
         OutOfRentalSchedule,
+        /// [Thread B ③] claim_dbc_payout：该账户名下无暂存的托管退款
+        NothingToClaim,
     }
 }
 
