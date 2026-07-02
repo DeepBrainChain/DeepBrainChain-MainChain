@@ -140,7 +140,8 @@ fn apply_slash_review_case1_1() {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
-        let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
+        let machine_stash: sp_core::sr25519::Public =
+            sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
         // [Thread B ③] 同 case1：inaccessible → 0 stake 罚 → 无 PendingSlash，申诉无从触发。
