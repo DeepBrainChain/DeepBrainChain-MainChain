@@ -232,6 +232,8 @@ impl online_profile::Config for TestRuntime {
     type CancelSlashOrigin =
         pallet_collective::EnsureProportionAtLeast<Self::AccountId, TechnicalCollective, 2, 3>;
     type SlashAndReward = GenericFunc;
+    // maintain-committee 测试不涉及 terminating-rental 跨系统互斥，用 unit 占位
+    type TerminatingRentalStatus = ();
 }
 
 impl maintain_committee::Config for TestRuntime {
