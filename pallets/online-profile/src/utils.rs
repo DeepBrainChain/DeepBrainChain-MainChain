@@ -132,7 +132,10 @@ impl<T: Config> Pallet<T> {
             OPSlashReason::OnlineReportOffline(_) => 0,
             // [Thread B ③ · DLC 化] 「不可达」= 活性问题，改由健康检测器(DDN)取代委员会举报人机制。
             //   委员会 inaccessible 举报路径代码保留但**不再触发 stake 罚**（feng: 保留不触发）→ 归 0。
-            //   在租机器不可达的补偿走 ③ 托管（终止租约 + ≤24h 租金罚给租客），不碰 bond。
+            //   ⚠️ 注意范围：③ 的「终止租约 + ≤24h 托管罚金补租客」只由**检测器/控制账户自报**两条路径触发
+            //   （report_machine_offline_by_detector / controller_report_offline → RentTerminate）。委员会
+            //   inaccessible 举报路径当前 **dormant**：不罚 stake、也不触发 ③ 终止/补偿（属审计 L2，是否接入
+            //   终止逻辑或禁用该举报入口，待 M1 决策）。在租机器不可达请走 DDN 检测器路径以获得 ③ 补偿。
             OPSlashReason::RentedInaccessible(_) => 0,
             OPSlashReason::RentedHardwareMalfunction(_) => match duration {
                 0..FOUR_HOURS => 6,        // <=4H扣除6%质押币

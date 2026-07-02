@@ -55,6 +55,8 @@ use frame_support::traits::{GetStorageVersion, StorageVersion};
 // legacy custom `StorageVersion<T>` u16 storage item below, which was set by
 // historical migrations and is no longer read by live code.
 const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+// [审计修 L3] 授权离线检测器数量上限（每次 report_by_detector 会线性扫描 contains）。检测器=少量可信 DDN 钱包。
+const MAX_OFFLINE_DETECTORS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -939,12 +941,15 @@ pub mod pallet {
 
         /// [Thread B ① · DLC 化] root 设置授权离线检测器集合（复用 DeepLink DDN 链上钱包）。
         #[pallet::call_index(29)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10_000, 0))]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1).saturating_add(frame_support::weights::Weight::from_parts(20_000_000, 0)))]
         pub fn set_offline_detectors(
             origin: OriginFor<T>,
             detectors: Vec<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
+            // [审计修 L3] 上限检测器数量：OfflineDetectors 每次 report 都会被线性扫描(contains)，
+            //   无界会拖慢出块。检测器 = 少量可信 DDN 钱包，MAX=32 足够。
+            ensure!(detectors.len() as u32 <= MAX_OFFLINE_DETECTORS, Error::<T>::TooManyDetectors);
             OfflineDetectors::<T>::put(detectors);
             Self::deposit_event(Event::OfflineDetectorsUpdated);
             Ok(().into())
@@ -955,7 +960,9 @@ pub mod pallet {
         /// 闲置机离线由 ② 零罚；被租机离线的租金惩罚由 ③ 托管处理；DeepLink 租用机离线会回退 +30%（桥已处理），
         /// 从而堵住"暗机白拿 +30%"（无需等 controller 自首）。链下 5min 防抖由 DDN 负责。
         #[pallet::call_index(30)]
-        #[pallet::weight(frame_support::weights::Weight::from_parts(10_000, 0))]
+        // [审计修 L3] 权重覆盖 machine_offline 的多次快照/区域更新 + 跨 pallet 在租订单结算终止循环
+        //   （被租机器每个订单一次 settle_escrow）。给一个偏保守的固定权重，避免原 10_000 严重低估致出块超重。
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(40, 32).saturating_add(frame_support::weights::Weight::from_parts(200_000_000, 0)))]
         pub fn report_machine_offline_by_detector(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1773,6 +1780,7 @@ pub mod pallet {
         MachineNotOnlineForDeepLink,
         /// [Thread B ①] 调用者不在授权离线检测器集合内
         NotOfflineDetector,
+        TooManyDetectors,
     }
 }
 

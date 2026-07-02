@@ -843,9 +843,19 @@ impl<T: Config> Pallet<T> {
             },
         };
         let escrow = Self::escrow_account();
-        let machine_stash = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id)
-            .map(|mi| mi.machine_stash)
-            .ok_or(Error::<T>::Unknown)?;
+        // [审计修 L1] 机器已被移除(如 force_machine_exit)但托管未结算：无矿工可付 → 全额退租客(best-effort)，
+        //   清标记 + 发事件。原 `.ok_or(Unknown)?` 会让 settle_escrow 返回 Err，被 settle_and_finalize_rent
+        //   的 `let _ =` 吞掉后仍清 RentInfo → 托管资金永久冻结在共享托管账户、无人可取。
+        let machine_stash = match <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id) {
+            Some(mi) => mi.machine_stash,
+            None => {
+                Self::pay_from_escrow_or_defer(&escrow, &rent_info.renter, total_fee);
+                EscrowedFee::<T>::remove(rent_id);
+                RentEscrowDestroyPercent::<T>::remove(rent_id);
+                Self::deposit_event(Event::RentFeeAccountingFailed(rent_id));
+                return Ok(())
+            },
+        };
         let receiver = Self::rent_order_receiver(&rent_id)
             .unwrap_or_else(|| <online_profile::Pallet<T>>::effective_rent_receiver(&machine_stash));
         let destroy_percent = Self::rent_escrow_destroy_percent(&rent_id)
@@ -880,17 +890,22 @@ impl<T: Config> Pallet<T> {
         let miner_net = miner_gross.saturating_sub(penalty);
         let renter_refund = unused_fee.saturating_add(penalty);
 
-        // 支付（全部从托管账户出；burn 若无 pot 则折进矿工，对齐 pay_rent_fee 的优雅回退）
-        match Self::rent_fee_pot() {
+        // 支付（全部从托管账户出；burn 若无 pot 则折进矿工，对齐 pay_rent_fee 的优雅回退）。
+        // [审计修 L4] 记账须用「实际」销毁/给矿工额：无 pot 时 burn 并未销毁而是折进矿工，
+        //   若仍把 burn 记成 fee_to_destroy 会产生幻影销毁统计 + 补质押基数偏小。故按分支返回实际值。
+        let (eff_burn, eff_stash) = match Self::rent_fee_pot() {
             Some(pot) if !burn.is_zero() => {
                 Self::pay_from_escrow_or_defer(&escrow, &pot, burn);
                 Self::pay_from_escrow_or_defer(&escrow, &receiver, miner_net);
+                (burn, miner_net)
             },
             _ => {
                 // 无 pot：不销毁，burn 折进矿工（与 pay_rent_fee 一致）
-                Self::pay_from_escrow_or_defer(&escrow, &receiver, miner_net.saturating_add(burn));
+                let to_miner = miner_net.saturating_add(burn);
+                Self::pay_from_escrow_or_defer(&escrow, &receiver, to_miner);
+                (Zero::zero(), to_miner)
             },
-        }
+        };
         Self::pay_from_escrow_or_defer(&escrow, &rent_info.renter, renter_refund);
 
         // 生命周期租金记账 + 受收者门控的补质押（与旧 pay_rent_fee 尾部同一 RTOps 钩子）：
@@ -901,8 +916,8 @@ impl<T: Config> Pallet<T> {
         if T::RTOps::change_machine_rent_fee(
             machine_stash,
             rent_info.machine_id.clone(),
-            burn,
-            miner_net,
+            eff_burn,
+            eff_stash,
             receiver.clone(),
         )
         .is_err()
