@@ -432,3 +432,83 @@ fn deeplink_rent_machine_exit_no_total_rented_gpu_drift() {
         );
     });
 }
+
+// ════════ #5c round2 审计修复回归 ════════
+
+// ── [round2 HIGH] DeepLink 租 → 离线（machine_offline 已回退快照，flag 仍 true）→ force exit：
+//   修前 do_machine_exit 见 flag=true 会第二次 update_snap_on_rent_changed(false) → era+1 EraStashPoints.total
+//   永久多减 30%×calc_point → 分母缩水随 era 传播 → 系统性超发。
+//   注：单机 stash 下 total_rented_gpu 双减会 saturating 落到 base(=0) 掩盖，本单测为路径 smoke（断言不下溢卡死 +
+//   清标记 + 状态处理）；真·非零 base 的判定在 fork 测试(base total_rented_gpu=150, era total 非零)里做。
+#[test]
+fn deeplink_rent_offline_then_force_exit_no_double_rollback() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        let base = OnlineProfile::sys_info().total_rented_gpu;
+        assert_ok!(OnlineProfile::deeplink_set_rented(machine_id.clone(), true));
+        assert!(OnlineProfile::sys_info().total_rented_gpu > base);
+        // machine_offline：在线时回退 +30%/total_rented_gpu→base，保留 flag=true
+        assert_ok!(OnlineProfile::controller_report_offline(
+            RuntimeOrigin::signed(*controller),
+            machine_id.clone()
+        ));
+        assert_eq!(OnlineProfile::sys_info().total_rented_gpu, base, "offline rolled back once");
+        assert_eq!(OnlineProfile::deeplink_rented(&*machine_id), true, "flag kept after offline");
+        // force exit 离线机：修后 status=*ReportOffline → 跳过 rent 回退（快照已由 machine_offline 回退），
+        //   只走 online 回退 + 清标记。总量不下溢、不再第二次减。
+        let machine_info = OnlineProfile::machines_info(&*machine_id).unwrap();
+        assert_ok!(OnlineProfile::do_machine_exit(machine_id.clone(), machine_info));
+        assert_eq!(
+            OnlineProfile::sys_info().total_rented_gpu, base,
+            "force exit on offline DeepLink machine must NOT double-subtract"
+        );
+        assert_eq!(OnlineProfile::deeplink_rented(&*machine_id), false, "exit clears flag");
+    });
+}
+
+// ── [round2 MED] force_set_deeplink_rented(true) 必须遵守 terminating 互斥（两方向）──
+#[test]
+fn force_set_deeplink_rented_true_rejected_when_terminating_rented() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        set_mock_terminating_rented(true);
+        assert!(
+            OnlineProfile::force_set_deeplink_rented(
+                RuntimeOrigin::root(),
+                machine_id.clone(),
+                true
+            )
+            .is_err(),
+            "force-true must be rejected while terminating-rented"
+        );
+        assert_eq!(OnlineProfile::deeplink_rented(&*machine_id), false, "flag not set on reject");
+        // 解除 terminating 租用后放行
+        set_mock_terminating_rented(false);
+        assert_ok!(OnlineProfile::force_set_deeplink_rented(
+            RuntimeOrigin::root(),
+            machine_id.clone(),
+            true
+        ));
+        assert_eq!(OnlineProfile::deeplink_rented(&*machine_id), true, "allowed once terminating clears");
+    });
+}
+
+// ── [round2 MED] DeepLink 租用中的机器禁止改硬件（第三条离线路径不得绕过快照回退）──
+#[test]
+fn offline_machine_change_hardware_info_rejected_when_deeplink_rented() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        assert_ok!(OnlineProfile::deeplink_set_rented(machine_id.clone(), true));
+        assert!(
+            OnlineProfile::offline_machine_change_hardware_info(
+                RuntimeOrigin::signed(*controller),
+                machine_id.clone()
+            )
+            .is_err(),
+            "hardware change must be rejected while DeepLink-rented"
+        );
+        // 退租后允许
+        assert_ok!(OnlineProfile::deeplink_set_rented(machine_id.clone(), false));
+        assert_ok!(OnlineProfile::offline_machine_change_hardware_info(
+            RuntimeOrigin::signed(*controller),
+            machine_id.clone()
+        ));
+    });
+}
