@@ -76,6 +76,10 @@ pub mod pallet {
         /// deeplink_set_rented 拒绝对已在 terminating-rental 租用的机器叠加 DeepLink 租（防跨系统 +30% double-count）。
         /// runtime 里接 TerminatingRental；mock 里可接 () 空实现。
         type TerminatingRentalStatus: dbc_support::traits::RentalStatus<MachineId = MachineId>;
+        /// [Thread B ③ · 离线终止] 在租机器被健康检测器(DDN)/控制账户报离线时，通知 rent-machine
+        /// 结算并终止该机所有在租订单（offline=true、罚≤24h 租金给租客、不碰 stake bond）。
+        /// runtime 里接 RentMachine；不涉及原生租用的 mock 接 () 空实现。
+        type RentTerminate: dbc_support::traits::RentTerminateOnOffline<MachineId = MachineId>;
     }
 
     #[pallet::pallet]
@@ -915,11 +919,19 @@ pub mod pallet {
                 Error::<T>::MachineStatusNotAllowed
             );
 
+            // ③ 离线终止：记住离线前是否在租。
+            let was_rented = matches!(machine_info.machine_status, MachineStatus::Rented);
+
             Self::machine_offline(
                 machine_id.clone(),
                 MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status)),
             )
             .map_err(|_| Error::<T>::Unknown)?;
+
+            // ③ 控制账户自报在租机器离线 → 同样终止其在租订单（罚≤24h、不碰 stake），与检测器路径一致。
+            if was_rented {
+                T::RentTerminate::settle_terminate_rents_on_offline(&machine_id);
+            }
 
             Self::deposit_event(Event::ControllerReportOffline(machine_id));
             Ok(().into())
@@ -967,12 +979,22 @@ pub mod pallet {
                 Error::<T>::MachineStatusNotAllowed
             );
 
+            // ③ 离线终止：先记住离线前是否在租（machine_offline 会把 status 改成 StakerReportOffline）。
+            let was_rented = matches!(machine_info.machine_status, MachineStatus::Rented);
+
             // 复用 machine_offline：把当前状态包进 StakerReportOffline（与自报同处理，slash 由 ②/③ 决定）。
             Self::machine_offline(
                 machine_id.clone(),
                 MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status)),
             )
             .map_err(|_| Error::<T>::Unknown)?;
+
+            // ③ 在租机器被报离线 → 结算并终止其所有在租订单（罚≤24h 租金给租客、不碰 stake）。
+            //   须在 machine_offline 之后调用（此时机器已处离线态，rent-machine 走离线分支只记 RentedFinished、
+            //   不二次回退快照）。best-effort：内部不冒泡错误。
+            if was_rented {
+                T::RentTerminate::settle_terminate_rents_on_offline(&machine_id);
+            }
 
             Self::deposit_event(Event::DetectorReportOffline(machine_id, detector));
             Ok(().into())

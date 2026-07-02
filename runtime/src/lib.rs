@@ -1399,6 +1399,9 @@ impl online_profile::Config for Runtime {
     // ⚠️ 资金安全 wiring：绝不能改成 () —— () 的 is_machine_rented 恒 false，会静默关掉这道防"凭空 +30%"闸，
     //    且自动化测不到（单测用桩、正向 fork 不碰这行）。任何改动本行必须人工重核。
     type TerminatingRentalStatus = TerminatingRental;
+    // [Thread B ③ · 离线终止] 在租机器被健康检测器/控制账户报离线时，通知 rent-machine 结算并终止在租订单
+    // （罚≤24h 租金给租客、不碰 stake）。绝不能接 () —— () 是空实现，会静默关掉离线终止+租客补偿。
+    type RentTerminate = RentMachine;
 }
 
 impl committee::Config for Runtime {

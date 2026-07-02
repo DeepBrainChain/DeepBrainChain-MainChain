@@ -236,6 +236,8 @@ impl online_profile::Config for TestRuntime {
     //   （dbc_support::traits::RentalStatus for () 恒返回 false）。与 rent-machine/terminating-rental
     //   mock 的可控桩不同——那两处需驱动守卫，这里不需要。
     type TerminatingRentalStatus = ();
+    // ③ 离线终止：online-committee mock 无 RentMachine pallet，接 () 空实现（不测在租离线终止路径）
+    type RentTerminate = ();
 }
 
 #[allow(dead_code)]

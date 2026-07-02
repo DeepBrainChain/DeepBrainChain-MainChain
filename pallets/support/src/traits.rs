@@ -120,6 +120,23 @@ impl DeepLinkRentalStatus for () {
     }
 }
 
+/// [Thread B ③ · 离线终止] rent-machine impl，online-profile 用。
+/// 健康检测器(DDN)报某机器离线时，若该机在租，online-profile 通知 rent-machine
+/// **结算并终止**该机所有在租订单（③ 托管：offline=true、罚≤24h 租金给租客、不碰 stake bond）。
+/// 松耦合避免 online-profile↔rent-machine 循环依赖（rent-machine 已依赖 online-profile 的 RTOps）。
+/// 不传块高：online-profile 在离线块同步调用，rent-machine 读自己的 block_number 即同一 `now`。
+/// 机器状态归 online-profile：machine_offline 已置 StakerReportOffline + 回退租用快照；
+/// rent-machine 走 change_machine_status_on_rent_end 的离线分支只记 RentedFinished、绝不二次回退快照。
+pub trait RentTerminateOnOffline {
+    type MachineId;
+    /// 结算并终止 machine_id 上所有在租订单（offline 早退）。best-effort：不冒泡错误以免拖垮离线转换。
+    fn settle_terminate_rents_on_offline(machine_id: &Self::MachineId);
+}
+impl RentTerminateOnOffline for () {
+    type MachineId = MachineId;
+    fn settle_terminate_rents_on_offline(_machine_id: &MachineId) {}
+}
+
 pub trait OPRPCQuery {
     type AccountId;
     type StashMachine;

@@ -207,6 +207,8 @@ impl online_profile::Config for TestRuntime {
     type SlashAndReward = GenericFunc;
     // [+30% 桥·跨系统互斥] 可控桩，让 deeplink_set_rented 的 terminating 互斥 guard 在单测里真实执行。
     type TerminatingRentalStatus = MockTerminatingRental;
+    // ③ 离线终止：接真实 RentMachine，让离线终止路径在单测里真实结算托管
+    type RentTerminate = RentMachine;
 }
 
 impl dbc_price_ocw::Config for TestRuntime {

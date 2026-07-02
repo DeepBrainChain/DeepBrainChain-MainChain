@@ -234,6 +234,8 @@ impl online_profile::Config for TestRuntime {
     type SlashAndReward = GenericFunc;
     // maintain-committee 测试不涉及 terminating-rental 跨系统互斥，用 unit 占位
     type TerminatingRentalStatus = ();
+    // ③ 离线终止：mock 含 RentMachine，接真实 pallet 以便测在租离线终止路径
+    type RentTerminate = RentMachine;
 }
 
 impl maintain_committee::Config for TestRuntime {

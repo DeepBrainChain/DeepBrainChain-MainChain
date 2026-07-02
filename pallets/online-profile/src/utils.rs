@@ -122,24 +122,18 @@ impl<T: Config> Pallet<T> {
         let duration = duration.saturated_into::<u32>();
 
         match slash_reason {
-            OPSlashReason::RentedReportOffline(_) => match duration {
-                0..SEVEN_MINUTES => 2,        // <=7M扣除2%质押币。100%进入国库
-                SEVEN_MINUTES..TWO_DAYS => 4, // <=48H扣除4%质押币。100%进入国库
-                TWO_DAYS..FIVE_DAYS => 30,    // <=120H扣30%质押币，10%给用户，90%进入国库
-                _ => 50,                      // >120H扣除50%质押币。10%给用户，90%进入国库
-            },
-            // [Thread B ② · DLC 化] 闲置（未被租）机器离线不再罚质押：全部档位归 0。
+            // [Thread B ③ · DLC 化] 租用中「活性」离线不再罚 stake bond：归 0。
+            //   ③ 语义：机器在租时离线 → 终止租约 + 从托管租金里罚≤24h 补给租客（settle_escrow offline=true），
+            //   **完全不碰质押 bond**。RentedReportOffline = 控制账户自报 / 健康检测器(DDN)报的在租离线，全部归 0。
+            //   下游 controller_report_online 的 `if slash_amount != 0` 会跳过 re-reserve/PendingSlash，零 stake 惩罚。
+            OPSlashReason::RentedReportOffline(_) => 0,
+            // [Thread B ② · DLC 化] 闲置（未被租）机器离线不再罚质押：归 0。
             //   奖励已在离线时自动归零（机器从 era 点数快照移除），质押 bond 保持不动，允许闲置机随时上下线。
-            //   OnlineReportOffline 仅由 controller 自报"空闲机"离线产生，此处归 0 即全链覆盖；下游
-            //   controller_report_online 的 `if slash_amount != 0` 会跳过 re-reserve/PendingSlash，机器零惩罚恢复在线。
-            //   租用中离线(RentedReportOffline / RentedInaccessible 等)不受影响，租金惩罚由 ③ 托管改造处理。
             OPSlashReason::OnlineReportOffline(_) => 0,
-            OPSlashReason::RentedInaccessible(_) => match duration {
-                0..SEVEN_MINUTES => 4,        // <=7M扣除4%质押币。10%给验证人，90%进入国库
-                SEVEN_MINUTES..TWO_DAYS => 8, // <=48H扣除8%质押币。10%给验证人，90%进入国库
-                TWO_DAYS..FIVE_DAYS => 60, /* <=120H扣除60%质押币。10%给用户，20%给验证人，70%进入国库 */
-                _ => 100, /* >120H扣除100%押金。10%给用户，20%给验证人，70%进入国库 */
-            },
+            // [Thread B ③ · DLC 化] 「不可达」= 活性问题，改由健康检测器(DDN)取代委员会举报人机制。
+            //   委员会 inaccessible 举报路径代码保留但**不再触发 stake 罚**（feng: 保留不触发）→ 归 0。
+            //   在租机器不可达的补偿走 ③ 托管（终止租约 + ≤24h 租金罚给租客），不碰 bond。
+            OPSlashReason::RentedInaccessible(_) => 0,
             OPSlashReason::RentedHardwareMalfunction(_) => match duration {
                 0..FOUR_HOURS => 6,        // <=4H扣除6%质押币
                 FOUR_HOURS..ONE_DAY => 12, // <=24H扣除12%质押币

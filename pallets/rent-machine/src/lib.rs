@@ -1148,6 +1148,34 @@ impl<T: Config> Pallet<T> {
     }
 }
 
+// [Thread B ③ · 离线终止] online-profile 的健康检测器路径调用：某在租机器被 DDN 报离线时，
+// 结算并终止该机全部在租订单（offline=true → settle_escrow 罚≤24h 给租客；stake bond 不碰）。
+// 机器状态由 online-profile 侧的 machine_offline 负责（已置 StakerReportOffline + 回退租用快照）；
+// settle_and_finalize_rent 内的 change_machine_status_on_rent_end 因机器已处离线态而走离线分支：
+// 只记 RentedFinished + 递减 MachineRentedGPU、**绝不二次回退快照**（复用已验证的"到期在离线态"机制）。
+// 重新上线时 controller_report_online 见 RentedFinished → 机器回 Online（不复租）。
+impl<T: Config> dbc_support::traits::RentTerminateOnOffline for Pallet<T> {
+    type MachineId = MachineId;
+
+    fn settle_terminate_rents_on_offline(machine_id: &MachineId) {
+        let now = <frame_system::Pallet<T>>::block_number();
+        // 迭代快照：settle_and_finalize_rent 会改 MachineRentOrder，用本地副本迭代避免边改边读。
+        let machine_order = Self::machine_rent_order(machine_id);
+        for rent_id in machine_order.rent_order.iter() {
+            let rent_info = match Self::rent_info(rent_id) {
+                Some(r) => r,
+                None => continue,
+            };
+            // 只终止已确认在租(Renting)的订单：WaitingVerifying 无托管、由 confirm 超时清理，勿在此误结算。
+            if rent_info.rent_status != RentStatus::Renting {
+                continue
+            }
+            // best-effort：单个订单结算失败不冒泡（离线转换已在 online-profile 侧完成，勿因某单拖垮）。
+            let _ = Self::settle_and_finalize_rent(*rent_id, &rent_info, now, true);
+        }
+    }
+}
+
 impl<T: Config> MachineInfoTrait for Pallet<T> {
     type BlockNumber = T::BlockNumber;
 
