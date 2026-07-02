@@ -264,16 +264,22 @@ pub mod pallet {
                 Error::<T>::StatusNotAllowed
             );
 
-            // 质押转到特定账户
+            // [Thread B ③ · 托管] 解押租客预付租金，改为**押入托管账户**（不再即时付给矿工）。
+            //   退租/离线时由 settle_escrow 按已用时长结算：已用 burn+给矿工、未用退租客、离线罚≤24h。
+            //   confirm 时快照当前销毁比例，防治理中途改比例回溯影响本单。
             Self::change_renter_total_stake(&renter, rent_info.stake_amount, false)
                 .map_err(|_| Error::<T>::UnlockToPayFeeFailed)?;
-            Self::pay_rent_fee(
+            <T as pallet::Config>::Currency::transfer(
                 &renter,
-                machine_id.clone(),
-                machine_info.machine_stash,
-                rent_id,
+                &Self::escrow_account(),
                 rent_info.stake_amount,
+                KeepAlive,
             )?;
+            EscrowedFee::<T>::insert(rent_id, rent_info.stake_amount);
+            RentEscrowDestroyPercent::<T>::insert(
+                rent_id,
+                <online_profile::Pallet<T>>::rent_fee_destroy_percent(),
+            );
 
             // 在stake_amount设置0前记录，用作事件
             let rent_fee = rent_info.stake_amount;
@@ -366,6 +372,12 @@ pub mod pallet {
         RentReceiverPayoutFallback(T::AccountId, T::AccountId, BalanceOf<T>),
         // 租金记账/补质押失败（资金已转移，仅记账环节出错），仅用于可观测，不回滚。(rent_id)
         RentFeeAccountingFailed(RentOrderId),
+        // [Thread B ③] 托管结算完成 (rent_id, used_fee 已用给矿工基数, renter_refund, penalty)
+        RentEscrowSettled(RentOrderId, BalanceOf<T>, BalanceOf<T>, BalanceOf<T>),
+        // [Thread B ③] 托管付款直转失败已转 pending，受款方自行 claim (recipient, amount)
+        DbcPayoutDeferred(T::AccountId, BalanceOf<T>),
+        // [Thread B ③] 受款方领取暂存的托管退款 (recipient, amount)
+        DbcPayoutClaimed(T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -587,7 +599,25 @@ impl<T: Config> Pallet<T> {
         let user_balance = <T as Config>::Currency::free_balance(&renter);
         ensure!(rent_fee < user_balance, Error::<T>::InsufficientValue);
 
-        Self::pay_rent_fee(&renter, machine_id.clone(), machine_info.machine_stash, rent_id, rent_fee)?;
+        // [Thread B ③ · 托管] 续租费：已托管订单 → 加进托管（延长的 rent_end 会被 settle 一并按比例结算）；
+        //   旧单(升级前、未托管) → 保持老规则即时付，避免混账。
+        if EscrowedFee::<T>::contains_key(rent_id) {
+            <T as Config>::Currency::transfer(
+                &renter,
+                &Self::escrow_account(),
+                rent_fee,
+                KeepAlive,
+            )?;
+            EscrowedFee::<T>::mutate(rent_id, |f| *f = f.saturating_add(rent_fee));
+        } else {
+            Self::pay_rent_fee(
+                &renter,
+                machine_id.clone(),
+                machine_info.machine_stash,
+                rent_id,
+                rent_fee,
+            )?;
+        }
 
         // 获取用户租用的结束时间
         rent_info.rent_end =
@@ -725,6 +755,95 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// [Thread B ③ · 托管] 从托管账户付款给 `to`；直转失败(受款方被冻结/低于ED)→记入 PendingDbcPayout 暂存，
+    /// 受款方自行 claim_dbc_payout 领取。保证 settle_escrow 永不因单个受款方问题 revert 卡死。
+    fn pay_from_escrow_or_defer(escrow: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) {
+        if amount.is_zero() {
+            return
+        }
+        if <T as pallet::Config>::Currency::transfer(escrow, to, amount, KeepAlive).is_err() {
+            PendingDbcPayout::<T>::mutate(to, |p| *p = p.saturating_add(amount));
+            TotalPendingDbcPayout::<T>::mutate(|t| *t = t.saturating_add(amount));
+            Self::deposit_event(Event::DbcPayoutDeferred(to.clone(), amount));
+        }
+    }
+
+    /// [Thread B ③ · 托管] 结算一个托管订单，把托管的租金按已用时长分配。质押 bond 全程不碰。
+    /// - `end_time`：结算时点。正常退租=rent_end；用户主动早退=now；离线早退=offline_time。
+    /// - `offline`：是否因机器离线提前结算（决定是否罚矿工≤24h租金给租客）。用户主动早退 offline=false→penalty=0。
+    /// 老单(无 EscrowedFee，已按老规则即时付)→ no-op。守恒：burn+miner_net+renter_refund==total_fee。
+    fn settle_escrow(rent_id: RentOrderId, end_time: T::BlockNumber, offline: bool) -> DispatchResult {
+        let total_fee = EscrowedFee::<T>::get(rent_id);
+        if total_fee.is_zero() {
+            return Ok(()) // 老单/已结算：无托管
+        }
+        let rent_info = match Self::rent_info(&rent_id) {
+            Some(r) => r,
+            None => {
+                // 异常：订单已清但托管未结（不应发生）。清标记，钱留托管账户待 rescue，不静默丢。
+                EscrowedFee::<T>::remove(rent_id);
+                RentEscrowDestroyPercent::<T>::remove(rent_id);
+                Self::deposit_event(Event::RentFeeAccountingFailed(rent_id));
+                return Ok(())
+            },
+        };
+        let escrow = Self::escrow_account();
+        let machine_stash = <online_profile::Pallet<T>>::machines_info(&rent_info.machine_id)
+            .map(|mi| mi.machine_stash)
+            .ok_or(Error::<T>::Unknown)?;
+        let receiver = Self::rent_order_receiver(&rent_id)
+            .unwrap_or_else(|| <online_profile::Pallet<T>>::effective_rent_receiver(&machine_stash));
+        let destroy_percent = Self::rent_escrow_destroy_percent(&rent_id)
+            .unwrap_or_else(|| <online_profile::Pallet<T>>::rent_fee_destroy_percent());
+
+        // 已用比例（rent_start→rent_end 为计费窗口，与现有 rent_duration 口径一致）
+        let duration = rent_info.rent_end.saturating_sub(rent_info.rent_start);
+        let clamped_end = if end_time > rent_info.rent_end { rent_info.rent_end } else { end_time };
+        let elapsed = clamped_end.saturating_sub(rent_info.rent_start);
+        let dur_u32 = duration.saturated_into::<u32>();
+        let ela_u32 = elapsed.saturated_into::<u32>();
+
+        let used_fee = if dur_u32 == 0 {
+            total_fee
+        } else {
+            Perbill::from_rational(ela_u32, dur_u32) * total_fee
+        };
+        let unused_fee = total_fee.saturating_sub(used_fee);
+        let burn = destroy_percent * used_fee;
+        let miner_gross = used_fee.saturating_sub(burn);
+        let penalty = if offline {
+            let one_day_u32 = ONE_DAY.saturated_into::<u32>();
+            let fee_24h = if dur_u32 == 0 {
+                Zero::zero()
+            } else {
+                Perbill::from_rational(one_day_u32.min(dur_u32), dur_u32) * total_fee
+            };
+            if fee_24h < miner_gross { fee_24h } else { miner_gross }
+        } else {
+            Zero::zero()
+        };
+        let miner_net = miner_gross.saturating_sub(penalty);
+        let renter_refund = unused_fee.saturating_add(penalty);
+
+        // 支付（全部从托管账户出；burn 若无 pot 则折进矿工，对齐 pay_rent_fee 的优雅回退）
+        match Self::rent_fee_pot() {
+            Some(pot) if !burn.is_zero() => {
+                Self::pay_from_escrow_or_defer(&escrow, &pot, burn);
+                Self::pay_from_escrow_or_defer(&escrow, &receiver, miner_net);
+            },
+            _ => {
+                // 无 pot：不销毁，burn 折进矿工（与 pay_rent_fee 一致）
+                Self::pay_from_escrow_or_defer(&escrow, &receiver, miner_net.saturating_add(burn));
+            },
+        }
+        Self::pay_from_escrow_or_defer(&escrow, &rent_info.renter, renter_refund);
+
+        EscrowedFee::<T>::remove(rent_id);
+        RentEscrowDestroyPercent::<T>::remove(rent_id);
+        Self::deposit_event(Event::RentEscrowSettled(rent_id, used_fee, renter_refund, penalty));
+        Ok(())
+    }
+
     // 定时检查机器是否30分钟没有上线
     fn check_machine_starting_status(block_number: T::BlockNumber) -> Result<(), ()> {
         if !<ConfirmingOrder<T>>::contains_key(block_number) {
@@ -833,6 +952,10 @@ impl<T: Config> Pallet<T> {
             let rent_info = Self::rent_info(&rent_id).ok_or(())?;
             let machine_id = rent_info.machine_id.clone();
             let rent_duration = rent_info.rent_end.saturating_sub(rent_info.rent_start);
+
+            // [Thread B ③ · 托管] 正常到期结算：offline=false、end_time=rent_end → used=100%、penalty=0
+            //   （对已托管订单把托管租金 burn+付矿工；老单 no-op）。须在下方 RentInfo/receiver 清除前调用。
+            let _ = Self::settle_escrow(rent_id, rent_info.rent_end, false);
 
             // NOTE: 只要机器还有租用订单(租用订单>1)，就不修改成online状态。
             let is_last_rent = Self::is_last_rent(&machine_id, &rent_info.renter)?;
