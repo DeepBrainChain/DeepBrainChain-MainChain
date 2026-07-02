@@ -1,10 +1,5 @@
 use super::super::mock::*;
-use dbc_support::{
-    live_machine::LiveMachine,
-    machine_type::MachineStatus,
-    verify_slash::{OPPendingSlashInfo, OPPendingSlashReviewInfo, OPSlashReason},
-    ONE_DAY, ONE_MINUTE,
-};
+use dbc_support::{live_machine::LiveMachine, machine_type::MachineStatus, ONE_DAY, ONE_MINUTE};
 use frame_support::assert_ok;
 use std::convert::TryInto;
 
@@ -113,81 +108,28 @@ fn apply_slash_review_case1() {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
-        let machine_stash: sp_core::sr25519::Public =
-            sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        let committee = sr25519::Public::from(Sr25519Keyring::One).into();
-        let reporter = sr25519::Public::from(Sr25519Keyring::Two).into();
 
-        // let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
-        let rent_fee = 5240375 * ONE_DBC / 10;
-        // 10万为质押，20000为委员会
-        assert_eq!(
-            Balances::free_balance(machine_stash),
-            INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC
-        );
-
+        // [Thread B ③] 委员会 inaccessible 举报路径「保留不触发」：健康检测(DDN)取代举报人机制后，
+        //   在租机器「不可达」不再罚 stake bond（RentedInaccessible slash → 0）。委员会验证流程仍跑完，
+        //   但不产生 PendingSlash；在租离线的处置改由检测器/自报路径的 ③ 终止逻辑负责，此委员会路径 dormant
+        //   （不终止租约）。TODO：slash-申诉机制(apply_slash_review/do_cancel_slash)原仅由本 inaccessible 用例
+        //   覆盖，随 slash 归零一并移除；硬件故障 slash 仍会产生罚单(见 test_report_fault_fulfilling_works)，
+        //   申诉机制可后续针对硬件故障补测。
         assert_eq!(
             &OnlineProfile::live_machines(),
             &LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
         );
 
-        // Stash apply reonline
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
 
+        // 不可达 → 0 stake 罚 → 无 PendingSlash；委员会路径 dormant 不终止租约 → 恢复上线回 Rented
+        assert_eq!(OnlineProfile::pending_slash(0), None);
         let machine_info = OnlineProfile::machines_info(&machine_id).unwrap();
-        {
-            assert_eq!(machine_info.machine_status, MachineStatus::Rented);
-            assert_eq!(
-                &OnlineProfile::live_machines(),
-                &LiveMachine { rented_machine: vec![machine_id.clone()], ..Default::default() }
-            );
-            assert_eq!(
-                OnlineProfile::pending_slash(0),
-                Some(OPPendingSlashInfo {
-                    slash_who: machine_stash.clone(),
-                    machine_id: machine_id.clone(),
-                    slash_time: 14 + 5 * ONE_MINUTE,
-                    slash_amount: 16000 * ONE_DBC, // 掉线13个块，惩罚4%: 4000000 * 4% = 16000
-                    slash_exec_time: 14 + 5 * ONE_MINUTE + 2 * ONE_DAY,
-                    reporter: None, // 这种不奖励验证人
-                    renters: vec![reporter],
-                    reward_to_committee: Some(vec![committee]),
-                    slash_reason: OPSlashReason::RentedInaccessible(11),
-                })
-            );
-        }
-
-        assert_ok!(OnlineProfile::apply_slash_review(RuntimeOrigin::signed(controller), 0, vec![]));
-        {
-            assert_eq!(
-                OnlineProfile::pending_slash_review(0),
-                Some(OPPendingSlashReviewInfo {
-                    applicant: controller,
-                    staked_amount: 1000 * ONE_DBC,
-                    apply_time: 14 + 5 * ONE_MINUTE,
-                    expire_time: 14 + 5 * ONE_MINUTE + 2 * ONE_DAY,
-                    reason: Default::default()
-                })
-            );
-            assert_eq!(
-                Balances::free_balance(machine_stash),
-                INIT_BALANCE + rent_fee - (400000 + 20000 + 16000 + 1000) * ONE_DBC
-            );
-        }
-
-        assert_ok!(OnlineProfile::do_cancel_slash(0));
-        {
-            assert_eq!(OnlineProfile::pending_slash(0), None);
-            assert_eq!(OnlineProfile::pending_slash_review(0), None);
-            assert_eq!(
-                Balances::free_balance(machine_stash),
-                INIT_BALANCE + rent_fee - 400000 * ONE_DBC - 20000 * ONE_DBC
-            );
-        }
+        assert_eq!(machine_info.machine_status, MachineStatus::Rented);
     })
 }
 
@@ -201,33 +143,16 @@ fn apply_slash_review_case1_1() {
         let machine_stash = sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
-        // let rent_fee = 59890 * 150_000_000 * ONE_DBC / 1000 / 12000;
-        let rent_fee = 5240375 * ONE_DBC / 10;
-
-        // Stash apply reonline
+        // [Thread B ③] 同 case1：inaccessible → 0 stake 罚 → 无 PendingSlash，申诉无从触发。
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
 
-        assert_ok!(OnlineProfile::apply_slash_review(RuntimeOrigin::signed(controller), 0, vec![]));
-
-        // TODO: 没有执行取消，则两天后被执行
-        run_to_block(15 + 5 * ONE_MINUTE + 2 * ONE_DAY);
-
-        // assert_eq!(<online_profile::PendingSlashReview<TestRuntime>>::contains_key(0), true);
+        assert_eq!(OnlineProfile::pending_slash(0), None);
         assert_eq!(OnlineProfile::pending_slash_review(0), None);
-        // 机器400000, 委员会质押20000, 申述1000， 罚款16000
-        assert_eq!(
-            Balances::free_balance(machine_stash),
-            INIT_BALANCE + rent_fee -
-                400000 * ONE_DBC -
-                20000 * ONE_DBC -
-                1000 * ONE_DBC -
-                16000 * ONE_DBC
-        );
+        // 质押 bond 未被动（旧模型此处扣 16000 罚 + 1000 申诉质押）：slashable 质押仍为初始 400000
         assert_eq!(OnlineProfile::stash_stake(&machine_stash), 400000 * ONE_DBC);
-        assert_eq!(Balances::reserved_balance(&machine_stash), 400000 * ONE_DBC + 20000 * ONE_DBC);
     })
 }
 
@@ -237,13 +162,9 @@ fn apply_slash_review_case1_2() {
         let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"
             .as_bytes()
             .to_vec();
-        // let machine_stash: sp_core::sr25519::Public =
-        //     sr25519::Public::from(Sr25519Keyring::Ferdie).into();
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
-        // let committee = sr25519::Public::from(Sr25519Keyring::One).into();
-        let renter = sr25519::Public::from(Sr25519Keyring::Two).into();
-        let reporter1 = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
+        // [Thread B ③] inaccessible → 0 stake 罚：原断言"罚单 renters 补偿列表"随 slash 归零而移除。
         assert_eq!(
             &OnlineProfile::live_machines(),
             &LiveMachine { offline_machine: vec![machine_id.clone()], ..Default::default() }
@@ -251,12 +172,12 @@ fn apply_slash_review_case1_2() {
 
         run_to_block(11 + 2 * ONE_DAY);
 
-        // Stash apply reonline
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
 
-        assert_eq!(OnlineProfile::pending_slash(0).unwrap().renters, vec![renter, reporter1]);
+        // 不可达不再罚 stake → 无 PendingSlash
+        assert_eq!(OnlineProfile::pending_slash(0), None);
     })
 }
