@@ -35,6 +35,7 @@ use fp_evm::{
     PrecompileOutput, PrecompileResult,
 };
 use frame_support::pallet_prelude::Weight;
+use frame_support::traits::Get; // [DBC 评审修] T::DbWeight::get() 需 Get 在作用域
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, GasWeightMapping};
 use parity_scale_codec::Decode;
