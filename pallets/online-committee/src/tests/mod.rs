@@ -1,3 +1,4 @@
+pub mod test_detector_offline;
 pub mod test_fulfill_machine;
 pub mod test_generic_destroy;
 pub mod test_online_failed;
