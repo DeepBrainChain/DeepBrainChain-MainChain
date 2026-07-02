@@ -346,6 +346,8 @@ fn rent_fee_distribution_95_5_split_verified() {
         ));
         run_to_block(30);
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_dave), 0));
+        // [Thread B ③] 托管：销毁在结算时发生。触发到期结算(全程=100%已用→销毁 5% 全额)后再验证 pot。
+        settle_rent_at_end(0);
 
         let pot_balance_after = Balances::free_balance(pot_account);
         let burn_delta = pot_balance_after.saturating_sub(pot_balance_before);

@@ -167,8 +167,9 @@ fn report_individual_gpu() {
                     total_staker: 1,
                     total_calc_points: 77881,
                     total_stake: 40000 * ONE_DBC,
-                    total_rent_fee: 11853229166666666666,
-                    total_burn_fee: 623854166666666667,
+                    // [Thread B ③] 托管：确认时不计租金收益（钱在托管、可退），结算才入账 → 此刻为 0
+                    total_rent_fee: 0,
+                    total_burn_fee: 0,
                     ..Default::default()
                 }
             );
@@ -180,8 +181,9 @@ fn report_individual_gpu() {
                     total_calc_points: 77881,
                     total_gpu_num: 4,
                     total_rented_gpu: 4,
-                    total_rent_fee: 11853229166666666666,
-                    total_burn_fee: 623854166666666667,
+                    // [Thread B ③] 托管：确认时不计租金收益（钱在托管、可退），结算才入账 → 此刻为 0
+                    total_rent_fee: 0,
+                    total_burn_fee: 0,
                     ..Default::default()
                 }
             );
@@ -233,8 +235,9 @@ fn report_individual_gpu() {
                     total_staker: 1,
                     total_calc_points: 77881,
                     total_stake: 40000 * ONE_DBC,
-                    total_rent_fee: 23706458333333333332,
-                    total_burn_fee: 1247708333333333334,
+                    // [Thread B ③] 托管：两单确认后仍未结算 → 计数为 0
+                    total_rent_fee: 0,
+                    total_burn_fee: 0,
                     ..Default::default()
                 }
             );
@@ -247,8 +250,9 @@ fn report_individual_gpu() {
                     total_gpu_num: 4,
                     // NOTE: 这里应该记录为4
                     total_rented_gpu: 4,
-                    total_rent_fee: 23706458333333333332,
-                    total_burn_fee: 1247708333333333334,
+                    // [Thread B ③] 托管：两单确认后仍未结算 → 计数为 0
+                    total_rent_fee: 0,
+                    total_burn_fee: 0,
                     ..Default::default()
                 }
             );
@@ -288,8 +292,9 @@ fn report_individual_gpu() {
                     total_staker: 1,
                     total_calc_points: 77881,
                     total_stake: 40000 * ONE_DBC,
-                    total_rent_fee: 35559687499999999998,
-                    total_burn_fee: 1871562500000000001,
+                    // [Thread B ③] 托管：续租也进托管，结算才入账 → 此刻仍为 0
+                    total_rent_fee: 0,
+                    total_burn_fee: 0,
                     ..Default::default()
                 }
             );
@@ -303,8 +308,9 @@ fn report_individual_gpu() {
                     total_gpu_num: 4,
                     // NOTE: 这里应该记录为4
                     total_rented_gpu: 4,
-                    total_rent_fee: 35559687499999999998,
-                    total_burn_fee: 1871562500000000001,
+                    // [Thread B ③] 托管：续租也进托管，结算才入账 → 此刻仍为 0
+                    total_rent_fee: 0,
+                    total_burn_fee: 0,
                     ..Default::default()
                 }
             );
@@ -370,6 +376,12 @@ fn report_individual_gpu() {
             assert!(!<RentInfo::<TestRuntime>>::contains_key(&1));
             assert_eq!(RentMachine::user_order(renter2), user_order);
             assert!(!<ConfirmingOrder::<TestRuntime>>::contains_key(&1));
+
+            // [Thread B ③] 两单都到期、托管全额结算(全程 100% 已用、无罚)后，生命周期计数应
+            //   与旧「确认即付」模型的累计值完全一致 —— 证明托管只是把入账时点从 confirm 移到 settle，
+            //   不改变最终经济结果（守恒）。数值 = 旧测试续租后的累计(此后无新账单)。
+            assert_eq!(OnlineProfile::sys_info().total_rent_fee, 35559687499999999998);
+            assert_eq!(OnlineProfile::sys_info().total_burn_fee, 1871562500000000001);
         }
     })
 }

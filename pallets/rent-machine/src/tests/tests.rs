@@ -59,11 +59,12 @@ fn rent_machine_should_works() {
 
         // DBC price: {1000 points/ 5_000_000 usd }; 6825 points; 10 eras; DBC price: 12_000 usd
         // So, rent fee: 59890 / 1000 * 5000000 / 12000 * 10 =  249541.6666666667 DBC
-        assert_eq!(stash_machines.total_rent_fee, 237064583333333333333);
-        // 初始质押每张cpu 质押了10000dbc 总共质押40000dbc 不满足10w/300$ -》租金进入质押
+        // [Thread B ③] 托管：确认时租金入托管、未入账、未补质押 → 计数 0、质押仍为初始 40000。
+        //   （旧模型此处 total_rent_fee=237064…、reserved=40000+237064…；已下移到结算时点，见文末断言。）
+        assert_eq!(stash_machines.total_rent_fee, 0);
         assert_eq!(Balances::free_balance(*stash), INIT_BALANCE - 40000 * ONE_DBC);
 
-        assert_eq!(Balances::reserved_balance(*stash), 40000 * ONE_DBC + 237064583333333333333);
+        assert_eq!(Balances::reserved_balance(*stash), 40000 * ONE_DBC);
 
         // Balance of renter will decrease, Dave is committee so - 20000
         assert_eq!(
@@ -92,12 +93,12 @@ fn rent_machine_should_works() {
             })
         );
 
-        // So balance change should be right
+        // [Thread B ③] 托管：续租费也进托管、仍未入账 → 计数仍 0、质押仍初始 40000（结算才补）。
         let stash_machines = OnlineProfile::stash_machines(&*stash);
-        assert_eq!(stash_machines.total_rent_fee, 474129166666666666666);
-        assert_eq!(Balances::free_balance(*stash), INIT_BALANCE - 40000 * ONE_DBC + 114129166666666666666);
+        assert_eq!(stash_machines.total_rent_fee, 0);
+        assert_eq!(Balances::free_balance(*stash), INIT_BALANCE - 40000 * ONE_DBC);
 
-        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC,);
+        assert_eq!(Balances::reserved_balance(*stash), 40000 * ONE_DBC,);
 
         assert_eq!(
             Balances::free_balance(*renter_dave),
@@ -107,7 +108,15 @@ fn rent_machine_should_works() {
         // 21 days later
         run_to_block(50 + 21 * ONE_DAY);
         let era_grade_snap = OnlineProfile::eras_stash_points(21);
-        assert_eq!(era_grade_snap.total, 59914) // 59890 * 4 / 10000 + 59890
+        assert_eq!(era_grade_snap.total, 59914); // 59890 * 4 / 10000 + 59890
+
+        // [Thread B ③] 托管收敛：租期(含续租)在 rent_end=20*ONE_DAY+11 已到期全额结算(100% 已用、无罚)。
+        //   结算时点补上入账 + 补质押，最终态应与旧「确认即付」模型完全一致：
+        //   total_rent_fee = 2×237064583333333333333（rent + relet 各 95%），
+        //   reserved 补质押到 400000 DBC 目标。证明托管仅平移入账时点、经济结果守恒。
+        let stash_machines = OnlineProfile::stash_machines(&*stash);
+        assert_eq!(stash_machines.total_rent_fee, 474129166666666666666);
+        assert_eq!(Balances::reserved_balance(*stash), 400000 * ONE_DBC);
     })
 }
 
@@ -127,34 +136,24 @@ fn controller_report_offline_when_online_should_work() {
             MachineStatus::StakerReportOffline(11, Box::new(MachineStatus::Online))
         );
 
-        // Offline 20 block will result in slash
+        // [Thread B ②] 闲置(未租用)机器离线「不罚了」：OnlineReportOffline 罚比 = 0。
+        //   之前这里断言 800 DBC 罚金；现在闲置离线仅停奖励(自动)，不扣质押 → 不产生任何 PendingSlash。
         run_to_block(20);
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
 
-        assert_eq!(
-            OnlineProfile::pending_slash(0),
-            Some(OPPendingSlashInfo {
-                slash_who: *stash,
-                machine_id: machine_id.clone(),
-                slash_time: 21,
-                slash_amount: 800 * ONE_DBC,
-                slash_exec_time: 21 + 2 * ONE_DAY,
-                reporter: None,
-                renters: vec![],
-                reward_to_committee: None,
-                slash_reason: OPSlashReason::OnlineReportOffline(11)
-            })
-        );
+        // 无罚：不生成待执行罚单
+        assert_eq!(OnlineProfile::pending_slash(0), None);
         // Machine should be online now
         let machine_info = OnlineProfile::machines_info(&*machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Online);
 
-        // check reserve balance
-        assert_eq!(Balances::reserved_balance(*stash), 40800 * ONE_DBC);
+        // 质押全程未被动过（仍为初始 40000 DBC，没有 +800 的罚金预留）
+        assert_eq!(Balances::reserved_balance(*stash), 40000 * ONE_DBC);
 
+        // 再过 2 天执行窗口后依然：无罚单、质押不变
         run_to_block(22 + 2 * ONE_DAY);
         assert_eq!(OnlineProfile::pending_slash(0), None);
         assert_eq!(Balances::reserved_balance(*stash), 40000 * ONE_DBC);
