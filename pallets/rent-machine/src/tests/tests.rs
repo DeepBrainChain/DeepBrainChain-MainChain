@@ -227,10 +227,28 @@ fn controller_report_offline_when_rented_should_work() {
         ));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_dave), 0));
 
+        let reserved_before = Balances::reserved_balance(*stash);
+        let renter_before = Balances::free_balance(*renter_dave);
+        assert!(RentMachine::escrowed_fee(0) > 0, "确认后应已托管");
+
+        // [Thread B ③ · 离线终止] 在租机器控制账户自报离线：新模型 = 终止租约 + 结算托管 + **不罚 stake**。
+        //   刚开租即离线(elapsed≈0) → 已用≈0 → 租客拿回几乎全部预付租金、矿工≈0、penalty≈0。
         assert_ok!(OnlineProfile::controller_report_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
+
+        // 租约已终止、托管已结清、无 stake 罚单（旧模型此处产生 8720 DBC 罚；③ 归 0）
+        assert_eq!(RentMachine::rent_info(0), None, "离线 → 租约终止");
+        assert_eq!(RentMachine::escrowed_fee(0), 0, "托管已结清");
+        assert_eq!(OnlineProfile::pending_slash(0), None, "rented-offline 不罚 stake");
+        // 早退退款：租客自由余额回升
+        assert!(
+            Balances::free_balance(*renter_dave) > renter_before,
+            "早退应退还未用预付租金给租客"
+        );
+        // 质押 bond 全程未被动（无 8720 罚金预留、过额质押无补质押）
+        assert_eq!(Balances::reserved_balance(*stash), reserved_before, "stake bond 不碰");
 
         run_to_block(20);
         assert_ok!(OnlineProfile::controller_report_online(
@@ -238,29 +256,11 @@ fn controller_report_offline_when_rented_should_work() {
             machine_id.clone()
         ));
 
-        assert_eq!(
-            OnlineProfile::pending_slash(0),
-            Some(OPPendingSlashInfo {
-                slash_who: *stash,
-                machine_id: machine_id.clone(),
-                slash_time: 21,
-                slash_amount: 8720 * ONE_DBC,
-                slash_exec_time: 21 + 2 * ONE_DAY,
-                reporter: None,
-                renters: vec![*renter_dave],
-                reward_to_committee: None,
-                slash_reason: OPSlashReason::RentedReportOffline(11)
-            })
-        );
-
+        // 租约已终止 → 恢复上线为 Online（非 Rented），仍无罚、质押不变
         let machine_info = OnlineProfile::machines_info(&*machine_id).unwrap();
-        assert_eq!(machine_info.machine_status, MachineStatus::Rented);
-
-        assert_eq!(Balances::reserved_balance(*stash), (436000 + 8720) * ONE_DBC);
-
-        run_to_block(22 + 2 * ONE_DAY);
+        assert_eq!(machine_info.machine_status, MachineStatus::Online);
         assert_eq!(OnlineProfile::pending_slash(0), None);
-        assert_eq!(Balances::reserved_balance(*stash), 436000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(*stash), reserved_before);
     })
 }
 
@@ -285,45 +285,41 @@ fn rented_report_offline_rented_end_report_online() {
         ));
         assert_ok!(RentMachine::confirm_rent(RuntimeOrigin::signed(*renter_dave), 0));
 
-        // now, rent is 10 block left
+        // 推进到接近满租（1 天租期，rent_end = 1 + ONE_DAY）
         run_to_block(ONE_DAY);
 
         let machine_info = OnlineProfile::machines_info(&*machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Rented);
 
+        let reserved_before = Balances::reserved_balance(*stash);
+        let renter_before = Balances::free_balance(*renter_dave);
+
+        // [Thread B ③ · 离线终止] 临近满租时离线：已用≈整日，但 ≤24h 罚金封顶 = 整日租金(1天租期) →
+        //   矿工净收≈0、租客拿回≈整日租金(除 5% 销毁)作为离线补偿、**不罚 stake**。租约当场终止。
         assert_ok!(OnlineProfile::controller_report_offline(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
-        run_to_block(11 + ONE_DAY + ONE_HOUR);
+        assert_eq!(RentMachine::rent_info(0), None, "离线 → 租约终止");
+        assert_eq!(RentMachine::escrowed_fee(0), 0, "托管已结清");
+        assert_eq!(OnlineProfile::pending_slash(0), None, "rented-offline 不罚 stake（旧模型此处 17440 DBC）");
+        // 离线补偿：租客自由余额回升（≈整日租金的离线罚金）
+        assert!(
+            Balances::free_balance(*renter_dave) > renter_before,
+            "离线应补偿租客(≤24h 租金)"
+        );
+        assert_eq!(Balances::reserved_balance(*stash), reserved_before, "stake bond 不碰");
 
+        run_to_block(11 + ONE_DAY + ONE_HOUR);
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
         ));
-        assert_eq!(
-            OnlineProfile::pending_slash(0),
-            Some(OPPendingSlashInfo {
-                slash_who: *stash,
-                machine_id: machine_id.clone(),
-                slash_time: 12 + ONE_DAY + ONE_HOUR,
-                slash_amount: 17440 * ONE_DBC,
-                slash_exec_time: 12 + ONE_DAY + ONE_HOUR + 2 * ONE_DAY,
-                reporter: None,
-                renters: vec![],
-                reward_to_committee: None,
-                slash_reason: OPSlashReason::RentedReportOffline(1 + ONE_DAY)
-            })
-        );
 
-        // rent-machine module will do check if rent finished after machine is reonline
-        run_to_block(12 + ONE_DAY + ONE_HOUR);
-
+        // 租约已终止 → 恢复上线为 Online，无罚
         let machine_info = OnlineProfile::machines_info(&*machine_id).unwrap();
         assert_eq!(machine_info.machine_status, MachineStatus::Online);
-        assert_eq!(machine_info.last_online_height, 12 + ONE_DAY + ONE_HOUR);
-        assert_eq!(machine_info.total_rented_duration, ONE_DAY);
-        assert_eq!(machine_info.total_rented_times, 1);
+        assert_eq!(OnlineProfile::pending_slash(0), None);
     });
 }
 
