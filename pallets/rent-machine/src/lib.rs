@@ -891,6 +891,23 @@ impl<T: Config> Pallet<T> {
         }
         Self::pay_from_escrow_or_defer(&escrow, &rent_info.renter, renter_refund);
 
+        // 生命周期租金记账 + 受收者门控的补质押（与旧 pay_rent_fee 尾部同一 RTOps 钩子）：
+        //   - 累加 total_rent_fee / sys_info 计数（用 miner 实收 miner_net + 实销 burn）；
+        //   - receiver == stash（未改收租钱包）且欠质押 → 从 stash 自有余额补质押（miner_net 刚打进 stash 自由余额）；
+        //   - receiver != stash（改了收租钱包）→ 不补质押，防对 stash 双重扣款(2026-05-29 wukongyun 回归)。
+        //   记账/补质押失败不回滚已成功的托管分账，仅发事件（对齐旧实现的可观测性）。
+        if T::RTOps::change_machine_rent_fee(
+            machine_stash,
+            rent_info.machine_id.clone(),
+            burn,
+            miner_net,
+            receiver.clone(),
+        )
+        .is_err()
+        {
+            Self::deposit_event(Event::RentFeeAccountingFailed(rent_id));
+        }
+
         EscrowedFee::<T>::remove(rent_id);
         RentEscrowDestroyPercent::<T>::remove(rent_id);
         Self::deposit_event(Event::RentEscrowSettled(rent_id, used_fee, renter_refund, penalty));
