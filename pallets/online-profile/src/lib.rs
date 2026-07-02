@@ -621,6 +621,13 @@ pub mod pallet {
             ensure!(machine_info.is_controller(controller), Error::<T>::NotMachineController);
             // 只允许在线状态的机器修改信息
             ensure!(machine_info.is_online(), Error::<T>::MachineStatusNotAllowed);
+            // [审计修 #5c — round2 MED] 拒绝对 DeepLink(EVM) 租用中的机器改硬件。
+            //   这是第三条离线路径（machine_offline / controller_report_offline 之外），本函数直接把 is_online 机器
+            //   置为 StakerReportOffline 且【不回退 +30% 租用快照】。若放行 DeepLink 租用机：
+            //   (a) +30% 会被孤立在 era 快照 total 里（机器点数已移除、stash 统计可能被删）、total_rented_gpu 泄漏；
+            //   (b) 破坏 do_machine_exit 依赖的不变量"DeepLink 机器处于 *ReportOffline ⟺ 快照已回退"，导致 exit 少回退。
+            //   改硬件本就应在无租约时进行（原生 Rented 机器亦无法走到这里：is_online()=false）。链上强制拒绝。
+            ensure!(!Self::deeplink_rented(&machine_id), Error::<T>::MachineStatusNotAllowed);
             machine_info.machine_status =
                 MachineStatus::StakerReportOffline(now, Box::new(MachineStatus::Online));
 
@@ -1537,6 +1544,22 @@ pub mod pallet {
             //   force-false(清除卡死)永远放行，不受此限。
             if is_rented {
                 ensure!(MachineRentedGPU::<T>::get(&machine_id) == 0, Error::<T>::MachineNativelyRented);
+                // [审计修 #5c round2] force-true 必须复用 precompile 路径的全部前置，否则 root 手滑可绕过：
+                //   (1) terminating-rental 互斥——对已被 terminating 租用的机器强打 DeepLink → 跨系统 +30% double-count；
+                //   (2) 在线前置——对非 Online 机器(CommitteeVerifying/WaitingFulfill/离线等)强打 → apply 会给 era+1 快照
+                //       注入幽灵被租条目(+30% 进 total 但机器从未走 online_changed(true))→ 分母虚高稀释全网、随 era 传播。
+                //   force-false(清卡死)不受此限，见下。
+                ensure!(
+                    !T::TerminatingRentalStatus::is_machine_rented(&machine_id),
+                    Error::<T>::MachineTerminatingRented
+                );
+                ensure!(
+                    matches!(
+                        Self::machines_info(&machine_id).map(|mi| mi.machine_status),
+                        Some(MachineStatus::Online)
+                    ),
+                    Error::<T>::MachineNotOnlineForDeepLink
+                );
             }
             // [评审修 round2] 复用 apply_deeplink_rented 的离线/注销感知：force-false 时若机器离线(快照已被
             //   machine_offline 回退)或已注销→只清标记不再回退快照，防 double-减 total_rented_gpu/grade。
@@ -1648,6 +1671,10 @@ pub mod pallet {
         InvalidRentReceiver,
         /// [评审修 H-1] 机器已被原生 rent-machine 租用，禁止 force_set_deeplink_rented 强打 DeepLink 租用（防 double-count）
         MachineNativelyRented,
+        /// [审计修 #5c round2] 机器已被 terminating-rental 租用，禁止 force_set_deeplink_rented 强打 DeepLink 租用（跨系统 double-count）
+        MachineTerminatingRented,
+        /// [审计修 #5c round2] force_set_deeplink_rented(true) 要求机器 == Online（对齐 precompile 路径的在线前置，防给非在线机注入幽灵快照）
+        MachineNotOnlineForDeepLink,
     }
 }
 
@@ -1775,8 +1802,20 @@ impl<T: Config> Pallet<T> {
         // — observed on mainnet as totalRentedGpu=96 > totalGpuNum=93.
         // [审计修 #5a] 同 machine_offline：DeepLink 租用的机器 machine_status 不是 Rented，force-exit 时若不回退
         //   会留下 total_rented_gpu 多计（正是注释记录的 totalRentedGpu>totalGpuNum 主网症状的 DeepLink 版本）。
-        if matches!(machine_info.machine_status, MachineStatus::Rented)
-            || Self::deeplink_rented(&machine_id)
+        // [审计修 #5c — round2 HIGH] 只有"快照当前仍处于被租状态"时才回退，否则会 double-rollback：
+        //   · 原生 Rented：机器离线后 machine_status 从 Rented 变为 *ReportOffline，此分支自然跳过（已由 machine_offline 回退）。
+        //   · DeepLink：machine_offline 在机器【在线】时就已回退 +30%/total_rented_gpu 但【保留 flag=true】(等 online 恢复)。
+        //     若这里仅凭 flag 回退，对"已离线 + flag 仍 true"的机器（force_machine_exit 清卡死机的典型场景）会第二次
+        //     update_snap_on_rent_changed(false) → era+1 EraStashPoints.total 永久多减 30%×calc_point → 分母缩水随 era
+        //     滚动传播 → 全网份额和 >100% 系统性超发。故 DeepLink 分支须排除离线态（此时快照已被 machine_offline 回退）。
+        //     不变量：offline_machine_change_hardware_info 对 deeplink_rented 机器直接拒绝(见该函数)，保证
+        //     "DeepLink 机器处于 *ReportOffline ⟺ 快照已回退"，本处按 status 跳过才安全。
+        let deeplink_snapshot_applied = Self::deeplink_rented(&machine_id)
+            && !matches!(
+                machine_info.machine_status,
+                MachineStatus::StakerReportOffline(..) | MachineStatus::ReporterReportOffline(..)
+            );
+        if matches!(machine_info.machine_status, MachineStatus::Rented) || deeplink_snapshot_applied
         {
             Self::update_region_on_rent_changed(&machine_info, false);
             Self::update_snap_on_rent_changed(machine_id.clone(), false)
