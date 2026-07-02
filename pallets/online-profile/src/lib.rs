@@ -394,6 +394,15 @@ pub mod pallet {
     pub(super) type AuthorizedForceExitAccounts<T: Config> =
         StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
+    /// [Thread B ① · DLC 化] 授权的离线检测器账户（复用 DeepLink DDN 的链上钱包）。
+    /// 这些账户可对**任意机器**（闲置/被租/DeepLink 租）上报离线，不要求先租下机器——
+    /// 对齐 DLC 的 DistributedDetectionNode→DBCAI.notify(MachineOffline) 模式（链下 5min 防抖+后端二次确认）。
+    /// root 管理（set_offline_detectors）。空集时该路径不可用（fail-closed）。
+    #[pallet::storage]
+    #[pallet::getter(fn offline_detectors)]
+    pub(super) type OfflineDetectors<T: Config> =
+        StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+
     /// Per-stash 自定义收租钱包（spec 410）
     /// 若不存在（矿工未配置），则默认租金走 stash 本账户。
     #[pallet::storage]
@@ -913,6 +922,59 @@ pub mod pallet {
             .map_err(|_| Error::<T>::Unknown)?;
 
             Self::deposit_event(Event::ControllerReportOffline(machine_id));
+            Ok(().into())
+        }
+
+        /// [Thread B ① · DLC 化] root 设置授权离线检测器集合（复用 DeepLink DDN 链上钱包）。
+        #[pallet::call_index(29)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10_000, 0))]
+        pub fn set_offline_detectors(
+            origin: OriginFor<T>,
+            detectors: Vec<T::AccountId>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            OfflineDetectors::<T>::put(detectors);
+            Self::deposit_event(Event::OfflineDetectorsUpdated);
+            Ok(().into())
+        }
+
+        /// [Thread B ① · DLC 化] 授权检测器(DDN)上报机器离线——不要求机器被租（对齐 DLC 健康检测）。
+        /// 对任意 Online/Rented 机器可报，走与 controller_report_offline 相同的 machine_offline 转换。
+        /// 闲置机离线由 ② 零罚；被租机离线的租金惩罚由 ③ 托管处理；DeepLink 租用机离线会回退 +30%（桥已处理），
+        /// 从而堵住"暗机白拿 +30%"（无需等 controller 自首）。链下 5min 防抖由 DDN 负责。
+        #[pallet::call_index(30)]
+        #[pallet::weight(frame_support::weights::Weight::from_parts(10_000, 0))]
+        pub fn report_machine_offline_by_detector(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            let detector = ensure_signed(origin)?;
+            let now = <frame_system::Pallet<T>>::block_number();
+
+            // fail-closed：仅授权检测器可调；空集则无人可调。
+            ensure!(
+                Self::offline_detectors().contains(&detector),
+                Error::<T>::NotOfflineDetector
+            );
+
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            // 只对在线/被租机器报离线（幂等：已离线机器无需再报）
+            ensure!(
+                matches!(
+                    machine_info.machine_status,
+                    MachineStatus::Online | MachineStatus::Rented
+                ),
+                Error::<T>::MachineStatusNotAllowed
+            );
+
+            // 复用 machine_offline：把当前状态包进 StakerReportOffline（与自报同处理，slash 由 ②/③ 决定）。
+            Self::machine_offline(
+                machine_id.clone(),
+                MachineStatus::StakerReportOffline(now, Box::new(machine_info.machine_status)),
+            )
+            .map_err(|_| Error::<T>::Unknown)?;
+
+            Self::deposit_event(Event::DetectorReportOffline(machine_id, detector));
             Ok(().into())
         }
 
@@ -1633,6 +1695,10 @@ pub mod pallet {
         //   ⚠️ 必须放枚举末尾以保留既有事件的 SCALE 判别式位置（链下索引器/dbcscan 按位置解码）。
         //   放在 spec 413 的 SlashShortfall/SnapshotUpdateFailed 之后，保留 413 事件在主网的位置。
         ForceSetDeepLinkRented(MachineId, bool, bool),
+        /// [Thread B ①] 授权离线检测器集合被更新（SCALE 追加于末尾）
+        OfflineDetectorsUpdated,
+        /// [Thread B ①] 检测器上报机器离线 (machine_id, detector)（SCALE 追加于末尾）
+        DetectorReportOffline(MachineId, T::AccountId),
     }
 
     #[pallet::error]
@@ -1683,6 +1749,8 @@ pub mod pallet {
         MachineTerminatingRented,
         /// [审计修 #5c round2] force_set_deeplink_rented(true) 要求机器 == Online（对齐 precompile 路径的在线前置，防给非在线机注入幽灵快照）
         MachineNotOnlineForDeepLink,
+        /// [Thread B ①] 调用者不在授权离线检测器集合内
+        NotOfflineDetector,
     }
 }
 
