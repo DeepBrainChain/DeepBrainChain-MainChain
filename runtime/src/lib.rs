@@ -157,7 +157,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // is and increment impl_version.
     // spec 414: DeepLink +30% rent-bonus bridge (RentBridge precompile 2052 -> online-profile
     // deeplink_set_rented) + terminating-rental<->DeepLink 双向互斥 guard + precompile 在线前置校验.
-    spec_version: 414,
+    // spec 415: 惩罚模型 DLC 化 (thread B) — ② 闲置离线零罚 + ① DDN 健康检测离线上报 (set_offline_detectors /
+    //   report_machine_offline_by_detector) + ③ 原生 rent-machine 租金托管 (escrow + pro-rata settle + end_rent /
+    //   claim_dbc_payout) + 在租离线终止租约(RentTerminateOnOffline) + rented-offline stake 罚归零.
+    spec_version: 415,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
