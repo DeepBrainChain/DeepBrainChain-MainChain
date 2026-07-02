@@ -22,11 +22,12 @@ use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
+    PalletId,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_core::H160;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedSub, SaturatedConversion, Saturating, Zero},
+    traits::{AccountIdConversion, CheckedAdd, CheckedSub, SaturatedConversion, Saturating, Zero},
     Perbill,
 };
 use sp_std::{prelude::*, str, vec::Vec};
@@ -55,6 +56,10 @@ pub mod pallet {
             BlockNumber = Self::BlockNumber,
         >;
         type DbcPrice: DbcPrice<Balance = BalanceOf<Self>>;
+        /// [Thread B ③ · 托管] 租金托管账户的 PalletId 来源。托管账户 = into_account，pallet 私有、
+        /// 只由 settle_escrow 支付。租用时租金押入此账户，退租/离线按时长结算。
+        #[pallet::constant]
+        type RentEscrowPalletId: Get<PalletId>;
     }
 
     #[pallet::pallet]
@@ -142,6 +147,33 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn rent_fee_pot)]
     pub(super) type RentFeePot<T: Config> = StorageValue<_, T::AccountId>;
+
+    /// [Thread B ③ · 托管] 每个 rent_id 当前托管在 escrow 账户里的租金总额。
+    /// **"存在与否"即迁移边界**：升级后 confirm_rent 的新单会写入此项；升级前的旧单（已按老规则即时付给矿工）
+    /// 无此项 → settle_escrow 对其 no-op。零 clawback、零批量迁移。
+    #[pallet::storage]
+    #[pallet::getter(fn escrowed_fee)]
+    pub(super) type EscrowedFee<T: Config> =
+        StorageMap<_, Blake2_128Concat, RentOrderId, BalanceOf<T>, ValueQuery>;
+
+    /// [Thread B ③ · 托管] 结算时冻结的销毁比例快照（confirm 时读 online_profile::rent_fee_destroy_percent 存入），
+    /// 防治理中途改比例回溯影响已托管订单。Absent → 结算时回退读当前值（旧单/未快照单）。
+    #[pallet::storage]
+    #[pallet::getter(fn rent_escrow_destroy_percent)]
+    pub(super) type RentEscrowDestroyPercent<T: Config> =
+        StorageMap<_, Blake2_128Concat, RentOrderId, Perbill>;
+
+    /// [Thread B ③ · 托管] 直转失败(受款方被冻结/拉黑)时暂存的退款/付款，受款方自行 claim_dbc_payout 领取，
+    /// 保证 settle_escrow 永不因单个受款方问题 revert 卡死（对标 RentDBC pendingDbcPayout）。
+    #[pallet::storage]
+    #[pallet::getter(fn pending_dbc_payout)]
+    pub(super) type PendingDbcPayout<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+
+    /// [Thread B ③ · 托管] pending 退款总额（不变量校验用：Σescrow + Σpending 应与托管账户余额一致）。
+    #[pallet::storage]
+    #[pallet::getter(fn total_pending_dbc_payout)]
+    pub(super) type TotalPendingDbcPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     /// spec 410: 订单创建时快照矿工的 receiver，防止 bait-and-switch。
     /// Absent 等价于「用 stash 自己收」（向后兼容：升级前的旧订单无此快照）。
@@ -591,6 +623,11 @@ impl<T: Config> Pallet<T> {
             rent_fee,
         ));
         Ok(().into())
+    }
+
+    /// [Thread B ③ · 托管] 租金托管账户（pallet 私有；只由 settle_escrow 支付）。
+    pub fn escrow_account() -> T::AccountId {
+        T::RentEscrowPalletId::get().into_account_truncating()
     }
 
     // 获取一个新的租用订单的ID

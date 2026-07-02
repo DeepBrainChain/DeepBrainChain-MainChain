@@ -1417,11 +1417,17 @@ impl online_committee::Config for Runtime {
     type SlashAndReward = GenericFunc;
 }
 
+parameter_types! {
+    // [Thread B ③ · 托管] 租金托管账户 PalletId（派生出 pallet 私有账户，存放待结算租金）
+    pub const RentEscrowPalletId: PalletId = PalletId(*b"dbc/rtec");
+}
+
 impl rent_machine::Config for Runtime {
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     type RTOps = OnlineProfile;
     type DbcPrice = DBCPriceOCW;
+    type RentEscrowPalletId = RentEscrowPalletId;
 }
 
 impl maintain_committee::Config for Runtime {

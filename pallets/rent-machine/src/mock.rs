@@ -225,11 +225,15 @@ impl online_committee::Config for TestRuntime {
     type SlashAndReward = GenericFunc;
 }
 
+parameter_types! {
+    pub const RentEscrowPalletId: frame_support::PalletId = frame_support::PalletId(*b"dbc/rtec");
+}
 impl rent_machine::Config for TestRuntime {
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
     type RTOps = OnlineProfile;
     type DbcPrice = DBCPriceOCW;
+    type RentEscrowPalletId = RentEscrowPalletId;
 }
 
 type TestExtrinsic = TestXt<RuntimeCall, ()>;
