@@ -507,6 +507,14 @@ pub fn new_test_ext_after_machine_online() -> sp_io::TestExternalities {
     ext
 }
 
+/// [Thread B ③ 测试助手] 跳到某 rent_id 的 rent_end 块并触发一次 on_finalize，驱动托管结算
+/// （避免为 10 天租期 run_to_block 14 万块）。用于验证"到期结算付款"。
+pub fn settle_rent_at_end(rent_id: u64) {
+    let rent_end = RentMachine::rent_info(rent_id).unwrap().rent_end;
+    System::set_block_number(rent_end);
+    RentMachine::on_finalize(rent_end);
+}
+
 pub fn run_to_block(n: BlockNumber) {
     for b in System::block_number()..=n {
         OnlineProfile::on_finalize(b);

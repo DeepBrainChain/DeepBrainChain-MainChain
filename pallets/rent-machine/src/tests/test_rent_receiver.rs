@@ -114,6 +114,8 @@ fn rent_fee_routes_95_percent_to_receiver_when_set() {
             RuntimeOrigin::signed(*renter_dave),
             0
         ));
+        // [Thread B ③] 托管：付款推迟到结算。触发到期结算(全程=100%已用=同样的 95/5 分账)后再验证。
+        settle_rent_at_end(0);
 
         let stash_delta = Balances::free_balance(&*stash).saturating_sub(stash_before);
         let receiver_delta =
@@ -163,6 +165,8 @@ fn rent_fee_does_not_leak_to_receiver_when_unset() {
             RuntimeOrigin::signed(*renter_dave),
             0
         ));
+        // [Thread B ③] 托管：付款推迟到结算。触发到期结算(全程=100%已用=同样的 95/5 分账)后再验证。
+        settle_rent_at_end(0);
 
         let receiver_delta =
             Balances::free_balance(&*receiver_alice).saturating_sub(receiver_before);
@@ -298,6 +302,8 @@ fn receiver_persists_across_sequential_rentals() {
             RuntimeOrigin::signed(*renter_dave),
             0
         ));
+        // [Thread B ③] 托管：付款推迟到结算。触发到期结算(全程=100%已用=同样的 95/5 分账)后再验证。
+        settle_rent_at_end(0);
         let rec_balance_1 = Balances::free_balance(&*receiver_alice);
         assert!(
             rec_balance_1 > rec_balance_0,
@@ -372,6 +378,8 @@ fn rent_to_self_transfer_credits_stash_end_to_end() {
             RuntimeOrigin::signed(*renter_dave),
             0
         ));
+        // [Thread B ③] 托管：付款推迟到结算。触发到期结算(全程=100%已用=同样的 95/5 分账)后再验证。
+        settle_rent_at_end(0);
 
         let stash_total_after = Balances::free_balance(&*stash);
         let pot_after =
@@ -423,6 +431,8 @@ fn rent_routes_to_fresh_never_existed_receiver() {
             RuntimeOrigin::signed(*renter_dave),
             0
         ));
+        // [Thread B ③] 托管：付款推迟到结算。触发到期结算(全程=100%已用=同样的 95/5 分账)后再验证。
+        settle_rent_at_end(0);
 
         // Fresh account should now hold 95% of the rent fee
         assert!(
@@ -476,6 +486,8 @@ fn bait_and_switch_blocked_by_snapshot() {
             RuntimeOrigin::signed(*renter_dave),
             0
         ));
+        // [Thread B ③] 托管：付款推迟到结算。触发到期结算(全程=100%已用=同样的 95/5 分账)后再验证。
+        settle_rent_at_end(0);
 
         let advertised_after = Balances::free_balance(&advertised);
         let evil_after = Balances::free_balance(&evil);
@@ -540,6 +552,8 @@ fn rent_routes_to_receiver_with_zero_providers_succeeds_with_ed_zero() {
             RuntimeOrigin::signed(*renter_dave),
             0
         ));
+        // [Thread B ③] 托管：付款推迟到结算。触发到期结算(全程=100%已用=同样的 95/5 分账)后再验证。
+        settle_rent_at_end(0);
         assert!(Balances::free_balance(&r) > r_start);
     });
 }
@@ -576,6 +590,8 @@ fn restake_does_not_charge_stash_when_receiver_differs() {
             RuntimeOrigin::signed(*renter_dave),
             0
         ));
+        // [Thread B ③] 托管：付款推迟到结算。触发到期结算(全程=100%已用=同样的 95/5 分账)后再验证。
+        settle_rent_at_end(0);
 
         // The stash got no rent income, so its reserve must NOT grow.
         // (Pre-fix, fulfill_machine_stake reserved from the stash here = double-charge.)
@@ -606,6 +622,8 @@ fn restake_still_tops_up_stash_when_no_receiver() {
             RuntimeOrigin::signed(*renter_dave),
             0
         ));
+        // [Thread B ③] 托管：付款推迟到结算。触发到期结算(全程=100%已用=同样的 95/5 分账)后再验证。
+        settle_rent_at_end(0);
 
         // Default path still funds the stake top-up from rent income → reserve non-decreasing.
         let stash_reserved_after = Balances::reserved_balance(&*stash);
