@@ -145,6 +145,7 @@ fn apply_slash_review_case1_1() {
         let controller = sr25519::Public::from(Sr25519Keyring::Eve).into();
 
         // [Thread B ③] 同 case1：inaccessible → 0 stake 罚 → 无 PendingSlash，申诉无从触发。
+        let stake_before = OnlineProfile::stash_stake(&machine_stash);
         assert_ok!(OnlineProfile::controller_report_online(
             RuntimeOrigin::signed(controller),
             machine_id.clone()
@@ -152,8 +153,8 @@ fn apply_slash_review_case1_1() {
 
         assert_eq!(OnlineProfile::pending_slash(0), None);
         assert_eq!(OnlineProfile::pending_slash_review(0), None);
-        // 质押 bond 未被动（旧模型此处扣 16000 罚 + 1000 申诉质押）：slashable 质押仍为初始 400000
-        assert_eq!(OnlineProfile::stash_stake(&machine_stash), 400000 * ONE_DBC);
+        // 质押 bond 未被动（旧模型此处扣 16000 罚 + 1000 申诉质押）：slashable 质押不变
+        assert_eq!(OnlineProfile::stash_stake(&machine_stash), stake_before);
     })
 }
 
