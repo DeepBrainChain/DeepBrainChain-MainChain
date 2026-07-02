@@ -21,7 +21,11 @@ use frame_support::{
     dispatch::DispatchResult,
     ensure,
     pallet_prelude::*,
-    traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency},
+    traits::{
+        Currency,
+        ExistenceRequirement::{AllowDeath, KeepAlive},
+        ReservableCurrency,
+    },
     PalletId,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
@@ -804,7 +808,13 @@ impl<T: Config> Pallet<T> {
         if amount.is_zero() {
             return
         }
-        if <T as pallet::Config>::Currency::transfer(escrow, to, amount, KeepAlive).is_err() {
+        // AllowDeath（非 KeepAlive）：托管账户是 PalletId 派生账户，是「资金过路账户」。
+        //   escrow 里同时持有所有在租订单的托管租金(Σ)，结算某单只取走该单那份。
+        //   - 还有其它在租单 → 余额 = 其它单的 Σ ≥ ED，不会被 reap；
+        //   - 这是最后一单 → 结算后应恰好归零(守恒: burn+miner_net+renter_refund==total)，
+        //     KeepAlive 会因「不能把源账户打到 ED 以下」拒付最后一笔 → 静默 defer 到 PendingDbcPayout（bug）。
+        //   故用 AllowDeath 允许把托管账户正常清空到 0。
+        if <T as pallet::Config>::Currency::transfer(escrow, to, amount, AllowDeath).is_err() {
             PendingDbcPayout::<T>::mutate(to, |p| *p = p.saturating_add(amount));
             TotalPendingDbcPayout::<T>::mutate(|t| *t = t.saturating_add(amount));
             Self::deposit_event(Event::DbcPayoutDeferred(to.clone(), amount));
