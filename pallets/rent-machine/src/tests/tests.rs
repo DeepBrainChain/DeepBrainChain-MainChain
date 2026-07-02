@@ -741,3 +741,19 @@ fn gen_rentable_gpu_works() {
         &MachineGPUOrder { rent_order: vec![], used_gpu: vec![0, 1, 2] }
     );
 }
+
+// [审计修 H3/round2 回归] 拒绝 0 卡租用（否则可零成本堆空订单放大 on_finalize 结算量）。
+#[test]
+fn rent_machine_rejects_zero_gpu() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        assert_noop!(
+            RentMachine::rent_machine(
+                RuntimeOrigin::signed(*renter_dave),
+                machine_id.clone(),
+                0,
+                2 * ONE_DAY
+            ),
+            Error::<TestRuntime>::InvalidRentGpuNum
+        );
+    })
+}
