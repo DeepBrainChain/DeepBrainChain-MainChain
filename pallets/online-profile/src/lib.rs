@@ -1553,10 +1553,18 @@ pub mod pallet {
                     !T::TerminatingRentalStatus::is_machine_rented(&machine_id),
                     Error::<T>::MachineTerminatingRented
                 );
+                //   在线前置须对齐 apply_deeplink_rented 的 skip_snap 语义，而非死卡 Online：
+                //   · Online → apply 立即施加快照（安全）；
+                //   · StakerReportOffline/ReporterReportOffline（曾在线、现离线）→ apply 感知离线跳过快照、只落标记，
+                //     等 controller_report_online 恰好施加一次（这是 round3 阀门的合法用法：离线期间强制补标记）；
+                //   · 其余"从未在线"态(AddingCustomizeInfo/CommitteeVerifying/WaitingFulfill/…)→ skip_snap=false →
+                //     update_snap 会给从未 online_changed(true) 的机器注入幽灵被租快照(+30% 进 total、机器却无点数)→ 拒绝。
                 ensure!(
                     matches!(
                         Self::machines_info(&machine_id).map(|mi| mi.machine_status),
                         Some(MachineStatus::Online)
+                            | Some(MachineStatus::StakerReportOffline(..))
+                            | Some(MachineStatus::ReporterReportOffline(..))
                     ),
                     Error::<T>::MachineNotOnlineForDeepLink
                 );
