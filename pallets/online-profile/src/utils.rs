@@ -128,14 +128,12 @@ impl<T: Config> Pallet<T> {
                 TWO_DAYS..FIVE_DAYS => 30,    // <=120H扣30%质押币，10%给用户，90%进入国库
                 _ => 50,                      // >120H扣除50%质押币。10%给用户，90%进入国库
             },
-            OPSlashReason::OnlineReportOffline(_) => match duration {
-                // TODO: 如果机器从首次上线时间起超过365天，剩下20%押金可以申请退回。扣除80%质押币。
-                // 质押币全部进入国库。
-                0..SEVEN_MINUTES => 2, /* <=7M扣除2%质押币，全部进入国库。 */
-                SEVEN_MINUTES..TWO_DAYS => 4, /* <=48H扣除4%质押币，全部进入国库 */
-                TWO_DAYS..TEN_DAYS => 30, /* <=240H扣除30%质押币，全部进入国库 */
-                _ => 80,
-            },
+            // [Thread B ② · DLC 化] 闲置（未被租）机器离线不再罚质押：全部档位归 0。
+            //   奖励已在离线时自动归零（机器从 era 点数快照移除），质押 bond 保持不动，允许闲置机随时上下线。
+            //   OnlineReportOffline 仅由 controller 自报"空闲机"离线产生，此处归 0 即全链覆盖；下游
+            //   controller_report_online 的 `if slash_amount != 0` 会跳过 re-reserve/PendingSlash，机器零惩罚恢复在线。
+            //   租用中离线(RentedReportOffline / RentedInaccessible 等)不受影响，租金惩罚由 ③ 托管改造处理。
+            OPSlashReason::OnlineReportOffline(_) => 0,
             OPSlashReason::RentedInaccessible(_) => match duration {
                 0..SEVEN_MINUTES => 4,        // <=7M扣除4%质押币。10%给验证人，90%进入国库
                 SEVEN_MINUTES..TWO_DAYS => 8, // <=48H扣除8%质押币。10%给验证人，90%进入国库
