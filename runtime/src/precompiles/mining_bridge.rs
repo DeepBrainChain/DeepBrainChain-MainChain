@@ -126,11 +126,31 @@ where
             },
 
             Selector::GenServerRoom => {
-                // [feng 建议] 机房 id 是随机 H256、客户端无法预测。直接调 pallet 内部实现拿到 id，
-                //   作为 bytes32 EVM 返回值回传，客户端从 call 返回值直接读，省去解 ServerRoomGenerated 事件/绕存储回读。
+                // [feng 建议] 机房 id 是随机 H256、客户端无法预测。直接调 pallet 内部实现拿到 id。
                 charge::<T>(handle, 3, 2)?; // G4：先记 gas 再改状态
                 let room_id = online_profile::Pallet::<T>::do_gen_server_room(who.clone())
                     .map_err(|e| revert(format!("gen_server_room failed: {:?}", e)))?;
+                // [feng · EVM 语义修正] EOA 直调的改状态交易，receipt 只含 log、【不含】函数返回值；
+                //   且随机 id 无法用 eth_call 预读（预读值≠真正上链那笔）。故必须 emit EVM event 把 room id 带进 receipt：
+                //   event ServerRoomGenerated(address indexed miner, bytes32 roomId)。客户端从 receipt 的 log 按 topic0
+                //   过滤、从 data 读 32 字节 roomId。bytes32 返回值保留（合约包一层 / eth_call 场景可用）。
+                //   EVM log gas: 375 base + 375*topics(2) + 8*data_bytes(32) = 1381，先记 gas 再 emit（G4 原子性）。
+                handle
+                    .record_cost(1381)
+                    .map_err(|e| PrecompileFailure::Error { exit_status: e })?;
+                let mut miner_topic = [0u8; 32];
+                miner_topic[12..].copy_from_slice(caller.as_bytes()); // H160 左补 12 零字节 = indexed address
+                let event_addr = handle.code_address();
+                handle
+                    .log(
+                        event_addr,
+                        alloc::vec![
+                            H256(*evm_macro::keccak256!("ServerRoomGenerated(address,bytes32)")),
+                            H256(miner_topic),
+                        ],
+                        room_id.as_bytes().to_vec(),
+                    )
+                    .map_err(|e| PrecompileFailure::Error { exit_status: e })?;
                 ok_bytes32(room_id)
             },
 
