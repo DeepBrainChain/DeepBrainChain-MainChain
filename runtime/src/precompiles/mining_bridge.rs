@@ -39,6 +39,7 @@ use frame_support::traits::Get; // [DBC 评审修] T::DbWeight::get() 需 Get �
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, GasWeightMapping};
 use parity_scale_codec::Decode;
+use sp_core::H256;
 use sp_std::vec::Vec;
 extern crate alloc;
 use crate::precompiles::LOG_TARGET;
@@ -125,10 +126,12 @@ where
             },
 
             Selector::GenServerRoom => {
-                charge::<T>(handle, 3, 2)?;
-                // room id 经 online_profile 事件 ServerRoomGenerated 返回，precompile 返回空
-                dispatch(online_profile::Pallet::<T>::gen_server_room(RawOrigin::Signed(who.clone()).into()), "gen_server_room")?;
-                ok()
+                // [feng 建议] 机房 id 是随机 H256、客户端无法预测。直接调 pallet 内部实现拿到 id，
+                //   作为 bytes32 EVM 返回值回传，客户端从 call 返回值直接读，省去解 ServerRoomGenerated 事件/绕存储回读。
+                charge::<T>(handle, 3, 2)?; // G4：先记 gas 再改状态
+                let room_id = online_profile::Pallet::<T>::do_gen_server_room(who.clone())
+                    .map_err(|e| revert(format!("gen_server_room failed: {:?}", e)))?;
+                ok_bytes32(room_id)
             },
 
             // ── addMachineInfo(machineId, StakerCustomizeInfo 的 SCALE 编码) ──
@@ -338,4 +341,10 @@ fn revert(msg: impl Into<Vec<u8>>) -> PrecompileFailure {
 
 fn ok() -> PrecompileResult {
     Ok(PrecompileOutput { exit_status: ExitSucceed::Returned, output: Default::default() })
+}
+
+/// 返回一个 bytes32（H256 的 32 字节），供 genServerRoom() 把机房 id 直接回传给 EVM 客户端。
+/// ABI 上 `bytes32` 就是 32 原始字节、无需额外 padding（H256 恰好 32 字节）。
+fn ok_bytes32(h: H256) -> PrecompileResult {
+    Ok(PrecompileOutput { exit_status: ExitSucceed::Returned, output: h.as_bytes().to_vec() })
 }

@@ -732,16 +732,8 @@ pub mod pallet {
         #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn gen_server_room(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
-
-            Self::pay_fixed_tx_fee(controller.clone())?;
-
-            StashServerRooms::<T>::mutate(&stash, |stash_server_rooms| {
-                let new_server_room = <generic_func::Pallet<T>>::random_server_room();
-                ItemList::add_item(stash_server_rooms, new_server_room);
-                Self::deposit_event(Event::ServerRoomGenerated(controller, new_server_room));
-            });
-
+            // 复用内部实现（返回的机房 id 在 extrinsic 路径下不需要，MiningBridge precompile 路径会用它回传给 EVM 客户端）。
+            let _room_id = Self::do_gen_server_room(controller)?;
             Ok(().into())
         }
 
@@ -1755,6 +1747,23 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// [DBC-side · MiningBridge] 生成新机房 id 的内部实现，**返回新机房 H256**。
+    /// 机房 id 是 `random_server_room()` 生成的随机值、客户端无法预测；原来只能靠 `ServerRoomGenerated`
+    /// 事件回读。MiningBridge precompile 的 `genServerRoom()` 直接调用它、把 H256 作为 EVM 返回值(bytes32)
+    /// 回传给客户端，省去解事件/绕 Substrate 存储回读（feng 建议）。gen_server_room extrinsic 也复用它，行为不变。
+    pub fn do_gen_server_room(
+        controller: T::AccountId,
+    ) -> Result<H256, sp_runtime::DispatchError> {
+        let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
+        Self::pay_fixed_tx_fee(controller.clone())?;
+        let new_server_room = <generic_func::Pallet<T>>::random_server_room();
+        StashServerRooms::<T>::mutate(&stash, |stash_server_rooms| {
+            ItemList::add_item(stash_server_rooms, new_server_room);
+        });
+        Self::deposit_event(Event::ServerRoomGenerated(controller, new_server_room));
+        Ok(new_server_room)
+    }
+
     // 计算重新审核需要质押的支付给审核委员会的手续费
     pub fn cal_mut_hardware_stake() -> Option<BalanceOf<T>> {
         let online_stake_params = Self::online_stake_params()?;
