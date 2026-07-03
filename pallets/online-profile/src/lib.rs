@@ -1780,6 +1780,8 @@ pub mod pallet {
         ExtraPriceTooHigh,
         /// 时段参数不合法
         InvalidScheduleArgs,
+        /// [审计修 LOW] 单个 stash 的机房数量已达上限（防无界 StashServerRooms 膨胀）
+        TooManyServerRooms,
         /// 租用时长不足最小要求（2小时）
         RentalTooShort,
         /// 请求时段不在机器允许出租的时段内
@@ -1806,6 +1808,13 @@ impl<T: Config> Pallet<T> {
         controller: T::AccountId,
     ) -> Result<H256, sp_runtime::DispatchError> {
         let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
+        // [审计修 LOW] StashServerRooms 是无界 Vec，每次生成自付 10 DBC 经济上自限，但仍加硬上限防病态膨胀。
+        //   在扣费前检查，避免"扣了费又拒绝"。1000 远超任何真实用途（一个 stash 通常只有个位数机房）。
+        const MAX_SERVER_ROOMS: usize = 1000;
+        ensure!(
+            Self::stash_server_rooms(&stash).len() < MAX_SERVER_ROOMS,
+            Error::<T>::TooManyServerRooms
+        );
         // pay_fixed_tx_fee 返回 DispatchResultWithPostInfo，取出内层 DispatchError 以匹配本函数返回类型。
         Self::pay_fixed_tx_fee(controller.clone()).map_err(|e| e.error)?;
         let new_server_room = <generic_func::Pallet<T>>::random_server_room();

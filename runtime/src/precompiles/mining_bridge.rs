@@ -72,6 +72,14 @@ pub enum Selector {
     UpdateMachineInfo = "updateMachineInfo(string,bytes)",
     OfflineMachineChangeHardwareInfo = "offlineMachineChangeHardwareInfo(string)",
     SetRentReceiver = "setRentReceiver(bytes)", // 空 bytes=None，32 字节=Some(AccountId)
+    // ── 时段出租调度（G2 补全：映射账户无私钥，租赁排期也必须经 precompile 才能配）──
+    SetMachineRentalMode = "setMachineRentalMode(string,uint8)", // 0=FullTime, 1=TimeSlot
+    SetWeeklySchedule = "setWeeklySchedule(string,uint8,bytes)", // weekday 0..6, ranges=SCALE(Vec<TimeRange>)
+    SetSpecificDateSchedule = "setSpecificDateSchedule(string,uint32,bytes)", // date_days, ranges=SCALE(Vec<TimeRange>) 空=清除
+    ClearSpecificDate = "clearSpecificDate(string,uint32)",
+    // NOTE(G2 决策)：stash_reset_controller【有意不暴露】——本模型 who 同时是 stash 与 controller，
+    //   不存在"另一把 controller 私钥"可切换；若开放，矿工可把 controller 设成自己无私钥的地址 → 永久锁死机器管理，
+    //   且无任何正当收益（keyless 矿工只有这一把 0x 钥匙）。setSelfController 已把 who 自绑为 stash==controller，足够。
 }
 
 impl<T> Precompile for MiningBridge<T>
@@ -96,10 +104,14 @@ where
         }
 
         // [G1] caller 必须是 EOA：有代码=合约 → 拒绝（否则映射账户=中间合约影子账户，机器绑到不可达账户）
+        // [审计 LOW·文档] 已知边界：合约【构造函数执行期间】AccountCodes 尚为空 → 此检查可被 CREATE 中的合约绕过。
+        //   但那只会把机器绑到该合约自己的影子账户（自伤、无外部收益），非攻击面，故不额外加 caller==origin 门。
         let caller = handle.context().caller;
         if !pallet_evm::AccountCodes::<T>::get(caller).is_empty() {
             return Err(revert("MiningBridge: caller must be an EOA (contract calls forbidden)"))
         }
+        // [审计 LOW·文档] 小数位陷阱：DBC 原生 15 位小数、EVM 侧按 18 位呈现。客户端给映射 0x 钱包充值/估算质押时
+        //   必须用 10^15 基数（非 10^18），否则会 1000× 误充。本 precompile 不做换算，仅透传底层 pallet 逻辑。
         // 映射账户 = stash == controller（本模型一钱包兼任）。origin 在各 dispatch 处内联构造
         //（RawOrigin::Signed(who.clone()).into() 的目标 OriginFor<T> 由被调 extrinsic 首参推断，故不用闭包避免返回类型无法推断）。
         let who: T::AccountId = <T as pallet_evm::Config>::AddressMapping::into_account_id(caller);
@@ -321,6 +333,60 @@ where
                 charge::<T>(handle, 2, 1)?;
                 dispatch(|| online_profile::Pallet::<T>::set_rent_receiver(RawOrigin::Signed(who.clone()).into(), receiver),
                     "set_rent_receiver",
+                )?;
+                ok()
+            },
+
+            // ── setMachineRentalMode(machineId, mode)：0=FullTime 全天, 1=TimeSlot 按时段 ──
+            Selector::SetMachineRentalMode => {
+                let p = decode(args, &[ParamType::String, ParamType::Uint(8)])?;
+                let machine_id = as_string(&p, 0)?.into_bytes();
+                let mode = match as_u64(&p, 1)? {
+                    0 => online_profile::MachineRentalMode::FullTime,
+                    1 => online_profile::MachineRentalMode::TimeSlot,
+                    _ => return Err(revert("setMachineRentalMode: mode must be 0(FullTime) or 1(TimeSlot)")),
+                };
+                charge::<T>(handle, 2, 1)?;
+                dispatch(|| online_profile::Pallet::<T>::set_machine_rental_mode(RawOrigin::Signed(who.clone()).into(), machine_id, mode),
+                    "set_machine_rental_mode",
+                )?;
+                ok()
+            },
+
+            // ── setWeeklySchedule(machineId, weekday, SCALE(Vec<TimeRange>))：某天每周循环时段；空 Vec=该天不出租 ──
+            Selector::SetWeeklySchedule => {
+                let p = decode(args, &[ParamType::String, ParamType::Uint(8), ParamType::Bytes])?;
+                let machine_id = as_string(&p, 0)?.into_bytes();
+                let weekday = as_u64(&p, 1)? as u8;
+                let ranges = decode_scale::<Vec<online_profile::TimeRange>>(&as_bytes(&p, 2)?)?;
+                charge::<T>(handle, 2, 1)?;
+                dispatch(|| online_profile::Pallet::<T>::set_weekly_schedule(RawOrigin::Signed(who.clone()).into(), machine_id, weekday, ranges),
+                    "set_weekly_schedule",
+                )?;
+                ok()
+            },
+
+            // ── setSpecificDateSchedule(machineId, dateDays, SCALE(Vec<TimeRange>))：特定日期时段；空 Vec=清除回退每周 ──
+            Selector::SetSpecificDateSchedule => {
+                let p = decode(args, &[ParamType::String, ParamType::Uint(32), ParamType::Bytes])?;
+                let machine_id = as_string(&p, 0)?.into_bytes();
+                let date_days = as_u64(&p, 1)? as u32;
+                let ranges = decode_scale::<Vec<online_profile::TimeRange>>(&as_bytes(&p, 2)?)?;
+                charge::<T>(handle, 2, 1)?;
+                dispatch(|| online_profile::Pallet::<T>::set_specific_date_schedule(RawOrigin::Signed(who.clone()).into(), machine_id, date_days, ranges),
+                    "set_specific_date_schedule",
+                )?;
+                ok()
+            },
+
+            // ── clearSpecificDate(machineId, dateDays)：清除某日特定时段，回退每周循环 ──
+            Selector::ClearSpecificDate => {
+                let p = decode(args, &[ParamType::String, ParamType::Uint(32)])?;
+                let machine_id = as_string(&p, 0)?.into_bytes();
+                let date_days = as_u64(&p, 1)? as u32;
+                charge::<T>(handle, 1, 1)?;
+                dispatch(|| online_profile::Pallet::<T>::clear_specific_date(RawOrigin::Signed(who.clone()).into(), machine_id, date_days),
+                    "clear_specific_date",
                 )?;
                 ok()
             },
