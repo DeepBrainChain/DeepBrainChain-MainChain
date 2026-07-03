@@ -1755,7 +1755,8 @@ impl<T: Config> Pallet<T> {
         controller: T::AccountId,
     ) -> Result<H256, sp_runtime::DispatchError> {
         let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
-        Self::pay_fixed_tx_fee(controller.clone())?;
+        // pay_fixed_tx_fee 返回 DispatchResultWithPostInfo，取出内层 DispatchError 以匹配本函数返回类型。
+        Self::pay_fixed_tx_fee(controller.clone()).map_err(|e| e.error)?;
         let new_server_room = <generic_func::Pallet<T>>::random_server_room();
         StashServerRooms::<T>::mutate(&stash, |stash_server_rooms| {
             ItemList::add_item(stash_server_rooms, new_server_room);
