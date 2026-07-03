@@ -443,3 +443,78 @@ fn restake_online_machine_works() {
 }
 #[test]
 fn cancel_online_profile_slash_works() {}
+
+// [MiningBridge] abort_bonding —— bond 后、委员会审核前主动放弃，必须【精确反向】bond_machine，
+//   否则单卡质押会永久锁死（keyless 矿机批量上架时每台泄漏一份质押）。
+#[test]
+fn abort_bonding_works() {
+    new_test_ext_after_machine_online().execute_with(|| {
+        let machine_id = "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48".as_bytes().to_vec();
+        let machine_id2 = "f4f223af57780708fcefeaab01c2ee7fed79262173e16ca01a4a78df1c34f44e".as_bytes().to_vec();
+        let msg = "f4f223af57780708fcefeaab01c2ee7fed79262173e16ca01a4a78df1c34f44e\
+                5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL";
+        let sig = "26ed9e3a5c13d01e2239f3a2f39a0825c289ffeaf30da99a4d8516252e28bb0b1c4a119a22528c65ee470718f79f59303f0e3bc074aa17d495d69663fe73838e";
+
+        let stash = sr25519::Public::from(Sr25519Keyring::Ferdie);
+        let controller = sr25519::Public::from(Sr25519Keyring::Eve);
+        let other = sr25519::Public::from(Sr25519Keyring::Alice);
+
+        // bond 前快照（stash 余额、两个受影响的表）
+        let free_before = Balances::free_balance(&stash);
+        let reserved_before = Balances::reserved_balance(&stash);
+        let stash_machines_before = OnlineProfile::stash_machines(&stash);
+        let controller_machines_before = OnlineProfile::controller_machines(&controller);
+
+        // bond_machine machine_id2（进入 AddingCustomizeInfo 阶段，预留单卡质押）
+        assert_ok!(OnlineProfile::bond_machine(
+            RuntimeOrigin::signed(controller),
+            machine_id2.clone(),
+            msg.as_bytes().to_vec(),
+            hex::decode(sig).unwrap()
+        ));
+
+        let mi = OnlineProfile::machines_info(&machine_id2).unwrap();
+        let stake_amount = mi.stake_amount;
+        assert_eq!(stake_amount, 10_000 * ONE_DBC);
+        assert_eq!(Balances::reserved_balance(&stash), reserved_before + stake_amount);
+        assert!(OnlineProfile::live_machines().bonding_machine.binary_search(&machine_id2).is_ok());
+        assert!(OnlineProfile::stash_machines(&stash).total_machine.binary_search(&machine_id2).is_ok());
+        assert!(OnlineProfile::controller_machines(&controller).binary_search(&machine_id2).is_ok());
+
+        // 非本机控制人不能 abort
+        assert_err!(
+            OnlineProfile::abort_bonding(RuntimeOrigin::signed(other), machine_id2.clone()),
+            OnlineProfileErr::<TestRuntime>::NotMachineController
+        );
+        // 已上线机器状态 != AddingCustomizeInfo，不能被 abort（防止误删/滥用已入网机器）
+        assert_err!(
+            OnlineProfile::abort_bonding(RuntimeOrigin::signed(controller), machine_id.clone()),
+            OnlineProfileErr::<TestRuntime>::MachineStatusNotAllowed
+        );
+
+        // 正确 abort
+        assert_ok!(OnlineProfile::abort_bonding(RuntimeOrigin::signed(controller), machine_id2.clone()));
+
+        // 精确反向：质押全额退还、各表回到 bond 前、machine_info 删除
+        assert_eq!(Balances::reserved_balance(&stash), reserved_before);
+        assert_eq!(Balances::free_balance(&stash), free_before);
+        assert_eq!(OnlineProfile::stash_machines(&stash), stash_machines_before);
+        assert_eq!(OnlineProfile::controller_machines(&controller), controller_machines_before);
+        assert!(OnlineProfile::live_machines().bonding_machine.is_empty());
+        assert!(OnlineProfile::machines_info(&machine_id2).is_none());
+
+        // 关键回归：total_machine 已清 → 同一 machine_id 可再次 bond（否则 MachineIdExist 永久锁死）
+        assert_ok!(OnlineProfile::bond_machine(
+            RuntimeOrigin::signed(controller),
+            machine_id2.clone(),
+            msg.as_bytes().to_vec(),
+            hex::decode(sig).unwrap()
+        ));
+        assert!(OnlineProfile::machines_info(&machine_id2).is_some());
+
+        // 二次 abort 幂等安全（重新 bond 后仍处于 AddingCustomizeInfo，可再次 abort）
+        assert_ok!(OnlineProfile::abort_bonding(RuntimeOrigin::signed(controller), machine_id2.clone()));
+        assert!(OnlineProfile::machines_info(&machine_id2).is_none());
+        assert_eq!(Balances::reserved_balance(&stash), reserved_before);
+    })
+}
