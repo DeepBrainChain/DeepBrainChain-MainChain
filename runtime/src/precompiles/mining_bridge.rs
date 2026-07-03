@@ -169,7 +169,10 @@ where
 
             Selector::FulfillMachine => {
                 let machine_id = decode_single_string(args)?.into_bytes();
-                charge::<T>(handle, 10, 8)?; // 补质押 + era 快照，重
+                // [DBC 权重修] fulfill_machine → fulfill_machine_stake 遍历 stash 的 online_machine（O(N) 读写，
+                //   lib.rs:2306）。固定权重会在机器多时被低估 → 按 online 机器数线性计费，防低价放大 DoS。
+                let n = online_profile::Pallet::<T>::stash_machines(&who).online_machine.len() as u64;
+                charge::<T>(handle, 10u64.saturating_add(n.saturating_mul(2)), 8u64.saturating_add(n.saturating_mul(2)))?;
                 dispatch(
                     online_profile::Pallet::<T>::fulfill_machine(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "fulfill_machine",
@@ -178,7 +181,9 @@ where
             },
 
             Selector::ClaimRewards => {
-                charge::<T>(handle, 8, 6)?; // 领奖含部分再质押
+                // [DBC 权重修] claim_rewards 尾部同样调 fulfill_machine_stake（O(N)，lib.rs:881）→ 线性计费。
+                let n = online_profile::Pallet::<T>::stash_machines(&who).online_machine.len() as u64;
+                charge::<T>(handle, 8u64.saturating_add(n.saturating_mul(2)), 6u64.saturating_add(n.saturating_mul(2)))?;
                 dispatch(online_profile::Pallet::<T>::claim_rewards(RawOrigin::Signed(who.clone()).into()), "claim_rewards")?;
                 ok()
             },
