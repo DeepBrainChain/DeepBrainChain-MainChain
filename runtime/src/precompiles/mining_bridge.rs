@@ -88,6 +88,12 @@ where
             .map_err(|e| revert(format!("invalid selector: {:?}", e)))?;
         let args = input.get(4..).unwrap_or_default();
 
+        // [审计修 M] 拒绝携带 value 的调用：本 precompile 无 payable 语义，转来的 DBC 会被永久困在
+        //   2053 这个无私钥地址（EOA 手滑或 payable ABI 封装）。任何非零 value 直接 revert。
+        if !handle.context().apparent_value.is_zero() {
+            return Err(revert("MiningBridge: non-payable, do not send value"))
+        }
+
         // [G1] caller 必须是 EOA：有代码=合约 → 拒绝（否则映射账户=中间合约影子账户，机器绑到不可达账户）
         let caller = handle.context().caller;
         if !pallet_evm::AccountCodes::<T>::get(caller).is_empty() {
@@ -98,16 +104,30 @@ where
         let who: T::AccountId = <T as pallet_evm::Config>::AddressMapping::into_account_id(caller);
 
         match selector {
-            // ── setSelfController：G5 幂等，已 set 过(controller_stash(who)=Some)则跳过 ──
+            // ── setSelfController：自控模型 who 既是 stash 又是 controller ──
+            // [审计修 H1] 抢注防护。原来只判 controller_stash(who).is_none() 会被抢注绕过：攻击者预算受害者的
+            //   映射 SS58 并 set_controller(origin=攻击者stash, controller=who) → ControllerStash[who]=攻击者stash。
+            //   受害者 setSelfController 见 Some → 跳过、假成功(ok)，之后 bondMachine 读 controller_stash(who)=攻击者
+            //   → 机器绑到攻击者 stash（抢奖励）。改为：仅当【已正确自绑】(StashController[who]==who && ControllerStash
+            //   [who]==who) 才幂等成功；若被别的 stash 抢占(任一为 Some 但非 who) → revert 报错（不假成功、不盲绑），
+            //   客户端换一个全新随机 0x 钱包重试即可（映射 SS58 = 客户端本地随机生成、攻击者无法预测未注册的地址）；
+            //   只有干净状态(两者皆 None)才真正 set_controller 自绑。
             Selector::SetSelfController => {
                 charge::<T>(handle, 4, 4)?;
-                // TODO(DBC): 确认 controller_stash getter 的公开引用名；未 set 才调 set_controller
-                if online_profile::Pallet::<T>::controller_stash(&who).is_none() {
-                    dispatch(
-                        online_profile::Pallet::<T>::set_controller(RawOrigin::Signed(who.clone()).into(), who.clone()),
-                        "set_controller",
-                    )?;
+                let sc = online_profile::Pallet::<T>::stash_controller(&who);
+                let cs = online_profile::Pallet::<T>::controller_stash(&who);
+                if sc.as_ref() == Some(&who) && cs.as_ref() == Some(&who) {
+                    return ok() // 已正确自绑，幂等成功
                 }
+                if sc.is_some() || cs.is_some() {
+                    // who 的 controller 映射被抢占/半绑（前置抢注）→ 不假成功、不盲绑
+                    return Err(revert(
+                        "MiningBridge: controller mapping for this address is already taken (front-run); use a fresh 0x wallet",
+                    ))
+                }
+                dispatch(|| online_profile::Pallet::<T>::set_controller(RawOrigin::Signed(who.clone()).into(), who.clone()),
+                    "set_controller",
+                )?;
                 ok()
             },
 
@@ -118,26 +138,24 @@ where
                 let msg = as_bytes(&p, 1)?;
                 let sig = as_bytes(&p, 2)?;
                 charge::<T>(handle, 10, 10)?; // 质押 + 多处 StashMachines/LiveMachines/MachinesInfo 写
-                dispatch(
-                    online_profile::Pallet::<T>::bond_machine(RawOrigin::Signed(who.clone()).into(), machine_id, msg, sig),
+                dispatch(|| online_profile::Pallet::<T>::bond_machine(RawOrigin::Signed(who.clone()).into(), machine_id, msg, sig),
                     "bond_machine",
                 )?;
                 ok()
             },
 
             Selector::GenServerRoom => {
-                // [feng 建议] 机房 id 是随机 H256、客户端无法预测。直接调 pallet 内部实现拿到 id。
-                charge::<T>(handle, 3, 2)?; // G4：先记 gas 再改状态
-                let room_id = online_profile::Pallet::<T>::do_gen_server_room(who.clone())
-                    .map_err(|e| revert(format!("gen_server_room failed: {:?}", e)))?;
-                // [feng · EVM 语义修正] EOA 直调的改状态交易，receipt 只含 log、【不含】函数返回值；
-                //   且随机 id 无法用 eth_call 预读（预读值≠真正上链那笔）。故必须 emit EVM event 把 room id 带进 receipt：
-                //   event ServerRoomGenerated(address indexed miner, bytes32 roomId)。客户端从 receipt 的 log 按 topic0
-                //   过滤、从 data 读 32 字节 roomId。bytes32 返回值保留（合约包一层 / eth_call 场景可用）。
-                //   EVM log gas: 375 base + 375*topics(2) + 8*data_bytes(32) = 1381，先记 gas 再 emit（G4 原子性）。
+                // [feng 建议 + 审计修 M/round2 G4] 机房 id 是随机 H256、客户端无法预测；EOA 直调 receipt 只含
+                //   log、不含函数返回值，故生成后 emit event ServerRoomGenerated(address indexed miner, bytes32 roomId)
+                //   把 id 带进 receipt（客户端按 topic0 过滤、从 data 读 32 字节；bytes32 返回值保留供合约/eth_call）。
+                //   ★ G4 原子性：storage gas + LOG gas(375+375*2+8*32=1381) 全部在【改状态之前】record_cost，
+                //   否则改完状态再 OOG 会留下扣费 + 孤儿房间（其 id 只由未发出的 log 携带、不可恢复）。
+                charge::<T>(handle, 3, 2)?;
                 handle
                     .record_cost(1381)
                     .map_err(|e| PrecompileFailure::Error { exit_status: e })?;
+                let room_id = online_profile::Pallet::<T>::do_gen_server_room(who.clone())
+                    .map_err(|e| revert(format!("gen_server_room failed: {:?}", e)))?;
                 let mut miner_topic = [0u8; 32];
                 miner_topic[12..].copy_from_slice(caller.as_bytes()); // H160 左补 12 零字节 = indexed address
                 let event_addr = handle.code_address();
@@ -160,8 +178,7 @@ where
                 let machine_id = as_string(&p, 0)?.into_bytes();
                 let room_info = decode_scale::<dbc_support::machine_type::StakerCustomizeInfo>(&as_bytes(&p, 1)?)?;
                 charge::<T>(handle, 8, 6)?; // era 快照相关，给足
-                dispatch(
-                    online_profile::Pallet::<T>::add_machine_info(RawOrigin::Signed(who.clone()).into(), machine_id, room_info),
+                dispatch(|| online_profile::Pallet::<T>::add_machine_info(RawOrigin::Signed(who.clone()).into(), machine_id, room_info),
                     "add_machine_info",
                 )?;
                 ok()
@@ -173,8 +190,7 @@ where
                 //   lib.rs:2306）。固定权重会在机器多时被低估 → 按 online 机器数线性计费，防低价放大 DoS。
                 let n = online_profile::Pallet::<T>::stash_machines(&who).online_machine.len() as u64;
                 charge::<T>(handle, 10u64.saturating_add(n.saturating_mul(2)), 8u64.saturating_add(n.saturating_mul(2)))?;
-                dispatch(
-                    online_profile::Pallet::<T>::fulfill_machine(RawOrigin::Signed(who.clone()).into(), machine_id),
+                dispatch(|| online_profile::Pallet::<T>::fulfill_machine(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "fulfill_machine",
                 )?;
                 ok()
@@ -184,15 +200,14 @@ where
                 // [DBC 权重修] claim_rewards 尾部同样调 fulfill_machine_stake（O(N)，lib.rs:881）→ 线性计费。
                 let n = online_profile::Pallet::<T>::stash_machines(&who).online_machine.len() as u64;
                 charge::<T>(handle, 8u64.saturating_add(n.saturating_mul(2)), 6u64.saturating_add(n.saturating_mul(2)))?;
-                dispatch(online_profile::Pallet::<T>::claim_rewards(RawOrigin::Signed(who.clone()).into()), "claim_rewards")?;
+                dispatch(|| online_profile::Pallet::<T>::claim_rewards(RawOrigin::Signed(who.clone()).into()), "claim_rewards")?;
                 ok()
             },
 
             Selector::ControllerReportOffline => {
                 let machine_id = decode_single_string(args)?.into_bytes();
                 charge::<T>(handle, 5, 4)?;
-                dispatch(
-                    online_profile::Pallet::<T>::controller_report_offline(RawOrigin::Signed(who.clone()).into(), machine_id),
+                dispatch(|| online_profile::Pallet::<T>::controller_report_offline(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "controller_report_offline",
                 )?;
                 ok()
@@ -201,8 +216,7 @@ where
             Selector::ControllerReportOnline => {
                 let machine_id = decode_single_string(args)?.into_bytes();
                 charge::<T>(handle, 6, 5)?;
-                dispatch(
-                    online_profile::Pallet::<T>::controller_report_online(RawOrigin::Signed(who.clone()).into(), machine_id),
+                dispatch(|| online_profile::Pallet::<T>::controller_report_online(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "controller_report_online",
                 )?;
                 ok()
@@ -211,8 +225,7 @@ where
             Selector::RestakeOnlineMachine => {
                 let machine_id = decode_single_string(args)?.into_bytes();
                 charge::<T>(handle, 6, 5)?;
-                dispatch(
-                    online_profile::Pallet::<T>::restake_online_machine(RawOrigin::Signed(who.clone()).into(), machine_id),
+                dispatch(|| online_profile::Pallet::<T>::restake_online_machine(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "restake_online_machine",
                 )?;
                 ok()
@@ -221,8 +234,7 @@ where
             Selector::MachineExit => {
                 let machine_id = decode_single_string(args)?.into_bytes();
                 charge::<T>(handle, 8, 7)?;
-                dispatch(
-                    online_profile::Pallet::<T>::machine_exit(RawOrigin::Signed(who.clone()).into(), machine_id),
+                dispatch(|| online_profile::Pallet::<T>::machine_exit(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "machine_exit",
                 )?;
                 ok()
@@ -234,8 +246,7 @@ where
                 let slash_id = as_u64(&p, 0)?; // TODO(DBC): SlashId 若非 u64 newtype 需转换
                 let reason = as_bytes(&p, 1)?;
                 charge::<T>(handle, 5, 3)?; // 申诉需从映射账户再押 slash_review_stake
-                dispatch(
-                    online_profile::Pallet::<T>::apply_slash_review(RawOrigin::Signed(who.clone()).into(), slash_id, reason),
+                dispatch(|| online_profile::Pallet::<T>::apply_slash_review(RawOrigin::Signed(who.clone()).into(), slash_id, reason),
                     "apply_slash_review",
                 )?;
                 ok()
@@ -246,8 +257,7 @@ where
                 let machine_id = as_string(&p, 0)?.into_bytes();
                 let extra_price = as_u64(&p, 1)?;
                 charge::<T>(handle, 3, 2)?;
-                dispatch(
-                    online_profile::Pallet::<T>::set_machine_extra_price(
+                dispatch(|| online_profile::Pallet::<T>::set_machine_extra_price(
                         RawOrigin::Signed(who.clone()).into(),
                         machine_id,
                         extra_price,
@@ -262,8 +272,7 @@ where
                 let machine_id = as_string(&p, 0)?.into_bytes();
                 let room_info = decode_scale::<dbc_support::machine_type::StakerCustomizeInfo>(&as_bytes(&p, 1)?)?;
                 charge::<T>(handle, 5, 4)?;
-                dispatch(
-                    online_profile::Pallet::<T>::update_machine_info(RawOrigin::Signed(who.clone()).into(), machine_id, room_info),
+                dispatch(|| online_profile::Pallet::<T>::update_machine_info(RawOrigin::Signed(who.clone()).into(), machine_id, room_info),
                     "update_machine_info",
                 )?;
                 ok()
@@ -272,8 +281,7 @@ where
             Selector::OfflineMachineChangeHardwareInfo => {
                 let machine_id = decode_single_string(args)?.into_bytes();
                 charge::<T>(handle, 6, 5)?; // 触发重新验证
-                dispatch(
-                    online_profile::Pallet::<T>::offline_machine_change_hardware_info(
+                dispatch(|| online_profile::Pallet::<T>::offline_machine_change_hardware_info(
                         RawOrigin::Signed(who.clone()).into(),
                         machine_id,
                     ),
@@ -295,8 +303,7 @@ where
                     )
                 };
                 charge::<T>(handle, 2, 1)?;
-                dispatch(
-                    online_profile::Pallet::<T>::set_rent_receiver(RawOrigin::Signed(who.clone()).into(), receiver),
+                dispatch(|| online_profile::Pallet::<T>::set_rent_receiver(RawOrigin::Signed(who.clone()).into(), receiver),
                     "set_rent_receiver",
                 )?;
                 ok()
@@ -349,14 +356,21 @@ fn charge<T: pallet_evm::Config>(
     handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))
 }
 
-// DispatchResultWithPostInfo → PrecompileResult 的错误映射（把 online_profile 的 Error 透传给 EVM revert 文案）
-fn dispatch(
-    r: frame_support::dispatch::DispatchResultWithPostInfo,
-    ctx: &str,
-) -> Result<(), PrecompileFailure> {
-    r.map(|_| ()).map_err(|e| {
-        log::debug!(target: LOG_TARGET, "mining_bridge {} failed: {:?}", ctx, e.error);
-        revert(format!("{} failed: {:?}", ctx, e.error))
+// [审计修 H2] 在事务性存储层里调用被派发的 pallet fn，并把错误映射成 EVM revert。
+//   Frontier 在 EVM revert 时【不】回滚 Substrate 存储；且这里直接 pallet-fn 调用不经 executive 的
+//   per-extrinsic 事务层 → 被调 fn 内部「先改状态、后续 `?` 失败」会留下半完成写（如 bond_machine 先扣
+//   pay_fixed_tx_fee、再 change_stake 失败 → 手续费丢 + 无机器）。with_storage_layer 使 Err 时回滚所有
+//   部分写，恢复原生 extrinsic 的原子性。入参改为闭包（否则被调 fn 在进事务层前就已执行、来不及回滚）。
+fn dispatch<F>(f: F, ctx: &str) -> Result<(), PrecompileFailure>
+where
+    F: FnOnce() -> frame_support::dispatch::DispatchResultWithPostInfo,
+{
+    frame_support::storage::with_storage_layer(|| -> Result<(), sp_runtime::DispatchError> {
+        f().map(|_| ()).map_err(|e| e.error)
+    })
+    .map_err(|e| {
+        log::debug!(target: LOG_TARGET, "mining_bridge {} failed: {:?}", ctx, e);
+        revert(format!("{} failed: {:?}", ctx, e))
     })
 }
 
