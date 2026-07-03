@@ -66,6 +66,7 @@ pub enum Selector {
     ControllerReportOnline = "controllerReportOnline(string)",
     RestakeOnlineMachine = "restakeOnlineMachine(string)",
     MachineExit = "machineExit(string)",
+    AbortBonding = "abortBonding(string)", // [审计修] 上线前中止绑定退质押（无私钥账户的 pre-online 自救口）
     ApplySlashReview = "applySlashReview(uint64,bytes)", // 🔴 申诉不公罚没
     SetMachineExtraPrice = "setMachineExtraPrice(string,uint64)",
     UpdateMachineInfo = "updateMachineInfo(string,bytes)",
@@ -177,7 +178,7 @@ where
                 let p = decode(args, &[ParamType::String, ParamType::Bytes])?;
                 let machine_id = as_string(&p, 0)?.into_bytes();
                 let room_info = decode_scale::<dbc_support::machine_type::StakerCustomizeInfo>(&as_bytes(&p, 1)?)?;
-                charge::<T>(handle, 8, 6)?; // era 快照相关，给足
+                charge_era::<T>(handle, 8, 6)?; // era 快照相关，给足
                 dispatch(|| online_profile::Pallet::<T>::add_machine_info(RawOrigin::Signed(who.clone()).into(), machine_id, room_info),
                     "add_machine_info",
                 )?;
@@ -189,7 +190,7 @@ where
                 // [DBC 权重修] fulfill_machine → fulfill_machine_stake 遍历 stash 的 online_machine（O(N) 读写，
                 //   lib.rs:2306）。固定权重会在机器多时被低估 → 按 online 机器数线性计费，防低价放大 DoS。
                 let n = online_profile::Pallet::<T>::stash_machines(&who).online_machine.len() as u64;
-                charge::<T>(handle, 10u64.saturating_add(n.saturating_mul(2)), 8u64.saturating_add(n.saturating_mul(2)))?;
+                charge_era::<T>(handle, 10u64.saturating_add(n.saturating_mul(2)), 8u64.saturating_add(n.saturating_mul(2)))?;
                 dispatch(|| online_profile::Pallet::<T>::fulfill_machine(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "fulfill_machine",
                 )?;
@@ -206,7 +207,7 @@ where
 
             Selector::ControllerReportOffline => {
                 let machine_id = decode_single_string(args)?.into_bytes();
-                charge::<T>(handle, 5, 4)?;
+                charge_era::<T>(handle, 5, 4)?;
                 dispatch(|| online_profile::Pallet::<T>::controller_report_offline(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "controller_report_offline",
                 )?;
@@ -215,7 +216,7 @@ where
 
             Selector::ControllerReportOnline => {
                 let machine_id = decode_single_string(args)?.into_bytes();
-                charge::<T>(handle, 6, 5)?;
+                charge_era::<T>(handle, 6, 5)?;
                 dispatch(|| online_profile::Pallet::<T>::controller_report_online(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "controller_report_online",
                 )?;
@@ -224,7 +225,7 @@ where
 
             Selector::RestakeOnlineMachine => {
                 let machine_id = decode_single_string(args)?.into_bytes();
-                charge::<T>(handle, 6, 5)?;
+                charge_era::<T>(handle, 6, 5)?;
                 dispatch(|| online_profile::Pallet::<T>::restake_online_machine(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "restake_online_machine",
                 )?;
@@ -233,9 +234,19 @@ where
 
             Selector::MachineExit => {
                 let machine_id = decode_single_string(args)?.into_bytes();
-                charge::<T>(handle, 8, 7)?;
+                charge_era::<T>(handle, 8, 7)?;
                 dispatch(|| online_profile::Pallet::<T>::machine_exit(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "machine_exit",
+                )?;
+                ok()
+            },
+
+            // [审计修] abortBonding：上线前(AddingCustomizeInfo)中止绑定并退质押。纯清理、无 era 快照 → 用普通 charge。
+            Selector::AbortBonding => {
+                let machine_id = decode_single_string(args)?.into_bytes();
+                charge::<T>(handle, 5, 6)?;
+                dispatch(|| online_profile::Pallet::<T>::abort_bonding(RawOrigin::Signed(who.clone()).into(), machine_id),
+                    "abort_bonding",
                 )?;
                 ok()
             },
@@ -245,7 +256,12 @@ where
                 let p = decode(args, &[ParamType::Uint(64), ParamType::Bytes])?;
                 let slash_id = as_u64(&p, 0)?; // TODO(DBC): SlashId 若非 u64 newtype 需转换
                 let reason = as_bytes(&p, 1)?;
-                charge::<T>(handle, 5, 3)?; // 申诉需从映射账户再押 slash_review_stake
+                // [审计修 M/L] reason 会原样存进 PendingSlashReview（无界 Vec<u8>）→ 封顶 1KB 防状态膨胀，
+                //   并按长度线性计 proof_size（每字节存储成本）。
+                if reason.len() > 1024 {
+                    return Err(revert("MiningBridge: applySlashReview reason too long (max 1024 bytes)"))
+                }
+                charge::<T>(handle, 5u64.saturating_add((reason.len() as u64) / 64), 3)?; // 申诉需从映射账户再押 slash_review_stake
                 dispatch(|| online_profile::Pallet::<T>::apply_slash_review(RawOrigin::Signed(who.clone()).into(), slash_id, reason),
                     "apply_slash_review",
                 )?;
@@ -280,7 +296,7 @@ where
 
             Selector::OfflineMachineChangeHardwareInfo => {
                 let machine_id = decode_single_string(args)?.into_bytes();
-                charge::<T>(handle, 6, 5)?; // 触发重新验证
+                charge_era::<T>(handle, 6, 5)?; // 触发重新验证
                 dispatch(|| online_profile::Pallet::<T>::offline_machine_change_hardware_info(
                         RawOrigin::Signed(who.clone()).into(),
                         machine_id,
@@ -351,6 +367,24 @@ fn charge<T: pallet_evm::Config>(
     writes: u64,
 ) -> Result<(), ExitError> {
     let weight = Weight::default()
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(reads))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(writes));
+    handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))
+}
+
+// [审计修 round2 · 权重] 触及 era 快照的 op 专用计费。update_snap_on_online_changed / _on_rent_changed 读改
+//   ErasStashPoints / ErasMachinePoints，其 staker_statistic 是按【全网所有质押人】的 BTreeMap，单条 blob 的
+//   编码大小 / PoV proof_size 是 O(全网质押人)、与调用者无关——固定 DbWeight read/write 只计存储【次数】、
+//   不计该大 blob 的 proof_size，导致这些 op 被严重低估（恒定 gas 触发无界读改 = 共识邻近的低价 DoS）。
+//   故在 DbWeight 之上叠加一笔保守的大 proof_size + ref_time（覆盖较大质押人集合、并留增长余量）。
+const ERA_SNAP_REF_TIME: u64 = 150_000_000;
+const ERA_SNAP_PROOF_SIZE: u64 = 1_500_000;
+fn charge_era<T: pallet_evm::Config>(
+    handle: &mut impl PrecompileHandle,
+    reads: u64,
+    writes: u64,
+) -> Result<(), ExitError> {
+    let weight = Weight::from_parts(ERA_SNAP_REF_TIME, ERA_SNAP_PROOF_SIZE)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(reads))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(writes));
     handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))

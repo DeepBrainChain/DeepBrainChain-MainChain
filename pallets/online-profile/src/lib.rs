@@ -1150,6 +1150,49 @@ pub mod pallet {
             Self::do_machine_exit(machine_id, machine_info)
         }
 
+        /// [审计修 round2 · MED] 中止「上线前」的机器绑定并退还质押。
+        /// 场景：矿工 bond_machine 之后、在 add_machine_info / 委员会审核【之前】放弃该机器 → 机器卡在
+        ///   bonding(AddingCustomizeInfo)。而 machine_exit 有「已上线 + 满 1 年」门槛，MiningBridge 的无私钥
+        ///   EVM 映射账户没有原生私钥、也无别的退出口 → 绑定质押被永久锁死（1000 台批量注册时每台中途夭折
+        ///   都锁一笔）。本 extrinsic 只允许在 AddingCustomizeInfo（尚无 era 快照、未进委员会）状态中止，纯反向
+        ///   清理 bond_machine 的写入 + 退还质押，【不碰任何 era 快照】。委员会审核阶段的机器由委员会拒绝/
+        ///   超时退款(refuse_machine，退 95% 到映射账户)覆盖，不在本函数范围。仅 controller 本人可调。
+        #[pallet::call_index(31)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 6))]
+        pub fn abort_bonding(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            ensure!(machine_info.is_controller(controller.clone()), Error::<T>::NotMachineController);
+            ensure!(
+                matches!(machine_info.machine_status, MachineStatus::AddingCustomizeInfo),
+                Error::<T>::MachineStatusNotAllowed
+            );
+            let stash = machine_info.machine_stash.clone();
+            // 退还 bond_machine reserve 的单卡质押
+            Self::change_stake(&stash, machine_info.stake_amount, false)
+                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+            // 反向清理 bond_machine 的写入（bonding 阶段 calc/gpu/rented 均为 0，不减总量、无快照）
+            StashMachines::<T>::mutate(&stash, |sm| {
+                sm.machine_exit(machine_id.clone(), 0, 0, 0);
+            });
+            LiveMachines::<T>::mutate(|lm| {
+                lm.clean(&machine_id);
+            });
+            ControllerMachines::<T>::mutate(&controller, |cm| {
+                ItemList::rm_item(cm, &machine_id);
+            });
+            MachinesInfo::<T>::remove(&machine_id);
+            Self::deposit_event(Event::AbortMachineBonding(
+                controller,
+                machine_id,
+                machine_info.stake_amount,
+            ));
+            Ok(().into())
+        }
+
         /// 满足365天可以申请重新质押，退回质押币
         /// 在系统中上线满365天之后，可以按当时机器需要的质押数量，重新入网。多余的币解绑
         /// 在重新上线之后，下次再执行本操作，需要等待365天
@@ -1637,6 +1680,8 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         BondMachine(T::AccountId, MachineId, BalanceOf<T>),
+        // [审计修 round2] 上线前中止绑定并退质押：(controller, machine_id, 退还的质押额)
+        AbortMachineBonding(T::AccountId, MachineId, BalanceOf<T>),
         Slash(T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
         ControllerStashBonded(T::AccountId, T::AccountId),
         // 弃用
