@@ -376,9 +376,16 @@ fn charge<T: pallet_evm::Config>(
 //   ErasStashPoints / ErasMachinePoints，其 staker_statistic 是按【全网所有质押人】的 BTreeMap，单条 blob 的
 //   编码大小 / PoV proof_size 是 O(全网质押人)、与调用者无关——固定 DbWeight read/write 只计存储【次数】、
 //   不计该大 blob 的 proof_size，导致这些 op 被严重低估（恒定 gas 触发无界读改 = 共识邻近的低价 DoS）。
-//   故在 DbWeight 之上叠加一笔保守的大 proof_size + ref_time（覆盖较大质押人集合、并留增长余量）。
+//   故在 DbWeight 之上叠加一笔保守的 proof_size + ref_time（覆盖较大质押人集合、并留增长余量）。
+//
+// [审计修 round3 · delta] 关键订正：本链 GasWeightMapping = FixedGasWeightMapping，其 weight_to_gas 只按
+//   ref_time 折算 gas（WeightPerGas.proof_size == 0），所以上面那笔 proof_size【进不了】record_cost，等于白加。
+//   PoV 的正确计费入口是 record_external_cost —— 它按交易的 GasLimitPovSizeRatio 预算扣 proof_size。
+//   因此：ref_time 走 record_cost，proof_size 走 record_external_cost，两轴都真正生效。
+//   ERA_SNAP_PROOF_SIZE 取对客户端 gas 安全的保守量（远超当前全网质押人集合，又不至于把 DeepLink 正常
+//   gas_limit 的调用顶穿）；主网 ErasStashPoints 真实编码大小量出来后可再 tune。
 const ERA_SNAP_REF_TIME: u64 = 150_000_000;
-const ERA_SNAP_PROOF_SIZE: u64 = 1_500_000;
+const ERA_SNAP_PROOF_SIZE: u64 = 262_144; // 256 KiB —— PoV 保守量，安全裕度内可覆盖当前质押人集合
 fn charge_era<T: pallet_evm::Config>(
     handle: &mut impl PrecompileHandle,
     reads: u64,
@@ -387,7 +394,10 @@ fn charge_era<T: pallet_evm::Config>(
     let weight = Weight::from_parts(ERA_SNAP_REF_TIME, ERA_SNAP_PROOF_SIZE)
         .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(reads))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(writes));
-    handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))
+    // ref_time → EVM gas（FixedGasWeightMapping 只认 ref_time）
+    handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
+    // proof_size(PoV) 显式按交易 PoV 预算计费；预算不足则 revert（客户端需给足 gas_limit，行为正确）
+    handle.record_external_cost(None, Some(weight.proof_size()))
 }
 
 // [审计修 H2] 在事务性存储层里调用被派发的 pallet fn，并把错误映射成 EVM revert。

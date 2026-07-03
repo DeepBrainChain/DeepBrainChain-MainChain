@@ -1158,7 +1158,7 @@ pub mod pallet {
         ///   清理 bond_machine 的写入 + 退还质押，【不碰任何 era 快照】。委员会审核阶段的机器由委员会拒绝/
         ///   超时退款(refuse_machine，退 95% 到映射账户)覆盖，不在本函数范围。仅 controller 本人可调。
         #[pallet::call_index(31)]
-        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 6))]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 8))]
         pub fn abort_bonding(
             origin: OriginFor<T>,
             machine_id: MachineId,
@@ -1181,8 +1181,14 @@ pub mod pallet {
             LiveMachines::<T>::mutate(|lm| {
                 lm.clean(&machine_id);
             });
-            ControllerMachines::<T>::mutate(&controller, |cm| {
-                ItemList::rm_item(cm, &machine_id);
+            // rm_item 后若该 controller 名下已无机器，删掉整个 key，避免留下空 Vec dust
+            ControllerMachines::<T>::mutate_exists(&controller, |maybe_cm| {
+                if let Some(cm) = maybe_cm {
+                    ItemList::rm_item(cm, &machine_id);
+                    if cm.is_empty() {
+                        *maybe_cm = None;
+                    }
+                }
             });
             MachinesInfo::<T>::remove(&machine_id);
             Self::deposit_event(Event::AbortMachineBonding(
