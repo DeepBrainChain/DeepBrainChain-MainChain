@@ -67,6 +67,9 @@ pub enum Selector {
     RestakeOnlineMachine = "restakeOnlineMachine(string)",
     MachineExit = "machineExit(string)",
     AbortBonding = "abortBonding(string)", // [审计修] 上线前中止绑定退质押（无私钥账户的 pre-online 自救口）
+    // [审计修 spec416 · G2 合并补全] 托管③引入了 PendingDbcPayout 延迟领取（直转失败时回退暂存），
+    //   矿工(映射账户)可能有一笔延迟托管收入 → 必须暴露领取口，否则 keyless 账户永远拿不回这笔钱。
+    ClaimDbcPayout = "claimDbcPayout()",
     ApplySlashReview = "applySlashReview(uint64,bytes)", // 🔴 申诉不公罚没
     SetMachineExtraPrice = "setMachineExtraPrice(string,uint64)",
     UpdateMachineInfo = "updateMachineInfo(string,bytes)",
@@ -84,7 +87,7 @@ pub enum Selector {
 
 impl<T> Precompile for MiningBridge<T>
 where
-    T: pallet_evm::Config + online_profile::Config,
+    T: pallet_evm::Config + online_profile::Config + rent_machine::Config,
 {
     fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
         let input = handle.input();
@@ -167,21 +170,28 @@ where
                 handle
                     .record_cost(1381)
                     .map_err(|e| PrecompileFailure::Error { exit_status: e })?;
-                let room_id = online_profile::Pallet::<T>::do_gen_server_room(who.clone())
-                    .map_err(|e| revert(format!("gen_server_room failed: {:?}", e)))?;
                 let mut miner_topic = [0u8; 32];
                 miner_topic[12..].copy_from_slice(caller.as_bytes()); // H160 左补 12 零字节 = indexed address
                 let event_addr = handle.code_address();
-                handle
-                    .log(
-                        event_addr,
-                        alloc::vec![
-                            H256(*evm_macro::keccak256!("ServerRoomGenerated(address,bytes32)")),
-                            H256(miner_topic),
-                        ],
-                        room_id.as_bytes().to_vec(),
-                    )
-                    .map_err(|e| PrecompileFailure::Error { exit_status: e })?;
+                // [审计修 spec416 LOW] 把 do_gen_server_room 的 storage 变更 + LOG 放进同一事务层：任一失败则回滚
+                //   房间+手续费，避免"扣费 + 孤儿房间但 tx revert"（本 selector 之前是唯一绕开 dispatch() 原子层的）。
+                let room_id = frame_support::storage::with_storage_layer(
+                    || -> Result<H256, sp_runtime::DispatchError> {
+                        let rid = online_profile::Pallet::<T>::do_gen_server_room(who.clone())?;
+                        handle
+                            .log(
+                                event_addr,
+                                alloc::vec![
+                                    H256(*evm_macro::keccak256!("ServerRoomGenerated(address,bytes32)")),
+                                    H256(miner_topic),
+                                ],
+                                rid.as_bytes().to_vec(),
+                            )
+                            .map_err(|_| sp_runtime::DispatchError::Other("gen_server_room log failed"))?;
+                        Ok(rid)
+                    },
+                )
+                .map_err(|e| revert(format!("gen_server_room failed: {:?}", e)))?;
                 ok_bytes32(room_id)
             },
 
@@ -219,7 +229,8 @@ where
 
             Selector::ControllerReportOffline => {
                 let machine_id = decode_single_string(args)?.into_bytes();
-                charge_era::<T>(handle, 5, 4)?;
+                // 合并后此路径会跑跨 pallet 终止租约+托管结算循环 → 按原生 call12 权重 reads_writes(40,32)+200M 计费
+                charge_native::<T>(handle, 40, 32, 200_000_000)?;
                 dispatch(|| online_profile::Pallet::<T>::controller_report_offline(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "controller_report_offline",
                 )?;
@@ -228,7 +239,8 @@ where
 
             Selector::ControllerReportOnline => {
                 let machine_id = decode_single_string(args)?.into_bytes();
-                charge_era::<T>(handle, 6, 5)?;
+                // 按原生 call13 权重 reads_writes(30,25)+150M 计费（合并后 re-online 结算路径变重）
+                charge_native::<T>(handle, 30, 25, 150_000_000)?;
                 dispatch(|| online_profile::Pallet::<T>::controller_report_online(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "controller_report_online",
                 )?;
@@ -256,9 +268,18 @@ where
             // [审计修] abortBonding：上线前(AddingCustomizeInfo)中止绑定并退质押。纯清理、无 era 快照 → 用普通 charge。
             Selector::AbortBonding => {
                 let machine_id = decode_single_string(args)?.into_bytes();
-                charge::<T>(handle, 5, 6)?;
+                charge::<T>(handle, 7, 8)?; // 对齐原生 abort_bonding extrinsic 权重 reads_writes(7,8)
                 dispatch(|| online_profile::Pallet::<T>::abort_bonding(RawOrigin::Signed(who.clone()).into(), machine_id),
                     "abort_bonding",
+                )?;
+                ok()
+            },
+
+            // [审计修 spec416] claimDbcPayout：领取托管③的延迟暂存收入（PendingDbcPayout），rent-machine call 6，无参
+            Selector::ClaimDbcPayout => {
+                charge::<T>(handle, 4, 4)?;
+                dispatch(|| rent_machine::Pallet::<T>::claim_dbc_payout(RawOrigin::Signed(who.clone()).into()),
+                    "claim_dbc_payout",
                 )?;
                 ok()
             },
@@ -463,6 +484,25 @@ fn charge_era<T: pallet_evm::Config>(
     // ref_time → EVM gas（FixedGasWeightMapping 只认 ref_time）
     handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
     // proof_size(PoV) 显式按交易 PoV 预算计费；预算不足则 revert（客户端需给足 gas_limit，行为正确）
+    handle.record_external_cost(None, Some(weight.proof_size()))
+}
+
+// [审计修 spec416 · 合并交叉] controllerReportOffline/Online 在并入 slash-model 后会触发【跨 pallet
+//   settle_terminate 托管结算循环】，原生 extrinsic 权重已被 slash round-2 调重（call12 controller_report_offline
+//   = reads_writes(40,32)+200M ref_time；call13 controller_report_online = reads_writes(30,25)+150M）。本
+//   precompile 是【独立 gas 路径】，合并后仍按合并前的轻 charge_era(5,4)/(6,5) 计费，低估约 6.5x/4.25x →
+//   重新打开 slash round-2 H2 已关闭的「低价占块 DoS」。改为按原生 extrinsic 同等权重计费（reads/writes +
+//   显式 ref_time），PoV 走 ERA_SNAP_PROOF_SIZE。保持与原生路径计费对齐，堵住 0x 路径的折扣。
+fn charge_native<T: pallet_evm::Config>(
+    handle: &mut impl PrecompileHandle,
+    reads: u64,
+    writes: u64,
+    ref_time: u64,
+) -> Result<(), ExitError> {
+    let weight = Weight::from_parts(ref_time, ERA_SNAP_PROOF_SIZE)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(reads))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(writes));
+    handle.record_cost(T::GasWeightMapping::weight_to_gas(weight))?;
     handle.record_external_cost(None, Some(weight.proof_size()))
 }
 
