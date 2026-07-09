@@ -19,6 +19,8 @@ mod dbc_price;
 use dbc_price::DBCPrice;
 mod rent_bridge;
 use rent_bridge::RentBridge;
+mod mining_bridge; // [DRAFT 待 DBC 评审] DBC 矿机注册/质押 EVM 桥
+use mining_bridge::MiningBridge;
 
 mod dlc_price;
 mod machine_info;
@@ -36,7 +38,7 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 12] {
+    pub fn used_addresses() -> [H160; 13] {
         [
             hash(1),
             hash(2),
@@ -50,6 +52,7 @@ where
             hash(2049),
             hash(2051),
             hash(2052), // [+30% 桥] RentBridge
+            hash(2053), // [DRAFT] MiningBridge — DBC 矿机注册/质押（对所有映射账户开放，不加白名单）
         ]
     }
 }
@@ -62,6 +65,7 @@ where
     MachineInfo<T>: Precompile,
     DLCPrice<T>: Precompile,
     RentBridge<T>: Precompile,
+    MiningBridge<T>: Precompile,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         let address = handle.code_address();
@@ -121,6 +125,7 @@ where
             a if a == hash(2051) => Some(MachineInfo::<T>::execute(handle)),
             a if a == hash(2050) => Some(DLCPrice::<T>::execute(handle)),
             a if a == hash(2052) => Some(RentBridge::<T>::execute(handle)),
+            a if a == hash(2053) => Some(MiningBridge::<T>::execute(handle)), // [DRAFT] 无白名单：矿工操作自己映射账户名下机器
 
             _ => None,
         }

@@ -738,16 +738,8 @@ pub mod pallet {
         #[pallet::weight(frame_support::weights::Weight::from_parts(10000, 0))]
         pub fn gen_server_room(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let controller = ensure_signed(origin)?;
-            let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
-
-            Self::pay_fixed_tx_fee(controller.clone())?;
-
-            StashServerRooms::<T>::mutate(&stash, |stash_server_rooms| {
-                let new_server_room = <generic_func::Pallet<T>>::random_server_room();
-                ItemList::add_item(stash_server_rooms, new_server_room);
-                Self::deposit_event(Event::ServerRoomGenerated(controller, new_server_room));
-            });
-
+            // 复用内部实现（返回的机房 id 在 extrinsic 路径下不需要，MiningBridge precompile 路径会用它回传给 EVM 客户端）。
+            let _room_id = Self::do_gen_server_room(controller)?;
             Ok(().into())
         }
 
@@ -1189,6 +1181,55 @@ pub mod pallet {
             );
 
             Self::do_machine_exit(machine_id, machine_info)
+        }
+
+        /// [审计修 round2 · MED] 中止「上线前」的机器绑定并退还质押。
+        /// 场景：矿工 bond_machine 之后、在 add_machine_info / 委员会审核【之前】放弃该机器 → 机器卡在
+        ///   bonding(AddingCustomizeInfo)。而 machine_exit 有「已上线 + 满 1 年」门槛，MiningBridge 的无私钥
+        ///   EVM 映射账户没有原生私钥、也无别的退出口 → 绑定质押被永久锁死（1000 台批量注册时每台中途夭折
+        ///   都锁一笔）。本 extrinsic 只允许在 AddingCustomizeInfo（尚无 era 快照、未进委员会）状态中止，纯反向
+        ///   清理 bond_machine 的写入 + 退还质押，【不碰任何 era 快照】。委员会审核阶段的机器由委员会拒绝/
+        ///   超时退款(refuse_machine，退 95% 到映射账户)覆盖，不在本函数范围。仅 controller 本人可调。
+        #[pallet::call_index(31)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 8))]
+        pub fn abort_bonding(
+            origin: OriginFor<T>,
+            machine_id: MachineId,
+        ) -> DispatchResultWithPostInfo {
+            let controller = ensure_signed(origin)?;
+            let machine_info = Self::machines_info(&machine_id).ok_or(Error::<T>::Unknown)?;
+            ensure!(machine_info.is_controller(controller.clone()), Error::<T>::NotMachineController);
+            ensure!(
+                matches!(machine_info.machine_status, MachineStatus::AddingCustomizeInfo),
+                Error::<T>::MachineStatusNotAllowed
+            );
+            let stash = machine_info.machine_stash.clone();
+            // 退还 bond_machine reserve 的单卡质押
+            Self::change_stake(&stash, machine_info.stake_amount, false)
+                .map_err(|_| Error::<T>::ReduceStakeFailed)?;
+            // 反向清理 bond_machine 的写入（bonding 阶段 calc/gpu/rented 均为 0，不减总量、无快照）
+            StashMachines::<T>::mutate(&stash, |sm| {
+                sm.machine_exit(machine_id.clone(), 0, 0, 0);
+            });
+            LiveMachines::<T>::mutate(|lm| {
+                lm.clean(&machine_id);
+            });
+            // rm_item 后若该 controller 名下已无机器，删掉整个 key，避免留下空 Vec dust
+            ControllerMachines::<T>::mutate_exists(&controller, |maybe_cm| {
+                if let Some(cm) = maybe_cm {
+                    ItemList::rm_item(cm, &machine_id);
+                    if cm.is_empty() {
+                        *maybe_cm = None;
+                    }
+                }
+            });
+            MachinesInfo::<T>::remove(&machine_id);
+            Self::deposit_event(Event::AbortMachineBonding(
+                controller,
+                machine_id,
+                machine_info.stake_amount,
+            ));
+            Ok(().into())
         }
 
         /// 满足365天可以申请重新质押，退回质押币
@@ -1678,6 +1719,8 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         BondMachine(T::AccountId, MachineId, BalanceOf<T>),
+        // [审计修 round2] 上线前中止绑定并退质押：(controller, machine_id, 退还的质押额)
+        AbortMachineBonding(T::AccountId, MachineId, BalanceOf<T>),
         Slash(T::AccountId, BalanceOf<T>, OPSlashReason<T::BlockNumber>),
         ControllerStashBonded(T::AccountId, T::AccountId),
         // 弃用
@@ -1770,6 +1813,8 @@ pub mod pallet {
         ExtraPriceTooHigh,
         /// 时段参数不合法
         InvalidScheduleArgs,
+        /// [审计修 LOW] 单个 stash 的机房数量已达上限（防无界 StashServerRooms 膨胀）
+        TooManyServerRooms,
         /// 租用时长不足最小要求（2小时）
         RentalTooShort,
         /// 请求时段不在机器允许出租的时段内
@@ -1789,6 +1834,31 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// [DBC-side · MiningBridge] 生成新机房 id 的内部实现，**返回新机房 H256**。
+    /// 机房 id 是 `random_server_room()` 生成的随机值、客户端无法预测；原来只能靠 `ServerRoomGenerated`
+    /// 事件回读。MiningBridge precompile 的 `genServerRoom()` 直接调用它、把 H256 作为 EVM 返回值(bytes32)
+    /// 回传给客户端，省去解事件/绕 Substrate 存储回读（feng 建议）。gen_server_room extrinsic 也复用它，行为不变。
+    pub fn do_gen_server_room(
+        controller: T::AccountId,
+    ) -> Result<H256, sp_runtime::DispatchError> {
+        let stash = Self::controller_stash(&controller).ok_or(Error::<T>::NoStashBond)?;
+        // [审计修 LOW] StashServerRooms 是无界 Vec，每次生成自付 10 DBC 经济上自限，但仍加硬上限防病态膨胀。
+        //   在扣费前检查，避免"扣了费又拒绝"。1000 远超任何真实用途（一个 stash 通常只有个位数机房）。
+        const MAX_SERVER_ROOMS: usize = 1000;
+        ensure!(
+            Self::stash_server_rooms(&stash).len() < MAX_SERVER_ROOMS,
+            Error::<T>::TooManyServerRooms
+        );
+        // pay_fixed_tx_fee 返回 DispatchResultWithPostInfo，取出内层 DispatchError 以匹配本函数返回类型。
+        Self::pay_fixed_tx_fee(controller.clone()).map_err(|e| e.error)?;
+        let new_server_room = <generic_func::Pallet<T>>::random_server_room();
+        StashServerRooms::<T>::mutate(&stash, |stash_server_rooms| {
+            ItemList::add_item(stash_server_rooms, new_server_room);
+        });
+        Self::deposit_event(Event::ServerRoomGenerated(controller, new_server_room));
+        Ok(new_server_room)
+    }
+
     // 计算重新审核需要质押的支付给审核委员会的手续费
     pub fn cal_mut_hardware_stake() -> Option<BalanceOf<T>> {
         let online_stake_params = Self::online_stake_params()?;

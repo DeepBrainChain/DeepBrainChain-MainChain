@@ -160,7 +160,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // spec 415: 惩罚模型 DLC 化 (thread B) — ② 闲置离线零罚 + ① DDN 健康检测离线上报 (set_offline_detectors /
     //   report_machine_offline_by_detector) + ③ 原生 rent-machine 租金托管 (escrow + pro-rata settle + end_rent /
     //   claim_dbc_payout) + 在租离线终止租约(RentTerminateOnOffline) + rented-offline stake 罚归零.
-    spec_version: 415,
+    // spec 416: 合并版 = spec 415 (slash-model DLC) + MiningBridge EVM precompile(2053/0x…0805) 矿机 0x 上链
+    //   (setSelfController/bondMachine/genServerRoom-event/addMachineInfo/.../abortBonding/rental-scheduling) +
+    //   abort_bonding + do_gen_server_room helper. 一次性上线 (合并 feature/mining-bridge-draft 的 11 个提交).
+    spec_version: 416,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
